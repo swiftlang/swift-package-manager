@@ -11,20 +11,27 @@
 import TSCBasic
 import TSCUtility
 import PackageModel
+import Foundation
 
 extension ManifestBuilder {
-    mutating func build(v4 json: JSON) throws {
+    mutating func build(v4 json: JSON, toolsVersion: ToolsVersion) throws {
         let package = try json.getJSON("package")
         self.name = try package.get(String.self, forKey: "name")
+        self.defaultLocalization = try? package.get(String.self, forKey: "defaultLocalization")
         self.pkgConfig = package.get("pkgConfig")
         self.platforms = try parsePlatforms(package)
         self.swiftLanguageVersions = try parseSwiftLanguageVersion(package)
         self.products = try package.getArray("products").map(ProductDescription.init(v4:))
         self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
         self.targets = try package.getArray("targets").map(parseTarget(json:))
-        self.dependencies = try package
-             .getArray("dependencies")
-             .map({ try PackageDependencyDescription(v4: $0, baseURL: self.baseURL, fileSystem: self.fs) })
+        self.dependencies = try package.getArray("dependencies").map({
+            try PackageDependencyDescription(
+                v4: $0,
+                toolsVersion: toolsVersion,
+                baseURL: self.baseURL,
+                fileSystem: self.fs
+            )
+        })
 
         self.cxxLanguageStandard = package.get("cxxLanguageStandard")
         self.cLanguageStandard = package.get("cLanguageStandard")
@@ -61,12 +68,37 @@ extension ManifestBuilder {
         for platformJSON in declaredPlatforms {
             // Parse the version and validate that it can be used in the current
             // manifest version.
-            let version: String = try platformJSON.get("version")
+            let versionString: String = try platformJSON.get("version")
 
             // Get the platform name.
             let platformName: String = try platformJSON.getJSON("platform").get("name")
 
-            let description = PlatformDescription(name: platformName, version: version)
+            let versionComponents = versionString.split(
+                separator: ".",
+                omittingEmptySubsequences: false
+            )
+            var version: [String.SubSequence] = []
+            var options: [String.SubSequence] = []
+
+            for (idx, component) in versionComponents.enumerated() {
+                if idx < 2 {
+                    version.append(component)
+                    continue
+                }
+
+                if idx == 2, UInt(component) != nil {
+                    version.append(component)
+                    continue
+                }
+
+                options.append(component)
+            }
+
+            let description = PlatformDescription(
+                name: platformName,
+                version: version.joined(separator: "."),
+                options: options.map{ String($0) }
+            )
 
             // Check for duplicates.
             if platforms.map({ $0.platformName }).contains(platformName) {
@@ -89,18 +121,43 @@ extension ManifestBuilder {
             .getArray("dependencies")
             .map(TargetDescription.Dependency.init(v4:))
 
+        let sources: [String]? = try? json.get("sources")
+        try sources?.forEach{ _ = try RelativePath(validating: $0) }
+
+        let exclude: [String] = try json.get("exclude")
+        try exclude.forEach{ _ = try RelativePath(validating: $0) }
+
         return TargetDescription(
             name: try json.get("name"),
             dependencies: dependencies,
             path: json.get("path"),
-            exclude: try json.get("exclude"),
-            sources: try? json.get("sources"),
+            url: json.get("url"),
+            exclude: exclude,
+            sources: sources,
+            resources: try parseResources(json),
             publicHeadersPath: json.get("publicHeadersPath"),
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
             providers: providers,
-            settings: try parseBuildSettings(json)
+            settings: try parseBuildSettings(json),
+            checksum: json.get("checksum")
         )
+    }
+
+    func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
+        guard let resourcesJSON = try? json.getArray("resources") else { return [] }
+        if resourcesJSON.isEmpty {
+            throw ManifestParseError.runtimeManifestErrors(["resources cannot be an empty array; provide at least one value or remove it"])
+        }
+
+        return try resourcesJSON.map { json in
+            let rawRule = try json.get(String.self, forKey: "rule")
+            let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
+            let path = try RelativePath(validating: json.get(String.self, forKey: "path"))
+            let localizationString = try? json.get(String.self, forKey: "localization")
+            let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
+            return .init(rule: rule, path: path.pathString, localization: localization)
+        }
     }
 
     func parseBuildSettings(_ json: JSON) throws -> [TargetBuildSettingDescription.Setting] {
@@ -129,11 +186,7 @@ extension ManifestBuilder {
     func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
         let json = try json.getJSON("data")
         let name = try TargetBuildSettingDescription.SettingName(rawValue: json.get("name"))!
-
-        var condition: TargetBuildSettingDescription.Condition?
-        if let conditionJSON = try? json.getJSON("condition") {
-            condition = try parseCondition(conditionJSON)
-        }
+        let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
 
         let value = try json.get([String].self, forKey: "value")
 
@@ -155,14 +208,6 @@ extension ManifestBuilder {
 
     /// Looks for Xcode-style build setting macros "$()".
     private static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
-
-    func parseCondition(_ json: JSON) throws -> TargetBuildSettingDescription.Condition {
-        let platformNames: [String]? = try? json.getArray("platforms").map({ try $0.get("name") })
-        return .init(
-            platformNames: platformNames ?? [],
-            config: try? json.get("config").get("config")
-        )
-    }
 }
 
 extension SystemPackageProviderDescription {
@@ -250,7 +295,7 @@ extension PackageDependencyDescription.Requirement {
 }
 
 extension PackageDependencyDescription {
-    fileprivate init(v4 json: JSON, baseURL: String, fileSystem: FileSystem) throws {
+    fileprivate init(v4 json: JSON, toolsVersion: ToolsVersion, baseURL: String, fileSystem: FileSystem) throws {
         let isBaseURLRemote = URL.scheme(baseURL) != nil
 
         func fixURL(_ url: String, requirement: Requirement) throws -> String {
@@ -269,7 +314,7 @@ extension PackageDependencyDescription {
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
                 return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).pathString
             }
-            
+
             if case .localPackage = requirement {
                 do {
                     return try AbsolutePath(validating: url).pathString
@@ -282,11 +327,9 @@ extension PackageDependencyDescription {
         }
 
         let requirement = try Requirement(v4: json.get("requirement"))
-        
-        try self.init(
-            url: fixURL(json.get("url"), requirement: requirement),
-            requirement: requirement
-        )
+        let url = try fixURL(json.get("url"), requirement: requirement)
+        let name: String? = json.get("name")
+        self.init(name: name, url: url, requirement: requirement)
     }
 }
 
@@ -299,6 +342,8 @@ extension TargetDescription.TargetType {
             self = .test
         case "system":
             self = .system
+        case "binary":
+            self = .binary
         default:
             fatalError()
         }
@@ -308,20 +353,32 @@ extension TargetDescription.TargetType {
 extension TargetDescription.Dependency {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
+        let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
 
         switch type {
         case "target":
-            self = try .target(name: json.get("name"))
+            self = try .target(name: json.get("name"), condition: condition)
 
         case "product":
             let name = try json.get(String.self, forKey: "name")
-            self = .product(name: name, package: json.get("package"))
+            self = .product(name: name, package: json.get("package"), condition: condition)
 
         case "byname":
-            self = try .byName(name: json.get("name"))
+            self = try .byName(name: json.get("name"), condition: condition)
 
         default:
             fatalError()
         }
+    }
+}
+
+extension PackageConditionDescription {
+    fileprivate init?(v4 json: JSON) throws {
+        if case .null = json { return nil }
+        let platformNames: [String]? = try? json.getArray("platforms").map { try $0.get("name") }
+        self.init(
+            platformNames: platformNames ?? [],
+            config: try? json.get("config").get("config")
+        )
     }
 }

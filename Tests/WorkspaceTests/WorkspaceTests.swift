@@ -16,12 +16,12 @@ import PackageModel
 import PackageGraph
 import SourceControl
 import TSCUtility
-@testable import Workspace
+import SPMBuildCore
+import Workspace
 
 import SPMTestSupport
 
 final class WorkspaceTests: XCTestCase {
-
     func testBasics() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -79,9 +79,9 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Baz", "Foo", "Quix")
                 result.check(targets: "Bar", "Baz", "Foo", "Quix")
                 result.check(testModules: "BarTests")
-                result.check(dependencies: "Bar", target: "Foo")
-                result.check(dependencies: "Baz", target: "Bar")
-                result.check(dependencies: "Bar", target: "BarTests")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("BarTests") { result in result.check(dependencies: "Bar") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -97,7 +97,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
 
-        let stateFile = workspace.createWorkspace().managedDependencies.statePath
+        let stateFile = workspace.createWorkspace().state.path
 
         // Remove state file and check we can get the state back automatically.
         try fs.removeFileTree(stateFile)
@@ -106,7 +106,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(stateFile))
 
         // Remove state file and check we get back to a clean state.
-        try fs.removeFileTree(workspace.createWorkspace().managedDependencies.statePath)
+        try fs.removeFileTree(workspace.createWorkspace().state.path)
         workspace.closeWorkspace()
         workspace.checkManagedDependencies() { result in
             result.checkEmpty()
@@ -147,7 +147,6 @@ final class WorkspaceTests: XCTestCase {
                         """
                 }
 
-                XCTAssertMatch((ws.interpreterFlags(for: foo)), [.contains("swift/pm/4")])
                 XCTAssertMatch((ws.interpreterFlags(for: foo)), [.equal("-swift-version"), .equal("4")])
             }
 
@@ -215,8 +214,8 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(roots: "Bar", "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
-                result.check(dependencies: "Baz", target: "Bar")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -240,8 +239,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
-                    ]
+                        TestDependency(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
                 ),
                 TestPackage(
                     name: "Bar",
@@ -280,7 +280,7 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(roots: "Bar", "Foo", "Baz")
                 result.check(packages: "Bar", "Baz", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -349,7 +349,7 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(targets: "Bar", "Foo")
-                result.check(dependencies: "Bar", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -417,7 +417,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [],
                     dependencies: [
                         TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                    ]
+                    ],
+                    toolsVersion: .v5
                 ),
                 TestPackage(
                     name: "Baz",
@@ -449,7 +450,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(targets: "BazA", "BazB", "Foo")
-                result.check(dependencies: "BazAB", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "BazAB") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -510,7 +511,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(targets: "Baz", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -527,7 +528,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(targets: "BazA", "BazB", "Foo")
-                result.check(dependencies: "Baz", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -591,7 +592,7 @@ final class WorkspaceTests: XCTestCase {
             PackageGraphTester(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(targets: "Bar", "Foo")
-                result.check(dependencies: "Bar", target: "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -615,7 +616,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "A", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"]),
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("1.0.0")),
                     ],
@@ -626,7 +629,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "A", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"]),
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("2.0.0")),
                     ],
@@ -654,7 +659,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageGraphTester(graph) { result in
                     result.check(packages: "A", "AA")
                     result.check(targets: "A", "AA")
-                    result.check(dependencies: "AA", target: "A")
+                    result.checkTarget("A") { result in result.check(dependencies: "AA") }
                 }
                 XCTAssertNoDiagnostics(diagnostics)
             }
@@ -675,7 +680,7 @@ final class WorkspaceTests: XCTestCase {
             ]
             workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
                 PackageGraphTester(graph) { result in
-                    result.check(dependencies: "AA", target: "A")
+                    result.checkTarget("A") { result in result.check(dependencies: "AA") }
                 }
                 XCTAssertNoDiagnostics(diagnostics)
             }
@@ -707,7 +712,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "A", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"])
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("1.0.0")),
                     ],
@@ -718,7 +725,9 @@ final class WorkspaceTests: XCTestCase {
                     targets: [
                         TestTarget(name: "B", dependencies: ["AA"]),
                     ],
-                    products: [],
+                    products: [
+                        TestProduct(name: "B", targets: ["B"])
+                    ],
                     dependencies: [
                         TestDependency(name: "AA", requirement: .exact("2.0.0")),
                     ],
@@ -743,30 +752,174 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("the package dependency graph could not be resolved; possibly because of these requirements"), behavior: .error)
+                result.check(diagnostic: .contains("version solving failed"), behavior: .error)
             }
         }
         // There should be no extra fetches.
         XCTAssertNoMatch(workspace.delegate.events, [.contains("updating repo")])
     }
 
-    func testIsResolutionRequired() throws {
-        let aRepo = RepositorySpecifier(url: "/A")
-        let bRepo = RepositorySpecifier(url: "/B")
-        let cRepo = RepositorySpecifier(url: "/C")
-        let aRef = PackageReference(identity: "a", path: aRepo.url)
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
-        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
-        let v1_1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.1")
+    func testPrecomputeResolution_empty() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
-        let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
-        let v2Range: VersionSetSpecifier = .range("2.0.0" ..< "3.0.0")
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: []
+                ),
+            ],
+            packages: []
+        )
 
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5, cRef: v2],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
+                    .editedDependency(subpath: bPath, unmanagedPath: nil)
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result.isRequired, false)
+        }
+    }
+
+    func testPrecomputeResolution_newPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: v1Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1)
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .newPackages(packages: [cRef])))
+        }
+    }
+
+    func testPrecomputeResolution_requirementChange_versionToBranch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let branchRequirement: TestDependency.Requirement = .branch("master")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: branchRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5, cRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(v1_5),
+                requirement: .revision("master")
+            )))
+        }
+    }
+
+    func testPrecomputeResolution_requirementChange_versionToRevision() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let cPath = RelativePath("C")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
@@ -774,94 +927,344 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [
-                        TestTarget(name: "A"),
-                    ],
-                    products: []
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "C", requirement: .revision("hello")),
+                    ]
                 ),
             ],
-            packages: []
+            packages: [
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
         )
 
-        let workspace = testWorkspace.createWorkspace()
-        let pinsStore = try workspace.pinsStore.load()
+        let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
 
-        let rootInput = PackageGraphRootInput(packages: testWorkspace.rootPaths(for: ["A"]))
-        let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: DiagnosticsEngine())
-        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        try testWorkspace.set(
+            pins: [cRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+            ]
+        )
 
-        // Test Empty case.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [], pinsStore: pinsStore)
-            XCTAssertEqual(result.resolve, false)
+        try testWorkspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(v1_5),
+                requirement: .revision("hello")
+            )))
         }
+    }
 
-        // Fill the pinsStore.
-        pinsStore.pin(packageRef: aRef, state: v1)
-        pinsStore.pin(packageRef: bRef, state: v1_5)
-        pinsStore.pin(packageRef: cRef, state: v2)
 
-        // Fill ManagedDependencies (all different than pins).
-        let managedDependencies = workspace.managedDependencies
-        managedDependencies[forURL: aRef.path] = ManagedDependency(
-            packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1_1)
-        managedDependencies[forURL: bRef.path] = ManagedDependency(
-            packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
-        managedDependencies[forURL: bRef.path] = managedDependencies[forURL: bRef.path]?.editedDependency(
-            subpath: RelativePath("B"), unmanagedPath: nil)
+    func testPrecomputeResolution_requirementChange_localToBranch() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let masterRequirement: TestDependency.Requirement = .branch("master")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-        // We should need to resolve if input is not satisfiable.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v2Range),
-            ], pinsStore: pinsStore)
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: masterRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
 
-            XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.count, 3)
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency.local(packageRef: cRef)
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .local,
+                requirement: .revision("master")
+            )))
         }
+    }
 
-        // We should need to resolve when pins don't satisfy the inputs.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRef, versionRequirement: v1Range),
-            ], pinsStore: pinsStore)
+    func testPrecomputeResolution_requirementChange_versionToLocal() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let localRequirement: TestDependency.Requirement = .localPackage
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-            XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B"])
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: localRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5, cRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(v1_5),
+                requirement: .unversioned
+            )))
         }
+    }
 
-        // We should need to resolve if managed dependencies is out of sync with pins.
-        do {
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
-            ], pinsStore: pinsStore)
+    func testPrecomputeResolution_requirementChange_branchToLocal() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let localRequirement: TestDependency.Requirement = .localPackage
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
 
-            XCTAssertEqual(result.resolve, true)
-            XCTAssertEqual(result.validPins.map({$0.identifier.repository.url}).sorted(), ["/A", "/B", "/C"])
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: localRequirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5, cRef: master],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master),
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
+                package: cRef,
+                state: .checkout(master),
+                requirement: .unversioned
+            )))
         }
+    }
 
-        // We shouldn't need to resolve if everything is fine.
-        do {
-            managedDependencies[forURL: aRef.path] = ManagedDependency(
-                packageRef: aRef, subpath: RelativePath("A"), checkoutState: v1)
-            managedDependencies[forURL: bRef.path] = ManagedDependency(
-                packageRef: bRef, subpath: RelativePath("B"), checkoutState: v1_5)
-            managedDependencies[forURL: cRef.path] = ManagedDependency(
-                packageRef: cRef, subpath: RelativePath("C"), checkoutState: v2)
+    func testPrecomputeResolution_other() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
-            let result = workspace.isResolutionRequired(root: root, dependencies: [
-                RepositoryPackageConstraint(container: aRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: bRef, versionRequirement: v1Range),
-                RepositoryPackageConstraint(container: cRef, versionRequirement: v2Range),
-            ], pinsStore: pinsStore)
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: v2Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
 
-            XCTAssertEqual(result.resolve, false)
-            XCTAssertEqual(result.validPins, [])
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5, cRef: v1_5],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result, .required(reason: .other))
+        }
+    }
+
+    func testPrecomputeResolution_notRequired() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let bPath = RelativePath("B")
+        let cPath = RelativePath("C")
+        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "A",
+                    targets: [TestTarget(name: "A")],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "B", requirement: v1Requirement),
+                        TestDependency(name: "C", requirement: v2Requirement),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "B",
+                    targets: [TestTarget(name: "B")],
+                    products: [TestProduct(name: "B", targets: ["B"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                ),
+                TestPackage(
+                    name: "C",
+                    targets: [TestTarget(name: "C")],
+                    products: [TestProduct(name: "C", targets: ["C"])],
+                    versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
+                )
+            ]
+        )
+
+        let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
+        let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
+        let bRef = PackageReference(identity: "b", path: bRepo.url)
+        let cRef = PackageReference(identity: "c", path: cRepo.url)
+
+        try workspace.set(
+            pins: [bRef: v1_5, cRef: v2],
+            managedDependencies: [
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2),
+            ]
+        )
+
+        try workspace.checkPrecomputeResolution { result in
+            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.result.isRequired, false)
         }
     }
 
@@ -914,7 +1317,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -985,6 +1388,194 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("Everything is already up-to-date")])
+    }
+    
+    func testUpdateDryRun() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Root", targets: ["Root"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.5.0"]
+                ),
+            ]
+        )
+        
+        // Do an intial run, capping at Foo at 1.0.0.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .exact("1.0.0")),
+        ]
+
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        // Run update.
+        workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            let expectedChange = (PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
+                Workspace.PackageStateChange.updated(.version(Version("1.5.0"))))
+            guard let change = changes?.first, changes?.count == 1 else {
+                XCTFail()
+                return
+            }
+            XCTAssertEqual(expectedChange, change)
+        }
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testPartialUpdate() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Root", targets: ["Root"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.5.0"]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMinor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        // Do an intial run, capping at Foo at 1.0.0.
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .exact("1.0.0")),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Run partial updates.
+        //
+        // Try to update just Bar. This shouldn't do anything because Bar can't be updated due
+        // to Foo's requirements.
+        workspace.checkUpdate(roots: ["Root"], packages: ["Bar"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Try to update just Foo. This should update Foo but not Bar.
+        workspace.checkUpdate(roots: ["Root"], packages: ["Foo"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Run full update.
+        workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.2.0")))
+        }
     }
 
     func testCleanAndReset() throws {
@@ -1197,7 +1788,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.loadDependencyManifests(roots: ["Root1"]) { (manifests, diagnostics) in
 			// Ensure that the order of the manifests is stable.
-			XCTAssertEqual(manifests.allManifests().map({$0.name}), ["Foo", "Baz", "Bam", "Bar"])
+			XCTAssertEqual(manifests.allDependencyManifests().map({ $0.name }), ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -1328,7 +1919,7 @@ final class WorkspaceTests: XCTestCase {
         // Check failure.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("tmp/ws/pkgs/Foo @ 1.3.0"), behavior: .error)
+                result.check(diagnostic: .contains("Foo 1.3.0"), behavior: .error)
             }
         }
         workspace.checkManagedDependencies() { result in
@@ -1380,7 +1971,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Foo", "Root")
             }
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency 'foo' is missing; cloning again"), behavior: .warning)
+                result.check(diagnostic: .contains("dependency 'Foo' is missing; cloning again"), behavior: .warning)
             }
         }
     }
@@ -1421,7 +2012,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("/tmp/ws/pkgs/Foo @ 1.0.0..<2.0.0"), behavior: .error)
+                result.check(diagnostic: .contains("Foo 1.0.0..<2.0.0"), behavior: .error)
             }
         }
     }
@@ -1644,7 +2235,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(fooPath)
         workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("dependency 'foo' was being edited but is missing; falling back to original checkout"), behavior: .warning)
+                result.check(diagnostic: .equal("dependency 'Foo' was being edited but is missing; falling back to original checkout"), behavior: .warning)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -1703,7 +2294,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // There should still be an entry for `foo`, which we can unedit.
-        let editedDependency = try ws.managedDependencies.dependency(forNameOrIdentity: "foo")
+        let editedDependency = ws.state.dependencies[forNameOrIdentity: "foo"]!
         XCTAssertNil(editedDependency.basedOn)
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
@@ -1839,6 +2430,90 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testPrefetchingWithOverridenPackage() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo"),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: [nil]
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        let deps: [TestWorkspace.PackageDependency] = [
+            .init(name: "Foo", requirement: .localPackage),
+        ]
+        workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Bar", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies() { result in
+            result.check(dependency: "foo", at: .local)
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
     // Test that changing a particular dependency re-resolves the graph.
     func testChangeOneDependency() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -1898,8 +2573,9 @@ final class WorkspaceTests: XCTestCase {
             path: manifest.path,
             url: manifest.url,
             version: manifest.version,
-            manifestVersion: manifest.manifestVersion,
-            dependencies: [PackageDependencyDescription(url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
+            toolsVersion: manifest.toolsVersion,
+            packageKind: .root,
+            dependencies: [PackageDependencyDescription(name: nil, url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
             targets: manifest.targets
         )
 
@@ -1986,7 +2662,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("/tmp/ws/pkgs/Bar @ 1.1.0"), behavior: .error)
+                result.check(diagnostic: .contains("Bar 1.1.0"), behavior: .error)
             }
         }
     }
@@ -2094,9 +2770,9 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.check(targets: "Bar", "Baz", "Foo")
                 result.check(testModules: "FooTests")
-                result.check(dependencies: "Bar", target: "Baz")
-                result.check(dependencies: "Baz", "Bar", target: "Foo")
-                result.check(dependencies: "Foo", target: "FooTests")
+                result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz", "Bar") }
+                result.checkTarget("FooTests") { result in result.check(dependencies: "Foo") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2172,7 +2848,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(targets: "Foo")
             }
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("1.5.0 contains incompatible dependencies"), behavior: .error)
+                result.check(diagnostic: .contains("Bar {1.0.0..<1.5.0, 1.5.1..<2.0.0} is forbidden"), behavior: .error)
             }
         }
     }
@@ -2509,7 +3185,7 @@ final class WorkspaceTests: XCTestCase {
          }
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
+            XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
          }
 
          deps = [
@@ -2523,7 +3199,7 @@ final class WorkspaceTests: XCTestCase {
          }
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
          }
      }
 
@@ -2600,7 +3276,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     dependencies: [
                         TestDependency(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
-                    ]
+                    ],
+                    toolsVersion: .v5
                 ),
             ],
             packages: [
@@ -2613,9 +3290,10 @@ final class WorkspaceTests: XCTestCase {
                         TestProduct(name: "Dep", targets: ["Dep"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: nil, path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.5.0"]
+                    versions: ["1.0.0", "1.5.0"],
+                    toolsVersion: .v5
                 ),
                 TestPackage(
                     name: "Bar",
@@ -2664,8 +3342,8 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "Baz")
         }
 
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bar").pathString)
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forPackageURL: workspace.packagesDir.appending(component: "Bam").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bar").pathString)
+        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
 
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
@@ -2723,15 +3401,16 @@ final class WorkspaceTests: XCTestCase {
                  TestPackage(
                      name: "Bar",
                      targets: [
-                         TestTarget(name: "Bar", dependencies: ["Foo"]),
+                         TestTarget(name: "Bar", dependencies: ["Nested/Foo"]),
                      ],
                      products: [
                          TestProduct(name: "Bar", targets: ["Bar"]),
                      ],
                      dependencies: [
-                        TestDependency(name: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                      ],
-                     versions: ["1.1.0"]
+                     versions: ["1.1.0"],
+                     toolsVersion: .v5
                  ),
                  TestPackage(
                      name: "Foo",
@@ -2750,7 +3429,7 @@ final class WorkspaceTests: XCTestCase {
                          TestTarget(name: "Foo"),
                      ],
                      products: [
-                         TestProduct(name: "Foo", targets: ["Foo"]),
+                         TestProduct(name: "Nested/Foo", targets: ["Foo"]),
                      ],
                      versions: ["1.0.0"]
                  ),
@@ -2787,7 +3466,7 @@ final class WorkspaceTests: XCTestCase {
 
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Foo"])
+             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
          }
 
          workspace.checkReset { diagnostics in
@@ -2811,7 +3490,7 @@ final class WorkspaceTests: XCTestCase {
 
          do {
              let ws = workspace.createWorkspace()
-             XCTAssertNotNil(ws.managedDependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
          }
      }
 
@@ -2973,6 +3652,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSimpleAPI() throws {
+        guard Resources.havePD4Runtime else { return }
+
         // This verifies that the simplest possible loading APIs are available for package clients.
 
         // This checkout of the SwiftPM package.
@@ -2985,7 +3666,7 @@ final class WorkspaceTests: XCTestCase {
         // From here the API should be simple and straightforward:
         let diagnostics = DiagnosticsEngine()
         let manifest = try ManifestLoader.loadManifest(
-            packagePath: package, swiftCompiler: swiftCompiler)
+            packagePath: package, swiftCompiler: swiftCompiler, packageKind: .local)
         let loadedPackage = try PackageBuilder.loadPackage(
             packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
         let graph = try Workspace.loadGraph(
@@ -3019,7 +3700,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        TestTarget(name: "Foo", dependencies: ["Local"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3044,7 +3725,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraph(roots: ["Root"]) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .equal("package 'foo' is required using a revision-based requirement and it depends on local package 'local', which is not supported"), behavior: .error)
+                result.check(diagnostic: .equal("package 'Foo' is required using a revision-based requirement and it depends on local package 'Local', which is not supported"), behavior: .error)
             }
         }
     }
@@ -3174,8 +3855,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                         TestDependency(name: "Foo", requirement: .branch("master")),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3183,7 +3864,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        TestTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3206,7 +3887,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        TestTarget(name: "Baz", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -3216,8 +3897,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", nil]
                 ),
-            ],
-            enablePubGrub: true
+            ]
         )
 
         // Load the graph.
@@ -3260,6 +3940,563 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
     }
+
+    func testTargetBasedDependency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Root",
+                    targets: [
+                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        TestTarget(name: "RootTests", dependencies: ["TestHelper1"], type: .test),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_2
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo1", dependencies: ["Foo2"]),
+                        TestTarget(name: "Foo2", dependencies: ["Baz"]),
+                        TestTarget(name: "FooTests", dependencies: ["TestHelper2"], type: .test)
+                    ],
+                    products: [
+                        TestProduct(name: "Foo", targets: ["Foo1"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+                TestPackage(
+                    name: "Bar",
+                    targets: [
+                        TestTarget(name: "Bar"),
+                        TestTarget(name: "BarTests", dependencies: ["TestHelper2"], type: .test),
+                    ],
+                    products: [
+                        TestProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                        TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        TestDependency(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+                TestPackage(
+                    name: "Baz",
+                    targets: [
+                        TestTarget(name: "Baz")
+                    ],
+                    products: [
+                        TestProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+                TestPackage(
+                    name: "TestHelper1",
+                    targets: [
+                        TestTarget(name: "TestHelper1"),
+                    ],
+                    products: [
+                        TestProduct(name: "TestHelper1", targets: ["TestHelper1"]),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5_2
+                ),
+            ],
+            toolsVersion: .v5_2,
+            enablePubGrub: true
+        )
+
+        // Load the graph.
+        workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "Foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "Bar", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "Baz", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "TestHelper1", at: .checkout(.version("1.0.0")))
+            result.check(notPresent: "Biz")
+            result.check(notPresent: "TestHelper2")
+        }
+    }
+
+    func testChecksumForBinaryArtifact() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["Foo"]),
+                    ],
+                    products: []
+                ),
+            ],
+            packages: []
+        )
+
+        let ws = workspace.createWorkspace()
+
+        // Checks the valid case.
+        do {
+            let binaryPath = sandbox.appending(component: "binary.zip")
+            try fs.writeFileContents(binaryPath, bytes: ByteString([0xaa, 0xbb, 0xcc]))
+
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: diagnostics)
+            XCTAssertTrue(!diagnostics.hasErrors)
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map({ $0.contents }), [[0xaa, 0xbb, 0xcc]])
+            XCTAssertEqual(checksum, "ccbbaa")
+        }
+
+        // Checks an unsupported extension.
+        do {
+            let unknownPath = sandbox.appending(component: "unknown")
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
+            XCTAssertEqual(checksum, "")
+            DiagnosticsEngineTester(diagnostics) { result in
+                let expectedDiagnostic = "unexpected file type; supported extensions are: zip"
+                result.check(diagnostic: .contains(expectedDiagnostic), behavior: .error)
+            }
+        }
+
+        // Checks a supported extension that is not a file (does not exist).
+        do {
+            let unknownPath = sandbox.appending(component: "missingFile.zip")
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
+            XCTAssertEqual(checksum, "")
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
+                             behavior: .error)
+            }
+        }
+
+        // Checks a supported extension that is a directory instead of a file.
+        do {
+            let unknownPath = sandbox.appending(component: "aDirectory.zip")
+            try fs.createDirectory(unknownPath)
+
+            let diagnostics = DiagnosticsEngine()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: diagnostics)
+            XCTAssertEqual(checksum, "")
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),
+                             behavior: .error)
+            }
+        }
+    }
+
+    func testArtifactDownload() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        var downloads: [MockDownloader.Download] = []
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            downloader: MockDownloader(fileSystem: fs, downloadFile: { url, destination, progress, completion in
+                let contents: [UInt8]
+                switch url.lastPathComponent {
+                case "a1.zip": contents = [0xa1]
+                case "a2.zip": contents = [0xa2]
+                case "a3.zip": contents = [0xa3]
+                case "b.zip": contents = [0xb0]
+                default:
+                    XCTFail("unexpected url")
+                    contents = []
+                }
+
+                try! fs.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                downloads.append(MockDownloader.Download(url: url, destinationPath: destination))
+                completion(.success(()))
+            }),
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: [.product(name: "A1", package: "A"), "B"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "A", requirement: .exact("1.0.0")),
+                        TestDependency(name: "B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"),
+                        TestTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"),
+                        TestTarget(
+                            name: "A3",
+                            type: .binary,
+                            url: "https://a.com/a3.zip",
+                            checksum: "a3"),
+                        TestTarget(
+                            name: "A4",
+                            type: .binary,
+                            path: "A4.xcframework"),
+                    ],
+                    products: [
+                        TestProduct(name: "A1", targets: ["A1"]),
+                        TestProduct(name: "A2", targets: ["A2"]),
+                        TestProduct(name: "A3", targets: ["A3"]),
+                        TestProduct(name: "A4", targets: ["A4"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                TestPackage(
+                    name: "B",
+                    targets: [
+                        TestTarget(
+                            name: "B",
+                            type: .binary,
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"),
+                    ],
+                    products: [
+                        TestProduct(name: "B", targets: ["B"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "A4.xcframework")
+        try fs.createDirectory(a4FrameworkPath, recursive: true)
+
+        // Pin A to 1.0.0, Checkout B to 1.0.0
+        let aPath = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference(identity: "a", path: aPath)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [],
+            managedArtifacts: [
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A1",
+                    source: .remote(
+                        url: "https://a.com/a1.zip",
+                        checksum: "a1",
+                        subpath: RelativePath("A/A1.xcframework"))),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A3",
+                    source: .remote(
+                        url: "https://a.com/old/a3.zip",
+                        checksum: "a3-old-checksum",
+                        subpath: RelativePath("A/A3.xcframework"))),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A4",
+                    source: .remote(
+                        url: "https://a.com/a4.zip",
+                        checksum: "a4",
+                        subpath: RelativePath("A/A4.xcframework"))),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A5",
+                    source: .remote(
+                        url: "https://a.com/a5.zip",
+                        checksum: "a5",
+                        subpath: RelativePath("A/A5.xcframework"))),
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A6",
+                    source: .local(path: "A6.xcframework")),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssert(!diagnostics.hasErrors, "\(diagnostics.diagnostics)")
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A5.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
+            XCTAssertEqual(downloads.map({ $0.url }), [
+                URL(string: "https://b.com/b.zip")!,
+                URL(string: "https://a.com/a2.zip")!,
+                URL(string: "https://a.com/a3.zip")!,
+            ])
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes, [
+                ByteString([0xb0]),
+                ByteString([0xa2]),
+                ByteString([0xa3]),
+            ])
+            XCTAssertEqual(workspace.archiver.extractions.map({ $0.destinationPath }), [
+                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+            ])
+            XCTAssertEqual(
+                downloads.map({ $0.destinationPath }),
+                workspace.archiver.extractions.map({ $0.archivePath })
+            )
+            PackageGraphTester(graph) { graph in
+                if let a1 = graph.find(target: "A1")?.underlyingTarget as? BinaryTarget {
+                    XCTAssertEqual(a1.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework"))
+                    XCTAssertEqual(a1.artifactSource, .remote(url: "https://a.com/a1.zip"))
+                } else {
+                    XCTFail("expected binary target")
+                }
+
+                if let a2 = graph.find(target: "A2")?.underlyingTarget as? BinaryTarget {
+                    XCTAssertEqual(a2.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/A/A2.xcframework"))
+                    XCTAssertEqual(a2.artifactSource, .remote(url: "https://a.com/a2.zip"))
+                } else {
+                    XCTFail("expected binary target")
+                }
+
+                if let a3 = graph.find(target: "A3")?.underlyingTarget as? BinaryTarget {
+                    XCTAssertEqual(a3.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework"))
+                    XCTAssertEqual(a3.artifactSource, .remote(url: "https://a.com/a3.zip"))
+                } else {
+                    XCTFail("expected binary target")
+                }
+
+                if let a4 = graph.find(target: "A4")?.underlyingTarget as? BinaryTarget {
+                    XCTAssertEqual(a4.artifactPath, a4FrameworkPath)
+                    XCTAssertEqual(a4.artifactSource, .local)
+                } else {
+                    XCTFail("expected binary target")
+                }
+
+                if let b = graph.find(target: "B")?.underlyingTarget as? BinaryTarget {
+                    XCTAssertEqual(b.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework"))
+                    XCTAssertEqual(b.artifactSource, .remote(url: "https://b.com/b.zip"))
+                } else {
+                    XCTFail("expected binary target")
+                }
+            }
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(packageName: "A", targetName: "A1", source: .remote(
+                url: "https://a.com/a1.zip",
+                checksum: "a1",
+                subpath: RelativePath("A/A1.xcframework")))
+            result.check(packageName: "A", targetName: "A2", source: .remote(
+                url: "https://a.com/a2.zip",
+                checksum: "a2",
+                subpath: RelativePath("A/A2.xcframework")))
+            result.check(packageName: "A", targetName: "A3", source: .remote(
+                url: "https://a.com/a3.zip",
+                checksum: "a3",
+                subpath: RelativePath("A/A3.xcframework")))
+            result.check(packageName: "A", targetName: "A4", source: .local(path: "A4.xcframework"))
+            result.checkNotPresent(packageName: "A", targetName: "A5")
+            result.check(packageName: "B", targetName: "B", source: .remote(
+                url: "https://b.com/b.zip",
+                checksum: "b0",
+                subpath: RelativePath("B/B.xcframework")))
+        }
+    }
+
+    func testArtifactDownloaderOrArchiverError() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            downloader: MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+                switch url {
+                case URL(string: "https://a.com/a1.zip")!:
+                    completion(.failure(.serverError(statusCode: 500)))
+                case URL(string: "https://a.com/a2.zip")!:
+                    try! fs.writeFileContents(destination, bytes: ByteString([0xa2]))
+                    completion(.success(()))
+                case URL(string: "https://a.com/a3.zip")!:
+                    try! fs.writeFileContents(destination, bytes: "different contents = different checksum")
+                    completion(.success(()))
+                default:
+                    XCTFail("unexpected url")
+                    completion(.success(()))
+                }
+            }),
+            archiver: MockArchiver(extract: { _, destinationPath, completion in
+                XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
+                completion(.failure(DummyError()))
+            }),
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"),
+                        TestTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"),
+                        TestTarget(
+                            name: "A3",
+                            type: .binary,
+                            url: "https://a.com/a3.zip",
+                            checksum: "a3"),
+                    ],
+                    products: [
+                        TestProduct(name: "A1", targets: ["A1"]),
+                        TestProduct(name: "A2", targets: ["A2"]),
+                        TestProduct(name: "A3", targets: ["A3"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+            print(diagnostics.diagnostics)
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("artifact of binary target 'A1' failed download: invalid status code 500"), behavior: .error)
+                result.check(diagnostic: .contains("artifact of binary target 'A2' failed extraction: dummy error"), behavior: .error)
+                result.check(diagnostic: .contains("downloaded artifact of binary target 'A3' has an invalid checksum"), behavior: .error)
+            }
+        }
+    }
+
+    func testArtifactChecksumChange() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "A",
+                    targets: [
+                        TestTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "a"),
+                    ],
+                    products: [
+                        TestProduct(name: "A", targets: ["A"])
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        // Pin A to 1.0.0, Checkout A to 1.0.0
+        let aPath = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference(identity: "a", path: aPath)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
+
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [aDependency],
+            managedArtifacts: [
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A",
+                    source: .remote(
+                        url: "https://a.com/a.zip",
+                        checksum: "old-checksum",
+                        subpath: RelativePath("A/A.xcframework")))
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+            XCTAssertEqual(workspace.downloader.downloads, [])
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("artifact of binary target 'A' has changed checksum"), behavior: .error)
+            }
+        }
+    }
+
+    func testAndroidCompilerFlags() throws {
+      let target = try Triple("x86_64-unknown-linux-android")
+      let sdk = AbsolutePath("/some/path/to/an/SDK.sdk")
+      let toolchainPath = AbsolutePath("/some/path/to/a/toolchain.xctoolchain")
+
+      let destination = Destination(
+        target: target,
+        sdk: sdk,
+        binDir: toolchainPath.appending(components: "usr", "bin")
+      )
+
+      XCTAssertEqual(UserToolchain.deriveSwiftCFlags(triple: target, destination: destination), [
+        // Needed when cross‐compiling for Android. 2020‐03‐01
+        "-sdk", sdk.pathString
+      ])
+    }
 }
 
 extension PackageGraph {
@@ -3267,4 +4504,8 @@ extension PackageGraph {
     func lookup(_ name: String) -> PackageModel.ResolvedPackage {
         return packages.first{ $0.name == name }!
     }
+}
+
+struct DummyError: LocalizedError, Equatable {
+    public var errorDescription: String? { "dummy error" }
 }

@@ -8,17 +8,22 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import Build
-import PackageLoading
-import PackageGraph
-import PackageModel
-import SourceControl
-import TSCUtility
-import Workspace
-import TSCLibc
 import func Foundation.NSUserName
-import SPMLLBuild
+import class Foundation.ProcessInfo
+import Dispatch
+
+import TSCLibc
+import TSCBasic
+import TSCUtility
+
+import PackageModel
+import PackageGraph
+import SourceControl
+import SPMBuildCore
+import Build
+import XCBuildSupport
+import Workspace
+
 typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
@@ -26,10 +31,30 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
     private let stdoutStream: ThreadSafeOutputByteStream
 
-    init(_ stdoutStream: OutputByteStream) {
+    /// The progress animation for downloads.
+    private let downloadAnimation: NinjaProgressAnimation
+
+    /// Wether the tool is in a verbose mode.
+    private let isVerbose: Bool
+
+    private struct DownloadProgress {
+        let bytesDownloaded: Int64
+        let totalBytesToDownload: Int64
+    }
+
+    /// The progress of each individual downloads.
+    private var downloadProgress: [String: DownloadProgress] = [:]
+
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
+    private let diagnostics: DiagnosticsEngine
+
+    init(_ stdoutStream: OutputByteStream, isVerbose: Bool, diagnostics: DiagnosticsEngine) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
+        self.downloadAnimation = NinjaProgressAnimation(stream: self.stdoutStream)
+        self.isVerbose = isVerbose
+        self.diagnostics = diagnostics
     }
 
     func fetchingWillBegin(repository: String) {
@@ -79,6 +104,87 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         stdoutStream <<< "warning: " <<< message
         stdoutStream <<< "\n"
         stdoutStream.flush()
+    }
+
+    func willResolveDependencies(reason: WorkspaceResolveReason) {
+        guard isVerbose else { return }
+
+        stdoutStream <<< "Running resolver because "
+
+        switch reason {
+        case .forced:
+            stdoutStream <<< "it was forced"
+        case .newPackages(let packages):
+            let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
+            stdoutStream <<< "the following dependencies were added: \(dependencies)"
+        case .packageRequirementChange(let package, let state, let requirement):
+            stdoutStream <<< "dependency '\(package.name)' was "
+
+            switch state {
+            case .checkout(let checkoutState)?:
+                let requirement = checkoutState.requirement()
+                switch requirement {
+                case .versionSet(.exact(let version)):
+                    stdoutStream <<< "resolved to '\(version)'"
+                case .versionSet(_):
+                    // Impossible
+                    break
+                case .revision(let revision):
+                    stdoutStream <<< "resolved to '\(revision)'"
+                case .unversioned:
+                    stdoutStream <<< "unversioned"
+                }
+            case .edited?:
+                stdoutStream <<< "edited"
+            case .local?:
+                stdoutStream <<< "versioned"
+            case nil:
+                stdoutStream <<< "root"
+            }
+
+            stdoutStream <<< " but now has a "
+
+            switch requirement {
+            case .versionSet:
+                stdoutStream <<< "different version-based"
+            case .revision:
+                stdoutStream <<< "different revision-based"
+            case .unversioned:
+                stdoutStream <<< "unversioned"
+            }
+
+            stdoutStream <<< " requirement."
+        default:
+            stdoutStream <<< " requirements have changed."
+        }
+
+        stdoutStream <<< "\n"
+        stdoutStream.flush()
+    }
+
+    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        queue.async {
+            if let totalBytesToDownload = totalBytesToDownload {
+                self.downloadProgress[url] = DownloadProgress(
+                    bytesDownloaded: bytesDownloaded,
+                    totalBytesToDownload: totalBytesToDownload)
+            }
+
+            let step = self.downloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
+            let total = self.downloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
+            self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
+        }
+    }
+
+    func didDownloadBinaryArtifacts() {
+        queue.async {
+            if self.diagnostics.hasErrors {
+                self.downloadAnimation.clear()
+            }
+
+            self.downloadAnimation.complete(success: true)
+            self.downloadProgress.removeAll()
+        }
     }
 }
 
@@ -151,7 +257,7 @@ public class SwiftTool<Options: ToolOptions> {
     let processSet: ProcessSet
 
     /// The current build system reference. The actual reference is present only during an active build.
-    private let buildSystemRef: BuildSystemRef
+    let buildSystemRef: BuildSystemRef
 
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
@@ -164,7 +270,7 @@ public class SwiftTool<Options: ToolOptions> {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
+    fileprivate(set) var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
 
     /// Create an instance of this tool.
     ///
@@ -208,6 +314,12 @@ public class SwiftTool<Options: ToolOptions> {
                 option: "-Xcxx", kind: [String].self, strategy: .oneByOne,
                 usage: "Pass flag through to all C++ compiler invocations"),
             to: { $0.buildFlags.cxxCompilerFlags = $1 })
+
+        binder.bindArray(
+            option: parser.add(
+                option: "-Xxcbuild", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to the Xcode build system invocations"),
+            to: { $0.xcbuildFlags = $1 })
 
         binder.bind(
             option: parser.add(
@@ -267,6 +379,15 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bind(
             option: parser.add(option: "--destination", kind: PathArgument.self),
             to: { $0.customCompileDestination = $1.path })
+        binder.bind(
+            option: parser.add(option: "--triple", kind: String.self),
+            to: { $0.customCompileTriple = try Triple($1) })
+        binder.bind(
+            option: parser.add(option: "--sdk", kind: PathArgument.self),
+            to: { $0.customCompileSDK = $1.path })
+        binder.bind(
+            option: parser.add(option: "--toolchain", kind: PathArgument.self),
+            to: { $0.customCompileToolchain = $1.path })
 
         // FIXME: We need to allow -vv type options for this.
         binder.bind(
@@ -304,16 +425,6 @@ public class SwiftTool<Options: ToolOptions> {
             to: { if $1 { $0.indexStoreMode = .off } })
 
         binder.bind(
-            option: parser.add(option: "--enable-pubgrub-resolver", kind: Bool.self,
-                usage: "Enable the new Pubgrub dependency resolver"),
-            to: { $0.enablePubgrubResolver = $1 })
-
-        binder.bind(
-            option: parser.add(option: "--use-legacy-resolver", kind: Bool.self,
-                usage: "Use the legacy dependency resolver"),
-            to: { $0.enablePubgrubResolver = !$1 })
-
-        binder.bind(
             option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
             to: { $0.shouldEnableParseableModuleInterfaces = $1 })
 
@@ -335,6 +446,14 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self, usage: nil),
             to: { $0.enableBuildManifestCaching = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--emit-swift-module-separately", kind: Bool.self, usage: nil),
+            to: { $0.emitSwiftModuleSeparately = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
+            to: { $0.buildSystem = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -353,6 +472,11 @@ public class SwiftTool<Options: ToolOptions> {
                 try ProcessEnv.chdir(packagePath)
             }
 
+            // Force building with the native build system on other platforms than macOS.
+          #if !os(macOS)
+            options.buildSystem = .native
+          #endif
+
             let processSet = ProcessSet()
             let buildSystemRef = BuildSystemRef()
             interruptHandler = try InterruptHandler {
@@ -367,6 +491,12 @@ public class SwiftTool<Options: ToolOptions> {
                 // Install the default signal handler.
                 var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL
+                sigaction(SIGINT, &action, nil)
+                kill(getpid(), SIGINT)
+              #elseif os(Android)
+                // Install the default signal handler.
+                var action = sigaction()
+                action.sa_handler = SIG_DFL
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
               #else
@@ -396,7 +526,7 @@ public class SwiftTool<Options: ToolOptions> {
             (packageRoot ?? cwd).appending(component: ".build")
     }
 
-    static func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
+    class func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
         if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
@@ -440,8 +570,8 @@ public class SwiftTool<Options: ToolOptions> {
     func getSwiftPMConfig() throws -> SwiftPMConfig {
         return try _swiftpmConfig.get()
     }
-    private lazy var _swiftpmConfig: Result<SwiftPMConfig, AnyError> = {
-        return Result(anyError: { SwiftPMConfig(path: try configFilePath()) })
+    private lazy var _swiftpmConfig: Result<SwiftPMConfig, Swift.Error> = {
+        return Result(catching: { SwiftPMConfig(path: try configFilePath()) })
     }()
 
     /// Holds the currently active workspace.
@@ -456,7 +586,8 @@ public class SwiftTool<Options: ToolOptions> {
         if let workspace = _workspace {
             return workspace
         }
-        let delegate = ToolWorkspaceDelegate(self.stdoutStream)
+        let isVerbose = options.verbosity != 0
+        let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
         let workspace = Workspace(
             dataPath: buildPath,
@@ -468,7 +599,6 @@ public class SwiftTool<Options: ToolOptions> {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
-            enablePubgrubResolver: options.enablePubgrubResolver,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace
         )
@@ -535,6 +665,7 @@ public class SwiftTool<Options: ToolOptions> {
     /// Fetch and load the complete package graph.
     @discardableResult
     func loadPackageGraph(
+        createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
         do {
@@ -543,6 +674,7 @@ public class SwiftTool<Options: ToolOptions> {
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
                 root: getWorkspaceRoot(),
+                createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
                 diagnostics: diagnostics
@@ -568,23 +700,7 @@ public class SwiftTool<Options: ToolOptions> {
         return try _manifestLoader.get()
     }
 
-    private func computeLLBuildTargetName(for subset: BuildSubset, buildParameters: BuildParameters) throws -> String {
-        switch subset {
-        case .allExcludingTests:
-            return LLBuildManifestGenerator.llbuildMainTargetName
-        case .allIncludingTests:
-            return LLBuildManifestGenerator.llbuildTestTargetName
-        default:
-            // FIXME: This is super unfortunate that we might need to load the package graph.
-            let graph = try loadPackageGraph()
-            if let result = subset.llbuildTargetName(for: graph, diagnostics: diagnostics, config: buildParameters.configuration.dirname) {
-                return result
-            }
-            throw Diagnostics.fatalError
-        }
-    }
-
-    func getBuildDescription(graph: PackageGraph? = nil) throws -> BuildDescription {
+    private func canUseBuildManifestCaching() throws -> Bool {
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
         localFileSystem.exists(buildParameters.llbuildManifest) &&
@@ -593,170 +709,136 @@ public class SwiftTool<Options: ToolOptions> {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try getActiveWorkspace().managedDependencies.values.contains{ $0.isEdited }
+        let hasEditedPackages = try getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
 
-        if options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages {
-            // Create the build system.
-            let buildSystem = try createBuildSystem()
-            buildSystemRef.buildSystem = buildSystem
-
-            // Build the package structure target which will re-generate the llbuild manifest, if necessary.
-            if !buildSystem.build(target: "PackageStructure") {
-                throw Diagnostics.fatalError
-            }
-
-            // Return the build description that's on disk. We trust the above build to
-            // update the build description when needed.
-            do {
-                return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-            } catch {
-                // Silently regnerate the build description if we failed to decode (which could happen
-                // because the existing file was created by different version of swiftpm).
-                if !(error is DecodingError) {
-                    diagnostics.emit(warning: "failed to load the build description; running build planning\n    \(error)")
-                }
-            }
-        }
-
-        // Otherwise, plan and build.
-        return try planAndGenerateManifest(graph: graph)
+        return options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }
 
-    fileprivate func planAndGenerateManifest(graph: PackageGraph? = nil) throws -> BuildDescription {
-        let graph = try graph ?? loadPackageGraph()
-        let plan = try BuildPlan(
+    func createBuildOperation(useBuildManifestCaching: Bool = true) throws -> BuildOperation {
+        // Load a custom package graph which has a special product for REPL.
+        let graphLoader = { try self.loadPackageGraph() }
+
+        // Construct the build operation.
+        let buildOp = try BuildOperation(
             buildParameters: buildParameters(),
-            graph: graph,
-            diagnostics: diagnostics
-        )
-        return try generateLLBuildManifest(with: plan)
-    }
-
-    /// Creates and returns the build system.
-    private func createBuildSystem(
-        with buildDescription: BuildDescription? = nil
-    ) throws -> BuildSystem {
-        // Figure out which progress bar we have to use during the build.
-        let isVerbose = verbosity != .concise
-        let progressAnimation: ProgressAnimationProtocol = isVerbose ?
-            MultiLineNinjaProgressAnimation(stream: stdoutStream) :
-            NinjaProgressAnimation(stream: stdoutStream)
-
-        // Setup the execution context.
-        let buildParameters = try self.buildParameters()
-        let bctx = BuildExecutionContext(
-            buildParameters,
-            buildDescription: buildDescription,
-            packageStructureDelegate: self
-        )
-
-        // Create the build delegate.
-        let buildDelegate = BuildDelegate(
-            bctx: bctx,
+            useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+            packageGraphLoader: graphLoader,
             diagnostics: diagnostics,
-            outputStream: stdoutStream,
-            progressAnimation: progressAnimation)
-        buildDelegate.isVerbose = isVerbose
-
-        let databasePath = buildPath.appending(component: "build.db").pathString
-        let buildSystem = BuildSystem(
-            buildFile: buildParameters.llbuildManifest.pathString,
-            databaseFile: databasePath,
-            delegate: buildDelegate
+            stdoutStream: self.stdoutStream
         )
-        buildDelegate.onCommmandFailure = { buildSystem.cancel() }
-        return buildSystem
+
+        // Save the instance so it can be cancelled from the int handler.
+        buildSystemRef.buildSystem = buildOp
+        return buildOp
     }
 
-    func generateLLBuildManifest(with plan: BuildPlan) throws -> BuildDescription {
-        // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestGenerator(plan, client: "basic")
-        try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
-
-        // Create the build description.
-        let buildDescription = BuildDescription(plan: plan, testDiscoveryCommands: llbuild.testDiscoveryCommands)
-        try localFileSystem.createDirectory(plan.buildParameters.buildDescriptionPath.parentDirectory, recursive: true)
-        try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
-        return buildDescription
-    }
-
-    func build(buildDescription: BuildDescription, subset: BuildSubset) throws {
-        let buildParameters = try self.buildParameters()
-        let llbuildTargetName = try computeLLBuildTargetName(for: subset, buildParameters: buildParameters)
-
-        // Run llbuild.
-        try runLLBuild(buildDescription: buildDescription, llbuildTarget: llbuildTargetName)
-
-        // Create backwards-compatibilty symlink to old build path.
-        let oldBuildPath = buildPath.appending(component: options.configuration.dirname)
-        if localFileSystem.exists(oldBuildPath) {
-            try localFileSystem.removeFileTree(oldBuildPath)
+    func createBuildSystem(useBuildManifestCaching: Bool = true) throws -> BuildSystem {
+        let buildSystem: BuildSystem
+        switch options.buildSystem {
+        case .native:
+            let graphLoader = { try self.loadPackageGraph() }
+            buildSystem = try BuildOperation(
+                buildParameters: buildParameters(),
+                useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+                packageGraphLoader: graphLoader,
+                diagnostics: diagnostics,
+                stdoutStream: stdoutStream
+            )
+        case .xcode:
+            let graphLoader = { try self.loadPackageGraph(createMultipleTestProducts: true) }
+            buildSystem = try XcodeBuildSystem(
+                buildParameters: buildParameters(),
+                packageGraphLoader: graphLoader,
+                isVerbose: verbosity != .concise,
+                diagnostics: diagnostics,
+                stdoutStream: stdoutStream
+            )
         }
-        try createSymlink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
-    }
 
-    private func runLLBuild(buildDescription: BuildDescription, llbuildTarget: String) throws {
-        // Create the build system.
-        let buildSystem = try createBuildSystem(with: buildDescription)
-
-        // Store the build system reference so it can be cancelled in the singal handler.
-        self.buildSystemRef.buildSystem = buildSystem
-
-        // Perform the build.
-        let success = buildSystem.build(target: llbuildTarget)
-        self.buildSystemRef.buildSystem = nil
-
-        buildSystem.buildDelegate.progressAnimation.complete(success: success)
-        guard success else { throw Diagnostics.fatalError }
+        // Save the instance so it can be cancelled from the int handler.
+        buildSystemRef.buildSystem = buildSystem
+        return buildSystem
     }
 
     /// Return the build parameters.
     func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
     }
-    private lazy var _buildParameters: Result<BuildParameters, AnyError> = {
-        return Result(anyError: {
+    private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
+        return Result(catching: {
             let toolchain = try self.getToolchain()
-            let triple = toolchain.destination.target
+            let triple = toolchain.triple
 
+            // Use "apple" as the subdirectory because in theory Xcode build system
+            // can be used to build for any Apple platform and it has it's own
+            // conventions for build subpaths based on platforms.
+            let dataPath = buildPath.appending(
+                 component: options.buildSystem == .xcode ? "apple" : triple.tripleString)
             return BuildParameters(
-                dataPath: buildPath.appending(component: toolchain.destination.target.tripleString),
+                dataPath: dataPath,
                 configuration: options.configuration,
                 toolchain: toolchain,
                 destinationTriple: triple,
                 flags: options.buildFlags,
+                xcbuildFlags: options.xcbuildFlags,
+                jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
                 indexStoreMode: options.indexStoreMode,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
-                enableTestDiscovery: options.enableTestDiscovery
+                enableTestDiscovery: options.enableTestDiscovery,
+                emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
+                isXcodeBuildSystemEnabled: options.buildSystem == .xcode
             )
         })
     }()
 
     /// Lazily compute the destination toolchain.
-    private lazy var _destinationToolchain: Result<UserToolchain, AnyError> = {
-        // Create custom toolchain if present.
-        if let customDestination = self.options.customCompileDestination {
-            return Result(anyError: {
-                try UserToolchain(destination: Destination(fromFile: customDestination))
-            })
+    private lazy var _destinationToolchain: Result<UserToolchain, Swift.Error> = {
+        var destination: Destination
+        let hostDestination: Destination
+        do {
+            hostDestination = try self._hostToolchain.get().destination
+            // Create custom toolchain if present.
+            if let customDestination = self.options.customCompileDestination {
+                destination = try Destination(fromFile: customDestination)
+            } else {
+                // Otherwise use the host toolchain.
+                destination = hostDestination
+            }
+        } catch {
+            return .failure(error)
         }
-        // Otherwise use the host toolchain.
-        return self._hostToolchain
+        // Apply any manual overrides.
+        if let triple = self.options.customCompileTriple {
+          destination.target = triple
+        }
+        if let binDir = self.options.customCompileToolchain {
+            destination.binDir = binDir.appending(components: "usr", "bin")
+        }
+        if let sdk = self.options.customCompileSDK {
+            destination.sdk = sdk
+        }
+
+        // Check if we ended up with the host toolchain.
+        if hostDestination == destination {
+            return self._hostToolchain
+        }
+
+        return Result(catching: { try UserToolchain(destination: destination) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
-    private lazy var _hostToolchain: Result<UserToolchain, AnyError> = {
-        return Result(anyError: {
+    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
+        return Result(catching: {
             try UserToolchain(destination: Destination.hostDestination(
                         originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()
 
-    private lazy var _manifestLoader: Result<ManifestLoader, AnyError> = {
-        return Result(anyError: {
+    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
+        return Result(catching: {
             try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
@@ -770,51 +852,6 @@ public class SwiftTool<Options: ToolOptions> {
     enum ExecutionStatus {
         case success
         case failure
-    }
-}
-
-/// An enum representing what subset of the package to build.
-enum BuildSubset {
-    /// Represents the subset of all products and non-test targets.
-    case allExcludingTests
-
-    /// Represents the subset of all products and targets.
-    case allIncludingTests
-
-    /// Represents a specific product.
-    case product(String)
-
-    /// Represents a specific target.
-    case target(String)
-}
-
-extension BuildSubset {
-    /// Returns the name of the llbuild target that corresponds to the build subset.
-    fileprivate func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String) -> String? {
-        switch self {
-        case .allExcludingTests:
-            return LLBuildManifestGenerator.llbuildMainTargetName
-        case .allIncludingTests:
-            return LLBuildManifestGenerator.llbuildTestTargetName
-        case .product(let productName):
-            guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                diagnostics.emit(error: "no product named '\(productName)'")
-                return nil
-            }
-            // If the product is automatic, we build the main target because automatic products
-            // do not produce a binary right now.
-            if product.type == .library(.automatic) {
-                diagnostics.emit(warning: "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead")
-                return LLBuildManifestGenerator.llbuildMainTargetName
-            }
-            return product.getLLBuildTargetName(config: config)
-        case .target(let targetName):
-            guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                diagnostics.emit(error: "no target named '\(targetName)'")
-                return nil
-            }
-            return target.getLLBuildTargetName(config: config)
-        }
     }
 }
 
@@ -841,20 +878,6 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
     guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
-}
-
-extension SwiftTool: PackageStructureDelegate {
-    public func packageStructureChanged() -> Bool {
-        do {
-            _ = try planAndGenerateManifest()
-        } catch Diagnostics.fatalError {
-            return false
-        } catch {
-            diagnostics.emit(error)
-            return false
-        }
-        return true
-    }
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
@@ -898,14 +921,8 @@ extension BuildConfiguration: StringEnumArgument {
 
 /// A wrapper to hold the build system so we can use it inside
 /// the int. handler without requiring to initialize it.
-private final class BuildSystemRef {
+final class BuildSystemRef {
     var buildSystem: BuildSystem?
-}
-
-extension BuildSystem {
-    fileprivate var buildDelegate: BuildDelegate {
-        self.delegate as! BuildDelegate
-    }
 }
 
 extension Diagnostic.Message {

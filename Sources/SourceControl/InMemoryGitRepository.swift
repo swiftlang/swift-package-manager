@@ -207,6 +207,10 @@ extension InMemoryGitRepository: FileSystem {
         return AbsolutePath("/")
     }
 
+    public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("Unsupported")
+    }
+
     public var homeDirectory: AbsolutePath {
         fatalError("Unsupported")
     }
@@ -234,6 +238,14 @@ extension InMemoryGitRepository: FileSystem {
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         try head.fileSystem.chmod(mode, path: path, options: options)
+    }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try head.fileSystem.copy(from: sourcePath, to: destinationPath)
+    }
+
+    public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try head.fileSystem.move(from: sourcePath, to: destinationPath)
     }
 }
 

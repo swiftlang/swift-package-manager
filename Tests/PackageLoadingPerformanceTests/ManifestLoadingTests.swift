@@ -26,6 +26,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
     }
 
     func testTrivialManifestLoading_X1() {
+      #if os(macOS)
         let N = 1
         let trivialManifest = ByteString(encodingAsUTF8: ("""
             import PackageDescription
@@ -34,14 +35,20 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/Trivial", manifestVersion: .v4)
+                    let manifest = try! self.manifestLoader.load(
+                        package: path,
+                        baseURL: "/Trivial",
+                        toolsVersion: .v4_2,
+                        packageKind: .root)
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
             }
         }
+      #endif
     }
 
     func testNonTrivialManifestLoading_X1() {
+      #if os(macOS)
         let N = 1
         let manifest = ByteString(encodingAsUTF8: """
             import PackageDescription
@@ -60,10 +67,15 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
         write(manifest) { path in
             measure {
                 for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(package: path, baseURL: "/Trivial", manifestVersion: .v4)
+                    let manifest = try! self.manifestLoader.load(
+                        package: path,
+                        baseURL: "/Trivial",
+                        toolsVersion: .v4_2,
+                        packageKind: .root)
                     XCTAssertEqual(manifest.name, "Foo")
                 }
             }
         }
+      #endif
     }
 }

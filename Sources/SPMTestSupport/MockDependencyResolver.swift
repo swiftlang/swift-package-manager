@@ -16,7 +16,6 @@ import SourceControl
 
 import struct TSCUtility.Version
 
-public typealias MockDependencyResolver = DependencyResolver
 public typealias MockPackageConstraint = PackageContainerConstraint
 
 extension MockPackageConstraint {
@@ -63,7 +62,7 @@ extension PackageContainerConstraint {
         guard case let .dictionary(dict) = json else { fatalError() }
         guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
-        let id = PackageReference(identity: identifier.lowercased(), path: "")
+        let id = PackageReference(identity: identifier.lowercased(), path: "", kind: .remote)
         self.init(container: id, versionRequirement: VersionSetSpecifier(requirement))
     }
 }
@@ -71,7 +70,7 @@ extension PackageContainerConstraint {
 extension PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
-        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
         getContainer(for: identifier, skipUpdate: false, completion: completion)
     }
@@ -140,11 +139,11 @@ public class MockPackageContainer: PackageContainer {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = deps.map({
-                let ref = PackageReference(identity: $0.container.lowercased(), path: "")
+                let ref = PackageReference(identity: $0.container.lowercased(), path: "/\($0.container)")
                 return (ref, .versionSet($0.versionRequirement))
             })
         }
-        let ref = PackageReference(identity: name.lowercased(), path: "")
+        let ref = PackageReference(identity: name.lowercased(), path: "/\(name)")
         self.init(name: ref, dependencies: dependencies)
     }
 
@@ -203,17 +202,17 @@ public struct MockPackagesProvider: PackageContainerProvider {
 
     public init(containers: [MockPackageContainer]) {
         self.containers = containers
-        self.containersByIdentifier = Dictionary(items: containers.map({ ($0.identifier, $0) }))
+        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.identifier, $0) }))
     }
 
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>
+        completion: @escaping (Result<PackageContainer, Error>
     ) -> Void) {
         DispatchQueue.global().async {
             completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
-                Result(MockLoadingError.unknownModule))
+                .failure(MockLoadingError.unknownModule))
         }
     }
 }
@@ -231,13 +230,7 @@ extension DependencyResolver {
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> [(container: String, version: Version)] {
-        return try resolve(constraints: constraints).compactMap({
-            guard case .version(let version) = $0.binding else {
-                XCTFail("Unexpected non version binding \($0.binding)", file: file, line: line)
-                return nil
-            }
-            return ($0.container.identity, version)
-        })
+        fatalError()
     }
 }
 
@@ -255,7 +248,7 @@ public struct MockGraph {
         guard case let .array(containers)? = dict["containers"] else { fatalError() }
         guard case let .dictionary(result)? = dict["result"] else { fatalError() }
 
-        self.result = Dictionary(items: result.map({ value in
+        self.result = Dictionary(uniqueKeysWithValues: result.map({ value in
             let (container, version) = value
             guard case let .string(str) = version else { fatalError() }
             return (container.lowercased(), Version(string: str)!)

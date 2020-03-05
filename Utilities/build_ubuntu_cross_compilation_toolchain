@@ -106,7 +106,7 @@ cross_tc_basename="cross-toolchain"
 clang_package_url="http://releases.llvm.org/6.0.0/clang+llvm-6.0.0-x86_64-apple-darwin.tar.xz"
 ubuntu_mirror="http://gb.archive.ubuntu.com/ubuntu"
 packages_file="$ubuntu_mirror/dists/xenial/main/binary-amd64/Packages.gz"
-pkg_names=( libc6-dev linux-libc-dev libicu55 libgcc-5-dev libicu-dev libc6 libgcc1 libstdc++-5-dev libstdc++6 )
+pkg_names=( libc6-dev linux-libc-dev libicu55 libgcc-5-dev libicu-dev libc6 libgcc1 libstdc++-5-dev libstdc++6 zlib1g-dev )
 pkgs=()
 
 # url

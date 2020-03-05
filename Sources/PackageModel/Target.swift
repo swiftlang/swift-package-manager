@@ -17,6 +17,71 @@ public class Target: ObjectIdentifierProtocol {
         case library
         case systemModule = "system-target"
         case test
+        case binary
+    }
+
+    /// A reference to a product from a target dependency.
+    public struct ProductReference {
+
+        /// The name of the product dependency.
+        public let name: String
+
+        /// The name of the package containing the product.
+        public let package: String?
+
+        /// Creates a product reference instance.
+        public init(name: String, package: String?) {
+            self.name = name
+            self.package = package
+        }
+    }
+
+    /// A target dependency to a target or product.
+    public enum Dependency {
+
+        /// A dependency referencing another target, with conditions.
+        case target(_ target: Target, conditions: [PackageConditionProtocol])
+
+        /// A dependency referencing a product, with conditions.
+        case product(_ product: ProductReference, conditions: [PackageConditionProtocol])
+
+        /// The target if the dependency is a target dependency.
+        public var target: Target? {
+            if case .target(let target, _) = self {
+                return target
+            } else {
+                return nil
+            }
+        }
+
+        /// The product reference if the dependency is a product dependency.
+        public var product: ProductReference? {
+            if case .product(let product, _) = self {
+                return product
+            } else {
+                return nil
+            }
+        }
+
+        /// The dependency conditions.
+        public var conditions: [PackageConditionProtocol] {
+            switch self {
+            case .target(_, let conditions):
+                return conditions
+            case .product(_, let conditions):
+                return conditions
+            }
+        }
+
+        /// The name of the target or product of the dependency.
+        public var name: String {
+            switch self {
+            case .target(let target, _):
+                return target.name
+            case .product(let product, _):
+                return product.name
+            }
+        }
     }
 
     /// The name of the target.
@@ -25,14 +90,17 @@ public class Target: ObjectIdentifierProtocol {
     /// name) name in many cases, instead use c99name if you need uniqueness.
     public let name: String
 
-    /// The dependencies of this target.
-    public let dependencies: [Target]
+    /// The default localization for resources.
+    public let defaultLocalization: String?
 
-    /// The product dependencies of this target.
-    public let productDependencies: [(name: String, package: String?)]
+    /// The dependencies of this target.
+    public let dependencies: [Dependency]
 
     /// The language-level target name.
     public let c99name: String
+
+    /// The bundle name, if one is being generated.
+    public let bundleName: String?
 
     /// Suffix that's expected for test targets.
     public static let testModuleNameSuffix = "Tests"
@@ -42,6 +110,9 @@ public class Target: ObjectIdentifierProtocol {
 
     /// The sources for the target.
     public let sources: Sources
+
+    /// The resource files in the target.
+    public let resources: [Resource]
 
     /// The list of platforms that are supported by this target.
     public let platforms: [SupportedPlatform]
@@ -56,19 +127,23 @@ public class Target: ObjectIdentifierProtocol {
 
     fileprivate init(
         name: String,
+        bundleName: String? = nil,
+        defaultLocalization: String?,
         platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
-        dependencies: [Target],
-        productDependencies: [(name: String, package: String?)] = [],
+        resources: [Resource] = [],
+        dependencies: [Target.Dependency],
         buildSettings: BuildSettings.AssignmentTable
     ) {
         self.name = name
+        self.bundleName = bundleName
+        self.defaultLocalization = defaultLocalization
         self.platforms = platforms
         self.type = type
         self.sources = sources
+        self.resources = resources
         self.dependencies = dependencies
-        self.productDependencies = productDependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
     }
@@ -79,11 +154,12 @@ public class SwiftTarget: Target {
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
 
-    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target]) {
+    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target.Dependency]) {
         self.swiftVersion = .v5
 
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: [],
             type: .executable,
             sources: testDiscoverySrc,
@@ -93,14 +169,14 @@ public class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from linux main test manifest file.
-    init(linuxMain: AbsolutePath, name: String, dependencies: [Target]) {
+    init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
-        let swiftTestTarget = dependencies.first(where: {
-            guard case let target as SwiftTarget = $0 else { return false }
+        let swiftTestTarget = dependencies.first {
+            guard case .target(let target as SwiftTarget, _) = $0 else { return false }
             return target.type == .test
-        }).flatMap({ $0 as? SwiftTarget })
+        }.flatMap { $0.target as? SwiftTarget }
 
         // FIXME: This is not very correct but doesn't matter much in practice.
         // We need to select the latest Swift language version that can
@@ -113,12 +189,12 @@ public class SwiftTarget: Target {
 
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: platforms,
             type: .executable,
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init()
-
         )
     }
 
@@ -127,11 +203,13 @@ public class SwiftTarget: Target {
 
     public init(
         name: String,
+        bundleName: String? = nil,
+        defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
         isTest: Bool = false,
         sources: Sources,
-        dependencies: [Target] = [],
-        productDependencies: [(name: String, package: String?)] = [],
+        resources: [Resource] = [],
+        dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
@@ -139,11 +217,13 @@ public class SwiftTarget: Target {
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
+            bundleName: bundleName,
+            defaultLocalization: defaultLocalization,
             platforms: platforms,
             type: type,
             sources: sources,
+            resources: resources,
             dependencies: dependencies,
-            productDependencies: productDependencies,
             buildSettings: buildSettings
         )
     }
@@ -180,6 +260,7 @@ public class SystemLibraryTarget: Target {
         self.isImplicit = isImplicit
         super.init(
             name: name,
+            defaultLocalization: nil,
             platforms: platforms,
             type: .systemModule,
             sources: sources,
@@ -208,14 +289,16 @@ public class ClangTarget: Target {
 
     public init(
         name: String,
+        bundleName: String? = nil,
+        defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
         isTest: Bool = false,
         sources: Sources,
-        dependencies: [Target] = [],
-        productDependencies: [(name: String, package: String?)] = [],
+        resources: [Resource] = [],
+        dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
@@ -226,12 +309,54 @@ public class ClangTarget: Target {
         self.includeDir = includeDir
         super.init(
             name: name,
+            bundleName: bundleName,
+            defaultLocalization: defaultLocalization,
             platforms: platforms,
             type: type,
             sources: sources,
+            resources: resources,
             dependencies: dependencies,
-            productDependencies: productDependencies,
             buildSettings: buildSettings
+        )
+    }
+}
+
+public class BinaryTarget: Target {
+
+    /// The original source of the binary artifact.
+    public enum ArtifactSource: Equatable {
+
+        /// Represents an artifact that was downloaded from a remote URL.
+        case remote(url: String)
+
+        /// Represents an artifact that was available locally.
+        case local
+    }
+
+    /// The binary artifact's source.
+    public let artifactSource: ArtifactSource
+
+    /// The binary artifact path.
+    public var artifactPath: AbsolutePath {
+        return sources.root
+    }
+
+    public init(
+        name: String,
+        platforms: [SupportedPlatform] = [],
+        path: AbsolutePath,
+        artifactSource: ArtifactSource
+    ) {
+        self.artifactSource = artifactSource
+        let sources = Sources(paths: [], root: path)
+        super.init(
+            name: name,
+            defaultLocalization: nil,
+            platforms: platforms,
+            type: .binary,
+            sources: sources,
+            dependencies: [],
+            buildSettings: .init()
         )
     }
 }

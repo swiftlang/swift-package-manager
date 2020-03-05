@@ -102,7 +102,7 @@ public struct MockManifestGraph {
         repoProvider = inMemory?.provider
         // Create the test repositories, we don't need them to have actual
         // contents (the manifests are mocked).
-        let repos = Dictionary(items: try packages.map({ package -> (String, RepositorySpecifier) in
+        let repos = Dictionary(uniqueKeysWithValues: try packages.map({ package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
             let tag = package.version?.description ?? "initial"
             let specifier = RepositorySpecifier(url: repoPath.pathString)
@@ -145,12 +145,13 @@ public struct MockManifestGraph {
             path: path.appending(component: Manifest.filename),
             url: path.pathString,
             version: nil,
-            manifestVersion: .v4,
+            toolsVersion: .v4,
+            packageKind: .root,
             dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: rootDeps)
         )
 
         // Create the manifests from mock packages.
-        var manifests = Dictionary(items: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
+        var manifests = Dictionary(uniqueKeysWithValues: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
             let url = repos[package.name]!.url
             let manifest = Manifest(
                 name: package.name,
@@ -158,7 +159,8 @@ public struct MockManifestGraph {
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 version: package.version,
-                manifestVersion: .v4,
+                toolsVersion: .v4,
+                packageKind: .remote,
                 dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies)
             )
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
@@ -178,6 +180,7 @@ public struct MockManifestGraph {
     ) -> [PackageDependencyDescription] {
         return dependencies.map({ dependency in
             return PackageDependencyDescription(
+                name: dependency.name,
                 url: repos[dependency.name]?.url ?? "//\(dependency.name)",
                 requirement: .range(dependency.version.lowerBound ..< dependency.version.upperBound))
         })

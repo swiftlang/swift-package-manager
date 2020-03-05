@@ -11,7 +11,7 @@
 import Foundation
 import XCTest
 
-@testable import PackageGraph
+import PackageGraph
 
 final class VersionSetSpecifierTests: XCTestCase {
     func testUnion() {

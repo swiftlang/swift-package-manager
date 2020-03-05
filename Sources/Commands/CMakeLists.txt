@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
+  APIDigester.swift
   Completions+bash.swift
   Completions+zsh.swift
   Describe.swift
@@ -20,15 +21,21 @@ add_library(Commands
   SwiftRunTool.swift
   SwiftTestTool.swift
   SwiftTool.swift
+  SymbolGraphExtract.swift
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
-  TSCBasic
   Build
   PackageGraph
   SourceControl
+  TSCBasic
   TSCUtility
-  Xcodeproj
-  Workspace)
+  Workspace
+  XCBuildSupport
+  Xcodeproj)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  target_link_libraries(Commands PUBLIC
+    FoundationXML)
+endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

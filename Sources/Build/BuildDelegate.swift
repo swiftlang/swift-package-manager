@@ -11,12 +11,15 @@
 import TSCBasic
 import TSCUtility
 import SPMLLBuild
+import PackageModel
 import Dispatch
 import Foundation
+import LLBuildManifest
+import SPMBuildCore
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
-class CustomLLBuildCommand: ExternalCommand {
+class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
     let ctx: BuildExecutionContext
 
     required init(_ ctx: BuildExecutionContext) {
@@ -27,7 +30,10 @@ class CustomLLBuildCommand: ExternalCommand {
         return []
     }
 
-    func execute(_ command: SPMLLBuild.Command) -> Bool {
+    func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         fatalError("subclass responsibility")
     }
 }
@@ -73,19 +79,17 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func execute(with tool: ToolProtocol) throws {
-        assert(tool is TestDiscoveryTool, "Unexpected tool \(tool)")
-
+    private func execute(with tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = ctx.buildParameters.indexStore
         let api = try ctx.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
         let tests = try tool.inputs.flatMap {
-            try store.listTests(inObjectFile: AbsolutePath($0))
+            try store.listTests(inObjectFile: AbsolutePath($0.name))
         }
 
-        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0) }
+        let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
         let testsByModule = Dictionary(grouping: tests, by: { $0.module })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
@@ -130,7 +134,10 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         return Format.asRepeating(string: " ", count: spaces)
     }
 
-    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         // This tool will never run without the build description.
         let buildDescription = ctx.buildDescription!
         guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
@@ -167,43 +174,23 @@ public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
 
-    /// Represents a test product which is built and is present on disk.
-    public struct BuiltTestProduct: Codable {
-        /// The name of the package to which the test binary belongs.
-        public let packageName: String
-
-        /// The test product name.
-        public let productName: String
-
-        /// The path of the test binary.
-        public let testBinary: AbsolutePath
-
-        /// The path of the test bundle.
-        public var testBundle: AbsolutePath {
-            // Go up the folder hierarchy until we find the .xctest bundle.
-            sequence(
-                first: testBinary,
-                next: { $0.isRoot ? nil : $0.parentDirectory }
-            ).first{ $0.basename.hasSuffix(".xctest") }!
-        }
-    }
-
     /// The map of command to target names for Swift targets.
     let swiftTargetMap: [CommandName: TargetName]
 
     /// The map of test discovery commands.
-    let testDiscoveryCommands: [CommandName: TestDiscoveryTool]
+    let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
+
+    /// The map of copy commands.
+    let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
 
-    /// The list of executable products in the package graph.
-    public let allExecutables: [String]
-
-    /// The list of executable products in the root package.
-    public let rootExecutables: [String]
-
-    public init(plan: BuildPlan, testDiscoveryCommands: [CommandName: TestDiscoveryTool]) {
+    public init(
+        plan: BuildPlan,
+        testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
+        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+    ) {
         let buildConfig = plan.buildParameters.configuration.dirname
 
         swiftTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.values.compactMap{
@@ -212,6 +199,7 @@ public struct BuildDescription: Codable {
         })
 
         self.testDiscoveryCommands = testDiscoveryCommands
+        self.copyCommands = copyCommands
 
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             // FIXME(perf): Provide faster lookups.
@@ -219,12 +207,9 @@ public struct BuildDescription: Codable {
             return BuiltTestProduct(
                 packageName: package.name,
                 productName: desc.product.name,
-                testBinary: desc.binary
+                binaryPath: desc.binary
             )
         }
-
-        self.allExecutables = plan.graph.allProducts.filter{ $0.type == .executable }.map{ $0.name }
-        self.rootExecutables = plan.graph.rootPackages.flatMap{ $0.products }.filter{ $0.type == .executable }.map{ $0.name }
     }
 
     public func write(to path: AbsolutePath) throws {
@@ -246,7 +231,7 @@ public struct BuildDescription: Codable {
 public final class BuildExecutionContext {
 
     /// Reference to the index store API.
-    var indexStoreAPI: Result<IndexStoreAPI, AnyError> {
+    var indexStoreAPI: Result<IndexStoreAPI, Error> {
         indexStoreAPICache.getValue(self)
     }
 
@@ -275,7 +260,7 @@ public final class BuildExecutionContext {
     // MARK:- Private
 
     private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
-    private func createIndexStoreAPI() -> Result<IndexStoreAPI, AnyError> {
+    private func createIndexStoreAPI() -> Result<IndexStoreAPI, Error> {
         Result {
             let ext = buildParameters.triple.dynamicLibraryExtension
             let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
@@ -303,8 +288,38 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         return [UInt8](hash)
     }
 
-    override func execute(_ command: SPMLLBuild.Command) -> Bool {
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
         return self.ctx.packageStructureDelegate.packageStructureChanged()
+    }
+}
+
+final class CopyCommand: CustomLLBuildCommand {
+    override func execute(
+        _ command: SPMLLBuild.Command,
+        _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
+    ) -> Bool {
+        // This tool will never run without the build description.
+        let buildDescription = ctx.buildDescription!
+        guard let tool = buildDescription.copyCommands[command.name] else {
+            print("command \(command.name) not registered")
+            return false
+        }
+
+        do {
+            let input = AbsolutePath(tool.inputs[0].name)
+            let output = AbsolutePath(tool.outputs[0].name)
+            try localFileSystem.createDirectory(output.parentDirectory, recursive: true)
+            try localFileSystem.removeFileTree(output)
+            try localFileSystem.copy(from: input, to: output)
+        } catch {
+            // FIXME: Shouldn't use "print" here.
+            print("error:", error)
+            return false
+        }
+        return true
     }
 }
 
@@ -351,6 +366,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
         case PackageStructureTool.name:
             return InProcessTool(buildExecutionContext, type: PackageStructureCommand.self)
+        case CopyTool.name:
+            return InProcessTool(buildExecutionContext, type: CopyCommand.self)
         default:
             return nil
         }
@@ -475,7 +492,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         return false
     }
 
-    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
+    public func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
         queue.async {
             if self.isVerbose {
                 if let text = message.verboseProgressText {
@@ -498,7 +515,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         }
     }
 
-    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
+    public func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         diagnostics.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()

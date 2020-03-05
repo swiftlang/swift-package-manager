@@ -29,11 +29,11 @@ public enum VersionSetSpecifier: Hashable {
 }
 
 extension VersionSetSpecifier {
-    static func union(from range: Swift.Range<Version>) -> VersionSetSpecifier {
+    public static func union(from range: Swift.Range<Version>) -> VersionSetSpecifier {
         return .union(from: [range])
     }
 
-    static func union(from ranges: [Swift.Range<Version>]) -> VersionSetSpecifier {
+    public static func union(from ranges: [Swift.Range<Version>]) -> VersionSetSpecifier {
         switch ranges.count {
         case 0:
             return .empty

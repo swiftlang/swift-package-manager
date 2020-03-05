@@ -39,7 +39,7 @@ public extension RepositoryManagerDelegate {
 /// Manages a collection of bare repositories.
 public class RepositoryManager {
 
-    public typealias LookupResult = Result<RepositoryHandle, AnyError>
+    public typealias LookupResult = Result<RepositoryHandle, Error>
     public typealias LookupCompletion = (LookupResult) -> Void
 
     /// Handle to a managed repository.
@@ -230,7 +230,7 @@ public class RepositoryManager {
 
                 switch handle.status {
                 case .available:
-                    result = LookupResult(anyError: {
+                    result = LookupResult(catching: {
                         // Update the repository when it is being looked up.
                         let repo = try handle.open()
 
@@ -275,7 +275,7 @@ public class RepositoryManager {
                     } catch {
                         handle.status = .error
                         fetchError = error
-                        result = Result(error)
+                        result = .failure(error)
                     }
 
                     // Inform delegate.
@@ -390,9 +390,9 @@ extension RepositoryManager: SimplePersistanceProtocol {
         // We will use this to save the state so we don't have to read the other
         // handles when saving the sate of a handle.
         self.serializedRepositories = try json.get("repositories")
-        self.repositories = try Dictionary(items: serializedRepositories.map({
-            try ($0.0, RepositoryHandle(manager: self, json: $0.1))
-        }))
+        self.repositories = try serializedRepositories.mapValues({
+            try RepositoryHandle(manager: self, json: $0)
+        })
     }
 
     public func toJSON() -> JSON {

@@ -10,8 +10,9 @@
 
 import TSCBasic
 import TSCUtility
-import Build
 import PackageModel
+import SPMBuildCore
+import Build
 
 public class ToolOptions {
     /// Custom arguments to pass to C compiler, swift compiler and the linker.
@@ -49,6 +50,12 @@ public class ToolOptions {
 
     /// Path to the compilation destination describing JSON file.
     public var customCompileDestination: AbsolutePath?
+    /// The compilation destination’s target triple.
+    public var customCompileTriple: Triple?
+    /// Path to the compilation destination’s SDK.
+    public var customCompileSDK: AbsolutePath?
+    /// Path to the compilation destination’s toolchain.
+    public var customCompileToolchain: AbsolutePath?
 
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
@@ -68,9 +75,6 @@ public class ToolOptions {
     /// The mode to use for indexing-while-building feature.
     public var indexStoreMode: BuildParameters.IndexStoreMode = .auto
 
-    /// Enable the new dependency resolver based on Pubgrub.
-    public var enablePubgrubResolver: Bool = true
-
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     public var shouldEnableParseableModuleInterfaces = false
 
@@ -86,5 +90,34 @@ public class ToolOptions {
     /// Whether to enable llbuild manifest caching.
     public var enableBuildManifestCaching: Bool = false
 
+    /// Emit the Swift module separately from the object files.
+    public var emitSwiftModuleSeparately: Bool = false
+
+    /// The build system to use.
+    public var buildSystem: BuildSystemKind = .native
+
+    /// Extra arguments to pass when using xcbuild.
+    public var xcbuildFlags: [String] = []
+
     public required init() {}
+}
+
+public enum BuildSystemKind: String, ArgumentKind {
+    case native
+    case xcode
+
+    public init(argument: String) throws {
+        if let kind = BuildSystemKind(rawValue: argument) {
+            self = kind
+        } else {
+            throw ArgumentConversionError.typeMismatch(value: argument, expectedType: BuildSystemKind.self)
+        }
+    }
+
+    public static var completion: ShellCompletion {
+        return .values([
+            (value: "native", description: "Native build system"),
+            (value: "xcode", description: "Xcode build system"),
+        ])
+    }
 }

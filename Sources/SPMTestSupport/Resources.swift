@@ -34,27 +34,32 @@ public class Resources: ManifestResourceProvider {
         return toolchain.manifestResources.libDir
     }
 
+    public var binDir: AbsolutePath? {
+        return toolchain.manifestResources.binDir
+    }
+
   #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
-        return Destination.sdkPlatformFrameworkPath()!
+        return Destination.sdkPlatformFrameworkPaths()!.fwk
     }
   #endif
 
-    let toolchain: UserToolchain
+    public let toolchain: UserToolchain
 
     public static let `default` = Resources()
 
     private init() {
         let binDir: AbsolutePath
-      #if Xcode
-        // Always point to fake toolchain when in Xcode.
-        binDir = AbsolutePath(#file).parentDirectory
-            .parentDirectory.parentDirectory.appending(components: ".build", Destination.host.target.tripleString, "debug")
-      #elseif os(macOS)
+      #if os(macOS)
         binDir = bundleRoot()
       #else
         binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
       #endif
         toolchain = try! UserToolchain(destination: Destination.hostDestination(binDir))
+    }
+
+    /// True if SwiftPM has PackageDescription 4 runtime available.
+    public static var havePD4Runtime: Bool {
+        return Resources.default.binDir == nil
     }
 }

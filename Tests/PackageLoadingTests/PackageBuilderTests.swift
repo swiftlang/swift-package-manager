@@ -31,10 +31,10 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "foo"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(c99name: "foo", type: .library)
-                moduleResult.checkSources(root: "/Sources/foo", paths: "Foo.swift")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
             }
         }
     }
@@ -50,8 +50,8 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "foo"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("target at '/Sources/foo' contains mixed language source files; feature not supported")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "target at '/Sources/foo' contains mixed language source files; feature not supported", behavior: .error)
         }
     }
 
@@ -77,9 +77,38 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
 
-            PackageBuilderTester(manifest, path: path, in: fs) { result in
-                result.checkDiagnostic("ignoring broken symlink \(linkPath)")
-                result.checkModule("foo")
+            PackageBuilderTester(manifest, path: path, in: fs) { package, diagnostics in
+                diagnostics.check(
+                    diagnostic: "ignoring broken symlink \(linkPath)",
+                    behavior: .warning,
+                    location: "'pkg' \(path)")
+                package.checkModule("foo")
+            }
+        }
+    }
+
+    func testSymlinkedSourcesDirectory() throws {
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let sources = path.appending(components: "Sources")
+            let foo = sources.appending(components: "foo")
+            let bar = sources.appending(components: "bar")
+            try fs.createDirectory(foo, recursive: true)
+            try fs.writeFileContents(foo.appending(components: "foo.swift"), bytes: "")
+
+            // Create a symlink to foo.
+            try createSymlink(bar, pointingAt: foo)
+
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "bar"),
+                ]
+            )
+
+            PackageBuilderTester(manifest, path: path, in: fs) { package, _ in
+                package.checkModule("bar")
             }
         }
     }
@@ -96,23 +125,23 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "MyPackageTests", dependencies: ["MyPackage"], type: .test),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("MyPackage") { moduleResult in
-                moduleResult.check(type: .executable)
-                moduleResult.checkSources(root: "/Sources/MyPackage", paths: "main.swift")
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("MyPackage") { module in
+                module.check(type: .executable)
+                module.checkSources(root: "/Sources/MyPackage", paths: "main.swift")
             }
 
-            result.checkModule("MyPackageTests") { moduleResult in
-                moduleResult.check(type: .test)
-                moduleResult.checkSources(root: "/Tests/MyPackageTests", paths: "abc.c")
+            package.checkModule("MyPackageTests") { module in
+                module.check(type: .test)
+                module.checkSources(root: "/Tests/MyPackageTests", paths: "abc.c")
             }
 
-            result.checkProduct("MyPackage") { _ in }
+            package.checkProduct("MyPackage") { _ in }
 
           #if os(Linux)
-            result.checkDiagnostic("ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported")
-          #elseif os(macOS)
-            result.checkProduct("MyPackagePackageTests") { _ in }
+            diagnostics.check(diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported", behavior: .warning)
+          #elseif os(macOS) || os(Android)
+            package.checkProduct("MyPackagePackageTests") { _ in }
           #endif
         }
     }
@@ -134,12 +163,12 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "pkg"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("pkg") { moduleResult in
-                moduleResult.check(type: .executable)
-                moduleResult.checkSources(root: "/Sources/pkg", paths: "main.swift", "Package.swift")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("pkg") { module in
+                module.check(type: .executable)
+                module.checkSources(root: "/Sources/pkg", paths: "main.swift", "Package.swift")
             }
-            result.checkProduct("pkg") { _ in }
+            package.checkProduct("pkg") { _ in }
         }
     }
 
@@ -157,59 +186,136 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: name),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule(name) { moduleResult in
-                moduleResult.check(c99name: name, type: .library)
-                moduleResult.checkSources(root: "/Sources/Foo", paths: "Package.swift", "Package@swift-1.swift")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule(name) { module in
+                module.check(c99name: name, type: .library)
+                module.checkSources(root: "/Sources/Foo", paths: "Package.swift", "Package@swift-1.swift")
             }
         }
     }
 
     func testModuleMapLayout() throws {
-       var fs = InMemoryFileSystem(emptyFiles:
+        let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/clib/include/module.modulemap",
             "/Sources/clib/include/clib.h",
-            "/Sources/clib/clib.c")
+            "/Sources/clib/clib.c"
+        )
 
-        var manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
                 TargetDescription(name: "clib"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("clib") { moduleResult in
-                moduleResult.check(c99name: "clib", type: .library)
-                moduleResult.checkSources(root: "/Sources/clib", paths: "clib.c")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("clib") { module in
+                module.check(c99name: "clib", type: .library)
+                module.checkSources(root: "/Sources/clib", paths: "clib.c")
             }
         }
+    }
 
-        fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/clib/module.modulemap",
-            "/Sources/clib/foo.swift")
-        manifest = Manifest.createV4Manifest(
+    func testPublicIncludeDirMixedWithSources() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/clib/nested/nested.h",
+            "/Sources/clib/nested/nested.c",
+            "/Sources/clib/clib.h",
+            "/Sources/clib/clib.c",
+            "/Sources/clib/clib2.h",
+            "/Sources/clib/clib2.c",
+            "/done"
+        )
+
+        let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(name: "clib"),
+                TargetDescription(
+                    name: "clib",
+                    path: "Sources",
+                    sources: ["clib", "clib"],
+                    publicHeadersPath: "."
+                ),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package has unsupported layout; modulemap '/Sources/clib/module.modulemap' should be inside the 'include' directory")
+        PackageBuilderTester(manifest, in: fs) { package, diags in
+            diags.check(diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib", behavior: .warning)
+            package.checkModule("clib") { module in
+                module.check(c99name: "clib", type: .library)
+                module.checkSources(root: "/Sources", paths: "clib/clib.c", "clib/clib2.c", "clib/nested/nested.c")
+            }
         }
+    }
 
-        fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/Foo/module.modulemap",
-            "/Sources/Foo/foo.swift",
-            "/Sources/Bar/bar.swift")
-        manifest = Manifest.createV4Manifest(
+    func testDeclaredSourcesWithDot() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/swift.lib/foo.swift",
+            "/Sources/swiftlib1/swift.lib/foo.swift",
+            "/Sources/swiftlib2/swift.lib/foo.swift",
+            "/Sources/swiftlib3/swift.lib/foo.swift",
+            "/Sources/swiftlib3/swift.lib/foo.bar/bar.swift",
+            "/done"
+        )
+
+        let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(name: "Foo"),
-                TargetDescription(name: "Bar"),
+                TargetDescription(
+                    name: "swift.lib"
+                ),
+                TargetDescription(
+                    name: "swiftlib1",
+                    path: "Sources/swiftlib1",
+                    sources: ["swift.lib"]
+                ),
+                TargetDescription(
+                    name: "swiftlib2",
+                    path: "Sources/swiftlib2/swift.lib"
+                ),
+                TargetDescription(
+                    name: "swiftlib3",
+                    path: "Sources/swiftlib3/swift.lib"
+                ),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package has unsupported layout; modulemap '/Sources/Foo/module.modulemap' should be inside the 'include' directory")
+        PackageBuilderTester(manifest, in: fs) { result, _ in
+            result.checkModule("swift.lib") { module in
+                module.checkSources(sources: ["foo.swift"])
+            }
+            result.checkModule("swiftlib1") { module in
+                module.checkSources(sources: ["swift.lib/foo.swift"])
+            }
+            result.checkModule("swiftlib2") { module in
+                module.checkSources(sources: ["foo.swift"])
+            }
+            result.checkModule("swiftlib3") { module in
+                module.checkSources(sources: ["foo.bar/bar.swift", "foo.swift"])
+            }
+        }
+    }
+
+    func testOverlappingDeclaredSources() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/clib/subfolder/foo.h",
+            "/Sources/clib/subfolder/foo.c",
+            "/Sources/clib/bar.h",
+            "/Sources/clib/bar.c",
+            "/done"
+        )
+
+        let manifest = Manifest.createV4Manifest(
+            name: "MyPackage",
+            targets: [
+                TargetDescription(
+                    name: "clib",
+                    path: "Sources",
+                    sources: ["clib", "clib/subfolder"]
+                ),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { result, _ in
+            result.checkModule("clib") { module in
+                module.checkSources(sources: ["clib/bar.c", "clib/subfolder/foo.c"])
+            }
         }
     }
 
@@ -231,11 +337,11 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "exec"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("exec") { _ in }
-            result.checkProduct("exec") { productResult in
-                productResult.check(type: .executable, targets: ["exec", "foo"])
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("exec") { _ in }
+            package.checkProduct("exec") { product in
+                product.check(type: .executable, targets: ["exec", "foo"])
             }
         }
 
@@ -247,11 +353,11 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "exec"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("exec") { _ in }
-            result.checkProduct("exec") { productResult in
-                productResult.check(type: .executable, targets: ["exec"])
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("exec") { _ in }
+            package.checkProduct("exec") { product in
+                product.check(type: .executable, targets: ["exec"])
             }
         }
 
@@ -267,11 +373,11 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "exec"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("exec") { _ in }
-            result.checkProduct("exec1") { productResult in
-                productResult.check(type: .executable, targets: ["exec"])
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("exec") { _ in }
+            package.checkProduct("exec1") { product in
+                product.check(type: .executable, targets: ["exec"])
             }
         }
     }
@@ -290,20 +396,20 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "tests", path: "swift/tests", type: .test),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("exe") { moduleResult in
-                moduleResult.check(c99name: "exe", type: .library)
-                moduleResult.checkSources(root: "/swift/exe", paths: "foo.swift")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("exe") { module in
+                module.check(c99name: "exe", type: .library)
+                module.checkSources(root: "/swift/exe", paths: "foo.swift")
             }
 
-            result.checkModule("tests") { moduleResult in
-                moduleResult.check(c99name: "tests", type: .test)
-                moduleResult.checkSources(root: "/swift/tests", paths: "footests.swift")
+            package.checkModule("tests") { module in
+                module.check(c99name: "tests", type: .test)
+                module.checkSources(root: "/swift/tests", paths: "footests.swift")
             }
 
-            result.checkProduct("pkgPackageTests") { productResult in
-                productResult.check(type: .test, targets: ["tests"])
-                productResult.check(linuxMainPath: "/LinuxMain.swift")
+            package.checkProduct("pkgPackageTests") { product in
+                product.check(type: .test, targets: ["tests"])
+                product.check(linuxMainPath: "/LinuxMain.swift")
             }
         }
     }
@@ -330,13 +436,13 @@ class PackageBuilderTests: XCTestCase {
                 ),
             ]
         )
-        PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { result in
-            result.checkModule("exe") { _ in }
-            result.checkModule("tests") { _ in }
+        PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { package, _ in
+            package.checkModule("exe") { _ in }
+            package.checkModule("tests") { _ in }
 
-            result.checkProduct("pkgPackageTests") { productResult in
-                productResult.check(type: .test, targets: ["tests"])
-                productResult.check(linuxMainPath: nil)
+            package.checkProduct("pkgPackageTests") { product in
+                product.check(type: .test, targets: ["tests"])
+                product.check(linuxMainPath: nil)
             }
         }
     }
@@ -358,8 +464,8 @@ class PackageBuilderTests: XCTestCase {
                 ),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package 'pkg' has multiple linux main files: /LinuxMain.swift, /swift/LinuxMain.swift")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "package 'pkg' has multiple linux main files: /LinuxMain.swift, /swift/LinuxMain.swift", behavior: .error)
         }
     }
 
@@ -397,32 +503,31 @@ class PackageBuilderTests: XCTestCase {
                     sources: ["bar"]),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
-
-            result.checkModule("exe") { moduleResult in
-                moduleResult.check(c99name: "exe", type: .executable)
-                moduleResult.checkSources(root: "/mah/target/exe",
+            package.checkModule("exe") { module in
+                module.check(c99name: "exe", type: .executable)
+                module.checkSources(root: "/mah/target/exe",
                     paths: "swift/exe/main.swift", "swift/exe/foo.swift", "swift/bar.swift")
             }
 
-            result.checkModule("clib") { moduleResult in
-                moduleResult.check(c99name: "clib", type: .library)
-                moduleResult.checkSources(root: "/mah/target/exe", paths: "foo.c")
+            package.checkModule("clib") { module in
+                module.check(c99name: "clib", type: .library)
+                module.checkSources(root: "/mah/target/exe", paths: "foo.c")
             }
 
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(c99name: "foo", type: .library)
-                moduleResult.checkSources(root: "/Sources/foo", paths: "foo.swift")
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .library)
+                module.checkSources(root: "/Sources/foo", paths: "foo.swift")
             }
 
-            result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
-                moduleResult.checkSources(root: "/bar", paths: "bar/foo.swift")
+            package.checkModule("bar") { module in
+                module.check(c99name: "bar", type: .library)
+                module.checkSources(root: "/bar", paths: "bar/foo.swift")
             }
 
-            result.checkProduct("exe") { _ in }
+            package.checkProduct("exe") { _ in }
         }
     }
 
@@ -444,8 +549,8 @@ class PackageBuilderTests: XCTestCase {
                     type: .test),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift")
+        PackageBuilderTester(manifest, in: fs) { package, diagnotics in
+            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift", behavior: .error)
         }
 
         manifest = Manifest.createV4Manifest(
@@ -461,21 +566,20 @@ class PackageBuilderTests: XCTestCase {
                     type: .test),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
-
-            result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
-                moduleResult.checkSources(root: "/target/bar", paths: "bar.swift")
+            package.checkModule("bar") { module in
+                module.check(c99name: "bar", type: .library)
+                module.checkSources(root: "/target/bar", paths: "bar.swift")
             }
 
-            result.checkModule("barTests") { moduleResult in
-                moduleResult.check(c99name: "barTests", type: .test)
-                moduleResult.checkSources(root: "/target/bar/Tests", paths: "barTests.swift")
+            package.checkModule("barTests") { module in
+                module.check(c99name: "barTests", type: .test)
+                module.checkSources(root: "/target/bar/Tests", paths: "barTests.swift")
             }
 
-            result.checkProduct("pkgPackageTests")
+            package.checkProduct("pkgPackageTests")
         }
     }
 
@@ -500,20 +604,19 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
-
-            result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
-                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.c")
-                moduleResult.check(includeDir: "/Sources/Foo/inc")
+            package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.checkSources(root: "/Sources/Foo", paths: "Foo.c")
+                module.check(includeDir: "/Sources/Foo/inc")
             }
 
-            result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library)
-                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.c")
-                moduleResult.check(includeDir: "/Sources/Bar/include")
+            package.checkModule("Bar") { module in
+                module.check(c99name: "Bar", type: .library)
+                module.checkSources(root: "/Sources/Bar", paths: "Bar.c")
+                module.check(includeDir: "/Sources/Bar/include")
             }
         }
     }
@@ -539,8 +642,8 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'", behavior: .error)
         }
     }
 
@@ -560,35 +663,34 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "B", type: .test),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
-
-            result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .executable)
-                moduleResult.checkSources(root: "/Sources/A", paths: "main.swift")
+            package.checkModule("A") { module in
+                module.check(c99name: "A", type: .executable)
+                module.checkSources(root: "/Sources/A", paths: "main.swift")
             }
 
-            result.checkModule("TheTestOfA") { moduleResult in
-                moduleResult.check(c99name: "TheTestOfA", type: .test)
-                moduleResult.checkSources(root: "/Tests/TheTestOfA", paths: "Foo.swift")
-                moduleResult.check(dependencies: ["A"])
+            package.checkModule("TheTestOfA") { module in
+                module.check(c99name: "TheTestOfA", type: .test)
+                module.checkSources(root: "/Tests/TheTestOfA", paths: "Foo.swift")
+                module.check(targetDependencies: ["A"])
             }
 
-            result.checkModule("B") { moduleResult in
-                moduleResult.check(c99name: "B", type: .test)
-                moduleResult.checkSources(root: "/Tests/B", paths: "Foo.swift")
-                moduleResult.check(dependencies: [])
+            package.checkModule("B") { module in
+                module.check(c99name: "B", type: .test)
+                module.checkSources(root: "/Tests/B", paths: "Foo.swift")
+                module.check(targetDependencies: [])
             }
 
-            result.checkModule("ATests") { moduleResult in
-                moduleResult.check(c99name: "ATests", type: .test)
-                moduleResult.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
-                moduleResult.check(dependencies: [])
+            package.checkModule("ATests") { module in
+                module.check(c99name: "ATests", type: .test)
+                module.checkSources(root: "/Tests/ATests", paths: "Foo.swift")
+                module.check(targetDependencies: [])
             }
 
-            result.checkProduct("FooPackageTests") { _ in }
-            result.checkProduct("A") { _ in }
+            package.checkProduct("FooPackageTests") { _ in }
+            package.checkProduct("A") { _ in }
         }
     }
 
@@ -608,23 +710,23 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, shouldCreateMultipleTestProducts: true, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("fooTests") { _ in }
-            result.checkModule("barTests") { _ in }
-            result.checkProduct("fooTests") { product in
+        PackageBuilderTester(manifest, shouldCreateMultipleTestProducts: true, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("fooTests") { _ in }
+            package.checkModule("barTests") { _ in }
+            package.checkProduct("fooTests") { product in
                 product.check(type: .test, targets: ["fooTests"])
             }
-            result.checkProduct("barTests") { product in
+            package.checkProduct("barTests") { product in
                 product.check(type: .test, targets: ["barTests"])
             }
         }
 
-        PackageBuilderTester(manifest, shouldCreateMultipleTestProducts: false, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("fooTests") { _ in }
-            result.checkModule("barTests") { _ in }
-            result.checkProduct("pkgPackageTests") { product in
+        PackageBuilderTester(manifest, shouldCreateMultipleTestProducts: false, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("fooTests") { _ in }
+            package.checkModule("barTests") { _ in }
+            package.checkProduct("pkgPackageTests") { product in
                 product.check(type: .test, targets: ["barTests", "fooTests"])
             }
         }
@@ -645,17 +747,17 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "Baz"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
-                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-                moduleResult.check(dependencies: ["Bar"])
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                module.check(targetDependencies: ["Bar"])
             }
 
             for target in ["Bar", "Baz"] {
-                result.checkModule(target) { moduleResult in
-                    moduleResult.check(c99name: target, type: .library)
-                    moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
+                package.checkModule(target) { module in
+                    module.check(c99name: target, type: .library)
+                    module.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
         }
@@ -669,45 +771,23 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "Baz"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
-                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-                moduleResult.check(dependencies: ["Bar"])
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                module.check(targetDependencies: ["Bar"])
             }
 
-            result.checkModule("Bar") { moduleResult in
-                moduleResult.check(c99name: "Bar", type: .library)
-                moduleResult.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
-                moduleResult.check(dependencies: ["Baz"])
+            package.checkModule("Bar") { module in
+                module.check(c99name: "Bar", type: .library)
+                module.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
+                module.check(targetDependencies: ["Baz"])
             }
 
-            result.checkModule("Baz") { moduleResult in
-                moduleResult.check(c99name: "Baz", type: .library)
-                moduleResult.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
+            package.checkModule("Baz") { module in
+                module.check(c99name: "Baz", type: .library)
+                module.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
             }
-        }
-    }
-
-    func testDuplicateTargets() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/A/main.swift",
-            "/Sources/A/foo.swift",
-            "/Sources/B/bar.swift",
-            "/Sources/C/baz.swift"
-        )
-
-        let manifest = Manifest.createV4Manifest(
-            name: "A",
-            targets: [
-                TargetDescription(name: "A"),
-                TargetDescription(name: "B"),
-                TargetDescription(name: "A"),
-                TargetDescription(name: "B"),
-            ]
-        )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("duplicate targets found: A, B")
         }
     }
 
@@ -727,21 +807,21 @@ class PackageBuilderTests: XCTestCase {
                     dependencies: ["Bar", "Baz", "Bam"]),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
 
-            result.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
+            package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
-            result.checkModule("Foo") { moduleResult in
-                moduleResult.check(c99name: "Foo", type: .library)
-                moduleResult.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
-                moduleResult.check(dependencies: ["Bar", "Baz"])
-                moduleResult.check(productDeps: [(name: "Bam", package: nil)])
+            package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
+                module.check(targetDependencies: ["Bar", "Baz"])
+                module.check(productDependencies: [.init(name: "Bam", package: nil)])
             }
 
             for target in ["Bar", "Baz"] {
-                result.checkModule(target) { moduleResult in
-                    moduleResult.check(c99name: target, type: .library)
-                    moduleResult.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
+                package.checkModule(target) { module in
+                    module.check(c99name: target, type: .library)
+                    module.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
         }
@@ -759,8 +839,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "Random"),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target Random should be located under 'Sources/Random', or a custom sources path can be set with the 'path' property in Package.swift")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: .contains("Source files for target Random should be located under 'Sources/Random'"), behavior: .error)
             }
         }
 
@@ -774,8 +854,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")]),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target Foo should be located under 'Sources/Foo', or a custom sources path can be set with the 'path' property in Package.swift")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: .contains("Source files for target Foo should be located under 'Sources/Foo'"), behavior: .error)
             }
         }
 
@@ -789,8 +869,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "pkgTests", dependencies: [], type: .test),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target pkgTests should be located under 'Tests/pkgTests', or a custom sources path can be set with the 'path' property in Package.swift")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: .contains("Source files for target pkgTests should be located under 'Tests/pkgTests'"), behavior: .error)
             }
         }
 
@@ -804,8 +884,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("cyclic dependency declaration found: pkg -> pkg")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg -> pkg", behavior: .error)
             }
         }
 
@@ -819,8 +899,24 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "foo"),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target foo should be located under 'Sources/foo', or a custom sources path can be set with the 'path' property in Package.swift")
+            PackageBuilderTester(manifest, in: fs) { _, diagnotics in
+                diagnotics.check(diagnostic: .contains("Source files for target foo should be located under 'Sources/foo'"), behavior: .error)
+            }
+        }
+
+        do {
+            let fs = InMemoryFileSystem()
+            // Binary target.
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
+                ]
+            )
+
+            let remoteArtifacts = [RemoteArtifact(url: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
+            PackageBuilderTester(manifest, remoteArtifacts: remoteArtifacts, in: fs) { package, _ in
+                package.checkModule("foo")
             }
         }
 
@@ -839,8 +935,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "pkg3", dependencies: ["pkg1"]),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1", behavior: .error)
             }
 
             manifest = Manifest.createV4Manifest(
@@ -851,8 +947,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "pkg3", dependencies: ["pkg2"]),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg2")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg2", behavior: .error)
             }
         }
 
@@ -869,11 +965,11 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "pkg2"),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target pkg2 should be located under /Sources/pkg2")
-                result.checkModule("pkg1") { moduleResult in
-                    moduleResult.check(c99name: "pkg1", type: .library)
-                    moduleResult.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
+            PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+                diagnostics.check(diagnostic: "Source files for target pkg2 should be located under /Sources/pkg2", behavior: .warning)
+                package.checkModule("pkg1") { module in
+                    module.check(c99name: "pkg1", type: .library)
+                    module.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
                 }
             }
         }
@@ -890,8 +986,8 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
 
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("public headers directory path for 'Foo' is invalid or not contained in the target")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "public headers directory path for 'Foo' is invalid or not contained in the target", behavior: .error)
             }
 
             manifest = Manifest.createV4Manifest(
@@ -900,8 +996,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo"),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("public headers directory path for 'Bar' is invalid or not contained in the target")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "public headers directory path for 'Bar' is invalid or not contained in the target", behavior: .error)
             }
         }
 
@@ -916,8 +1012,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "Foo", path: "../foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { result in
-                result.checkDiagnostic("target 'Foo' in package 'Foo' is outside the package root")
+            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "target 'Foo' in package 'Foo' is outside the package root", behavior: .error)
             }
         }
         do {
@@ -931,8 +1027,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "Foo", path: "/foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { result in
-                result.checkDiagnostic("target path \'/foo\' is not supported; it should be relative to package root")
+            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "target path \'/foo\' is not supported; it should be relative to package root", behavior: .error)
             }
         }
 
@@ -947,8 +1043,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "Foo", path: "~/foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { result in
-                result.checkDiagnostic("target path \'~/foo\' is not supported; it should be relative to package root")
+            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: "target path \'~/foo\' is not supported; it should be relative to package root", behavior: .error)
             }
         }
     }
@@ -966,18 +1062,18 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "exec"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("exec") { moduleResult in
-                moduleResult.check(c99name: "exec", type: .executable)
-                moduleResult.checkSources(root: "/Sources/exec", paths: "main.swift")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("exec") { module in
+                module.check(c99name: "exec", type: .executable)
+                module.checkSources(root: "/Sources/exec", paths: "main.swift")
             }
 
-            result.checkModule("lib") { moduleResult in
-                moduleResult.check(c99name: "lib", type: .library)
-                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.swift")
+            package.checkModule("lib") { module in
+                module.check(c99name: "lib", type: .library)
+                module.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
 
-            result.checkProduct("exec")
+            package.checkProduct("exec")
         }
     }
 
@@ -991,8 +1087,10 @@ class PackageBuilderTests: XCTestCase {
             pkgConfig: "foo"
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("configuration of package 'pkg' is invalid; the 'pkgConfig' property can only be used with a System Module Package")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: "configuration of package 'pkg' is invalid; the 'pkgConfig' property can only be used with a System Module Package",
+                behavior: .error)
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -1003,8 +1101,10 @@ class PackageBuilderTests: XCTestCase {
             providers: [.brew(["foo"])]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("configuration of package 'pkg' is invalid; the 'providers' property can only be used with a System Module Package")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: "configuration of package 'pkg' is invalid; the 'providers' property can only be used with a System Module Package",
+                behavior: .error)
         }
     }
 
@@ -1013,10 +1113,10 @@ class PackageBuilderTests: XCTestCase {
             "/module.modulemap")
 
         let manifest = Manifest.createV4Manifest(name: "SystemModulePackage")
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("SystemModulePackage") { moduleResult in
-                moduleResult.check(c99name: "SystemModulePackage", type: .systemModule)
-                moduleResult.checkSources(root: "/")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("SystemModulePackage") { module in
+                module.check(c99name: "SystemModulePackage", type: .systemModule)
+                module.checkSources(root: "/")
             }
         }
     }
@@ -1039,46 +1139,46 @@ class PackageBuilderTests: XCTestCase {
 
         var manifest = createManifest(swiftVersions: [.v3, .v4])
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: "4")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "4")
             }
-            result.checkProduct("foo") { _ in }
+            package.checkProduct("foo") { _ in }
         }
 
         manifest = createManifest(swiftVersions: [.v3])
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: "3")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "3")
             }
-            result.checkProduct("foo") { _ in }
+            package.checkProduct("foo") { _ in }
         }
 
         manifest = createManifest(swiftVersions: [.v4])
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: "4")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "4")
             }
-            result.checkProduct("foo") { _ in }
+            package.checkProduct("foo") { _ in }
         }
 
         manifest = createManifest(swiftVersions: nil)
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(swiftVersion: "4")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(swiftVersion: "4")
             }
-            result.checkProduct("foo") { _ in }
+            package.checkProduct("foo") { _ in }
         }
 
         manifest = createManifest(swiftVersions: [])
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package 'pkg' supported Swift language versions is empty")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "package 'pkg' supported Swift language versions is empty", behavior: .error)
         }
 
         manifest = createManifest(
             swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("package \'pkg\' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "package 'pkg' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))", behavior: .error)
         }
     }
 
@@ -1098,8 +1198,8 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
 
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target Bar should be located under 'Sources/Bar', or a custom sources path can be set with the 'path' property in Package.swift")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: .contains("Source files for target Bar should be located under 'Sources/Bar'"), behavior: .error)
             }
         }
 
@@ -1117,8 +1217,8 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "FooTests", type: .test),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkDiagnostic("Source files for target BarTests should be located under 'Tests/BarTests', or a custom sources path can be set with the 'path' property in Package.swift")
+            PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+                diagnostics.check(diagnostic: .contains("Source files for target BarTests should be located under 'Tests/BarTests'"), behavior: .error)
             }
 
             // We should be able to fix this by using custom paths.
@@ -1129,14 +1229,14 @@ class PackageBuilderTests: XCTestCase {
                     TargetDescription(name: "FooTests", type: .test),
                 ]
             )
-            PackageBuilderTester(manifest, in: fs) { result in
-                result.checkModule("BarTests") { moduleResult in
-                    moduleResult.check(c99name: "BarTests", type: .test)
+            PackageBuilderTester(manifest, in: fs) { package, _ in
+                package.checkModule("BarTests") { module in
+                    module.check(c99name: "BarTests", type: .test)
                 }
-                result.checkModule("FooTests") { moduleResult in
-                    moduleResult.check(c99name: "FooTests", type: .test)
+                package.checkModule("FooTests") { module in
+                    module.check(c99name: "FooTests", type: .test)
                 }
-                result.checkProduct("pkgPackageTests") { _ in }
+                package.checkProduct("pkgPackageTests") { _ in }
             }
         }
     }
@@ -1151,8 +1251,8 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkDiagnostic("invalid custom path './NotExist' for target 'Foo'")
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "invalid custom path './NotExist' for target 'Foo'", behavior: .error)
         }
     }
 
@@ -1170,18 +1270,17 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkPredefinedPaths(target: "/src", testTarget: "/src")
 
-            result.checkPredefinedPaths(target: "/src", testTarget: "/src")
-
-            result.checkModule("A") { moduleResult in
-                moduleResult.check(c99name: "A", type: .library)
+            package.checkModule("A") { module in
+                module.check(c99name: "A", type: .library)
             }
-            result.checkModule("ATests") { moduleResult in
-                moduleResult.check(c99name: "ATests", type: .test)
+            package.checkModule("ATests") { module in
+                module.check(c99name: "ATests", type: .test)
             }
 
-            result.checkProduct("FooPackageTests") { _ in }
+            package.checkProduct("FooPackageTests") { _ in }
         }
     }
 
@@ -1202,10 +1301,10 @@ class PackageBuilderTests: XCTestCase {
                 ),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
-                moduleResult.checkSources(root: "/Sources/bar", paths: "bar.swift")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("bar") { module in
+                module.check(c99name: "bar", type: .library)
+                module.checkSources(root: "/Sources/bar", paths: "bar.swift")
             }
         }
     }
@@ -1229,16 +1328,22 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "foo"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkProduct("foo") { productResult in
-                productResult.check(type: .library(.automatic), targets: ["foo"])
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("foo") { _ in }
+            package.checkProduct("foo") { product in
+                product.check(type: .library(.automatic), targets: ["foo"])
             }
-            result.checkProduct("foo-dy") { productResult in
-                productResult.check(type: .library(.dynamic), targets: ["foo"])
+            package.checkProduct("foo-dy") { product in
+                product.check(type: .library(.dynamic), targets: ["foo"])
             }
-            result.checkDiagnostic("ignoring duplicate product 'foo' (static)")
-            result.checkDiagnostic("ignoring duplicate product 'foo' (dynamic)")
+            diagnostics.check(
+                diagnostic: "ignoring duplicate product 'foo' (static)",
+                behavior: .warning,
+                location: "'pkg' /")
+            diagnostics.check(
+                diagnostic: "ignoring duplicate product 'foo' (dynamic)",
+                behavior: .warning,
+                location: "'pkg' /")
         }
     }
 
@@ -1256,12 +1361,15 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "bar"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("SystemModulePackage") { moduleResult in
-                moduleResult.check(c99name: "SystemModulePackage", type: .systemModule)
-                moduleResult.checkSources(root: "/")
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("SystemModulePackage") { module in
+                module.check(c99name: "SystemModulePackage", type: .systemModule)
+                module.checkSources(root: "/")
             }
-            result.checkDiagnostic("ignoring declared target(s) 'foo, bar' in the system package")
+            diagnostics.check(
+                diagnostic: "ignoring declared target(s) 'foo, bar' in the system package",
+                behavior: .warning,
+                location: "'SystemModulePackage' /")
         }
     }
 
@@ -1281,18 +1389,18 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { moduleResult in
-                moduleResult.check(c99name: "foo", type: .systemModule)
-                moduleResult.checkSources(root: "/Sources/foo")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.check(c99name: "foo", type: .systemModule)
+                module.checkSources(root: "/Sources/foo")
             }
-            result.checkModule("bar") { moduleResult in
-                moduleResult.check(c99name: "bar", type: .library)
-                moduleResult.checkSources(root: "/Sources/bar", paths: "bar.swift")
-                moduleResult.check(dependencies: ["foo"])
+            package.checkModule("bar") { module in
+                module.check(c99name: "bar", type: .library)
+                module.checkSources(root: "/Sources/bar", paths: "bar.swift")
+                module.check(targetDependencies: ["foo"])
             }
-            result.checkProduct("foo") { productResult in
-                productResult.check(type: .library(.automatic), targets: ["foo"])
+            package.checkProduct("foo") { product in
+                product.check(type: .library(.automatic), targets: ["foo"])
             }
         }
     }
@@ -1313,10 +1421,13 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("bar") { _ in }
-            result.checkDiagnostic("system library product foo shouldn\'t have a type and contain only one target")
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("foo") { _ in }
+            package.checkModule("bar") { _ in }
+            diagnostics.check(
+                diagnostic: "system library product foo shouldn't have a type and contain only one target",
+                behavior: .error,
+                location: "'SystemModulePackage' /")
         }
 
         manifest = Manifest.createV4Manifest(
@@ -1329,10 +1440,13 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkModule("bar") { _ in }
-            result.checkDiagnostic("system library product foo shouldn't have a type and contain only one target")
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("foo") { _ in }
+            package.checkModule("bar") { _ in }
+            diagnostics.check(
+                diagnostic: "system library product foo shouldn't have a type and contain only one target",
+                behavior: .error,
+                location: "'SystemModulePackage' /")
         }
     }
 
@@ -1350,9 +1464,12 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "foo"),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { _ in }
-            result.checkDiagnostic("executable product \'foo\' should have exactly one executable target")
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            package.checkModule("foo") { _ in }
+            diagnostics.check(
+                diagnostic: "executable product \'foo\' should have exactly one executable target",
+                behavior: .error,
+                location: "'MyPackage' /")
         }
     }
 
@@ -1368,10 +1485,13 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, createREPLProduct: true, in: fs) { result in
-            result.checkModule("exe") { _ in }
-            result.checkProduct("exe") { _ in }
-            result.checkDiagnostic("unable to synthesize a REPL product as there are no library targets in the package")
+        PackageBuilderTester(manifest, createREPLProduct: true, in: fs) { package, diagnostics in
+            package.checkModule("exe") { _ in }
+            package.checkProduct("exe") { _ in }
+            diagnostics.check(
+                diagnostic: "unable to synthesize a REPL product as there are no library targets in the package",
+                behavior: .error,
+                location: "'Pkg' /")
         }
     }
 
@@ -1387,7 +1507,7 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createManifest(
             name: "pkg",
             platforms: [
-                PlatformDescription(name: "macos", version: "10.12"),
+                PlatformDescription(name: "macos", version: "10.12", options: ["option1"]),
             ],
             v: .v5,
             targets: [
@@ -1403,17 +1523,26 @@ class PackageBuilderTests: XCTestCase {
             "ios": "8.0",
             "tvos": "9.0",
             "watchos": "2.0",
+            "android": "0.0",
         ]
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { t in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
+
             }
-            result.checkModule("bar") { t in
+            package.checkModule("bar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
+
             }
-            result.checkModule("cbar") { t in
+            package.checkModule("cbar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
             }
         }
 
@@ -1438,16 +1567,17 @@ class PackageBuilderTests: XCTestCase {
             "linux": "0.0",
             "ios": "8.0",
             "watchos": "2.0",
+            "android": "0.0",
         ]
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("foo") { t in
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
             }
-            result.checkModule("bar") { t in
+            package.checkModule("bar") { t in
                 t.checkPlatforms(expectedPlatforms)
             }
-            result.checkModule("cbar") { t in
+            package.checkModule("cbar") { t in
                 t.checkPlatforms(expectedPlatforms)
             }
         }
@@ -1470,9 +1600,9 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("lib") { moduleResult in
-                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.c")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("lib") { module in
+                module.checkSources(root: "/Sources/lib", paths: "lib.c")
             }
         }
     }
@@ -1495,9 +1625,9 @@ class PackageBuilderTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("lib") { moduleResult in
-                moduleResult.checkSources(root: "/Sources/lib", paths: "lib.c", "lib.s", "lib2.S")
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("lib") { module in
+                module.checkSources(root: "/Sources/lib", paths: "lib.c", "lib.s", "lib2.S")
             }
         }
     }
@@ -1550,32 +1680,50 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest, in: fs) { result in
-            result.checkModule("cbar") { result in
-                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cbar") { package in
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX"])
                 XCTAssertEqual(scope.evaluate(.HEADER_SEARCH_PATHS), ["Sources/headers", "Sources/cppheaders"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), ["-Icfoo", "-L", "cbar"])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), ["-Icxxfoo", "-L", "cxxbar"])
 
-                let releaseScope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .release))
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
                 XCTAssertEqual(releaseScope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS), ["CCC=2", "CXX", "RCXX"])
             }
 
-            result.checkModule("bar") { result in
-                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .debug))
+            package.checkModule("bar") { package in
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX"])
                 XCTAssertEqual(scope.evaluate(.OTHER_SWIFT_FLAGS), ["-Isfoo", "-L", "sbar"])
 
-                let rscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .release))
+                let rscope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                )
                 XCTAssertEqual(rscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "LINUX", "RLINUX"])
 
-                let mscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.macOS, .debug))
+                let mscope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
                 XCTAssertEqual(mscope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS), ["SOMETHING", "DMACOS"])
             }
 
-            result.checkModule("exe") { result in
-                let scope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.linux, .debug))
+            package.checkModule("exe") { package in
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
                 XCTAssertEqual(scope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
                 XCTAssertEqual(scope.evaluate(.OTHER_LDFLAGS), ["-Ilfoo", "-L", "lbar"])
                 XCTAssertEqual(scope.evaluate(.LINK_FRAMEWORKS), [])
@@ -1583,13 +1731,16 @@ class PackageBuilderTests: XCTestCase {
                 XCTAssertEqual(scope.evaluate(.OTHER_CFLAGS), [])
                 XCTAssertEqual(scope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
 
-                let mscope = BuildSettings.Scope(result.target.buildSettings, boundCondition: (.iOS, .debug))
+                let mscope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .iOS, configuration: .debug)
+                )
                 XCTAssertEqual(mscope.evaluate(.LINK_LIBRARIES), ["sqlite3"])
                 XCTAssertEqual(mscope.evaluate(.LINK_FRAMEWORKS), ["CoreData"])
 
             }
 
-            result.checkProduct("exe")
+            package.checkProduct("exe")
         }
     }
 
@@ -1611,8 +1762,8 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { result in
-            result.checkDiagnostic("invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'")
+        PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'", behavior: .error)
         }
 
         let manifest2 = Manifest.createManifest(
@@ -1628,8 +1779,8 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest2, path: AbsolutePath("/pkg"), in: fs) { result in
-            result.checkDiagnostic("invalid header search path '../../..'; header search path should not be outside the package root")
+        PackageBuilderTester(manifest2, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "invalid header search path '../../..'; header search path should not be outside the package root", behavior: .error)
         }
     }
 
@@ -1644,7 +1795,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 TargetDescription(
@@ -1659,11 +1810,125 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest1, path: AbsolutePath("/Foo"), in: fs) { result in
-            result.checkModule("Foo")
-            result.checkModule("Foo2")
-            result.checkDiagnostic("invalid duplicate target dependency declaration 'Bar' in target 'Foo'")
-            result.checkDiagnostic("invalid duplicate target dependency declaration 'Foo2' in target 'Foo'")
+        PackageBuilderTester(manifest1, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
+            package.checkModule("Foo")
+            package.checkModule("Foo2")
+            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo'", behavior: .warning)
+            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo'", behavior: .warning)
+        }
+    }
+
+    func testConditionalDependencies() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/main.swift",
+            "/Sources/Bar/bar.swift",
+            "/Sources/Baz/baz.swift"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .v5,
+            dependencies: [
+                PackageDependencyDescription(name: nil, url: "/Biz", requirement: .localPackage),
+            ],
+            targets: [
+                TargetDescription(
+                    name: "Foo",
+                    dependencies: [
+                        .target(name: "Bar", condition: PackageConditionDescription(
+                            platformNames: ["macos"],
+                            config: nil
+                        )),
+                        .byName(name: "Baz", condition: PackageConditionDescription(
+                            platformNames: [],
+                            config: "debug"
+                        )),
+                        .product(name: "Biz", package: "Biz", condition: PackageConditionDescription(
+                            platformNames: ["watchos", "ios"],
+                            config: "release"
+                        )),
+                    ]
+                ),
+                TargetDescription(name: "Bar"),
+                TargetDescription(name: "Baz"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkProduct("Foo")
+            package.checkModule("Bar")
+            package.checkModule("Baz")
+            package.checkModule("Foo") { target in
+                target.check(dependencies: ["Bar", "Baz", "Biz"])
+
+                target.checkDependency("Bar") { result in
+                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .watchOS, configuration: .release))
+                }
+
+                target.checkDependency("Baz") { result in
+                    result.checkConditions(satisfy: .init(platform: .macOS, configuration: .debug))
+                    result.checkConditions(satisfy: .init(platform: .linux, configuration: .debug))
+                    result.checkConditions(dontSatisfy: .init(platform: .linux, configuration: .release))
+                }
+
+                target.checkDependency("Biz") { result in
+                    result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .release))
+                    result.checkConditions(satisfy: .init(platform: .iOS, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .linux, configuration: .release))
+                    result.checkConditions(dontSatisfy: .init(platform: .iOS, configuration: .debug))
+                }
+            }
+        }
+    }
+
+    func testMissingDefaultLocalization() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo/Resources/en.lproj/Localizable.strings"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .vNext,
+            targets: [
+                TargetDescription(name: "Foo", resources: [
+                    .init(rule: .process, path: "Resources")
+                ]),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { _, diagnostics in
+            diagnostics.check(diagnostic: "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources", behavior: .error)
+        }
+    }
+
+    func testXcodeResources() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo/Foo.xcassets",
+            "/Foo/Sources/Foo/Foo.xib",
+            "/Foo/Sources/Foo/Foo.xcdatamodel"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .vNext,
+            targets: [
+                TargetDescription(name: "Foo"),
+            ]
+        )
+
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { result, diagnostics in
+            result.checkModule("Foo") { result in
+                result.checkSources(sources: ["foo.swift"])
+                result.checkResources(resources: [
+                    "/Foo/Sources/Foo/Foo.xib",
+                    "/Foo/Sources/Foo/Foo.xcdatamodel",
+                    "/Foo/Sources/Foo/Foo.xcassets",
+                ])
+            }
         }
     }
 }
@@ -1679,50 +1944,50 @@ final class PackageBuilderTester {
     /// Contains the result produced by PackageBuilder.
     private let result: Result
 
-    /// Contains the diagnostics which have not been checked yet.
-    private var uncheckedDiagnostics = Set<String>()
-
     /// Contains the targets which have not been checked yet.
-    private var uncheckedModules = Set<PackageModel.Target>()
+    private var uncheckedModules: Set<PackageModel.Target> = []
 
     /// Contains the products which have not been checked yet.
-    private var uncheckedProducts = Set<PackageModel.Product>()
+    private var uncheckedProducts: Set<PackageModel.Product> = []
 
     @discardableResult
     init(
         _ manifest: Manifest,
         path: AbsolutePath = .root,
+        remoteArtifacts: [RemoteArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
-        _ body: (PackageBuilderTester) -> Void
+        _ body: (PackageBuilderTester, DiagnosticsEngineResult) -> Void
     ) {
         let diagnostics = DiagnosticsEngine()
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
-                manifest: manifest, path: path, fileSystem: fs, diagnostics: diagnostics,
-                isRootPackage: true, shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts, createREPLProduct: createREPLProduct)
+                manifest: manifest,
+                path: path,
+                remoteArtifacts: remoteArtifacts,
+                fileSystem: fs,
+                diagnostics: diagnostics,
+                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+                createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
             uncheckedProducts = Set(loadedPackage.products)
         } catch {
-            let errorStr = String(describing: error)
-            result = .error(errorStr)
-            uncheckedDiagnostics.insert(errorStr)
+            let errorString = String(describing: error)
+            result = .error(errorString)
+            diagnostics.emit(error: errorString)
         }
-        uncheckedDiagnostics.formUnion(diagnostics.diagnostics.map({ $0.description }))
-        body(self)
-        validateDiagnostics(file: file, line: line)
-        validateCheckedModules(file: file, line: line)
-    }
 
-    private func validateDiagnostics(file: StaticString, line: UInt) {
-        guard !uncheckedDiagnostics.isEmpty else { return }
-        XCTFail("Unchecked diagnostics: \(uncheckedDiagnostics)", file: file, line: line)
+        DiagnosticsEngineTester(diagnostics) { diagnostics in
+            body(self, diagnostics)
+        }
+
+        validateCheckedModules(file: file, line: line)
     }
 
     private func validateCheckedModules(file: StaticString, line: UInt) {
@@ -1732,14 +1997,6 @@ final class PackageBuilderTester {
 
         if !uncheckedProducts.isEmpty {
             XCTFail("Unchecked products: \(uncheckedProducts)", file: file, line: line)
-        }
-    }
-
-    func checkDiagnostic(_ str: String, file: StaticString = #file, line: UInt = #line) {
-        if uncheckedDiagnostics.contains(str) {
-            uncheckedDiagnostics.remove(str)
-        } else {
-            XCTFail("\(result) did not have error: \"\(str)\" or is already checked", file: file, line: line)
         }
     }
 
@@ -1826,20 +2083,51 @@ final class PackageBuilderTester {
             checkSources(root: root, sources: paths, file: file, line: line)
         }
 
-        func check(dependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.map{$0.name}), "unexpected dependencies in \(target.name)", file: file, line: line)
+        func checkResources(resources: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(Set(resources), Set(self.target.resources.map{ $0.path.pathString }), "unexpected resource files in \(target.name)", file: file, line: line)
         }
 
-        func check(productDeps depsToCheck: [(name: String, package: String?)], file: StaticString = #file, line: UInt = #line) {
-            guard depsToCheck.count == target.productDependencies.count else {
+        func check(targetDependencies depsToCheck: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(Set(depsToCheck), Set(target.dependencies.compactMap { $0.target?.name }), "unexpected dependencies in \(target.name)", file: file, line: line)
+        }
+
+        func check(
+            productDependencies depsToCheck: [Target.ProductReference],
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            let productDependencies = target.dependencies.compactMap { $0.product }
+            guard depsToCheck.count == productDependencies.count else {
                 return XCTFail("Incorrect product dependencies", file: file, line: line)
             }
             for (idx, element) in depsToCheck.enumerated() {
-                let rhs = target.productDependencies[idx]
+                let rhs = productDependencies[idx]
                 guard element.name == rhs.name && element.package == rhs.package else {
                     return XCTFail("Incorrect product dependencies", file: file, line: line)
                 }
             }
+        }
+
+        func check(dependencies: [String], file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(
+                Set(dependencies),
+                Set(target.dependencies.map({ $0.name })),
+                "unexpected dependencies in \(target.name)",
+                file: file,
+                line: line
+            )
+        }
+
+        func checkDependency(
+            _ name: String,
+            file: StaticString = #file,
+            line: UInt = #line,
+            _ body: (ModuleDependencyResult) -> Void
+        ) {
+            guard let dependency = target.dependencies.first(where: { $0.name == name }) else {
+                return XCTFail("Module: \(name) not found", file: file, line: line)
+            }
+            body(ModuleDependencyResult(dependency))
         }
 
         func check(swiftVersion: String, file: StaticString = #file, line: UInt = #line) {
@@ -1852,6 +2140,31 @@ final class PackageBuilderTester {
         func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
             let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
             XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+        }
+
+        func checkPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
+            let platform = target.getSupportedPlatform(for: platform)
+            XCTAssertEqual(platform?.options, options, file: file, line: line)
+        }
+    }
+
+    final class ModuleDependencyResult {
+        let dependency: PackageModel.Target.Dependency
+
+        fileprivate init(_ dependency: PackageModel.Target.Dependency) {
+            self.dependency = dependency
+        }
+
+        func checkConditions(satisfy environment: BuildEnvironment, file: StaticString = #file, line: UInt = #line) {
+            XCTAssert(dependency.conditions.allSatisfy { $0.satisfies(environment) }, file: file, line: line)
+        }
+
+        func checkConditions(
+            dontSatisfy environment: BuildEnvironment,
+            file: StaticString = #file,
+            line: UInt = #line
+        ) {
+            XCTAssert(!dependency.conditions.allSatisfy { $0.satisfies(environment) }, file: file, line: line)
         }
     }
 }

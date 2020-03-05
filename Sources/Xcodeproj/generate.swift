@@ -75,6 +75,8 @@ public func generate(
     options: XcodeprojOptions,
     diagnostics: DiagnosticsEngine
 ) throws -> Xcode.Project {
+    diagnoseConditionalTargetDependencies(graph: graph, diagnostics: diagnostics)
+
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
 
@@ -159,6 +161,22 @@ public func generate(
     }
 
     return project
+}
+
+private func diagnoseConditionalTargetDependencies(graph: PackageGraph, diagnostics: DiagnosticsEngine) {
+    let targetsWithConditionalDependencies = graph.allTargets.lazy.filter { target in
+        target.dependencies.contains { dependency in
+            !dependency.conditions.isEmpty
+        }
+    }
+
+    if !targetsWithConditionalDependencies.isEmpty {
+        let targetNames = targetsWithConditionalDependencies.map { $0.name }.joined(separator: ", ")
+        diagnostics.emit(warning: """
+            Xcode project generation does not support conditional target dependencies, so the generated project might \
+            not build successfully. The offending targets are: \(targetNames).
+            """)
+    }
 }
 
 /// Writes the contents to the file specified.
@@ -250,12 +268,12 @@ func generateSchemes(
 // as a reference to the project.
 func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
     let srcroot = package.path
-    var extraFiles = findNonSourceFiles(path: srcroot, manifestVersion: package.manifest.manifestVersion, recursively: false)
+    var extraFiles = findNonSourceFiles(path: srcroot, toolsVersion: package.manifest.toolsVersion, recursively: false)
 
     for target in package.targets {
         let sourcesDirectory = target.sources.root
         if localFileSystem.isDirectory(sourcesDirectory) {
-            let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, manifestVersion: package.manifest.manifestVersion, recursively: true)
+            let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, toolsVersion: package.manifest.toolsVersion, recursively: true)
             extraFiles.append(contentsOf: sourcesExtraFiles)
         }
     }
@@ -273,7 +291,7 @@ func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheck
 /// - parameters:
 ///   - path: The path of the directory to get the files from
 ///   - recursively: Specifies if the directory at `path` should be searched recursively
-func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, recursively: Bool) -> [AbsolutePath] {
+func findNonSourceFiles(path: AbsolutePath, toolsVersion: ToolsVersion, recursively: Bool) -> [AbsolutePath] {
     let filesFromPath: RecursibleDirectoryContentsGenerator?
 
     if recursively {
@@ -293,7 +311,7 @@ func findNonSourceFiles(path: AbsolutePath, manifestVersion: ManifestVersion, re
         if !localFileSystem.isFile($0) { return false }
         if $0.basename.hasPrefix(".") { return false }
         if $0.basename == "Package.resolved" { return false }
-        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(manifestVersion: manifestVersion).contains(`extension`) {
+        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(`extension`) {
             return false
         }
         return true

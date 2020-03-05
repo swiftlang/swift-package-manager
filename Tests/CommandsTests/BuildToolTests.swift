@@ -23,39 +23,54 @@ struct BuildResult {
 
 final class BuildToolTests: XCTestCase {
     @discardableResult
-    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> String {
+    private func execute(
+        _ args: [String],
+        packagePath: AbsolutePath? = nil
+    ) throws -> (stdout: String, stderr: String) {
         return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath)
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil) throws -> BuildResult {
-        let output = try execute(args, packagePath: packagePath)
+        let (output, _) = try execute(args, packagePath: packagePath)
         defer { try! SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath) }
-        let binPathOutput = try execute(["--show-bin-path"], packagePath: packagePath)
+        let (binPathOutput, _) = try execute(["--show-bin-path"], packagePath: packagePath)
         let binPath = AbsolutePath(binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
         let binContents = try localFileSystem.getDirectoryContents(binPath)
         return BuildResult(binPath: binPath, output: output, binContents: binContents)
     }
     
     func testUsage() throws {
-        XCTAssert(try execute(["-help"]).contains("USAGE: swift build"))
+        XCTAssert(try execute(["-help"]).stdout.contains("USAGE: swift build"))
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).contains("SEE ALSO: swift run, swift package, swift test"))
+        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift run, swift package, swift test"))
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
+        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
 
     func testBinPathAndSymlink() throws {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             let fullPath = resolveSymlinks(path)
-            let targetPath = fullPath.appending(components: ".build", Destination.host.target.tripleString)
-            XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath),
-                           "\(targetPath.appending(components: "debug").pathString)\n")
-            XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath),
-                           "\(targetPath.appending(components: "release").pathString)\n")
+            let targetPath = fullPath.appending(components: ".build", Resources.default.toolchain.triple.tripleString)
+            let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
+            XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath).stdout,
+                           "\(targetPath.appending(component: "debug").pathString)\n")
+            XCTAssertEqual(try execute(["-c", "release", "--show-bin-path"], packagePath: fullPath).stdout,
+                           "\(targetPath.appending(component: "release").pathString)\n")
+
+            // Print correct path when building with XCBuild.
+            let xcodeDebugOutput = try execute(["--build-system", "xcode", "--show-bin-path"], packagePath: fullPath).stdout
+            let xcodeReleaseOutput = try execute(["--build-system", "xcode", "-c", "release", "--show-bin-path"], packagePath: fullPath).stdout
+          #if os(macOS)
+            XCTAssertEqual(xcodeDebugOutput, "\(xcbuildTargetPath.appending(components: "Products", "Debug").pathString)\n")
+            XCTAssertEqual(xcodeReleaseOutput, "\(xcbuildTargetPath.appending(components: "Products", "Release").pathString)\n")
+          #else
+            XCTAssertEqual(xcodeDebugOutput, "\(targetPath.appending(component: "debug").pathString)\n")
+            XCTAssertEqual(xcodeReleaseOutput, "\(targetPath.appending(component: "release").pathString)\n")
+          #endif
 
             // Test symlink.
             _ = try execute([], packagePath: fullPath)
@@ -80,9 +95,9 @@ final class BuildToolTests: XCTestCase {
             }
 
             do {
-                let output = try execute(["--product", "lib1"], packagePath: fullPath)
+                let (_, stderr) = try execute(["--product", "lib1"], packagePath: fullPath)
                 try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: fullPath)
-                XCTAssertTrue(output.contains("'--product' cannot be used with the automatic product 'lib1'; building the default target instead"), output)
+                XCTAssertMatch(stderr, .contains("'--product' cannot be used with the automatic product 'lib1'; building the default target instead"))
             }
 
             do {

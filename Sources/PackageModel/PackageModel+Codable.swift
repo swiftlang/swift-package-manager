@@ -143,16 +143,19 @@ extension TargetDescription.Dependency: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .target(a1):
+        case let .target(a1, a2):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .target)
             try unkeyedContainer.encode(a1)
-        case let .product(a1, a2):
+            try unkeyedContainer.encode(a2)
+        case let .product(a1, a2, a3):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .product)
             try unkeyedContainer.encode(a1)
             try unkeyedContainer.encode(a2)
-        case let .byName(a1):
+            try unkeyedContainer.encode(a3)
+        case let .byName(a1, a2):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .byName)
             try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
         }
     }
 
@@ -165,16 +168,19 @@ extension TargetDescription.Dependency: Codable {
         case .target:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
-            self = .target(name: a1)
+            let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .target(name: a1, condition: a2)
         case .product:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
             let a2 = try unkeyedValues.decodeIfPresent(String.self)
-            self = .product(name: a1, package: a2)
+            let a3 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .product(name: a1, package: a2, condition: a3)
         case .byName:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
-            self = .byName(name: a1)
+            let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .byName(name: a1, condition: a2)
         }
     }
 }

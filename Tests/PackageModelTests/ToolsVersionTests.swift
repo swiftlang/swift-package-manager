@@ -69,4 +69,28 @@ class ToolsVersionTests: XCTestCase {
             }
         }
     }
+
+    func testRuntimeSubpath() {
+        for version in ["4.0.0", "4.1.0", "4.1.9"] {
+            XCTAssertEqual(ToolsVersion(string: version)?.runtimeSubpath.pathString, "4")
+        }
+
+        for version in ["4.2.0", "4.3.0", "5.0.0", "5.1.9", "6.0.0", "7.0.0"] {
+            XCTAssertEqual(ToolsVersion(string: version)?.runtimeSubpath.pathString, "4_2")
+        }
+    }
+
+    func testSwiftLangVersion() {
+        for version in ["4.0.0", "4.1.0", "4.1.9"] {
+            XCTAssertEqual(ToolsVersion(string: version)?.swiftLanguageVersion.description, "4")
+        }
+
+        for version in ["4.2.0", "4.3.0"] {
+            XCTAssertEqual(ToolsVersion(string: version)?.swiftLanguageVersion.description, "4.2")
+        }
+
+        for version in ["5.0.0", "5.1.9", "6.0.0", "7.0.0"] {
+            XCTAssertEqual(ToolsVersion(string: version)?.swiftLanguageVersion.description, "5")
+        }
+    }
 }

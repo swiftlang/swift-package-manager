@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -eu
+
+__dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+SRCROOT="`cd "${__dir}/..";pwd`"
+echo "SRCROOT is $SRCROOT"
+
+BUILD_DIR=$SRCROOT/build
+echo "BUILD_DIR is $BUILD_DIR"
+
+mkdir -p $BUILD_DIR
+cd $BUILD_DIR
+
+CMAKE_Swift_FLAGS=""
+if (uname | grep -qi darwin); then
+    CMAKE_Swift_FLAGS="-sdk $(xcrun --sdk macosx --show-sdk-path)"
+fi
+
+set -x
+cmake \
+    -G Ninja \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_Swift_FLAGS="$CMAKE_Swift_FLAGS" \
+    $SRCROOT
+
+ninja

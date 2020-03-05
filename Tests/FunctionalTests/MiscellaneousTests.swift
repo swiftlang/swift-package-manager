@@ -30,7 +30,7 @@ class MiscellaneousTestCase: XCTestCase {
         // the selected version of the package
 
         fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let output = try executeSwiftBuild(prefix.appending(component: "Bar"))
+            let (output, _) = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertMatch(output, .regex("Resolving .* at 1\\.2\\.3"))
             XCTAssertMatch(output, .contains("Compiling Foo Foo.swift"))
             XCTAssertMatch(output, .contains("Merging module Foo"))
@@ -47,7 +47,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let buildDir = prefix.appending(components: "app", ".build", Destination.host.target.tripleString, "debug")
+            let buildDir = prefix.appending(components: "app", ".build", Resources.default.toolchain.triple.tripleString, "debug")
             XCTAssertFileExists(buildDir.appending(component: "FooExec"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
@@ -91,15 +91,15 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 try executeSwiftBuild(prefix)
                 XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, _) {
-                XCTAssertMatch(output, .contains("Compiling CompileFails Foo.swift"))
-                XCTAssertMatch(output, .regex("error: .*\n.*compile_failure"))
+            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
+                XCTAssertMatch(stderr + output, .contains("Compiling CompileFails Foo.swift"))
+                XCTAssertMatch(stderr + output, .regex("error: .*\n.*compile_failure"))
 
                 if case ProcessResult.Error.nonZeroExit(let result) = error {
                     // if our code crashes we'll get an exit code of 256
                     XCTAssertEqual(result.exitStatus, .terminated(code: 1))
                 } else {
-                    XCTFail()
+                    XCTFail("\(stderr + output)")
                 }
             } catch {
                 XCTFail()
@@ -120,7 +120,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() {
         fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
-            let execpath = prefix.appending(components: ".build", Destination.host.target.tripleString, "debug", "Foo").pathString
+            let execpath = prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Foo").pathString
 
             XCTAssertBuilds(prefix)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -144,7 +144,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let execpath = prefix.appending(components: "app", ".build", Destination.host.target.tripleString, "debug", "Dealer").pathString
+            let execpath = prefix.appending(components: "app", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Dealer").pathString
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
@@ -171,7 +171,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() {
         fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
-            let execpath = [prefix.appending(components: "root", ".build", Destination.host.target.tripleString, "debug", "dep2").pathString]
+            let execpath = [prefix.appending(components: "root", ".build", Resources.default.toolchain.triple.tripleString, "debug", "dep2").pathString]
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
@@ -195,7 +195,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Destination.host.target.tripleString, "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -259,8 +259,8 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestFilter() throws {
         #if os(macOS)
             fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let output = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix)
-                XCTAssert(output.contains("testExample1"))
+                let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1"], packagePath: prefix)
+                XCTAssertMatch(stderr, .contains("testExample1"))
             }
         #endif
     }
@@ -278,7 +278,8 @@ class MiscellaneousTestCase: XCTestCase {
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let output =  systemModule.appending(component: "libSystemModule\(Destination.host.target.dynamicLibraryExtension)")
+            let triple = Resources.default.toolchain.triple
+            let output =  systemModule.appending(component: "libSystemModule\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
             let pcFile = prefix.appending(component: "libSystemModule.pc")
@@ -303,7 +304,7 @@ class MiscellaneousTestCase: XCTestCase {
             let env = ["PKG_CONFIG_PATH": prefix.pathString]
             _ = try executeSwiftBuild(moduleUser, env: env)
 
-            XCTAssertFileExists(moduleUser.appending(components: ".build", Destination.host.target.tripleString, "debug", "SystemModuleUserClang"))
+            XCTAssertFileExists(moduleUser.appending(components: ".build", triple.tripleString, "debug", "SystemModuleUserClang"))
         }
     }
 
@@ -439,7 +440,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testUnicode() {
-        #if !os(Linux) // TODO: - Linux has trouble with this and needs investigation.
+        #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in
             // See the fixture manifest for an explanation of this string.
             let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
@@ -472,5 +473,47 @@ class MiscellaneousTestCase: XCTestCase {
             try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: prefix)
         }
         #endif
+    }
+
+    func testTrivialSwiftAPIDiff() throws {
+        // FIXME: Looks like this test isn't really working at all.
+        guard Resources.havePD4Runtime else { return }
+
+        if (try? Resources.default.toolchain.getSwiftAPIDigester()) == nil {
+            print("unable to find swift-api-digester, skipping \(#function)")
+            return
+        }
+
+        mktmpdir { path in
+            let fs = localFileSystem
+
+            let package = path.appending(component: "foo")
+            try fs.createDirectory(package)
+
+            try SwiftPMProduct.SwiftPackage.execute(["init"], packagePath: package)
+
+            let foo = package.appending(components: "Sources", "foo", "foo.swift")
+            try fs.writeFileContents(foo) {
+                $0 <<< """
+                public struct Foo {
+                    public func foo() -> String { fatalError() }
+                }
+                """
+            }
+
+            initGitRepo(package, tags: ["1.0.0"])
+
+            try fs.writeFileContents(foo) {
+                $0 <<< """
+                public struct Foo {
+                    public func foo(param: Bool = true) -> Int { fatalError() }
+                }
+                """
+            }
+
+            let (diff, _) = try SwiftPMProduct.SwiftPackage.execute(["experimental-api-diff", "1.0.0"], packagePath: package)
+            XCTAssertMatch(diff, .contains("Func Foo.foo() has been renamed to Func foo(param:)"))
+            XCTAssertMatch(diff, .contains("Func Foo.foo() has return type change from Swift.String to Swift.Int"))
+        }
     }
 }

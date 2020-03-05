@@ -12,6 +12,7 @@ import PackageModel
 
 struct ManifestBuilder {
     var name: String!
+    var defaultLocalization: String?
     var platforms: [PlatformDescription] = []
     var targets: [TargetDescription] = []
     var pkgConfig: String?
@@ -23,12 +24,12 @@ struct ManifestBuilder {
     var cxxLanguageStandard: String?
     var cLanguageStandard: String?
 
-    let manifestVersion: ManifestVersion
+    let toolsVersion: ToolsVersion
     let baseURL: String
     let fs: FileSystem
 
-    init(manifestVersion: ManifestVersion, baseURL: String, fileSystem: FileSystem) {
-        self.manifestVersion = manifestVersion
+    init(toolsVersion: ToolsVersion, baseURL: String, fileSystem: FileSystem) {
+        self.toolsVersion = toolsVersion
         self.baseURL = baseURL
         self.fs = fileSystem
     }

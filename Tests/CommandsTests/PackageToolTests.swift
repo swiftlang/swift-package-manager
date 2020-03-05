@@ -12,31 +12,34 @@ import XCTest
 import Foundation
 
 import TSCBasic
-@testable import Commands
+import Commands
 import Xcodeproj
 import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCUtility
 import Workspace
-@testable import class Workspace.PinsStore
 
 final class PackageToolTests: XCTestCase {
     @discardableResult
-    private func execute(_ args: [String], packagePath: AbsolutePath? = nil, env: [String: String]? = nil) throws -> String {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env).spm_chomp()
+    private func execute(
+        _ args: [String],
+        packagePath: AbsolutePath? = nil,
+        env: [String: String]? = nil
+    ) throws -> (stdout: String, stderr: String) {
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
     }
 
     func testUsage() throws {
-        XCTAssert(try execute(["--help"]).contains("USAGE: swift package"))
+        XCTAssert(try execute(["--help"]).stdout.contains("USAGE: swift package"))
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).contains("SEE ALSO: swift build, swift run, swift test"))
+        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).contains("Swift Package Manager"))
+        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
 
     func testResolve() throws {
@@ -91,7 +94,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(targets?[2]["type"]?.stringValue, "library")
             XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
 
-            let textOutput = try execute(["describe"], packagePath: prefix)
+            let (textOutput, _) = try execute(["describe"], packagePath: prefix)
 
             XCTAssert(textOutput.hasPrefix("Name: SwiftCMixed"))
             XCTAssert(textOutput.contains("    C99name: CExec"))
@@ -103,7 +106,7 @@ final class PackageToolTests: XCTestCase {
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             let packageRoot = prefix.appending(component: "app")
-            let dumpOutput = try execute(["dump-package"], packagePath: packageRoot)
+            let (dumpOutput, _) = try execute(["dump-package"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
             guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
@@ -112,19 +115,23 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(platforms, [
                 .dictionary([
                     "platformName": .string("macos"),
-                    "version": .string("10.12")
+                    "version": .string("10.12"),
+                    "options": .array([])
                 ]),
                 .dictionary([
                     "platformName": .string("ios"),
-                    "version": .string("10.0")
+                    "version": .string("10.0"),
+                    "options": .array([])
                 ]),
                 .dictionary([
                     "platformName": .string("tvos"),
-                    "version": .string("11.0")
+                    "version": .string("11.0"),
+                    "options": .array([])
                 ]),
                 .dictionary([
                     "platformName": .string("watchos"),
-                    "version": .string("5.0")
+                    "version": .string("5.0"),
+                    "options": .array([])
                 ]),
             ])
         }
@@ -143,6 +150,118 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(name, "Dealer")
             guard case let .string(path)? = contents["path"] else { XCTFail("unexpected result"); return }
             XCTAssertEqual(resolveSymlinks(AbsolutePath(path)), resolveSymlinks(packageRoot))
+        }
+    }
+
+    func testShowDependencies_dotFormat_sr12016() {
+        // Confirm that SR-12016 is resolved.
+        // See https://bugs.swift.org/browse/SR-12016
+        
+        let fileSystem = InMemoryFileSystem(emptyFiles: [
+            "/PackageA/Sources/TargetA/main.swift",
+            "/PackageB/Sources/TargetB/B.swift",
+            "/PackageC/Sources/TargetC/C.swift",
+            "/PackageD/Sources/TargetD/D.swift",
+        ])
+        
+        let manifestA = Manifest.createManifest(
+            name: "PackageA",
+            path: "/PackageA",
+            url: "/PackageA",
+            v: .currentToolsVersion,
+            packageKind: .root,
+            dependencies: [
+                .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
+                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
+            ],
+            products: [
+                .init(name: "exe", type: .executable, targets: ["TargetA"])
+            ],
+            targets: [
+                .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
+            ]
+        )
+        
+        let manifestB = Manifest.createManifest(
+            name: "PackageB",
+            path: "/PackageB",
+            url: "/PackageB",
+            v: .currentToolsVersion,
+            packageKind: .local,
+            dependencies: [
+                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
+                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+            ],
+            products: [
+                .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
+            ],
+            targets: [
+                .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
+            ]
+        )
+        
+        let manifestC = Manifest.createManifest(
+            name: "PackageC",
+            path: "/PackageC",
+            url: "/PackageC",
+            v: .currentToolsVersion,
+            packageKind: .local,
+            dependencies: [
+                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+            ],
+            products: [
+                .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
+            ],
+            targets: [
+                .init(name: "TargetC", dependencies: ["PackageD"])
+            ]
+        )
+        
+        let manifestD = Manifest.createManifest(
+            name: "PackageD",
+            path: "/PackageD",
+            url: "/PackageD",
+            v: .currentToolsVersion,
+            packageKind: .local,
+            products: [
+                .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
+            ],
+            targets: [
+                .init(name: "TargetD")
+            ]
+        )
+        
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+                                     manifests: [manifestA, manifestB, manifestC, manifestD])
+        XCTAssertNoDiagnostics(diagnostics)
+        
+        let output = BufferedOutputByteStream()
+        dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
+        let dotFormat = output.bytes.description
+        
+        var alreadyPutOut: Set<Substring> = []
+        for line in dotFormat.split(whereSeparator: { $0.isNewline }) {
+            if alreadyPutOut.contains(line) {
+                XCTFail("Same line was already put out: \(line)")
+            }
+            alreadyPutOut.insert(line)
+        }
+        
+        let expectedLines: [Substring] = [
+            #""/PackageA" [label="PackageA\n/PackageA\nunspecified"]"#,
+            #""/PackageB" [label="PackageB\n/PackageB\nunspecified"]"#,
+            #""/PackageC" [label="PackageC\n/PackageC\nunspecified"]"#,
+            #""/PackageD" [label="PackageD\n/PackageD\nunspecified"]"#,
+            #""/PackageA" -> "/PackageB""#,
+            #""/PackageA" -> "/PackageC""#,
+            #""/PackageB" -> "/PackageC""#,
+            #""/PackageB" -> "/PackageD""#,
+            #""/PackageC" -> "/PackageD""#,
+        ]
+        for expectedLine in expectedLines {
+            XCTAssertTrue(alreadyPutOut.contains(expectedLine),
+                          "Expected line is not found: \(expectedLine)")
         }
     }
 
@@ -217,7 +336,7 @@ final class PackageToolTests: XCTestCase {
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
-            func build() throws -> String {
+            func build() throws -> (stdout: String, stderr: String) {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
             }
 
@@ -226,7 +345,7 @@ final class PackageToolTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", Destination.host.target.tripleString, "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "foo").pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -239,9 +358,9 @@ final class PackageToolTests: XCTestCase {
 
             // Do a modification in bar and build.
             try localFileSystem.writeFileContents(editsPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 88888\n")
-            let buildOutput = try build()
+            let (_, stderr) = try build()
 
-            XCTAssert(buildOutput.contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
+            XCTAssertMatch(stderr, .contains("dependency 'baz' was being edited but is missing; falling back to original checkout"))
             // We should be able to see that modification now.
             XCTAssertEqual(try Process.checkNonZeroExit(arguments: exec), "88888\n")
             // The branch of edited package should be the one we provided when putting it in edit mode.
@@ -300,7 +419,7 @@ final class PackageToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: Destination.host.target.tripleString, "debug", "Bar")
+            let binFile = buildPath.appending(components: Resources.default.toolchain.triple.tripleString, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
@@ -319,7 +438,7 @@ final class PackageToolTests: XCTestCase {
             // Build it.
             XCTAssertBuilds(packageRoot)
             let buildPath = packageRoot.appending(component: ".build")
-            let binFile = buildPath.appending(components: Destination.host.target.tripleString, "debug", "Bar")
+            let binFile = buildPath.appending(components: Resources.default.toolchain.triple.tripleString, "debug", "Bar")
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -343,7 +462,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath).stdout
             }
 
             try execute("update")
@@ -385,10 +504,9 @@ final class PackageToolTests: XCTestCase {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
             let fooPath = prefix.appending(component: "foo")
             func build() throws -> String {
-                let buildOutput = try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
-                return buildOutput
+                return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
             }
-            let exec = [fooPath.appending(components: ".build", Destination.host.target.tripleString, "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "foo").pathString]
 
             // Build and sanity check.
             _ = try build()
@@ -421,7 +539,7 @@ final class PackageToolTests: XCTestCase {
 
             @discardableResult
             func execute(_ args: String...) throws -> String {
-                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath)
+                return try SwiftPMProduct.SwiftPackage.execute([] + args, packagePath: fooPath).stdout
             }
 
             // Try to pin bar.
@@ -480,7 +598,7 @@ final class PackageToolTests: XCTestCase {
             try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
             try fs.writeFileContents(root.appending(component: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version:4.0
+                // swift-tools-version:4.2
                 import PackageDescription
                 let package = Package(
                 name: "root",
@@ -495,7 +613,7 @@ final class PackageToolTests: XCTestCase {
             try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
             try fs.writeFileContents(dep.appending(component: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version:4.0
+                // swift-tools-version:4.2
                 import PackageDescription
                 let package = Package(
                 name: "dep",
@@ -565,20 +683,22 @@ final class PackageToolTests: XCTestCase {
             )
 
             // Test writing.
-            try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
-            try execute(["config", "set-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+            var (stdout, stderr) = try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot)
+            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original-url' instead"))
+            try execute(["config", "set-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
             XCTAssertTrue(fs.isFile(configFile))
 
             // Test env override.
-            try execute(["config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
+            try execute(["config", "set-mirror", "--original-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
             XCTAssertTrue(fs.isFile(configOverride))
             XCTAssertTrue(try fs.readFileContents(configOverride).description.contains("mygithub"))
 
             // Test reading.
-            XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot),
-                "https://mygithub.com/foo/bar")
-            XCTAssertEqual(try execute(["config", "get-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot),
-                "git@mygithub.com:foo/swift-package-manager.git")
+            (stdout, stderr) = try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+            XCTAssertEqual(stdout.spm_chomp(), "https://mygithub.com/foo/bar")
+            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original-url' instead"))
+            (stdout, _) = try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+            XCTAssertEqual(stdout.spm_chomp(), "git@mygithub.com:foo/swift-package-manager.git")
 
             func check(stderr: String, _ block: () throws -> ()) {
                 do {
@@ -592,22 +712,23 @@ final class PackageToolTests: XCTestCase {
             }
 
             check(stderr: "not found\n") {
-                try execute(["config", "get-mirror", "--package-url", "foo"], packagePath: packageRoot)
+                try execute(["config", "get-mirror", "--original-url", "foo"], packagePath: packageRoot)
             }
 
             // Test deletion.
-            try execute(["config", "unset-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
-            try execute(["config", "unset-mirror", "--mirror-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
+            (_, stderr) = try execute(["config", "unset-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+            XCTAssertMatch(stderr, .contains("warning: '--package-url' option is deprecated; use '--original-url' instead"))
+            try execute(["config", "unset-mirror", "--original-url", "git@mygithub.com:foo/swift-package-manager.git"], packagePath: packageRoot)
 
             check(stderr: "not found\n") {
-                try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)
+                try execute(["config", "get-mirror", "--original-url", "https://github.com/foo/bar"], packagePath: packageRoot)
             }
             check(stderr: "not found\n") {
-                try execute(["config", "get-mirror", "--package-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
+                try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             }
 
             check(stderr: "error: mirror not found\n") {
-                try execute(["config", "unset-mirror", "--package-url", "foo"], packagePath: packageRoot)
+                try execute(["config", "unset-mirror", "--original-url", "foo"], packagePath: packageRoot)
             }
         }
     }

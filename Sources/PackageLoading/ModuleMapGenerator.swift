@@ -173,7 +173,7 @@ public struct ModuleMapGenerator {
 
         // If the file exists with the identical contents, we don't need to rewrite it.
         // Otherwise, compiler will recompile even if nothing else has changed.
-        if let contents = try? localFileSystem.readFileContents(file), contents == stream.bytes {
+        if let contents = try? fileSystem.readFileContents(file), contents == stream.bytes {
             return
         }
         try fileSystem.writeFileContents(file, bytes: stream.bytes)

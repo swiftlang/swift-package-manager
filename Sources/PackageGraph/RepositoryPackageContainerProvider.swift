@@ -59,10 +59,10 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>) -> Void
+        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
         // If the container is local, just create and return a local package container.
-        if identifier.isLocal {
+        if identifier.kind != .remote {
             callbacksQueue.async {
                 let container = LocalPackageContainer(identifier,
                     config: self.config,
@@ -78,7 +78,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         // Resolve the container using the repository manager.
         repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
             // Create the container wrapper.
-            let container = result.mapAny { handle -> PackageContainer in
+            let container = result.tryMap { handle -> PackageContainer in
                 // Open the repository.
                 //
                 // FIXME: Do we care about holding this open for the lifetime of the container.
@@ -107,7 +107,7 @@ extension PackageReference {
     ///
     /// This should only be accessed when the reference is not local.
     public var repository: RepositorySpecifier {
-        precondition(!isLocal)
+        precondition(kind == .remote)
         return RepositorySpecifier(url: path)
     }
 }
@@ -198,18 +198,16 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         // Load the tools version.
         let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
 
-        // Ensure current tools supports this package.
-        guard self.currentToolsVersion >= toolsVersion else {
-            // FIXME: Throw from here
-            fatalError()
-        }
+        // Validate the tools version.
+        try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: identifier.path)
 
         // Load the manifest.
         _manifest = try manifestLoader.load(
             package: AbsolutePath(identifier.path),
             baseURL: identifier.path,
             version: nil,
-            manifestVersion: toolsVersion.manifestVersion,
+            toolsVersion: toolsVersion,
+            packageKind: identifier.kind,
             fileSystem: fs)
         return _manifest!
     }
@@ -267,7 +265,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    private(set) var validToolsVersionsCache: [Version: Bool] = [:]
+    public private(set) var validToolsVersionsCache: [Version: Bool] = [:]
 
     /// The available version list (in reverse order).
     public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
@@ -468,7 +466,8 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             package: AbsolutePath.root,
             baseURL: packageURL,
             version: version,
-            manifestVersion: toolsVersion.manifestVersion,
+            toolsVersion: toolsVersion,
+            packageKind: identifier.kind,
             fileSystem: fs)
     }
 }

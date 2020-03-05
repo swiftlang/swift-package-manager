@@ -11,7 +11,7 @@
 import TSCBasic
 import PackageModel
 
-func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode) {
+public func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream = stdoutStream) {
     let dumper: DependenciesDumper
     switch mode {
     case .text:
@@ -23,15 +23,16 @@ func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode
     case .flatlist:
         dumper = FlatListDumper()
     }
-    dumper.dump(dependenciesOf: rootPackage)
+    dumper.dump(dependenciesOf: rootPackage, on: stream)
+    stream.flush()
 }
 
 private protocol DependenciesDumper {
-    func dump(dependenciesOf: ResolvedPackage)
+    func dump(dependenciesOf: ResolvedPackage, on: OutputByteStream)
 }
 
 private final class PlainTextDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage], prefix: String = "") {
             var hanger = prefix + "├── "
 
@@ -42,7 +43,7 @@ private final class PlainTextDumper: DependenciesDumper {
 
                 let pkgVersion = package.manifest.version?.description ?? "unspecified"
 
-                print("\(hanger)\(package.name)<\(package.manifest.url)@\(pkgVersion)>")
+                stream <<< "\(hanger)\(package.name)<\(package.manifest.url)@\(pkgVersion)>\n"
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
@@ -55,19 +56,19 @@ private final class PlainTextDumper: DependenciesDumper {
         }
 
         if !rootpkg.dependencies.isEmpty {
-            print(".")
+            stream <<< (".\n")
             recursiveWalk(packages: rootpkg.dependencies)
         } else {
-            print("No external dependencies found")
+            stream <<< "No external dependencies found\n"
         }
     }
 }
 
 private final class FlatListDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
-                print(package.name)
+                stream <<< package.name <<< "\n"
                 if !package.dependencies.isEmpty {
                     recursiveWalk(packages: package.dependencies)
                 }
@@ -80,14 +81,32 @@ private final class FlatListDumper: DependenciesDumper {
 }
 
 private final class DotDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+        var nodesAlreadyPrinted: Set<String> = []
+        func printNode(_ package: ResolvedPackage) {
+            let url = package.manifest.url
+            if nodesAlreadyPrinted.contains(url) { return }
+            let pkgVersion = package.manifest.version?.description ?? "unspecified"
+            stream <<< #""\#(url)" [label="\#(package.name)\n\#(url)\n\#(pkgVersion)"]"# <<< "\n"
+            nodesAlreadyPrinted.insert(url)
+        }
+        
+        struct DependencyURLs: Hashable {
+            var root: String
+            var dependency: String
+        }
+        var dependenciesAlreadyPrinted: Set<DependencyURLs> = []
         func recursiveWalk(rootpkg: ResolvedPackage) {
             printNode(rootpkg)
             for dependency in rootpkg.dependencies {
+                let rootURL = rootpkg.manifest.url
+                let dependencyURL = dependency.manifest.url
+                let urlPair = DependencyURLs(root: rootURL, dependency: dependencyURL)
+                if dependenciesAlreadyPrinted.contains(urlPair) { continue }
+                
                 printNode(dependency)
-                print("""
-                    "\(rootpkg.manifest.url)" -> "\(dependency.manifest.url)"
-                    """)
+                stream <<< #""\#(rootURL)" -> "\#(dependencyURL)""# <<< "\n"
+                dependenciesAlreadyPrinted.insert(urlPair)
 
                 if !dependency.dependencies.isEmpty {
                     recursiveWalk(rootpkg: dependency)
@@ -95,26 +114,19 @@ private final class DotDumper: DependenciesDumper {
             }
         }
 
-        func printNode(_ package: ResolvedPackage) {
-            let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            print("""
-                "\(package.manifest.url)"[label="\(package.name)\\n\(package.manifest.url)\\n\(pkgVersion)"]
-                """)
-        }
-
         if !rootpkg.dependencies.isEmpty {
-            print("digraph DependenciesGraph {")
-            print("node [shape = box]")
+            stream <<< "digraph DependenciesGraph {\n"
+            stream <<< "node [shape = box]\n"
             recursiveWalk(rootpkg: rootpkg)
-            print("}")
+            stream <<< "}\n"
         } else {
-            print("No external dependencies found")
+            stream <<< "No external dependencies found\n"
         }
     }
 }
 
 private final class JSONDumper: DependenciesDumper {
-    func dump(dependenciesOf rootpkg: ResolvedPackage) {
+    func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
                 "name": .string(package.name),
@@ -125,14 +137,14 @@ private final class JSONDumper: DependenciesDumper {
             ])
         }
 
-        print(convert(rootpkg).toString(prettyPrint: true))
+        stream <<< convert(rootpkg).toString(prettyPrint: true) <<< "\n"
     }
 }
 
-enum ShowDependenciesMode: CustomStringConvertible {
+public enum ShowDependenciesMode: CustomStringConvertible {
     case text, dot, json, flatlist
 
-    init?(rawValue: String) {
+    public init?(rawValue: String) {
         switch rawValue.lowercased() {
         case "text":
            self = .text
@@ -147,7 +159,7 @@ enum ShowDependenciesMode: CustomStringConvertible {
         }
     }
 
-    var description: String {
+    public var description: String {
         switch self {
         case .text: return "text"
         case .dot: return "dot"

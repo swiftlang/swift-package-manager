@@ -8,39 +8,38 @@
 
 cmake_minimum_required(VERSION 3.15.1)
 
-project(example LANGUAGES C Swift)
-option(USE_VENDORED_TSC "Use vendored version of TSC" OFF)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+
+project(SwiftPM LANGUAGES C Swift)
 
 set(SWIFT_VERSION 5)
 set(CMAKE_Swift_LANGUAGE_VERSION ${SWIFT_VERSION})
 if(CMAKE_VERSION VERSION_LESS 3.16)
     add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-swift-version$<SEMICOLON>${SWIFT_VERSION}>)
+    set(CMAKE_LINK_LIBRARY_FLAG "-l")
 endif()
 
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+if(CMAKE_VERSION VERSION_LESS 3.16 AND CMAKE_SYSTEM_NAME STREQUAL Windows)
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+else()
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 option(BUILD_SHARED_LIBS "Build shared libraryes by default" YES)
 
-if(USE_VENDORED_TSC)
-    message("Using vendored TSC")
-else()
-    message("Not using vendored TSC")
-    find_package(TSC CONFIG REQUIRED)
+find_package(TSC CONFIG REQUIRED)
+
+find_package(LLBuild CONFIG)
+if(NOT LLBuild_FOUND)
+  find_package(LLBuild REQUIRED)
 endif()
 
-if(LLBUILD_FRAMEWORK)
-    message("Using llbuild framework: ${LLBUILD_FRAMEWORK}")
-else()
-    message("Using libllbuild")
-    find_package(LLBuild CONFIG REQUIRED)
-endif()
+find_package(dispatch QUIET)
+find_package(Foundation QUIET)
 
 add_subdirectory(Sources)
-
-if(SWIFTPM_BUILD_DIR)
-    add_subdirectory(Utilities/BuildExtras/Install)
-endif()

@@ -578,7 +578,7 @@ Represents dependency on other targets in the package or products from other pac
 public static func target(name: String) -> Target.Dependency
 
 /// A dependency on a product from a package dependency.
-public static func product(name: String, package: String? = nil) -> Target.Dependency
+public static func product(name: String, package: String) -> Target.Dependency
 
 // A by-name dependency that resolves to either a target or a product,
 // as above, after the package graph has been loaded.

@@ -138,14 +138,14 @@ enum GitInterfaceError: Swift.Error {
 /// A basic `git` repository. This class is thread safe.
 public class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
-    struct Hash: Hashable {
+    public struct Hash: Hashable {
         // FIXME: We should optimize this representation.
         let bytes: ByteString
 
         /// Create a hash from the given hexadecimal representation.
         ///
         /// - Returns; The hash, or nil if the identifier is invalid.
-        init?(_ identifier: String) {
+        public init?(_ identifier: String) {
             self.init(asciiBytes: ByteString(encodingAsUTF8: identifier).contents)
         }
 
@@ -170,18 +170,18 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// A commit object.
-    struct Commit: Equatable {
+    public struct Commit: Equatable {
         /// The object hash.
-        let hash: Hash
+        public let hash: Hash
 
         /// The tree contained in the commit.
-        let tree: Hash
+        public let tree: Hash
     }
 
     /// A tree object.
-    struct Tree {
-        struct Entry {
-            enum EntryType {
+    public struct Tree {
+        public struct Entry {
+            public enum EntryType {
                 case blob
                 case commit
                 case executableBlob
@@ -209,20 +209,20 @@ public class GitRepository: Repository, WorkingCheckout {
             }
 
             /// The hash of the object.
-            let hash: Hash
+            public let hash: Hash
 
             /// The type of object referenced.
-            let type: EntryType
+            public let type: EntryType
 
             /// The name of the object.
-            let name: String
+            public let name: String
         }
 
         /// The object hash.
-        let hash: Hash
+        public let hash: Hash
 
         /// The list of contents.
-        let contents: [Entry]
+        public let contents: [Entry]
     }
 
     /// The path of the repository on disk.
@@ -251,7 +251,7 @@ public class GitRepository: Repository, WorkingCheckout {
     /// - parameters:
     ///   - remote: The name of the remote to operate on. It should already be present.
     ///   - url: The new url of the remote.
-    func setURL(remote: String, url: String) throws {
+    public func setURL(remote: String, url: String) throws {
         try queue.sync {
             try Process.checkNonZeroExit(
                 args: Git.tool, "-C", path.pathString, "remote", "set-url", remote, url)
@@ -450,7 +450,7 @@ public class GitRepository: Repository, WorkingCheckout {
     ///
     /// Technically this method can accept much more than a "treeish", it maps
     /// to the syntax accepted by `git rev-parse`.
-    func resolveHash(treeish: String, type: String? = nil) throws -> Hash {
+    public func resolveHash(treeish: String, type: String? = nil) throws -> Hash {
         let specifier: String
         if let type = type {
             specifier = treeish + "^{\(type)}"
@@ -471,7 +471,7 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Read the commit referenced by `hash`.
-    func read(commit hash: Hash) throws -> Commit {
+    public func read(commit hash: Hash) throws -> Commit {
         // Currently, we just load the tree, using the typed `rev-parse` syntax.
         let treeHash = try resolveHash(treeish: hash.bytes.description, type: "tree")
 
@@ -479,7 +479,7 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Read a tree object.
-    func read(tree hash: Hash) throws -> Tree {
+    public func read(tree hash: Hash) throws -> Tree {
         // Get the contents using `ls-tree`.
         let treeInfo: String = try queue.sync {
             try cachedTrees.memo(key: hash) {
@@ -692,6 +692,10 @@ private class GitFileSystemView: FileSystem {
         return AbsolutePath("/")
     }
 
+    func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
+        fatalError("Unsupported")
+    }
+
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
             throw FileSystemError.noEntry
@@ -740,5 +744,13 @@ private class GitFileSystemView: FileSystem {
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
         throw FileSystemError.unsupported
+    }
+
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("will never be supported")
+    }
+
+    func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("will never be supported")
     }
 }

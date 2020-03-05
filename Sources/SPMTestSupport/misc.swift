@@ -146,7 +146,34 @@ public func executeSwiftBuild(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: [String: String]? = nil
-) throws -> String {
+) throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
+}
+
+@discardableResult
+public func executeSwiftRun(
+    _ packagePath: AbsolutePath,
+    _ executable: String,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: [String: String]? = nil
+) throws -> (stdout: String, stderr: String) {
+    var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    args.append(executable)
+    return try SwiftPMProduct.SwiftRun.execute(args, packagePath: packagePath, env: env)
+}
+
+private func swiftArgs(
+    configuration: Configuration,
+    extraArgs: [String],
+    Xcc: [String],
+    Xld: [String],
+    Xswiftc: [String]
+) -> [String] {
     var args = ["--configuration"]
     switch configuration {
     case .Debug:
@@ -154,45 +181,33 @@ public func executeSwiftBuild(
     case .Release:
         args.append("release")
     }
+
     args += extraArgs
     args += Xcc.flatMap({ ["-Xcc", $0] })
     args += Xld.flatMap({ ["-Xlinker", $0] })
     args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
-
-    return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
+    return args
 }
 
 public func loadPackageGraph(
-    roots: [String],
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
+    shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false
 ) -> PackageGraph {
-    let input = PackageGraphRootInput(packages: roots.map({ AbsolutePath($0) }))
-    let rootManifests = manifests.filter({ roots.contains($0.path.parentDirectory.pathString) })
+    let rootManifests = manifests.filter({ $0.packageKind == .root })
+    let externalManifests = manifests.filter({ $0.packageKind != .root })
+    let packages = rootManifests.map({ $0.path })
+    let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests)
-    let externalManifests = manifests.filter({ !roots.contains($0.path.parentDirectory.pathString) })
 
     return PackageGraphLoader().load(
         root: graphRoot,
         externalManifests: externalManifests,
         diagnostics: diagnostics,
         fileSystem: fs,
-        createREPLProduct: createREPLProduct
-    )
-}
-
-public func loadPackageGraph(
-    root: String,
-    fs: FileSystem,
-    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
-    manifests: [Manifest],
-    createREPLProduct: Bool = false
-) -> PackageGraph {
-    return loadPackageGraph(
-        roots: [root], fs: fs,
-        diagnostics: diagnostics, manifests: manifests,
+        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct
     )
 }

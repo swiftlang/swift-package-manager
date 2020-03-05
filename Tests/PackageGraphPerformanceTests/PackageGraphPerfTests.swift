@@ -18,6 +18,7 @@ import SPMTestSupport
 class PackageGraphPerfTests: XCTestCasePerf {
 
     func testLoading100Packages() throws {
+      #if os(macOS)
         let N = 100
         let files = (1...N).map { "/Foo\($0)/source.swift" }
         let fs = InMemoryFileSystem(emptyFiles: files)
@@ -35,25 +36,28 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 dependencies = []
                 targets = [TargetDescription(name: name, path: ".")]
             } else {
-                let depUrl = "/Foo\(pkg + 1)"
-                dependencies = [PackageDependencyDescription(url: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
-                targets = [TargetDescription(name: name, dependencies: [.byName(name: "Foo\(pkg + 1)")], path: ".")]
+                let depName = "Foo\(pkg + 1)"
+                let depUrl = "/\(depName)"
+                dependencies = [PackageDependencyDescription(name: depName, url: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
+                targets = [TargetDescription(name: name, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
             }
             // Create manifest.
+            let isRoot = pkg == 1
             let manifest = Manifest(
                 name: name,
                 platforms: [],
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
                 version: "1.0.0",
-                manifestVersion: .v4,
+                toolsVersion: .v4_2,
+                packageKind: isRoot ? .root : .remote,
                 dependencies: dependencies,
                 products: [
                     ProductDescription(name: name, targets: [name])
                 ],
                 targets: targets
             )
-            if pkg == 1 {
+            if isRoot {
                 rootManifests = [manifest]
             } else {
                 externalManifests.append(manifest)
@@ -70,5 +74,6 @@ class PackageGraphPerfTests: XCTestCasePerf {
             XCTAssertEqual(g.packages.count, N)
             XCTAssertNoDiagnostics(diagnostics)
         }
+      #endif
     }
 }

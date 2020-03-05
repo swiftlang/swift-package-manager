@@ -13,7 +13,7 @@ import XCTest
 import TSCBasic
 import PackageLoading
 import PackageModel
-@testable import PackageGraph
+import PackageGraph
 import SourceControl
 
 import SPMTestSupport
@@ -130,25 +130,6 @@ private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManage
     }
 }
 
-private struct MockDependencyResolver {
-    let repositories: MockRepositories
-    let delegate: MockResolverDelegate
-    private let resolver: DependencyResolver
-
-    init(directory: AbsolutePath, repositories: MockRepository...) {
-        self.repositories = MockRepositories(repositories: repositories)
-        self.delegate = MockResolverDelegate()
-        let repositoryManager = RepositoryManager(path: directory, provider: self.repositories, delegate: self.delegate)
-        let provider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager, manifestLoader: self.repositories.manifestLoader)
-        self.resolver = DependencyResolver(provider, delegate)
-    }
-
-    func resolve(constraints: [RepositoryPackageConstraint]) throws -> [(container: PackageReference, binding: BoundVersion)] {
-        return try resolver.resolve(constraints: constraints)
-    }
-}
-
 // Some handy versions & ranges.
 //
 // The convention is that the name matches how specific the version is, so "v1"
@@ -175,60 +156,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         assertIdentity("https://foo/bar/baz.git", "baz")
         assertIdentity("git@github.com/foo/bar/baz.git", "baz")
         assertIdentity("/path/to/foo/bar/baz.git", "baz")
-    }
-
-    func testBasics() throws {
-        let fs = InMemoryFileSystem()
-        try fs.writeFileContents(AbsolutePath("/Package.swift"), bytes: ByteString(encodingAsUTF8: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)\n"))
-        let repoA = MockRepository(
-            fs: fs,
-            url: "A",
-            versions: [
-                v1: Manifest(
-                    name: "Foo",
-                    platforms: [],
-                    path: AbsolutePath("/Package.swift"),
-                    url: "A",
-                    version: v1,
-                    manifestVersion: .v4,
-                    dependencies: [PackageDependencyDescription(url: "B", requirement: .upToNextMajor(from: "2.0.0"))]
-                )
-            ])
-        let repoB = MockRepository(
-            fs: fs,
-            url: "B",
-            versions: [
-                v2: Manifest(
-                    name: "Bar",
-                    platforms: [],
-                    path: AbsolutePath("/Package.swift"),
-                    url: "B",
-                    version: v2,
-                    manifestVersion: .v4
-                )
-            ])
-
-        try! withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDirPath in
-            let resolver = MockDependencyResolver(directory: tmpDirPath, repositories: repoA, repoB)
-
-            let constraints = [
-                RepositoryPackageConstraint(
-                    container: repoA.packageRef,
-                    versionRequirement: v1Range)
-            ]
-            let result: [(PackageReference, Version)] = try resolver.resolve(constraints: constraints).compactMap {
-                guard case .version(let version) = $0.binding else {
-                    XCTFail("Unexpecting non version binding \($0.binding)")
-                    return nil
-                }
-                return ($0.container, version)
-            }
-            XCTAssertEqual(result, [
-                    repoA.packageRef: v1,
-                    repoB.packageRef: v2,
-                ])
-            XCTAssertEqual(resolver.delegate.fetched, [repoA.specifier, repoB.specifier])
-        }
     }
 
     func testVprefixVersions() throws {
@@ -429,5 +356,126 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let container = try await { provider.getContainer(for: ref, completion: $0) }
         let v = container.versions(filter: { _ in true }).map{$0}
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
+    }
+
+    func testDependencyConstraints() throws {
+        let dependencies = [
+            PackageDependencyDescription(name: "Bar1", url: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar2", url: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar3", url: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        let products = [
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
+        ]
+
+        let targets = [
+            TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
+            TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
+            TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
+        ]
+
+        let config = SwiftPMConfig()
+
+        let constraints = dependencies.map({
+            RepositoryPackageConstraint(
+                container: $0.createPackageRef(config: config),
+                requirement: $0.requirement.toConstraintRequirement())
+        })
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5,
+                packageKind: .root,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                    constraints[2],
+                ]
+            )
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5,
+                packageKind: .local,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                    constraints[2],
+                ]
+            )
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5_2,
+                packageKind: .root,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                    constraints[2],
+                ]
+            )
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                url: "/Foo",
+                v: .v5_2,
+                packageKind: .local,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(
+                manifest
+                    .dependencyConstraints(config: config)
+                    .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
+                [
+                    constraints[0],
+                    constraints[1],
+                ]
+            )
+        }
     }
 }

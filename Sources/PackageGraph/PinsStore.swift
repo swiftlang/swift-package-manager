@@ -14,6 +14,8 @@ import SourceControl
 import PackageModel
 
 public final class PinsStore {
+    public typealias PinsMap = [PackageReference.PackageIdentity: PinsStore.Pin]
+
     public struct Pin {
         /// The package reference of the pinned dependency.
         public let packageRef: PackageReference
@@ -21,7 +23,7 @@ public final class PinsStore {
         /// The pinned state.
         public let state: CheckoutState
 
-        init(
+        public init(
             packageRef: PackageReference,
             state: CheckoutState
         ) {
@@ -42,9 +44,7 @@ public final class PinsStore {
     fileprivate var fileSystem: FileSystem
 
     /// The pins map.
-    ///
-    /// Key -> Package Identity.
-    public fileprivate(set) var pinsMap: [String: Pin]
+    public fileprivate(set) var pinsMap: PinsMap
 
     /// The current pins.
     public var pins: AnySequence<Pin> {
@@ -131,7 +131,7 @@ extension PinsStore: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(items: json.get("pins").map({ ($0.packageRef.identity, $0) }))
+        self.pinsMap = try Dictionary(uniqueKeysWithValues: json.get("pins").map({ ($0.packageRef.identity, $0) }))
     }
 
     /// Saves the current state of pins.
@@ -148,7 +148,8 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
     public init(json: JSON) throws {
         let name: String? = json.get("package")
         let url: String = try json.get("repositoryURL")
-        let ref = PackageReference(identity: PackageReference.computeIdentity(packageURL: url), path: url)
+        let identity = PackageReference.computeIdentity(packageURL: url)
+        let ref = PackageReference(identity: identity, path: url)
         self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")
     }

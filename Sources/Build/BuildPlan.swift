@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+ Copyright 2015 - 2019 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -14,20 +14,11 @@ import PackageModel
 import PackageGraph
 import PackageLoading
 import Foundation
+import SPMBuildCore
 
-public struct BuildParameters: Encodable {
-    /// Mode for the indexing-while-building feature.
-    public enum IndexStoreMode: String, Encodable {
-        /// Index store should be enabled.
-        case on
-        /// Index store should be disabled.
-        case off
-        /// Index store should be enabled in debug configuration.
-        case auto
-    }
-
+extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    fileprivate var moduleCache: AbsolutePath {
+    public var moduleCache: AbsolutePath {
         // FIXME: We use this hack to let swiftpm's functional test use shared
         // cache so it doesn't become painfully slow.
         if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
@@ -36,42 +27,13 @@ public struct BuildParameters: Encodable {
         return buildPath.appending(component: "ModuleCache")
     }
 
-    /// The path to the data directory.
-    public let dataPath: AbsolutePath
-
-    /// The build configuration.
-    public let configuration: BuildConfiguration
-
-    /// The path to the build directory (inside the data directory).
-    public var buildPath: AbsolutePath {
-        return dataPath.appending(component: configuration.dirname)
-    }
-
-    /// The path to the index store directory.
-    public var indexStore: AbsolutePath {
-        assert(indexStoreMode != .off, "index store is disabled")
-        return buildPath.appending(components: "index", "store")
-    }
-
-    /// The path to the code coverage directory.
-    public var codeCovPath: AbsolutePath {
-        return buildPath.appending(component: "codecov")
-    }
-
-    /// The path to the code coverage profdata file.
-    public var codeCovDataFile: AbsolutePath {
-        return codeCovPath.appending(component: "default.profdata")
-    }
-
-    /// The toolchain.
-    public var toolchain: Toolchain { _toolchain.toolchain }
-    private let _toolchain: _Toolchain
-
-    /// Destination triple.
-    public let triple: Triple
-
-    /// Extra build flags.
-    public let flags: BuildFlags
+    /// Checks if stdout stream is tty.
+    fileprivate static var isTTY: Bool = {
+        guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
+            return false
+        }
+        return TerminalController.isTTY(stream)
+    }()
 
     /// Extra flags to pass to Swift compiler.
     public var swiftCompilerFlags: [String] {
@@ -111,79 +73,8 @@ public struct BuildParameters: Encodable {
         return flags
     }
 
-    /// The tools version to use.
-    public let toolsVersion: ToolsVersion
-
-    /// If should link the Swift stdlib statically.
-    public let shouldLinkStaticSwiftStdlib: Bool
-
-    /// Which compiler sanitizers should be enabled
-    public let sanitizers: EnabledSanitizers
-
-    /// If should enable llbuild manifest caching.
-    public let shouldEnableManifestCaching: Bool
-
-    /// The mode to use for indexing-while-building feature.
-    public let indexStoreMode: IndexStoreMode
-
-    /// Whether to enable code coverage.
-    public let enableCodeCoverage: Bool
-
-    /// Whether to enable test discovery on platforms without Objective-C runtime.
-    public let enableTestDiscovery: Bool
-
-    /// Whether to enable generation of `.swiftinterface` files alongside
-    /// `.swiftmodule`s.
-    public let enableParseableModuleInterfaces: Bool
-
-    /// Checks if stdout stream is tty.
-    fileprivate let isTTY: Bool = {
-        guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
-            return false
-        }
-        return TerminalController.isTTY(stream)
-    }()
-
-    public var llbuildManifest: AbsolutePath {
-        return dataPath.appending(components: "..", configuration.dirname + ".yaml")
-    }
-
-    public var buildDescriptionPath: AbsolutePath {
-        return buildPath.appending(components: "description.json")
-    }
-
-    public init(
-        dataPath: AbsolutePath,
-        configuration: BuildConfiguration,
-        toolchain: Toolchain,
-        destinationTriple: Triple = Triple.hostTriple,
-        flags: BuildFlags,
-        toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        shouldLinkStaticSwiftStdlib: Bool = false,
-        shouldEnableManifestCaching: Bool = false,
-        sanitizers: EnabledSanitizers = EnabledSanitizers(),
-        enableCodeCoverage: Bool = false,
-        indexStoreMode: IndexStoreMode = .auto,
-        enableParseableModuleInterfaces: Bool = false,
-        enableTestDiscovery: Bool = false
-    ) {
-        self.dataPath = dataPath
-        self.configuration = configuration
-        self._toolchain = _Toolchain(toolchain: toolchain)
-        self.triple = destinationTriple
-        self.flags = flags
-        self.toolsVersion = toolsVersion
-        self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
-        self.shouldEnableManifestCaching = shouldEnableManifestCaching
-        self.sanitizers = sanitizers
-        self.enableCodeCoverage = enableCodeCoverage
-        self.indexStoreMode = indexStoreMode
-        self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.enableTestDiscovery = enableTestDiscovery
-    }
-
     /// Returns the compiler arguments for the index store, if enabled.
-    fileprivate var indexStoreArguments: [String] {
+    fileprivate func indexStoreArguments(for target: ResolvedTarget) -> [String] {
         let addIndexStoreArguments: Bool
         switch indexStoreMode {
         case .on:
@@ -191,7 +82,15 @@ public struct BuildParameters: Encodable {
         case .off:
             addIndexStoreArguments = false
         case .auto:
-            addIndexStoreArguments = configuration == .debug
+            if configuration == .debug {
+                addIndexStoreArguments = true
+            } else if enableTestDiscovery && target.type == .test {
+                // Test discovery requires an index store for the test targets
+                // to discover the tests
+                addIndexStoreArguments = true
+            } else {
+                addIndexStoreArguments = false
+            }
         }
 
         if addIndexStoreArguments {
@@ -201,7 +100,7 @@ public struct BuildParameters: Encodable {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    fileprivate func targetTripleArgs(for target: ResolvedTarget) -> [String] {
+    public func targetTripleArgs(for target: ResolvedTarget) -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
@@ -215,66 +114,9 @@ public struct BuildParameters: Encodable {
         return args
     }
 
-    /// The current platform we're building for.
-    var currentPlatform: PackageModel.Platform {
-        if self.triple.isDarwin() {
-            return .macOS
-        } else {
-            return .linux
-        }
-    }
-
     /// Returns the scoped view of build settings for a given target.
     fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
-        return BuildSettings.Scope(target.underlyingTarget.buildSettings, boundCondition: (currentPlatform, configuration))
-    }
-
-    /// Represents the debugging strategy.
-    ///
-    /// Swift binaries requires the swiftmodule files in order for lldb to work.
-    /// On Darwin, linker can directly take the swiftmodule file path using the
-    /// -add_ast_path flag. On other platforms, we convert the swiftmodule into
-    /// an object file using Swift's modulewrap tool.
-    enum DebuggingStrategy {
-        case swiftAST
-        case modulewrap
-    }
-
-    /// The debugging strategy according to the current build parameters.
-    var debuggingStrategy: DebuggingStrategy? {
-        guard configuration == .debug else {
-            return nil
-        }
-
-        if triple.isDarwin() {
-            return .swiftAST
-        }
-        return .modulewrap
-    }
-
-    /// A shim struct for toolchain so we can encode it without having to write encode(to:) for
-    /// entire BuildParameters by hand.
-    struct _Toolchain: Encodable {
-        let toolchain: Toolchain
-
-        enum CodingKeys: String, CodingKey {
-            case swiftCompiler
-            case clangCompiler
-            case extraCCFlags
-            case extraSwiftCFlags
-            case extraCPPFlags
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
-            try container.encode(toolchain.getClangCompiler(), forKey: .clangCompiler)
-
-            try container.encode(toolchain.extraCCFlags, forKey: .extraCCFlags)
-            try container.encode(toolchain.extraCPPFlags, forKey: .extraCPPFlags)
-            try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
-            try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
-        }
+        return BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
     }
 }
 
@@ -296,6 +138,44 @@ public enum TargetBuildDescription {
             return target.objects
         }
     }
+
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? {
+        switch self {
+        case .swift(let target):
+            return target.bundlePath
+        case .clang(let target):
+            return target.bundlePath
+        }
+    }
+
+    var target: ResolvedTarget {
+        switch self {
+        case .swift(let target):
+            return target.target
+        case .clang(let target):
+            return target.target
+        }
+    }
+
+    /// Paths to the binary libraries the target depends on.
+    var libraryBinaryPaths: Set<AbsolutePath> {
+        switch self {
+        case .swift(let target):
+            return target.libraryBinaryPaths
+        case .clang(let target):
+            return target.libraryBinaryPaths
+        }
+    }
+
+    var resourceBundleInfoPlistPath: AbsolutePath? {
+        switch self {
+        case .swift(let target):
+            return target.resourceBundleInfoPlistPath
+        case .clang(let target):
+            return target.resourceBundleInfoPlistPath
+        }
+    }
 }
 
 /// Target description for a Clang target i.e. C language family target.
@@ -312,18 +192,40 @@ public final class ClangTargetBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
+    /// The build environment.
+    var buildEnvironment: BuildEnvironment {
+        buildParameters.buildEnvironment
+    }
+
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? {
+        buildParameters.bundlePath(for: target)
+    }
+
     /// The modulemap file for this target, if any.
-    private(set) var moduleMap: AbsolutePath?
+    public private(set) var moduleMap: AbsolutePath?
 
     /// Path to the temporary directory for this target.
-    var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
-    }
+    var tempsPath: AbsolutePath
+
+    /// The directory containing derived sources of this target.
+    ///
+    /// These are the source files generated during the build.
+    private var derivedSources: Sources
+
+    /// Path to the resource accessor header file, if generated.
+    public private(set) var resourceAccessorHeaderFile: AbsolutePath?
+
+    /// Path to the resource Info.plist file, if generated.
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
 
     /// The objects in this target.
-    var objects: [AbsolutePath] {
+    public var objects: [AbsolutePath] {
         return compilePaths().map({ $0.object })
     }
+
+    /// Paths to the binary libraries the target depends on.
+    fileprivate(set) var libraryBinaryPaths: Set<AbsolutePath> = []
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
@@ -342,9 +244,22 @@ public final class ClangTargetBuildDescription {
         self.fileSystem = fileSystem
         self.target = target
         self.buildParameters = buildParameters
+        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
+
         // Try computing modulemap path for a C library.
         if target.type == .library {
             self.moduleMap = try computeModulemapPath()
+        }
+
+        // Do nothing if we're not generating a bundle.
+        if bundlePath != nil {
+            try self.generateResourceAccessor()
+
+            let infoPlistPath = tempsPath.appending(component: "Info.plist")
+            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+                resourceBundleInfoPlistPath = infoPlistPath
+            }
         }
     }
 
@@ -352,12 +267,19 @@ public final class ClangTargetBuildDescription {
     public func compilePaths()
         -> [(filename: RelativePath, source: AbsolutePath, object: AbsolutePath, deps: AbsolutePath)]
     {
-        return target.sources.relativePaths.map({ source in
-            let path = target.sources.root.appending(source)
-            let object = tempsPath.appending(RelativePath("\(source.pathString).o"))
-            let deps = tempsPath.appending(RelativePath("\(source.pathString).d"))
-            return (source, path, object, deps)
-        })
+        let sources = [
+            target.sources.root: target.sources.relativePaths,
+            derivedSources.root: derivedSources.relativePaths,
+        ]
+
+        return sources.flatMap { (root, relativePaths) in
+            relativePaths.map { source in
+                let path = root.appending(source)
+                let object = tempsPath.appending(RelativePath("\(source.pathString).o"))
+                let deps = tempsPath.appending(RelativePath("\(source.pathString).d"))
+                return (source, path, object, deps)
+            }
+        }
     }
 
     /// Builds up basic compilation arguments for this target.
@@ -382,24 +304,34 @@ public final class ClangTargetBuildDescription {
         // This feature is not widely available in OSS clang. So, we only enable
         // index store for Apple's clang or if explicitly asked to.
         if ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_CLANG_INDEX_STORE") {
-            args += buildParameters.indexStoreArguments
+            args += buildParameters.indexStoreArguments(for: target)
         } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
-            args += buildParameters.indexStoreArguments
+            args += buildParameters.indexStoreArguments(for: target)
         }
 
-        if !buildParameters.triple.isWindows() {
-            // Using modules currently conflicts with the Windows SDKs.
+        if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
+            // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
+
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !libraryBinaryPaths.isEmpty {
+            args += ["-F", buildParameters.buildPath.pathString]
+        }
+
         args += ["-I", clangTarget.includeDir.pathString]
         args += additionalFlags
-        if !buildParameters.triple.isWindows() {
+        if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
             args += moduleCacheArgs
         }
         args += buildParameters.sanitizers.compileCFlags()
 
         // Add agruments from declared build settings.
         args += self.buildSettingsFlags()
+
+        if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile {
+            args += ["-include", resourceAccessorHeaderFile.pathString]
+        }
 
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
@@ -485,6 +417,53 @@ public final class ClangTargetBuildDescription {
     private var moduleCacheArgs: [String] {
         return ["-fmodules-cache-path=\(buildParameters.moduleCache.pathString)"]
     }
+
+    /// Generate the resource bundle accessor, if appropriate.
+    private func generateResourceAccessor() throws {
+        // Only generate access when we have a bundle and ObjC files.
+        guard let bundlePath = self.bundlePath, clangTarget.sources.containsObjcFiles else { return }
+
+        // Compute the basename of the bundle.
+        let bundleBasename = bundlePath.basename
+
+        let implFileStream = BufferedOutputByteStream()
+        implFileStream <<< """
+        #import <Foundation/Foundation.h>
+
+        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
+            NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(bundleBasename)"];
+            return [NSBundle bundleWithURL:bundleURL];
+        }
+        """
+
+        let implFileSubpath = RelativePath("resource_bundle_accessor.m")
+
+        // Add the file to the dervied sources.
+        derivedSources.relativePaths.append(implFileSubpath)
+
+        // Write this file out.
+        // FIXME: We should generate this file during the actual build.
+        try fileSystem.writeIfChanged(
+            path: derivedSources.root.appending(implFileSubpath),
+            bytes: implFileStream.bytes
+        )
+
+        let headerFileStream = BufferedOutputByteStream()
+        headerFileStream <<< """
+        #import <Foundation/Foundation.h>
+
+        NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
+
+        #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+        """
+        let headerFile = derivedSources.root.appending(component: "resource_bundle_accessor.h")
+        self.resourceAccessorHeaderFile = headerFile
+
+        try fileSystem.writeIfChanged(
+            path: headerFile,
+            bytes: headerFileStream.bytes
+        )
+    }
 }
 
 /// Target description for a Swift target.
@@ -497,13 +476,25 @@ public final class SwiftTargetBuildDescription {
     let buildParameters: BuildParameters
 
     /// Path to the temporary directory for this target.
-    var tempsPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".build")
+    let tempsPath: AbsolutePath
+
+    /// The directory containing derived sources of this target.
+    ///
+    /// These are the source files generated during the build.
+    private var derivedSources: Sources
+
+    /// Path to the bundle generated for this module (if any).
+    var bundlePath: AbsolutePath? {
+        buildParameters.bundlePath(for: target)
     }
 
+    /// The list of all source files in the target, including the derived ones.
+    public var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
+
     /// The objects in this target.
-    var objects: [AbsolutePath] {
-        return target.sources.relativePaths.map({ tempsPath.appending(RelativePath("\($0.pathString).o")) })
+    public var objects: [AbsolutePath] {
+        let relativePaths = target.sources.relativePaths + derivedSources.relativePaths
+        return relativePaths.map{ tempsPath.appending(RelativePath("\($0.pathString).o")) }
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -522,6 +513,12 @@ public final class SwiftTargetBuildDescription {
     var parseableModuleInterfaceOutputPath: AbsolutePath {
         return buildParameters.buildPath.appending(component: target.c99name + ".swiftinterface")
     }
+
+    /// Path to the resource Info.plist file, if generated.
+    public private(set) var resourceBundleInfoPlistPath: AbsolutePath?
+
+    /// Paths to the binary libraries the target depends on.
+    fileprivate(set) var libraryBinaryPaths: Set<AbsolutePath> = []
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     fileprivate var additionalFlags: [String] = []
@@ -558,10 +555,52 @@ public final class SwiftTargetBuildDescription {
         self.isTestTarget = isTestTarget ?? (target.type == .test)
         self.testDiscoveryTarget = testDiscoveryTarget
         self.fs = fs
+        self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
+        self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
 
         if shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
         }
+
+        // Do nothing if we're not generating a bundle.
+        if bundlePath != nil {
+            try self.generateResourceAccessor()
+
+            let infoPlistPath = tempsPath.appending(component: "Info.plist")
+            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+                resourceBundleInfoPlistPath = infoPlistPath
+            }
+        }
+    }
+
+    /// Generate the resource bundle accessor, if appropriate.
+    private func generateResourceAccessor() throws {
+        // Do nothing if we're not generating a bundle.
+        guard let bundlePath = self.bundlePath else { return }
+
+        // Compute the basename of the bundle.
+        let bundleBasename = bundlePath.basename
+
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        import class Foundation.Bundle
+
+        extension Foundation.Bundle {
+            static var module: Bundle = {
+                return Bundle(path: Bundle.main.bundlePath + "/" + "\(bundleBasename)")!
+            }()
+        }
+        """
+
+        let subpath = RelativePath("resource_bundle_accessor.swift")
+
+        // Add the file to the dervied sources.
+        derivedSources.relativePaths.append(subpath)
+
+        // Write this file out.
+        // FIXME: We should generate this file during the actual build.
+        let path = derivedSources.root.appending(subpath)
+        try fs.writeIfChanged(path: path, bytes: stream.bytes)
     }
 
     /// The arguments needed to compile this target.
@@ -580,16 +619,22 @@ public final class SwiftTargetBuildDescription {
         case .release: break
         }
 
-        args += buildParameters.indexStoreArguments
+        args += buildParameters.indexStoreArguments(for: target)
         args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
+        args += testingArguments
         args += ["-g"]
-        args += ["-j\(SwiftCompilerTool.numThreads)"]
+        args += ["-j\(buildParameters.jobs)"]
         args += activeCompilationConditions
         args += additionalFlags
         args += moduleCacheArgs
         args += buildParameters.sanitizers.compileSwiftFlags()
         args += ["-parseable-output"]
+
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !libraryBinaryPaths.isEmpty {
+            args += ["-F", buildParameters.buildPath.pathString]
+        }
 
         // Emit the ObjC compatibility header if enabled.
         if shouldEmitObjCCompatibilityHeader {
@@ -602,7 +647,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments to colorize output if stdout is tty
-        if buildParameters.isTTY {
+        if BuildParameters.isTTY {
             if ProcessEnv.vars["SWIFTPM_USE_NEW_COLOR_DIAGNOSTICS"] != nil {
                 args += ["-color-diagnostics"]
             } else {
@@ -623,9 +668,148 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
+    /// Command-line for emitting just the Swift module.
+    public func emitModuleCommandLine() -> [String] {
+        assert(buildParameters.emitSwiftModuleSeparately)
+
+        var result: [String] = []
+        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+
+        result.append("-module-name")
+        result.append(target.c99name)
+        result.append("-emit-module")
+        result.append("-emit-module-path")
+        result.append(moduleOutputPath.pathString)
+        result += buildParameters.toolchain.extraSwiftCFlags
+
+        result.append("-Xfrontend")
+        result.append("-experimental-skip-non-inlinable-function-bodies")
+        result.append("-force-single-frontend-invocation")
+
+        if target.type == .library || target.type == .test {
+            result.append("-parse-as-library")
+        }
+
+        // FIXME: Handle WMO
+
+        for source in target.sources.paths {
+            result.append(source.pathString)
+        }
+
+        result.append("-I")
+        result.append(buildParameters.buildPath.pathString)
+
+        // FIXME: Maybe refactor these into "common args".
+        result += buildParameters.targetTripleArgs(for: target)
+        result += ["-swift-version", swiftVersion.rawValue]
+        result += optimizationArguments
+        result += testingArguments
+        result += ["-g"]
+        result += ["-j\(buildParameters.jobs)"]
+        result += activeCompilationConditions
+        result += additionalFlags
+        result += moduleCacheArgs
+        result += self.buildSettingsFlags()
+
+        return result
+    }
+
+    /// Command-line for emitting the object files.
+    ///
+    /// Note: This doesn't emit the module.
+    public func emitObjectsCommandLine() -> [String] {
+        assert(buildParameters.emitSwiftModuleSeparately)
+
+        var result: [String] = []
+        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+
+        result.append("-module-name")
+        result.append(target.c99name)
+        result.append("-incremental")
+        result.append("-emit-dependencies")
+
+        result.append("-output-file-map")
+        // FIXME: Eliminate side effect.
+        result.append(try! writeOutputFileMap().pathString)
+
+        if target.type == .library || target.type == .test {
+            result.append("-parse-as-library")
+        }
+        // FIXME: Handle WMO
+
+        result.append("-c")
+        for source in target.sources.paths {
+            result.append(source.pathString)
+        }
+
+        result.append("-I")
+        result.append(buildParameters.buildPath.pathString)
+
+        result += buildParameters.targetTripleArgs(for: target)
+        result += ["-swift-version", swiftVersion.rawValue]
+
+        result += buildParameters.indexStoreArguments(for: target)
+        result += buildParameters.toolchain.extraSwiftCFlags
+        result += optimizationArguments
+        result += testingArguments
+        result += ["-g"]
+        result += ["-j\(buildParameters.jobs)"]
+        result += activeCompilationConditions
+        result += additionalFlags
+        result += moduleCacheArgs
+        result += buildParameters.sanitizers.compileSwiftFlags()
+        result += ["-parseable-output"]
+        result += self.buildSettingsFlags()
+        result += buildParameters.swiftCompilerFlags
+        return result
+    }
+
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
         return buildParameters.triple.isDarwin() && target.type == .library
+    }
+
+    private func writeOutputFileMap() throws -> AbsolutePath {
+        let path = tempsPath.appending(component: "output-file-map.json")
+        let stream = BufferedOutputByteStream()
+
+        stream <<< "{\n"
+
+        let masterDepsPath = tempsPath.appending(component: "master.swiftdeps")
+
+        stream <<< "  \"\": {\n";
+        // FIXME: Handle WMO
+        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n";
+        stream <<< "  },\n";
+
+        // Write out the entries for each source file.
+        let sources = target.sources.paths
+        for (idx, source) in sources.enumerated() {
+            let object = objects[idx]
+            let objectDir = object.parentDirectory
+
+            let sourceFileName = source.basenameWithoutExt
+            let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
+
+            let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
+
+            stream <<< "  \"" <<< source.pathString <<< "\": {\n"
+            // FIXME: Handle WMO
+            let depsPath = objectDir.appending(component: sourceFileName + ".d")
+            stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
+            // FIXME: Need to record this deps file for processing it later.
+
+            stream <<< "    \"object\": \"" <<< object.pathString <<< "\",\n"
+            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n";
+            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n";
+            stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
+        }
+
+        stream <<< "}\n"
+
+        try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+        return path
     }
 
     /// Generates the module map for the Swift target and returns its path.
@@ -706,9 +890,23 @@ public final class SwiftTargetBuildDescription {
     private var optimizationArguments: [String] {
         switch buildParameters.configuration {
         case .debug:
-            return ["-Onone", "-enable-testing"]
+            return ["-Onone"]
         case .release:
             return ["-O"]
+        }
+    }
+
+    /// Testing arguments according to the build configuration.
+    private var testingArguments: [String] {
+        switch buildParameters.configuration {
+        case .debug:
+            return ["-enable-testing"]
+        case .release:
+            if self.buildParameters.enableTestDiscovery {
+                return ["-enable-testing"]
+            } else {
+                return []
+            }
         }
     }
 
@@ -732,40 +930,13 @@ public final class ProductBuildDescription {
 
     /// The path to the product binary produced.
     public var binary: AbsolutePath {
-        return buildParameters.buildPath.appending(outname)
-    }
-
-    /// The output name of the product.
-    public var outname: RelativePath {
-        let name = product.name
-
-        switch product.type {
-        case .executable:
-            if buildParameters.triple.isWindows() {
-                return RelativePath("\(name).exe")
-            } else {
-                return RelativePath(name)
-            }
-        case .library(.static):
-            return RelativePath("lib\(name).a")
-        case .library(.dynamic):
-            return RelativePath("lib\(name)\(self.buildParameters.triple.dynamicLibraryExtension)")
-        case .library(.automatic):
-            fatalError()
-        case .test:
-            let base = "\(name).xctest"
-            if buildParameters.triple.isDarwin() {
-                return RelativePath("\(base)/Contents/MacOS/\(name)")
-            } else {
-                return RelativePath(base)
-            }
-        }
+        return buildParameters.binaryPath(for: product)
     }
 
     /// The objects in this product.
     ///
     // Computed during build planning.
-    fileprivate(set) var objects = SortedArray<AbsolutePath>()
+    public fileprivate(set) var objects = SortedArray<AbsolutePath>()
 
     /// The dynamic libraries this product needs to link with.
     // Computed during build planning.
@@ -778,7 +949,10 @@ public final class ProductBuildDescription {
     fileprivate var staticTargets: [ResolvedTarget] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
-    fileprivate var swiftASTs: [AbsolutePath] = []
+    fileprivate var swiftASTs: SortedArray<AbsolutePath> = .init()
+
+    /// Paths to the binary libraries the product depends on.
+    fileprivate var libraryBinaryPaths: Set<AbsolutePath> = []
 
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
@@ -828,6 +1002,11 @@ public final class ProductBuildDescription {
             }
         }
 
+        // Only add the build path to the framework search path if there are binary frameworks to link against.
+        if !libraryBinaryPaths.isEmpty {
+            args += ["-F", buildParameters.buildPath.pathString]
+        }
+
         args += ["-L", buildParameters.buildPath.pathString]
         args += ["-o", binary.pathString]
         args += ["-module-name", product.name.spm_mangledToC99ExtendedIdentifier()]
@@ -856,7 +1035,7 @@ public final class ProductBuildDescription {
         case .library(.dynamic):
             args += ["-emit-library"]
             if buildParameters.triple.isDarwin() {
-                let relativePath = "@rpath/\(outname.pathString)"
+                let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
         case .executable:
@@ -876,7 +1055,8 @@ public final class ProductBuildDescription {
         if buildParameters.triple.isLinux() {
             args += ["-Xlinker", "-rpath=$ORIGIN"]
         } else if buildParameters.triple.isDarwin() {
-            args += ["-Xlinker", "-rpath", "-Xlinker", "@loader_path"]
+            let rpath = product.type == .test ? "@loader_path/../../../" : "@loader_path"
+            args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
         }
         args += ["@\(linkFileListPath.pathString)"]
 
@@ -989,6 +1169,11 @@ public class BuildPlan {
     /// The build parameters.
     public let buildParameters: BuildParameters
 
+    /// The build environment.
+    private var buildEnvironment: BuildEnvironment {
+        buildParameters.buildEnvironment
+    }
+
     /// The package graph.
     public let graph: PackageGraph
 
@@ -1057,10 +1242,11 @@ public class BuildPlan {
             let swiftTarget = SwiftTarget(
                 testDiscoverySrc: src,
                 name: testProduct.name,
-                dependencies: testProduct.underlyingProduct.targets)
+                dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
+            )
             let linuxMainTarget = ResolvedTarget(
                 target: swiftTarget,
-                dependencies: testProduct.targets.map(ResolvedTarget.Dependency.target)
+                dependencies: testProduct.targets.map { .target($0, conditions: []) }
             )
 
             let target = try SwiftTargetBuildDescription(
@@ -1095,7 +1281,7 @@ public class BuildPlan {
             for dependency in target.dependencies {
                 switch dependency {
                 case .target: break
-                case .product(let product):
+                case .product(let product, _):
                     if buildParameters.triple.isDarwin() {
                         BuildPlan.validateDeploymentVersionOfProductDependency(
                             product, forTarget: target, diagnostics: diagnostics)
@@ -1103,19 +1289,19 @@ public class BuildPlan {
                 }
             }
 
-             switch target.underlyingTarget {
-             case is SwiftTarget:
-                 targetMap[target] = try .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters, fs: fileSystem))
-             case is ClangTarget:
+            switch target.underlyingTarget {
+            case is SwiftTarget:
+                targetMap[target] = try .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters, fs: fileSystem))
+            case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
-             case is SystemLibraryTarget:
+            case is SystemLibraryTarget, is BinaryTarget:
                  break
-             default:
+            default:
                  fatalError("unhandled \(target.underlyingTarget)")
-             }
+            }
         }
 
         /// Ensure we have at least one buildable target.
@@ -1218,6 +1404,17 @@ public class BuildPlan {
             buildProduct.additionalFlags += pkgConfig(for: target).libs
         }
 
+        // Add flags for binary dependencies.
+        for binaryPath in dependencies.libraryBinaryPaths {
+            if binaryPath.extension == "framework" {
+                buildProduct.additionalFlags += ["-framework", binaryPath.basenameWithoutExt]
+            } else if binaryPath.basename.starts(with: "lib") {
+                buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
+            } else {
+                diagnostics.emit(error: "unexpected binary framework")
+            }
+        }
+
         // Link C++ if needed.
         // Note: This will come from build settings in future.
         for target in dependencies.staticTargets {
@@ -1239,7 +1436,7 @@ public class BuildPlan {
                 // building for and is nil for the release configuration.
                 switch buildParameters.debuggingStrategy {
                 case .swiftAST:
-                    buildProduct.swiftASTs.append(description.moduleOutputPath)
+                    buildProduct.swiftASTs.insert(description.moduleOutputPath)
                 case .modulewrap:
                     buildProduct.objects += [description.wrappedModuleOutputPath]
                 case nil:
@@ -1252,6 +1449,7 @@ public class BuildPlan {
         buildProduct.staticTargets = dependencies.staticTargets
         buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
         buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
+        buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
 
         // Write the link filelist file.
         //
@@ -1266,23 +1464,24 @@ public class BuildPlan {
     ) -> (
         dylibs: [ResolvedProduct],
         staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget]
+        systemModules: [ResolvedTarget],
+        libraryBinaryPaths: Set<AbsolutePath>
     ) {
 
         // Sort the product targets in topological order.
-        let nodes = product.targets.map(ResolvedTarget.Dependency.target)
+        let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try! topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the depenencies of a target.
-            case .target(let target):
-                return target.dependencies
+            case .target(let target, _):
+                return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
             // need to statically link it.
-            case .product(let product):
+            case .product(let product, _):
                 switch product.type {
                 case .library(.automatic), .library(.static):
-                    return product.targets.map(ResolvedTarget.Dependency.target)
+                    return product.targets.map { .target($0, conditions: []) }
                 case .library(.dynamic), .test, .executable:
                     return []
                 }
@@ -1293,10 +1492,11 @@ public class BuildPlan {
         var linkLibraries = [ResolvedProduct]()
         var staticTargets = [ResolvedTarget]()
         var systemModules = [ResolvedTarget]()
+        var libraryBinaryPaths: Set<AbsolutePath> = []
 
         for dependency in allTargets {
             switch dependency {
-            case .target(let target):
+            case .target(let target, _):
                 switch target.type {
                 // Include executable and tests only if they're top level contents
                 // of the product. Otherwise they are just build time dependency.
@@ -1307,12 +1507,20 @@ public class BuildPlan {
                 // Library targets should always be included.
                 case .library:
                     staticTargets.append(target)
-                // Add system target targets to system targets array.
+                // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(target)
+                // Add binary to binary paths set.
+                case .binary:
+                    guard let binaryTarget = target.underlyingTarget as? BinaryTarget else {
+                        fatalError("should not happen")
+                    }
+                    if let library = xcFrameworkLibrary(for: binaryTarget) {
+                        libraryBinaryPaths.insert(library.binaryPath)
+                    }
                 }
 
-            case .product(let product):
+            case .product(let product, _):
                 // Add the dynamic products to array of libraries to link.
                 if product.type == .library(.dynamic) {
                     linkLibraries.append(product)
@@ -1326,12 +1534,12 @@ public class BuildPlan {
             }
         }
 
-        return (linkLibraries, staticTargets, systemModules)
+        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths)
     }
 
     /// Plan a Clang target.
     private func plan(clangTarget: ClangTargetBuildDescription) {
-        for dependency in clangTarget.target.recursiveDependencies() {
+        for case .target(let dependency, _) in clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
             switch dependency.underlyingTarget {
             case is SwiftTarget:
                 if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
@@ -1353,6 +1561,13 @@ public class BuildPlan {
             case let target as SystemLibraryTarget:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
+            case let target as BinaryTarget:
+                if let library = xcFrameworkLibrary(for: target) {
+                    if let headersPath = library.headersPath {
+                        clangTarget.additionalFlags += ["-I", headersPath.pathString]
+                    }
+                    clangTarget.libraryBinaryPaths.insert(library.binaryPath)
+                }
             default: continue
             }
         }
@@ -1362,7 +1577,7 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        for dependency in swiftTarget.target.recursiveDependencies() {
+        for case .target(let dependency, _) in swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
             switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {
@@ -1380,9 +1595,53 @@ public class BuildPlan {
             case let target as SystemLibraryTarget:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
-            default: break
+            case let target as BinaryTarget:
+                if let library = xcFrameworkLibrary(for: target) {
+                    if let headersPath = library.headersPath {
+                        swiftTarget.additionalFlags += ["-I", headersPath.pathString]
+                    }
+                    swiftTarget.libraryBinaryPaths.insert(library.binaryPath)
+                }
+            default:
+                break
             }
         }
+    }
+
+    public func createAPIDigesterArgs() -> [String] {
+        let buildPath = buildParameters.buildPath.pathString
+        var arguments = ["-I", buildPath]
+
+        arguments += buildParameters.toolchain.extraSwiftCFlags
+
+        // Add the search path to the directory containing the modulemap file.
+        for target in targets {
+            switch target {
+            case .swift: break
+            case .clang(let targetDescription):
+                if let includeDir = targetDescription.moduleMap?.parentDirectory {
+                    arguments += ["-I", includeDir.pathString]
+                }
+            }
+        }
+
+        // Add search paths from the system library targets.
+        for target in graph.reachableTargets {
+            if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
+                for flag in self.pkgConfig(for: systemLib).cFlags {
+                    // The api-digester tool doesn't like `-I<Foo>` style for some reason.
+                    if flag.hasPrefix("-I") && flag.count > 2 {
+                        arguments += ["-I", String(flag.dropFirst(2))]
+                    } else {
+                        arguments.append(flag)
+                    }
+                }
+                // Add the path to the module map.
+                arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
+            }
+        }
+
+        return arguments
     }
 
     /// Creates arguments required to launch the Swift REPL that will allow
@@ -1443,8 +1702,55 @@ public class BuildPlan {
         return pkgConfigCache[target]!
     }
 
+    /// Extracts the library to building against from a XCFramework.
+    private func xcFrameworkLibrary(for target: BinaryTarget) -> LibraryInfo? {
+        func calculateLibraryInfo() -> LibraryInfo? {
+            // Parse the XCFramework's Info.plist.
+            let infoPath = target.artifactPath.appending(component: "Info.plist")
+            guard let info = XCFrameworkInfo(path: infoPath, diagnostics: diagnostics, fileSystem: fileSystem) else {
+                return nil
+            }
+
+            // Check that it supports macOS.
+            guard let library = info.libraries.first(where: {
+                $0.platform == "macos" && $0.architectures.contains(Triple.Arch.x86_64.rawValue)
+            }) else {
+                diagnostics.emit(error: """
+                    artifact '\(target.name)' does not support the target platform and architecture \
+                    ('\(buildParameters.triple)')
+                    """)
+                return nil
+            }
+
+            let libraryDirectory = target.artifactPath.appending(component: library.libraryIdentifier)
+            let binaryPath = libraryDirectory.appending(component: library.libraryPath)
+            let headersPath = library.headersPath.map({ libraryDirectory.appending(component: $0) })
+            return LibraryInfo(binaryPath: binaryPath, headersPath: headersPath)
+        }
+
+        // If we don't have the library information yet, calculate it.
+        if !xcFrameworkCache.keys.contains(target) {
+            xcFrameworkCache[target] = calculateLibraryInfo()
+        }
+
+        return xcFrameworkCache[target]!
+    }
+
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+
+    /// Cache for xcframework library information.
+    private var xcFrameworkCache = [BinaryTarget: LibraryInfo?]()
+}
+
+/// Information about a library.
+private struct LibraryInfo: Equatable {
+
+    /// The path to the binary.
+    let binaryPath: AbsolutePath
+
+    /// The path to the headers directory, if one exists.
+    let headersPath: AbsolutePath?
 }
 
 private extension Diagnostic.Message {
@@ -1473,4 +1779,57 @@ private extension Diagnostic.Message {
     static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
         .warning(PkgConfigHintDiagnostic(pkgConfigName: pkgConfigName, installText: installText))
     }
+
+    static func binaryTargetsNotSupported() -> Diagnostic.Message {
+        .error("binary targets are not supported on this platform")
+    }
+}
+
+extension BuildParameters {
+    /// Returns a target's bundle path inside the build directory.
+    fileprivate func bundlePath(for target: ResolvedTarget) -> AbsolutePath? {
+        target.underlyingTarget.bundleName
+        .map{ $0 + triple.nsbundleExtension }
+        .map(buildPath.appending(component:))
+    }
+}
+
+extension FileSystem {
+    /// Write bytes to the path if the given contents are different.
+    func writeIfChanged(path: AbsolutePath, bytes: ByteString) throws {
+        try createDirectory(path.parentDirectory, recursive: true)
+
+        // Return if the contents are same.
+        if isFile(path), try readFileContents(path) == bytes {
+            return
+        }
+
+        try writeFileContents(path, bytes: bytes)
+    }
+}
+
+/// Generate the resource bundle Info.plist.
+private func generateResourceInfoPlist(
+    for target: ResolvedTarget,
+    to path: AbsolutePath,
+    fileSystem: FileSystem = localFileSystem
+) throws -> Bool {
+    guard let defaultLocalization = target.underlyingTarget.defaultLocalization else {
+        return false
+    }
+
+    let stream = BufferedOutputByteStream()
+    stream <<< """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleDevelopmentRegion</key>
+            <string>\(defaultLocalization)</string>
+        </dict>
+        </plist>
+        """
+
+    try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+    return true
 }

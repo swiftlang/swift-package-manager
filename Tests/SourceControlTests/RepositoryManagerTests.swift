@@ -15,8 +15,6 @@ import SourceControl
 
 import SPMTestSupport
 
-@testable import class SourceControl.RepositoryManager
-
 extension RepositoryManager {
     fileprivate func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {
         return try await { self.lookup(repository: repository, completion: $0) }
@@ -197,7 +195,7 @@ class RepositoryManagerTests: XCTestCase {
                     XCTFail("Unexpected success")
                     return
                 }
-                XCTAssertEqual(error.underlyingError as? DummyError, DummyError.invalidRepository)
+                XCTAssertEqual(error as? DummyError, DummyError.invalidRepository)
                 badLookupExpectation.fulfill()
             }
 

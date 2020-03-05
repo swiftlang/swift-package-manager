@@ -10,7 +10,7 @@
 
 import TSCBasic
 import SPMTestSupport
-@testable import Xcodeproj
+import Xcodeproj
 import XCTest
 
 class XcodeProjectModelTests: XCTestCase {

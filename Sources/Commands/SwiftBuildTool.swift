@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Build
 import TSCUtility
 import TSCBasic
 import PackageGraph
+import SPMBuildCore
+import Build
 
 /// swift-build tool namespace
 public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
@@ -36,7 +37,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
           #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-            try build(buildDescription: getBuildDescription(), subset: subset)
+            let buildSystem = try createBuildSystem()
+            try buildSystem.build(subset: subset)
 
         case .binPath:
             try print(buildParameters().buildPath.description)

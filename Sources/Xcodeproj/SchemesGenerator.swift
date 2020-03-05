@@ -13,21 +13,21 @@ import PackageGraph
 import PackageModel
 
 /// Represents a scheme in Xcode for the project generation support.
-struct Scheme {
+public struct Scheme {
 
     /// The name of the scheme.
-    var name: String
+    public var name: String
 
     /// The scheme filename.
-    var filename: String {
+    public var filename: String {
         return name + ".xcscheme"
     }
 
     /// The list of regular targets contained in this scheme.
-    var regularTargets: Set<ResolvedTarget>
+    public var regularTargets: Set<ResolvedTarget>
 
     /// The list of test targets contained in this scheme.
-    var testTargets: Set<ResolvedTarget>
+    public var testTargets: Set<ResolvedTarget>
 
     init(name: String, regularTargets: [ResolvedTarget], testTargets: [ResolvedTarget]) {
         self.name = name
@@ -36,7 +36,7 @@ struct Scheme {
     }
 }
 
-final class SchemesGenerator {
+public final class SchemesGenerator {
 
     private let graph: PackageGraph
     private let container: String
@@ -44,7 +44,7 @@ final class SchemesGenerator {
     private let isCodeCoverageEnabled: Bool
     private let fs: FileSystem
 
-    init(
+    public init(
         graph: PackageGraph,
         container: String,
         schemesDir: AbsolutePath,
@@ -58,7 +58,7 @@ final class SchemesGenerator {
         self.fs = fs
     }
 
-    func buildSchemes() -> [Scheme] {
+    public func buildSchemes() -> [Scheme] {
         let rootPackage = graph.rootPackages[0]
 
         var schemes: [Scheme] = []
@@ -79,7 +79,7 @@ final class SchemesGenerator {
         // Finally, create one master scheme for the entire package.
         let regularTargets = rootPackage.targets.filter({ 
             switch $0.type {
-            case .test, .systemModule:
+            case .test, .systemModule, .binary:
                 return false
             case .executable, .library:
                 return true

@@ -1,30 +1,63 @@
 # Development
 
-This document contains information on building and testing the Swift Package Manager.
+This document contains information on building and testing the Swift Package
+Manager. There are many ways to develop Swift Package Manager. The official way
+is to use Swift's build-script which builds the full compiler toolchain but
+that's rarely required.
 
 ## Using the Swift Compiler Build Script
 
-The official way to build and test is using the Swift compiler build script.
-First, follow the instructions provided
-[here](https://github.com/apple/swift/blob/master/README.md#getting-started) and
-then run one of these commands from the Swift Package Manager directory:
+Follow [these](https://github.com/apple/swift#getting-started) instructions to
+get the Swift sources and then execute the `build-script` using swiftpm preset:
 
 ### macOS
 
 ```sh
-$ ../swift/utils/build-script -R --llbuild --swiftpm
+$ ./swift/utils/build-script --preset=buildbot_swiftpm_macos_platform,tools=RA,stdlib=RA
 ```
 
 ### Linux
 
 ```sh
-$ ../swift/utils/build-script -R --llbuild --swiftpm --xctest --foundation --libdispatch
+$ ./swift/utils/build-script" --preset=buildbot_swiftpm_linux_platform,tools=RA,stdlib=RA
 ```
 
-This will build the compiler and friends in the `build/` directory. It takes about 1
-hour for the initial build process. However, it is not really required to build
-the entire compiler in order to work on the Package Manager. A faster option is
-using a [snapshot](https://swift.org/download/#releases) from swift.org.
+Once the build is complete, you should be able to run the swiftpm binaries from the build folder.
+
+## Developing using Xcode
+
+Simply open SwiftPM's `Package.swift` manifest with the latest release (including betas) of Xcode.
+
+Note: PackageDescription v4 is not available when developing using this method.
+
+You can also run SwiftPM performance tests in Xcode using the SwiftPM-Perf
+scheme.
+
+## Self Hosting
+
+It is possible to build SwiftPM with itself using SwiftPM present in latest
+release of Xcode or the latest trunk snapshot on Linux.
+
+```sh
+# Build:
+$ swift build
+
+# Run all tests.
+$ swift test --parallel
+
+# Run a single test.
+$ swift test --filter PackageGraphTests.DependencyResolverTests/testBasics
+```
+
+Note: PackageDescription v4 is not available when developing using this method.
+
+This method can also used be used for performance testing. Use the following
+command run SwiftPM's performance tests:
+
+```
+$ export TSC_ENABLE_PERF_TESTS=1
+$ swift test -c release --filter PerformanceTests
+```
 
 ## Using a Trunk Snapshot
 
@@ -64,7 +97,7 @@ Note: Make sure the directory for llbuild is called "llbuild" and not
 
 ```sh
 $ cd swiftpm
-$ Utilities/bootstrap
+$ Utilities/bootstrap build
 ```
 
  Note: The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
@@ -72,9 +105,6 @@ $ Utilities/bootstrap
 This command builds the Package Manager inside the `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
     code.
-
-   You can also use the built binaries: `swift-build`, `swift-package`,
-    `swift-test`, `swift-run`.
 
 ### Example
 
@@ -87,42 +117,8 @@ $ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
 5. Test the Swift Package Manager.
 
 ```sh
-$ Utilities/bootstrap test --test-parallel
+$ Utilities/bootstrap test
 ```
-
-Use this command to run the tests. All tests must pass before a patch can be accepted.
-
-## Self Hosting a Swift Package
-
-It is possible to build SwiftPM with itself using a special script that is
-emitted during bootstrapping. This is useful when you want to rebuild just the
-sources or run a single test. Make sure you run the bootstrap script first.
-
-```sh
-$ cd swiftpm
-
-# Rebuild just the sources.
-$ .build/x86_64-apple-macosx/debug/spm build
-
-# Run a single test.
-$ .build/x86_64-apple-macosx/debug/spm test --filter PackageGraphTests.DependencyResolverTests/testBasics
-```
-
-Note: If you make any changes to the `PackageDescription` runtime-related targets,
-you **will** need to rebuild using the bootstrap script.
-
-## Developing using Xcode
-
-Run the following commands to generate and open an Xcode project.
-
-```sh
-$ Utilities/bootstrap --generate-xcodeproj
-generated: ./SwiftPM.xcodeproj
-$ open SwiftPM.xcodeproj
-```
-
-Note: If you make any changes to the `PackageDescription` or `PackageDescription4`
-targets, you will need to regenerate the Xcode project using the above command.
 
 ## Using Continuous Integration
 
@@ -135,23 +131,12 @@ one of the code owners to trigger them for you. The following commands are suppo
 Run tests with the trunk compiler and other projects. This is **required** before
 a pull-request can be merged.
 
-    @swift-ci test with toolchain
+    @swift-ci please smoke test self hosted
 
-Run tests with the latest trunk snapshot. This has fast turnaround times so it can
-be used to get quick feedback.
+Run just the self-hosted tests. This has fast turnaround times so it can be used
+to get quick feedback.
 
 Note: Smoke tests are still required for merging pull-requests.
-
-## Running the Performance Tests
-
-Running performance tests is a little awkward right now. First, generate the
-Xcode project using this command:
-
-```sh
-$ Utilities/bootstrap --generate-xcodeproj --enable-perf-tests
-```
-
-Then, open the generated project and run the `PerformanceTest` scheme.
 
 ## Testing on Linux with Docker
 

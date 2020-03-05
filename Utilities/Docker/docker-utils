@@ -24,7 +24,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 
 def call(args):
     """Prints and executes a command."""
-    print " ".join(args)
+    print(" ".join(args))
     return subprocess.call(args)
 
 def docker_run(command_args):
@@ -40,24 +40,24 @@ def docker_run(command_args):
         "-v", "%s:/llbuild" % llbuild_dir,
         "-w", "/swiftpm",
         "--rm",
-        "swiftpm-docker-1604"
+        "swiftpm-docker-1804"
     ] + command_args)
 
 def build(_):
     """Builds a docker image with the latest snapshot."""
 
     # Get latest snapshot info.
-    latest_build_url = "https://swift.org/builds/development/ubuntu1604/latest-build.yml"
+    latest_build_url = "https://swift.org/builds/development/ubuntu1804/latest-build.yml"
     latest_build_data = yaml.load(urllib2.urlopen(latest_build_url).read())
     snapshot_filename = latest_build_data["download"]
     # FIXME: We shouldn"t need to do this, it should be available in the API.
-    snapshot_name = snapshot_filename.replace("-ubuntu16.04.tar.gz", "")
+    snapshot_name = snapshot_filename.replace("-ubuntu18.04.tar.gz", "")
     base_url = latest_build_url.rsplit("/", 1)[0]
     latest_snapshot_url = base_url + "/" + snapshot_name + "/" + snapshot_filename
 
     # Download latest snapshot (if necessary).
     if snapshot_filename in os.listdir(script_dir):
-        print "Not downloading: " + latest_snapshot_url
+        print("Not downloading: %s" % latest_snapshot_url)
     else:
         # FIXME: We should remove old tarballs if we have newer ones.
         result = call([
@@ -68,14 +68,14 @@ def build(_):
         ])
 
         if result != 0:
-            print "Unable to install package: " + latest_snapshot_url
+            print("Unable to install package: %s" % latest_snapshot_url)
             exit(1)
 
     # Create docker image.
     call([
         "docker",
         "build",
-        "-t", "swiftpm-docker-1604",
+        "-t", "swiftpm-docker-1804",
         "--build-arg", "SNAPSHOT=%s" % snapshot_filename,
         script_dir
     ])
@@ -90,13 +90,13 @@ def bootstrap(args):
 
 def build_run(args):
     """Runs a built swift executable in the container."""
-    docker_run([".build/x86_64-unknown-linux/debug/" + args.command] + args.arguments)
+    docker_run([".build/x86_64-unknown-linux-gnu/debug/swift-" + args.command] + args.arguments)
 
 def main():
     """Main script entry-point."""
 
     parser = argparse.ArgumentParser(
-        usage="%(prog)s [build|run|bootstrap|spm]",
+        usage="%(prog)s [build|run|bootstrap|swift]",
         description="This script simplifies all the docker operations to build "
                     "and run a container for SwiftPM development and testing "
                     "on Linux.")
@@ -125,8 +125,8 @@ def main():
 
     # spm
     parser_swift_build = subparsers.add_parser(
-        "spm",
-        help="runs the spm helper script in a container.")
+        "swift",
+        help="runs a SwiftPM executable in a container.")
     parser_swift_build.add_argument("arguments", nargs="*")
     parser_swift_build.set_defaults(func=build_run)
 

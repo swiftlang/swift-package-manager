@@ -9,16 +9,15 @@
  */
 
 import TSCBasic
-import Build
-import PackageLoading
-import protocol Build.Toolchain
 import TSCUtility
+import PackageLoading
+import SPMBuildCore
+import Build
 
-#if os(macOS)
-private let whichArgs: [String] = ["xcrun", "--find"]
-#else
-private let whichArgs = ["which"]
+#if !os(macOS)
+import class Foundation.FileManager
 #endif
+
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -55,6 +54,9 @@ public final class UserToolchain: Toolchain {
     /// The compilation destination object.
     public let destination: Destination
 
+    /// The target triple that should be used for compilation.
+    public let triple: Triple
+
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
@@ -76,9 +78,26 @@ public final class UserToolchain: Toolchain {
 
         return runtime
     }
+    
+    private static func findProgram(_ name: String, envSearchPaths: [AbsolutePath]) throws -> AbsolutePath {
+#if os(macOS)
+        let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
+        return try AbsolutePath(validating: foundPath)
+#else
+        let executableName = "\(name)\(hostExecutableSuffix)"
+        
+        for folder in envSearchPaths {
+            let path = folder.appending(component: executableName)
+            if FileManager.default.fileExists(atPath: path.pathString) {
+                return path
+            }
+        }
+        throw InvalidToolchainDiagnostic("Missing tool \(name)")
+#endif
+    }
 
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
+    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?, envSearchPaths: [AbsolutePath]) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -103,7 +122,9 @@ public final class UserToolchain: Toolchain {
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
-            throw InvalidToolchainDiagnostic("could not find the `swiftc\(hostExecutableSuffix)` at expected path \(binDirCompiler)")
+            // Try to lookup swift compiler on the system which is possible when
+            // we're built outside of the Swift toolchain.
+            resolvedBinDirCompiler = try UserToolchain.findProgram("swiftc", envSearchPaths: envSearchPaths)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -141,12 +162,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Otherwise, lookup it up on the system.
-        let arguments = whichArgs + ["clang"]
-        let foundPath = try Process.checkNonZeroExit(arguments: arguments, environment: processEnvironment).spm_chomp()
-        guard !foundPath.isEmpty else {
-            throw InvalidToolchainDiagnostic("could not find clang")
-        }
-        let toolPath = try AbsolutePath(validating: foundPath)
+        let toolPath = try UserToolchain.findProgram("clang", envSearchPaths: envSearchPaths)
         _clangCompiler = toolPath
         return toolPath
     }
@@ -180,6 +196,39 @@ public final class UserToolchain: Toolchain {
         return toolPath
     }
 
+    public func getSwiftAPIDigester() throws -> AbsolutePath {
+        if let envValue = UserToolchain.lookup(variable: "SWIFT_API_DIGESTER", searchPaths: envSearchPaths) {
+            return envValue
+        }
+
+        let candidate = swiftCompiler.parentDirectory.appending(component: "swift-api-digester")
+        if localFileSystem.exists(candidate) {
+            return candidate
+        }
+
+        throw InvalidToolchainDiagnostic("could not find swift-api-digester")
+    }
+
+    public func getSymbolGraphExtract() throws -> AbsolutePath {
+        if let envValue = UserToolchain.lookup(variable: "SWIFT_SYMBOLGRAPH_EXTRACT", searchPaths: envSearchPaths) {
+            return envValue
+        }
+
+        let candidate = swiftCompiler.parentDirectory.appending(component: "swift-symbolgraph-extract")
+        if localFileSystem.exists(candidate) {
+            return candidate
+        }
+
+        throw InvalidToolchainDiagnostic("could not find swift-api-digester")
+    }
+
+    public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
+      return (triple.isDarwin() || triple.isAndroid()
+        ? ["-sdk", destination.sdk.pathString]
+        : [])
+        + destination.extraSwiftCFlags
+    }
+
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
         self.processEnvironment = environment
@@ -193,25 +242,25 @@ public final class UserToolchain: Toolchain {
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) })
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) }, envSearchPaths: searchPaths)
         self.swiftCompiler = swiftCompilers.compile
 
         // We require xctest to exist on macOS.
       #if os(macOS)
         // FIXME: We should have some general utility to find tools.
-        let xctestFindArgs = ["xcrun", "--sdk", "macosx", "--find", "xctest"]
+        let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
         self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp())
       #else
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = (destination.target.isDarwin()
-                                    ? ["-sdk", destination.sdk.pathString]
-                                    : [])
-                                  + destination.extraSwiftCFlags
+        // Use the triple from destination or compute the host triple using swiftc.
+        let triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        self.triple = triple
+        self.extraSwiftCFlags = UserToolchain.deriveSwiftCFlags(triple: triple, destination: destination)
 
         self.extraCCFlags = [
-            destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
+            triple.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
         ] + destination.extraCCFlags
 
         // Compute the path of directory containing the PackageDescription libraries.
@@ -221,18 +270,25 @@ public final class UserToolchain: Toolchain {
         if let pdLibDirEnvStr = ProcessEnv.vars["SWIFTPM_PD_LIBS"] {
             // We pick the first path which exists in a colon seperated list.
             let paths = pdLibDirEnvStr.split(separator: ":").map(String.init)
+            var foundPDLibDir = false
             for pathString in paths {
                 if let path = try? AbsolutePath(validating: pathString), localFileSystem.exists(path) {
                     pdLibDir = path
+                    foundPDLibDir = true
                     break
                 }
             }
-        }
 
+            if !foundPDLibDir {
+                fatalError("Couldn't find any SWIFTPM_PD_LIBS directory: \(pdLibDirEnvStr)")
+            }
+        }
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
             libDir: pdLibDir,
-            sdkRoot: self.destination.sdk
+            sdkRoot: self.destination.sdk,
+            // Set the bin directory if we don't have a lib dir.
+            binDir: localFileSystem.exists(pdLibDir) ? nil : binDir
         )
     }
 }

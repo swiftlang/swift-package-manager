@@ -16,42 +16,9 @@ import SPMTestSupport
 import PackageModel
 import PackageLoading
 
-// FIXME: We should share the infra with other loading tests.
-class PackageDescription4_2LoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-
-    private func loadManifestThrowing(
-        _ contents: ByteString,
-        line: UInt = #line,
-        body: (Manifest) -> Void
-    ) throws {
-        let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-        try fs.writeFileContents(manifestPath, bytes: contents)
-        let m = try manifestLoader.load(
-            package: AbsolutePath.root,
-            baseURL: "/foo",
-            manifestVersion: .v4_2,
-            fileSystem: fs)
-        guard m.manifestVersion == .v4_2 else {
-            return XCTFail("Invalid manfiest version")
-        }
-        body(m)
-    }
-
-    private func loadManifest(
-        _ contents: ByteString,
-        line: UInt = #line,
-        body: (Manifest) -> Void
-    ) {
-        do {
-            try loadManifestThrowing(contents, line: line, body: body)
-        } catch ManifestParseError.invalidManifestFormat(let error) {
-            print(error)
-            XCTFail(file: #file, line: line)
-        } catch {
-            XCTFail("Unexpected error: \(error)", file: #file, line: line)
-        }
+class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
+    override var toolsVersion: ToolsVersion {
+        .v4_2
     }
 
     func testBasics() {
@@ -62,7 +29,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 name: "Trivial",
                 products: [
                     .executable(name: "tool", targets: ["tool"]),
-                    .library(name: "Foo", targets: ["Foo"]),
+                    .library(name: "Foo", targets: ["foo"]),
                 ],
                 dependencies: [
                     .package(url: "/foo1", from: "1.0.0"),
@@ -71,6 +38,8 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                     .target(
                         name: "foo",
                         dependencies: ["dep1", .product(name: "product"), .target(name: "target")]),
+                    .target(
+                        name: "tool"),
                     .testTarget(
                         name: "bar",
                         dependencies: ["foo"]),
@@ -82,24 +51,22 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(manifest.name, "Trivial")
 
             // Check targets.
-            let targets = Dictionary(items:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
             XCTAssertEqual(foo.dependencies, ["dep1", .product(name: "product"), .target(name: "target")])
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
 
             // Check dependencies.
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: nil, url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
-            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
 
             let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
@@ -109,7 +76,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             let fooProduct = products["Foo"]!
             XCTAssertEqual(fooProduct.name, "Foo")
             XCTAssertEqual(fooProduct.type, .library(.automatic))
-            XCTAssertEqual(fooProduct.targets, ["Foo"])
+            XCTAssertEqual(fooProduct.targets, ["foo"])
         }
     }
 
@@ -285,9 +252,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(url: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: nil, url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(name: nil, url: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
             XCTAssertEqual(deps["/foo3"]?.url, "/foo3")
             XCTAssertEqual(deps["/foo3"]?.requirement, .localPackage)
@@ -295,11 +262,11 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             XCTAssertEqual(deps["/path/to/foo4"]?.url, "/path/to/foo4")
             XCTAssertEqual(deps["/path/to/foo4"]?.requirement, .localPackage)
 
-            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(url: "/foo5", requirement: .exact("1.2.3")))
-            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(url: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
-            XCTAssertEqual(deps["/foo7"], PackageDependencyDescription(url: "/foo7", requirement: .branch("master")))
-            XCTAssertEqual(deps["/foo8"], PackageDependencyDescription(url: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
-            XCTAssertEqual(deps["/foo9"], PackageDependencyDescription(url: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
+            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(name: nil, url: "/foo5", requirement: .exact("1.2.3")))
+            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(name: nil, url: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
+            XCTAssertEqual(deps["/foo7"], PackageDependencyDescription(name: nil, url: "/foo7", requirement: .branch("master")))
+            XCTAssertEqual(deps["/foo8"], PackageDependencyDescription(name: nil, url: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
+            XCTAssertEqual(deps["/foo9"], PackageDependencyDescription(name: nil, url: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
 
             let homeDir = "/home/user"
             XCTAssertEqual(deps["\(homeDir)/path/to/foo10"]?.url, "\(homeDir)/path/to/foo10")
@@ -337,15 +304,13 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(items:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
             XCTAssertEqual(foo.type, .regular)
             XCTAssertEqual(foo.dependencies, ["bar"])
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertEqual(bar.type, .system)
             XCTAssertEqual(bar.pkgConfig, "libbar")
@@ -386,7 +351,7 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", manifestVersion: .v4_2, fileSystem: fs)
+            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", toolsVersion: .v4_2, packageKind: .root, fileSystem: fs)
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -446,13 +411,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
             )
             """
 
-        do {
-            try loadManifestThrowing(stream.bytes) { _ in }
-            XCTFail("Unexpected success")
-        } catch ManifestParseError.duplicateDependencyDecl(let duplicates) {
-            XCTAssertEqual(duplicates.count, 2)
-            let urls = duplicates.flatMap({$0}).map({ $0.url }).sorted()
-            XCTAssertEqual(urls, ["/foo/path/to/foo1", "/foo1", "/foo1.git", "/foo2.git", "/foo2.git"])
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), behavior: .error)
+            diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), behavior: .error)
         }
     }
 
@@ -511,7 +472,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v4_2)
+                    toolsVersion: .v4_2,
+                    packageKind: .local
+                )
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
@@ -566,7 +529,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v4_2)
+                    toolsVersion: .v4_2,
+                    packageKind: .local
+                )
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
@@ -635,7 +600,8 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let m = try manifestLoader.load(
                     package: AbsolutePath.root,
                     baseURL: "/foo",
-                    manifestVersion: .v4_2,
+                    toolsVersion: .v4_2,
+                    packageKind: .root,
                     fileSystem: fs)
 
                 XCTAssertEqual(m.name, "Trivial")
@@ -684,7 +650,9 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let manifest = try manifestLoader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
-                    manifestVersion: .v4_2)
+                    toolsVersion: .v4_2,
+                    packageKind: .root
+                )
 
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, [manifestPath])
@@ -706,6 +674,57 @@ class PackageDescription4_2LoadingTests: XCTestCase {
                 let error = String(describing: error)
                 XCTAssertMatch(error, .contains("not a database"))
             }
+        }
+    }
+
+    func testProductTargetNotFound() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found", behavior: .error)
+        }
+    }
+
+    func testLoadingWithoutDiagnostics() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        do {
+            _ = try loadManifest(
+                stream.bytes,
+                toolsVersion: toolsVersion,
+                packageKind: .remote,
+                diagnostics: nil
+            )
+
+            XCTFail("Unexpected success")
+        } catch let error as StringError {
+            XCTAssertMatch(error.description, "target 'B' referenced in product 'Product' could not be found")
         }
     }
 

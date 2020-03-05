@@ -16,8 +16,6 @@ import TSCUtility
 
 import SPMTestSupport
 
-@testable import class SourceControl.GitRepository
-
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testRepositorySpecifier() {
@@ -381,10 +379,10 @@ class GitRepositoryTests: XCTestCase {
             // Add a remote via git cli.
             try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "remote", "add", "origin", "../foo"])
             // Test if it was added.
-            XCTAssertEqual(Dictionary(items: try repo.remotes().map { ($0.0, $0.1) }), ["origin": "../foo"])
+            XCTAssertEqual(Dictionary(uniqueKeysWithValues: try repo.remotes().map { ($0.0, $0.1) }), ["origin": "../foo"])
             // Change remote.
             try repo.setURL(remote: "origin", url: "../bar")
-            XCTAssertEqual(Dictionary(items: try repo.remotes().map { ($0.0, $0.1) }), ["origin": "../bar"])
+            XCTAssertEqual(Dictionary(uniqueKeysWithValues: try repo.remotes().map { ($0.0, $0.1) }), ["origin": "../bar"])
             // Try changing remote of non-existant remote.
             do {
                 try repo.setURL(remote: "fake", url: "../bar")

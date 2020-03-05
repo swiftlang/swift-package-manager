@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@testable import PackageDescription4
+import PackageDescription
 import XCTest
 
 class VersionTests: XCTestCase {

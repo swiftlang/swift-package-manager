@@ -9,6 +9,7 @@
 */
 
 import TSCBasic
+import SPMBuildCore
 import Build
 import PackageModel
 import PackageLoading
@@ -16,6 +17,7 @@ import PackageGraph
 import SourceControl
 import TSCUtility
 import Xcodeproj
+import XCBuildSupport
 import Workspace
 import Foundation
 
@@ -48,12 +50,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             switch configMode {
             case .getMirror:
-                guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(.missingRequiredArg("--package-url"))
+                guard let originalURL = options.configOptions.originalURL else {
+                    diagnostics.emit(.missingRequiredArg("--original-url"))
                     return
                 }
 
-                if let mirror = config.getMirror(forURL: packageURL) {
+                if let mirror = config.getMirror(forURL: originalURL) {
                     print(mirror)
                 } else {
                     stderrStream <<< "not found\n"
@@ -62,16 +64,17 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 }
 
             case .unsetMirror:
-                guard let packageOrMirror = options.configOptions.packageURL ?? options.configOptions.mirrorURL else {
-                    diagnostics.emit(.missingRequiredArg("--package-url or --mirror-url"))
+                guard let originalOrMirrorURL = options.configOptions.originalURL ?? options.configOptions.mirrorURL
+                else {
+                    diagnostics.emit(.missingRequiredArg("--original-url or --mirror-url"))
                     return
                 }
 
-                try config.unset(packageOrMirrorURL: packageOrMirror)
+                try config.unset(originalOrMirrorURL: originalOrMirrorURL)
 
             case .setMirror:
-                guard let packageURL = options.configOptions.packageURL else {
-                    diagnostics.emit(.missingRequiredArg("--package-url"))
+                guard let originalURL = options.configOptions.originalURL else {
+                    diagnostics.emit(.missingRequiredArg("--original-url"))
                     return
                 }
                 guard let mirrorURL = options.configOptions.mirrorURL else {
@@ -79,7 +82,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                     return
                 }
 
-                try config.set(mirrorURL: mirrorURL, forPackageURL: packageURL)
+                try config.set(mirrorURL: mirrorURL, forURL: originalURL)
             }
 
         case .initPackage:
@@ -112,8 +115,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try getPackageRoot(),
-                diagnostics: diagnostics,
-                isRootPackage: true
+                diagnostics: diagnostics
             )
             let package = try builder.construct()
 
@@ -149,12 +151,78 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         case .reset:
             try getActiveWorkspace().reset(with: diagnostics)
 
+        case .apidiff:
+            let apiDigesterPath = try getToolchain().getSwiftAPIDigester()
+            let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
+
+            let apiDiffOptions = options.apiDiffOptions
+
+            // Build the current package.
+            //
+            // We turn build manifest caching off because we need the build plan.
+            let buildOp = try createBuildOperation(useBuildManifestCaching: false)
+            try buildOp.build()
+
+            // Dump JSON for the current package.
+            let buildParameters = buildOp.buildParameters
+            let currentSDKJSON = buildParameters.apiDiff.appending(component: "current.json")
+            let packageGraph = try buildOp.getPackageGraph()
+
+            try apiDigesterTool.dumpSDKJSON(
+                at: currentSDKJSON,
+                modules: packageGraph.apiDigesterModules,
+                additionalArgs: buildOp.buildPlan!.createAPIDigesterArgs()
+            )
+
+            // Dump JSON for the baseline package.
+            let workspace = try getActiveWorkspace()
+            let baselineDumper = try APIDigesterBaselineDumper(
+                baselineTreeish: apiDiffOptions.treeish,
+                packageRoot: getPackageRoot(),
+                buildParameters: buildParameters,
+                manifestLoader: workspace.manifestLoader,
+                repositoryManager: workspace.repositoryManager,
+                apiDigesterTool: apiDigesterTool,
+                diags: diagnostics
+            )
+            let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
+
+            // Run the diagnose tool which will print the diff.
+            let invertBaseline = apiDiffOptions.invertBaseline
+            try apiDigesterTool.diagnoseSDK(
+                currentSDKJSON: invertBaseline ? baselineSDKJSON : currentSDKJSON,
+                baselineSDKJSON: invertBaseline ? currentSDKJSON : baselineSDKJSON
+            )
+
+        case .dumpSymbolGraph:
+            let symbolGraphExtract = try SymbolGraphExtract(
+                tool: getToolchain().getSymbolGraphExtract())
+
+            // Build the current package.
+            //
+            // We turn build manifest caching off because we need the build plan.
+            let buildOp = try createBuildOperation(useBuildManifestCaching: false)
+            try buildOp.build()
+
+            try symbolGraphExtract.dumpSymbolGraph(
+                buildPlan: buildOp.buildPlan!
+            )
+
         case .update:
             let workspace = try getActiveWorkspace()
-            try workspace.updateDependencies(
+            
+            let changes = try workspace.updateDependencies(
                 root: getWorkspaceRoot(),
-                diagnostics: diagnostics
+                packages: options.updateOptions.packages,
+                diagnostics: diagnostics,
+                dryRun: options.updateOptions.dryRun
             )
+            
+            if let pinsStore = diagnostics.wrap({ try workspace.pinsStore.load() }),
+                let changes = changes,
+                options.updateOptions.dryRun {
+                logPackageChanges(changes: changes, pins: pinsStore)
+            }
 
         case .fetch:
             diagnostics.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
@@ -286,8 +354,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try getPackageRoot(),
-                diagnostics: diagnostics,
-                isRootPackage: true
+                diagnostics: diagnostics
             )
             let package = try builder.construct()
             describe(package, in: options.describeMode, on: stdoutStream)
@@ -309,6 +376,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let jsonString = String(data: jsonData, encoding: .utf8)!
             print(jsonString)
 
+        case .dumpPIF:
+            let graph = try loadPackageGraph(createMultipleTestProducts: true)
+            let parameters = try PIFBuilderParameters(buildParameters())
+            let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: diagnostics)
+            let pif = try builder.generatePIF()
+            print(pif)
+
         case .completionTool:
             switch options.completionToolMode {
             case .generateBashScript?:
@@ -329,6 +403,21 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             default:
                 preconditionFailure("somehow we ended up with an invalid positional argument")
             }
+
+        case .computeChecksum:
+            let workspace = try getActiveWorkspace()
+            let checksum = workspace.checksum(
+                forBinaryArtifactAt: options.computeChecksumOptions.path,
+                diagnostics: diagnostics
+            )
+
+            guard !diagnostics.hasErrors else {
+                return
+            }
+
+            stdoutStream <<< checksum <<< "\n"
+            stdoutStream.flush()
+
         case .help:
             parser.printUsage(on: stdoutStream)
         }
@@ -343,6 +432,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { $0.describeMode = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
+        _ = parser.add(subparser: PackageMode.dumpPIF.rawValue, overview: "")
 
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
@@ -371,7 +461,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         parser.add(subparser: PackageMode.clean.rawValue, overview: "Delete build artifacts")
         parser.add(subparser: PackageMode.fetch.rawValue, overview: "")
         parser.add(subparser: PackageMode.reset.rawValue, overview: "Reset the complete cache/build directory")
-        parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        
+        let updateParser = parser.add(subparser: PackageMode.update.rawValue, overview: "Update package dependencies")
+        binder.bind(
+            positional: updateParser.add(
+                positional: "packages", kind: [String].self, optional: true, strategy: .upToNextOption,
+                usage: "The packages to update (optional)"),
+            to: { $0.updateOptions.packages = $1 })
+
+        binder.bind(
+        option: updateParser.add(
+            option: "--dry-run", shortName: "-n", kind: Bool.self,
+            usage: "Display the list of dependencies that can be updated"),
+            to: { $0.updateOptions.dryRun = $1 })
 
         let formatParser = parser.add(subparser: PackageMode.format.rawValue, overview: "")
         binder.bindArray(
@@ -445,17 +547,19 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
         let setMirrorParser = configParser.add(
             subparser: PackageToolOptions.ConfigMode.setMirror.rawValue,
             overview: "Set a mirror for a dependency")
-
         binder.bind(
             setMirrorParser.add(
                 option: "--package-url", kind: String.self,
                 usage: "The package dependency url"),
             setMirrorParser.add(
+                option: "--original-url", kind: String.self,
+                usage: "The original url"),
+            setMirrorParser.add(
                 option: "--mirror-url", kind: String.self,
                 usage: "The mirror url"),
             to: {
-                $0.configOptions.packageURL = $1
-                $0.configOptions.mirrorURL = $2
+                $0.configOptions.originalURL = $1 ?? $2
+                $0.configOptions.mirrorURL = $3
             }
         )
 
@@ -467,11 +571,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 option: "--package-url", kind: String.self,
                 usage: "The package dependency url"),
             unsetMirrorParser.add(
+                option: "--original-url", kind: String.self,
+                usage: "The original url"),
+            unsetMirrorParser.add(
                 option: "--mirror-url", kind: String.self,
                 usage: "The mirror url"),
             to: {
-                $0.configOptions.packageURL = $1
-                $0.configOptions.mirrorURL = $2
+                $0.configOptions.originalURL = $1 ?? $2
+                $0.configOptions.mirrorURL = $3
             }
         )
 
@@ -479,10 +586,14 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             subparser: PackageToolOptions.ConfigMode.getMirror.rawValue,
             overview: "Print mirror configuration for the given package dependency")
         binder.bind(
-            option: getMirrorParser.add(
-                option: "--package-url", kind: String.self, usage: "The package dependency url"),
+            getMirrorParser.add(
+                option: "--package-url", kind: String.self,
+                usage: "The package dependency url"),
+            getMirrorParser.add(
+                option: "--original-url", kind: String.self,
+                usage: "The original url"),
             to: {
-                $0.configOptions.packageURL = $1
+                $0.configOptions.originalURL = $1 ?? $2
             }
         )
 
@@ -557,9 +668,50 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
                 $0.resolveOptions.branch = $2
                 $0.resolveOptions.revision = $3 })
 
+        let apiDiffParser = parser.add(
+            subparser: PackageMode.apidiff.rawValue,
+            overview: ""
+        )
+        binder.bind(
+           positional: apiDiffParser.add(
+               positional: "treeish", kind: String.self,
+               usage: "The baseline treeish"),
+           to: { $0.apiDiffOptions.treeish = $1 })
+        binder.bind(
+            option: apiDiffParser.add(
+                option: "--invert-baseline",
+                kind: Bool.self,
+                usage: "Invert the baseline which is helpful for determining API additions"),
+            to: { $0.apiDiffOptions.invertBaseline = $1 })
+
+        _ = parser.add(
+            subparser: PackageMode.dumpSymbolGraph.rawValue,
+            overview: ""
+        )
+
+        let computeChecksumParser = parser.add(
+            subparser: PackageMode.computeChecksum.rawValue,
+            overview: "Compute the checksum for a binary artifact.")
+        binder.bind(
+            positional: computeChecksumParser.add(
+                positional: "file", kind: PathArgument.self,
+                usage: "The absolute or relative path to the binary artifact"),
+            to: { $0.computeChecksumOptions.path = $1.path })
+
         binder.bind(
             parser: parser,
             to: { $0.mode = PackageMode(rawValue: $1)! })
+    }
+
+    override class func postprocessArgParserResult(
+        result: ArgumentParser.Result,
+        diagnostics: DiagnosticsEngine
+    ) throws {
+        try super.postprocessArgParserResult(result: result, diagnostics: diagnostics)
+
+        if result.exists(arg: "--package-url") {
+            diagnostics.emit(warning: "'--package-url' option is deprecated; use '--original-url' instead")
+        }
     }
 }
 
@@ -616,12 +768,34 @@ public class PackageToolOptions: ToolOptions {
     }
     var resolveOptions = ResolveOptions()
 
+    struct APIDiffOptions {
+        var treeish: String!
+        var invertBaseline: Bool = false
+    }
+    var apiDiffOptions = APIDiffOptions()
+
+    struct SymbolGraphOptions {
+        var path: AbsolutePath!
+    }
+    var symbolGraphOptions = SymbolGraphOptions()
+
+    struct ComputeChecksumOptions {
+        var path: AbsolutePath!
+    }
+    var computeChecksumOptions = ComputeChecksumOptions()
+
     enum ToolsVersionMode {
         case display
         case set(String)
         case setCurrent
     }
     var toolsVersionMode: ToolsVersionMode = .display
+
+    struct UpdateOptions {
+        var packages: [String] = []
+        var dryRun: Bool = false
+    }
+    var updateOptions = UpdateOptions()
 
     enum ConfigMode: String {
         case setMirror = "set-mirror"
@@ -631,7 +805,7 @@ public class PackageToolOptions: ToolOptions {
     var configMode: ConfigMode?
 
     struct ConfigOptions {
-        var packageURL: String?
+        var originalURL: String?
         var mirrorURL: String?
     }
     var configOptions = ConfigOptions()
@@ -646,6 +820,7 @@ public enum PackageMode: String, StringEnumArgument {
     case format = "_format"
     case describe
     case dumpPackage = "dump-package"
+    case dumpPIF = "dump-pif"
     case edit
     case fetch
     case generateXcodeproj = "generate-xcodeproj"
@@ -658,6 +833,9 @@ public enum PackageMode: String, StringEnumArgument {
     case unedit
     case update
     case version
+    case apidiff = "experimental-api-diff"
+    case dumpSymbolGraph = "dump-symbol-graph"
+    case computeChecksum = "compute-checksum"
     case help
 
     // PackageMode is not used as an argument; completions will be
@@ -725,5 +903,35 @@ private extension Diagnostic.Message {
 
     static func missingRequiredArg(_ argument: String) -> Diagnostic.Message {
         .error("missing required argument \(argument)")
+    }
+}
+
+fileprivate extension SwiftPackageTool {
+    /// Logs all changed dependencies to a stream
+    /// - Parameter changes: Changes to log
+    /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
+    /// - Parameter stream: Stream used for logging
+    func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = TSCBasic.stdoutStream) {
+        let changes = changes.filter { $0.1 != .unchanged }
+        
+        stream <<< "\n"
+        stream <<< "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
+        stream <<< "\n"
+        
+        for (package, change) in changes {
+            let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
+            switch change {
+            case let .added(requirement):
+                stream <<< "+ \(package.name) \(requirement.prettyPrinted)"
+            case let .updated(requirement):
+                stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(requirement.prettyPrinted)"
+            case .removed:
+                stream <<< "- \(package.name) \(currentVersion)"
+            case .unchanged:
+                continue
+            }
+            stream <<< "\n"
+        }
+        stream.flush()
     }
 }

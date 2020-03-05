@@ -15,7 +15,7 @@ import PackageLoading
 import PackageModel
 import SourceControl
 
-@testable import PackageGraph
+import PackageGraph
 
 // There's some useful helper utilities defined below for easier testing:
 //
@@ -58,7 +58,7 @@ let aRef = PackageReference(identity: "a", path: "")
 let bRef = PackageReference(identity: "b", path: "")
 let cRef = PackageReference(identity: "c", path: "")
 
-let rootRef = PackageReference(identity: "root", path: "")
+let rootRef = PackageReference(identity: "root", path: "", kind: .root)
 let rootCause = Incompatibility(Term(rootRef, .exact(v1)), root: rootRef)
 let _cause = Incompatibility("cause@0.0.0", root: rootRef)
 
@@ -312,7 +312,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: deps)
 
         switch result {
-        case .error, .unsatisfiable:
+        case .error:
             XCTFail("Unexpected error")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
@@ -963,7 +963,7 @@ final class PubgrubTests: XCTestCase {
             "b": .version(v1),
         ])
 
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsStore.pinsMap)
 
         // Since a was pinned, we shouldn't have computed bounds for its incomaptibilities.
         let aIncompat = resolver.positiveIncompatibilities(for: builder.reference(for: "a"))![0]
@@ -997,7 +997,7 @@ final class PubgrubTests: XCTestCase {
             "b": .version(v1),
         ])
 
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsStore.pinsMap)
 
         AssertResult(result, [
             ("a", .version(v1)),
@@ -1023,7 +1023,7 @@ final class PubgrubTests: XCTestCase {
             "b": .branch("master", revision: "master-sha-2"),
         ])
 
-        let result = resolver.solve(dependencies: dependencies, pinsStore: pinsStore)
+        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsStore.pinsMap)
 
         AssertResult(result, [
             ("a", .revision("develop")),
@@ -1774,8 +1774,6 @@ private func AssertResult(
     switch result {
     case .success(let bindings):
         AssertBindings(bindings, packages, file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
     case .error(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
@@ -1792,8 +1790,6 @@ private func AssertError(
     case .success(let bindings):
         let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
         XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .unsatisfiable(dependencies: let constraints, pins: let pins):
-        XCTFail("Unexpectedly unsatisfiable with dependencies: \(constraints) and pins: \(pins)", file: file, line: line)
     case .error(let foundError):
         XCTAssertEqual(String(describing: foundError), String(describing: expectedError), file: file, line: line)
     }
@@ -1923,17 +1919,17 @@ public struct MockProvider: PackageContainerProvider {
 
     public init(containers: [MockContainer]) {
         self.containers = containers
-        self.containersByIdentifier = Dictionary(items: containers.map({ ($0.identifier, $0) }))
+        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.identifier, $0) }))
     }
 
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, AnyError>
-        ) -> Void) {
+        completion: @escaping (Result<PackageContainer, Error>
+    ) -> Void) {
         DispatchQueue.global().async {
             completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
-                Result(_MockLoadingError.unknownModule))
+                .failure(_MockLoadingError.unknownModule))
         }
     }
 }

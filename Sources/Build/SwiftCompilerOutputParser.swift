@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -10,31 +10,61 @@
 
 import Foundation
 import TSCBasic
+import TSCUtility
 
 /// Represents a message output by the Swift compiler in JSON output mode.
-struct SwiftCompilerMessage {
-    enum Kind {
-        struct Output {
-            let type: String
-            let path: String
+public struct SwiftCompilerMessage {
+    public enum Kind {
+        public struct Output {
+            public let type: String
+            public let path: String
+
+            public init(type: String, path: String) {
+                self.type = type
+                self.path = path
+            }
         }
 
-        struct BeganInfo {
-            let pid: Int
-            let inputs: [String]
-            let outputs: [Output]
-            let commandExecutable: String
-            let commandArguments: [String]
+        public struct BeganInfo {
+            public let pid: Int
+            public let inputs: [String]
+            public let outputs: [Output]
+            public let commandExecutable: String
+            public let commandArguments: [String]
+
+            public init(
+                pid: Int,
+                inputs: [String],
+                outputs: [Output],
+                commandExecutable: String,
+                commandArguments: [String]
+            ) {
+                self.pid = pid
+                self.inputs = inputs
+                self.outputs = outputs
+                self.commandExecutable = commandExecutable
+                self.commandArguments = commandArguments
+            }
         }
 
-        struct SkippedInfo {
-            let inputs: [String]
-            let outputs: [Output]
+        public struct SkippedInfo {
+            public let inputs: [String]
+            public let outputs: [Output]
+
+            public init(inputs: [String], outputs: [SwiftCompilerMessage.Kind.Output]) {
+                self.inputs = inputs
+                self.outputs = outputs
+            }
         }
 
-        struct OutputInfo {
-            let pid: Int
-            let output: String?
+        public struct OutputInfo {
+            public let pid: Int
+            public let output: String?
+
+            public init(pid: Int, output: String?) {
+                self.pid = pid
+                self.output = output
+            }
         }
 
         case began(BeganInfo)
@@ -44,12 +74,18 @@ struct SwiftCompilerMessage {
         case unparsableOutput(String)
     }
 
-    let name: String
-    let kind: Kind
+    public let name: String
+    public let kind: Kind
+
+    public init(name: String, kind: SwiftCompilerMessage.Kind) {
+        self.name = name
+        self.kind = kind
+    }
 }
 
 /// Protocol for the parser delegate to get notified of parsing events.
-protocol SwiftCompilerOutputParserDelegate: class {
+public protocol SwiftCompilerOutputParserDelegate: class {
+
     /// Called for each message parsed.
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage)
 
@@ -58,14 +94,13 @@ protocol SwiftCompilerOutputParserDelegate: class {
 }
 
 /// Parser for the Swift compiler JSON output mode.
-final class SwiftCompilerOutputParser {
+public final class SwiftCompilerOutputParser {
 
-    /// State of the parser state machine.
-    private enum State {
-        case parsingMessageSize
-        case parsingMessage(size: Int)
-        case parsingNewlineAfterMessage
-    }
+    /// The underlying JSON message parser.
+    private var jsonParser: JSONMessageStreamingParser<SwiftCompilerOutputParser>!
+
+    /// Whether the parser is in a failing state.
+    private var hasFailed: Bool
 
     /// Name of the target the compiler is compiling.
     public let targetName: String
@@ -73,123 +108,65 @@ final class SwiftCompilerOutputParser {
     /// Delegate to notify of parsing events.
     public weak var delegate: SwiftCompilerOutputParserDelegate?
 
-    /// Buffer containing the bytes until a full message can be parsed.
-    private var buffer: [UInt8] = []
-
-    /// The parser's state machine current state.
-    private var state: State = .parsingMessageSize
-
-    /// Boolean indicating if the parser has encountered an un-expected parsing error.
-    private var hasFailed = false
-
-    /// The JSON decoder to parse messages.
-    private let decoder: JSONDecoder
-
     /// Initializes the parser with a delegate to notify of parsing events.
-    init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
+    /// - Parameters:
+    ///     - targetName: The name of the target being built.
+    ///     - delegate: Delegate to notify of parsing events.
+    public init(targetName: String, delegate: SwiftCompilerOutputParserDelegate) {
+        self.hasFailed = false
         self.targetName = targetName
         self.delegate = delegate
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        self.decoder = decoder
+        jsonParser = JSONMessageStreamingParser<SwiftCompilerOutputParser>(delegate: self, decoder: decoder)
     }
 
     /// Parse the next bytes of the Swift compiler JSON output.
     /// - Note: If a parsing error is encountered, the delegate will be notified and the parser won't accept any further
     ///   input.
-    func parse<C>(bytes: C) where C: Collection, C.Element == UInt8 {
-        guard !hasFailed else { return }
-
-        do {
-            try parseImpl(bytes: bytes)
-        } catch {
-            hasFailed = true
-            delegate?.swiftCompilerOutputParser(self, didFailWith: error)
-        }
-    }
-}
-
-private extension SwiftCompilerOutputParser {
-
-    /// Error corresponding to invalid Swift compiler output.
-    struct ParsingError: LocalizedError {
-        /// Text describing the specific reason for the parsing failure.
-        let reason: String
-
-        var errorDescription: String? {
-            return reason
-        }
-    }
-
-    /// Throwing implementation of the parse function.
-    func parseImpl<C>(bytes: C) throws where C: Collection, C.Element == UInt8 {
-        switch state {
-        case .parsingMessageSize:
-            if let newlineIndex = bytes.firstIndex(of: newline) {
-                buffer.append(contentsOf: bytes[..<newlineIndex])
-                try parseMessageSize()
-
-                let nextIndex = bytes.index(after: newlineIndex)
-                try parseImpl(bytes: bytes[nextIndex...])
-            } else {
-                buffer.append(contentsOf: bytes)
-            }
-        case .parsingMessage(size: let size):
-            let remainingBytes = size - buffer.count
-            if remainingBytes <= bytes.count {
-                buffer.append(contentsOf: bytes.prefix(remainingBytes))
-
-                let message = try parseMessage()
-                delegate?.swiftCompilerOutputParser(self, didParse: message)
-
-                if case .signalled = message.kind {
-                    hasFailed = true
-                    return
-                }
-
-                try parseImpl(bytes: bytes.dropFirst(remainingBytes))
-            } else {
-                buffer.append(contentsOf: bytes)
-            }
-        case .parsingNewlineAfterMessage:
-            if let firstByte = bytes.first {
-                precondition(firstByte == newline)
-                state = .parsingMessageSize
-                try parseImpl(bytes: bytes.dropFirst())
-            }
-        }
-    }
-
-    /// Parse the next message size from the buffer and update the state machine.
-    func parseMessageSize() throws {
-        guard let string = String(bytes: buffer, encoding: .utf8) else {
-            throw ParsingError(reason: "invalid UTF8 bytes")
-        }
-
-        guard let messageSize = Int(string) else {
-            // Non-parseable chunks are *assumed* to be output. E.g., you get
-            // a "remark" if you build with SWIFTC_MAXIMUM_DETERMINISM env variable.
-            let message = SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput(string))
-            delegate?.swiftCompilerOutputParser(self, didParse: message)
-            buffer.removeAll()
+    public func parse<C>(bytes: C) where C: Collection, C.Element == UInt8 {
+        guard !hasFailed else {
             return
         }
 
-        buffer.removeAll()
-        state = .parsingMessage(size: messageSize)
+        jsonParser.parse(bytes: bytes)
+    }
+}
+
+extension SwiftCompilerOutputParser: JSONMessageStreamingParserDelegate {
+    public func jsonMessageStreamingParser(
+        _ parser: JSONMessageStreamingParser<SwiftCompilerOutputParser>,
+        didParse message: SwiftCompilerMessage
+    ) {
+        guard !hasFailed else {
+            return
+        }
+
+        delegate?.swiftCompilerOutputParser(self, didParse: message)
+
+        if case .signalled = message.kind {
+            hasFailed = true
+        }
     }
 
-    /// Parse the message in the buffer and update the state machine.
-    func parseMessage() throws -> SwiftCompilerMessage {
-        let data = Data(buffer)
-        buffer.removeAll()
-        state = .parsingNewlineAfterMessage
-
-        do {
-            return try decoder.decode(SwiftCompilerMessage.self, from: data)
-        } catch {
-            throw ParsingError(reason: "unexpected JSON message")
+    public func jsonMessageStreamingParser(
+        _ parser: JSONMessageStreamingParser<SwiftCompilerOutputParser>,
+        didParseRawText text: String
+    ) {
+        guard !hasFailed else {
+            return
         }
+
+        let message = SwiftCompilerMessage(name: "unknown", kind: .unparsableOutput(text))
+        delegate?.swiftCompilerOutputParser(self, didParse: message)
+    }
+
+    public func jsonMessageStreamingParser(
+        _ parser: JSONMessageStreamingParser<SwiftCompilerOutputParser>,
+        didFailWith error: Error
+    ) {
+        delegate?.swiftCompilerOutputParser(self, didFailWith: error)
     }
 }
 
@@ -199,7 +176,7 @@ extension SwiftCompilerMessage: Decodable, Equatable {
         case name
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
         kind = try Kind(from: decoder)
@@ -211,7 +188,7 @@ extension SwiftCompilerMessage.Kind: Decodable, Equatable {
         case kind
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(String.self, forKey: .kind)
         switch kind {
@@ -233,5 +210,3 @@ extension SwiftCompilerMessage.Kind.Output: Decodable, Equatable {}
 extension SwiftCompilerMessage.Kind.BeganInfo: Decodable, Equatable {}
 extension SwiftCompilerMessage.Kind.SkippedInfo: Decodable, Equatable {}
 extension SwiftCompilerMessage.Kind.OutputInfo: Decodable, Equatable {}
-
-private let newline = UInt8(ascii: "\n")

@@ -115,43 +115,77 @@ extension Package: ObjectIdentifierProtocol {
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConvertible, Equatable, Hashable {
+public struct PackageReference: JSONMappable, JSONSerializable, Codable, CustomStringConvertible, Equatable, Hashable {
+    public typealias PackageIdentity = String
+
+    /// The kind of package reference.
+    public enum Kind: String, Codable {
+        /// A root package.
+        case root
+
+        /// A non-root local package.
+        case local
+
+        /// A remote package.
+        case remote
+    }
 
     /// Compute identity of a package given its URL.
     public static func computeIdentity(packageURL: String) -> String {
+        return computeDefaultName(fromURL: packageURL).lowercased()
+    }
+
+    /// Compute the default name of a package given its URL.
+    public static func computeDefaultName(fromURL url: String) -> String {
+      #if os(Windows)
+        let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+      #else
+        let isSeparator : (Character) -> Bool = { $0 == "/" }
+      #endif
+       
         // Get the last path component of the URL.
-        var lastComponent = packageURL.split(separator: "/", omittingEmptySubsequences: true).last!
+        // Drop the last character in case it's a trailing slash.
+        var endIndex = url.endIndex
+        if let lastCharacter = url.last, isSeparator(lastCharacter) {
+            endIndex = url.index(before: endIndex)
+        }
+
+        let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
+        let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
+        var lastComponent = url[startIndex..<endIndex]
 
         // Strip `.git` suffix if present.
         if lastComponent.hasSuffix(".git") {
             lastComponent = lastComponent.dropLast(4)
         }
 
-        return lastComponent.lowercased()
+        return String(lastComponent)
     }
 
     /// The identity of the package.
-    public let identity: String
+    public let identity: PackageIdentity
 
     /// The name of the package, if available.
-    public let name: String?
+    public var name: String {
+        _name ?? Self.computeDefaultName(fromURL: path)
+    }
+    private let _name: String?
 
     /// The path of the package.
     ///
     /// This could be a remote repository, local repository or local package.
     public let path: String
 
-    /// The package reference is a local package, i.e., it does not reference
-    /// a git repository.
-    public let isLocal: Bool
+    /// The kind of package: root, local, or remote.
+    public let kind: Kind
 
     /// Create a package reference given its identity and repository.
-    public init(identity: String, path: String, name: String? = nil, isLocal: Bool = false) {
+    public init(identity: String, path: String, name: String? = nil, kind: Kind = .remote) {
         assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
-        self.name = name
+        self._name = name
         self.identity = identity
         self.path = path
-        self.isLocal = isLocal
+        self.kind = kind
     }
 
     public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
@@ -163,10 +197,16 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
     }
 
     public init(json: JSON) throws {
-        self.name = json.get("name")
+        self._name = json.get("name")
         self.identity = try json.get("identity")
         self.path = try json.get("path")
-        self.isLocal = try json.get("isLocal")
+
+        // Support previous version of PackageReference that contained an `isLocal` property.
+        if let isLocal: Bool = json.get("isLocal") {
+            kind = isLocal ? .local : .remote
+        } else {
+            kind = try Kind(rawValue: json.get("kind"))!
+        }
     }
 
     public func toJSON() -> JSON {
@@ -174,13 +214,13 @@ public struct PackageReference: JSONMappable, JSONSerializable, CustomStringConv
             "name": name.toJSON(),
             "identity": identity,
             "path": path,
-            "isLocal": isLocal,
-            ])
+            "kind": kind.rawValue,
+        ])
     }
 
     /// Create a new package reference object with the given name.
     public func with(newName: String) -> PackageReference {
-        return PackageReference(identity: identity, path: path, name: newName, isLocal: isLocal)
+        return PackageReference(identity: identity, path: path, name: newName, kind: kind)
     }
 
     public var description: String {

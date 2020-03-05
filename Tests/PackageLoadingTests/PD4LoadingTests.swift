@@ -12,88 +12,18 @@ import XCTest
 
 import TSCBasic
 import TSCUtility
-
 import PackageModel
 import SPMTestSupport
-
 import PackageLoading
 
-class PackageDescription4LoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-
-    private func loadManifestThrowing(
-        _ contents: ByteString,
-        line: UInt = #line,
-        body: (Manifest) -> Void) throws
-    {
-        let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-        try fs.writeFileContents(manifestPath, bytes: contents)
-        let m = try manifestLoader.load(
-            package: AbsolutePath.root,
-            baseURL: "/foo",
-            manifestVersion: .v4,
-            fileSystem: fs)
-        guard m.manifestVersion == .v4 else {
-            return XCTFail("Invalid manfiest version")
-        }
-        body(m)
-    }
-
-    private func loadManifest(
-        _ contents: ByteString,
-        line: UInt = #line,
-        body: (Manifest) -> Void)
-    {
-        do {
-            try loadManifestThrowing(contents, line: line, body: body)
-        } catch ManifestParseError.invalidManifestFormat(let error) {
-            print(error)
-            XCTFail(file: #file, line: line)
-        } catch {
-            XCTFail("Unexpected error: \(error)", file: #file, line: line)
-        }
-    }
-
-    func testManiestVersionToToolsVersion() {
-        let fourVersions = [
-            "4.0.0", "4.0.10", "4.1", "4.1.999", "4.1.0",
-        ]
-
-        for version in fourVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v4, "version: \(version)")
-        }
-
-        let fourTwoVersions = [
-            "4.2.0", "4.2.1", "4.2.2", "4.2.999", "4.3", "4.9", "4.9.9"
-        ]
-
-        for version in fourTwoVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v4_2)
-        }
-
-        let fiveVersions = [
-            "5.0.0", "5.0.1", "5.0.2",
-        ]
-
-        for version in fiveVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v5, version)
-        }
-
-        let fiveOneVersions = [
-            "5.1.0", "6.1.100", "5.1.1", "7.0.0",
-        ]
-
-        for version in fiveOneVersions {
-            let toolsVersion = ToolsVersion(string: version)!
-            XCTAssertEqual(toolsVersion.manifestVersion, .v5_1, version)
-        }
+class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
+    override var toolsVersion: ToolsVersion {
+        .v4
     }
 
     func testTrivial() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -104,13 +34,15 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.manifestVersion, .v4)
+            XCTAssertEqual(manifest.toolsVersion, .v4)
             XCTAssertEqual(manifest.targets, [])
             XCTAssertEqual(manifest.dependencies, [])
         }
     }
 
     func testTargetDependencies() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -132,22 +64,20 @@ class PackageDescription4LoadingTests: XCTestCase {
 
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
-            let targets = Dictionary(items:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-            let foo = targets["foo"]!
+            let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
             XCTAssertFalse(foo.isTest)
 
             let expectedDependencies: [TargetDescription.Dependency]
             expectedDependencies = [
-                .byName(name: "dep1"),
+                "dep1",
                 .target(name: "dep2"),
                 .product(name: "dep3", package: "Pkg"),
                 .product(name: "dep4"),
             ]
             XCTAssertEqual(foo.dependencies, expectedDependencies)
 
-            let bar = targets["bar"]!
+            let bar = manifest.targetMap["bar"]!
             XCTAssertEqual(bar.name, "bar")
             XCTAssertTrue(bar.isTest)
             XCTAssertEqual(bar.dependencies, ["foo"])
@@ -155,6 +85,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testCompatibleSwiftVersions() throws {
+        guard Resources.havePD4Runtime else { return }
+
         var stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -191,6 +123,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testPackageDependencies() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -207,31 +141,37 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(items: manifest.dependencies.map{ ($0.url, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(url: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(url: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo4"], PackageDependencyDescription(url: "/foo4", requirement: .exact("1.0.0")))
-            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(url: "/foo5", requirement: .branch("master")))
-            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(url: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.url, $0) })
+            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(name: nil, url: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(name: nil, url: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(name: nil, url: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["/foo4"], PackageDependencyDescription(name: nil, url: "/foo4", requirement: .exact("1.0.0")))
+            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(name: nil, url: "/foo5", requirement: .branch("master")))
+            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(name: nil, url: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 
     func testProducts() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
-               name: "Foo",
-               products: [
-                   .executable(name: "tool", targets: ["tool"]),
-                   .library(name: "Foo", targets: ["Foo"]),
-                   .library(name: "FooDy", type: .dynamic, targets: ["Foo"]),
-               ]
+                name: "Foo",
+                products: [
+                    .executable(name: "tool", targets: ["tool"]),
+                    .library(name: "Foo", targets: ["Foo"]),
+                    .library(name: "FooDy", type: .dynamic, targets: ["Foo"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                    .target(name: "tool"),
+                ]
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let products = Dictionary(items: manifest.products.map{ ($0.name, $0) })
+            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
             // Check tool.
             let tool = products["tool"]!
             XCTAssertEqual(tool.name, "tool")
@@ -251,6 +191,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testSystemPackage() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -274,6 +216,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testCTarget() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -289,18 +233,17 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(items:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-
-            let foo = targets["Foo"]!
+            let foo = manifest.targetMap["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
 
-            let bar = targets["Bar"]!
+            let bar = manifest.targetMap["Bar"]!
             XCTAssertEqual(bar.publicHeadersPath, nil)
         }
     }
 
     func testTargetProperties() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -319,16 +262,13 @@ class PackageDescription4LoadingTests: XCTestCase {
             )
             """
         loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(items:
-                manifest.targets.map({ ($0.name, $0 as TargetDescription ) }))
-
-            let foo = targets["Foo"]!
+            let foo = manifest.targetMap["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
             XCTAssertEqual(foo.path, "foo/z")
             XCTAssertEqual(foo.exclude, ["bar"])
             XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
 
-            let bar = targets["Bar"]!
+            let bar = manifest.targetMap["Bar"]!
             XCTAssertEqual(bar.publicHeadersPath, nil)
             XCTAssertEqual(bar.path, nil)
             XCTAssertEqual(bar.exclude, [])
@@ -337,6 +277,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testUnavailableAPIs() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream.write("""
             import PackageDescription
@@ -356,14 +298,16 @@ class PackageDescription4LoadingTests: XCTestCase {
             }
             XCTFail("this package should not load succesfully")
         } catch ManifestParseError.invalidManifestFormat(let error, _) {
-            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"))
-            XCTAssert(error.contains("error: 'package(url:branch:)' is unavailable: use package(url:_:) with the .branch(String) initializer instead\n"))
-            XCTAssert(error.contains("error: 'package(url:revision:)' is unavailable: use package(url:_:) with the .revision(String) initializer instead\n"))
-            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) without the range label instead\n"))
+            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:branch:)' is unavailable: use package(url:_:) with the .branch(String) initializer instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:revision:)' is unavailable: use package(url:_:) with the .revision(String) initializer instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) without the range label instead\n"), "\(error)")
         }
     }
 
     func testLanguageStandards() {
+        guard Resources.havePD4Runtime else { return }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -384,6 +328,8 @@ class PackageDescription4LoadingTests: XCTestCase {
     }
 
     func testManifestWithWarnings() throws {
+        guard Resources.havePD4Runtime else { return }
+
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
@@ -403,17 +349,87 @@ class PackageDescription4LoadingTests: XCTestCase {
         let diagnostics = DiagnosticsEngine()
         let manifest = try manifestLoader.load(
             package: .root, baseURL: "/foo",
-            manifestVersion: .v4, fileSystem: fs,
-            diagnostics: diagnostics
+            toolsVersion: .v4, packageKind: .root,
+            fileSystem: fs, diagnostics: diagnostics
         )
 
         XCTAssertEqual(manifest.name, "Trivial")
-        XCTAssertEqual(manifest.manifestVersion, .v4)
+        XCTAssertEqual(manifest.toolsVersion, .v4)
         XCTAssertEqual(manifest.targets, [])
         XCTAssertEqual(manifest.dependencies, [])
 
         DiagnosticsEngineTester(diagnostics) { result in
             result.check(diagnostic: .contains("initialization of immutable value 'a' was never used"), behavior: .warning)
+        }
+    }
+
+    func testDuplicateTargets() throws {
+        guard Resources.havePD4Runtime else { return }
+
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "A"),
+                    .target(name: "B"),
+                    .target(name: "A"),
+                    .target(name: "B"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnotics in
+            diagnotics.checkUnordered(diagnostic: "duplicate target named 'A'", behavior: .error)
+            diagnotics.checkUnordered(diagnostic: "duplicate target named 'B'", behavior: .error)
+        }
+    }
+
+    func testEmptyProductTargets() throws {
+        guard Resources.havePD4Runtime else { return }
+
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: []),
+                ],
+                targets: [
+                    .target(name: "Target"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: "product 'Product' doesn't reference any targets", behavior: .error)
+        }
+    }
+
+    func testProductTargetNotFound() throws {
+        guard Resources.havePD4Runtime else { return }
+
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "Product", targets: ["A", "B"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found", behavior: .error)
         }
     }
 }

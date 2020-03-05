@@ -14,11 +14,14 @@ import Foundation
 import TSCUtility
 
 /// Tools version represents version of the Swift toolchain.
-public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Encodable {
+public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codable {
 
     public static let v3 = ToolsVersion(version: "3.1.0")
     public static let v4 = ToolsVersion(version: "4.0.0")
+    public static let v4_2 = ToolsVersion(version: "4.2.0")
     public static let v5 = ToolsVersion(version: "5.0.0")
+    public static let v5_2 = ToolsVersion(version: "5.2.0")
+    public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
     public static let currentToolsVersion = ToolsVersion(string:
@@ -101,6 +104,11 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Encod
         version: String? = nil,
         packagePath: String
     ) throws {
+        // We don't want to throw any error when using the special vNext version.
+        if Versioning.currentVersion.isDevelopment && self == .vNext {
+            return
+        }
+
         // Make sure the package has the right minimum tools version.
         guard self >= .minimumRequired else {
             throw UnsupportedToolsVersion(

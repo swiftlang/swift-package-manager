@@ -18,7 +18,7 @@ extension PackageDependencyDescription {
         return PackageReference(
             identity: PackageReference.computeIdentity(packageURL: effectiveURL),
             path: effectiveURL,
-            isLocal: (requirement == .localPackage)
+            kind: requirement == .localPackage ? .local : .remote
         )
     }
 }
@@ -27,7 +27,7 @@ extension Manifest {
 
     /// Constructs constraints of the dependencies in the raw package.
     public func dependencyConstraints(config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
-        return dependencies.map({
+        return allRequiredDependencies.map({
             return RepositoryPackageConstraint(
                 container: $0.createPackageRef(config: config),
                 requirement: $0.requirement.toConstraintRequirement())
