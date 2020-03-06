@@ -58,8 +58,22 @@ extension Diagnostic.Message {
         .error("system library product \(product) shouldn't have a type and contain only one target")
     }
 
-    static func invalidExecutableProductDecl(_ product: String) -> Diagnostic.Message {
-        .error("executable product '\(product)' should have exactly one executable target")
+    static func executableProductTargetNotExecutable(product: String, target: String) -> Diagnostic.Message {
+        .error("""
+            executable product '\(product)' expects target '\(target)' to be executable; an executable target requires \
+            a 'main.swift' file
+            """)
+    }
+
+    static func executableProductWithoutExecutableTarget(product: String) -> Diagnostic.Message {
+        .error("""
+            executable product '\(product)' should have one executable target; an executable target requires a \
+            'main.swift' file
+            """)
+    }
+
+    static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Diagnostic.Message {
+        .error("executable product '\(product)' should not have more than one executable target")
     }
 
     static var noLibraryTargetsForREPL: Diagnostic.Message {
