@@ -102,8 +102,10 @@ public final class UserToolchain: Toolchain {
 #endif
     }
 
+    public typealias SwiftCompilers = (compile: AbsolutePath, manifest: AbsolutePath)
+
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?, envSearchPaths: [AbsolutePath]) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
+    public static func determineSwiftCompilers(binDir: AbsolutePath, envSearchPaths: [AbsolutePath]) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -111,6 +113,7 @@ public final class UserToolchain: Toolchain {
             }
         }
 
+        let lookup = { UserToolchain.lookup(variable: $0, searchPaths: envSearchPaths) }
         // Get overrides.
         let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
         let SWIFT_EXEC = lookup("SWIFT_EXEC")
@@ -264,20 +267,22 @@ public final class UserToolchain: Toolchain {
             + destination.extraSwiftCFlags
     }
 
-    public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
+    public init(destination: Destination, searchPaths: [AbsolutePath], environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
         self.processEnvironment = environment
 
         // Get the search paths from PATH.
         let searchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.path, currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+            pathString: ProcessEnv.path, 
+            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+        ) + searchPaths
 
         self.envSearchPaths = searchPaths
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) }, envSearchPaths: searchPaths)
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, envSearchPaths: searchPaths)
         self.swiftCompiler = swiftCompilers.compile
         self.archs = destination.archs
     

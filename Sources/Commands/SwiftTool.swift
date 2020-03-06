@@ -639,6 +639,10 @@ public class SwiftTool {
         } catch {
             return .failure(error)
         }
+        // Get the search paths from PATH.
+        let searchPaths = getEnvSearchPaths(
+            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+
         // Apply any manual overrides.
         if let triple = self.options.customCompileTriple {
             destination.target = triple
@@ -648,6 +652,18 @@ public class SwiftTool {
         }
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
+        } else if let target = destination.target, target.isWASI() {
+            // Set default SDK path when target is WASI whose SDK is embeded
+            // in Swift toolchain
+            do {
+                let compilers = try UserToolchain.determineSwiftCompilers(binDir: destination.binDir, envSearchPaths: searchPaths)
+                destination.sdk = compilers.compile
+                    .parentDirectory // bin
+                    .parentDirectory // usr
+                    .appending(components: "share", "wasi-sysroot")
+            } catch {
+                return .failure(error)
+            }
         }
         destination.archs = options.archs
 
@@ -656,14 +672,17 @@ public class SwiftTool {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(destination: destination) })
+        return Result(catching: { try UserToolchain(destination: destination, searchPaths: searchPaths) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
+        // Get the search paths from PATH.
+        let searchPaths = getEnvSearchPaths(
+            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
         return Result(catching: {
             try UserToolchain(destination: Destination.hostDestination(
-                        originalWorkingDirectory: self.originalWorkingDirectory))
+                        originalWorkingDirectory: self.originalWorkingDirectory), searchPaths: searchPaths)
         })
     }()
 
