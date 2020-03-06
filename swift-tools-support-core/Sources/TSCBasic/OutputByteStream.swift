@@ -268,9 +268,9 @@ public class _OutputByteStreamBase: OutputByteStream {
 
 /// The thread-safe wrapper around output byte streams.
 ///
-/// This class wraps any `OutputByteStream` conforming type to provide a thread-safe
+/// This class wraps any `OutputByteStream` conforming type to provide a type-safe
 /// access to its operations. If the provided stream inherits from `_OutputByteStreamBase`,
-/// it will also ensure it is thread-safe will all other `ThreadSafeOutputByteStream` instances
+/// it will also ensure it is type-safe will all other `ThreadSafeOutputByteStream` instances
 /// around the same stream.
 public final class ThreadSafeOutputByteStream: OutputByteStream {
     private static let defaultQueue = DispatchQueue(label: "org.swift.swiftpm.basic.thread-safe-output-byte-stream")
