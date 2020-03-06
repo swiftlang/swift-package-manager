@@ -97,11 +97,9 @@ extension String {
 
     public func spm_multilineIndent(count: Int) -> String {
         let indent = String(repeating: " ", count: count)
-        let fullRange = self.startIndex ..< self.endIndex
-        var ret = ""
-        self.enumerateSubstrings(in: fullRange, options: [.byLines, .substringNotRequired]) { _, _, enclosingRange, _ in
-            ret += indent + self[enclosingRange]
-        }
-        return ret
+        return self
+            .split(separator: "\n")
+            .map { indent + $0 }
+            .joined(separator: "\n")
     }
 }
