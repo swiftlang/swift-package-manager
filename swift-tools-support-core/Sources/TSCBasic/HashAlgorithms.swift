@@ -72,16 +72,13 @@ public struct SHA256: HashAlgorithm {
         }
 
         // Finally, compute the result.
-        let count = SHA256.digestLength / 8
-        let result = [UInt8](unsafeUninitializedCapacity: count) { buf, initializedCount in
-            for (idx, element) in hash.enumerated() {
-                let pos = idx * 4
-                buf[pos + 0] = UInt8((element >> 24) & 0xff)
-                buf[pos + 1] = UInt8((element >> 16) & 0xff)
-                buf[pos + 2] = UInt8((element >> 8) & 0xff)
-                buf[pos + 3] = UInt8(element & 0xff)
-            }
-            initializedCount = count
+        var result = [UInt8](repeating: 0, count: SHA256.digestLength / 8)
+        for (idx, element) in hash.enumerated() {
+            let pos = idx * 4
+            result[pos + 0] = UInt8((element >> 24) & 0xff)
+            result[pos + 1] = UInt8((element >> 16) & 0xff)
+            result[pos + 2] = UInt8((element >> 8) & 0xff)
+            result[pos + 3] = UInt8(element & 0xff)
         }
 
         return ByteString(result)
@@ -91,24 +88,21 @@ public struct SHA256: HashAlgorithm {
     private func process(_ block: ArraySlice<UInt8>, hash: inout [UInt32]) {
 
         // Compute message schedule.
-        let count = SHA256.konstants.count
-        let W = [UInt32](unsafeUninitializedCapacity: count) { buf, initializedCount in
-            for t in 0..<count {
-                switch t {
-                case 0...15:
-                    let index = block.startIndex.advanced(by: t * 4)
-                    // Put 4 bytes in each message.
-                    buf[t]  = UInt32(block[index + 0]) << 24
-                    buf[t] |= UInt32(block[index + 1]) << 16
-                    buf[t] |= UInt32(block[index + 2]) << 8
-                    buf[t] |= UInt32(block[index + 3])
-                default:
-                    let σ1 = buf[t-2].rotateRight(by: 17) ^ buf[t-2].rotateRight(by: 19) ^ (buf[t-2] >> 10)
-                    let σ0 = buf[t-15].rotateRight(by: 7) ^ buf[t-15].rotateRight(by: 18) ^ (buf[t-15] >> 3)
-                    buf[t] = σ1 &+ buf[t-7] &+ σ0 &+ buf[t-16]
-                }
+        var W = [UInt32](repeating: 0, count: SHA256.konstants.count)
+        for t in 0..<W.count {
+            switch t {
+            case 0...15:
+                let index = block.startIndex.advanced(by: t * 4)
+                // Put 4 bytes in each message.
+                W[t]  = UInt32(block[index + 0]) << 24
+                W[t] |= UInt32(block[index + 1]) << 16
+                W[t] |= UInt32(block[index + 2]) << 8
+                W[t] |= UInt32(block[index + 3])
+            default:
+                let σ1 = W[t-2].rotateRight(by: 17) ^ W[t-2].rotateRight(by: 19) ^ (W[t-2] >> 10)
+                let σ0 = W[t-15].rotateRight(by: 7) ^ W[t-15].rotateRight(by: 18) ^ (W[t-15] >> 3)
+                W[t] = σ1 &+ W[t-7] &+ σ0 &+ W[t-16]
             }
-            initializedCount = count
         }
 
         var a = hash[0]

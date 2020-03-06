@@ -20,6 +20,7 @@ public enum Platform {
     /// Recognized flavors of linux.
     public enum LinuxFlavor {
         case debian
+        case fedora
     }
 
     /// Lazily checked current platform.
@@ -37,6 +38,11 @@ public enum Platform {
             if localFileSystem.isFile(AbsolutePath("/system/bin/toolbox")) ||
                localFileSystem.isFile(AbsolutePath("/system/bin/toybox")) {
                 return .android
+            }
+            if localFileSystem.isFile(AbsolutePath("/etc/redhat-release")) ||
+               localFileSystem.isFile(AbsolutePath("/etc/centos-release")) ||
+               localFileSystem.isFile(AbsolutePath("/etc/fedora-release")) {
+                return .linux(.fedora)
             }
         default:
             return nil
