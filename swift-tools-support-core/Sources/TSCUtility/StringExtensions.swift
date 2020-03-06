@@ -96,9 +96,10 @@ extension String {
     }
 
     public func spm_multilineIndent(count: Int) -> String {
+        let indent = String(repeating: " ", count: count)
         return self
             .split(separator: "\n")
-            .map{ String(repeating: " ", count: count) + $0 }
+            .map { indent + $0 }
             .joined(separator: "\n")
     }
 }
