@@ -40,6 +40,7 @@ public struct Triple: Encodable, Equatable {
         case aarch64
         case armv7
         case arm
+        case wasm32
     }
 
     public enum Vendor: String, Encodable {
@@ -52,12 +53,14 @@ public struct Triple: Encodable, Equatable {
         case macOS = "macosx"
         case linux
         case windows
+        case wasi
 
         fileprivate static let allKnown:[OS] = [
             .darwin,
             .macOS,
             .linux,
-            .windows
+            .windows,
+            .wasi,
         ]
     }
 
@@ -125,6 +128,10 @@ public struct Triple: Encodable, Equatable {
         return os == .windows
     }
 
+    public func isWASI() -> Bool {
+        return os == .wasi
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.
@@ -165,6 +172,8 @@ extension Triple {
             return ".so"
         case .windows:
             return ".dll"
+        case .wasi:
+            fatalError("WebAssembly/WASI doesn't support dynamic library yet")
         }
     }
 
@@ -173,6 +182,8 @@ extension Triple {
       case .darwin, .macOS:
         return ""
       case .linux:
+        return ""
+      case .wasi:
         return ""
       case .windows:
         return ".exe"

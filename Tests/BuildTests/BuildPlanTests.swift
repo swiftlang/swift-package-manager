@@ -2130,14 +2130,14 @@ final class BuildPlanTests: XCTestCase {
                     inputs: ["/path/to/build/debug/exe.swiftmodule"]
                     outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
                     description: "Wrapping AST for exe for debugging"
-                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o"]
+                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
 
                   "/path/to/build/debug/lib.build/lib.swiftmodule.o":
                     tool: shell
                     inputs: ["/path/to/build/debug/lib.swiftmodule"]
                     outputs: ["/path/to/build/debug/lib.build/lib.swiftmodule.o"]
                     description: "Wrapping AST for lib for debugging"
-                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/lib.swiftmodule","-o","/path/to/build/debug/lib.build/lib.swiftmodule.o"]
+                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/lib.swiftmodule","-o","/path/to/build/debug/lib.build/lib.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
                 """))
         }
     }

@@ -339,11 +339,12 @@ extension LLBuildManifestBuilder {
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) {
         // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
         guard buildParameters.debuggingStrategy == .modulewrap else { return }
-        let moduleWrapArgs = [
+        var moduleWrapArgs = [
             target.buildParameters.toolchain.swiftCompiler.pathString,
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString
         ]
+        moduleWrapArgs += buildParameters.targetTripleArgs(for: target.target)
         manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",

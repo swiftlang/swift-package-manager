@@ -1524,6 +1524,7 @@ class PackageBuilderTests: XCTestCase {
             "tvos": "9.0",
             "watchos": "2.0",
             "android": "0.0",
+            "wasi": "0.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1568,6 +1569,7 @@ class PackageBuilderTests: XCTestCase {
             "ios": "8.0",
             "watchos": "2.0",
             "android": "0.0",
+            "wasi": "0.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
