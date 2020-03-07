@@ -429,6 +429,7 @@ public enum SystemPackageProvider {
   #else
     case _brewItem([String])
     case _aptItem([String])
+    case _yumItem([String])
   #endif
 
     /// Declare the list of installable packages using the homebrew package
@@ -456,6 +457,20 @@ public enum SystemPackageProvider {
         return ._aptItem(packages)
       #endif
     }
+
+#if PACKAGE_DESCRIPTION_4
+// yum is not supported
+#else
+    /// Declare the list of installable packages using the yum package
+    /// manager on RHEL/CentOS to create a system package provider instance.
+    ///
+    /// - Parameters:
+    ///     - packages: The list of package names.
+    @available(_PackageDescription, introduced: 999)
+    public static func yum(_ packages: [String]) -> SystemPackageProvider {
+        return ._yumItem(packages)
+    }
+#endif
 }
 
 // MARK: Package JSON serialization
@@ -513,6 +528,7 @@ extension SystemPackageProvider: Encodable {
     private enum Name: String, Encodable {
         case brew
         case apt
+        case yum
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -533,6 +549,9 @@ extension SystemPackageProvider: Encodable {
             try container.encode(packages, forKey: .values)
         case ._aptItem(let packages):
             try container.encode(Name.apt, forKey: .name)
+            try container.encode(packages, forKey: .values)
+        case ._yumItem(let packages):
+            try container.encode(Name.yum, forKey: .name)
             try container.encode(packages, forKey: .values)
         }
       #endif

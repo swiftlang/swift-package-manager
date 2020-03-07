@@ -485,6 +485,7 @@ public struct ProductDescription: Equatable, Codable {
 public enum SystemPackageProviderDescription: Equatable {
     case brew([String])
     case apt([String])
+    case yum([String])
 }
 
 /// Represents a package dependency.

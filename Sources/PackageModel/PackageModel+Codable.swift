@@ -49,7 +49,7 @@ extension ProductType: Codable {
 
 extension SystemPackageProviderDescription: Codable {
     private enum CodingKeys: String, CodingKey {
-        case brew, apt
+        case brew, apt, yum
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -60,6 +60,9 @@ extension SystemPackageProviderDescription: Codable {
             try unkeyedContainer.encode(a1)
         case let .apt(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .apt)
+            try unkeyedContainer.encode(a1)
+        case let .yum(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .yum)
             try unkeyedContainer.encode(a1)
         }
     }
@@ -78,6 +81,10 @@ extension SystemPackageProviderDescription: Codable {
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode([String].self)
             self = .apt(a1)
+        case .yum:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode([String].self)
+            self = .yum(a1)
         }
     }
 }

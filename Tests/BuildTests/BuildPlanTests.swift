@@ -1412,6 +1412,7 @@ final class BuildPlanTests: XCTestCase {
                             providers: [
                                 .brew(["BTarget"]),
                                 .apt(["BTarget"]),
+                                .yum(["BTarget"]),
                             ]
                         )
                     ]),
