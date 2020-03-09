@@ -1911,7 +1911,8 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo/Foo.xcassets",
             "/Foo/Sources/Foo/Foo.xib",
-            "/Foo/Sources/Foo/Foo.xcdatamodel"
+            "/Foo/Sources/Foo/Foo.xcdatamodel",
+            "/Foo/Sources/Foo/Foo.metal"
         )
 
         let manifest = Manifest.createManifest(
@@ -1929,6 +1930,7 @@ class PackageBuilderTests: XCTestCase {
                     "/Foo/Sources/Foo/Foo.xib",
                     "/Foo/Sources/Foo/Foo.xcdatamodel",
                     "/Foo/Sources/Foo/Foo.xcassets",
+                    "/Foo/Sources/Foo/Foo.metal"
                 ])
             }
         }
