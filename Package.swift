@@ -55,6 +55,9 @@ let package = Package(
             targets: ["PackageDescription"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .branch("master")),
+    ],
     targets: [
         // The `PackageDescription` targets define the API which is available to
         // the `Package.swift` manifest files. We build the latest API version
@@ -130,7 +133,7 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport"]),
+            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",

@@ -8,6 +8,7 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import ArgumentParser
 import TSCBasic
 import Build
 import TSCUtility
@@ -40,75 +41,86 @@ extension RunError: CustomStringConvertible {
     }
 }
 
-public class RunToolOptions: ToolOptions {
+struct RunToolOptions: ParsableArguments {
+    enum RunMode {
+        case repl
+        case run
+    }
+
     /// Returns the mode in with the tool command should run.
     var mode: RunMode {
-        // If we got version option, just print the version and exit.
-        if shouldPrintVersion {
-            return .version
-        }
         if shouldLaunchREPL {
             return .repl
         }
         return .run
     }
 
+    @OptionGroup()
+    public var swiftOptions: SwiftToolOptions
+    
     /// If the executable product should be built before running.
-    var shouldBuild = true
+    @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
+    var shouldSkipBuild: Bool
+    
+    var shouldBuild: Bool { !shouldSkipBuild }
 
     /// If the test should be built.
-    var shouldBuildTests = false
+    @Flag(name: .customLong("build-tests"), help: "Build both source and test targets")
+    var shouldBuildTests: Bool
 
     /// If should launch the Swift REPL.
-    var shouldLaunchREPL = false
+    @Flag(name: .customLong("repl"), help: "Launch Swift REPL for the package")
+    var shouldLaunchREPL: Bool
 
     /// The executable product to run.
+    @Argument(help: "The executable to run")
     var executable: String?
 
     /// The arguments to pass to the executable.
-    var arguments: [String] = []
-}
-
-public enum RunMode {
-    case version
-    case repl
-    case run
+    @Argument(parsing: .unconditionalRemaining,
+              help: "The arguments to pass to the executable")
+    var arguments: [String]
+    
+    mutating func validate() throws {
+        if shouldBuildTests && shouldSkipBuild {
+            let message = [buildTestsOptionName, skipBuildOptionName]
+                .map { "'\($0)'" }
+                .spm_localizedJoin(type: .conjunction)
+                + " are mutually exclusive"
+            throw ValidationError(message)
+        }
+    }
 }
 
 /// swift-run tool namespace
-public class SwiftRunTool: SwiftTool<RunToolOptions> {
+public struct SwiftRunTool: ParsableCommand {
+    public static let configuration = CommandConfiguration(
+        commandName: "swift run",
+        abstract: "Build and run an executable product")
+    
+    @OptionGroup()
+    var options: RunToolOptions
 
-   public convenience init(args: [String]) {
-       self.init(
-            toolName: "run",
-            usage: "[options] [executable [arguments ...]]",
-            overview: "Build and run an executable product",
-            args: args,
-            seeAlso: type(of: self).otherToolNames()
-        )
-    }
-
-    override func runImpl() throws {
+    public func run() throws {
+        let swiftTool = try SwiftTool(options: options.swiftOptions)
+        
         switch options.mode {
-        case .version:
-            print(Versioning.currentVersion.completeDisplayString)
-
         case .repl:
             // Load a custom package graph which has a special product for REPL.
-            let graphLoader = { try self.loadPackageGraph(createREPLProduct: self.options.shouldLaunchREPL) }
-            let buildParameters = try self.buildParameters()
+            let graphLoader = { try swiftTool.loadPackageGraph(createREPLProduct: self.options.shouldLaunchREPL) }
+            let buildParameters = try swiftTool.buildParameters()
 
             // Construct the build operation.
             let buildOp = BuildOperation(
                 buildParameters: buildParameters,
                 useBuildManifestCaching: false,
                 packageGraphLoader: graphLoader,
-                diagnostics: diagnostics,
-                stdoutStream: self.stdoutStream
+                diagnostics: swiftTool.diagnostics,
+                stdoutStream: swiftTool.stdoutStream
             )
 
             // Save the instance so it can be cancelled from the int handler.
-            self.buildSystemRef.buildSystem = buildOp
+            swiftTool.buildSystemRef.buildSystem = buildOp
 
             // Perform build.
             try buildOp.build()
@@ -116,14 +128,14 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             // Execute the REPL.
             let arguments = buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
-            try run(getToolchain().swiftInterpreter, arguments: arguments)
+            try run(swiftTool.getToolchain().swiftInterpreter, arguments: arguments)
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                diagnostics.emit(.runFileDeprecation)
+                swiftTool.diagnostics.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
-                let swiftInterpreterPath = try getToolchain().swiftInterpreter
+                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
                 try run(swiftInterpreterPath, arguments: arguments)
@@ -132,15 +144,9 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
 
             // Redirect stdout to stderr because swift-run clients usually want
             // to ignore swiftpm's output and only care about the tool's output.
-            self.redirectStdoutToStderr()
+            swiftTool.redirectStdoutToStderr()
 
-            if options.shouldBuildTests && !options.shouldBuild {
-                diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments:
-                    [buildTestsOptionName, skipBuildOptionName]))
-                return
-            }
-
-            let buildSystem = try createBuildSystem()
+            let buildSystem = try swiftTool.createBuildSystem()
             let productName = try findProductName(in: buildSystem.getPackageGraph())
 
             if options.shouldBuildTests {
@@ -149,7 +155,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 try buildSystem.build(subset: .product(productName))
             }
 
-            let executablePath = try self.buildParameters().buildPath.appending(component: productName)
+            let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
             try run(executablePath, arguments: options.arguments)
         }
     }
@@ -209,41 +215,6 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
             absolutePath = AbsolutePath(cwd, path)
         }
         return localFileSystem.isFile(absolutePath)
-    }
-
-    override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<RunToolOptions>) {
-        binder.bind(
-            option: parser.add(option: skipBuildOptionName, kind: Bool.self,
-                usage: "Skip building the executable product"),
-            to: { $0.shouldBuild = !$1 })
-
-        binder.bind(
-            option: parser.add(option: buildTestsOptionName, kind: Bool.self,
-                               usage: "Build both source and test targets"),
-            to: { $0.shouldBuildTests = $1 })
-
-        binder.bindArray(
-            positional: parser.add(
-                positional: "executable", kind: [String].self, optional: true, strategy: .remaining,
-                usage: "The executable to run", completion: .function("_swift_executable")),
-            to: {
-                $0.executable = $1.first!
-                $0.arguments = Array($1.dropFirst())
-            })
-
-        binder.bind(
-            option: parser.add(option: "--repl", kind: Bool.self,
-                usage: "Launch Swift REPL for the package"),
-            to: { $0.shouldLaunchREPL = $1 })
-    }
-}
-
-fileprivate let buildTestsOptionName = "--build-tests"
-fileprivate let skipBuildOptionName = "--skip-build"
-
-extension SwiftRunTool: ToolName {
-    static var toolName: String {
-        return "swift run"
     }
 }
 
