@@ -1587,7 +1587,7 @@ class PIFBuilderTests: XCTestCase {
             shouldCreateMultipleTestProducts: true
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
+        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics, fileSystem: fs)
         let pif = builder.construct()
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -1597,6 +1597,7 @@ class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:foo"])
                     XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/path/to/build/foo.build/DerivedSources/resource_bundle_accessor.swift"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2092,10 +2093,12 @@ class PIFBuilderTests: XCTestCase {
 
 extension PIFBuilderParameters {
     static func mock(
-        shouldCreateDylibForDynamicProducts: Bool = false
+        shouldCreateDylibForDynamicProducts: Bool = false,
+        buildPath: AbsolutePath = AbsolutePath("/path/to/build/")
     ) -> Self {
         PIFBuilderParameters(
-            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
+            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+            buildPath: buildPath
         )
     }
 }

@@ -23,11 +23,16 @@ public struct PIFBuilderParameters {
     /// Whether to create dylibs for dynamic library products.
     public let shouldCreateDylibForDynamicProducts: Bool
 
+    /// The path to the build directory.
+    public var buildPath: AbsolutePath
+    
     /// Creates a `PIFBuilderParameters` instance.
     /// - Parameters:
     ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(shouldCreateDylibForDynamicProducts: Bool) {
+    ///   - buildPath: The path to the build directory.
+    public init(shouldCreateDylibForDynamicProducts: Bool, buildPath: AbsolutePath) {
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.buildPath = buildPath
     }
 }
 
@@ -314,6 +319,78 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
+    private struct ResourceAccessor {
+        var headerFile: AbsolutePath?
+    }
+    
+    private func addResourceAccessor(for target: ResolvedTarget, resourceBundleName: String, to pifTarget: PIFTargetBuilder) throws -> ResourceAccessor {
+        let tempsPath = parameters.buildPath.appending(component: target.c99name + ".build")
+        var derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
+        if target.underlyingTarget is ClangTarget {
+            let implFileStream = BufferedOutputByteStream()
+            implFileStream <<< """
+            #import <Foundation/Foundation.h>
+            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE() {
+                NSURL *bundleURL = [[[NSBundle mainBundle] bundleURL] URLByAppendingPathComponent:@"\(resourceBundleName).bundle"];
+                return [NSBundle bundleWithURL:bundleURL];
+            }
+            """
+
+            let implFileSubpath = RelativePath("resource_bundle_accessor.m")
+
+            // Add the file to the dervied sources.
+            derivedSources.relativePaths.append(implFileSubpath)
+
+            // Write this file out.
+            try fileSystem.writeIfChanged(
+                path: derivedSources.root.appending(implFileSubpath),
+                bytes: implFileStream.bytes
+            )
+
+            let headerFileStream = BufferedOutputByteStream()
+            headerFileStream <<< """
+            #import <Foundation/Foundation.h>
+            NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
+            #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+            """
+            let headerFile = derivedSources.root.appending(component: "resource_bundle_accessor.h")
+
+            try fileSystem.writeIfChanged(
+                path: headerFile,
+                bytes: headerFileStream.bytes
+            )
+            
+            addSources(derivedSources, to: pifTarget)
+            
+            return ResourceAccessor(headerFile: headerFile)
+        } else if target.underlyingTarget is SwiftTarget {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+            import class Foundation.Bundle
+            extension Foundation.Bundle {
+                static var module: Bundle = {
+                    return Bundle(path: Bundle.main.bundlePath + "/" + "\(resourceBundleName).bundle")!
+                }()
+            }
+            """
+
+            let subpath = RelativePath("resource_bundle_accessor.swift")
+
+            // Add the file to the dervied sources.
+            derivedSources.relativePaths.append(subpath)
+
+            // Write this file out.
+            let path = derivedSources.root.appending(subpath)
+            try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
+            
+            addSources(derivedSources, to: pifTarget)
+            
+            return ResourceAccessor(headerFile: nil)
+        } else {
+            fatalError("unexpected target")
+        }
+    }
+    
     private func addTarget(for product: ResolvedProduct) {
         switch product.type {
         case .executable, .test:
@@ -402,6 +479,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         if let resourceBundle = addResourceBundle(for: mainTarget, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
+            
+            let resourceAccessor = try! addResourceAccessor(for: mainTarget, resourceBundleName: resourceBundle, to: pifTarget)
+            if let resourceAccessorHeaderFile = resourceAccessor.headerFile {
+                settings[.OTHER_CFLAGS, default: ["$(inherited)"]].append("-include\(resourceAccessorHeaderFile.pathString)")
+            }
         }
 
         // For targets, we use the common build settings for both the "Debug" and the "Release" configurations (all
@@ -589,6 +671,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         if let resourceBundle = addResourceBundle(for: target, in: pifTarget) {
             settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
             impartedSettings[.EMBED_PACKAGE_RESOURCE_BUNDLE_NAMES, default: ["$(inherited)"]].append(resourceBundle)
+
+            let resourceAccessor = try! addResourceAccessor(for: target, resourceBundleName: resourceBundle, to: pifTarget)
+            if let resourceAccessorHeaderFile = resourceAccessor.headerFile {
+                settings[.OTHER_CFLAGS, default: ["$(inherited)"]].append("-include\(resourceAccessorHeaderFile.pathString)")
+            }
         }
 
         // For targets, we use the common build settings for both the "Debug" and the "Release" configurations (all

@@ -150,7 +150,8 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
-            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts
+            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            buildPath: buildParameters.buildPath
         )
     }
 }
