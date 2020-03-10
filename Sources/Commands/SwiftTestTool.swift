@@ -10,6 +10,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 import class Foundation.ProcessInfo
 
+import ArgumentParser
 import TSCBasic
 import SPMBuildCore
 import Build
@@ -18,6 +19,14 @@ import PackageGraph
 import Workspace
 
 import func TSCLibc.exit
+
+func parseAbsolutePath(_ argument: String) throws -> AbsolutePath {
+    if let cwd = localFileSystem.currentWorkingDirectory {
+        return AbsolutePath(argument, relativeTo: cwd)
+    } else {
+        return try AbsolutePath(validating: argument)
+    }
+}
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
@@ -38,7 +47,7 @@ extension TestError: CustomStringConvertible {
     }
 }
 
-public class TestToolOptions: ToolOptions {
+public struct TestToolOptions: ParsableArguments {
     /// Returns the mode in with the tool command should run.
     var mode: TestMode {
         // If we got version option, just print the version and exit.
@@ -65,36 +74,72 @@ public class TestToolOptions: ToolOptions {
         return .runSerial
     }
 
+    @OptionGroup()
+    var swiftOptions: SwiftToolOptions
+    
+    @Flag(name: .customLong("skip-build"),
+          help: "Skip building the test target")
+    var shouldSkipBuilding: Bool
+    
     /// If the test target should be built before testing.
-    var shouldBuildTests = true
+    var shouldBuildTests: Bool {
+        !shouldSkipBuilding
+    }
 
     /// If tests should run in parallel mode.
-    var shouldRunInParallel = false
+    @Flag(name: .customLong("parallel"),
+          help: "Run the tests in parallel.")
+    var shouldRunInParallel: Bool
 
     /// Number of tests to execute in parallel
+    @Option(name: .customLong("num-workers"),
+            help: "Number of tests to execute in parallel.")
     var numberOfWorkers: Int?
 
     /// List the tests and exit.
-    var shouldListTests = false
+    @Flag(name: [.customLong("list-tests"), .customShort("l")],
+          help: "Lists test methods in specifier format")
+    var shouldListTests: Bool
 
     /// Generate LinuxMain entries and exit.
-    var shouldGenerateLinuxMain = false
+    @Flag(name: .customLong("generate-linuxmain"),
+          help: "Generate LinuxMain.swift entries for the package")
+    var shouldGenerateLinuxMain: Bool
 
     /// If the path of the exported code coverage JSON should be printed.
-    var shouldPrintCodeCovPath = false
+    @Flag(name: .customLong("show-codecov-path"),
+          help: "Print the path of the exported code coverage JSON file")
+    var shouldPrintCodeCovPath: Bool
 
     var testCaseSpecifier: TestCaseSpecifier {
-        testCaseSpecifierOverride() ?? _testCaseSpecifier
+        if let override = testCaseSpecifierOverride() {
+            return override
+        }
+        
+        return filter.map { .regex($0) }
+            ?? specifier.map { .specific($0) }
+            ?? .none
     }
 
-    var _testCaseSpecifier: TestCaseSpecifier = .none
+    @Option(name: .shortAndLong)
+    var specifier: String?
+
+    @Option(help: """
+        Run test cases matching regular expression, Format: <test-target>.<test-case> \
+        or <test-target>.<test-case>/<test>
+        """)
+    var filter: String?
 
     /// Path where the xUnit xml file should be generated.
+    @Option(name: .customLong("xunit-output"),
+            help: "Path where the xUnit xml file should be generated.",
+            transform: parseAbsolutePath)
     var xUnitOutput: AbsolutePath?
 
     /// The test product to use. This is useful when there are multiple test products
     /// to choose from (usually in multiroot packages).
-    public var testProduct: String?
+    @Option(help: "The test product to use.")
+    var testProduct: String?
 
     /// Returns the test case specifier if overridden in the env.
     private func testCaseSpecifierOverride() -> TestCaseSpecifier? {
@@ -135,7 +180,6 @@ public enum TestCaseSpecifier {
 }
 
 public enum TestMode {
-    case version
     case listTests
     case codeCovPath
     case generateLinuxMain
@@ -144,27 +188,21 @@ public enum TestMode {
 }
 
 /// swift-test tool namespace
-public class SwiftTestTool: SwiftTool<TestToolOptions> {
-
-   public convenience init(args: [String]) {
-       self.init(
-            toolName: "test",
-            usage: "[options]",
-            overview: "Build and run tests",
-            args: args,
-            seeAlso: type(of: self).otherToolNames()
-        )
-    }
-
-    override func runImpl() throws {
-
+public struct SwiftTestTool: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "swift test",
+        abstract: "Build and run tests")
+    
+    @OptionGroup()
+    var options: TestToolOptions
+    
+    func run() throws {
+        let swiftTool = SwiftTool(options: options.swiftOptions)
+        
         // Validate commands arguments
         try validateArguments()
 
         switch options.mode {
-        case .version:
-            print(Versioning.currentVersion.completeDisplayString)
-
         case .listTests:
             let testProducts = try buildTestsIfNeeded()
             let testSuites = try getTestSuites(in: testProducts)

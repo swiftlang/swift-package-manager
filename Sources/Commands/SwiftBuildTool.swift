@@ -8,89 +8,24 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import ArgumentParser
 import TSCUtility
 import TSCBasic
 import PackageGraph
 import SPMBuildCore
 import Build
 
-/// swift-build tool namespace
-public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
+public struct BuildToolOptions: ParsableArguments {
+    enum BuildToolMode {
+        /// Build the package.
+        case build
 
-   public convenience init(args: [String]) {
-       self.init(
-            toolName: "build",
-            usage: "[options]",
-            overview: "Build sources into binary products",
-            args: args,
-            seeAlso: type(of: self).otherToolNames()
-        )
+        /// Print the binary output path.
+        case binPath
     }
-
-    override func runImpl() throws {
-        switch try options.mode() {
-        case .build:
-          #if os(Linux)
-            // Emit warning if clang is older than version 3.6 on Linux.
-            // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
-            checkClangVersion()
-          #endif
-
-            guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-            let buildSystem = try createBuildSystem()
-            try buildSystem.build(subset: subset)
-
-        case .binPath:
-            try print(buildParameters().buildPath.description)
-
-        case .version:
-            print(Versioning.currentVersion.completeDisplayString)
-        }
-    }
-
-    override class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<BuildToolOptions>) {
-        binder.bind(
-            option: parser.add(option: buildTestsOptionName, kind: Bool.self,
-                usage: "Build both source and test targets"),
-            to: { $0.buildTests = $1 })
-
-        binder.bind(
-            option: parser.add(option: productOptionName, kind: String.self,
-                usage: "Build the specified product"),
-            to: { $0.product = $1 })
-
-        binder.bind(
-            option: parser.add(option: targetOptionName, kind: String.self,
-                usage: "Build the specified target"),
-            to: { $0.target = $1 })
-
-        binder.bind(
-            option: parser.add(option: "--show-bin-path", kind: Bool.self,
-               usage: "Print the binary output path"),
-            to: { $0.shouldPrintBinPath = $1 })
-    }
-
-    private func checkClangVersion() {
-        // We only care about this on Ubuntu 14.04
-        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
-              uname.hasSuffix("14.04"),
-              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
-              let clang = getClangVersion(versionOutput: clangVersionOutput) else {
-            return
-        }
-
-        if clang < Version(3, 6, 0) {
-            print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
-        }
-    }
-}
-
-public class BuildToolOptions: ToolOptions {
+    
     /// Returns the mode in which the build tool should run.
     func mode() throws -> BuildToolMode {
-        if shouldPrintVersion {
-            return .version
-        }
         if shouldPrintBinPath {
             return .binPath
         }
@@ -122,52 +57,67 @@ public class BuildToolOptions: ToolOptions {
         return allSubsets.first ?? .allExcludingTests
     }
 
+    @OptionGroup()
+    var swiftOptions: SwiftToolOptions
+    
     /// If the test should be built.
-    var buildTests = false
+    @Flag(help: "Build both source and test targets")
+    var buildTests: Bool
 
     /// If the binary output path should be printed.
-    var shouldPrintBinPath = false
+    @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
+    var shouldPrintBinPath: Bool
 
     /// Specific target to build.
+    @Option(help: "Build the specified target")
     var target: String?
 
     /// Specific product to build.
+    @Option(help: "Build the specified product)
     var product: String?
 }
 
-public enum BuildToolMode {
-    /// Build the package.
-    case build
+/// swift-build tool namespace
+public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
+    static let configuration = CommandConfiguration(
+        commandName: "build",
+        abstract: "Build sources into binary products")
 
-    /// Print the binary output path.
-    case binPath
+    @OptionGroup()
+    var options: BuildToolOptions
 
-    /// Print the version.
-    case version
-}
+    func runImpl() throws {
+        let swiftTool = try SwiftTool(options: options.swiftOptions)
 
-fileprivate let buildTestsOptionName = "--build-tests"
-fileprivate let productOptionName = "--product"
-fileprivate let targetOptionName = "--target"
+        switch try options.mode() {
+        case .build:
+          #if os(Linux)
+            // Emit warning if clang is older than version 3.6 on Linux.
+            // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
+            checkClangVersion()
+          #endif
 
-fileprivate extension BuildSubset {
-    var argumentName: String {
-        switch self {
-        case .allExcludingTests:
-            fatalError("no corresponding argument")
-        case .allIncludingTests:
-            return buildTestsOptionName
-        case .product:
-            return productOptionName
-        case .target:
-            return targetOptionName
+            guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
+            let buildSystem = try swiftTool.createBuildSystem()
+            try buildSystem.build(subset: subset)
+
+        case .binPath:
+            try print(swiftTool.buildParameters().buildPath.description)
         }
     }
-}
 
-extension SwiftBuildTool: ToolName {
-    static var toolName: String {
-        return "swift build"
+    private func checkClangVersion() {
+        // We only care about this on Ubuntu 14.04
+        guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
+              uname.hasSuffix("14.04"),
+              let clangVersionOutput = try? Process.checkNonZeroExit(args: "clang", "--version").spm_chomp(),
+              let clang = getClangVersion(versionOutput: clangVersionOutput) else {
+            return
+        }
+
+        if clang < Version(3, 6, 0) {
+            print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
+        }
     }
 }
 
