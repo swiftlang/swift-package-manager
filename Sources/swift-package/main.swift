@@ -10,5 +10,4 @@
 
 import Commands
 
-let tool = SwiftPackageTool(args: Array(CommandLine.arguments.dropFirst()))
-tool.run()
+SwiftPackageTool.main()
