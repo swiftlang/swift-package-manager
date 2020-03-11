@@ -12,8 +12,8 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
-let listDependenciesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listDependencies.rawValue)"
-let listExecutablesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listExecutables.rawValue)"
+//let listDependenciesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listDependencies.rawValue)"
+//let listExecutablesCommand = "swift package \(PackageMode.completionTool.rawValue) \(PackageToolOptions.CompletionToolMode.listExecutables.rawValue)"
 
 /// Template for Bash completion script.
 ///
@@ -79,21 +79,20 @@ func bash_template(on stream: OutputByteStream) {
             esac
         }
 
-        _swift_dependency() {
-            COMPREPLY=( $(compgen -W "$(\(listDependenciesCommand))" -- $cur) )
-        }
-
-        _swift_executable() {
-            COMPREPLY=( $(compgen -W "$(\(listExecutablesCommand))" -- $cur) )
-        }
-
-
         """
 
-    SwiftBuildTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
-    SwiftRunTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
-    SwiftPackageTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
-    SwiftTestTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
+//    _swift_dependency() {
+//        COMPREPLY=( $(compgen -W "$(\(listDependenciesCommand))" -- $cur) )
+//    }
+//
+//    _swift_executable() {
+//        COMPREPLY=( $(compgen -W "$(\(listExecutablesCommand))" -- $cur) )
+//    }
+
+//    SwiftBuildTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
+//    SwiftRunTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
+//    SwiftPackageTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
+//    SwiftTestTool(args: []).parser.generateCompletionScript(for: .bash, on: stream)
 
     // Forward to swift compiler completion, if defined.
     stream <<< """

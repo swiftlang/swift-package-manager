@@ -239,9 +239,6 @@ public class SwiftTool {
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
-    /// Reference to the argument parser.
-    let parser: ArgumentParser
-
     /// The process set to hold the launched processes. These will be terminated on any signal
     /// received by the swift tools.
     let processSet: ProcessSet
@@ -274,9 +271,9 @@ public class SwiftTool {
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(result: result, diagnostics: diagnostics)
-
+            try Self.postprocessArgParserResult(options: options, diagnostics: diagnostics)
             self.options = options
+            
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 try ProcessEnv.chdir(packagePath)
@@ -334,20 +331,20 @@ public class SwiftTool {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
+        
+        // Setup the globals.
+        verbosity = Verbosity(rawValue: options.verbosity)
+        Process.verbose = verbosity != .concise
     }
 
-    class func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
-        if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
+    static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
+        if options.chdir != nil {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
-        if result.exists(arg: "--multiroot-data-file") {
+        if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
-    }
-
-    class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
-        fatalError("Must be implemented by subclasses")
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -593,9 +590,9 @@ public class SwiftTool {
                 xcbuildFlags: options.xcbuildFlags,
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-                sanitizers: options.sanitizers,
+                sanitizers: options.enabledSanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStoreMode,
+                indexStoreMode: options.indexStore,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
@@ -720,13 +717,6 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.description
-}
-
-extension BuildConfiguration: StringEnumArgument {
-    public static var completion: ShellCompletion = .values([
-        (debug.rawValue, "build with DEBUG configuration"),
-        (release.rawValue, "build with RELEASE configuration"),
-    ])
 }
 
 /// A wrapper to hold the build system so we can use it inside

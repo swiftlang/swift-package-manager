@@ -15,7 +15,22 @@ import PackageGraph
 import SPMBuildCore
 import Build
 
-public struct BuildToolOptions: ParsableArguments {
+extension BuildSubset {
+    var argumentName: String {
+        switch self {
+        case .allExcludingTests:
+            fatalError("no corresponding argument")
+        case .allIncludingTests:
+            return "--build-tests"
+        case .product:
+            return "--product"
+        case .target:
+            return "--target"
+        }
+    }
+}
+
+struct BuildToolOptions: ParsableArguments {
     enum BuildToolMode {
         /// Build the package.
         case build
@@ -73,21 +88,21 @@ public struct BuildToolOptions: ParsableArguments {
     var target: String?
 
     /// Specific product to build.
-    @Option(help: "Build the specified product)
+    @Option(help: "Build the specified product")
     var product: String?
 }
 
 /// swift-build tool namespace
-public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
-    static let configuration = CommandConfiguration(
+public struct SwiftBuildTool: ParsableCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "build",
         abstract: "Build sources into binary products")
 
     @OptionGroup()
     var options: BuildToolOptions
 
-    func runImpl() throws {
-        let swiftTool = try SwiftTool(options: options.swiftOptions)
+    public func run() throws {
+        let swiftTool = SwiftTool(options: options.swiftOptions)
 
         switch try options.mode() {
         case .build:
@@ -97,7 +112,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             checkClangVersion()
           #endif
 
-            guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
+            guard let subset = options.buildSubset(diagnostics: swiftTool.diagnostics) else { return }
             let buildSystem = try swiftTool.createBuildSystem()
             try buildSystem.build(subset: subset)
 
@@ -119,6 +134,8 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
             print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
         }
     }
+    
+    public init() {}
 }
 
 extension Diagnostic.Message {

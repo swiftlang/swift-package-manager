@@ -62,26 +62,25 @@ func zsh_template(on stream: OutputByteStream) {
             esac
         }
 
-        _swift_dependency() {
-            local dependencies
-            dependencies=( $(\(listDependenciesCommand)) )
-            _describe '' dependencies
-        }
-
-        _swift_executable() {
-            local executables
-            executables=( $(\(listExecutablesCommand)) )
-            _describe '' executables
-        }
-
 
         """
 
-
-    SwiftBuildTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
-    SwiftRunTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
-    SwiftPackageTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
-    SwiftTestTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
+//    _swift_dependency() {
+//        local dependencies
+//        dependencies=( $(\(listDependenciesCommand)) )
+//        _describe '' dependencies
+//    }
+//
+//    _swift_executable() {
+//        local executables
+//        executables=( $(\(listExecutablesCommand)) )
+//        _describe '' executables
+//    }
+//
+//    SwiftBuildTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
+//    SwiftRunTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
+//    SwiftPackageTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
+//    SwiftTestTool(args: []).parser.generateCompletionScript(for: .zsh, on: stream)
 
     // Figure out how to forward to swift compiler's bash completion.
     stream <<< """

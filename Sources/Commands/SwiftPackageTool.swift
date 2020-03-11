@@ -48,10 +48,11 @@ public struct SwiftPackageTool: ParsableCommand {
             Fetch.self,
 
             ShowDependencies.self,
-            ToolsVersion.self,
+            ToolsVersionCommand.self,
             GenerateXcodeProject.self,
             ComputeChecksum.self,
         ])
+    public init() {}
 }
 
 extension DescribeMode: ExpressibleByArgument {}
@@ -67,7 +68,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             try swiftTool.getActiveWorkspace().clean(with: swiftTool.diagnostics)
         }
     }
@@ -80,7 +81,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             try swiftTool.getActiveWorkspace().reset(with: swiftTool.diagnostics)
         }
     }
@@ -100,7 +101,7 @@ extension SwiftPackageTool {
         var packages: [String]
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let workspace = try swiftTool.getActiveWorkspace()
             
             let changes = try workspace.updateDependencies(
@@ -129,7 +130,7 @@ extension SwiftPackageTool {
         var type: DescribeMode
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             
@@ -143,13 +144,13 @@ extension SwiftPackageTool {
                 diagnostics: swiftTool.diagnostics
             )
             let package = try builder.construct()
-            describe(package, in: describeMode, on: stdoutStream)
+            describe(package, in: type, on: stdoutStream)
         }
     }
 
     struct Init: ParsableCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Delete build artifacts")
+            abstract: "Initialize a new package")
 
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
@@ -161,12 +162,10 @@ extension SwiftPackageTool {
         var packageName: String?
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
-
             // FIXME: Error handling.
             let cwd = localFileSystem.currentWorkingDirectory!
 
-            let packageName = packageName ?? cwd.basename
+            let packageName = self.packageName ?? cwd.basename
             let initPackage = try InitPackage(
                 name: packageName, destinationPath: cwd, packageType: initMode)
             initPackage.progressReporter = { message in
@@ -178,8 +177,7 @@ extension SwiftPackageTool {
     
     struct Format: ParsableCommand {
         static let configuration = CommandConfiguration(
-            commandName: "_format",
-            abstract: "Delete build artifacts")
+            commandName: "_format")
 
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
@@ -189,7 +187,7 @@ extension SwiftPackageTool {
         var swiftFormatFlags: [String]
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             
             // Look for swift-format binary.
             // FIXME: This should be moved to user toolchain.
@@ -203,7 +201,7 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let manifest = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: diagnostics)[0]
+                packages: root.packages, diagnostics: swiftTool.diagnostics)[0]
 
             let builder = PackageBuilder(
                 manifest: manifest,
@@ -213,7 +211,9 @@ extension SwiftPackageTool {
             let package = try builder.construct()
 
             // Use the user provided flags or default to formatting mode.
-            let formatOptions = swiftFormatFlags ?? ["--mode", "format", "--in-place"]
+            let formatOptions = swiftFormatFlags.isEmpty
+                ? ["--mode", "format", "--in-place"]
+                : swiftFormatFlags
 
             // Process each target in the root package.
             for target in package.targets {
@@ -242,8 +242,7 @@ extension SwiftPackageTool {
     
     struct APIDiff: ParsableCommand {
         static let configuration = CommandConfiguration(
-            commandName: "experimental-api-diff",
-            abstract: "Delete build artifacts")
+            commandName: "experimental-api-diff")
 
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
@@ -255,14 +254,14 @@ extension SwiftPackageTool {
         var invertBaseline: Bool
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
 
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try createBuildOperation(useBuildManifestCaching: false)
+            let buildOp = try swiftTool.createBuildOperation(useBuildManifestCaching: false)
             try buildOp.build()
 
             // Dump JSON for the current package.
@@ -277,15 +276,15 @@ extension SwiftPackageTool {
             )
 
             // Dump JSON for the baseline package.
-            let workspace = try getActiveWorkspace()
+            let workspace = try swiftTool.getActiveWorkspace()
             let baselineDumper = try APIDigesterBaselineDumper(
                 baselineTreeish: treeish,
-                packageRoot: getPackageRoot(),
+                packageRoot: swiftTool.getPackageRoot(),
                 buildParameters: buildParameters,
                 manifestLoader: workspace.manifestLoader,
                 repositoryManager: workspace.repositoryManager,
                 apiDigesterTool: apiDigesterTool,
-                diags: diagnostics
+                diags: swiftTool.diagnostics
             )
             let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
 
@@ -302,14 +301,14 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let symbolGraphExtract = try SymbolGraphExtract(
                 tool: swiftTool.getToolchain().getSymbolGraphExtract())
 
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try createBuildOperation(useBuildManifestCaching: false)
+            let buildOp = try swiftTool.createBuildOperation(useBuildManifestCaching: false)
             try buildOp.build()
 
             try symbolGraphExtract.dumpSymbolGraph(
@@ -326,12 +325,12 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             
             let manifests = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: diagnostics)
+                packages: root.packages, diagnostics: swiftTool.diagnostics)
             guard let manifest = manifests.first else { return }
 
             let encoder = JSONEncoder()
@@ -351,9 +350,9 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
-            let parameters = try PIFBuilderParameters(buildParameters())
+            let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
             let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: swiftTool.diagnostics)
             let pif = try builder.generatePIF()
             print(pif)
@@ -381,7 +380,7 @@ extension SwiftPackageTool {
         var packageName: String
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
 
             try swiftTool.resolve()
             let workspace = try swiftTool.getActiveWorkspace()
@@ -411,7 +410,7 @@ extension SwiftPackageTool {
         var packageName: String
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
 
             try swiftTool.resolve()
             let workspace = try swiftTool.getActiveWorkspace()
@@ -436,14 +435,15 @@ extension SwiftPackageTool {
         var format: ShowDependenciesMode
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let graph = try swiftTool.loadPackageGraph()
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format)
         }
     }
     
-    struct ToolsVersion: ParsableCommand {
+    struct ToolsVersionCommand: ParsableCommand {
         static let configuration = CommandConfiguration(
+            commandName: "tools-version",
             abstract: "Print the resolved dependency graph")
 
         @OptionGroup()
@@ -476,7 +476,7 @@ extension SwiftPackageTool {
         }
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let pkg = try swiftTool.getPackageRoot()
 
             switch toolsVersionMode {
@@ -514,14 +514,14 @@ extension SwiftPackageTool {
         var path: AbsolutePath
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let workspace = try swiftTool.getActiveWorkspace()
             let checksum = workspace.checksum(
                 forBinaryArtifactAt: path,
                 diagnostics: swiftTool.diagnostics
             )
 
-            guard !diagnostics.hasErrors else {
+            guard !swiftTool.diagnostics.hasErrors else {
                 return
             }
 
@@ -534,7 +534,7 @@ extension SwiftPackageTool {
 extension SwiftPackageTool {
     struct GenerateXcodeProject: ParsableCommand {
         static let configuration = CommandConfiguration(
-            commandName: "generate-xcodeproj"
+            commandName: "generate-xcodeproj",
             abstract: "Generates an Xcode project")
 
         struct Options: ParsableArguments {
@@ -581,7 +581,7 @@ extension SwiftPackageTool {
         var options: Options
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let graph = try swiftTool.loadPackageGraph()
 
             let projectName: String
@@ -602,7 +602,7 @@ extension SwiftPackageTool {
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 
             var genOptions = options.xcodeprojOptions(with: swiftOptions.buildFlags)
-            genOptions.manifestLoader = try getManifestLoader()
+            genOptions.manifestLoader = try swiftTool.getManifestLoader()
 
             try Xcodeproj.generate(
                 projectName: projectName,
@@ -653,7 +653,7 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let config = try swiftTool.getSwiftPMConfig()
             try config.load()
 
@@ -663,7 +663,7 @@ extension SwiftPackageTool.Config {
             }
 
             guard let originalURL = packageURL ?? originalURL else {
-                diagnostics.emit(.missingRequiredArg("--original-url"))
+                swiftTool.diagnostics.emit(.missingRequiredArg("--original-url"))
                 return
             }
 
@@ -688,7 +688,7 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String?
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let config = try swiftTool.getSwiftPMConfig()
             try config.load()
 
@@ -698,7 +698,7 @@ extension SwiftPackageTool.Config {
             }
 
             guard let originalOrMirrorURL = packageURL ?? originalURL ?? mirrorURL else {
-                diagnostics.emit(.missingRequiredArg("--original-url or --mirror-url"))
+                swiftTool.diagnostics.emit(.missingRequiredArg("--original-url or --mirror-url"))
                 return
             }
 
@@ -720,7 +720,7 @@ extension SwiftPackageTool.Config {
         var originalURL: String?
 
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             let config = try swiftTool.getSwiftPMConfig()
             try config.load()
 
@@ -730,7 +730,7 @@ extension SwiftPackageTool.Config {
             }
 
             guard let originalURL = packageURL ?? originalURL else {
-                diagnostics.emit(.missingRequiredArg("--original-url"))
+                swiftTool.diagnostics.emit(.missingRequiredArg("--original-url"))
                 return
             }
 
@@ -739,7 +739,7 @@ extension SwiftPackageTool.Config {
             } else {
                 stderrStream <<< "not found\n"
                 stderrStream.flush()
-                executionStatus = .failure
+                swiftTool.executionStatus = .failure
             }
         }
     }
@@ -771,7 +771,7 @@ extension SwiftPackageTool {
         var resolveOptions: ResolveOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
 
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
@@ -800,7 +800,7 @@ extension SwiftPackageTool {
         var resolveOptions: ResolveOptions
         
         func run() throws {
-            let swiftTool = try SwiftTool(options: swiftOptions)
+            let swiftTool = SwiftTool(options: swiftOptions)
             swiftTool.diagnostics.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
             
             let resolveCommand = Resolve(swiftOptions: _swiftOptions, resolveOptions: _resolveOptions)

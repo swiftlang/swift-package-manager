@@ -83,11 +83,7 @@ struct RunToolOptions: ParsableArguments {
     
     mutating func validate() throws {
         if shouldBuildTests && shouldSkipBuild {
-            let message = [buildTestsOptionName, skipBuildOptionName]
-                .map { "'\($0)'" }
-                .spm_localizedJoin(type: .conjunction)
-                + " are mutually exclusive"
-            throw ValidationError(message)
+            throw ValidationError("'--build-tests' and '--skip-build' are mutually exclusive.")
         }
     }
 }
@@ -102,7 +98,7 @@ public struct SwiftRunTool: ParsableCommand {
     var options: RunToolOptions
 
     public func run() throws {
-        let swiftTool = try SwiftTool(options: options.swiftOptions)
+        let swiftTool = SwiftTool(options: options.swiftOptions)
         
         switch options.mode {
         case .repl:
@@ -128,7 +124,10 @@ public struct SwiftRunTool: ParsableCommand {
             // Execute the REPL.
             let arguments = buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
-            try run(swiftTool.getToolchain().swiftInterpreter, arguments: arguments)
+            try run(
+                swiftTool.getToolchain().swiftInterpreter,
+                originalWorkingDirectory: swiftTool.originalWorkingDirectory,
+                arguments: arguments)
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
@@ -138,14 +137,17 @@ public struct SwiftRunTool: ParsableCommand {
                 let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreter
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
-                try run(swiftInterpreterPath, arguments: arguments)
+                try run(
+                    swiftInterpreterPath,
+                    originalWorkingDirectory: swiftTool.originalWorkingDirectory,
+                    arguments: arguments)
                 return
             }
 
             // Redirect stdout to stderr because swift-run clients usually want
             // to ignore swiftpm's output and only care about the tool's output.
             swiftTool.redirectStdoutToStderr()
-
+            
             let buildSystem = try swiftTool.createBuildSystem()
             let productName = try findProductName(in: buildSystem.getPackageGraph())
 
@@ -156,7 +158,9 @@ public struct SwiftRunTool: ParsableCommand {
             }
 
             let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
-            try run(executablePath, arguments: options.arguments)
+            try run(executablePath,
+                    originalWorkingDirectory: swiftTool.originalWorkingDirectory,
+                    arguments: options.arguments)
         }
     }
 
@@ -190,7 +194,11 @@ public struct SwiftRunTool: ParsableCommand {
     }
 
     /// Executes the executable at the specified path.
-    private func run(_ excutablePath: AbsolutePath, arguments: [String]) throws {
+    private func run(
+        _ excutablePath: AbsolutePath,
+        originalWorkingDirectory: AbsolutePath,
+        arguments: [String]) throws
+    {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
         if cwd == nil || originalWorkingDirectory != cwd {
@@ -216,6 +224,8 @@ public struct SwiftRunTool: ParsableCommand {
         }
         return localFileSystem.isFile(absolutePath)
     }
+    
+    public init() {}
 }
 
 private extension Diagnostic.Message {
