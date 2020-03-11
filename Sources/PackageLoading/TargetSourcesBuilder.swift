@@ -542,6 +542,15 @@ public struct FileRuleDescription {
         )
     }()
 
+    /// File types related to Metal.
+    public static var metal: FileRuleDescription = {
+        .init(
+            rule: .processResource,
+            toolsVersion: .vNext,
+            fileTypes: ["metal"]
+        )
+    }()
+
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
         swift,
@@ -556,6 +565,7 @@ public struct FileRuleDescription {
         xib,
         assetCatalog,
         coredata,
+        metal,
     ]
 }
 
