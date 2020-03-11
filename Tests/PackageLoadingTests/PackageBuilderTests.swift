@@ -1452,22 +1452,47 @@ class PackageBuilderTests: XCTestCase {
 
     func testBadExecutableProductDecl() {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/foo.swift"
+            "/Sources/foo1/main.swift",
+            "/Sources/foo2/main.swift",
+            "/Sources/FooLib1/lib.swift",
+            "/Sources/FooLib2/lib.swift"
         )
 
         let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             products: [
-                ProductDescription(name: "foo", type: .executable, targets: ["foo"]),
+                ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
+                ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
+                ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
             ],
             targets: [
-                TargetDescription(name: "foo"),
+                TargetDescription(name: "foo1"),
+                TargetDescription(name: "foo2"),
+                TargetDescription(name: "FooLib1"),
+                TargetDescription(name: "FooLib2"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            package.checkModule("foo") { _ in }
+            package.checkModule("foo1") { _ in }
+            package.checkModule("foo2") { _ in }
+            package.checkModule("FooLib1") { _ in }
+            package.checkModule("FooLib2") { _ in }
             diagnostics.check(
-                diagnostic: "executable product \'foo\' should have exactly one executable target",
+                diagnostic: """
+                    executable product 'foo1' expects target 'FooLib1' to be executable; an executable target requires \
+                    a 'main.swift' file
+                    """,
+                behavior: .error,
+                location: "'MyPackage' /")
+            diagnostics.check(
+                diagnostic: """
+                    executable product 'foo2' should have one executable target; an executable target requires a \
+                    'main.swift' file
+                    """,
+                behavior: .error,
+                location: "'MyPackage' /")
+            diagnostics.check(
+                diagnostic: "executable product 'foo3' should not have more than one executable target",
                 behavior: .error,
                 location: "'MyPackage' /")
         }
@@ -1911,7 +1936,8 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo/Foo.xcassets",
             "/Foo/Sources/Foo/Foo.xib",
-            "/Foo/Sources/Foo/Foo.xcdatamodel"
+            "/Foo/Sources/Foo/Foo.xcdatamodel",
+            "/Foo/Sources/Foo/Foo.metal"
         )
 
         let manifest = Manifest.createManifest(
@@ -1929,6 +1955,7 @@ class PackageBuilderTests: XCTestCase {
                     "/Foo/Sources/Foo/Foo.xib",
                     "/Foo/Sources/Foo/Foo.xcdatamodel",
                     "/Foo/Sources/Foo/Foo.xcassets",
+                    "/Foo/Sources/Foo/Foo.metal"
                 ])
             }
         }
