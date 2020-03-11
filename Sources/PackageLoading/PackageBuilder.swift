@@ -1075,12 +1075,7 @@ public final class PackageBuilder {
             case .library, .test:
                 break
             case .executable:
-                let executableTargets = targets.filter({ $0.type == .executable })
-                if executableTargets.count != 1 {
-                    diagnostics.emit(
-                        .invalidExecutableProductDecl(product.name),
-                        location: diagnosticLocation()
-                    )
+                guard validateExecutableProduct(product, with: targets) else {
                     continue
                 }
             }
@@ -1109,6 +1104,33 @@ public final class PackageBuilder {
         return products.map({ $0.item })
     }
 
+    private func validateExecutableProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+        let executableTargetCount = targets.filter { $0.type == .executable }.count
+        guard executableTargetCount == 1 else {
+            if executableTargetCount == 0 {
+                if let target = targets.spm_only {
+                    diagnostics.emit(
+                        .executableProductTargetNotExecutable(product: product.name, target: target.name),
+                        location: diagnosticLocation()
+                    )
+                } else {
+                    diagnostics.emit(
+                        .executableProductWithoutExecutableTarget(product: product.name),
+                        location: diagnosticLocation()
+                    )
+                }
+            } else {
+                diagnostics.emit(
+                    .executableProductWithMoreThanOneExecutableTarget(product: product.name),
+                    location: diagnosticLocation()
+                )
+            }
+
+            return false
+        }
+
+        return true
+    }
 }
 
 /// We create this structure after scanning the filesystem for potential targets.
