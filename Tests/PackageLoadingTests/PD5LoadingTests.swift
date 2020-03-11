@@ -328,7 +328,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                     packageKind: .local
                 )
             } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
-                XCTAssertMatch(error, .contains("expected \')\' in expression list"))
+                XCTAssertMatch(error, .contains("expected expression in container literal"))
                 let contents = try localFileSystem.readFileContents(diagnosticFile!)
                 XCTAssertNotNil(contents)
             }
