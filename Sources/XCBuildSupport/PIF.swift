@@ -696,6 +696,7 @@ public enum PIF {
             case WATCHOS_DEPLOYMENT_TARGET
             case MARKETING_VERSION
             case CURRENT_PROJECT_VERSION
+            case COREML_CODEGEN_LANGUAGE
         }
 
         public enum MultipleValueSetting: String {
@@ -902,6 +903,9 @@ extension PIF.FileReference {
             return "file.storyboard"
         case "xib":
             return "file.xib"
+            
+        case "mlmodel":
+            return "file.mlmodel"
 
         case "xcframework":
             return "wrapper.xcframework"

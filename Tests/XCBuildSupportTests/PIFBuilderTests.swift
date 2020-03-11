@@ -1550,12 +1550,15 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/foo/Resources/Data.plist",
             "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+            "/Foo/Sources/foo/Resources/Model.mlmodel",
             "/Foo/Sources/FooLib/lib.swift",
             "/Foo/Sources/FooLib/Resources/Data.plist",
             "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooLib/Resources/Model.mlmodel",
             "/Foo/Sources/FooTests/FooTests.swift",
             "/Foo/Sources/FooTests/Resources/Data.plist",
-            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
+            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooTests/Resources/Model.mlmodel"
         )
 
         let diagnostics = DiagnosticsEngine()
@@ -1625,6 +1628,7 @@ class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.resources, [
                         "/Foo/Sources/foo/Resources/Data.plist",
                         "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+                        "/Foo/Sources/foo/Resources/Model.mlmodel",
                     ])
 
                     target.checkBuildConfiguration("Debug") { configuration in
@@ -1637,6 +1641,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.foo.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "resource")
+                            XCTAssertEqual(settings[.COREML_CODEGEN_LANGUAGE], "None")
                         }
                     }
 
@@ -1650,6 +1655,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.foo.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "resource")
+                            XCTAssertEqual(settings[.COREML_CODEGEN_LANGUAGE], "None")
                         }
                     }
                 }
@@ -1727,6 +1733,7 @@ class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.resources, [
                         "/Foo/Sources/FooTests/Resources/Data.plist",
                         "/Foo/Sources/FooTests/Resources/Database.xcdatamodel",
+                        "/Foo/Sources/FooTests/Resources/Model.mlmodel",
                     ])
 
                     target.checkBuildConfiguration("Debug") { configuration in
@@ -1739,6 +1746,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.FooTests.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "resource")
+                            XCTAssertEqual(settings[.COREML_CODEGEN_LANGUAGE], "None")
                         }
                     }
 
@@ -1752,6 +1760,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "Foo.FooTests.resources")
                             XCTAssertEqual(settings[.GENERATE_INFOPLIST_FILE], "YES")
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "resource")
+                            XCTAssertEqual(settings[.COREML_CODEGEN_LANGUAGE], "None")
                         }
                     }
                 }

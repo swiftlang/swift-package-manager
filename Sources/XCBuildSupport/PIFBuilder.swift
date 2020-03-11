@@ -737,6 +737,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = bundleIdentifier
         settings[.GENERATE_INFOPLIST_FILE] = "YES"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"
+        
+        // Do not generate code for mlmodel files in resources target.
+        settings[.COREML_CODEGEN_LANGUAGE] = "None"
 
         resourcesTarget.addBuildConfiguration(name: "Debug", settings: settings)
         resourcesTarget.addBuildConfiguration(name: "Release", settings: settings)
