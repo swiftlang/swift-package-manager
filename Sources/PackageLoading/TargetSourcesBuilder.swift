@@ -550,6 +550,13 @@ public struct FileRuleDescription {
             fileTypes: ["metal"]
         )
     }()
+    
+    /// File types related to CoreML.
+    public static let coreml: FileRuleDescription = {
+        .init(rule: .processResource,
+              toolsVersion: .vNext,
+              fileTypes: ["mlmodel"])
+    }()
 
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
@@ -566,6 +573,7 @@ public struct FileRuleDescription {
         assetCatalog,
         coredata,
         metal,
+        coreml,
     ]
 }
 
