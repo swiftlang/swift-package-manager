@@ -471,7 +471,7 @@ public struct FileRuleDescription {
     }
 
     /// The swift compiler rule.
-    public static var swift: FileRuleDescription = {
+    public static let swift: FileRuleDescription = {
         .init(
             rule: .compile,
             toolsVersion: .minimumRequired,
@@ -480,7 +480,7 @@ public struct FileRuleDescription {
     }()
 
     /// The clang compiler rule.
-    public static var clang: FileRuleDescription = {
+    public static let clang: FileRuleDescription = {
         .init(
             rule: .compile,
             toolsVersion: .minimumRequired,
@@ -489,7 +489,7 @@ public struct FileRuleDescription {
     }()
 
     /// The rule for compiling asm files.
-    public static var asm: FileRuleDescription = {
+    public static let asm: FileRuleDescription = {
         .init(
             rule: .compile,
             toolsVersion: .v5,
@@ -498,7 +498,7 @@ public struct FileRuleDescription {
     }()
 
     /// The rule for detecting modulemap files.
-    public static var modulemap: FileRuleDescription = {
+    public static let modulemap: FileRuleDescription = {
         .init(
             rule: .modulemap,
             toolsVersion: .minimumRequired,
@@ -507,7 +507,7 @@ public struct FileRuleDescription {
     }()
 
     /// The rule for detecting header files.
-    public static var header: FileRuleDescription = {
+    public static let header: FileRuleDescription = {
         .init(
             rule: .header,
             toolsVersion: .minimumRequired,
@@ -516,7 +516,7 @@ public struct FileRuleDescription {
     }()
 
     /// File types related to the interface builder and storyboards.
-    public static var xib: FileRuleDescription = {
+    public static let xib: FileRuleDescription = {
         .init(
             rule: .processResource,
             toolsVersion: .vNext,
@@ -525,7 +525,7 @@ public struct FileRuleDescription {
     }()
 
     /// File types related to the asset catalog.
-    public static var assetCatalog: FileRuleDescription = {
+    public static let assetCatalog: FileRuleDescription = {
         .init(
             rule: .processResource,
             toolsVersion: .vNext,
@@ -534,7 +534,7 @@ public struct FileRuleDescription {
     }()
 
     /// File types related to the CoreData.
-    public static var coredata: FileRuleDescription = {
+    public static let coredata: FileRuleDescription = {
         .init(
             rule: .processResource,
             toolsVersion: .vNext,
@@ -543,7 +543,7 @@ public struct FileRuleDescription {
     }()
 
     /// File types related to Metal.
-    public static var metal: FileRuleDescription = {
+    public static let metal: FileRuleDescription = {
         .init(
             rule: .processResource,
             toolsVersion: .vNext,
