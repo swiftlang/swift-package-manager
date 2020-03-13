@@ -79,6 +79,10 @@ public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable 
         return str
     }
 
+    public var major: Int { version.major }
+    public var minor: Int { version.minor }
+    public var patch: Int { version.patch }
+
     /// Create a platform version given a string.
     ///
     /// The platform version is expected to be in format: X.X.X
@@ -121,7 +125,7 @@ public struct SupportedPlatform {
     /// The options declared by the platform.
     public let options: [String]
 
-    public init(platform: Platform, version: PlatformVersion, options: [String]) {
+    public init(platform: Platform, version: PlatformVersion, options: [String] = []) {
         self.platform = platform
         self.version = version
         self.options = options
