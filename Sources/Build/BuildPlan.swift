@@ -104,10 +104,18 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
-            guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
-                fatalError("the target \(target) doesn't support building for macOS")
+            switch triple.os {
+            case .iOS:
+                guard let iOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .iOS) else {
+                    fatalError("the target \(target) doesn't support building for iOS")
+                }
+                args += [triple.tripleString(forPlatformVersion: iOSSupportedPlatform.version.versionString)]
+            default:
+                guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+                    fatalError("the target \(target) doesn't support building for macOS")
+                }
+                args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
             }
-            args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
             args += [triple.tripleString]
         }

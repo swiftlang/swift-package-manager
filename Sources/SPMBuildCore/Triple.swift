@@ -41,6 +41,7 @@ public struct Triple: Encodable, Equatable {
         case armv7
         case arm
         case wasm32
+        case arm64
     }
 
     public enum Vendor: String, Encodable {
@@ -54,6 +55,7 @@ public struct Triple: Encodable, Equatable {
         case linux
         case windows
         case wasi
+        case iOS = "ios"
 
         fileprivate static let allKnown:[OS] = [
             .darwin,
@@ -61,6 +63,7 @@ public struct Triple: Encodable, Equatable {
             .linux,
             .windows,
             .wasi,
+            .iOS
         ]
     }
 
@@ -117,7 +120,7 @@ public struct Triple: Encodable, Equatable {
     }
 
     public func isDarwin() -> Bool {
-        return vendor == .apple || os == .macOS || os == .darwin
+        return vendor == .apple || os == .macOS || os == .darwin || os == .iOS
     }
 
     public func isLinux() -> Bool {
@@ -166,7 +169,7 @@ extension Triple {
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .iOS:
             return ".dylib"
         case .linux:
             return ".so"
@@ -179,7 +182,7 @@ extension Triple {
 
     public var executableExtension: String {
       switch os {
-      case .darwin, .macOS:
+      case .darwin, .macOS, .iOS:
         return ""
       case .linux:
         return ""
@@ -193,7 +196,7 @@ extension Triple {
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {
         switch os {
-        case .darwin, .macOS:
+        case .darwin, .macOS, .iOS:
             return ".bundle"
         default:
             // See: https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/FHS%20Bundles.md
