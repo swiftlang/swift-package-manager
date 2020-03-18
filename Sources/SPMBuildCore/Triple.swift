@@ -189,6 +189,11 @@ extension Triple {
         return ".exe"
       }
     }
+    
+    /// The file extension for static libraries.
+    public var staticLibraryExtension: String {
+        return ".a"
+    }
 
     /// The file extension for Foundation-style bundle.
     public var nsbundleExtension: String {

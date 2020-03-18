@@ -1505,6 +1505,9 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
              "-target", "x86_64-unknown-windows-msvc",
             ])
+        
+        let executablePathExtension = try result.buildProduct(for: "exe").binary.extension
+        XCTAssertMatch(executablePathExtension, "exe")
     }
 
     func testIndexStore() throws {
@@ -2340,6 +2343,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
+        
+        let executablePathExtension = try result.buildProduct(for: "exe").binary.extension ?? ""
+        XCTAssertMatch(executablePathExtension, "")
+        
+        let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
+        XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
 }
 
