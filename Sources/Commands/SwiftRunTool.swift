@@ -80,26 +80,29 @@ struct RunToolOptions: ParsableArguments {
     @Argument(parsing: .unconditionalRemaining,
               help: "The arguments to pass to the executable")
     var arguments: [String]
-    
-    mutating func validate() throws {
-        if shouldBuildTests && shouldSkipBuild {
-            throw ValidationError("'--build-tests' and '--skip-build' are mutually exclusive.")
-        }
-    }
 }
 
 /// swift-run tool namespace
 public struct SwiftRunTool: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "swift run",
-        abstract: "Build and run an executable product")
-    
+        abstract: "Build and run an executable product",
+        discussion: "SEE ALSO: swift build, swift package, swift test",
+        version: Versioning.currentVersion.completeDisplayString,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+
     @OptionGroup()
     var options: RunToolOptions
 
     public func run() throws {
-        let swiftTool = SwiftTool(options: options.swiftOptions)
+        let swiftTool = try SwiftTool(options: options.swiftOptions)
         
+        if options.shouldBuildTests && options.shouldSkipBuild {
+            swiftTool.diagnostics.emit(
+              .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"]))
+            throw ExitCode.failure
+        }
+
         switch options.mode {
         case .repl:
             // Load a custom package graph which has a special product for REPL.
@@ -148,19 +151,23 @@ public struct SwiftRunTool: ParsableCommand {
             // to ignore swiftpm's output and only care about the tool's output.
             swiftTool.redirectStdoutToStderr()
             
-            let buildSystem = try swiftTool.createBuildSystem()
-            let productName = try findProductName(in: buildSystem.getPackageGraph())
-
-            if options.shouldBuildTests {
-                try buildSystem.build(subset: .allIncludingTests)
-            } else if options.shouldBuild {
-                try buildSystem.build(subset: .product(productName))
+            do {
+                let buildSystem = try swiftTool.createBuildSystem()
+                let productName = try findProductName(in: buildSystem.getPackageGraph())
+                if options.shouldBuildTests {
+                    try buildSystem.build(subset: .allIncludingTests)
+                } else if options.shouldBuild {
+                    try buildSystem.build(subset: .product(productName))
+                }
+            
+                let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
+                try run(executablePath,
+                        originalWorkingDirectory: swiftTool.originalWorkingDirectory,
+                        arguments: options.arguments)
+            } catch let error as RunError {
+                swiftTool.diagnostics.emit(error)
+                throw ExitCode.failure
             }
-
-            let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
-            try run(executablePath,
-                    originalWorkingDirectory: swiftTool.originalWorkingDirectory,
-                    arguments: options.arguments)
         }
     }
 

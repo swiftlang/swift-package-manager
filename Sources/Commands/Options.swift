@@ -99,10 +99,6 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(name: .customLong("prefetching"), default: true, inversion: .prefixedEnableDisable)
     var shouldEnableResolverPrefetching: Bool
 
-    /// If print version option was passed.
-    @Flag(name: .customLong("version"))
-    var shouldPrintVersion: Bool
-
     // FIXME: We need to allow -vv type options for this.
     /// The verbosity of informational output.
     @Flag(name: .shortAndLong, help: "Increase verbosity of informational output")
@@ -198,13 +194,6 @@ public struct SwiftToolOptions: ParsableArguments {
     /// The build system to use.
     @Option(default: .native)
     var buildSystem: BuildSystemKind
-
-    public mutating func validate() throws {
-        if shouldPrintVersion {
-            print(Versioning.currentVersion.completeDisplayString)
-            throw ExitCode.success
-        }
-    }
     
     public init() {}
 }

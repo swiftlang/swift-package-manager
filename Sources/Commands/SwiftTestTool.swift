@@ -186,8 +186,11 @@ public enum TestMode {
 public struct SwiftTestTool: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "swift test",
-        abstract: "Build and run tests")
-    
+        abstract: "Build and run tests",
+        discussion: "SEE ALSO: swift build, swift run, swift package",
+        version: Versioning.currentVersion.completeDisplayString,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+
     @OptionGroup()
     var options: TestToolOptions
     
@@ -196,7 +199,7 @@ public struct SwiftTestTool: ParsableCommand {
     }
     
     public func run() throws {
-        let swiftTool = SwiftTool(options: options.swiftOptions)
+        let swiftTool = try SwiftTool(options: options.swiftOptions)
 
         // Validate commands arguments
         try validateArguments(diagnostics: swiftTool.diagnostics)
@@ -488,12 +491,12 @@ public struct SwiftTestTool: ParsableCommand {
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
                 diagnostics.emit(error: "--num-workers must be used with --parallel")
-                throw Diagnostics.fatalError
+                throw ExitCode.failure
             }
 
             guard workers > 0 else {
                 diagnostics.emit(error: "'--num-workers' must be greater than zero")
-                throw Diagnostics.fatalError
+                throw ExitCode.failure
             }
         }
     }

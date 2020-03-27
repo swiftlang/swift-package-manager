@@ -262,11 +262,11 @@ public class SwiftTool {
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(options: SwiftToolOptions) {
+    public init(options: SwiftToolOptions) throws {
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
             diagnostics.emit(error: "couldn't determine the current working directory")
-            SwiftTool.exit(with: .failure)
+            throw ExitCode.failure
         }
         originalWorkingDirectory = cwd
 
@@ -320,7 +320,7 @@ public class SwiftTool {
 
         } catch {
             handle(error: error)
-            SwiftTool.exit(with: .failure)
+            throw ExitCode.failure
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
@@ -413,38 +413,6 @@ public class SwiftTool {
         return workspace
     }
 
-    /// Execute the tool.
-    public func run() {
-        do {
-            // Setup the globals.
-            verbosity = Verbosity(rawValue: options.verbosity)
-            Process.verbose = verbosity != .concise
-            // Call the implementation.
-            try runImpl()
-            if diagnostics.hasErrors {
-                throw Diagnostics.fatalError
-            }
-        } catch {
-            // Set execution status to failure in case of errors.
-            executionStatus = .failure
-            handle(error: error)
-        }
-        SwiftTool.exit(with: executionStatus)
-    }
-
-    /// Exit the tool with the given execution status.
-    private static func exit(with status: ExecutionStatus) -> Never {
-        switch status {
-        case .success: TSCLibc.exit(0)
-        case .failure: TSCLibc.exit(1)
-        }
-    }
-
-    /// Run method implementation to be overridden by subclasses.
-    func runImpl() throws {
-        fatalError("Must be implemented by subclasses")
-    }
-
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
         self.stdoutStream = TSCBasic.stderrStream
@@ -465,7 +433,7 @@ public class SwiftTool {
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !diagnostics.hasErrors else {
-            throw Diagnostics.fatalError
+            throw ExitCode.failure
         }
     }
 
@@ -490,7 +458,7 @@ public class SwiftTool {
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
             guard !diagnostics.hasErrors else {
-                throw Diagnostics.fatalError
+                throw ExitCode.failure
             }
             return graph
         } catch {

@@ -31,23 +31,6 @@ extension BuildSubset {
 }
 
 struct BuildToolOptions: ParsableArguments {
-    enum BuildToolMode {
-        /// Build the package.
-        case build
-
-        /// Print the binary output path.
-        case binPath
-    }
-    
-    /// Returns the mode in which the build tool should run.
-    func mode() throws -> BuildToolMode {
-        if shouldPrintBinPath {
-            return .binPath
-        }
-        // Get the build configuration or assume debug.
-        return .build
-    }
-
     /// Returns the build subset specified with the options.
     func buildSubset(diagnostics: DiagnosticsEngine) -> BuildSubset? {
         var allSubsets: [BuildSubset] = []
@@ -95,29 +78,36 @@ struct BuildToolOptions: ParsableArguments {
 /// swift-build tool namespace
 public struct SwiftBuildTool: ParsableCommand {
     public static let configuration = CommandConfiguration(
-        commandName: "build",
-        abstract: "Build sources into binary products")
+        commandName: "swift build",
+        abstract: "Build sources into binary products",
+        discussion: "SEE ALSO: swift run, swift package, swift test",
+        version: Versioning.currentVersion.completeDisplayString,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
     var options: BuildToolOptions
-
+  
     public func run() throws {
-        let swiftTool = SwiftTool(options: options.swiftOptions)
+        let swiftTool = try SwiftTool(options: options.swiftOptions)
 
-        switch try options.mode() {
-        case .build:
-          #if os(Linux)
-            // Emit warning if clang is older than version 3.6 on Linux.
-            // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
-            checkClangVersion()
-          #endif
-
-            guard let subset = options.buildSubset(diagnostics: swiftTool.diagnostics) else { return }
-            let buildSystem = try swiftTool.createBuildSystem()
-            try buildSystem.build(subset: subset)
-
-        case .binPath:
+        if options.shouldPrintBinPath {
             try print(swiftTool.buildParameters().buildPath.description)
+            return
+        }
+        
+      #if os(Linux)
+        // Emit warning if clang is older than version 3.6 on Linux.
+        // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
+        checkClangVersion()
+      #endif
+
+        guard let subset = options.buildSubset(diagnostics: swiftTool.diagnostics)
+            else { throw ExitCode.failure }
+        let buildSystem = try swiftTool.createBuildSystem()
+        do {
+            try buildSystem.build(subset: subset)
+        } catch _ as Diagnostics {
+            throw ExitCode.failure
         }
     }
 

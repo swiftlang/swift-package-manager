@@ -727,7 +727,7 @@ final class PackageToolTests: XCTestCase {
                 try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             }
 
-            check(stderr: "error: mirror not found\n") {
+            check(stderr: "Error: mirror not found\n") {
                 try execute(["config", "unset-mirror", "--original-url", "foo"], packagePath: packageRoot)
             }
         }
