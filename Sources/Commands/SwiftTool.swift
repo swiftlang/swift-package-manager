@@ -210,7 +210,7 @@ public class SwiftTool {
     let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    let options: SwiftToolOptions
+    var options: SwiftToolOptions
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
@@ -281,7 +281,7 @@ public class SwiftTool {
 
             // Force building with the native build system on other platforms than macOS.
           #if !os(macOS)
-            options.buildSystem = .native
+            self.options.buildSystem = .native
           #endif
 
             let processSet = ProcessSet()

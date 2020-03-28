@@ -224,7 +224,7 @@ public struct SwiftTestTool: ParsableCommand {
 
         case .generateLinuxMain:
           #if os(Linux)
-            diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
+            swiftTool.diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
           #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
