@@ -17,22 +17,27 @@ import Build
 
 struct BuildFlagsGroup: ParsableArguments {
     @Option(name: .customLong("Xcc", withSingleDash: true),
+            parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C compiler invocations")
     var cCompilerFlags: [String]
     
     @Option(name: .customLong("Xswiftc", withSingleDash: true),
+            parsing: .unconditionalSingleValue,
             help: "Pass flag through to all Swift compiler invocations")
     var swiftCompilerFlags: [String]
     
     @Option(name: .customLong("Xlinker", withSingleDash: true),
+            parsing: .unconditionalSingleValue,
             help: "Pass flag through to all linker invocations")
     var linkerFlags: [String]
     
     @Option(name: .customLong("Xccxx", withSingleDash: true),
+            parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C++ compiler invocations")
     var cxxCompilerFlags: [String]
     
     @Option(name: .customLong("Xxcbuild", withSingleDash: true),
+            parsing: .unconditionalSingleValue,
             help: "Pass flag through to the Xcode build system invocations")
     var xcbuildFlags: [String]
     
