@@ -191,7 +191,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
 /// Handler for the main DiagnosticsEngine used by the SwiftTool class.
 private final class DiagnosticsEngineHandler {
-
     /// The standard output stream.
     var stdoutStream = TSCBasic.stdoutStream
 
@@ -202,6 +201,22 @@ private final class DiagnosticsEngineHandler {
 
     func diagnosticsHandler(_ diagnostic: Diagnostic) {
         print(diagnostic: diagnostic, stdoutStream: stderrStream)
+    }
+}
+
+protocol SwiftCommand: ParsableCommand {
+    var swiftOptions: SwiftToolOptions { get }
+  
+    func run(_ swiftTool: SwiftTool) throws
+}
+
+extension SwiftCommand {
+    public func run() throws {
+        let swiftTool = try SwiftTool(options: swiftOptions)
+        try self.run(swiftTool)
+        if swiftTool.diagnostics.hasErrors || swiftTool.executionStatus == .failure {
+            throw ExitCode.failure
+        }
     }
 }
 

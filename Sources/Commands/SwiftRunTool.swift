@@ -54,9 +54,6 @@ struct RunToolOptions: ParsableArguments {
         }
         return .run
     }
-
-    @OptionGroup()
-    public var swiftOptions: SwiftToolOptions
     
     /// If the executable product should be built before running.
     @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
@@ -83,7 +80,7 @@ struct RunToolOptions: ParsableArguments {
 }
 
 /// swift-run tool namespace
-public struct SwiftRunTool: ParsableCommand {
+public struct SwiftRunTool: SwiftCommand {
     public static let configuration = CommandConfiguration(
         commandName: "swift run",
         abstract: "Build and run an executable product",
@@ -92,11 +89,12 @@ public struct SwiftRunTool: ParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
+    public var swiftOptions: SwiftToolOptions
+
+    @OptionGroup()
     var options: RunToolOptions
 
-    public func run() throws {
-        let swiftTool = try SwiftTool(options: options.swiftOptions)
-        
+    public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
             swiftTool.diagnostics.emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"]))

@@ -55,9 +55,6 @@ struct BuildToolOptions: ParsableArguments {
         return allSubsets.first ?? .allExcludingTests
     }
 
-    @OptionGroup()
-    var swiftOptions: SwiftToolOptions
-    
     /// If the test should be built.
     @Flag(help: "Build both source and test targets")
     var buildTests: Bool
@@ -76,7 +73,7 @@ struct BuildToolOptions: ParsableArguments {
 }
 
 /// swift-build tool namespace
-public struct SwiftBuildTool: ParsableCommand {
+public struct SwiftBuildTool: SwiftCommand {
     public static let configuration = CommandConfiguration(
         commandName: "swift build",
         abstract: "Build sources into binary products",
@@ -85,11 +82,12 @@ public struct SwiftBuildTool: ParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
+    var swiftOptions: SwiftToolOptions
+
+    @OptionGroup()
     var options: BuildToolOptions
   
-    public func run() throws {
-        let swiftTool = try SwiftTool(options: options.swiftOptions)
-
+    public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
             try print(swiftTool.buildParameters().buildPath.description)
             return

@@ -68,9 +68,6 @@ struct TestToolOptions: ParsableArguments {
 
         return .runSerial
     }
-
-    @OptionGroup()
-    var swiftOptions: SwiftToolOptions
     
     @Flag(name: .customLong("skip-build"),
           help: "Skip building the test target")
@@ -183,7 +180,7 @@ public enum TestMode {
 }
 
 /// swift-test tool namespace
-public struct SwiftTestTool: ParsableCommand {
+public struct SwiftTestTool: SwiftCommand {
     public static let configuration = CommandConfiguration(
         commandName: "swift test",
         abstract: "Build and run tests",
@@ -192,15 +189,16 @@ public struct SwiftTestTool: ParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
+    var swiftOptions: SwiftToolOptions
+
+    @OptionGroup()
     var options: TestToolOptions
     
     var shouldEnableCodeCoverage: Bool {
-        options.swiftOptions.shouldEnableCodeCoverage
+        swiftOptions.shouldEnableCodeCoverage
     }
     
-    public func run() throws {
-        let swiftTool = try SwiftTool(options: options.swiftOptions)
-
+    public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
         try validateArguments(diagnostics: swiftTool.diagnostics)
 
@@ -274,7 +272,7 @@ public struct SwiftTestTool: ParsableCommand {
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 diagnostics: swiftTool.diagnostics,
-                options: options.swiftOptions,
+                options: swiftOptions,
                 buildParameters: buildParameters
             )
 
@@ -315,7 +313,7 @@ public struct SwiftTestTool: ParsableCommand {
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 diagnostics: swiftTool.diagnostics,
-                options: options.swiftOptions,
+                options: swiftOptions,
                 buildParameters: buildParameters
             )
             try runner.run(tests)
@@ -462,7 +460,7 @@ public struct SwiftTestTool: ParsableCommand {
       #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
             let args = [xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: options.swiftOptions, buildParameters: swiftTool.buildParameters())
+            var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParameters())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
             if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
