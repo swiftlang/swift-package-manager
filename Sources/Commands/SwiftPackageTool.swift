@@ -165,7 +165,6 @@ extension SwiftPackageTool {
         var packageName: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            _ = try SwiftTool(options: swiftOptions)
             // FIXME: Error handling.
             let cwd = localFileSystem.currentWorkingDirectory!
 
