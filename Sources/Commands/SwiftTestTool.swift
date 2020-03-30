@@ -769,14 +769,11 @@ final class ParallelTestRunner {
     }
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
-        // FIXME: Add a count property in SynchronizedQueue.
-        var numTests = 0
         // Enqueue all the tests.
         for test in tests {
-            numTests += 1
             pendingTests.enqueue(test)
         }
-        self.numTests = numTests
+        self.numTests = tests.count
         self.numCurrentTest = 0
         // Enqueue the sentinels, we stop a thread when it encounters a sentinel in the queue.
         for _ in 0..<numJobs {
