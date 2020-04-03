@@ -217,12 +217,7 @@ public func withTemporaryDirectory<Result>(
     let path = AbsolutePath(String(cString: template))
 
     defer {
-        let isEmptyDirectory: (String) -> Bool = { path in
-            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: path) else { return false }
-            return contents.isEmpty
-        }
-
-        if removeTreeOnDeinit || isEmptyDirectory(path.pathString) {
+        if removeTreeOnDeinit {
             _ = try? FileManager.default.removeItem(atPath: path.pathString)
         }
     }

@@ -93,7 +93,7 @@ class TemporaryFileTests: XCTestCase {
 
     func testBasicTemporaryDirectory() throws {
         // Test can create and remove temp directory.
-        let path1: AbsolutePath = try withTemporaryDirectory { tempDirPath in
+        let path1: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             return tempDirPath
         }
@@ -123,8 +123,8 @@ class TemporaryFileTests: XCTestCase {
     }
 
     func testCanCreateUniqueTempDirectories() throws {
-        let (pathOne, pathTwo): (AbsolutePath, AbsolutePath) = try withTemporaryDirectory { pathOne in
-            let pathTwo: AbsolutePath = try withTemporaryDirectory { pathTwo in
+        let (pathOne, pathTwo): (AbsolutePath, AbsolutePath) = try withTemporaryDirectory(removeTreeOnDeinit: true) { pathOne in
+            let pathTwo: AbsolutePath = try withTemporaryDirectory(removeTreeOnDeinit: true) { pathTwo in
                 XCTAssertTrue(localFileSystem.isDirectory(pathOne))
                 XCTAssertTrue(localFileSystem.isDirectory(pathTwo))
                 // Their paths should be different.
