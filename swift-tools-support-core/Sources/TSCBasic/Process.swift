@@ -665,9 +665,6 @@ extension ProcessResult.Error: CustomStringConvertible {
                 stream <<< "signalled(\(signal)): "
             }
 
-            stream <<< result.environment.map({ "\($0)=\($1)" }).joined(separator: " ")
-            stream <<< " "
-
             // Strip sandbox information from arguments to keep things pretty.
             var args = result.arguments
             // This seems a little fragile.
