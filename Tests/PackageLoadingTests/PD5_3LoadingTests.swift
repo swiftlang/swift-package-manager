@@ -18,7 +18,7 @@ import PackageLoading
 
 class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
-        .vNext
+        .v5_3
     }
 
     func testResources() throws {
