@@ -112,9 +112,9 @@ public struct TargetSourcesBuilder {
         }
 
         // Emit an error if we found files without a matching rule in
-        // tools version >= vNext. This will be activated once resources
+        // tools version >= v5_3. This will be activated once resources
         // support is complete.
-        if toolsVersion >= .vNext {
+        if toolsVersion >= .v5_3 {
             let filesWithNoRules = pathToRule.filter { $0.value.rule == .none }
             if !filesWithNoRules.isEmpty {
                 var error = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
@@ -323,7 +323,7 @@ public struct TargetSourcesBuilder {
         var ignoredDirectoryExtensions = ["xcodeproj", "playground", "xcworkspace"]
 
         // Ignore localization directories if not supported.
-        if toolsVersion < .vNext {
+        if toolsVersion < .v5_3 {
             ignoredDirectoryExtensions.append(Resource.localizationDirectoryExtension)
         }
 
@@ -366,7 +366,7 @@ public struct TargetSourcesBuilder {
             // sources that have an extension but are not explicitly
             // declared as sources in the manifest.
             if
-                toolsVersion >= .vNext &&
+                toolsVersion >= .v5_3 &&
                 path.extension != nil &&
                 path.extension != Resource.localizationDirectoryExtension &&
                 !isDeclaredSource(path)
@@ -519,7 +519,7 @@ public struct FileRuleDescription {
     public static let xib: FileRuleDescription = {
         .init(
             rule: .processResource,
-            toolsVersion: .vNext,
+            toolsVersion: .v5_3,
             fileTypes: ["nib", "xib", "storyboard"]
         )
     }()
@@ -528,7 +528,7 @@ public struct FileRuleDescription {
     public static let assetCatalog: FileRuleDescription = {
         .init(
             rule: .processResource,
-            toolsVersion: .vNext,
+            toolsVersion: .v5_3,
             fileTypes: ["xcassets"]
         )
     }()
@@ -537,7 +537,7 @@ public struct FileRuleDescription {
     public static let coredata: FileRuleDescription = {
         .init(
             rule: .processResource,
-            toolsVersion: .vNext,
+            toolsVersion: .v5_3,
             fileTypes: ["xcdatamodeld", "xcdatamodel", "xcmappingmodel"]
         )
     }()
@@ -546,7 +546,7 @@ public struct FileRuleDescription {
     public static let metal: FileRuleDescription = {
         .init(
             rule: .processResource,
-            toolsVersion: .vNext,
+            toolsVersion: .v5_3,
             fileTypes: ["metal"]
         )
     }()

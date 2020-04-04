@@ -1504,7 +1504,7 @@ class PIFBuilderTests: XCTestCase {
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
-                    v: .vNext,
+                    v: .v5_3,
                     packageKind: .root,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -1567,7 +1567,7 @@ class PIFBuilderTests: XCTestCase {
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
-                    v: .vNext,
+                    v: .v5_3,
                     packageKind: .root,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -1995,7 +1995,7 @@ class PIFBuilderTests: XCTestCase {
                     name: "Foo",
                     path: "/Foo",
                     url: "/Foo",
-                    v: .vNext,
+                    v: .v5_3,
                     packageKind: .root,
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -2063,7 +2063,7 @@ class PIFBuilderTests: XCTestCase {
                     ],
                     path: "/Foo",
                     url: "/Foo",
-                    v: .vNext,
+                    v: .v5_3,
                     packageKind: .root,
                     targets: [
                         .init(name: "foo", dependencies: []),
