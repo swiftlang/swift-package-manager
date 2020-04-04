@@ -76,7 +76,7 @@ public final class Target {
     public var sources: [String]?
 
     /// The explicit list of resource files in the target.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public var resources: [Resource]? {
         get { _resources }
         set { _resources = newValue }
@@ -148,7 +148,7 @@ public final class Target {
     private var _linkerSettings: [LinkerSetting]?
 
     /// The binary target's checksum.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public var checksum: String? {
         get { _checksum }
         set { _checksum = newValue }
@@ -292,7 +292,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5, obsoleted: 999)
+    @available(_PackageDescription, introduced: 5, obsoleted: 5.3)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -344,7 +344,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -474,7 +474,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -544,7 +544,7 @@ public final class Target {
     ///   - name: The name of the target.
     ///   - url: The URL to the binary artifact. Should point to a `zip` archive containing a `XCFramework`.
     ///   - checksum: The checksum of the artifact archive for validation.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
         url: String,
@@ -571,7 +571,7 @@ public final class Target {
     ///   - name: The name of the target.
     ///   - path: The path to the binary artifact. Can point directly to a `XCFramework` or a zip containing the
     ///       `XCFramework`.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
         path: String
@@ -647,7 +647,7 @@ extension Target.Dependency {
     ///
     /// - parameters:
     ///   - name: The name of the target.
-    @available(_PackageDescription, obsoleted: 999)
+    @available(_PackageDescription, obsoleted: 5.3)
     public static func target(name: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4
         return .targetItem(name: name)
@@ -675,7 +675,7 @@ extension Target.Dependency {
     ///
     /// - parameters:
     ///   - name: The name of the dependency, either a target or a product.
-    @available(_PackageDescription, obsoleted: 999)
+    @available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4
         return .byNameItem(name: name)
@@ -690,7 +690,7 @@ extension Target.Dependency {
     /// - parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
-    @available(_PackageDescription, introduced: 5.2, obsoleted: 999)
+    @available(_PackageDescription, introduced: 5.2, obsoleted: 5.3)
     public static func product(
         name: String,
         package: String
@@ -703,7 +703,7 @@ extension Target.Dependency {
     /// - parameters:
     ///   - name: The name of the target.
     ///   - condition: The condition under which the dependency is exercised.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return ._targetItem(name: name, condition: condition)
     }
@@ -714,7 +714,7 @@ extension Target.Dependency {
     ///   - name: The name of the product.
     ///   - package: The name of the package.
     ///   - condition: The condition under which the dependency is exercised.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func product(
         name: String,
         package: String,
@@ -729,7 +729,7 @@ extension Target.Dependency {
     /// - parameters:
     ///   - name: The name of the dependency, either a target or a product.
     ///   - condition: The condition under which the dependency is exercised.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return ._byNameItem(name: name, condition: condition)
     }

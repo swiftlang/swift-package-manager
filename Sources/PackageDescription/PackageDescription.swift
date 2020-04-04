@@ -178,7 +178,7 @@ public final class Package {
     private var _platforms: [SupportedPlatform]?
 
     /// The default localization for resources.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public var defaultLocalization: LanguageTag? {
         get { return _defaultLocalization }
         set { _defaultLocalization = newValue }
@@ -298,7 +298,7 @@ public final class Package {
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
     ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 5, obsoleted: 999)
+    @available(_PackageDescription, introduced: 5, obsoleted: 5.3)
     public init(
         name: String,
         platforms: [SupportedPlatform]? = nil,
@@ -336,7 +336,7 @@ public final class Package {
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
     ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -466,7 +466,7 @@ public enum SystemPackageProvider {
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
         return ._yumItem(packages)
     }

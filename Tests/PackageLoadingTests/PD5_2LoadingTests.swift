@@ -231,7 +231,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
         }
     }
 
@@ -257,7 +257,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 }
 
                 XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
             }
         }
 
@@ -283,7 +283,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 }
 
                 XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
             }
         }
     }
@@ -313,7 +313,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
         }
     }
 
@@ -341,7 +341,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 }
 
                 XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
             }
         }
     }
