@@ -1918,7 +1918,7 @@ class PackageBuilderTests: XCTestCase {
 
         let manifest = Manifest.createManifest(
             name: "Foo",
-            v: .vNext,
+            v: .v5_3,
             targets: [
                 TargetDescription(name: "Foo", resources: [
                     .init(rule: .process, path: "Resources")
@@ -1942,7 +1942,7 @@ class PackageBuilderTests: XCTestCase {
 
         let manifest = Manifest.createManifest(
             name: "Foo",
-            v: .vNext,
+            v: .v5_3,
             targets: [
                 TargetDescription(name: "Foo"),
             ]

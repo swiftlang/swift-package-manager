@@ -712,7 +712,7 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
     stream <<< "(import \"system.sb\")" <<< "\n"
 
     // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
-    if toolsVersion < .vNext {
+    if toolsVersion < .v5_3 {
         // Allow reading all files.
         stream <<< "(allow file-read*)" <<< "\n"
         // These are required by the Swift compiler.
