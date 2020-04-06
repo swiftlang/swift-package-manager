@@ -12,36 +12,57 @@ import TSCBasic
 import Foundation
 
 /// Recognized Platform types.
-public enum Platform {
+public enum Platform: Equatable {
     case android
     case darwin
     case linux(LinuxFlavor)
 
     /// Recognized flavors of linux.
-    public enum LinuxFlavor {
+    public enum LinuxFlavor: Equatable {
         case debian
+        case fedora
     }
 
     /// Lazily checked current platform.
-    public static var currentPlatform = Platform.findCurrentPlatform()
+    public static var currentPlatform = Platform._findCurrentPlatform(localFileSystem)
     /// Attempt to match `uname` with recognized platforms.
-    private static func findCurrentPlatform() -> Platform? {
+    public static func _findCurrentPlatform(_ fs: FileSystem) -> Platform? {
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
             return .darwin
         case "linux":
-            if localFileSystem.isFile(AbsolutePath("/etc/debian_version")) {
-                return .linux(.debian)
-            }
-            if localFileSystem.isFile(AbsolutePath("/system/bin/toolbox")) ||
-               localFileSystem.isFile(AbsolutePath("/system/bin/toybox")) {
-                return .android
-            }
+            return Platform._findCurrentPlatformLinux(fs)
         default:
             return nil
         }
+    }
+
+    public static func _findCurrentPlatformLinux(_ fs: FileSystem) -> Platform? {
+        if fs.isFile(AbsolutePath("/etc/debian_version")) {
+            return .linux(.debian)
+        }
+        if fs.isFile(AbsolutePath("/system/bin/toolbox")) ||
+           fs.isFile(AbsolutePath("/system/bin/toybox")) {
+            return .android
+        }
+        if fs.isFile(AbsolutePath("/etc/redhat-release")) ||
+           fs.isFile(AbsolutePath("/etc/centos-release")) ||
+           fs.isFile(AbsolutePath("/etc/fedora-release")) ||
+           Platform.isAmazonLinux2(fs) {
+            return .linux(.fedora)
+        }
+
         return nil
+    }
+
+    private static func isAmazonLinux2(_ fs: FileSystem) -> Bool {
+        do {
+            let release = try fs.readFileContents(AbsolutePath("/etc/system-release")).cString
+            return release.hasPrefix("Amazon Linux release 2")
+        } catch {
+            return false
+        }
     }
 
     /// Returns the cache directories used in Darwin.
