@@ -270,6 +270,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSerializedDiagnostics() throws {
+    #if !os(Linux)
         mktmpdir { path in
             let fs = localFileSystem
 
@@ -338,6 +339,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             let contents = try localFileSystem.readFileContents(diag.diagnosticFile!)
             XCTAssertNotNil(contents)
         }
+    #endif
     }
 
     func testInvalidBuildSettings() throws {
