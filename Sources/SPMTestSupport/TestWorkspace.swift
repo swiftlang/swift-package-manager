@@ -94,24 +94,25 @@ public final class TestWorkspace {
         func create(package: TestPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
-            let sourcesDir = packagePath.appending(component: "Sources")
             let url = (packageKind == .root ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
             let specifier = RepositorySpecifier(url: url)
-            let manifestPath = packagePath.appending(component: Manifest.filename)
 
             // Create targets on disk.
             let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
+            let repoSourcesDir = AbsolutePath("/Sources")
             for target in package.targets {
-                let targetDir = sourcesDir.appending(component: target.name)
-                try repo.createDirectory(targetDir, recursive: true)
-                try repo.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+                let repoTargetDir = repoSourcesDir.appending(component: target.name)
+                try repo.createDirectory(repoTargetDir, recursive: true)
+                try repo.writeFileContents(repoTargetDir.appending(component: "file.swift"), bytes: "")
             }
             let toolsVersion = package.toolsVersion ?? .currentToolsVersion
-            try repo.writeFileContents(manifestPath, bytes: "")
-            try writeToolsVersion(at: packagePath, version: toolsVersion, fs: repo)
+            let repoManifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+            try repo.writeFileContents(repoManifestPath, bytes: "")
+            try writeToolsVersion(at: .root, version: toolsVersion, fs: repo)
             repo.commit()
 
             let versions: [String?] = packageKind == .remote ? package.versions : [nil]
+            let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
