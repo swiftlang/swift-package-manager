@@ -53,11 +53,14 @@ class PkgConfigTests: XCTestCase {
             XCTAssertEqual(result.libs, [])
             switch result.provider {
             case .brew(let names)?:
+                XCTAssertEqual(Platform.currentPlatform, .darwin)
                 XCTAssertEqual(names, ["libFoo"])
             case .apt(let names)?:
+                XCTAssertEqual(Platform.currentPlatform, .linux(.debian))
                 XCTAssertEqual(names, ["libFoo-dev"])
             case nil:
-                XCTFail("Expected a provider here")
+                XCTAssertNotEqual(Platform.currentPlatform, .darwin)
+                XCTAssertNotEqual(Platform.currentPlatform, .linux(.debian))
             }
             XCTAssertTrue(result.couldNotFindConfigFile)
             switch result.error {
