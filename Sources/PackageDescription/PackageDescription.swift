@@ -366,8 +366,10 @@ public final class Package {
   #endif
 
     private func registerExitHandler() {
-        // Add a custom exit handler to cause the package to be dumped at exit, if
-        // requested.
+        // Add a custom exit handler to cause the package's JSON representation
+        // to be dumped at exit, if requested.  Emitting it to a separate file
+        // descriptor keeps any of the manifest's stdout output from interfering
+        // with it.
         //
         // FIXME: This doesn't belong here, but for now is the mechanism we use
         // to get the interpreter to dump the package when attempting to load a
