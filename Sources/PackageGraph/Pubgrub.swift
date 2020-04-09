@@ -1377,7 +1377,7 @@ private final class DiagnosticReportBuilder {
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
-            return "package \(versionedDependency) is required using a version-based requirement and it depends on unversion package \(unversionedDependency)"
+            return "package \(versionedDependency) is required using a version-based requirement, but has an unversioned dependency on package \(unversionedDependency)"
         case .incompatibleToolsVersion:
             let term = incompatibility.terms.first!
             return "\(description(for: term, normalizeRange: true)) contains incompatible tools version"
