@@ -31,7 +31,7 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
-            enableXCTestManifest: Bool = true,
+            enableXCTestManifest: Bool = false,
             platforms: [SupportedPlatform] = []
         ) {
             self.packageType = packageType
