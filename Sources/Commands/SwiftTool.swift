@@ -711,7 +711,9 @@ public class SwiftTool<Options: ToolOptions> {
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
         let hasEditedPackages = try getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
 
-        return options.enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
+        let enableBuildManifestCaching = ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_BUILD_MANIFEST_CACHING") || options.enableBuildManifestCaching
+
+        return enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }
 
     func createBuildOperation(useBuildManifestCaching: Bool = true) throws -> BuildOperation {
