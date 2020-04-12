@@ -212,6 +212,7 @@ extension Manifest {
             try container.encode(path, forKey: .path)
             try container.encode(url, forKey: .url)
             try container.encode(version, forKey: .version)
+            try container.encode(targetMap, forKey: .targetMap)
         }
 
         try container.encode(toolsVersion, forKey: .toolsVersion)
@@ -224,6 +225,7 @@ extension Manifest {
         try container.encode(products, forKey: .products)
         try container.encode(targets, forKey: .targets)
         try container.encode(platforms, forKey: .platforms)
+        try container.encode(packageKind, forKey: .packageKind)
     }
 
     /// Returns the targets required for building the provided products.
