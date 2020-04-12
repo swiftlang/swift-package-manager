@@ -50,6 +50,11 @@ let package = Package(
         ),
 
         .library(
+            name: "XCBuildSupport",
+            targets: ["XCBuildSupport"]
+        ),
+
+        .library(
             name: "PackageDescription",
             type: .dynamic,
             targets: ["PackageDescription"]
