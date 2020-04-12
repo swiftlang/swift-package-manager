@@ -380,7 +380,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let graph = try loadPackageGraph(createMultipleTestProducts: true)
             let parameters = try PIFBuilderParameters(buildParameters())
             let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: diagnostics)
-            let pif = try builder.generatePIF()
+            let pif = try builder.generatePIF(preservePIFModelStructure: options.pifDumpOptions.preservePIFModelStructure)
             print(pif)
 
         case .completionTool:
@@ -432,7 +432,12 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             to: { $0.describeMode = $1 })
 
         _ = parser.add(subparser: PackageMode.dumpPackage.rawValue, overview: "Print parsed Package.swift as JSON")
-        _ = parser.add(subparser: PackageMode.dumpPIF.rawValue, overview: "")
+        let dumpPIFParser = parser.add(subparser: PackageMode.dumpPIF.rawValue, overview: "")
+        binder.bind(
+            option: dumpPIFParser.add(
+                option: "--preserve-structure", kind: Bool.self,
+                usage: "Preserve the internal structure of PIF"),
+            to: { $0.pifDumpOptions.preservePIFModelStructure = $1 })
 
         let editParser = parser.add(subparser: PackageMode.edit.rawValue, overview: "Put a package in editable mode")
         binder.bind(
@@ -744,6 +749,11 @@ public class PackageToolOptions: ToolOptions {
     }
 
     var editOptions = EditOptions()
+
+    struct PIFDumpOptions {
+        var preservePIFModelStructure: Bool = false
+    }
+    var pifDumpOptions = PIFDumpOptions()
 
     var outputPath: AbsolutePath?
     var xcodeprojOptions = XcodeprojOptions()
