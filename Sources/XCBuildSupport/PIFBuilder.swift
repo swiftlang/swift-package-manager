@@ -76,7 +76,10 @@ public final class PIFBuilder {
     /// - Parameters:
     ///   - prettyPrint: Whether to return a formatted JSON.
     /// - Returns: The package graph in the JSON PIF format.
-    public func generatePIF(prettyPrint: Bool = true) throws -> String {
+    public func generatePIF(
+        prettyPrint: Bool = true,
+        preservePIFModelStructure: Bool = false
+    ) throws -> String {
         let encoder = JSONEncoder()
         if prettyPrint {
             encoder.outputFormatting = .prettyPrinted
@@ -85,6 +88,10 @@ public final class PIFBuilder {
                 encoder.outputFormatting.insert(.sortedKeys)
             }
           #endif
+        }
+
+        if preservePIFModelStructure {
+            encoder.userInfo[.preservePIFModelStructure] = true
         }
 
         let topLevelObject = construct()
@@ -273,7 +280,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         PlatformRegistry.default.knownPlatforms.forEach {
             guard let platform = PIF.BuildSettings.Platform.from(platform: $0) else { return }
             guard let supportedPlatform = firstTarget?.getSupportedPlatform(for: $0) else { return }
-            settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
+            if !supportedPlatform.options.isEmpty {
+                settings[.SPECIALIZATION_SDK_OPTIONS, for: platform] = supportedPlatform.options
+            }
         }
 
         // Disable signing for all the things since there is no way to configure

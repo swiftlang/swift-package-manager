@@ -193,7 +193,7 @@ class PIFBuilderTests: XCTestCase {
                         }
 
                         for platform in PIF.BuildSettings.Platform.allCases {
-                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], nil)
                         }
                     }
                 }
@@ -236,7 +236,7 @@ class PIFBuilderTests: XCTestCase {
                         }
 
                         for platform in PIF.BuildSettings.Platform.allCases {
-                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], nil)
                         }
                     }
                 }
@@ -291,7 +291,7 @@ class PIFBuilderTests: XCTestCase {
                         }
 
                         for platform in PIF.BuildSettings.Platform.allCases {
-                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], nil)
                         }
                     }
                 }
@@ -334,7 +334,7 @@ class PIFBuilderTests: XCTestCase {
                         }
 
                         for platform in PIF.BuildSettings.Platform.allCases {
-                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], [])
+                            XCTAssertEqual(settings[.SPECIALIZATION_SDK_OPTIONS, for: platform], nil)
                         }
                     }
                 }
