@@ -152,7 +152,7 @@ public enum PIF {
                 try contents.encode(projects.map({ $0.signature }), forKey: .projects)
             }
 
-            if encoder.userInfo.keys.contains(.preservePIFModelStructure) {
+            if !encoder.userInfo.keys.contains(.encodeForXCBuild) {
                 try contents.encode(projects, forKey: .projects)
             }
         }
@@ -229,10 +229,10 @@ public enum PIF {
             try contents.encode("Release", forKey: .defaultConfigurationName)
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
 
-            if encoder.userInfo.keys.contains(.preservePIFModelStructure) {
-                try contents.encode(targets, forKey: .targets)
-            } else {
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
                 try contents.encode(targets.map{ $0.signature }, forKey: .targets)
+            } else {
+                try contents.encode(targets, forKey: .targets)
             }
 
             try contents.encode(groupTree, forKey: .groupTree)
@@ -1034,14 +1034,17 @@ public enum PIF {
         }
 
         public func encode(to encoder: Encoder) throws {
-            if encoder.userInfo.keys.contains(.preservePIFModelStructure) {
-                var container = encoder.container(keyedBy: CodingKeys.self)
-                try container.encode(platformSpecificSettings, forKey: .platformSpecificSettings)
-                try container.encode(singleValueSettings, forKey: .singleValueSettings)
-                try container.encode(multipleValueSettings, forKey: .multipleValueSettings)
-                return
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                return try encodeForXCBuild(to: encoder)
             }
 
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(platformSpecificSettings, forKey: .platformSpecificSettings)
+            try container.encode(singleValueSettings, forKey: .singleValueSettings)
+            try container.encode(multipleValueSettings, forKey: .multipleValueSettings)
+        }
+
+        private func encodeForXCBuild(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: StringKey.self)
 
             for (key, value) in singleValueSettings {
@@ -1188,8 +1191,8 @@ extension PIF.FileReference {
 extension CodingUserInfoKey {
     public static let encodingPIFSignature: CodingUserInfoKey = CodingUserInfoKey(rawValue: "encodingPIFSignature")!
 
-    /// Preserve the internal structure of the PIF types which enables decoding.
-    public static let preservePIFModelStructure: CodingUserInfoKey = CodingUserInfoKey(rawValue: "preserveInternalStructure")!
+    /// Perform the encoding for XCBuild consumption.
+    public static let encodeForXCBuild: CodingUserInfoKey = CodingUserInfoKey(rawValue: "encodeForXCBuild")!
 }
 
 private struct UntypedTarget: Decodable {
