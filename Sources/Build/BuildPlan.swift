@@ -587,7 +587,11 @@ public final class SwiftTargetBuildDescription {
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                return Bundle(path: Bundle.main.bundlePath + "/" + "\(bundleBasename)")!
+                let bundlePath = Bundle.main.bundlePath + "/" + "\(bundleBasename)"
+                guard let bundle = Bundle(path: bundlePath) else {
+                    fatalError("could not load resource bundle: \\(bundlePath)")
+                }
+                return bundle
             }()
         }
         """
