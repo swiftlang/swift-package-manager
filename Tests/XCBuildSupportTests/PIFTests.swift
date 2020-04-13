@@ -196,13 +196,11 @@ class PIFTests: XCTestCase {
             encoder.outputFormatting.insert(.sortedKeys)
         }
 
-        encoder.userInfo[.preservePIFModelStructure] = true
-
         let workspace = topLevelObject.workspace
         let encodedData = try encoder.encode(workspace)
         let decodedWorkspace = try JSONDecoder().decode(PIF.Workspace.self, from: encodedData)
 
-        encoder.userInfo = [:]
+        encoder.userInfo[.encodeForXCBuild] = true
         let originalPIF = try encoder.encode(workspace)
         let decodedPIF = try encoder.encode(decodedWorkspace)
         let originalString = String(data: originalPIF, encoding: .utf8)!
@@ -213,7 +211,9 @@ class PIFTests: XCTestCase {
     }
 
     func testEncodable() throws {
-        let data = try JSONEncoder().encode(topLevelObject)
+        let encoder = JSONEncoder()
+        encoder.userInfo[.encodeForXCBuild] = true
+        let data = try encoder.encode(topLevelObject)
         let json = try JSON(data: data)
 
         guard case .array(let objects) = json else {

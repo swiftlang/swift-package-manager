@@ -90,8 +90,8 @@ public final class PIFBuilder {
           #endif
         }
 
-        if preservePIFModelStructure {
-            encoder.userInfo[.preservePIFModelStructure] = true
+        if !preservePIFModelStructure {
+            encoder.userInfo[.encodeForXCBuild] = true
         }
 
         let topLevelObject = construct()
