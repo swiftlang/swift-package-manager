@@ -80,54 +80,19 @@ public enum PIF {
         }
     }
 
-    public class SignedObject: TypedObject {
-        @DelayedImmutable
-        public var signature: String
-
-        fileprivate override init() {
-            super.init()
-
-            let encoder = JSONEncoder()
-          #if os(macOS)
-            if #available(OSX 10.13, *) {
-                encoder.outputFormatting.insert(.sortedKeys)
-            }
-          #endif
-            encoder.userInfo[.encodingPIFSignature] = true
-            let signatureContent = try! encoder.encode(self)
-            let bytes = ByteString(signatureContent)
-            signature = SHA256().hash(bytes).hexadecimalRepresentation
-        }
-
-        public override func encode(to encoder: Encoder) throws {
-            try super.encode(to: encoder)
-
-            if encoder.userInfo[.encodingPIFSignature] == nil {
-                var container = encoder.container(keyedBy: StringKey.self)
-                try container.encode(signature, forKey: "signature")
-            }
-        }
-
-        public required init(from decoder: Decoder) throws {
-            try super.init(from: decoder)
-            let container = try decoder.container(keyedBy: StringKey.self)
-            signature = try container.decode(String.self, forKey: "signature")
-        }
-    }
-
-    public final class Workspace: SignedObject {
+    public final class Workspace: TypedObject {
         override class var type: String { "workspace" }
 
         public let guid: GUID
-        public let name: String
-        public let path: AbsolutePath
-        public let projects: [Project]
+        public var name: String
+        public var path: AbsolutePath
+        public var projects: [Project]
+        var signature: String?
 
         public init(guid: GUID,  name: String, path: AbsolutePath, projects: [Project]) {
             precondition(!guid.isEmpty)
             precondition(!name.isEmpty)
             precondition(Set(projects.map({ $0.guid })).count == projects.count)
-            precondition(Set(projects.map({ $0.signature })).count == projects.count)
 
             self.guid = guid
             self.name = name
@@ -137,7 +102,7 @@ public enum PIF {
         }
 
         private enum CodingKeys: CodingKey {
-            case guid, name, path, projects
+            case guid, name, path, projects, signature
         }
 
         public override func encode(to encoder: Encoder) throws {
@@ -148,11 +113,11 @@ public enum PIF {
             try contents.encode(name, forKey: .name)
             try contents.encode(path, forKey: .path)
 
-            if encoder.userInfo[.encodingPIFSignature] == nil {
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have workspace signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
                 try contents.encode(projects.map({ $0.signature }), forKey: .projects)
-            }
-
-            if !encoder.userInfo.keys.contains(.encodeForXCBuild) {
+            } else {
                 try contents.encode(projects, forKey: .projects)
             }
         }
@@ -172,17 +137,18 @@ public enum PIF {
 
     /// A PIF project, consisting of a tree of groups and file references, a list of targets, and some additional
     /// information.
-    public final class Project: SignedObject {
+    public final class Project: TypedObject {
         override class var type: String { "project" }
 
         public let guid: GUID
-        public let name: String
-        public let path: AbsolutePath
-        public let projectDirectory: AbsolutePath
-        public let developmentRegion: String
-        public let buildConfigurations: [BuildConfiguration]
-        public let targets: [BaseTarget]
-        public let groupTree: Group
+        public var name: String
+        public var path: AbsolutePath
+        public var projectDirectory: AbsolutePath
+        public var developmentRegion: String
+        public var buildConfigurations: [BuildConfiguration]
+        public var targets: [BaseTarget]
+        public var groupTree: Group
+        var signature: String?
 
         public init(
             guid: GUID,
@@ -198,7 +164,6 @@ public enum PIF {
             precondition(!name.isEmpty)
             precondition(!developmentRegion.isEmpty)
             precondition(Set(targets.map({ $0.guid })).count == targets.count)
-            precondition(Set(targets.map({ $0.signature })).count == targets.count)
             precondition(Set(buildConfigurations.map({ $0.guid })).count == buildConfigurations.count)
 
             self.guid = guid
@@ -213,7 +178,7 @@ public enum PIF {
         }
 
         private enum CodingKeys: CodingKey {
-            case guid, projectName, projectIsPackage, path, projectDirectory, developmentRegion, defaultConfigurationName, buildConfigurations, targets, groupTree
+            case guid, projectName, projectIsPackage, path, projectDirectory, developmentRegion, defaultConfigurationName, buildConfigurations, targets, groupTree, signature
         }
 
         public override func encode(to encoder: Encoder) throws {
@@ -230,6 +195,8 @@ public enum PIF {
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have project signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
                 try contents.encode(targets.map{ $0.signature }, forKey: .targets)
             } else {
                 try contents.encode(targets, forKey: .targets)
@@ -291,14 +258,14 @@ public enum PIF {
         public let guid: GUID
 
         /// Relative path of the reference.  It is usually a literal, but may in fact contain build settings.
-        public let path: String
+        public var path: String
 
         /// Determines the base path for the reference's relative path.
-        public let sourceTree: SourceTree
+        public var sourceTree: SourceTree
 
         /// Name of the reference, if different from the last path component (if not set, the last path component will
         /// be used as the name).
-        public let name: String?
+        public var name: String?
 
         fileprivate init(
             guid: GUID,
@@ -343,7 +310,7 @@ public enum PIF {
     public final class FileReference: Reference {
         override class var type: String { "file" }
 
-        public let fileType: String
+        public var fileType: String
 
         public init(
             guid: GUID,
@@ -378,7 +345,7 @@ public enum PIF {
     public final class Group: Reference {
         override class var type: String { "group" }
 
-        public let children: [Reference]
+        public var children: [Reference]
 
         public init(
             guid: GUID,
@@ -463,14 +430,15 @@ public enum PIF {
         }
     }
 
-    public class BaseTarget: SignedObject {
+    public class BaseTarget: TypedObject, ObjectIdentifierProtocol {
         class override var type: String { "target" }
         public let guid: GUID
-        public let name: String
-        public let buildConfigurations: [BuildConfiguration]
-        public let buildPhases: [BuildPhase]
-        public let dependencies: [TargetDependency]
-        public let impartedBuildProperties: ImpartedBuildProperties
+        public var name: String
+        public var buildConfigurations: [BuildConfiguration]
+        public var buildPhases: [BuildPhase]
+        public var dependencies: [TargetDependency]
+        public var impartedBuildProperties: ImpartedBuildProperties
+        var signature: String?
 
         fileprivate init(
             guid: GUID,
@@ -478,7 +446,8 @@ public enum PIF {
             buildConfigurations: [BuildConfiguration],
             buildPhases: [BuildPhase],
             dependencies: [TargetDependency],
-            impartedBuildSettings: PIF.BuildSettings
+            impartedBuildSettings: PIF.BuildSettings,
+            signature: String?
         ) {
             self.guid = guid
             self.name = name
@@ -486,6 +455,7 @@ public enum PIF {
             self.buildPhases = buildPhases
             self.dependencies = dependencies
             impartedBuildProperties = ImpartedBuildProperties(settings: impartedBuildSettings)
+            self.signature = signature
             super.init()
         }
 
@@ -495,7 +465,7 @@ public enum PIF {
     }
 
     public final class AggregateTarget: BaseTarget {
-        public override init(
+        public init(
             guid: GUID,
             name: String,
             buildConfigurations: [BuildConfiguration],
@@ -509,12 +479,13 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildSettings
+                impartedBuildSettings: impartedBuildSettings,
+                signature: nil
             )
         }
 
         private enum CodingKeys: CodingKey {
-            case type, guid, name, buildConfigurations, buildPhases, dependencies, impartedBuildProperties
+            case type, guid, name, buildConfigurations, buildPhases, dependencies, impartedBuildProperties, signature
         }
 
         public override func encode(to encoder: Encoder) throws {
@@ -528,6 +499,11 @@ public enum PIF {
             try contents.encode(buildPhases, forKey: .buildPhases)
             try contents.encode(dependencies, forKey: .dependencies)
             try contents.encode(impartedBuildProperties, forKey: .impartedBuildProperties)
+
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
+            }
         }
 
         public required init(from decoder: Decoder) throws {
@@ -559,7 +535,8 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildProperties
+                impartedBuildSettings: impartedBuildProperties,
+                signature: nil
             )
         }
     }
@@ -578,8 +555,8 @@ public enum PIF {
             case packageProduct = "packageProduct"
         }
 
-        public let productName: String
-        public let productType: ProductType
+        public var productName: String
+        public var productType: ProductType
 
         public init(
             guid: GUID,
@@ -600,12 +577,13 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildSettings
+                impartedBuildSettings: impartedBuildSettings,
+                signature: nil
             )
         }
 
         private enum CodingKeys: CodingKey {
-            case guid, name, dependencies, buildConfigurations, type, frameworksBuildPhase, productTypeIdentifier, productReference, buildRules, buildPhases, impartedBuildProperties
+            case guid, name, dependencies, buildConfigurations, type, frameworksBuildPhase, productTypeIdentifier, productReference, buildRules, buildPhases, impartedBuildProperties, signature
         }
 
         override public func encode(to encoder: Encoder) throws {
@@ -616,6 +594,11 @@ public enum PIF {
             try contents.encode(name, forKey: .name)
             try contents.encode(dependencies, forKey: .dependencies)
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
+
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
+            }
 
             if productType == .packageProduct {
                 try contents.encode("packageProduct", forKey: .type)
@@ -689,7 +672,8 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildProperties
+                impartedBuildSettings: impartedBuildProperties,
+                signature: nil
             )
         }
     }
@@ -712,7 +696,7 @@ public enum PIF {
         }
 
         public let guid: GUID
-        public let buildFiles: [BuildFile]
+        public var buildFiles: [BuildFile]
 
         public init(guid: GUID, buildFiles: [BuildFile]) {
             precondition(!guid.isEmpty)
@@ -776,8 +760,8 @@ public enum PIF {
 
         public let guid: GUID
         public var reference: Reference
-        public let headerVisibility: HeaderVisibility? = nil
-        public let platformFilters: [PlatformFilter]
+        public var headerVisibility: HeaderVisibility? = nil
+        public var platformFilters: [PlatformFilter]
 
         public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter]) {
             self.guid = guid
@@ -864,8 +848,8 @@ public enum PIF {
     /// A build configuration, which is a named collection of build settings.
     public struct BuildConfiguration: Codable {
         public let guid: GUID
-        public let name: String
-        public let buildSettings: BuildSettings
+        public var name: String
+        public var buildSettings: BuildSettings
 
         public init(guid: GUID, name: String, buildSettings: BuildSettings) {
             precondition(!guid.isEmpty)
@@ -878,7 +862,7 @@ public enum PIF {
     }
 
     public struct ImpartedBuildProperties: Codable {
-        public let buildSettings: BuildSettings
+        public var buildSettings: BuildSettings
 
         public init(settings: BuildSettings) {
             self.buildSettings = settings
@@ -1200,4 +1184,34 @@ private struct UntypedTarget: Decodable {
         let type: String
     }
     let contents: TargetContents
+}
+
+protocol PIFSignableObject: class {
+    var signature: String? { get set }
+}
+extension PIF.Workspace: PIFSignableObject {}
+extension PIF.Project: PIFSignableObject {}
+extension PIF.BaseTarget: PIFSignableObject {}
+
+extension PIF {
+    /// Add signature to workspace and its subobjects.
+    public static func sign(_ workspace: PIF.Workspace) throws {
+        let encoder = JSONEncoder()
+        #if os(macOS)
+        if #available(OSX 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        #endif
+
+        func sign<T: PIFSignableObject & Encodable>(_ obj: T) throws {
+            let signatureContent = try encoder.encode(obj)
+            let bytes = ByteString(signatureContent)
+            obj.signature = SHA256().hash(bytes).hexadecimalRepresentation
+        }
+
+        let projects = workspace.projects
+        try projects.flatMap{ $0.targets }.forEach(sign)
+        try projects.forEach(sign)
+        try sign(workspace)
+    }
 }
