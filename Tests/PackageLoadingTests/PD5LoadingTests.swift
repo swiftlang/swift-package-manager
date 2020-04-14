@@ -487,4 +487,21 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
         }
     }
+
+    func testManifestWithPrintStatements() {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            print(String(repeating: "Hello manifest... ", count: 65536))
+            let package = Package(
+                name: "PackageWithChattyManifest"
+            )
+            """
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "PackageWithChattyManifest")
+            XCTAssertEqual(manifest.toolsVersion, .v5)
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
+        }
+    }
 }
