@@ -95,6 +95,10 @@ public final class PIFBuilder {
         }
 
         let topLevelObject = construct()
+
+        // Sign the pif objects before encoding it for XCBuild.
+        try PIF.sign(topLevelObject.workspace)
+
         let pifData = try encoder.encode(topLevelObject)
         return String(data: pifData, encoding: .utf8)!
     }
