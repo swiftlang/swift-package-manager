@@ -558,22 +558,22 @@ def get_swiftpm_flags(args):
     # toolchains that include libraries not part of the OS (e.g. PythonKit or
     # TensorFlow).
     if platform.system() == "Darwin":
-        swift_library_rpath_prefix = "@executable_path/../"
-    elif platform.system() == 'Linux':
-        # `$ORIGIN` is an ELF construct.
-        swift_library_rpath_prefix = "$ORIGIN/../"
+        swift_library_rpath_prefixes = [
+            "@executable_path/../",
+            # Necessary for swiftpm-xctest-helper.
+            "@executable_path/../../../",
+        ]
+    elif platform.system() == "Linux":
+        # `$ORIGIN` is an ELF-specific construct.
+        swift_library_rpath_prefixes = ["$ORIGIN/../"]
     platform_path = None
     for path in args.target_info["paths"]["runtimeLibraryPaths"]:
         platform_path = re.search(r"(lib/swift/[^/]+)$", path)
         if platform_path:
-            build_flags.extend(
-                [
-                    "-Xlinker",
-                    "-rpath",
-                    "-Xlinker",
-                    swift_library_rpath_prefix + platform_path.group(1),
-                ]
-            )
+            for prefix in swift_library_rpath_prefixes:
+                build_flags.extend(
+                    ["-Xlinker", "-rpath", "-Xlinker", prefix + platform_path.group(1)]
+                )
             break
 
     if not platform_path:
