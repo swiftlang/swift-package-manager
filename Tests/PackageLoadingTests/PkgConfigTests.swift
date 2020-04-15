@@ -28,7 +28,7 @@ extension SystemLibraryTarget {
 
 class PkgConfigTests: XCTestCase {
 
-    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath.sourceFile().parentDirectory.appending(components: "Inputs")
     let diagnostics = DiagnosticsEngine()
 
     func testBasics() throws {

@@ -92,6 +92,18 @@ public struct AbsolutePath: Hashable {
         try self.init(PathImpl(validatingAbsolutePath: path))
     }
 
+    #if compiler(>=5.3)
+    /// Returns the AbsolutePath of the source file that called it.
+    public static func sourceFile(at path: String = #filePath) -> AbsolutePath {
+        return AbsolutePath(path)
+    }
+    #else
+    /// Returns the AbsolutePath of the source file that called it.
+    public static func sourceFile(at path: String = #file) -> AbsolutePath {
+        return AbsolutePath(path)
+    }
+    #endif
+
     /// Directory component.  An absolute path always has a non-empty directory
     /// component (the directory component of the root path is the root itself).
     public var dirname: String {

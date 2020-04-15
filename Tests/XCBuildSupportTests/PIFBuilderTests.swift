@@ -18,7 +18,7 @@ import XCBuildSupport
 import SPMTestSupport
 
 class PIFBuilderTests: XCTestCase {
-    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    let inputsDir = AbsolutePath.sourceFile().parentDirectory.appending(components: "Inputs")
 
   #if os(macOS)
     func testOrdering() {

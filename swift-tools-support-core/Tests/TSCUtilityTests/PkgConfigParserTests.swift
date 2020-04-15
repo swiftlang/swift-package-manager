@@ -139,7 +139,7 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {
-        let input = AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
+        let input = AbsolutePath.sourceFile().parentDirectory.appending(components: "pkgconfigInputs", inputName)
         var parser = PkgConfigParser(pcFile: input, fileSystem: localFileSystem)
         try parser.parse()
         body?(parser)

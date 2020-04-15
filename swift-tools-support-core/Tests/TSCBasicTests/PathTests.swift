@@ -338,6 +338,15 @@ class PathTests: XCTestCase {
         }
     }
 
+    func testAbsolutePathSourceFile() {
+        #sourceLocation(file: "/a/b/c.swift", line: 10000)
+
+        let path = AbsolutePath.sourceFile()
+        XCTAssertEqual(path.pathString, "/a/b/c.swift")
+
+        #sourceLocation()
+    }
+
     // FIXME: We also need tests for join() operations.
 
     // FIXME: We also need tests for dirname, basename, suffix, etc.

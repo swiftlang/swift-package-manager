@@ -16,7 +16,7 @@ import TSCTestSupport
 
 class ProcessSetTests: XCTestCase {
     func script(_ name: String) -> String {
-        return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).pathString
+        return AbsolutePath.sourceFile().parentDirectory.appending(components: "processInputs", name).pathString
     }
 
     func testSigInt() throws {

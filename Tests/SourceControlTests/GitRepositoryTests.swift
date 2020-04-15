@@ -96,7 +96,7 @@ class GitRepositoryTests: XCTestCase {
     func testRawRepository() throws {
         mktmpdir { path in
             // Unarchive the static test repository.
-            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
+            let inputArchivePath = AbsolutePath.sourceFile().parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
             try systemQuietly(["tar", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
             let testRepoPath = path.appending(component: "TestRepo")
 

@@ -93,7 +93,7 @@ class WalkTests : XCTestCase {
     }
 
     func testRecursive() {
-        let root = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
+        let root = AbsolutePath.sourceFile().parentDirectory.parentDirectory.parentDirectory.appending(component: "Sources")
         var expected = [
             root.appending(component: "TSCBasic"),
             root.appending(component: "TSCUtility")

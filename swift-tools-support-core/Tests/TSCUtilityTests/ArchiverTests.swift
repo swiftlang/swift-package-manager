@@ -21,7 +21,7 @@ class ArchiverTests: XCTestCase {
             let expectation = XCTestExpectation(description: "success")
 
             let archiver = ZipArchiver()
-            let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "archive.zip")
+            let inputArchivePath = AbsolutePath.sourceFile().parentDirectory.appending(components: "Inputs", "archive.zip")
             archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
                 XCTAssertResultSuccess(result) { _ in
                     let content = tmpdir.appending(component: "file")
@@ -79,7 +79,7 @@ class ArchiverTests: XCTestCase {
             let expectation = XCTestExpectation(description: "failure")
 
             let archiver = ZipArchiver()
-            let inputArchivePath = AbsolutePath(#file).parentDirectory
+            let inputArchivePath = AbsolutePath.sourceFile().parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             archiver.extract(from: inputArchivePath, to: tmpdir, completion: { result in
                 XCTAssertResultFailure(result) { error in

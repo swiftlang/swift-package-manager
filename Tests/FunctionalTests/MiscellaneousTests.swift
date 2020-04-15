@@ -451,7 +451,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // ••••• Set up dependency.
             let dependencyName = "UnicodeDependency‐\(complicatedString)"
-            let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+            let dependencyOrigin = AbsolutePath.sourceFile().parentDirectory.parentDirectory.parentDirectory
                 .appending(component: "Fixtures")
                 .appending(component: "Miscellaneous")
                 .appending(component: dependencyName)

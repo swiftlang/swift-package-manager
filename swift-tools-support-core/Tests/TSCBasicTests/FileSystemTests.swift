@@ -76,10 +76,10 @@ class FileSystemTests: XCTestCase {
                     XCTAssertEqual(error.localizedDescription, "The folder “does-not-exist” doesn’t exist.")
                 }
 
-                let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath(#file).parentDirectory)
+                let thisDirectoryContents = try! fs.getDirectoryContents(AbsolutePath.sourceFile().parentDirectory)
                 XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == "." }))
                 XCTAssertTrue(!thisDirectoryContents.contains(where: { $0 == ".." }))
-                XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath(#file).basename }))
+                XCTAssertTrue(thisDirectoryContents.contains(where: { $0 == AbsolutePath.sourceFile().basename }))
             }
         }
     }
