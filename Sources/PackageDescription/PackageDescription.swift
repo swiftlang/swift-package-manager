@@ -366,16 +366,16 @@ public final class Package {
   #endif
 
     private func registerExitHandler() {
-        // Add a custom exit handler to cause the package to be dumped at exit, if
-        // requested.
+        // Add a custom exit handler to cause the package's JSON representation
+        // to be dumped at exit, if requested.  Emitting it to a separate file
+        // keeps any of the manifest's stdout output from interfering with it.
         //
         // FIXME: This doesn't belong here, but for now is the mechanism we use
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
-        if CommandLine.argc > 0,
-            let fileNoOptIndex = CommandLine.arguments.firstIndex(of: "-fileno"),
-           let fileNo = Int32(CommandLine.arguments[fileNoOptIndex + 1]) {
-            dumpPackageAtExit(self, fileNo: fileNo)
+        if let optIdx = CommandLine.arguments.firstIndex(of: "-json-output-file") {
+            let jsonOutputFilePath = CommandLine.arguments[optIdx + 1]
+            dumpPackageAtExit(self, to: jsonOutputFilePath)
         }
     }
 }
@@ -621,14 +621,14 @@ func manifestToJSON(_ package: Package) -> String {
 }
 
 var errors: [String] = []
-private var dumpInfo: (package: Package, fileNo: Int32)?
-private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
+private var dumpInfo: (package: Package, path: String)?
+private func dumpPackageAtExit(_ package: Package, to path: String) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }
-        guard let fd = fdopen(dumpInfo.fileNo, "w") else { return }
+        guard let fd = fopen(dumpInfo.path, "w") else { return }
         fputs(manifestToJSON(dumpInfo.package), fd)
         fclose(fd)
     }
-    dumpInfo = (package, fileNo)
+    dumpInfo = (package, path)
     atexit(dump)
 }

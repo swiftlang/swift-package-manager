@@ -566,8 +566,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
                 // Set path to compiled manifest executable.
-                let file = tmpDir.appending(components: "\(packageIdentity)-manifest")
-                cmd += ["-o", file.pathString]
+                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest")
+                cmd += ["-o", compiledManifestFile.pathString]
 
                 // Compile the manifest.
                 let compilerResult = try Process.popen(arguments: cmd)
@@ -578,9 +578,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 if compilerResult.exitStatus != .terminated(code: 0) {
                     return
                 }
-
-                // Pass the fd in arguments.
-                cmd = [file.pathString, "-fileno", "1"]
+                
+                // Pass the path of a file to which the JSON representation of the manifest will be written.
+                let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
+                cmd = [compiledManifestFile.pathString, "-json-output-file", jsonOutputFile.pathString]
 
               #if os(macOS)
                 // If enabled, use sandbox-exec on macOS. This provides some safety against
@@ -596,9 +597,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
               #endif
 
-                // Run the command.
+                // Run the compiled manifest.
                 let runResult = try Process.popen(arguments: cmd)
                 let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
+                if let runOutput = runOutput {
+                    // Append the runtime output to any compiler output we've received.
+                    manifestParseResult.compilerOutput = (manifestParseResult.compilerOutput ?? "") + runOutput
+                }
 
                 // Return now if there was an error.
                 if runResult.exitStatus != .terminated(code: 0) {
@@ -606,7 +611,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     return
                 }
 
-                manifestParseResult.parsedManifest = runOutput
+                // Read the JSON output that was emitted by libPackageDescription.
+                guard let jsonOutput = try localFileSystem.readFileContents(jsonOutputFile).validDescription else {
+                    throw StringError("the manifest's JSON output has invalid encoding")
+                }
+                manifestParseResult.parsedManifest = jsonOutput
             }
         }
 
