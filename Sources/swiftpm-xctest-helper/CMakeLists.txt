@@ -9,5 +9,10 @@
 add_executable(swiftpm-xctest-helper
   main.swift)
 
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+  target_link_options(swiftpm-xctest-helper PRIVATE
+    "-Xlinker -rpath -Xlinker @executable_path/../../../lib/swift/macosx")
+endif()
+
 install(TARGETS swiftpm-xctest-helper
   RUNTIME DESTINATION bin)
