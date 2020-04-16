@@ -820,7 +820,7 @@ public enum PIF {
             } else if container.allKeys.contains(.targetReference) {
                 let targetGUIDString = try container.decode(GUID.self, forKey: .targetReference)
                 let targetGUID = String(targetGUIDString.dropLast("\(schemaVersion)".count + 1))
-                reference = .file(guid: targetGUID)
+                reference = .target(guid: targetGUID)
             } else {
                 fatalError("Expected \(CodingKeys.fileReference) or \(CodingKeys.targetReference) in the keys")
             }
