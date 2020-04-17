@@ -579,9 +579,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     return
                 }
                 
-                // Pass the path of a file to which the JSON representation of the manifest will be written.
+                // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
                 let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
-                cmd = [compiledManifestFile.pathString, "-json-output-file", jsonOutputFile.pathString]
+                guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
+                    throw StringError("couldn't create the manifest's JSON output file")
+                }
+                cmd = [compiledManifestFile.pathString, "-fileno", "\(fileno(jsonOutputFileDesc))"]
 
               #if os(macOS)
                 // If enabled, use sandbox-exec on macOS. This provides some safety against
@@ -599,6 +602,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 // Run the compiled manifest.
                 let runResult = try Process.popen(arguments: cmd)
+                fclose(jsonOutputFileDesc)
                 let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
                 if let runOutput = runOutput {
                     // Append the runtime output to any compiler output we've received.
