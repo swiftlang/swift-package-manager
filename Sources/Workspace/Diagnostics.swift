@@ -137,8 +137,8 @@ extension Diagnostic.Message {
         .error("artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded")
     }
 
-    static func artifactInvalidChecksum(targetName: String) -> Diagnostic.Message {
-        .error("downloaded artifact of binary target '\(targetName)' has an invalid checksum")
+    static func artifactInvalidChecksum(targetName: String, expectedChecksum: String, actualChecksum: String) -> Diagnostic.Message {
+        .error("checksum of downloaded artifact of binary target '\(targetName)' (\(actualChecksum)) does not match checksum specified by the manifest (\(expectedChecksum))")
     }
 
     static func artifactFailedDownload(targetName: String, reason: String) -> Diagnostic.Message {

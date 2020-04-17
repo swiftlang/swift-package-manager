@@ -1399,7 +1399,7 @@ extension Workspace {
                             forBinaryArtifactAt: archivePath,
                             diagnostics: tempDiagnostics)
                         guard archiveChecksum == checksum else {
-                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName))
+                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: checksum, actualChecksum: archiveChecksum))
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
                             group.leave()
                             return
