@@ -368,14 +368,20 @@ public final class Package {
     private func registerExitHandler() {
         // Add a custom exit handler to cause the package's JSON representation
         // to be dumped at exit, if requested.  Emitting it to a separate file
-        // keeps any of the manifest's stdout output from interfering with it.
+        // descriptor from stdout keeps any of the manifest's stdout output from
+        // interfering with it.
         //
         // FIXME: This doesn't belong here, but for now is the mechanism we use
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
-        if let optIdx = CommandLine.arguments.firstIndex(of: "-json-output-file") {
-            let jsonOutputFilePath = CommandLine.arguments[optIdx + 1]
-            dumpPackageAtExit(self, to: jsonOutputFilePath)
+        //
+        // Warning:  The `-fileno` flag is a contract between PackageDescription
+        // and libSwiftPM, and since different versions of the two can be used
+        // together, it isn't safe to rename or remove it.
+        if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
+            if let jsonOutputFileDesc = Int32(CommandLine.arguments[optIdx + 1]) {
+                dumpPackageAtExit(self, to: jsonOutputFileDesc)
+            }
         }
     }
 }
@@ -621,14 +627,14 @@ func manifestToJSON(_ package: Package) -> String {
 }
 
 var errors: [String] = []
-private var dumpInfo: (package: Package, path: String)?
-private func dumpPackageAtExit(_ package: Package, to path: String) {
+private var dumpInfo: (package: Package, fileDesc: Int32)?
+private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }
-        guard let fd = fopen(dumpInfo.path, "w") else { return }
+        guard let fd = fdopen(dumpInfo.fileDesc, "w") else { return }
         fputs(manifestToJSON(dumpInfo.package), fd)
         fclose(fd)
     }
-    dumpInfo = (package, path)
+    dumpInfo = (package, fileDesc)
     atexit(dump)
 }
