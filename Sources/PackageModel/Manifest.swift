@@ -636,7 +636,7 @@ public enum TargetBuildSettingDescription {
 }
 
 /// The configuration of the build environment.
-public enum BuildConfiguration: String, Encodable, CaseIterable {
+public enum BuildConfiguration: String, CaseIterable, Codable {
     case debug
     case release
 
@@ -649,7 +649,7 @@ public enum BuildConfiguration: String, Encodable, CaseIterable {
 }
 
 /// A build environment with which to evaluation conditions.
-public struct BuildEnvironment {
+public struct BuildEnvironment: Codable {
     public let platform: Platform
     public let configuration: BuildConfiguration
 
@@ -660,7 +660,7 @@ public struct BuildEnvironment {
 }
 
 /// A manifest condition.
-public protocol PackageConditionProtocol {
+public protocol PackageConditionProtocol: Codable {
     func satisfies(_ environment: BuildEnvironment) -> Bool
 }
 

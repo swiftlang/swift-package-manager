@@ -10,9 +10,9 @@
 
 import TSCBasic
 
-public class Target: ObjectIdentifierProtocol {
+public class Target: ObjectIdentifierProtocol, Codable {
     /// The target kind.
-    public enum Kind: String {
+    public enum Kind: String, Codable {
         case executable
         case library
         case systemModule = "system-target"
@@ -21,7 +21,7 @@ public class Target: ObjectIdentifierProtocol {
     }
 
     /// A reference to a product from a target dependency.
-    public struct ProductReference {
+    public struct ProductReference: Codable {
 
         /// The name of the product dependency.
         public let name: String
@@ -147,6 +147,41 @@ public class Target: ObjectIdentifierProtocol {
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case name, bundleName, defaultLocalization, platforms, type, sources, resources, buildSettings
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        // FIXME: dependencies property is skipped on purpose as it points to
+        // the actual target dependency object.
+        try container.encode(name, forKey: .name)
+        try container.encode(bundleName, forKey: .bundleName)
+        try container.encode(defaultLocalization, forKey: .defaultLocalization)
+        try container.encode(platforms, forKey: .platforms)
+        try container.encode(type, forKey: .type)
+        try container.encode(sources, forKey: .sources)
+        try container.encode(resources, forKey: .resources)
+        try container.encode(buildSettings, forKey: .buildSettings)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.bundleName = try container.decode(String.self, forKey: .bundleName)
+        self.defaultLocalization = try container.decode(String.self, forKey: .defaultLocalization)
+        self.platforms = try container.decode([SupportedPlatform].self, forKey: .platforms)
+        self.type = try container.decode(Kind.self, forKey: .type)
+        self.sources = try container.decode(Sources.self, forKey: .sources)
+        self.resources = try container.decode([Resource].self, forKey: .resources)
+        // FIXME: dependencies property is skipped on purpose as it points to
+        // the actual target dependency object.
+        self.dependencies = []
+        self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
+        self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
+    }
 }
 
 public class SwiftTarget: Target {
@@ -227,6 +262,22 @@ public class SwiftTarget: Target {
             buildSettings: buildSettings
         )
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case swiftVersion
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(swiftVersion, forKey: .swiftVersion)
+        try super.encode(to: encoder)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.swiftVersion = try container.decode(SwiftLanguageVersion.self, forKey: .swiftVersion)
+        try super.init(from: decoder)
+    }
 }
 
 public class SystemLibraryTarget: Target {
@@ -267,6 +318,26 @@ public class SystemLibraryTarget: Target {
             dependencies: [],
             buildSettings: .init()
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pkgConfig, providers, isImplicit
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(isImplicit, forKey: .isImplicit)
+        try super.encode(to: encoder)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pkgConfig = try container.decode(String.self, forKey: .pkgConfig)
+        self.providers = try container.decode([SystemPackageProviderDescription].self, forKey: .providers)
+        self.isImplicit = try container.decode(Bool.self, forKey: .isImplicit)
+        try super.init(from: decoder)
     }
 }
 
@@ -319,6 +390,28 @@ public class ClangTarget: Target {
             buildSettings: buildSettings
         )
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case includeDir, isCXX, cLanguageStandard, cxxLanguageStandard
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(includeDir, forKey: .includeDir)
+        try container.encode(isCXX, forKey: .isCXX)
+        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
+        try super.encode(to: encoder)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.includeDir = try container.decode(AbsolutePath.self, forKey: .includeDir)
+        self.isCXX = try container.decode(Bool.self, forKey: .isCXX)
+        self.cLanguageStandard = try container.decode(String.self, forKey: .cLanguageStandard)
+        self.cxxLanguageStandard = try container.decode(String.self, forKey: .cxxLanguageStandard)
+        try super.init(from: decoder)
+    }
 }
 
 public class BinaryTarget: Target {
@@ -358,6 +451,21 @@ public class BinaryTarget: Target {
             dependencies: [],
             buildSettings: .init()
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case artifactSource
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(artifactSource, forKey: .artifactSource)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
+        try super.init(from: decoder)
     }
 }
 
