@@ -12,7 +12,7 @@ import TSCBasic
 import TSCUtility
 
 /// A grouping of related source files.
-public struct Sources {
+public struct Sources: Codable {
     /// The root of the sources.
     public let root: AbsolutePath
 

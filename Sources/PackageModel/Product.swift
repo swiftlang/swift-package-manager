@@ -54,7 +54,7 @@ public enum ProductType: CustomStringConvertible, Equatable {
     }
 }
 
-public class Product {
+public class Product: Codable {
 
     /// The name of the product.
     public let name: String
