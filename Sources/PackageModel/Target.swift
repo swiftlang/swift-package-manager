@@ -170,8 +170,8 @@ public class Target: ObjectIdentifierProtocol, Codable {
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.name = try container.decode(String.self, forKey: .name)
-        self.bundleName = try container.decode(String.self, forKey: .bundleName)
-        self.defaultLocalization = try container.decode(String.self, forKey: .defaultLocalization)
+        self.bundleName = try container.decodeIfPresent(String.self, forKey: .bundleName)
+        self.defaultLocalization = try container.decodeIfPresent(String.self, forKey: .defaultLocalization)
         self.platforms = try container.decode([SupportedPlatform].self, forKey: .platforms)
         self.type = try container.decode(Kind.self, forKey: .type)
         self.sources = try container.decode(Sources.self, forKey: .sources)
@@ -334,8 +334,8 @@ public class SystemLibraryTarget: Target {
 
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.pkgConfig = try container.decode(String.self, forKey: .pkgConfig)
-        self.providers = try container.decode([SystemPackageProviderDescription].self, forKey: .providers)
+        self.pkgConfig = try container.decodeIfPresent(String.self, forKey: .pkgConfig)
+        self.providers = try container.decodeIfPresent([SystemPackageProviderDescription].self, forKey: .providers)
         self.isImplicit = try container.decode(Bool.self, forKey: .isImplicit)
         try super.init(from: decoder)
     }
