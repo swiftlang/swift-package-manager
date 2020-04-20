@@ -678,6 +678,11 @@ def get_swiftpm_flags(args):
     if 'ANDROID_DATA' in os.environ:
         build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
 
+    # On ELF platforms, remove the host toolchain's stdlib absolute rpath from
+    # installed executables and shared libraries.
+    if platform.system() != "Darwin" and args.command == 'install':
+        build_flags.extend(["-Xswiftc", "-no-toolchain-stdlib-rpath"])
+
     return build_flags
 
 if __name__ == '__main__':
