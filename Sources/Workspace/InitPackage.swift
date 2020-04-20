@@ -246,6 +246,8 @@ public final class InitPackage {
                 /Packages
                 /*.xcodeproj
                 xcuserdata/
+                DerivedData/
+                .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 
                 """
         }
