@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
@@ -82,7 +82,7 @@ class ProcessTests: XCTestCase {
             try localFileSystem.writeFileContents(tempExecutable, bytes: """
                 #!/bin/sh
                 exit
-                
+
                 """)
 
             try withCustomEnv(["PATH": path.pathString]) {
@@ -98,7 +98,7 @@ class ProcessTests: XCTestCase {
             try localFileSystem.writeFileContents(tempExecutable, bytes: """
                 #!/bin/sh
                 exit
-                
+
                 """)
 
             try withCustomEnv(["PATH": path.pathString]) {
@@ -161,27 +161,27 @@ class ProcessTests: XCTestCase {
             XCTAssertFalse(try Process.running(ProcessID(child), orDefunct: true))
         }
     }
-    
+
     func testThreadSafetyOnWaitUntilExit() throws {
         let process = Process(args: "echo", "hello")
         try process.launch()
-        
+
         var result1: String = ""
         var result2: String = ""
-        
+
         let t1 = Thread {
             result1 = try! process.waitUntilExit().utf8Output()
         }
-        
+
         let t2 = Thread {
             result2 = try! process.waitUntilExit().utf8Output()
         }
-        
+
         t1.start()
         t2.start()
         t1.join()
         t2.join()
-        
+
         XCTAssertEqual(result1, "hello\n")
         XCTAssertEqual(result2, "hello\n")
     }
@@ -210,4 +210,33 @@ class ProcessTests: XCTestCase {
             XCTAssertEqual(try result.utf8stderrOutput(), String(repeating: "2", count: count))
         }
     }
+
+  #if os(macOS)
+    func testWorkingDirectory() throws {
+        if #available(macOS 10.15, *) {
+            try! withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+                let parentPath = tempDirPath.appending(component: "file")
+                let childPath = tempDirPath.appending(component: "subdir").appending(component: "file")
+
+                try localFileSystem.writeFileContents(parentPath, bytes: ByteString("parent"))
+                try localFileSystem.createDirectory(childPath.parentDirectory, recursive: true)
+                try localFileSystem.writeFileContents(childPath, bytes: ByteString("child"))
+
+                do {
+                    let process = Process(arguments: ["cat", "file"], workingDirectory: tempDirPath)
+                    try process.launch()
+                    let result = try process.waitUntilExit()
+                    XCTAssertEqual(try result.utf8Output(), "parent")
+                }
+
+                do {
+                    let process = Process(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
+                    try process.launch()
+                    let result = try process.waitUntilExit()
+                    XCTAssertEqual(try result.utf8Output(), "child")
+                }
+            }
+        }
+    }
+  #endif
 }

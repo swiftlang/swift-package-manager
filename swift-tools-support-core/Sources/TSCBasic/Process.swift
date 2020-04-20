@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
@@ -92,7 +92,7 @@ public struct ProcessResult: CustomStringConvertible {
         self.stderrOutput = stderrOutput
         self.exitStatus = exitStatus
     }
-    
+
     /// Converts stdout output bytes to string, assuming they're UTF8.
     public func utf8Output() throws -> String {
         return String(decoding: try output.get(), as: Unicode.UTF8.self)
@@ -122,7 +122,7 @@ public final class Process: ObjectIdentifierProtocol {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
     }
-    
+
     public enum OutputRedirection {
         /// Do not redirect the output
         case none
@@ -130,7 +130,7 @@ public final class Process: ObjectIdentifierProtocol {
         case collect
         /// Stream stdout and stderr via the corresponding closures
         case stream(stdout: OutputClosure, stderr: OutputClosure)
-        
+
         public var redirectsOutput: Bool {
             switch self {
             case .none:
@@ -139,7 +139,7 @@ public final class Process: ObjectIdentifierProtocol {
                 return true
             }
         }
-        
+
         public var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
             switch self {
             case .stream(let stdoutClosure, let stderrClosure):
@@ -175,6 +175,9 @@ public final class Process: ObjectIdentifierProtocol {
 
     /// The environment with which the process was executed.
     public let environment: [String: String]
+
+    /// The path to the directory under which to run the process.
+    public let workingDirectory: AbsolutePath?
 
     /// The process id of the spawned process, available after the process is launched.
   #if os(Windows)
@@ -213,7 +216,7 @@ public final class Process: ObjectIdentifierProtocol {
     /// Queue to protect reading/writing on map of validated executables.
     private static let executablesQueue = DispatchQueue(
         label: "org.swift.swiftpm.process.findExecutable")
-    
+
     /// Indicates if a new progress group is created for the child process.
     private let startNewProcessGroup: Bool
 
@@ -222,6 +225,36 @@ public final class Process: ObjectIdentifierProtocol {
     /// Key: Executable name or path.
     /// Value: Path to the executable, if found.
     static private var validatedExecutablesMap = [String: AbsolutePath?]()
+
+  #if os(macOS)
+    /// Create a new process instance.
+    ///
+    /// - Parameters:
+    ///   - arguments: The arguments for the subprocess.
+    ///   - environment: The environment to pass to subprocess. By default the current process environment
+    ///     will be inherited.
+    ///   - workingDirectory: The path to the directory under which to run the process.
+    ///   - outputRedirection: How process redirects its output. Default value is .collect.
+    ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
+    ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
+    ///     continue running even if the parent is killed or interrupted. Default value is true.
+    @available(macOS 10.15, *)
+    public init(
+        arguments: [String],
+        environment: [String: String] = ProcessEnv.vars,
+        workingDirectory: AbsolutePath,
+        outputRedirection: OutputRedirection = .collect,
+        verbose: Bool = Process.verbose,
+        startNewProcessGroup: Bool = true
+    ) {
+        self.arguments = arguments
+        self.environment = environment
+        self.workingDirectory = workingDirectory
+        self.outputRedirection = outputRedirection
+        self.verbose = verbose
+        self.startNewProcessGroup = startNewProcessGroup
+    }
+  #endif
 
     /// Create a new process instance.
     ///
@@ -242,6 +275,7 @@ public final class Process: ObjectIdentifierProtocol {
     ) {
         self.arguments = arguments
         self.environment = environment
+        self.workingDirectory = nil
         self.outputRedirection = outputRedirection
         self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
@@ -370,6 +404,17 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawn_file_actions_init(&fileActions)
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
+      #if os(macOS)
+        if let workingDirectory = workingDirectory?.pathString {
+            // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
+            // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
+            // exists here to make the compiler happy.
+            if #available(macOS 10.15, *) {
+                posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+            }
+        }
+      #endif
+
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
         // Change allowing for newer version of glibc
         guard let devNull = strdup("/dev/null") else {
@@ -408,7 +453,7 @@ public final class Process: ObjectIdentifierProtocol {
 
         if outputRedirection.redirectsOutput {
             let outputClosures = outputRedirection.outputClosures
-            
+
             // Close the write end of the output pipe.
             try close(fd: &outputPipe[1])
 
@@ -682,7 +727,7 @@ extension ProcessResult.Error: CustomStringConvertible {
                     stream <<< "\n"
                 }
             }
-            
+
             return stream.bytes.description
         }
     }
