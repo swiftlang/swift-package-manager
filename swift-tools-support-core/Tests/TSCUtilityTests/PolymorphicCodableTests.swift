@@ -34,7 +34,7 @@ struct Animals: Codable {
     @PolymorphicCodable
     var animal2: Animal
 
-    @PolymorphicCodable
+    @PolymorphicCodableArray
     var animals: [Animal]
 }
 
@@ -58,6 +58,7 @@ final class PolymorphicCodableTests: XCTestCase {
 
         XCTAssertEqual(decoded.animals.count, 2)
         XCTAssertEqual(decoded.animals.map{ $0.age }, [5, 3])
+        XCTAssertEqual(decoded.animals.map{ String(reflecting: $0) }, ["TSCUtilityTests.Dog", "TSCUtilityTests.Cat"])
     }
 }
 
