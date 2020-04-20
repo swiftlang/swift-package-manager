@@ -55,7 +55,8 @@ public final class Package: Codable {
     }
 
     /// The targets contained in the package.
-    public let targets: [Target]
+    @PolymorphicCodableArray
+    public var targets: [Target]
 
     /// The products produced by the package.
     public let products: [Product]
@@ -80,7 +81,7 @@ public final class Package: Codable {
     ) {
         self.manifest = manifest
         self.path = path
-        self.targets = targets
+        self._targets = .init(wrappedValue: targets)
         self.products = products
         self.targetSearchPath = targetSearchPath
         self.testTargetSearchPath = testTargetSearchPath

@@ -9,8 +9,16 @@
 */
 
 import TSCBasic
+import TSCUtility
 
-public class Target: ObjectIdentifierProtocol, Codable {
+public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
+    public static var implementations: [PolymorphicCodableProtocol.Type] = [
+        SwiftTarget.self,
+        ClangTarget.self,
+        SystemLibraryTarget.self,
+        BinaryTarget.self,
+    ]
+
     /// The target kind.
     public enum Kind: String, Codable {
         case executable

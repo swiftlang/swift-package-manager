@@ -25,6 +25,7 @@ add_library(TSCUtility
   OSLog.swift
   PkgConfig.swift
   Platform.swift
+  PolymorphicCodable.swift
   ProgressAnimation.swift
   SimplePersistence.swift
   StringExtensions.swift
