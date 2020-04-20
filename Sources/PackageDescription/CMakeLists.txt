@@ -47,6 +47,8 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
       target_link_libraries(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
         Foundation)
+      target_link_options(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
+        "SHELL:-no-toolchain-stdlib-rpath")
       set_target_properties(PD${PACKAGE_DESCRIPTION_VERSION} PROPERTIES
           BUILD_WITH_INSTALL_RPATH TRUE
           INSTALL_RPATH "$ORIGIN/../../$<LOWER_CASE:${CMAKE_SYSTEM_NAME}>")
