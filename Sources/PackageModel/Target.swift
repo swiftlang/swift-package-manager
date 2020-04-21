@@ -416,8 +416,8 @@ public class ClangTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.includeDir = try container.decode(AbsolutePath.self, forKey: .includeDir)
         self.isCXX = try container.decode(Bool.self, forKey: .isCXX)
-        self.cLanguageStandard = try container.decode(String.self, forKey: .cLanguageStandard)
-        self.cxxLanguageStandard = try container.decode(String.self, forKey: .cxxLanguageStandard)
+        self.cLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cLanguageStandard)
+        self.cxxLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cxxLanguageStandard)
         try super.init(from: decoder)
     }
 }
