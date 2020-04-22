@@ -200,6 +200,8 @@ public struct TargetSourcesBuilder {
 
             if let needle = effectiveRules.first(where: { $0.match(path: path, toolsVersion: toolsVersion) }) {
                 matchedRule = Rule(rule: needle.rule, localization: nil)
+            } else if path.parentDirectory.extension == Resource.localizationDirectoryExtension {
+                matchedRule = Rule(rule: .processResource, localization: nil)
             }
         }
 
