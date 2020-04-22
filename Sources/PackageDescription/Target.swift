@@ -60,7 +60,10 @@ public final class Target {
     /// Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
     public var path: String?
 
-    /// The url of the binary target.
+    /// The URL of a binary target.
+    ///
+    /// The URL points to a ZIP file that contains an XCFramework at its root.
+    /// Binary targets are only available on Apple Platforms.
     public var url: String? {
         get { _url }
         set { _url = newValue }
