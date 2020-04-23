@@ -175,7 +175,10 @@ public struct TargetSourcesBuilder {
                     if let ext = path.extension,
                       FileRuleDescription.header.fileTypes.contains(ext) {
                         matchedRule = Rule(rule: .header, localization: nil)
-                    } else {
+                    } else if toolsVersion >= .v5_3 {
+                        matchedRule = Rule(rule: .compile, localization: nil)
+                    } else if let ext = path.extension,
+                      SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(ext) {
                         matchedRule = Rule(rule: .compile, localization: nil)
                     }
                     // The source file might have been declared twice so
