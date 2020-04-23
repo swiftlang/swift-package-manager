@@ -716,7 +716,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(),
+                platforms: self.platforms(isTest: potentialModule.isTest),
                 isTest: potentialModule.isTest,
                 sources: sources,
                 resources: resources,
@@ -729,7 +729,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(),
+                platforms: self.platforms(isTest: potentialModule.isTest),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
@@ -836,8 +836,8 @@ public final class PackageBuilder {
     }
 
     /// Returns the list of platforms supported by the manifest.
-    func platforms() -> [SupportedPlatform] {
-        if let platforms = _platforms {
+    func platforms(isTest: Bool = false) -> [SupportedPlatform] {
+        if let platforms = _platforms[isTest] {
             return platforms
         }
 
@@ -845,10 +845,17 @@ public final class PackageBuilder {
 
         /// Add each declared platform to the supported platforms list.
         for platform in manifest.platforms {
+            let declaredPlatform = platformRegistry.platformByName[platform.platformName]!
+            var version = PlatformVersion(platform.version)
+
+            // macOS tests have a higher minimum deployment target
+            if declaredPlatform == Platform.macOS && isTest && version < PlatformVersion("10.15") {
+                version = PlatformVersion("10.15")
+            }
 
             let supportedPlatform = SupportedPlatform(
-                platform: platformRegistry.platformByName[platform.platformName]!,
-                version: PlatformVersion(platform.version),
+                platform: declaredPlatform,
+                version: version,
                 options: platform.options
             )
 
@@ -862,19 +869,26 @@ public final class PackageBuilder {
         for platformName in remainingPlatforms {
             let platform = platformRegistry.platformByName[platformName]!
 
+            let oldestSupportedVersion: PlatformVersion
+            if platform == Platform.macOS && isTest {
+                oldestSupportedVersion = "10.15" // macOS tests have a higher minimum deployment target
+            } else {
+                oldestSupportedVersion = platform.oldestSupportedVersion
+            }
+
             let supportedPlatform = SupportedPlatform(
                 platform: platform,
-                version: platform.oldestSupportedVersion,
+                version: oldestSupportedVersion,
                 options: []
             )
 
             supportedPlatforms.append(supportedPlatform)
         }
 
-        _platforms = supportedPlatforms
-        return _platforms!
+        _platforms[isTest] = supportedPlatforms
+        return supportedPlatforms
     }
-    private var _platforms: [SupportedPlatform]? = nil
+    private var _platforms = [Bool:[SupportedPlatform]]()
 
     /// The platform registry instance.
     private var platformRegistry: PlatformRegistry {

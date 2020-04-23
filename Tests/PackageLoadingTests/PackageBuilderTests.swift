@@ -1525,7 +1525,8 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift",
             "/Sources/cbar/bar.c",
-            "/Sources/cbar/include/bar.h"
+            "/Sources/cbar/include/bar.h",
+            "/Tests/test/test.swift"
         )
 
         // One platform with an override.
@@ -1539,6 +1540,7 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "foo", type: .system),
                 TargetDescription(name: "cbar"),
                 TargetDescription(name: "bar", dependencies: ["foo"]),
+                TargetDescription(name: "test", type: .test)
             ]
         )
 
@@ -1570,6 +1572,14 @@ class PackageBuilderTests: XCTestCase {
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
             }
+            package.checkModule("test") { t in
+                var expected = expectedPlatforms
+                expected["macos"] = "10.15"
+                t.checkPlatforms(expected)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
+            }
+            package.checkProduct("pkgPackageTests") { _ in }
         }
 
         // Two platforms with overrides.
