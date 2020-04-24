@@ -531,6 +531,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += [resources.swiftCompiler.pathString]
             cmd += verbosity.ccArgs
 
+            let packageDescriptionPath: AbsolutePath
             // If we got the binDir that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
             let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
@@ -540,13 +541,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     "-framework", "PackageDescription",
                     "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
                 ]
+
+                packageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackageDescription.framework/PackageDescription"))
             } else {
                 cmd += [
                     "-L", runtimePath.pathString,
                     "-lPackageDescription",
                     "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString
                 ]
+
+                // note: this is not correct for all platforms, but we only actually use it on macOS.
+                packageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
             }
+
+            // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
+            #if os(macOS)
+            let version = (try computeMinimumDeploymentTarget(of: packageDescriptionPath))?.versionString ?? "10.15"
+            cmd += ["-target", "x86_64-apple-macosx\(version)"]
+            #endif
 
             cmd += compilerFlags
             if let moduleCachePath = moduleCachePath {
