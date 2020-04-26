@@ -14,10 +14,6 @@ import PackageLoading
 import SPMBuildCore
 import Build
 
-#if !os(macOS)
-import class Foundation.FileManager
-#endif
-
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -88,7 +84,7 @@ public final class UserToolchain: Toolchain {
         
         for folder in envSearchPaths {
             let path = folder.appending(component: executableName)
-            if FileManager.default.fileExists(atPath: path.pathString) {
+            if localFileSystem.isExecutableFile(path) {
                 return path
             }
         }
