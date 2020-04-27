@@ -5,8 +5,6 @@ let package = Package(
     name: "Localized",
     defaultLocalization: "es",
     targets: [
-        .target(name: "exe", resources: [
-            .process("Resources"),
-        ]),
+        .target(name: "exe"),
     ]
 )
