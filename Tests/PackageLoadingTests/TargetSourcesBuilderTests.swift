@@ -406,6 +406,20 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
+    func testLocalizedImage() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/fr.lproj/Image.png",
+            "/Foo/es.lproj/Image.png"
+        )
+
+        build(target: TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, diagnostics in
+            XCTAssertEqual(Set(resources), [
+                Resource(rule: .process, path: AbsolutePath("/Foo/fr.lproj/Image.png"), localization: "fr"),
+                Resource(rule: .process, path: AbsolutePath("/Foo/es.lproj/Image.png"), localization: "es"),
+            ])
+        }
+    }
+
     func testInfoPlistResource() {
         do {
             let target = TargetDescription(name: "Foo", resources: [

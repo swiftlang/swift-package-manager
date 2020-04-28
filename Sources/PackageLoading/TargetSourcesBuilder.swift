@@ -175,7 +175,10 @@ public struct TargetSourcesBuilder {
                     if let ext = path.extension,
                       FileRuleDescription.header.fileTypes.contains(ext) {
                         matchedRule = Rule(rule: .header, localization: nil)
-                    } else {
+                    } else if toolsVersion >= .v5_3 {
+                        matchedRule = Rule(rule: .compile, localization: nil)
+                    } else if let ext = path.extension,
+                      SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(ext) {
                         matchedRule = Rule(rule: .compile, localization: nil)
                     }
                     // The source file might have been declared twice so
@@ -200,6 +203,8 @@ public struct TargetSourcesBuilder {
 
             if let needle = effectiveRules.first(where: { $0.match(path: path, toolsVersion: toolsVersion) }) {
                 matchedRule = Rule(rule: needle.rule, localization: nil)
+            } else if path.parentDirectory.extension == Resource.localizationDirectoryExtension {
+                matchedRule = Rule(rule: .processResource, localization: nil)
             }
         }
 

@@ -1659,6 +1659,54 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testUnknownSourceFilesUnderDeclaredSourcesIgnoredInV5_2Manifest() throws {
+        // Files with unknown suffixes under declared sources are not considered valid sources in 5.2 manifest.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/movie.mkv",
+            "/Sources/lib/lib.c",
+            "/Sources/lib/include/lib.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v5_2,
+            targets: [
+                TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("lib") { module in
+                module.checkSources(root: "/Sources/lib", paths: "lib.c")
+                module.check(includeDir: "/Sources/lib/include")
+            }
+        }
+    }
+
+    func testUnknownSourceFilesUnderDeclaredSourcesCompiledInV5_3Manifest() throws {
+        // Files with unknown suffixes under declared sources are treated as compilable in 5.3 manifest.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/movie.mkv",
+            "/Sources/lib/lib.c",
+            "/Sources/lib/include/lib.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v5_3,
+            targets: [
+                TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("lib") { module in
+                module.checkSources(root: "/Sources/lib", paths: "movie.mkv", "lib.c")
+                module.check(includeDir: "/Sources/lib/include")
+            }
+        }
+    }
+
     func testBuildSettings() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exe/main.swift",
