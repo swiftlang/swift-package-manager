@@ -1574,8 +1574,12 @@ class PackageBuilderTests: XCTestCase {
             }
             package.checkModule("test") { t in
                 var expected = expectedPlatforms
-                [.macOS, .iOS, .tvOS, .watchOS].forEach {
-                    expected[$0.name] = computeXCTestMinimumDeploymentTarget(for: $0).versionString
+                [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS].forEach {
+                    let xcTestVersion = computeXCTestMinimumDeploymentTarget(for: $0)
+                    // If we don't get a minimum from XCTest (e.g. on Linux), the value in `expectedPlatforms` might be higher.
+                    if let version = expected[$0.name], xcTestVersion > PlatformVersion(version) {
+                        expected[$0.name] = xcTestVersion.versionString
+                    }
                 }
                 t.checkPlatforms(expected)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
