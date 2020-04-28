@@ -10,7 +10,7 @@
 
 extension Package.Dependency {
 
-    /// Create a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Creates a package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.

@@ -53,9 +53,9 @@ import Foundation
 ///
 /// The Swift tools version declares:
 ///
-///     * The version of the PackageDescription library
-///     * The Swift language compatibility version to process the manifest
-///     * The required minimum version of the Swift tools to use the package
+///     - The version of the PackageDescription library
+///     - The Swift language compatibility version to process the manifest
+///     - The required minimum version of the Swift tools to use the package
 ///
 /// Each version of Swift can introduce updates to the PackageDescription
 /// library, but the previous API version is available to packages that declare
@@ -331,7 +331,7 @@ public final class Package {
         registerExitHandler()
     }
 
-    /// Initializes and returns a newly allocated package object with the specified parameters
+    /// Initializes a Swift package with the provided configuration options.
     ///
     /// - Parameters:
     ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
