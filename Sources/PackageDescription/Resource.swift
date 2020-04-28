@@ -50,7 +50,7 @@ public struct Resource: Encodable {
         self.localization = localization
     }
 
-    /// Applies the platform-specific rule to a resource at the given path.
+    /// Applies a platform-specific rule to the resource at the given path.
     ///
     /// Use the process rule to process resources at the given path
     /// according to the platform it builds the target for. For example, the

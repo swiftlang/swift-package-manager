@@ -128,7 +128,7 @@ public class Product: Encodable {
         }
     }
 
-    /// Create a library product to allow clients that declare a dependency on this package
+    /// Creates a library product to allow clients that declare a dependency on this package
     /// to use the package's functionality.
     ///
     /// A library's product can either be statically or dynamically linked.
@@ -150,7 +150,7 @@ public class Product: Encodable {
         return Library(name: name, type: type, targets: targets)
     }
 
-    /// Create an executable package product that clients can run.
+    /// Creates an executable package product that clients can run.
     ///
     /// - Parameters:
     ///     - name: The name of the executable product.
