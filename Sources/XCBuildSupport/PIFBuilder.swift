@@ -385,6 +385,14 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SWIFT_FORCE_STATIC_LINK_STDLIB] = "NO"
         settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB] = "YES"
 
+        // Tests can have a custom deployment target based on the minimum supported by XCTest.
+        if mainTarget.underlyingTarget.type == .test {
+            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .macOS)
+            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .iOS)
+            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .tvOS)
+            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .watchOS)
+        }
+
         if product.type == .executable {
             // Command-line tools are only supported for the macOS platforms.
             settings[.SDKROOT] = "macosx"

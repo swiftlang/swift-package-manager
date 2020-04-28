@@ -836,14 +836,14 @@ public final class PackageBuilder {
     }
 
     // When building tests on macOS, we are matching the minimum deployment target of the XCTest framework.
-    func xcTestMinimumDeploymentTarget() -> PlatformVersion {
-        if let minDeploymentTarget = _xcTestMinimumDeploymentTarget {
+    func xcTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
+        if let minDeploymentTarget = Self._xcTestMinimumDeploymentTarget[platform] {
             return minDeploymentTarget
         }
-        _xcTestMinimumDeploymentTarget = computeXCTestMinimumDeploymentTarget()
-        return _xcTestMinimumDeploymentTarget!
+        Self._xcTestMinimumDeploymentTarget[platform] = computeXCTestMinimumDeploymentTarget(for: platform)
+        return Self._xcTestMinimumDeploymentTarget[platform]!
     }
-    private var _xcTestMinimumDeploymentTarget: PlatformVersion? = nil
+    private static var _xcTestMinimumDeploymentTarget = [PackageModel.Platform:PlatformVersion]()
 
     /// Returns the list of platforms supported by the manifest.
     func platforms(isTest: Bool = false) -> [SupportedPlatform] {
@@ -858,8 +858,8 @@ public final class PackageBuilder {
             let declaredPlatform = platformRegistry.platformByName[platform.platformName]!
             var version = PlatformVersion(platform.version)
 
-            if declaredPlatform == Platform.macOS && isTest && version < xcTestMinimumDeploymentTarget() {
-                version = xcTestMinimumDeploymentTarget()
+            if isTest && version < xcTestMinimumDeploymentTarget(for: declaredPlatform) {
+                version = xcTestMinimumDeploymentTarget(for: declaredPlatform)
             }
 
             let supportedPlatform = SupportedPlatform(
@@ -879,8 +879,8 @@ public final class PackageBuilder {
             let platform = platformRegistry.platformByName[platformName]!
 
             let oldestSupportedVersion: PlatformVersion
-            if platform == Platform.macOS && isTest {
-                oldestSupportedVersion = xcTestMinimumDeploymentTarget()
+            if isTest {
+                oldestSupportedVersion = xcTestMinimumDeploymentTarget(for: platform)
             } else {
                 oldestSupportedVersion = platform.oldestSupportedVersion
             }
@@ -1220,11 +1220,15 @@ func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> Platf
     return PlatformVersion(versionString)
 }
 
-private func computeXCTestMinimumDeploymentTarget() -> PlatformVersion {
+func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
+    guard let sdkName = platform.sdkName else {
+        return platform.oldestSupportedVersion
+    }
+
     // On macOS, we are determining the deployment target by looking at the XCTest binary.
     #if os(macOS)
     do {
-        let runResult = try Process.popen(arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-platform-path"])
+        let runResult = try Process.popen(arguments: ["xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
         let sdkPath = AbsolutePath(try runResult.utf8Output().spm_chuzzle() ?? "")
         let xcTestPath = sdkPath.appending(RelativePath("Developer/Library/Frameworks/XCTest.framework/XCTest"))
 
@@ -1234,5 +1238,22 @@ private func computeXCTestMinimumDeploymentTarget() -> PlatformVersion {
     } catch { } // we do not treat this a fatal and instead use the fallback minimum deployment target
     #endif
 
-    return PlatformVersion("10.15")
+    return platform.oldestSupportedVersion
+}
+
+private extension PackageModel.Platform {
+    var sdkName: String? {
+        switch self {
+        case .macOS:
+            return "macosx"
+        case .iOS:
+            return "iphoneos"
+        case .tvOS:
+            return "appletvos"
+        case .watchOS:
+            return "watchos"
+        default:
+            return nil
+        }
+    }
 }

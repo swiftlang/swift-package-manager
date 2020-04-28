@@ -25,7 +25,7 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEP
 
 let package = Package(
     name: "SwiftPM",
-    platforms: [ macOSPlatform, ],
+    platforms: [macOSPlatform],
     products: [
         // The `libSwiftPM` set of interfaces to programatically work with Swift
         // packages.

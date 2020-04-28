@@ -15,7 +15,7 @@ import TSCBasic
 import PackageModel
 import TSCUtility
 
-import PackageLoading
+@testable import PackageLoading
 
 /// Tests for the handling of source layout conventions.
 class PackageBuilderTests: XCTestCase {
@@ -1574,7 +1574,9 @@ class PackageBuilderTests: XCTestCase {
             }
             package.checkModule("test") { t in
                 var expected = expectedPlatforms
-                expected["macos"] = "10.15"
+                [.macOS, .iOS, .tvOS, .watchOS].forEach {
+                    expected[$0.name] = computeXCTestMinimumDeploymentTarget(for: $0).versionString
+                }
                 t.checkPlatforms(expected)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
