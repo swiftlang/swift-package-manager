@@ -108,7 +108,7 @@ public class Product: Encodable {
 
         /// The type of the library.
         ///
-        /// If the type is unspecified, the Swift Package Manager automatically
+        /// If the type is unspecified, the Swift package manager automatically
         /// chooses a type based on the client's preference.
         public let type: LibraryType?
 
@@ -133,13 +133,13 @@ public class Product: Encodable {
     ///
     /// A library's product can either be statically or dynamically linked.
     /// If possible, don't declare the type of library explicitly to let 
-    /// the Swift Package Manager choose between static or dynamic linking based
+    /// the Swift package manager choose between static or dynamic linking based
     /// on the preference of the package's consumer.
     ///
     /// - Parameters:
     ///     - name: The name of the library product.
     ///     - type: The optional type of the library that is used to determine how to link to the library.
-    ///         Leave this parameter unspecified to let to let the Swift Package Manager choose between static or dynamic linking (recommended).
+    ///         Leave this parameter unspecified to let to let the Swift package manager choose between static or dynamic linking (recommended).
     ///         If you do not support both linkage types, use `.static` or `.dynamic` for this parameter. 
     ///     - targets: The targets that are bundled into a library product.
     public static func library(
