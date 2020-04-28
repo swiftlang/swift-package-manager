@@ -34,33 +34,33 @@ public struct Platform: Encodable {
     /// The Linux platform.
     public static let linux: Platform = Platform(name: "linux")
 
-    /// The Windows platform
+    /// The Windows platform.
     @available(_PackageDescription, introduced: 5.2)
     public static let windows: Platform = Platform(name: "windows")
 
-    /// The Android platform
+    /// The Android platform.
     @available(_PackageDescription, introduced: 5.2)
     public static let android: Platform = Platform(name: "android")
 
-    /// The WASI platform
+    /// The WebAssembly System Interface platform.
     @available(_PackageDescription, introduced: 5.3)
     public static let wasi: Platform = Platform(name: "wasi")
 }
 
 /// A platform that the Swift package supports.
 ///
-/// By default, the Swift Package Manager assigns a predefined minimum deployment
+/// By default, the Swift package manager assigns a predefined minimum deployment
 /// version for each supported platforms unless you configure supported platforms using the `platforms`
 /// API. This predefined deployment version is the oldest deployment target
 /// version that the installed SDK supports for a given platform. One exception
 /// to this rule is macOS, for which the minimum deployment target version
 /// starts from 10.10. Packages can choose to configure the minimum deployment
 /// target version for a platform by using the APIs defined in this struct. The
-/// Swift Package Manager emits appropriate errors when an invalid value is
+/// Swift package manager emits appropriate errors when an invalid value is
 /// provided for supported platforms, such as an empty array, multiple declarations
 /// for the same platform, or an invalid version specification.
 ///
-/// The Swift Package Manager will emit an error if a dependency is not
+/// The Swift package manager will emit an error if a dependency is not
 /// compatible with the top-level package's deployment version. The deployment
 /// target of a package's dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
