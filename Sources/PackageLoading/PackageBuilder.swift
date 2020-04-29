@@ -223,6 +223,9 @@ public final class PackageBuilder {
     /// The additionla file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Minimum deployment target of XCTest per platform.
+    private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -238,6 +241,7 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
         remoteArtifacts: [RemoteArtifact] = [],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -247,6 +251,7 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.remoteArtifacts = remoteArtifacts
+        self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
@@ -263,6 +268,7 @@ public final class PackageBuilder {
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         diagnostics: DiagnosticsEngine,
         kind: PackageReference.Kind = .root
     ) throws -> Package {
@@ -273,6 +279,7 @@ public final class PackageBuilder {
         let builder = PackageBuilder(
             manifest: manifest,
             path: packagePath,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics)
         return try builder.construct()
     }
@@ -716,7 +723,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(),
+                platforms: self.platforms(isTest: potentialModule.isTest),
                 isTest: potentialModule.isTest,
                 sources: sources,
                 resources: resources,
@@ -729,7 +736,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(),
+                platforms: self.platforms(isTest: potentialModule.isTest),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
@@ -836,8 +843,8 @@ public final class PackageBuilder {
     }
 
     /// Returns the list of platforms supported by the manifest.
-    func platforms() -> [SupportedPlatform] {
-        if let platforms = _platforms {
+    func platforms(isTest: Bool = false) -> [SupportedPlatform] {
+        if let platforms = _platforms[isTest] {
             return platforms
         }
 
@@ -845,10 +852,16 @@ public final class PackageBuilder {
 
         /// Add each declared platform to the supported platforms list.
         for platform in manifest.platforms {
+            let declaredPlatform = platformRegistry.platformByName[platform.platformName]!
+            var version = PlatformVersion(platform.version)
+
+            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], isTest, version < xcTestMinimumDeploymentTarget {
+                version = xcTestMinimumDeploymentTarget
+            }
 
             let supportedPlatform = SupportedPlatform(
-                platform: platformRegistry.platformByName[platform.platformName]!,
-                version: PlatformVersion(platform.version),
+                platform: declaredPlatform,
+                version: version,
                 options: platform.options
             )
 
@@ -862,19 +875,27 @@ public final class PackageBuilder {
         for platformName in remainingPlatforms {
             let platform = platformRegistry.platformByName[platformName]!
 
+            let oldestSupportedVersion: PlatformVersion
+            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
+                oldestSupportedVersion = xcTestMinimumDeploymentTarget
+            } else {
+                oldestSupportedVersion = platform.oldestSupportedVersion
+            }
+
             let supportedPlatform = SupportedPlatform(
                 platform: platform,
-                version: platform.oldestSupportedVersion,
+                version: oldestSupportedVersion,
                 options: []
             )
 
             supportedPlatforms.append(supportedPlatform)
         }
 
-        _platforms = supportedPlatforms
-        return _platforms!
+        _platforms[isTest] = supportedPlatforms
+        return supportedPlatforms
     }
-    private var _platforms: [SupportedPlatform]? = nil
+    // Keep two sets of supported platforms, based on the `isTest` parameter.
+    private var _platforms = [Bool:[SupportedPlatform]]()
 
     /// The platform registry instance.
     private var platformRegistry: PlatformRegistry {

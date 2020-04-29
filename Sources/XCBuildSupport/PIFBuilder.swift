@@ -255,7 +255,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SDKROOT] = "auto"
         settings[.SDK_VARIANT] = "auto"
         settings[.SKIP_INSTALL] = "YES"
-        let firstTarget = package.targets.first?.underlyingTarget
+        let firstTarget = package.targets.first(where: { $0.type != .test })?.underlyingTarget ?? package.targets.first?.underlyingTarget
         settings[.MACOSX_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .macOS)
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .iOS)
         settings[.TVOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .tvOS)
@@ -384,6 +384,14 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.DEFINES_MODULE] = "YES"
         settings[.SWIFT_FORCE_STATIC_LINK_STDLIB] = "NO"
         settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB] = "YES"
+
+        // Tests can have a custom deployment target based on the minimum supported by XCTest.
+        if mainTarget.underlyingTarget.type == .test {
+            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .macOS)
+            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .iOS)
+            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .tvOS)
+            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .watchOS)
+        }
 
         if product.type == .executable {
             // Command-line tools are only supported for the macOS platforms.
