@@ -80,4 +80,25 @@ final class TestToolTests: XCTestCase {
         }
         #endif
     }
+
+    func testSanitizeScudo() throws {
+        // This test only runs on Linux because Scudo only runs on Linux
+      #if os(Linux)
+        fixture(name: "Miscellaneous/DoubleFree") { path in
+            let cmdline = {
+                try SwiftPMProduct.SwiftTest.execute(
+                    ["--sanitize=scudo"], packagePath: path)
+            }
+            XCTAssertThrows(try cmdline()) { (error: SwiftPMProductError) in
+                switch error {
+                case .executionFailure(_, _, let error):
+                    XCTAssertMatch(error, .contains("invalid chunk state"))
+                    return true
+                default:
+                    return false
+                }
+            }
+        }
+      #endif
+    }
 }
