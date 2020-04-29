@@ -115,6 +115,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try getPackageRoot(),
+                xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
                 diagnostics: diagnostics
             )
             let package = try builder.construct()
@@ -354,6 +355,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try getPackageRoot(),
+                xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                 diagnostics: diagnostics
             )
             let package = try builder.construct()
