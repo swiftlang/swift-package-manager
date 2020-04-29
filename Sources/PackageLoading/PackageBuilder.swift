@@ -621,7 +621,7 @@ public final class PackageBuilder {
                 diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
-        return targets.values.map({ $0 })
+        return targets.values.map{ $0 }.sorted{ $0.name > $1.name  }
     }
 
     /// Private function that checks whether a target name is valid.  This method doesn't return anything, but rather,
@@ -859,7 +859,7 @@ public final class PackageBuilder {
         let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(supportedPlatforms.map({ $0.platform.name }))
 
         /// Start synthesizing for each undeclared platform.
-        for platformName in remainingPlatforms {
+        for platformName in remainingPlatforms.sorted() {
             let platform = platformRegistry.platformByName[platformName]!
 
             let supportedPlatform = SupportedPlatform(
