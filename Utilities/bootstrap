@@ -25,6 +25,8 @@ import shutil
 import subprocess
 from helpers import note, error, symlink_force, mkdir_p, call, call_output
 
+g_macos_deployment_target = '10.15'
+
 if platform.system() == 'Darwin':
     g_shared_lib_ext = ".dylib"
 else:
@@ -421,8 +423,8 @@ def build_tsc(args):
 
     cmake_flags = []
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx10.10")
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10")
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
 
@@ -436,8 +438,8 @@ def build_swiftpm_with_cmake(args):
     ]
 
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx10.10")
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=10.10")
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir)
 
@@ -509,6 +511,7 @@ def get_swiftpm_env_cmd(args):
     if args.llbuild_link_framework:
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
+    env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     libs_joined = ":".join([
         os.path.join(args.bootstrap_dir, "lib"),

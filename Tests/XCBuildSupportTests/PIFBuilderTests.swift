@@ -17,6 +17,8 @@ import Build
 import XCBuildSupport
 import SPMTestSupport
 
+@testable import PackageLoading
+
 class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
@@ -784,6 +786,10 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
                         }
                     }
 
@@ -808,6 +814,10 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooTests")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
                         }
                     }
 
@@ -846,6 +856,10 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
                         }
                     }
 
@@ -873,6 +887,10 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "CFooTests")
+                            XCTAssertEqual(settings[.WATCHOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .watchOS).versionString)
+                            XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .iOS).versionString)
+                            XCTAssertEqual(settings[.TVOS_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .tvOS).versionString)
+                            XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString)
                         }
                     }
 

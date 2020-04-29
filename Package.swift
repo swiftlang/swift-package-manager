@@ -11,9 +11,21 @@
 */
 
 import PackageDescription
+import class Foundation.ProcessInfo
+
+// We default to a 10.10 minimum deployment target for clients of libSwiftPM,
+// but allow overriding it when building for a toolchain.
+
+let macOSPlatform: SupportedPlatform
+if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
+    macOSPlatform = .macOS(deploymentTarget)
+} else {
+    macOSPlatform = .macOS(.v10_10)
+}
 
 let package = Package(
     name: "SwiftPM",
+    platforms: [macOSPlatform],
     products: [
         // The `libSwiftPM` set of interfaces to programatically work with Swift
         // packages.
@@ -217,7 +229,6 @@ let package = Package(
 // package dependency like this but there is no other good way of expressing
 // this right now.
 
-import class Foundation.ProcessInfo
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {

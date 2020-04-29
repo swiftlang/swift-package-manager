@@ -494,6 +494,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    private static var _packageDescriptionMinimumDeploymentTarget: String?
+
     /// Parse the manifest at the given path to JSON.
     fileprivate func parse(
         packageIdentity: String,
@@ -531,6 +533,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += [resources.swiftCompiler.pathString]
             cmd += verbosity.ccArgs
 
+            let macOSPackageDescriptionPath: AbsolutePath
             // If we got the binDir that means we could be developing SwiftPM in Xcode
             // which produces a framework for dynamic package products.
             let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
@@ -540,13 +543,27 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     "-framework", "PackageDescription",
                     "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
                 ]
+
+                macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackageDescription.framework/PackageDescription"))
             } else {
                 cmd += [
                     "-L", runtimePath.pathString,
                     "-lPackageDescription",
                     "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString
                 ]
+
+                // note: this is not correct for all platforms, but we only actually use it on macOS.
+                macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
             }
+
+            // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
+            #if os(macOS)
+            if Self._packageDescriptionMinimumDeploymentTarget == nil {
+                Self._packageDescriptionMinimumDeploymentTarget = (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
+            }
+            let version = Self._packageDescriptionMinimumDeploymentTarget!
+            cmd += ["-target", "x86_64-apple-macosx\(version)"]
+            #endif
 
             cmd += compilerFlags
             if let moduleCachePath = moduleCachePath {
@@ -680,7 +697,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
-        cmd += ["-target", "x86_64-apple-macosx10.10"]
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
