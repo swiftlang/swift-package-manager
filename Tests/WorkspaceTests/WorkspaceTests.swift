@@ -3668,7 +3668,7 @@ final class WorkspaceTests: XCTestCase {
         let manifest = try ManifestLoader.loadManifest(
             packagePath: package, swiftCompiler: swiftCompiler, packageKind: .local)
         let loadedPackage = try PackageBuilder.loadPackage(
-            packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
+            packagePath: package, swiftCompiler: swiftCompiler, xcTestMinimumDeploymentTargets: [:], diagnostics: diagnostics)
         let graph = try Workspace.loadGraph(
             packagePath: package, swiftCompiler: swiftCompiler, diagnostics: diagnostics)
 

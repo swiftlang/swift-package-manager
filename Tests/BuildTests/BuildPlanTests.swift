@@ -836,7 +836,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(fooTests, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence])
 
       #if os(macOS)
-        let version = computeXCTestMinimumDeploymentTarget(for: .macOS).versionString
+        let version = MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name",

@@ -15,7 +15,7 @@ import TSCBasic
 import PackageModel
 import TSCUtility
 
-@testable import PackageLoading
+import PackageLoading
 
 /// Tests for the handling of source layout conventions.
 class PackageBuilderTests: XCTestCase {
@@ -1575,11 +1575,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("test") { t in
                 var expected = expectedPlatforms
                 [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS].forEach {
-                    let xcTestVersion = computeXCTestMinimumDeploymentTarget(for: $0)
-                    // If we don't get a minimum from XCTest (e.g. on Linux), the value in `expectedPlatforms` might be higher.
-                    if let version = expected[$0.name], xcTestVersion > PlatformVersion(version) {
-                        expected[$0.name] = xcTestVersion.versionString
-                    }
+                    expected[$0.name] = PackageBuilderTester.xcTestMinimumDeploymentTargets[$0]?.versionString
                 }
                 t.checkPlatforms(expected)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
@@ -1995,6 +1991,13 @@ final class PackageBuilderTester {
     /// Contains the products which have not been checked yet.
     private var uncheckedProducts: Set<PackageModel.Product> = []
 
+    fileprivate static let xcTestMinimumDeploymentTargets = [
+        PackageModel.Platform.macOS: PlatformVersion("10.15"),
+        PackageModel.Platform.iOS: PlatformVersion("9.0"),
+        PackageModel.Platform.tvOS: PlatformVersion("9.0"),
+        PackageModel.Platform.watchOS: PlatformVersion("2.0"),
+    ]
+
     @discardableResult
     init(
         _ manifest: Manifest,
@@ -2014,6 +2017,7 @@ final class PackageBuilderTester {
                 manifest: manifest,
                 path: path,
                 remoteArtifacts: remoteArtifacts,
+                xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
                 fileSystem: fs,
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,

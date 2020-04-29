@@ -559,7 +559,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
             if Self._packageDescriptionMinimumDeploymentTarget == nil {
-                Self._packageDescriptionMinimumDeploymentTarget = (try computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
+                Self._packageDescriptionMinimumDeploymentTarget = (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
             }
             let version = Self._packageDescriptionMinimumDeploymentTarget!
             cmd += ["-target", "x86_64-apple-macosx\(version)"]

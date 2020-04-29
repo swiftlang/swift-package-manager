@@ -223,6 +223,9 @@ public final class PackageBuilder {
     /// The additionla file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Minimum deployment target of XCTest per platform.
+    private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -238,6 +241,7 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
         remoteArtifacts: [RemoteArtifact] = [],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -247,6 +251,7 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.remoteArtifacts = remoteArtifacts
+        self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
@@ -263,6 +268,7 @@ public final class PackageBuilder {
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         diagnostics: DiagnosticsEngine,
         kind: PackageReference.Kind = .root
     ) throws -> Package {
@@ -273,6 +279,7 @@ public final class PackageBuilder {
         let builder = PackageBuilder(
             manifest: manifest,
             path: packagePath,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics)
         return try builder.construct()
     }
@@ -835,16 +842,6 @@ public final class PackageBuilder {
         return conditions
     }
 
-    // When building tests on macOS, we are matching the minimum deployment target of the XCTest framework.
-    func xcTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
-        if let minDeploymentTarget = Self._xcTestMinimumDeploymentTarget[platform] {
-            return minDeploymentTarget
-        }
-        Self._xcTestMinimumDeploymentTarget[platform] = computeXCTestMinimumDeploymentTarget(for: platform)
-        return Self._xcTestMinimumDeploymentTarget[platform]!
-    }
-    private static var _xcTestMinimumDeploymentTarget = [PackageModel.Platform:PlatformVersion]()
-
     /// Returns the list of platforms supported by the manifest.
     func platforms(isTest: Bool = false) -> [SupportedPlatform] {
         if let platforms = _platforms[isTest] {
@@ -858,8 +855,8 @@ public final class PackageBuilder {
             let declaredPlatform = platformRegistry.platformByName[platform.platformName]!
             var version = PlatformVersion(platform.version)
 
-            if isTest && version < xcTestMinimumDeploymentTarget(for: declaredPlatform) {
-                version = xcTestMinimumDeploymentTarget(for: declaredPlatform)
+            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], isTest, version < xcTestMinimumDeploymentTarget {
+                version = xcTestMinimumDeploymentTarget
             }
 
             let supportedPlatform = SupportedPlatform(
@@ -879,8 +876,8 @@ public final class PackageBuilder {
             let platform = platformRegistry.platformByName[platformName]!
 
             let oldestSupportedVersion: PlatformVersion
-            if isTest {
-                oldestSupportedVersion = xcTestMinimumDeploymentTarget(for: platform)
+            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
+                oldestSupportedVersion = xcTestMinimumDeploymentTarget
             } else {
                 oldestSupportedVersion = platform.oldestSupportedVersion
             }
@@ -1211,49 +1208,5 @@ extension Sources {
         let swiftSources = relativePaths.filter{ $0.extension == "swift" }
         if swiftSources.isEmpty { return false }
         return swiftSources.count != relativePaths.count
-    }
-}
-
-func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> PlatformVersion? {
-    let runResult = try Process.popen(arguments: ["xcrun", "vtool", "-show-build", binaryPath.pathString])
-    guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
-    return PlatformVersion(versionString)
-}
-
-func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
-    guard let sdkName = platform.sdkName else {
-        return platform.oldestSupportedVersion
-    }
-
-    // On macOS, we are determining the deployment target by looking at the XCTest binary.
-    #if os(macOS)
-    do {
-        let runResult = try Process.popen(arguments: ["xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
-        let sdkPath = AbsolutePath(try runResult.utf8Output().spm_chuzzle() ?? "")
-        let xcTestPath = sdkPath.appending(RelativePath("Developer/Library/Frameworks/XCTest.framework/XCTest"))
-
-        if let version = try computeMinimumDeploymentTarget(of: xcTestPath) {
-            return version
-        }
-    } catch { } // we do not treat this a fatal and instead use the fallback minimum deployment target
-    #endif
-
-    return platform.oldestSupportedVersion
-}
-
-private extension PackageModel.Platform {
-    var sdkName: String? {
-        switch self {
-        case .macOS:
-            return "macosx"
-        case .iOS:
-            return "iphoneos"
-        case .tvOS:
-            return "appletvos"
-        case .watchOS:
-            return "watchos"
-        default:
-            return nil
-        }
     }
 }
