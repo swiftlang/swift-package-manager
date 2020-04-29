@@ -58,6 +58,14 @@ public enum CXXLanguageStandard: String, Encodable {
     case cxx1z = "c++1z"
     /// The identifier for the GNU++1z language standard.
     case gnucxx1z = "gnu++1z"
+    /// The identifier for the C++17 language standard.
+    case cxx17 = "c++17"
+    /// The identifier for the GNU++17 language standard.
+    case gnucxx17 = "gnu++17"
+    /// The identifier for the C++2a language standard.
+    case cxx2a = "c++2a"
+    /// The identifier for the GNU++2a language standard.
+    case gnucxx2a = "gnu++2a"
 }
 
 #if !PACKAGE_DESCRIPTION_4
