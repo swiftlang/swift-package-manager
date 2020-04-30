@@ -1448,6 +1448,22 @@ class PackageBuilderTests: XCTestCase {
                 behavior: .error,
                 location: "'SystemModulePackage' /")
         }
+        
+        manifest = Manifest.createV4Manifest(
+            name: "bar",
+            products: [
+                ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
+            ],
+            targets: [
+                TargetDescription(name: "bar", type: .system)
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: "package has unsupported layout; missing system target module map at '/Sources/bar/module.modulemap'",
+                behavior: .error
+            )
+        }
     }
 
     func testBadExecutableProductDecl() {
