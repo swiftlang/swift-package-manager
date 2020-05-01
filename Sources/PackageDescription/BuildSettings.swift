@@ -133,14 +133,14 @@ public struct CSetting: Encodable {
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
-    /// As the usage of the word "unsafe" implies, the Swift package manager
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
     /// side effect on the build since certain flags can change the behavior of
-    /// how a build is performed.
+    /// how it performs a build.
     ///
     /// As some build flags can be exploited for unsupported or malicious
     /// behavior, the use of unsafe flags make the products containing this
-    /// target ineligible to be used by other packages.
+    /// target ineligible for use by other packages.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
@@ -197,7 +197,7 @@ public struct CXXSetting: Encodable {
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
-    /// As the usage of the word "unsafe" implies, the Swift package manager
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
     /// side effect on the build since certain flags can change the behavior of
     /// how a build is performed.
@@ -247,7 +247,7 @@ public struct SwiftSetting: Encodable {
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
-    /// As the usage of the word "unsafe" implies, the Swift package manager
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
     /// side effect on the build since certain flags can change the behavior of
     /// how a build is performed.
@@ -305,7 +305,7 @@ public struct LinkerSetting: Encodable {
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
-    /// As the usage of the word "unsafe" implies, the Swift package manager
+    /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
     /// side effect on the build since certain flags can change the behavior of
     /// how a build is performed.

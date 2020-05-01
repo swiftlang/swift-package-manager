@@ -49,18 +49,18 @@ public struct Platform: Encodable {
 
 /// A platform that the Swift package supports.
 ///
-/// By default, the Swift package manager assigns a predefined minimum deployment
+/// By default, the Swift Package Manager assigns a predefined minimum deployment
 /// version for each supported platforms unless you configure supported platforms using the `platforms`
 /// API. This predefined deployment version is the oldest deployment target
 /// version that the installed SDK supports for a given platform. One exception
 /// to this rule is macOS, for which the minimum deployment target version
 /// starts from 10.10. Packages can choose to configure the minimum deployment
 /// target version for a platform by using the APIs defined in this struct. The
-/// Swift package manager emits appropriate errors when an invalid value is
+/// Swift Package Manager emits appropriate errors when an invalid value is
 /// provided for supported platforms, such as an empty array, multiple declarations
 /// for the same platform, or an invalid version specification.
 ///
-/// The Swift package manager will emit an error if a dependency is not
+/// The Swift Package Manager will emit an error if a dependency is not
 /// compatible with the top-level package's deployment version. The deployment
 /// target of a package's dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.

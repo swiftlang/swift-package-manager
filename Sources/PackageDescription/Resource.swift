@@ -54,11 +54,11 @@ public struct Resource: Encodable {
     ///
     /// Use the process rule to process resources at the given path
     /// according to the platform it builds the target for. For example, the
-    /// Swift package manager may optimize image files for platforms that
+    /// Swift Package Manager may optimize image files for platforms that
     /// support such optimizations. If no optimization is available for a file
-    /// type, the Swift package manager copies the file.
+    /// type, the Swift Package Manager copies the file.
     ///
-    /// If the given path represents a directory, the Swift package manager
+    /// If the given path represents a directory, the Swift Package Manager
     /// applies the process rule recursively to each file in the directory.
     ///
     /// If possible use this rule instead of `copy(_:)`.
@@ -78,7 +78,7 @@ public struct Resource: Encodable {
     /// However, you may need resources to remain untouched or retain to a specific folder structure.
     /// In this case, use the copy rule to copy resources at the given path as
     /// is to the top-level in the package’s resource bundle.
-    /// If the path represents a directory, the Swift package manager preserves its structure.
+    /// If the path represents a directory, the Swift Package Manager preserves its structure.
     ///
     /// - Parameters:
     ///     - path: The path for a resource.
