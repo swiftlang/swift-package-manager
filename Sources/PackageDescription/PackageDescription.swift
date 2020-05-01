@@ -70,7 +70,7 @@ public final class Package {
       /// A package dependency consists of a Git URL to the source of the package,
       /// and a requirement for the version of the package.
       ///
-      /// The Swift package manager performs a process called *dependency resolution* to
+      /// The Swift Package Manager performs a process called *dependency resolution* to
       /// figure out the exact version of the package dependencies that an app or other
       /// Swift package can use. The `Package.resolved` file records the results of the
       /// dependency resolution and lives in the top-level directory of a Swift package.
@@ -186,7 +186,7 @@ public final class Package {
 
     /// The name to use for C modules.
     ///
-    /// If present, the Swift package manager searches for a `<name>.pc` file
+    /// If present, the Swift Package Manager searches for a `<name>.pc` file
     /// to get the required additional flags for a system target.
     public var pkgConfig: String?
 

@@ -10,7 +10,7 @@
 
 extension Package.Dependency {
 
-    /// Creates a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.
@@ -20,7 +20,7 @@ extension Package.Dependency {
     /// while making sure you don't update to a version with breaking changes,
     /// and helps to prevent conflicts in your dependency graph.
     ///
-    /// The following example allows the Swift package manager to select a version
+    /// The following example allows the Swift Package Manager to select a version
     /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
     ///
     ///    .package(url: "https://example.com/example-package.git", from: "1.2.3"),
@@ -37,7 +37,7 @@ extension Package.Dependency {
         return .init(name: nil, url: url, requirement: .upToNextMajor(from: version))
     }
 
-    /// Creates a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.
@@ -47,7 +47,7 @@ extension Package.Dependency {
     /// while making sure you don't update to a version with breaking changes,
     /// and helps to prevent conflicts in your dependency graph.
     ///
-    /// The following example allows the Swift package manager to select a version
+    /// The following example allows the Swift Package Manager to select a version
     /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
     ///
     ///    .package(url: "https://example.com/example-package.git", from: "1.2.3"),
@@ -99,7 +99,7 @@ extension Package.Dependency {
     /// Adds a package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
-    /// The following example allows the Swift package manager to pick
+    /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
     ///     .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
@@ -123,7 +123,7 @@ extension Package.Dependency {
     /// Adds a package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
-    /// The following example allows the Swift package manager to pick
+    /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
     ///     .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
@@ -148,7 +148,7 @@ extension Package.Dependency {
     /// Adds a package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
-    /// The following example allows the Swift package manager to pick
+    /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
     ///     .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
@@ -178,7 +178,7 @@ extension Package.Dependency {
     /// Adds a package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
-    /// The following example allows the Swift package manager to pick
+    /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
     ///     .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
@@ -209,7 +209,7 @@ extension Package.Dependency {
   #if !PACKAGE_DESCRIPTION_4
     /// Adds a package dependency to a local package on the filesystem.
     ///
-    /// The Swift package manager uses the package dependency as-is
+    /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
     /// are especially useful during development of a new package or when working
     /// on multiple tightly coupled packages.
@@ -224,7 +224,7 @@ extension Package.Dependency {
 
     /// Adds a package dependency to a local package on the filesystem.
     ///
-    /// The Swift package manager uses the package dependency as-is
+    /// The Swift Package Manager uses the package dependency as-is
     /// and doesn't perform any source control access. Local package dependencies
     /// are especially useful during development of a new package or when working
     /// on multiple tightly coupled packages.
