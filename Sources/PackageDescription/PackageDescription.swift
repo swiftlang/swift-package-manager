@@ -23,7 +23,7 @@ import Foundation
 /// statement to provide the name of the package, its targets, products,
 /// dependencies, and other configuration options.
 ///
-/// By convention, you need to define the properties of a Package in a single
+/// By convention, you need to define the properties of a package in a single
 /// nested initializer statement. Don’t modify it after initialization. The
 /// following package manifest shows the initialization of a simple package
 /// object for the MyLibrary Swift package:
@@ -53,7 +53,7 @@ import Foundation
 ///
 /// The Swift tools version declares:
 ///
-///     - The version of the PackageDescription library
+///     - The version of the PackageDescription framework
 ///     - The Swift language compatibility version to process the manifest
 ///     - The required minimum version of the Swift tools to use the package
 ///
@@ -196,7 +196,7 @@ public final class Package {
     /// The list of targets that are part of this package.
     public var targets: [Target]
 
-    /// The list of products that this package vends and that clients can run or use.
+    /// The list of products that this package vends and that clients can use.
     public var products: [Product]
 
     /// The list of package dependencies.
@@ -225,7 +225,7 @@ public final class Package {
     ///           Package Manager searches for a <name>.pc file to get the
     ///           required additional flags for a system target.
     ///     - providers: The package providers for a system package.
-    ///     - products: The list of products that this package vends and that clients can run or use.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -261,7 +261,7 @@ public final class Package {
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a <name>.pc file to get the
     ///           required additional flags for a system target.
-    ///     - products: The list of products that this package vends and that clients can run or use.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -299,7 +299,7 @@ public final class Package {
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a <name>.pc file to get the
     ///           required additional flags for a system target.
-    ///     - products: The list of products that this package vends and that clients can run or use.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -340,7 +340,7 @@ public final class Package {
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a <name>.pc file to get the
     ///           required additional flags for a system target.
-    ///     - products: The list of products that this package vends and that clients can run or use.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
