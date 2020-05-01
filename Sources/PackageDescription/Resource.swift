@@ -20,9 +20,11 @@
 ///
 /// Per default, Xcode handles common resources types for Apple platforms automatically.
 /// You don’t need to declare XIB files, storyboards, CoreData file types, and asset catalogs
-/// as resources in your package manifest. However, you must declare other file types as resources,
-/// for example, image files, explicitly using the `process(_:localization:)` or `copy(_:) rules`.
-/// Alternatively, you can exclude resource files from a target by using `exclude`.
+/// as resources in your package manifest.
+/// However, you must declare other file types, for example image files, as resources explicitly
+/// using the `process(_:localization:)` or `copy(_:)` rules.
+/// Alternatively, exclude resource files from a target by passing them to the
+/// package initializer’s `exclude` parameter. 
 public struct Resource: Encodable {
 
     /// Defines the explicit type of localization for resources.
