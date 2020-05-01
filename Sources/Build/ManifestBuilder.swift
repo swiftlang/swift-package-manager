@@ -441,7 +441,8 @@ extension LLBuildManifestBuilder {
                 description: "Compiling \(target.target.name) \(path.filename)",
                 inputs: inputs + [.file(path.source)],
                 outputs: [objectFileNode],
-                args: args
+                args: args,
+                deps: path.deps.pathString
             )
         }
 
