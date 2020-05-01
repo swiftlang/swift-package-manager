@@ -150,7 +150,7 @@ public class Product: Encodable {
         return Library(name: name, type: type, targets: targets)
     }
 
-    /// Creates an executable package product that clients can run.
+    /// Creates an executable package product.
     ///
     /// - Parameters:
     ///     - name: The name of the executable product.
