@@ -52,8 +52,8 @@ public final class Target {
     /// and in a subdirectory with the target's name.
     ///
     /// The predefined search paths are the following directories under the package root:
-    ///   - For regular targets: `Sources`, `Source`, `src`, and `srcs`
-    ///   - For test targets: `Tests`, `Sources`, `Source`, `src`, `srcs`
+    ///   - `Sources`, `Source`, `src`, and `srcs` for regular targets
+    ///   - `Tests`, `Sources`, `Source`, `src`, and `srcs` for test targets
     ///
     /// For example, the Swift Package Manager looks for source files inside the `[PackageRoot]/Sources/[TargetName]` directory.
     ///

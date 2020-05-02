@@ -16,24 +16,24 @@
 /// For example, any resources for the `MyLibrary` target need to reside in `Sources/MyLibrary`.
 /// Use subdirectories to organize your resource files in a way that makes it easy to identify and manage them.
 /// For example, put all resource files into a directory named `Resources`,
-/// resulting in all of your resource files residing at `Sources/MyLibrary/Resources`.
+/// so your resource files reside at `Sources/MyLibrary/Resources`.
 ///
 /// Per default, Xcode handles common resources types for Apple platforms automatically.
-/// You don’t need to declare XIB files, storyboards, CoreData file types, and asset catalogs
+/// For example, you don’t need to declare XIB files, storyboards, CoreData file types, and asset catalogs
 /// as resources in your package manifest.
 /// However, you must declare other file types, for example image files, as resources explicitly
 /// using the `process(_:localization:)` or `copy(_:)` rules.
 /// Alternatively, exclude resource files from a target by passing them to the
-/// package initializer’s `exclude` parameter. 
+/// target initializer’s `exclude` parameter. 
 public struct Resource: Encodable {
 
     /// Defines the explicit type of localization for resources.
     public enum Localization: String, Encodable {
 
-        /// The package's default localization.
+        /// A constant that represents default internationalization.
         case `default`
 
-        /// Localization for base internationalization.
+        /// A constant that represents base internationalization.
         case base
     }
 
@@ -75,12 +75,12 @@ public struct Resource: Encodable {
     /// Applies the copy rule to a resource at the given path.
     ///
     /// If possible, use `process(_:localization:)`` to automatically apply optimizations
-    /// to resources if applicable for the platform that you’re building the package for.
+    /// to resources.
     ///
-    /// However, you may need resources to remain untouched or retain to a specific folder structure.
-    /// In this case, use the copy rule to copy resources at the given path as
-    /// is to the top-level in the package’s resource bundle.
-    /// If the path represents a directory, the Swift Package Manager preserves its structure.
+    /// If you need resources to remain untouched or retain a specific folder structure,
+    /// use the copy rule. It copies resources at the given path as is to the top-level
+    /// in the package’s resource bundle.
+    /// If the given path represents a directory, the Swift Package Manager preserves its structure.
     ///
     /// - Parameters:
     ///     - path: The path for a resource.
