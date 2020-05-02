@@ -451,8 +451,8 @@ public enum SystemPackageProvider {
     case _yumItem([String])
   #endif
 
-    /// Declares the list of installable packages using the homebrew package
-    /// manager on macOS to create a system package provider instance.
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the homebrew package manager on macOS.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
@@ -464,8 +464,8 @@ public enum SystemPackageProvider {
       #endif
     }
 
-    /// Declares the list of installable packages using the apt-get package
-    /// manager on Ubuntu to create a system package provider instance.
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the apt-get package manager on Ubuntu Linux.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
@@ -480,8 +480,8 @@ public enum SystemPackageProvider {
 #if PACKAGE_DESCRIPTION_4
 // yum is not supported
 #else
-    /// Declares the list of installable packages using the yum package
-    /// manager on Red Hat Enterprise Linux/CentOS to create a system package provider instance.
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the yum package manager on Red Hat Enterprise Linux or CentOS.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
