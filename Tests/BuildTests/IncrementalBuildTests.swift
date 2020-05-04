@@ -49,12 +49,12 @@ final class IncrementalBuildTests: XCTestCase {
             let llbuildManifest = prefix.appending(components: ".build", "debug.yaml")
 
             // Modify the source file in a way that changes its size so that the low-level
-            // build system can detect the change. The timestamp change might be too less
-            // for it to detect.
+            // build system can detect the change (the timestamp change might be too small
+            // for the granularity of the file system to represent as distinct values).
             let sourceFile = prefix.appending(components: "Sources", "Foo.c")
-            let stream = BufferedOutputByteStream()
-            stream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
-            try localFileSystem.writeFileContents(sourceFile, bytes: stream.bytes)
+            let sourceStream = BufferedOutputByteStream()
+            sourceStream <<< (try localFileSystem.readFileContents(sourceFile)) <<< "\n"
+            try localFileSystem.writeFileContents(sourceFile, bytes: sourceStream.bytes)
 
             // Read the first llbuild manifest.
             let llbuildContents1 = try localFileSystem.readFileContents(llbuildManifest)
@@ -76,6 +76,18 @@ final class IncrementalBuildTests: XCTestCase {
 
             XCTAssertEqual(llbuildContents1, llbuildContents2)
             XCTAssertEqual(llbuildContents2, llbuildContents3)
+
+            // Modify the header file in a way that changes its size so that the low-level
+            // build system can detect the change (the timestamp change might be too small
+            // for the granularity of the file system to represent as distinct values).
+            let headerFile = prefix.appending(components: "Sources", "include", "Foo.h")
+            let headerStream = BufferedOutputByteStream()
+            headerStream <<< (try localFileSystem.readFileContents(headerFile)) <<< "\n"
+            try localFileSystem.writeFileContents(headerFile, bytes: headerStream.bytes)
+
+            // Now build again.  This should be an incremental build.
+            let (log4, _) = try executeSwiftBuild(prefix)
+            XCTAssertTrue(log4.contains("Compiling CLibrarySources Foo.c"))
         }
     }
 
