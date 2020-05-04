@@ -148,4 +148,8 @@ extension Diagnostic.Message {
     static func artifactFailedExtraction(targetName: String, reason: String) -> Diagnostic.Message {
         .error("artifact of binary target '\(targetName)' failed extraction: \(reason)")
     }
+
+    static func artifactNotFound(targetName: String, artifactName: String) -> Diagnostic.Message {
+        .error("downloaded archive of binary target '\(targetName)' does not contain expected binary artifact '\(artifactName)'")
+    }
 }

@@ -4205,6 +4205,11 @@ final class WorkspaceTests: XCTestCase {
         let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "A4.xcframework")
         try fs.createDirectory(a4FrameworkPath, recursive: true)
 
+        try [("A", "A1.xcframework"), ("A", "A2.xcframework"), ("B", "B.xcframework")].forEach {
+            let frameworkPath = workspace.artifactsDir.appending(components: $0.0, $0.1)
+            try fs.createDirectory(frameworkPath, recursive: true)
+        }
+
         // Pin A to 1.0.0, Checkout B to 1.0.0
         let aPath = workspace.urlForPackage(withName: "A")
         let aRef = PackageReference(identity: "a", path: aPath)
@@ -4252,7 +4257,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssert(!diagnostics.hasErrors, "\(diagnostics.diagnostics)")
+            XCTAssertEqual(diagnostics.diagnostics.map { $0.message.text }, ["downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3.xcframework'"])
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))

@@ -1408,6 +1408,9 @@ extension Workspace {
                         self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
                             switch extractResult {
                             case .success:
+                                if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
+                                    tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: expectedPath.basename))
+                                }
                                 break
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

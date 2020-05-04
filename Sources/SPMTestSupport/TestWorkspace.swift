@@ -72,6 +72,10 @@ public final class TestWorkspace {
         return sandbox.appending(component: "pkgs")
     }
 
+    public var artifactsDir: AbsolutePath {
+        return sandbox.appending(components: ".build", "artifacts")
+    }
+
     public func urlForPackage(withName name: String) -> String {
         return packagesDir.appending(RelativePath(name)).pathString
     }
