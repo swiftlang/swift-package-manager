@@ -57,6 +57,21 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream <<< info.data
+                self.outputStream <<< "\n"
+                self.outputStream.flush()
+            }
+        case .buildDiagnostic(let info):
+            queue.async {
+                self.progressAnimation.clear()
+                self.outputStream <<< info.message
+                self.outputStream <<< "\n"
+                self.outputStream.flush()
+            }
+        case .buildOutput(let info):
+            queue.async {
+                self.progressAnimation.clear()
+                self.outputStream <<< info.data
+                self.outputStream <<< "\n"
                 self.outputStream.flush()
             }
         case .didUpdateProgress(let info):
@@ -66,8 +81,14 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
             }
         case .buildCompleted(let info):
             queue.async {
-                if info.result == .ok, self.didEmitProgressOutput {
-                    self.progressAnimation.update(step: 100, total: 100, text: "Build succeeded")
+                switch info.result {
+                case .aborted, .cancelled, .failed:
+                    self.outputStream <<< "Build \(info.result)\n"
+                    self.outputStream.flush()
+                case .ok:
+                    if self.didEmitProgressOutput {
+                        self.progressAnimation.update(step: 100, total: 100, text: "Build succeeded")
+                    }
                 }
             }
         default:
