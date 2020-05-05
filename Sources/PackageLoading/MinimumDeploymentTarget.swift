@@ -30,6 +30,13 @@ public struct MinimumDeploymentTarget {
         return PlatformVersion(versionString)
     }
 
+    static func computeXCTestMinimumDeploymentTarget(with runResult: ProcessResult) throws -> PlatformVersion? {
+        guard let output = try runResult.utf8Output().spm_chuzzle() else { return nil }
+        let sdkPath = try AbsolutePath(validating: output)
+        let xcTestPath = sdkPath.appending(RelativePath("Developer/Library/Frameworks/XCTest.framework/XCTest"))
+        return try computeMinimumDeploymentTarget(of: xcTestPath)
+    }
+
     static func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
         guard let sdkName = platform.sdkName else {
             return platform.oldestSupportedVersion
@@ -39,10 +46,8 @@ public struct MinimumDeploymentTarget {
         #if os(macOS)
         do {
             let runResult = try Process.popen(arguments: ["xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
-            let sdkPath = AbsolutePath(try runResult.utf8Output().spm_chuzzle() ?? "")
-            let xcTestPath = sdkPath.appending(RelativePath("Developer/Library/Frameworks/XCTest.framework/XCTest"))
 
-            if let version = try computeMinimumDeploymentTarget(of: xcTestPath) {
+            if let version = try computeXCTestMinimumDeploymentTarget(with: runResult) {
                 return version
             }
         } catch { } // we do not treat this a fatal and instead use the fallback minimum deployment target
