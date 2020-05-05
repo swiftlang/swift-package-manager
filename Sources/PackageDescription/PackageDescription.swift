@@ -178,7 +178,7 @@ public final class Package {
     private var _platforms: [SupportedPlatform]?
 
     /// The default localization for resources.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public var defaultLocalization: LanguageTag? {
         get { return _defaultLocalization }
         set { _defaultLocalization = newValue }
@@ -298,7 +298,7 @@ public final class Package {
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
     ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 5, obsoleted: 999)
+    @available(_PackageDescription, introduced: 5, obsoleted: 5.3)
     public init(
         name: String,
         platforms: [SupportedPlatform]? = nil,
@@ -336,7 +336,7 @@ public final class Package {
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
     ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -366,16 +366,22 @@ public final class Package {
   #endif
 
     private func registerExitHandler() {
-        // Add a custom exit handler to cause the package to be dumped at exit, if
-        // requested.
+        // Add a custom exit handler to cause the package's JSON representation
+        // to be dumped at exit, if requested.  Emitting it to a separate file
+        // descriptor from stdout keeps any of the manifest's stdout output from
+        // interfering with it.
         //
         // FIXME: This doesn't belong here, but for now is the mechanism we use
         // to get the interpreter to dump the package when attempting to load a
         // manifest.
-        if CommandLine.argc > 0,
-            let fileNoOptIndex = CommandLine.arguments.firstIndex(of: "-fileno"),
-           let fileNo = Int32(CommandLine.arguments[fileNoOptIndex + 1]) {
-            dumpPackageAtExit(self, fileNo: fileNo)
+        //
+        // Warning:  The `-fileno` flag is a contract between PackageDescription
+        // and libSwiftPM, and since different versions of the two can be used
+        // together, it isn't safe to rename or remove it.
+        if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
+            if let jsonOutputFileDesc = Int32(CommandLine.arguments[optIdx + 1]) {
+                dumpPackageAtExit(self, to: jsonOutputFileDesc)
+            }
         }
     }
 }
@@ -466,7 +472,7 @@ public enum SystemPackageProvider {
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.3)
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
         return ._yumItem(packages)
     }
@@ -621,14 +627,14 @@ func manifestToJSON(_ package: Package) -> String {
 }
 
 var errors: [String] = []
-private var dumpInfo: (package: Package, fileNo: Int32)?
-private func dumpPackageAtExit(_ package: Package, fileNo: Int32) {
+private var dumpInfo: (package: Package, fileDesc: Int32)?
+private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
     func dump() {
         guard let dumpInfo = dumpInfo else { return }
-        guard let fd = fdopen(dumpInfo.fileNo, "w") else { return }
+        guard let fd = fdopen(dumpInfo.fileDesc, "w") else { return }
         fputs(manifestToJSON(dumpInfo.package), fd)
         fclose(fd)
     }
-    dumpInfo = (package, fileNo)
+    dumpInfo = (package, fileDesc)
     atexit(dump)
 }

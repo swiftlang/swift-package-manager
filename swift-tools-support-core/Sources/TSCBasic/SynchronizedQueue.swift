@@ -11,15 +11,27 @@
 /// This class can be used as a shared queue between multiple threads providing
 /// thread safe APIs.
 public final class SynchronizedQueue<Element> {
-    /// Storage for queued elements.
-    private var storage: [Element]
+    
+    /// Linked list node.
+    private final class Node {
+        var value: Element
+        var next: Node?
+        init(_ value: Element) {
+            self.value = value
+        }
+    }
+    
+    /// Head node of the queue.
+    private var head: Node? = nil
+    
+    /// Tail node of the queue.
+    private weak var tail: Node? = nil
 
     /// Condition variable to block the thread trying dequeue and queue is empty.
     private var notEmptyCondition: Condition
 
     /// Create a default instance of queue.
     public init() {
-        storage = []
         notEmptyCondition = Condition()
     }
 
@@ -29,7 +41,15 @@ public final class SynchronizedQueue<Element> {
     ///     - element: The element to be enqueued.
     public func enqueue(_ element: Element) {
         notEmptyCondition.whileLocked {
-            storage.append(element)
+            let node = Node(element)
+            if head == nil {
+                head = node
+            } else {
+                tail?.next = node
+            }
+            // Update the tail node.
+            tail = node
+            
             // Signal a thread blocked on dequeue.
             notEmptyCondition.signal()
         }
@@ -41,12 +61,17 @@ public final class SynchronizedQueue<Element> {
     public func dequeue() -> Element {
         return notEmptyCondition.whileLocked {
             // Wait until we have an element available in the queue.
-            while storage.isEmpty {
+            while head == nil {
                 notEmptyCondition.wait()
             }
-
-            // FIXME: This is O(n) operation, optimize.
-            return storage.removeFirst()
+            
+            // There are elements in the queue, `head` is not nil.
+            let element = head!.value
+            
+            // Remove the first node.
+            head = head!.next
+            
+            return element
         }
     }
 }

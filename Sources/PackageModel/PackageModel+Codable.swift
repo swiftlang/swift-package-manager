@@ -191,3 +191,62 @@ extension TargetDescription.Dependency: Codable {
         }
     }
 }
+
+/// Wrapper for package condition so it can be conformed to Codable.
+struct PackageConditionWrapper: Codable {
+    var platform: PlatformsCondition?
+    var config: ConfigurationCondition?
+
+    var condition: PackageConditionProtocol {
+        if let platform = platform {
+            return platform
+        } else if let config = config {
+            return config
+        } else {
+            fatalError("unreachable")
+        }
+    }
+
+    init(_ condition: PackageConditionProtocol) {
+        switch condition {
+        case let platform as PlatformsCondition:
+            self.platform = platform
+        case let config as ConfigurationCondition:
+            self.config = config
+        default:
+            fatalError("unknown condition \(condition)")
+        }
+    }
+}
+
+extension BinaryTarget.ArtifactSource: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case remote, local
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .remote(let a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remote)
+            try unkeyedContainer.encode(a1)
+        case .local:
+            try container.encodeNil(forKey: .local)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .remote:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            self = .remote(url: a1)
+        case .local:
+            self = .local
+        }
+    }
+}

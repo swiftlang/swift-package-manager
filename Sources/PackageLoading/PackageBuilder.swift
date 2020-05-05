@@ -19,6 +19,7 @@ public enum ModuleError: Swift.Error {
     public enum InvalidLayoutType {
         case multipleSourceRoots([AbsolutePath])
         case modulemapInSources(AbsolutePath)
+        case modulemapMissing(AbsolutePath)
     }
 
     /// Indicates two targets with the same name and their corresponding packages.
@@ -120,6 +121,8 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
           return "multiple source roots found: " + paths.map({ $0.description }).sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
             return "modulemap '\(path)' should be inside the 'include' directory"
+        case .modulemapMissing(let path):
+            return "missing system target module map at '\(path)'"
         }
     }
 }
@@ -223,6 +226,9 @@ public final class PackageBuilder {
     /// The additionla file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Minimum deployment target of XCTest per platform.
+    private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -238,6 +244,7 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
         remoteArtifacts: [RemoteArtifact] = [],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
@@ -247,6 +254,7 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.remoteArtifacts = remoteArtifacts
+        self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
@@ -263,6 +271,7 @@ public final class PackageBuilder {
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         diagnostics: DiagnosticsEngine,
         kind: PackageReference.Kind = .root
     ) throws -> Package {
@@ -273,6 +282,7 @@ public final class PackageBuilder {
         let builder = PackageBuilder(
             manifest: manifest,
             path: packagePath,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics)
         return try builder.construct()
     }
@@ -621,7 +631,7 @@ public final class PackageBuilder {
                 diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
-        return targets.values.map({ $0 })
+        return targets.values.map{ $0 }.sorted{ $0.name > $1.name  }
     }
 
     /// Private function that checks whether a target name is valid.  This method doesn't return anything, but rather,
@@ -646,7 +656,7 @@ public final class PackageBuilder {
         if potentialModule.type == .system {
             let moduleMapPath = potentialModule.path.appending(component: moduleMapFilename)
             guard fileSystem.isFile(moduleMapPath) else {
-                return nil
+                throw ModuleError.invalidLayout(.modulemapMissing(moduleMapPath))
             }
 
             return SystemLibraryTarget(
@@ -716,7 +726,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(),
+                platforms: self.platforms(isTest: potentialModule.isTest),
                 isTest: potentialModule.isTest,
                 sources: sources,
                 resources: resources,
@@ -729,7 +739,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(),
+                platforms: self.platforms(isTest: potentialModule.isTest),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
@@ -836,8 +846,8 @@ public final class PackageBuilder {
     }
 
     /// Returns the list of platforms supported by the manifest.
-    func platforms() -> [SupportedPlatform] {
-        if let platforms = _platforms {
+    func platforms(isTest: Bool = false) -> [SupportedPlatform] {
+        if let platforms = _platforms[isTest] {
             return platforms
         }
 
@@ -845,10 +855,16 @@ public final class PackageBuilder {
 
         /// Add each declared platform to the supported platforms list.
         for platform in manifest.platforms {
+            let declaredPlatform = platformRegistry.platformByName[platform.platformName]!
+            var version = PlatformVersion(platform.version)
+
+            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], isTest, version < xcTestMinimumDeploymentTarget {
+                version = xcTestMinimumDeploymentTarget
+            }
 
             let supportedPlatform = SupportedPlatform(
-                platform: platformRegistry.platformByName[platform.platformName]!,
-                version: PlatformVersion(platform.version),
+                platform: declaredPlatform,
+                version: version,
                 options: platform.options
             )
 
@@ -859,22 +875,30 @@ public final class PackageBuilder {
         let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(supportedPlatforms.map({ $0.platform.name }))
 
         /// Start synthesizing for each undeclared platform.
-        for platformName in remainingPlatforms {
+        for platformName in remainingPlatforms.sorted() {
             let platform = platformRegistry.platformByName[platformName]!
+
+            let oldestSupportedVersion: PlatformVersion
+            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
+                oldestSupportedVersion = xcTestMinimumDeploymentTarget
+            } else {
+                oldestSupportedVersion = platform.oldestSupportedVersion
+            }
 
             let supportedPlatform = SupportedPlatform(
                 platform: platform,
-                version: platform.oldestSupportedVersion,
+                version: oldestSupportedVersion,
                 options: []
             )
 
             supportedPlatforms.append(supportedPlatform)
         }
 
-        _platforms = supportedPlatforms
-        return _platforms!
+        _platforms[isTest] = supportedPlatforms
+        return supportedPlatforms
     }
-    private var _platforms: [SupportedPlatform]? = nil
+    // Keep two sets of supported platforms, based on the `isTest` parameter.
+    private var _platforms = [Bool:[SupportedPlatform]]()
 
     /// The platform registry instance.
     private var platformRegistry: PlatformRegistry {
@@ -1075,12 +1099,7 @@ public final class PackageBuilder {
             case .library, .test:
                 break
             case .executable:
-                let executableTargets = targets.filter({ $0.type == .executable })
-                if executableTargets.count != 1 {
-                    diagnostics.emit(
-                        .invalidExecutableProductDecl(product.name),
-                        location: diagnosticLocation()
-                    )
+                guard validateExecutableProduct(product, with: targets) else {
                     continue
                 }
             }
@@ -1109,6 +1128,33 @@ public final class PackageBuilder {
         return products.map({ $0.item })
     }
 
+    private func validateExecutableProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+        let executableTargetCount = targets.filter { $0.type == .executable }.count
+        guard executableTargetCount == 1 else {
+            if executableTargetCount == 0 {
+                if let target = targets.spm_only {
+                    diagnostics.emit(
+                        .executableProductTargetNotExecutable(product: product.name, target: target.name),
+                        location: diagnosticLocation()
+                    )
+                } else {
+                    diagnostics.emit(
+                        .executableProductWithoutExecutableTarget(product: product.name),
+                        location: diagnosticLocation()
+                    )
+                }
+            } else {
+                diagnostics.emit(
+                    .executableProductWithMoreThanOneExecutableTarget(product: product.name),
+                    location: diagnosticLocation()
+                )
+            }
+
+            return false
+        }
+
+        return true
+    }
 }
 
 /// We create this structure after scanning the filesystem for potential targets.

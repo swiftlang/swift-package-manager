@@ -144,6 +144,7 @@ extension SwiftPackageTool {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try swiftTool.getPackageRoot(),
+                xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                 diagnostics: swiftTool.diagnostics
             )
             let package = try builder.construct()
@@ -207,6 +208,7 @@ extension SwiftPackageTool {
             let builder = PackageBuilder(
                 manifest: manifest,
                 path: try swiftTool.getPackageRoot(),
+                xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
                 diagnostics: swiftTool.diagnostics
             )
             let package = try builder.construct()
@@ -347,11 +349,14 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
+        @Flag(help: "Preserve the internal structure of PIF")
+        var preserveStructure: Bool
+
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
             let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
             let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: swiftTool.diagnostics)
-            let pif = try builder.generatePIF()
+            let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
             print(pif)
         }
     }

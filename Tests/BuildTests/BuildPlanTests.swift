@@ -14,7 +14,7 @@ import TSCBasic
 import TSCUtility
 import SPMTestSupport
 import PackageModel
-import PackageLoading
+@testable import PackageLoading
 import SPMBuildCore
 import Build
 
@@ -836,6 +836,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(fooTests, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence])
 
       #if os(macOS)
+        let version = MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o",
             "/path/to/build/debug/PkgPackageTests.xctest/Contents/MacOS/PkgPackageTests", "-module-name",
@@ -843,7 +844,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
-            "-target", "x86_64-apple-macosx10.10",
+            "-target", "x86_64-apple-macosx\(version)",
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.swiftmodule",
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/FooTests.swiftmodule",
         ])
@@ -1505,6 +1506,9 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
              "-target", "x86_64-unknown-windows-msvc",
             ])
+        
+        let executablePathExtension = try result.buildProduct(for: "exe").binary.extension
+        XCTAssertMatch(executablePathExtension, "exe")
     }
 
     func testIndexStore() throws {
@@ -2340,6 +2344,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
+        
+        let executablePathExtension = try result.buildProduct(for: "exe").binary.extension ?? ""
+        XCTAssertMatch(executablePathExtension, "")
+        
+        let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
+        XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
 }
 

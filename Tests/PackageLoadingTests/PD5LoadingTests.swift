@@ -328,7 +328,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                     packageKind: .local
                 )
             } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
-                XCTAssertMatch(error, .contains("expected \')\' in expression list"))
+                XCTAssertMatch(error, .contains("expected expression in container literal"))
                 let contents = try localFileSystem.readFileContents(diagnosticFile!)
                 XCTAssertNotNil(contents)
             }
@@ -485,6 +485,23 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             XCTAssertMatch(message, .contains("is unavailable"))
             XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.2"))
+        }
+    }
+
+    func testManifestWithPrintStatements() {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            print(String(repeating: "Hello manifest... ", count: 65536))
+            let package = Package(
+                name: "PackageWithChattyManifest"
+            )
+            """
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.name, "PackageWithChattyManifest")
+            XCTAssertEqual(manifest.toolsVersion, .v5)
+            XCTAssertEqual(manifest.targets, [])
+            XCTAssertEqual(manifest.dependencies, [])
         }
     }
 }

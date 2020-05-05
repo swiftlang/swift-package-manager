@@ -212,6 +212,7 @@ extension Manifest {
             try container.encode(path, forKey: .path)
             try container.encode(url, forKey: .url)
             try container.encode(version, forKey: .version)
+            try container.encode(targetMap, forKey: .targetMap)
         }
 
         try container.encode(toolsVersion, forKey: .toolsVersion)
@@ -224,6 +225,7 @@ extension Manifest {
         try container.encode(products, forKey: .products)
         try container.encode(targets, forKey: .targets)
         try container.encode(platforms, forKey: .platforms)
+        try container.encode(packageKind, forKey: .packageKind)
     }
 
     /// Returns the targets required for building the provided products.
@@ -634,7 +636,7 @@ public enum TargetBuildSettingDescription {
 }
 
 /// The configuration of the build environment.
-public enum BuildConfiguration: String, Encodable, CaseIterable {
+public enum BuildConfiguration: String, CaseIterable, Codable {
     case debug
     case release
 
@@ -647,7 +649,7 @@ public enum BuildConfiguration: String, Encodable, CaseIterable {
 }
 
 /// A build environment with which to evaluation conditions.
-public struct BuildEnvironment {
+public struct BuildEnvironment: Codable {
     public let platform: Platform
     public let configuration: BuildConfiguration
 
@@ -658,7 +660,7 @@ public struct BuildEnvironment {
 }
 
 /// A manifest condition.
-public protocol PackageConditionProtocol {
+public protocol PackageConditionProtocol: Codable {
     func satisfies(_ environment: BuildEnvironment) -> Bool
 }
 

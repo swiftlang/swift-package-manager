@@ -23,9 +23,14 @@ public enum XCBuildMessage {
             case ok
             case failed
             case cancelled
+            case aborted
         }
 
         public let result: Result
+    }
+
+    public struct BuildOutputInfo {
+        let data: String
     }
 
     public struct DidUpdateProgressInfo {
@@ -92,10 +97,16 @@ public enum XCBuildMessage {
         let result: Result
         let signalled: Bool
     }
+    
+    public struct TargetDiagnosticInfo {
+        let targetID: Int
+        let message: String
+    }
 
     case buildStarted
     case buildDiagnostic(BuildDiagnosticInfo)
     case buildCompleted(BuildCompletedInfo)
+    case buildOutput(BuildOutputInfo)
     case preparationComplete
     case didUpdateProgress(DidUpdateProgressInfo)
     case targetUpToDate(TargetUpToDateInfo)
@@ -106,6 +117,7 @@ public enum XCBuildMessage {
     case taskDiagnostic(TaskDiagnosticInfo)
     case taskOutput(TaskOutputInfo)
     case taskComplete(TaskCompleteInfo)
+    case targetDiagnostic(TargetDiagnosticInfo)
 }
 
 /// Protocol for the parser delegate to get notified of parsing events.
@@ -181,8 +193,10 @@ extension XCBuildOutputParser: JSONMessageStreamingParserDelegate {
 extension XCBuildMessage.BuildDiagnosticInfo: Decodable, Equatable {}
 extension XCBuildMessage.BuildCompletedInfo.Result: Decodable, Equatable {}
 extension XCBuildMessage.BuildCompletedInfo: Decodable, Equatable {}
+extension XCBuildMessage.BuildOutputInfo: Decodable, Equatable {}
 extension XCBuildMessage.TargetUpToDateInfo: Decodable, Equatable {}
 extension XCBuildMessage.TaskDiagnosticInfo: Decodable, Equatable {}
+extension XCBuildMessage.TargetDiagnosticInfo: Decodable, Equatable {}
 
 extension XCBuildMessage.DidUpdateProgressInfo: Decodable, Equatable {
     enum CodingKeys: String, CodingKey {
@@ -315,6 +329,8 @@ extension XCBuildMessage: Decodable, Equatable {
             self = try .buildDiagnostic(BuildDiagnosticInfo(from: decoder))
         case "buildCompleted":
             self = try .buildCompleted(BuildCompletedInfo(from: decoder))
+        case "buildOutput":
+            self = try .buildOutput(BuildOutputInfo(from: decoder))
         case "preparationComplete":
             self = .preparationComplete
         case "didUpdateProgress":
@@ -335,8 +351,10 @@ extension XCBuildMessage: Decodable, Equatable {
             self = try .taskOutput(TaskOutputInfo(from: decoder))
         case "taskComplete":
             self = try .taskComplete(TaskCompleteInfo(from: decoder))
+        case "targetDiagnostic":
+            self = try .targetDiagnostic(TargetDiagnosticInfo(from: decoder))
         default:
-            throw DecodingError.dataCorruptedError(forKey: .kind, in: container, debugDescription: "invalid kind")
+            throw DecodingError.dataCorruptedError(forKey: .kind, in: container, debugDescription: "invalid kind \(kind)")
         }
     }
 }

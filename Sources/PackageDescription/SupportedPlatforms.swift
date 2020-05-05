@@ -43,7 +43,7 @@ public struct Platform: Encodable {
     public static let android: Platform = Platform(name: "android")
 
     /// The WASI platform
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.3)
     public static let wasi: Platform = Platform(name: "wasi")
 }
 

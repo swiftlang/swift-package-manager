@@ -1399,7 +1399,7 @@ extension Workspace {
                             forBinaryArtifactAt: archivePath,
                             diagnostics: tempDiagnostics)
                         guard archiveChecksum == checksum else {
-                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName))
+                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: checksum, actualChecksum: archiveChecksum))
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
                             group.leave()
                             return
@@ -1408,6 +1408,9 @@ extension Workspace {
                         self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
                             switch extractResult {
                             case .success:
+                                if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
+                                    tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: expectedPath.basename))
+                                }
                                 break
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

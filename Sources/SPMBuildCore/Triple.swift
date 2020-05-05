@@ -48,20 +48,12 @@ public struct Triple: Encodable, Equatable {
         case apple
     }
 
-    public enum OS: String, Encodable {
+    public enum OS: String, Encodable, CaseIterable {
         case darwin
         case macOS = "macosx"
         case linux
         case windows
         case wasi
-
-        fileprivate static let allKnown:[OS] = [
-            .darwin,
-            .macOS,
-            .linux,
-            .windows,
-            .wasi,
-        ]
     }
 
     public enum ABI: String, Encodable {
@@ -96,10 +88,8 @@ public struct Triple: Encodable, Equatable {
     }
 
     fileprivate static func parseOS(_ string: String) -> OS? {
-        for candidate in OS.allKnown {
-            if string.hasPrefix(candidate.rawValue) {
-                return candidate
-            }
+        for candidate in OS.allCases where string.hasPrefix(candidate.rawValue) {
+            return candidate
         }
 
         return nil
@@ -188,6 +178,11 @@ extension Triple {
       case .windows:
         return ".exe"
       }
+    }
+    
+    /// The file extension for static libraries.
+    public var staticLibraryExtension: String {
+        return ".a"
     }
 
     /// The file extension for Foundation-style bundle.

@@ -21,6 +21,7 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codab
     public static let v4_2 = ToolsVersion(version: "4.2.0")
     public static let v5 = ToolsVersion(version: "5.0.0")
     public static let v5_2 = ToolsVersion(version: "5.2.0")
+    public static let v5_3 = ToolsVersion(version: "5.3.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.

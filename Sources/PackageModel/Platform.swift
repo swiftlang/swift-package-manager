@@ -34,7 +34,7 @@ public final class PlatformRegistry {
 }
 
 /// Represents a platform.
-public struct Platform: Equatable, Hashable {
+public struct Platform: Equatable, Hashable, Codable {
     /// The name of the platform.
     public let name: String
 
@@ -62,7 +62,7 @@ public struct Platform: Equatable, Hashable {
 }
 
 /// Represents a platform version.
-public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable {
+public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable, Codable {
 
     /// The unknown platform version.
     public static let unknown: PlatformVersion = .init("0.0.0")
@@ -78,6 +78,10 @@ public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable 
         }
         return str
     }
+
+    public var major: Int { version.major }
+    public var minor: Int { version.minor }
+    public var patch: Int { version.patch }
 
     /// Create a platform version given a string.
     ///
@@ -111,7 +115,7 @@ public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable 
 }
 
 /// Represents a platform supported by a target.
-public struct SupportedPlatform {
+public struct SupportedPlatform: Codable {
     /// The platform.
     public let platform: Platform
 
@@ -121,7 +125,7 @@ public struct SupportedPlatform {
     /// The options declared by the platform.
     public let options: [String]
 
-    public init(platform: Platform, version: PlatformVersion, options: [String]) {
+    public init(platform: Platform, version: PlatformVersion, options: [String] = []) {
         self.platform = platform
         self.version = version
         self.options = options
