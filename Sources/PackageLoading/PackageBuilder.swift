@@ -19,6 +19,7 @@ public enum ModuleError: Swift.Error {
     public enum InvalidLayoutType {
         case multipleSourceRoots([AbsolutePath])
         case modulemapInSources(AbsolutePath)
+        case modulemapMissing(AbsolutePath)
     }
 
     /// Indicates two targets with the same name and their corresponding packages.
@@ -120,6 +121,8 @@ extension ModuleError.InvalidLayoutType: CustomStringConvertible {
           return "multiple source roots found: " + paths.map({ $0.description }).sorted().joined(separator: ", ")
         case .modulemapInSources(let path):
             return "modulemap '\(path)' should be inside the 'include' directory"
+        case .modulemapMissing(let path):
+            return "missing system target module map at '\(path)'"
         }
     }
 }
@@ -653,7 +656,7 @@ public final class PackageBuilder {
         if potentialModule.type == .system {
             let moduleMapPath = potentialModule.path.appending(component: moduleMapFilename)
             guard fileSystem.isFile(moduleMapPath) else {
-                return nil
+                throw ModuleError.invalidLayout(.modulemapMissing(moduleMapPath))
             }
 
             return SystemLibraryTarget(
