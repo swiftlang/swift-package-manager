@@ -3,7 +3,7 @@ import PackageLoading
 import PackageGraph
 import Workspace
 
-// PREREQUISITS
+// PREREQUISITES
 // ============
 
 // We will need to know where the Swift compiler is.
