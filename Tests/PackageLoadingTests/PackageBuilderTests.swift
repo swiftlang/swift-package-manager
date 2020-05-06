@@ -1525,7 +1525,8 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift",
             "/Sources/cbar/bar.c",
-            "/Sources/cbar/include/bar.h"
+            "/Sources/cbar/include/bar.h",
+            "/Tests/test/test.swift"
         )
 
         // One platform with an override.
@@ -1539,6 +1540,7 @@ class PackageBuilderTests: XCTestCase {
                 TargetDescription(name: "foo", type: .system),
                 TargetDescription(name: "cbar"),
                 TargetDescription(name: "bar", dependencies: ["foo"]),
+                TargetDescription(name: "test", type: .test)
             ]
         )
 
@@ -1570,6 +1572,16 @@ class PackageBuilderTests: XCTestCase {
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
             }
+            package.checkModule("test") { t in
+                var expected = expectedPlatforms
+                [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS].forEach {
+                    expected[$0.name] = PackageBuilderTester.xcTestMinimumDeploymentTargets[$0]?.versionString
+                }
+                t.checkPlatforms(expected)
+                t.checkPlatformOptions(.macOS, options: ["option1"])
+                t.checkPlatformOptions(.iOS, options: [])
+            }
+            package.checkProduct("pkgPackageTests") { _ in }
         }
 
         // Two platforms with overrides.
@@ -2027,6 +2039,13 @@ final class PackageBuilderTester {
     /// Contains the products which have not been checked yet.
     private var uncheckedProducts: Set<PackageModel.Product> = []
 
+    fileprivate static let xcTestMinimumDeploymentTargets = [
+        PackageModel.Platform.macOS: PlatformVersion("10.15"),
+        PackageModel.Platform.iOS: PlatformVersion("9.0"),
+        PackageModel.Platform.tvOS: PlatformVersion("9.0"),
+        PackageModel.Platform.watchOS: PlatformVersion("2.0"),
+    ]
+
     @discardableResult
     init(
         _ manifest: Manifest,
@@ -2046,6 +2065,7 @@ final class PackageBuilderTester {
                 manifest: manifest,
                 path: path,
                 remoteArtifacts: remoteArtifacts,
+                xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
                 fileSystem: fs,
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,

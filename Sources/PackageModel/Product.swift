@@ -9,6 +9,7 @@
 */
 
 import TSCBasic
+import TSCUtility
 
 /// The type of product.
 public enum ProductType: CustomStringConvertible, Equatable {
@@ -54,7 +55,7 @@ public enum ProductType: CustomStringConvertible, Equatable {
     }
 }
 
-public class Product {
+public class Product: Codable {
 
     /// The name of the product.
     public let name: String
@@ -66,7 +67,8 @@ public class Product {
     ///
     /// This is never empty, and is only the targets which are required to be in
     /// the product, but not necessarily their transitive dependencies.
-    public let targets: [Target]
+    @PolymorphicCodableArray
+    public var targets: [Target]
 
     /// The path to linux main file.
     public let linuxMain: AbsolutePath?
@@ -85,7 +87,7 @@ public class Product {
         }
         self.name = name
         self.type = type
-        self.targets = targets
+        self._targets = .init(wrappedValue: targets)
         self.linuxMain = linuxMain 
     }
 }

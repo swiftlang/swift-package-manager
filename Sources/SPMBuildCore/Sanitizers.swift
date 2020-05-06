@@ -16,6 +16,7 @@ public enum Sanitizer: String, Encodable {
     case address
     case thread
     case undefined
+    case scudo
 
     /// Return an established short name for a sanitizer, e.g. "asan".
     public var shortName: String {
@@ -23,6 +24,7 @@ public enum Sanitizer: String, Encodable {
             case .address: return "asan"
             case .thread: return "tsan"
             case .undefined: return "ubsan"
+            case .scudo: return "scudo"
         }
     }
 }
@@ -72,6 +74,7 @@ extension Sanitizer: StringEnumArgument {
     public static let completion: ShellCompletion = .values([
         (address.rawValue, "enable Address sanitizer"),
         (thread.rawValue, "enable Thread sanitizer"),
-        (undefined.rawValue, "enable Undefined Behavior sanitizer")
+        (undefined.rawValue, "enable Undefined Behavior sanitizer"),
+        (scudo.rawValue, "enable Scudo hardened allocator")
     ])
 }

@@ -6,7 +6,7 @@ We’ve designed the system to make it easy to share packages on services like G
 
 Swift Package Manager includes a build system that can build for macOS and Linux. Xcode 11 integrates with libSwiftPM to provide support for iOS, watchOS, and tvOS platforms.
 
-The [SourceKit-LSP](https://github.com/apple/sourcekit-lsp) project leverages libSwiftPM and provides Language Server Protocol implementation for editors that support LSP.
+The [SourceKit-LSP](https://github.com/apple/sourcekit-lsp) project leverages libSwiftPM and provides [Language Server Protocol](https://langserver.org/) implementation for editors that support LSP.
 
 ---
 
@@ -36,6 +36,8 @@ For Quick Help use the ```swift package --help ``` command.
 For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
 
 For additional documentation on developing the Swift Package Manager itself, see [Documentation/Development](Documentation/Development.md).
+
+For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/package-manager/PackageDescription/index.html).
 
 ---
 
@@ -117,7 +119,7 @@ The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild)
 
 ## License
 
-Copyright 2015 - 2019 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
+Copyright 2015 - 2020 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
 
 See [https://swift.org/LICENSE.txt](https://swift.org/LICENSE.txt) for license information.
 

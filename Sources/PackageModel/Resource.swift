@@ -11,7 +11,7 @@
 import TSCBasic
 
 /// An individual resource file and its corresponding rule.
-public struct Resource: Hashable {
+public struct Resource: Hashable, Codable {
     public typealias Rule = TargetDescription.Resource.Rule
 
     public static let localizationDirectoryExtension = "lproj"

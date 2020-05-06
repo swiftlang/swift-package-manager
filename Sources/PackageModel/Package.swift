@@ -42,7 +42,7 @@ import TSCUtility
 /// 5. A loaded package, as in #4, for which the targets have also been
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
-public final class Package {
+public final class Package: Codable {
     /// The manifest describing the package.
     public let manifest: Manifest
 
@@ -55,7 +55,8 @@ public final class Package {
     }
 
     /// The targets contained in the package.
-    public let targets: [Target]
+    @PolymorphicCodableArray
+    public var targets: [Target]
 
     /// The products produced by the package.
     public let products: [Product]
@@ -80,7 +81,7 @@ public final class Package {
     ) {
         self.manifest = manifest
         self.path = path
-        self.targets = targets
+        self._targets = .init(wrappedValue: targets)
         self.products = products
         self.targetSearchPath = targetSearchPath
         self.testTargetSearchPath = testTargetSearchPath

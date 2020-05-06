@@ -54,62 +54,45 @@ public enum PIF {
         }
     }
 
-    public class TypedObject: Encodable {
+    public class TypedObject: Codable {
         class var type: String {
             fatalError("\(self) missing implementation")
         }
 
+        let type: String?
+
         fileprivate init() {
+            type = Swift.type(of: self).type
+        }
+
+        private enum CodingKeys: CodingKey {
+            case type
         }
 
         public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(Swift.type(of: self).type, forKey: "type")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(Swift.type(of: self).type, forKey: .type)
+        }
+
+        required public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            type = try container.decode(String.self, forKey: .type)
         }
     }
 
-    public class SignedObject: TypedObject {
-        @DelayedImmutable
-        public var signature: String
-
-        fileprivate override init() {
-            super.init()
-
-            let encoder = JSONEncoder()
-          #if os(macOS)
-            if #available(OSX 10.13, *) {
-                encoder.outputFormatting.insert(.sortedKeys)
-            }
-          #endif
-            encoder.userInfo[.encodingPIFSignature] = true
-            let signatureContent = try! encoder.encode(self)
-            let bytes = ByteString(signatureContent)
-            signature = SHA256().hash(bytes).hexadecimalRepresentation
-        }
-
-        public override func encode(to encoder: Encoder) throws {
-            try super.encode(to: encoder)
-
-            if encoder.userInfo[.encodingPIFSignature] == nil {
-                var container = encoder.container(keyedBy: StringKey.self)
-                try container.encode(signature, forKey: "signature")
-            }
-        }
-    }
-
-    public final class Workspace: SignedObject {
+    public final class Workspace: TypedObject {
         override class var type: String { "workspace" }
 
         public let guid: GUID
-        public let name: String
-        public let path: AbsolutePath
-        public let projects: [Project]
+        public var name: String
+        public var path: AbsolutePath
+        public var projects: [Project]
+        var signature: String?
 
         public init(guid: GUID,  name: String, path: AbsolutePath, projects: [Project]) {
             precondition(!guid.isEmpty)
             precondition(!name.isEmpty)
             precondition(Set(projects.map({ $0.guid })).count == projects.count)
-            precondition(Set(projects.map({ $0.signature })).count == projects.count)
 
             self.guid = guid
             self.name = name
@@ -118,33 +101,54 @@ public enum PIF {
             super.init()
         }
 
+        private enum CodingKeys: CodingKey {
+            case guid, name, path, projects, signature
+        }
+
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var container = encoder.container(keyedBy: StringKey.self)
-            var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
-            try contents.encode("\(guid)@\(schemaVersion)", forKey: "guid")
-            try contents.encode(name, forKey: "name")
-            try contents.encode(path, forKey: "path")
+            var contents = container.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+            try contents.encode("\(guid)@\(schemaVersion)", forKey: .guid)
+            try contents.encode(name, forKey: .name)
+            try contents.encode(path, forKey: .path)
 
-            if encoder.userInfo[.encodingPIFSignature] == nil {
-                try contents.encode(projects.map({ $0.signature }), forKey: "projects")
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have workspace signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
+                try contents.encode(projects.map({ $0.signature }), forKey: .projects)
+            } else {
+                try contents.encode(projects, forKey: .projects)
             }
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let superContainer = try decoder.container(keyedBy: StringKey.self)
+            let container = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+
+            let guidString = try container.decode(GUID.self, forKey: .guid)
+            self.guid = String(guidString.dropLast("\(schemaVersion)".count + 1))
+            self.name = try container.decode(String.self, forKey: .name)
+            self.path = try container.decode(AbsolutePath.self, forKey: .path)
+            self.projects = try container.decode([Project].self, forKey: .projects)
+            try super.init(from: decoder)
         }
     }
 
     /// A PIF project, consisting of a tree of groups and file references, a list of targets, and some additional
     /// information.
-    public final class Project: SignedObject {
+    public final class Project: TypedObject {
         override class var type: String { "project" }
 
         public let guid: GUID
-        public let name: String
-        public let path: AbsolutePath
-        public let projectDirectory: AbsolutePath
-        public let developmentRegion: String
-        public let buildConfigurations: [BuildConfiguration]
-        public let targets: [BaseTarget]
-        public let groupTree: Group
+        public var name: String
+        public var path: AbsolutePath
+        public var projectDirectory: AbsolutePath
+        public var developmentRegion: String
+        public var buildConfigurations: [BuildConfiguration]
+        public var targets: [BaseTarget]
+        public var groupTree: Group
+        var signature: String?
 
         public init(
             guid: GUID,
@@ -160,7 +164,6 @@ public enum PIF {
             precondition(!name.isEmpty)
             precondition(!developmentRegion.isEmpty)
             precondition(Set(targets.map({ $0.guid })).count == targets.count)
-            precondition(Set(targets.map({ $0.signature })).count == targets.count)
             precondition(Set(buildConfigurations.map({ $0.guid })).count == buildConfigurations.count)
 
             self.guid = guid
@@ -174,28 +177,69 @@ public enum PIF {
             super.init()
         }
 
+        private enum CodingKeys: CodingKey {
+            case guid, projectName, projectIsPackage, path, projectDirectory, developmentRegion, defaultConfigurationName, buildConfigurations, targets, groupTree, signature
+        }
+
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var container = encoder.container(keyedBy: StringKey.self)
-            var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
-            try contents.encode("\(guid)@\(schemaVersion)", forKey: "guid")
-            try contents.encode(name, forKey: "projectName")
-            try contents.encode("true", forKey: "projectIsPackage")
-            try contents.encode(path, forKey: "path")
-            try contents.encode(projectDirectory, forKey: "projectDirectory")
-            try contents.encode(developmentRegion, forKey: "developmentRegion")
-            try contents.encode("Release", forKey: "defaultConfigurationName")
-            try contents.encode(buildConfigurations, forKey: "buildConfigurations")
-            try contents.encode(targets.map({ $0.signature }), forKey: "targets")
-            try contents.encode(groupTree, forKey: "groupTree")
+            var contents = container.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+            try contents.encode("\(guid)@\(schemaVersion)", forKey: .guid)
+            try contents.encode(name, forKey: .projectName)
+            try contents.encode("true", forKey: .projectIsPackage)
+            try contents.encode(path, forKey: .path)
+            try contents.encode(projectDirectory, forKey: .projectDirectory)
+            try contents.encode(developmentRegion, forKey: .developmentRegion)
+            try contents.encode("Release", forKey: .defaultConfigurationName)
+            try contents.encode(buildConfigurations, forKey: .buildConfigurations)
+
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have project signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
+                try contents.encode(targets.map{ $0.signature }, forKey: .targets)
+            } else {
+                try contents.encode(targets, forKey: .targets)
+            }
+
+            try contents.encode(groupTree, forKey: .groupTree)
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let superContainer = try decoder.container(keyedBy: StringKey.self)
+            let container = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+
+            let guidString = try container.decode(GUID.self, forKey: .guid)
+            self.guid = String(guidString.dropLast("\(schemaVersion)".count + 1))
+            self.name = try container.decode(String.self, forKey: .projectName)
+            self.path = try container.decode(AbsolutePath.self, forKey: .path)
+            self.projectDirectory = try container.decode(AbsolutePath.self, forKey: .projectDirectory)
+            self.developmentRegion = try container.decode(String.self, forKey: .developmentRegion)
+            self.buildConfigurations = try container.decode([BuildConfiguration].self, forKey: .buildConfigurations)
+
+            let untypedTargets = try container.decode([UntypedTarget].self, forKey: .targets)
+            var targetContainer = try container.nestedUnkeyedContainer(forKey: .targets)
+            self.targets = try untypedTargets.map { target in
+                let type = target.contents.type
+                switch type {
+                case "aggregate":
+                    return try targetContainer.decode(AggregateTarget.self)
+                case "standard", "packageProduct":
+                    return try targetContainer.decode(Target.self)
+                default:
+                    fatalError("unknown target type \(type)")
+                }
+            }
+
+            self.groupTree = try container.decode(Group.self, forKey: .groupTree)
+            try super.init(from: decoder)
         }
     }
 
     /// Abstract base class for all items in the group hierarhcy.
     public class Reference: TypedObject {
-
         /// Determines the base path for a reference's relative path.
-        public enum SourceTree: String, Encodable {
+        public enum SourceTree: String, Codable {
 
             /// Indicates that the path is relative to the source root (i.e. the "project directory").
             case sourceRoot = "SOURCE_ROOT"
@@ -214,14 +258,14 @@ public enum PIF {
         public let guid: GUID
 
         /// Relative path of the reference.  It is usually a literal, but may in fact contain build settings.
-        public let path: String
+        public var path: String
 
         /// Determines the base path for the reference's relative path.
-        public let sourceTree: SourceTree
+        public var sourceTree: SourceTree
 
         /// Name of the reference, if different from the last path component (if not set, the last path component will
         /// be used as the name).
-        public let name: String?
+        public var name: String?
 
         fileprivate init(
             guid: GUID,
@@ -236,15 +280,29 @@ public enum PIF {
             self.path = path
             self.sourceTree = sourceTree
             self.name = name
+            super.init()
+        }
+
+        private enum CodingKeys: CodingKey {
+            case guid, sourceTree, path, name, type
         }
 
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(guid, forKey: "guid")
-            try container.encode(sourceTree, forKey: "sourceTree")
-            try container.encode(path, forKey: "path")
-            try container.encode(name ?? path, forKey: "name")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(guid, forKey: .guid)
+            try container.encode(sourceTree, forKey: .sourceTree)
+            try container.encode(path, forKey: .path)
+            try container.encode(name ?? path, forKey: .name)
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.guid = try container.decode(String.self, forKey: .guid)
+            self.sourceTree = try container.decode(SourceTree.self, forKey: .sourceTree)
+            self.path = try container.decode(String.self, forKey: .path)
+            self.name = try container.decodeIfPresent(String.self, forKey: .name)
+            try super.init(from: decoder)
         }
     }
 
@@ -252,7 +310,7 @@ public enum PIF {
     public final class FileReference: Reference {
         override class var type: String { "file" }
 
-        public let fileType: String
+        public var fileType: String
 
         public init(
             guid: GUID,
@@ -265,10 +323,20 @@ public enum PIF {
             super.init(guid: guid, path: path, sourceTree: sourceTree, name: name)
         }
 
+        private enum CodingKeys: CodingKey {
+            case fileType
+        }
+
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(fileType, forKey: "fileType")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(fileType, forKey: .fileType)
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.fileType = try container.decode(String.self, forKey: .fileType)
+            try super.init(from: decoder)
         }
     }
 
@@ -277,7 +345,7 @@ public enum PIF {
     public final class Group: Reference {
         override class var type: String { "group" }
 
-        public let children: [Reference]
+        public var children: [Reference]
 
         public init(
             guid: GUID,
@@ -296,15 +364,39 @@ public enum PIF {
             super.init(guid: guid, path: path, sourceTree: sourceTree, name: name)
         }
 
+        private enum CodingKeys: CodingKey {
+            case children, type
+        }
+
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(children, forKey: "children")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(children, forKey: .children)
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+
+            let untypedChildren = try container.decode([TypedObject].self, forKey: .children)
+            var childrenContainer = try container.nestedUnkeyedContainer(forKey: .children)
+
+            self.children = try untypedChildren.map { child in
+                switch child.type {
+                case Group.type:
+                    return try childrenContainer.decode(Group.self)
+                case FileReference.type:
+                    return try childrenContainer.decode(FileReference.self)
+                default:
+                    fatalError("unknown reference type \(child.type ?? "<nil>")")
+                }
+            }
+
+            try super.init(from: decoder)
         }
     }
 
     /// Represents a dependency on another target (identified by its PIF GUID).
-    public struct TargetDependency: Encodable {
+    public struct TargetDependency: Codable {
         /// Identifier of depended-upon target.
         public var targetGUID: String
 
@@ -316,25 +408,37 @@ public enum PIF {
             self.platformFilters = platformFilters
         }
 
+        private enum CodingKeys: CodingKey {
+            case guid, platformFilters
+        }
+
         public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode("\(targetGUID)@\(schemaVersion)", forKey: "guid")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode("\(targetGUID)@\(schemaVersion)", forKey: .guid)
 
             if !platformFilters.isEmpty {
-                try container.encode(platformFilters, forKey: "platformFilters")
+                try container.encode(platformFilters, forKey: .platformFilters)
             }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+
+            let targetGUIDString = try container.decode(String.self, forKey: .guid)
+            self.targetGUID = String(targetGUIDString.dropLast("\(schemaVersion)".count + 1))
+            platformFilters = try container.decodeIfPresent([PlatformFilter].self, forKey: .platformFilters) ?? []
         }
     }
 
-    public class BaseTarget: SignedObject {
+    public class BaseTarget: TypedObject, ObjectIdentifierProtocol {
         class override var type: String { "target" }
-
         public let guid: GUID
-        public let name: String
-        public let buildConfigurations: [BuildConfiguration]
-        public let buildPhases: [BuildPhase]
-        public let dependencies: [TargetDependency]
-        public let impartedBuildProperties: ImpartedBuildProperties
+        public var name: String
+        public var buildConfigurations: [BuildConfiguration]
+        public var buildPhases: [BuildPhase]
+        public var dependencies: [TargetDependency]
+        public var impartedBuildProperties: ImpartedBuildProperties
+        var signature: String?
 
         fileprivate init(
             guid: GUID,
@@ -342,7 +446,8 @@ public enum PIF {
             buildConfigurations: [BuildConfiguration],
             buildPhases: [BuildPhase],
             dependencies: [TargetDependency],
-            impartedBuildSettings: PIF.BuildSettings
+            impartedBuildSettings: PIF.BuildSettings,
+            signature: String?
         ) {
             self.guid = guid
             self.name = name
@@ -350,11 +455,17 @@ public enum PIF {
             self.buildPhases = buildPhases
             self.dependencies = dependencies
             impartedBuildProperties = ImpartedBuildProperties(settings: impartedBuildSettings)
+            self.signature = signature
+            super.init()
+        }
+
+        public required init(from decoder: Decoder) throws {
+            fatalError("init(from:) has not been implemented")
         }
     }
 
     public final class AggregateTarget: BaseTarget {
-        public override init(
+        public init(
             guid: GUID,
             name: String,
             buildConfigurations: [BuildConfiguration],
@@ -368,27 +479,71 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildSettings
+                impartedBuildSettings: impartedBuildSettings,
+                signature: nil
             )
+        }
+
+        private enum CodingKeys: CodingKey {
+            case type, guid, name, buildConfigurations, buildPhases, dependencies, impartedBuildProperties, signature
         }
 
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var container = encoder.container(keyedBy: StringKey.self)
-            var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
-            try contents.encode("aggregate", forKey: "type")
-            try contents.encode("\(guid)@\(schemaVersion)", forKey: "guid")
-            try contents.encode(name, forKey: "name")
-            try contents.encode(buildConfigurations, forKey: "buildConfigurations")
-            try contents.encode(buildPhases, forKey: "buildPhases")
-            try contents.encode(dependencies, forKey: "dependencies")
-            try contents.encode(impartedBuildProperties, forKey: "impartedBuildProperties")
+            var contents = container.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+            try contents.encode("aggregate", forKey: .type)
+            try contents.encode("\(guid)@\(schemaVersion)", forKey: .guid)
+            try contents.encode(name, forKey: .name)
+            try contents.encode(buildConfigurations, forKey: .buildConfigurations)
+            try contents.encode(buildPhases, forKey: .buildPhases)
+            try contents.encode(dependencies, forKey: .dependencies)
+            try contents.encode(impartedBuildProperties, forKey: .impartedBuildProperties)
+
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
+            }
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let superContainer = try decoder.container(keyedBy: StringKey.self)
+            let container = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+
+            let guidString = try container.decode(GUID.self, forKey: .guid)
+            let guid = String(guidString.dropLast("\(schemaVersion)".count + 1))
+
+            let name = try container.decode(String.self, forKey: .name)
+            let buildConfigurations = try container.decode([BuildConfiguration].self, forKey: .buildConfigurations)
+
+            let untypedBuildPhases = try container.decode([TypedObject].self, forKey: .buildPhases)
+            var buildPhasesContainer = try container.nestedUnkeyedContainer(forKey: .buildPhases)
+
+            let buildPhases: [BuildPhase] = try untypedBuildPhases.map {
+                guard let type = $0.type else {
+                    fatalError("Expected type in build phase \($0)")
+                }
+                return try BuildPhase.decode(container: &buildPhasesContainer, type: type)
+            }
+
+            let dependencies = try container.decode([TargetDependency].self, forKey: .dependencies)
+            let impartedBuildProperties = try container.decode(BuildSettings.self, forKey: .impartedBuildProperties)
+
+            super.init(
+                guid: guid,
+                name: name,
+                buildConfigurations: buildConfigurations,
+                buildPhases: buildPhases,
+                dependencies: dependencies,
+                impartedBuildSettings: impartedBuildProperties,
+                signature: nil
+            )
         }
     }
 
     /// An Xcode target, representing a single entity to build.
     public final class Target: BaseTarget {
-        public enum ProductType: String, Encodable {
+        public enum ProductType: String, Codable {
             case application = "com.apple.product-type.application"
             case staticArchive = "com.apple.product-type.library.static"
             case objectFile = "com.apple.product-type.objfile"
@@ -400,9 +555,8 @@ public enum PIF {
             case packageProduct = "packageProduct"
         }
 
-        public let productName: String
-        public let productType: ProductType
-        public let productReference: FileReference?
+        public var productName: String
+        public var productType: ProductType
 
         public init(
             guid: GUID,
@@ -416,7 +570,6 @@ public enum PIF {
         ) {
             self.productType = productType
             self.productName = productName
-            self.productReference = nil
 
             super.init(
                 guid: guid,
@@ -424,61 +577,151 @@ public enum PIF {
                 buildConfigurations: buildConfigurations,
                 buildPhases: buildPhases,
                 dependencies: dependencies,
-                impartedBuildSettings: impartedBuildSettings
+                impartedBuildSettings: impartedBuildSettings,
+                signature: nil
             )
+        }
+
+        private enum CodingKeys: CodingKey {
+            case guid, name, dependencies, buildConfigurations, type, frameworksBuildPhase, productTypeIdentifier, productReference, buildRules, buildPhases, impartedBuildProperties, signature
         }
 
         override public func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var container = encoder.container(keyedBy: StringKey.self)
-            var contents = container.nestedContainer(keyedBy: StringKey.self, forKey: "contents")
-            try contents.encode("\(guid)@\(schemaVersion)", forKey: "guid")
-            try contents.encode(name, forKey: "name")
-            try contents.encode(dependencies, forKey: "dependencies")
-            try contents.encode(buildConfigurations, forKey: "buildConfigurations")
+            var contents = container.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+            try contents.encode("\(guid)@\(schemaVersion)", forKey: .guid)
+            try contents.encode(name, forKey: .name)
+            try contents.encode(dependencies, forKey: .dependencies)
+            try contents.encode(buildConfigurations, forKey: .buildConfigurations)
+
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                precondition(signature != nil, "Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                try container.encode(signature, forKey: "signature")
+            }
 
             if productType == .packageProduct {
-                try contents.encode("packageProduct", forKey: "type")
+                try contents.encode("packageProduct", forKey: .type)
 
                 // Add the framework build phase, if present.
                 if let phase = buildPhases.first as? PIF.FrameworksBuildPhase {
-                    try contents.encode(phase, forKey: "frameworksBuildPhase")
+                    try contents.encode(phase, forKey: .frameworksBuildPhase)
                 }
             } else {
-                try contents.encode("standard", forKey: "type")
-                try contents.encode(productType, forKey: "productTypeIdentifier")
+                try contents.encode("standard", forKey: .type)
+                try contents.encode(productType, forKey: .productTypeIdentifier)
 
                 let productReference = [
                     "type": "file",
                     "guid": "PRODUCTREF-\(guid)",
                     "name": productName,
                 ]
-                try contents.encode(productReference, forKey: "productReference")
+                try contents.encode(productReference, forKey: .productReference)
 
-                try contents.encode([String](), forKey: "buildRules")
-                try contents.encode(buildPhases, forKey: "buildPhases")
-                try contents.encode(impartedBuildProperties, forKey: "impartedBuildProperties")
+                try contents.encode([String](), forKey: .buildRules)
+                try contents.encode(buildPhases, forKey: .buildPhases)
+                try contents.encode(impartedBuildProperties, forKey: .impartedBuildProperties)
             }
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let superContainer = try decoder.container(keyedBy: StringKey.self)
+            let container = try superContainer.nestedContainer(keyedBy: CodingKeys.self, forKey: "contents")
+
+            let guidString = try container.decode(GUID.self, forKey: .guid)
+            let guid = String(guidString.dropLast("\(schemaVersion)".count + 1))
+            let name = try container.decode(String.self, forKey: .name)
+            let buildConfigurations = try container.decode([BuildConfiguration].self, forKey: .buildConfigurations)
+            let dependencies = try container.decode([TargetDependency].self, forKey: .dependencies)
+
+            let type = try container.decode(String.self, forKey: .type)
+
+            let buildPhases: [BuildPhase]
+            let impartedBuildProperties: BuildSettings
+
+            if type == "packageProduct" {
+                self.productType = .packageProduct
+                self.productName = ""
+                let fwkBuildPhase = try container.decodeIfPresent(FrameworksBuildPhase.self, forKey: .frameworksBuildPhase)
+                buildPhases = fwkBuildPhase.map{ [$0] } ?? []
+                impartedBuildProperties = BuildSettings()
+            } else if type == "standard" {
+                self.productType = try container.decode(ProductType.self, forKey: .productTypeIdentifier)
+
+                let productReference = try container.decode([String: String].self, forKey: .productReference)
+                self.productName = productReference["name"]!
+
+                let untypedBuildPhases = try container.decodeIfPresent([TypedObject].self, forKey: .buildPhases) ?? []
+                var buildPhasesContainer = try container.nestedUnkeyedContainer(forKey: .buildPhases)
+
+                buildPhases = try untypedBuildPhases.map {
+                    guard let type = $0.type else {
+                        fatalError("Expected type in build phase \($0)")
+                    }
+                    return try BuildPhase.decode(container: &buildPhasesContainer, type: type)
+                }
+
+                impartedBuildProperties = try container.decode(BuildSettings.self, forKey: .impartedBuildProperties)
+            } else {
+                fatalError("Unhandled target type \(type)")
+            }
+
+            super.init(
+                guid: guid,
+                name: name,
+                buildConfigurations: buildConfigurations,
+                buildPhases: buildPhases,
+                dependencies: dependencies,
+                impartedBuildSettings: impartedBuildProperties,
+                signature: nil
+            )
         }
     }
 
     /// Abstract base class for all build phases in a target.
     public class BuildPhase: TypedObject {
-        public let guid: GUID
-        public let buildFiles: [BuildFile]
+        static func decode(container: inout UnkeyedDecodingContainer, type: String) throws -> BuildPhase {
+            switch type {
+            case HeadersBuildPhase.type:
+                return try container.decode(HeadersBuildPhase.self)
+            case SourcesBuildPhase.type:
+                return try container.decode(SourcesBuildPhase.self)
+            case FrameworksBuildPhase.type:
+                return try container.decode(FrameworksBuildPhase.self)
+            case ResourcesBuildPhase.type:
+                return try container.decode(ResourcesBuildPhase.self)
+            default:
+                fatalError("unknown build phase \(type)")
+            }
+        }
 
-        internal init(guid: GUID, buildFiles: [BuildFile]) {
+        public let guid: GUID
+        public var buildFiles: [BuildFile]
+
+        public init(guid: GUID, buildFiles: [BuildFile]) {
             precondition(!guid.isEmpty)
 
             self.guid = guid
             self.buildFiles = buildFiles
+            super.init()
+        }
+
+        private enum CodingKeys: CodingKey {
+            case guid, buildFiles
         }
 
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(guid, forKey: "guid")
-            try container.encode(buildFiles, forKey: "buildFiles")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(guid, forKey: .guid)
+            try container.encode(buildFiles, forKey: .buildFiles)
+        }
+
+        public required init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.guid = try container.decode(GUID.self, forKey: .guid)
+            self.buildFiles = try container.decode([BuildFile].self, forKey: .buildFiles)
+            try super.init(from: decoder)
         }
     }
 
@@ -486,55 +729,39 @@ public enum PIF {
     /// processing.
     public final class HeadersBuildPhase: BuildPhase {
         override class var type: String { "com.apple.buildphase.headers" }
-
-        public override init(guid: GUID, buildFiles: [BuildFile]) {
-            super.init(guid: guid, buildFiles: buildFiles)
-        }
     }
 
     /// A "sources" build phase, i.e. one that compiles sources and provides them to be linked into the executable code
     /// of the product.
     public final class SourcesBuildPhase: BuildPhase {
         override class var type: String { "com.apple.buildphase.sources" }
-
-        public override init(guid: GUID, buildFiles: [BuildFile]) {
-            super.init(guid: guid, buildFiles: buildFiles)
-        }
     }
 
     /// A "frameworks" build phase, i.e. one that links compiled code and libraries into the executable of the product.
     public final class FrameworksBuildPhase: BuildPhase {
         override class var type: String { "com.apple.buildphase.frameworks" }
-
-        public override init(guid: String, buildFiles: [BuildFile]) {
-            super.init(guid: guid, buildFiles: buildFiles)
-        }
     }
 
     public final class ResourcesBuildPhase: BuildPhase {
         override class var type: String { "com.apple.buildphase.resources" }
-
-        public override init(guid: GUID, buildFiles: [BuildFile]) {
-            super.init(guid: guid, buildFiles: buildFiles)
-        }
     }
 
     /// A build file, representing the membership of either a file or target product reference in a build phase.
-    public struct BuildFile: Encodable {
+    public struct BuildFile: Codable {
         public enum Reference {
             case file(guid: PIF.GUID)
             case target(guid: PIF.GUID)
         }
 
-        public enum HeaderVisibility: String {
+        public enum HeaderVisibility: String, Codable {
             case `public` = "public"
             case `private` = "private"
         }
 
         public let guid: GUID
-        public let reference: Reference
-        public let headerVisibility: HeaderVisibility? = nil
-        public let platformFilters: [PlatformFilter]
+        public var reference: Reference
+        public var headerVisibility: HeaderVisibility? = nil
+        public var platformFilters: [PlatformFilter]
 
         public init(guid: GUID, file: FileReference, platformFilters: [PlatformFilter]) {
             self.guid = guid
@@ -566,22 +793,42 @@ public enum PIF {
             self.platformFilters = platformFilters
         }
 
+        private enum CodingKeys: CodingKey {
+            case guid, platformFilters, fileReference, targetReference
+        }
+
         public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(guid, forKey: "guid")
-            try container.encode(platformFilters, forKey: "platformFilters")
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(guid, forKey: .guid)
+            try container.encode(platformFilters, forKey: .platformFilters)
 
             switch self.reference {
             case .file(let fileGUID):
-                try container.encode(fileGUID, forKey: "fileReference")
+                try container.encode(fileGUID, forKey: .fileReference)
             case .target(let targetGUID):
-                try container.encode("\(targetGUID)@\(schemaVersion)", forKey: "targetReference")
+                try container.encode("\(targetGUID)@\(schemaVersion)", forKey: .targetReference)
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            guid = try container.decode(GUID.self, forKey: .guid)
+            platformFilters = try container.decode([PlatformFilter].self, forKey: .platformFilters)
+
+            if container.allKeys.contains(.fileReference) {
+                reference = try .file(guid: container.decode(GUID.self, forKey: .fileReference))
+            } else if container.allKeys.contains(.targetReference) {
+                let targetGUIDString = try container.decode(GUID.self, forKey: .targetReference)
+                let targetGUID = String(targetGUIDString.dropLast("\(schemaVersion)".count + 1))
+                reference = .target(guid: targetGUID)
+            } else {
+                fatalError("Expected \(CodingKeys.fileReference) or \(CodingKeys.targetReference) in the keys")
             }
         }
     }
 
     /// Represents a generic platform filter.
-    public struct PlatformFilter: Encodable, Equatable {
+    public struct PlatformFilter: Codable, Equatable {
         /// The name of the platform (`LC_BUILD_VERSION`).
         ///
         /// Example: macos, ios, watchos, tvos.
@@ -599,10 +846,10 @@ public enum PIF {
     }
 
     /// A build configuration, which is a named collection of build settings.
-    public struct BuildConfiguration: Encodable {
+    public struct BuildConfiguration: Codable {
         public let guid: GUID
-        public let name: String
-        public let buildSettings: BuildSettings
+        public var name: String
+        public var buildSettings: BuildSettings
 
         public init(guid: GUID, name: String, buildSettings: BuildSettings) {
             precondition(!guid.isEmpty)
@@ -612,32 +859,20 @@ public enum PIF {
             self.name = name
             self.buildSettings = buildSettings
         }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(guid, forKey: "guid")
-            try container.encode(name, forKey: "name")
-            try container.encode(buildSettings, forKey: "buildSettings")
-        }
     }
 
-    public struct ImpartedBuildProperties: Encodable {
-        public let settings: BuildSettings
+    public struct ImpartedBuildProperties: Codable {
+        public var buildSettings: BuildSettings
 
         public init(settings: BuildSettings) {
-            self.settings = settings
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: StringKey.self)
-            try container.encode(settings, forKey: "buildSettings")
+            self.buildSettings = settings
         }
     }
 
     /// A set of build settings, which is represented as a struct of optional build settings. This is not optimally
     /// efficient, but it is great for code completion and type-checking.
-    public struct BuildSettings: Encodable {
-        public enum SingleValueSetting: String {
+    public struct BuildSettings: Codable {
+        public enum SingleValueSetting: String, Codable {
             case APPLICATION_EXTENSION_API_ONLY
             case BUILT_PRODUCTS_DIR
             case CLANG_CXX_LANGUAGE_STANDARD
@@ -666,9 +901,10 @@ public enum PIF {
             case CLANG_COVERAGE_MAPPING_LINKER_ARGS
             case MACH_O_TYPE
             case MACOSX_DEPLOYMENT_TARGET
+            case MODULEMAP_FILE
             case MODULEMAP_FILE_CONTENTS
             case MODULEMAP_PATH
-            case MODULEMAP_FILE
+            case MODULE_CACHE_DIR
             case ONLY_ACTIVE_ARCH
             case PACKAGE_RESOURCE_BUNDLE_NAME
             case PACKAGE_RESOURCE_TARGET_KIND
@@ -681,6 +917,7 @@ public enum PIF {
             case SKIP_INSTALL
             case INSTALL_PATH
             case SUPPORTS_MACCATALYST
+            case SWIFT_SERIALIZE_DEBUGGING_OPTIONS
             case SWIFT_FORCE_STATIC_LINK_STDLIB
             case SWIFT_FORCE_DYNAMIC_LINK_STDLIB
             case SWIFT_INSTALL_OBJC_HEADER
@@ -698,7 +935,7 @@ public enum PIF {
             case CURRENT_PROJECT_VERSION
         }
 
-        public enum MultipleValueSetting: String {
+        public enum MultipleValueSetting: String, Codable {
             case EMBED_PACKAGE_RESOURCE_BUNDLE_NAMES
             case FRAMEWORK_SEARCH_PATHS
             case GCC_PREPROCESSOR_DEFINITIONS
@@ -716,7 +953,7 @@ public enum PIF {
             case SWIFT_ACTIVE_COMPILATION_CONDITIONS
         }
 
-        public enum Platform: String, CaseIterable {
+        public enum Platform: String, CaseIterable, Codable {
             case macOS = "macos"
             case iOS = "ios"
             case tvOS = "tvos"
@@ -778,7 +1015,22 @@ public enum PIF {
         public init() {
         }
 
+        private enum CodingKeys: CodingKey {
+            case platformSpecificSettings, singleValueSettings, multipleValueSettings
+        }
+
         public func encode(to encoder: Encoder) throws {
+            if encoder.userInfo.keys.contains(.encodeForXCBuild) {
+                return try encodeForXCBuild(to: encoder)
+            }
+
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(platformSpecificSettings, forKey: .platformSpecificSettings)
+            try container.encode(singleValueSettings, forKey: .singleValueSettings)
+            try container.encode(multipleValueSettings, forKey: .multipleValueSettings)
+        }
+
+        private func encodeForXCBuild(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: StringKey.self)
 
             for (key, value) in singleValueSettings {
@@ -796,6 +1048,14 @@ public enum PIF {
                     }
                 }
             }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+
+            platformSpecificSettings = try container.decodeIfPresent([Platform: [MultipleValueSetting: [String]]].self, forKey: .platformSpecificSettings) ?? .init()
+            singleValueSettings = try container.decodeIfPresent([SingleValueSetting: String].self, forKey: .singleValueSettings) ?? [:]
+            multipleValueSettings = try container.decodeIfPresent([MultipleValueSetting: [String]] .self, forKey: .multipleValueSettings) ?? [:]
         }
     }
 }
@@ -916,4 +1176,44 @@ extension PIF.FileReference {
 
 extension CodingUserInfoKey {
     public static let encodingPIFSignature: CodingUserInfoKey = CodingUserInfoKey(rawValue: "encodingPIFSignature")!
+
+    /// Perform the encoding for XCBuild consumption.
+    public static let encodeForXCBuild: CodingUserInfoKey = CodingUserInfoKey(rawValue: "encodeForXCBuild")!
+}
+
+private struct UntypedTarget: Decodable {
+    struct TargetContents: Decodable {
+        let type: String
+    }
+    let contents: TargetContents
+}
+
+protocol PIFSignableObject: class {
+    var signature: String? { get set }
+}
+extension PIF.Workspace: PIFSignableObject {}
+extension PIF.Project: PIFSignableObject {}
+extension PIF.BaseTarget: PIFSignableObject {}
+
+extension PIF {
+    /// Add signature to workspace and its subobjects.
+    public static func sign(_ workspace: PIF.Workspace) throws {
+        let encoder = JSONEncoder()
+        #if os(macOS)
+        if #available(OSX 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        #endif
+
+        func sign<T: PIFSignableObject & Encodable>(_ obj: T) throws {
+            let signatureContent = try encoder.encode(obj)
+            let bytes = ByteString(signatureContent)
+            obj.signature = SHA256().hash(bytes).hexadecimalRepresentation
+        }
+
+        let projects = workspace.projects
+        try projects.flatMap{ $0.targets }.forEach(sign)
+        try projects.forEach(sign)
+        try sign(workspace)
+    }
 }

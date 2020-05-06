@@ -14,7 +14,7 @@ import TSCBasic
 public enum BuildSettings {
 
     /// Build settings declarations.
-    public struct Declaration: Hashable {
+    public struct Declaration: Hashable, Codable {
         // Swift.
         public static let SWIFT_ACTIVE_COMPILATION_CONDITIONS: Declaration = .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
         public static let OTHER_SWIFT_FLAGS: Declaration = .init("OTHER_SWIFT_FLAGS")
@@ -44,22 +44,31 @@ public enum BuildSettings {
     }
 
     /// An individual build setting assignment.
-    public struct Assignment {
+    public struct Assignment: Codable {
         /// The assignment value.
         public var value: [String]
 
         // FIXME: This should be a set but we need Equatable existential (or AnyEquatable) for that.
         /// The condition associated with this assignment.
-        public var conditions: [PackageConditionProtocol]
+        public var conditions: [PackageConditionProtocol] {
+            get {
+                return _conditions.map{ $0.condition }
+            }
+            set {
+                _conditions = newValue.map{ PackageConditionWrapper($0) }
+            }
+        }
+
+        private var _conditions: [PackageConditionWrapper]
 
         public init() { 
-            self.conditions = []
+            self._conditions = []
             self.value = []
         }
     }
 
     /// Build setting assignment table which maps a build setting to a list of assignments.
-    public struct AssignmentTable {
+    public struct AssignmentTable: Codable {
         public private(set) var assignments: [Declaration: [Assignment]]
 
         public init() {
