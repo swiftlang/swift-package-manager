@@ -1532,7 +1532,7 @@ public class BuildPlan {
             }
         }
 
-        if buildParameters.triple.isLinux() {
+        if !buildParameters.triple.isDarwin() {
             if product.type == .test {
                 linuxMainMap[product].map{ staticTargets.append($0) }
             }
