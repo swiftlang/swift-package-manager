@@ -30,32 +30,6 @@ final class TestToolTests: XCTestCase {
         XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
 
-    // Test that thread sanitizer works.
-    func testSanitizeThread() throws {
-        // FIXME: We need to figure out how to test this for linux.
-        // Disabled because of https://bugs.swift.org/browse/SR-7272
-      #if false
-        fixture(name: "Miscellaneous/ThreadRace") { path in
-            // Ensure that we don't abort() when we find the race. This avoids
-            // generating the crash report on macOS.
-            let env = ["TSAN_OPTIONS": "abort_on_error=0"]
-            let cmdline = {
-                try SwiftPMProduct.SwiftTest.execute(
-                    ["--sanitize=thread"], packagePath: path, env: env)
-            }
-            XCTAssertThrows(try cmdline()) { (error: SwiftPMProductError) in
-                switch error {
-                case .executionFailure(_, _, let error):
-                    XCTAssertMatch(error, .contains("ThreadSanitizer: data race"))
-                    return true
-                default:
-                    return false
-                }
-            }
-        }
-      #endif
-    }
-    
     func testNumWorkersParallelRequeriment() throws {
         // Running swift-test fixtures on linux is not yet possible.
         #if os(macOS)
@@ -79,26 +53,5 @@ final class TestToolTests: XCTestCase {
             }
         }
         #endif
-    }
-
-    func testSanitizeScudo() throws {
-        // This test only runs on Linux because Scudo only runs on Linux
-      #if os(Linux)
-        fixture(name: "Miscellaneous/DoubleFree") { path in
-            let cmdline = {
-                try SwiftPMProduct.SwiftTest.execute(
-                    ["--sanitize=scudo"], packagePath: path)
-            }
-            XCTAssertThrows(try cmdline()) { (error: SwiftPMProductError) in
-                switch error {
-                case .executionFailure(_, _, let error):
-                    XCTAssertMatch(error, .contains("invalid chunk state"))
-                    return true
-                default:
-                    return false
-                }
-            }
-        }
-      #endif
     }
 }
