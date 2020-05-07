@@ -1207,7 +1207,7 @@ public class BuildPlan {
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph
     ) throws -> [(ResolvedProduct, SwiftTargetBuildDescription)] {
-        guard buildParameters.triple.isLinux() else {
+        guard !buildParameters.triple.isDarwin() else {
             return []
         }
 
