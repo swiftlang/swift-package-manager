@@ -10,10 +10,10 @@
 
 extension Version: ExpressibleByStringLiteral {
 
-    /// Initializes and returns a newly allocated version struct for the provided string literal.
+    /// Initializes a version struct with the provided string literal.
     ///
     /// - Parameters:
-    ///     - version: A string literal to use for creating a new version object.
+    ///     - version: A string literal to use for creating a new version struct.
     public init(stringLiteral value: String) {
         if let version = Version(value) {
             self.init(version)
@@ -27,18 +27,18 @@ extension Version: ExpressibleByStringLiteral {
         }
     }
 
-    /// Initializes and returns a newly allocated version struct for the provided extended grapheme cluster.
+    /// Initializes a version struct with the provided extended grapheme cluster.
     ///
     /// - Parameters:
-    ///     - version: An extended grapheme cluster to use for creating a new version object.
+    ///     - version: An extended grapheme cluster to use for creating a new version struct.
     public init(extendedGraphemeClusterLiteral value: String) {
         self.init(stringLiteral: value)
     }
 
-    /// Initializes and returns a newly allocated version struct for the provided Unicode string.
+    /// Initializes a version struct with the provided Unicode string.
     ///
     /// - Parameters:
-    ///     - version: A Unicode string to use for creating a new version object.
+    ///     - version: A Unicode string to use for creating a new version struct.
     public init(unicodeScalarLiteral value: String) {
         self.init(stringLiteral: value)
     }
@@ -46,10 +46,10 @@ extension Version: ExpressibleByStringLiteral {
 
 extension Version {
 
-    /// Initializes and returns a newly allocated version struct for the provided version.
+    /// Initializes a version struct with the provided version.
     ///
     /// - Parameters:
-    ///     - version: A version object to use for creating a new version object.
+    ///     - version: A version object to use for creating a new version struct.
     public init(_ version: Version) {
         major = version.major
         minor = version.minor
@@ -58,10 +58,10 @@ extension Version {
         buildMetadataIdentifiers = version.buildMetadataIdentifiers
     }
 
-    /// Initializes and returns a newly allocated version struct for the provided version string.
+    /// Initializes a version struct with the provided version string.
     ///
     /// - Parameters:
-    ///     - version: A version string to use for creating a new version object.
+    ///     - version: A version string to use for creating a new version struct.
     public init?(_ versionString: String) {
         let prereleaseStartIndex = versionString.firstIndex(of: "-")
         let metadataStartIndex = versionString.firstIndex(of: "+")

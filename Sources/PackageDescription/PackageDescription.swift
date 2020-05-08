@@ -23,11 +23,12 @@ import Foundation
 /// statement to provide the name of the package, its targets, products,
 /// dependencies, and other configuration options.
 ///
-/// By convention, the properties of a `Package` are defined in a single nested
-/// initializer statement, and not modified after initialization. The following package manifest shows the initialization
-/// of a simple package object for the MyLibrary Swift package:
+/// By convention, you need to define the properties of a package in a single
+/// nested initializer statement. Don’t modify it after initialization. The
+/// following package manifest shows the initialization of a simple package
+/// object for the MyLibrary Swift package:
 ///
-///     // swift-tools-version:5.1
+///     // swift-tools-version:5.3
 ///     import PackageDescription
 ///
 ///     let package = Package(
@@ -47,24 +48,21 @@ import Foundation
 ///         ]
 ///     )
 ///
-/// A `Package.swift` manifest file must begin with the string `//
-/// swift-tools-version:` followed by a version number specifier. The following code listing shows a few examples of valid declarations of the Swift tools version:
+/// The package manifest must begin with the string `// swift-tools-version:``,
+/// followed by a version number such as `// swift-tools-version:5.3.
 ///
-///     // swift-tools-version:3.0.2
-///     // swift-tools-version:3.1
-///     // swift-tools-version:4.0
-///     // swift-tools-version:5.0
-///     // swift-tools-version:5.1
+/// The Swift tools version declares:
 ///
-/// The Swift tools version declares the version of the `PackageDescription`
-/// library, the minimum version of the Swift tools and Swift language
-/// compatibility version to process the manifest, and the minimum version of the
-/// Swift tools that are needed to use the Swift package. Each version of Swift
-/// can introduce updates to the `PackageDescription` framework, but the previous
-/// API version will continue to be available to packages which declare a prior
-/// tools version. This behavior lets you take advantage of new releases of
-/// Swift, the Swift tools, and the `PackageDescription` library, without having
-/// to update your package's manifest or losing access to existing packages.
+///     - The version of the PackageDescription framework
+///     - The Swift language compatibility version to process the manifest
+///     - The required minimum version of the Swift tools to use the package
+///
+/// Each version of Swift can introduce updates to the PackageDescription
+/// library, but the previous API version is available to packages that declare
+/// a prior tools version. This behavior allows you take advantage of new
+/// releases of Swift, the Swift tools, and the PackageDescription framework,
+/// without having to update your package manifest and without losing access to
+/// existing packages.
 public final class Package {
 
       /// A package dependency of a Swift package.
@@ -147,10 +145,11 @@ public final class Package {
             }
         }
 
-        /// The name of the package, or nil to deduce it from the URL.
+        /// The name of the package, or `nil` to deduce the name using the
+        /// package's Git URL.
         public let name: String?
 
-        /// The Git url of the package dependency.
+        /// The Git URL of the package dependency.
         public let url: String
 
         /// The dependency requirement of the package dependency.
@@ -185,19 +184,19 @@ public final class Package {
     }
     private var _defaultLocalization: LanguageTag?
 
-    /// The name to use for C Modules.
+    /// The name to use for C modules.
     ///
     /// If present, the Swift Package Manager searches for a `<name>.pc` file
     /// to get the required additional flags for a system target.
     public var pkgConfig: String?
 
-    /// An array of providers for the system target.
+    /// An array of providers for a system target.
     public var providers: [SystemPackageProvider]?
 
-    /// The list of targets.
+    /// The list of targets that are part of this package.
     public var targets: [Target]
 
-    /// The list of products that this package vends and that can be run or used by its clients.
+    /// The list of products that this package vends and that clients can use.
     public var products: [Product]
 
     /// The list of package dependencies.
@@ -218,13 +217,15 @@ public final class Package {
     public var cxxLanguageStandard: CXXLanguageStandard?
 
   #if PACKAGE_DESCRIPTION_4
-    /// Initializes and returns a newly allocated package object with the provided configuration options.
+    /// Initializes a Swift package with the provided configuration options.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package.
-    ///     - pkgConfig: Additional flags for a system package.
+    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///           Package Manager searches for a <name>.pc file to get the
+    ///           required additional flags for a system target.
     ///     - providers: The package providers for a system package.
-    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -253,11 +254,14 @@ public final class Package {
         registerExitHandler()
     }
   #else
-    /// Initializes and returns a newly allocated package object with the provided configuration options.
+    /// Initializes a Swift package with the provided configuration options.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package.
-    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///           Package Manager searches for a <name>.pc file to get the
+    ///           required additional flags for a system target.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -287,12 +291,15 @@ public final class Package {
         registerExitHandler()
     }
 
-    /// Initializes and returns a newly allocated package object with the specified parameters
+    /// Initializes a Swift package with the provided configuration options.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package.
-    ///     - platforms: The list of minimum deployment targets per platform.
-    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///     - platforms: The list of supported platforms with a custom deployment target.
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///           Package Manager searches for a <name>.pc file to get the
+    ///           required additional flags for a system target.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -324,13 +331,16 @@ public final class Package {
         registerExitHandler()
     }
 
-    /// Initializes and returns a newly allocated package object with the specified parameters
+    /// Initializes a Swift package with the provided configuration options.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package.
+    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
     ///     - defaultLocalization: The default localization for resources.
-    ///     - platforms: The list of minimum deployment targets per platform.
-    ///     - products: The list of products that this package vends and that can be run or used by its clients.
+    ///     - platforms: The list of supported platforms with a custom deployment target.
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///           Package Manager searches for a <name>.pc file to get the
+    ///           required additional flags for a system target.
+    ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -386,13 +396,16 @@ public final class Package {
     }
 }
 
-/// A wrapper around a [IETF Language Tag](https://en.wikipedia.org/wiki/IETF_language_tag).
+/// A wrapper around an IETF language tag.
+///
+/// To learn more about IETF language tags, a worldwide standard for language
+/// tags, visit [the IEFT website for RFC5646](https://tools.ietf.org/html/rfc5646).
 public struct LanguageTag: Hashable {
 
-    /// A IETF language tag.
+    /// An IETF language tag.
     public let tag: String
 
-    /// Creates a `LanguageTag` from its IETF string representation.
+    /// Creates a language tag from its IETF string representation.
     public init(_ tag: String) {
         self.tag = tag
     }
@@ -438,8 +451,8 @@ public enum SystemPackageProvider {
     case _yumItem([String])
   #endif
 
-    /// Declare the list of installable packages using the homebrew package
-    /// manager on macOS to create a system package provider instance.
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the homebrew package manager on macOS.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
@@ -451,8 +464,8 @@ public enum SystemPackageProvider {
       #endif
     }
 
-    /// Declare the list of installable packages using the apt-get package
-    /// manager on Ubuntu to create a system package provider instance.
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the apt-get package manager on Ubuntu Linux.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
@@ -467,8 +480,8 @@ public enum SystemPackageProvider {
 #if PACKAGE_DESCRIPTION_4
 // yum is not supported
 #else
-    /// Declare the list of installable packages using the yum package
-    /// manager on RHEL/CentOS to create a system package provider instance.
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the yum package manager on Red Hat Enterprise Linux or CentOS.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.

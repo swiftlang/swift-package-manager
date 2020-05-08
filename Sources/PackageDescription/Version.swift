@@ -35,8 +35,6 @@
 /// Increase the third digit of a version, or *patch version*, if you are making a backward-compatible bug fix.
 /// This allows clients to benefit from bugfixes to your package without incurring
 /// any maintenance burden.
-///
-
 public struct Version {
 
     /// The major version according to the semantic versioning standard.
@@ -54,8 +52,7 @@ public struct Version {
     /// The build metadata of this version according to the semantic versioning standard, such as a commit hash.
     public let buildMetadataIdentifiers: [String]
 
-    /// Initializes and returns a newly allocated version struct
-    /// for the provided components of a semantic version.
+    /// Initializes a version struct with the provided components of a semantic version.
     ///
     /// - Parameters:
     ///     - major: The major version numner.
