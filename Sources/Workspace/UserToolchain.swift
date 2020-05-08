@@ -223,7 +223,7 @@ public final class UserToolchain: Toolchain {
     }
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
-      return (triple.isDarwin() || triple.isAndroid()
+      return (triple.isDarwin() || triple.isAndroid() || triple.isWASI()
         ? ["-sdk", destination.sdk.pathString]
         : [])
         + destination.extraSwiftCFlags
