@@ -16,6 +16,9 @@ import PackageLoading
 import Foundation
 import SPMBuildCore
 
+// FIXME: JUST TO MAKE SURE WE CAN
+import SwiftDriver
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {

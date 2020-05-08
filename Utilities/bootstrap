@@ -150,6 +150,8 @@ def parse_global_args(args):
     args.build_dir = os.path.abspath(args.build_dir)
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     args.tsc_source_dir = os.path.join(args.project_root, "swift-tools-support-core")
+    args.yams_source_dir = os.path.join(args.project_root, "..", "yams")
+    args.swift_driver_source_dir = os.path.join(args.project_root, "..", "swift-driver")
     args.source_root = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
@@ -275,6 +277,8 @@ def build(args):
         build_llbuild(args)
 
     build_tsc(args)
+    build_yams(args)
+    build_swift_driver(args)
     build_swiftpm_with_cmake(args)
     build_swiftpm_with_swiftpm(args)
 
@@ -293,6 +297,12 @@ def test(args):
 
     # Test TSC.
     call_swiftpm(args, cmd, args.tsc_source_dir)
+
+    # Test Yams.
+    call_swiftpm(args, cmd, args.yams_source_dir)
+
+    # Test swift-driver.
+    call_swiftpm(args, cmd, args.swift_driver_source_dir)
 
     # Test SwiftPM.
     call_swiftpm(args, cmd)
@@ -440,6 +450,32 @@ def build_tsc(args):
 
     build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
 
+def build_yams(args):
+    note("Building Yams")
+    args.yams_build_dir = os.path.join(args.target_dir, "yams")
+
+    cmake_flags = []
+    if platform.system() == 'Darwin':
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+
+    build_with_cmake(args, cmake_flags, args.yams_source_dir, args.yams_build_dir)
+
+def build_swift_driver(args):
+    note("Building SwiftDriver")
+    args.swift_driver_build_dir = os.path.join(args.target_dir, "swift-driver")
+
+    cmake_flags = [
+        get_llbuild_cmake_arg(args),
+        "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
+        "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
+    ]
+    if platform.system() == 'Darwin':
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+
+    build_with_cmake(args, cmake_flags, args.swift_driver_source_dir, args.swift_driver_build_dir)
+
 def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     note("Building SwiftPM (with CMake)")
@@ -447,6 +483,8 @@ def build_swiftpm_with_cmake(args):
     cmake_flags = [
         get_llbuild_cmake_arg(args),
         "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
+        "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
+        "-DSwiftDriver_DIR=" + os.path.join(args.swift_driver_build_dir, "cmake/modules"),
     ]
 
     if platform.system() == 'Darwin':
@@ -539,6 +577,8 @@ def get_swiftpm_env_cmd(args):
         os.path.join(args.bootstrap_dir, "lib"),
         os.path.join(args.tsc_build_dir, "lib"),
         os.path.join(args.llbuild_build_dir, "lib"),
+        os.path.join(args.yams_build_dir, "lib"),
+        os.path.join(args.swift_driver_build_dir, "lib"),
     ])
 
     if platform.system() == 'Darwin':
