@@ -58,7 +58,7 @@ public struct BuildSettingCondition: Encodable {
         self.config = config
     }
 
-    /// Create a build setting condition.
+    /// Creates a build setting condition.
     ///
     /// At least one parameter is mandatory.
     ///
@@ -96,7 +96,7 @@ public struct CSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Provide a header search path relative to the target's directory.
+    /// Provides a header search path relative to the target's directory.
     ///
     /// Use this setting to add a search path for headers within your target.
     /// You can't use absolute paths and you can't use this setting to provide
@@ -131,16 +131,16 @@ public struct CSetting: Encodable {
         return CSetting(name: "define", value: [settingValue], condition: condition)
     }
 
-    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
     /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
     /// side effect on the build since certain flags can change the behavior of
-    /// how a build is performed.
+    /// how it performs a build.
     ///
     /// As some build flags can be exploited for unsupported or malicious
     /// behavior, the use of unsafe flags make the products containing this
-    /// target ineligible to be used by other packages.
+    /// target ineligible for use by other packages.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
@@ -160,7 +160,7 @@ public struct CXXSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Provide a header search path relative to the target's directory.
+    /// Provides a header search path relative to the target's directory.
     ///
     /// Use this setting to add a search path for headers within your target.
     /// You can't use absolute paths and you can't use this setting to provide
@@ -195,7 +195,7 @@ public struct CXXSetting: Encodable {
         return CXXSetting(name: "define", value: [settingValue], condition: condition)
     }
 
-    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
     /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
@@ -223,7 +223,7 @@ public struct SwiftSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Define a compilation condition.
+    /// Defines a compilation condition.
     ///
     /// Use compilation conditions to only compile statements if a certain condition is true.
     /// For example, the Swift compiler will only compile the
@@ -245,7 +245,7 @@ public struct SwiftSetting: Encodable {
         return SwiftSetting(name: "define", value: [name], condition: condition)
     }
 
-    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
     /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
@@ -273,7 +273,7 @@ public struct LinkerSetting: Encodable {
         self.data = BuildSettingData(name: name, value: value, condition: condition)
     }
 
-    /// Declare linkage to a system library.
+    /// Declares linkage to a system library.
     ///
     /// This setting is most useful when the library can't be linked
     /// automatically, such as C++ based libraries and non-modular
@@ -288,7 +288,7 @@ public struct LinkerSetting: Encodable {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
 
-    /// Declare linkage to a system framework.
+    /// Declares linkage to a system framework.
     ///
     /// This setting is most useful when the framework can't be linked
     /// automatically, such as C++ based frameworks and non-modular
@@ -303,7 +303,7 @@ public struct LinkerSetting: Encodable {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
 
-    /// Set unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
+    /// Sets unsafe flags to pass arbitrary command-line flags to the corresponding build tool.
     ///
     /// As the usage of the word "unsafe" implies, the Swift Package Manager
     /// can't safely determine if the build flags have any negative
