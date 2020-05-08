@@ -14,10 +14,6 @@ import PackageLoading
 import SPMBuildCore
 import Build
 
-#if !os(macOS)
-import class Foundation.FileManager
-#endif
-
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
 #else
@@ -78,21 +74,27 @@ public final class UserToolchain: Toolchain {
 
         return runtime
     }
-    
-    private static func findProgram(_ name: String, envSearchPaths: [AbsolutePath]) throws -> AbsolutePath {
+
+    private static func getTool(_ name: String, binDir: AbsolutePath) throws -> AbsolutePath {
+        let executableName = "\(name)\(hostExecutableSuffix)"
+        let toolPath = binDir.appending(component: executableName)
+        guard localFileSystem.isExecutableFile(toolPath) else {
+            throw InvalidToolchainDiagnostic("could not find \(name) at expected path \(toolPath)")
+        }
+        return toolPath
+    }
+
+    private static func findTool(_ name: String, envSearchPaths: [AbsolutePath]) throws -> AbsolutePath {
 #if os(macOS)
         let foundPath = try Process.checkNonZeroExit(arguments: ["/usr/bin/xcrun", "--find", name]).spm_chomp()
         return try AbsolutePath(validating: foundPath)
 #else
-        let executableName = "\(name)\(hostExecutableSuffix)"
-        
         for folder in envSearchPaths {
-            let path = folder.appending(component: executableName)
-            if FileManager.default.fileExists(atPath: path.pathString) {
-                return path
+            if let toolPath = try? getTool(name, binDir: folder) {
+                return toolPath
             }
         }
-        throw InvalidToolchainDiagnostic("Missing tool \(name)")
+        throw InvalidToolchainDiagnostic("could not find \(name)")
 #endif
     }
 
@@ -116,15 +118,14 @@ public final class UserToolchain: Toolchain {
         // We require there is at least one valid swift compiler, either in the
         // bin dir or SWIFT_EXEC.
         let resolvedBinDirCompiler: AbsolutePath
-        let binDirCompiler = binDir.appending(component: "swiftc" + hostExecutableSuffix)
-        if localFileSystem.isExecutableFile(binDirCompiler) {
+        if let binDirCompiler = try? UserToolchain.getTool("swiftc", binDir: binDir) {
             resolvedBinDirCompiler = binDirCompiler
         } else if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
         } else {
             // Try to lookup swift compiler on the system which is possible when
             // we're built outside of the Swift toolchain.
-            resolvedBinDirCompiler = try UserToolchain.findProgram("swiftc", envSearchPaths: envSearchPaths)
+            resolvedBinDirCompiler = try UserToolchain.findTool("swiftc", envSearchPaths: envSearchPaths)
         }
 
         // The compiler for compilation tasks is SWIFT_EXEC or the bin dir compiler.
@@ -154,15 +155,14 @@ public final class UserToolchain: Toolchain {
 
         // Then, check the toolchain.
         do {
-            let toolPath = destination.binDir.appending(component: "clang" + hostExecutableSuffix)
-            if localFileSystem.exists(toolPath) {
+            if let toolPath = try? UserToolchain.getTool("clang", binDir: destination.binDir) {
                 _clangCompiler = toolPath
                 return toolPath
             }
         }
 
         // Otherwise, lookup it up on the system.
-        let toolPath = try UserToolchain.findProgram("clang", envSearchPaths: envSearchPaths)
+        let toolPath = try UserToolchain.findTool("clang", envSearchPaths: envSearchPaths)
         _clangCompiler = toolPath
         return toolPath
     }
@@ -180,46 +180,26 @@ public final class UserToolchain: Toolchain {
 
     /// Returns the path to llvm-cov tool.
     public func getLLVMCov() throws -> AbsolutePath {
-        let toolPath = destination.binDir.appending(component: "llvm-cov")
-        guard localFileSystem.isExecutableFile(toolPath) else {
-            throw InvalidToolchainDiagnostic("could not find llvm-cov at expected path \(toolPath)")
-        }
-        return toolPath
+        return try UserToolchain.getTool("llvm-cov", binDir: destination.binDir)
     }
 
     /// Returns the path to llvm-prof tool.
     public func getLLVMProf() throws -> AbsolutePath {
-        let toolPath = destination.binDir.appending(component: "llvm-profdata")
-        guard localFileSystem.isExecutableFile(toolPath) else {
-            throw InvalidToolchainDiagnostic("could not find llvm-profdata at expected path \(toolPath)")
-        }
-        return toolPath
+        return try UserToolchain.getTool("llvm-profdata", binDir: destination.binDir)
     }
 
     public func getSwiftAPIDigester() throws -> AbsolutePath {
         if let envValue = UserToolchain.lookup(variable: "SWIFT_API_DIGESTER", searchPaths: envSearchPaths) {
             return envValue
         }
-
-        let candidate = swiftCompiler.parentDirectory.appending(component: "swift-api-digester")
-        if localFileSystem.exists(candidate) {
-            return candidate
-        }
-
-        throw InvalidToolchainDiagnostic("could not find swift-api-digester")
+        return try UserToolchain.getTool("swift-api-digester", binDir: swiftCompiler.parentDirectory)
     }
 
     public func getSymbolGraphExtract() throws -> AbsolutePath {
         if let envValue = UserToolchain.lookup(variable: "SWIFT_SYMBOLGRAPH_EXTRACT", searchPaths: envSearchPaths) {
             return envValue
         }
-
-        let candidate = swiftCompiler.parentDirectory.appending(component: "swift-symbolgraph-extract")
-        if localFileSystem.exists(candidate) {
-            return candidate
-        }
-
-        throw InvalidToolchainDiagnostic("could not find swift-api-digester")
+        return try UserToolchain.getTool("swift-symbolgraph-extract", binDir: swiftCompiler.parentDirectory)
     }
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
