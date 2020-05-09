@@ -19,6 +19,8 @@ import SPMBuildCore
 // FIXME: JUST TO MAKE SURE WE CAN
 import SwiftDriver
 
+public typealias FileSystem = TSCBasic.FileSystem
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -1720,7 +1722,7 @@ public class BuildPlan {
 
             // Check that it supports macOS.
             guard let library = info.libraries.first(where: {
-                $0.platform == "macos" && $0.architectures.contains(Triple.Arch.x86_64.rawValue)
+                $0.platform == "macos" && $0.architectures.contains(SPMBuildCore.Triple.Arch.x86_64.rawValue)
             }) else {
                 diagnostics.emit(error: """
                     artifact '\(target.name)' does not support the target platform and architecture \
