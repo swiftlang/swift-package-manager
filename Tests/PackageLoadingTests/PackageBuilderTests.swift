@@ -2079,6 +2079,7 @@ final class PackageBuilderTester {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest,
+                productFilter: .everything,
                 path: path,
                 remoteArtifacts: remoteArtifacts,
                 xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,

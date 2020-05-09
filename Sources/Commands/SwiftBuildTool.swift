@@ -37,7 +37,7 @@ public class SwiftBuildTool: SwiftTool<BuildToolOptions> {
           #endif
 
             guard let subset = options.buildSubset(diagnostics: diagnostics) else { return }
-            let buildSystem = try createBuildSystem()
+            let buildSystem = try createBuildSystem(explicitProduct: options.product)
             try buildSystem.build(subset: subset)
 
         case .binPath:

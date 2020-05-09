@@ -11,6 +11,7 @@ import XCTest
 import Dispatch
 
 import TSCBasic
+import PackageModel
 import PackageGraph
 import SourceControl
 
@@ -19,14 +20,14 @@ import struct TSCUtility.Version
 public typealias MockPackageConstraint = PackageContainerConstraint
 
 extension MockPackageConstraint {
-    public init(container identifier: String, requirement: PackageRequirement) {
+    public init(container identifier: String, requirement: PackageRequirement, products: ProductFilter) {
         let ref = PackageReference(identity: identifier.lowercased(), path: "")
-        self.init(container: ref, requirement: requirement)
+        self.init(container: ref, requirement: requirement, products: products)
     }
 
-    public init(container identifier: String, versionRequirement: VersionSetSpecifier) {
+    public init(container identifier: String, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
         let ref = PackageReference(identity: identifier.lowercased(), path: "")
-        self.init(container: ref, versionRequirement: versionRequirement)
+        self.init(container: ref, versionRequirement: versionRequirement, products: products)
     }
 }
 
@@ -62,8 +63,9 @@ extension PackageContainerConstraint {
         guard case let .dictionary(dict) = json else { fatalError() }
         guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
+        let products: ProductFilter = try! JSON(dict).get("products")
         let id = PackageReference(identity: identifier.lowercased(), path: "", kind: .remote)
-        self.init(container: id, versionRequirement: VersionSetSpecifier(requirement))
+        self.init(container: id, versionRequirement: VersionSetSpecifier(requirement), products: products)
     }
 }
 
@@ -108,19 +110,19 @@ public class MockPackageContainer: PackageContainer {
         return _versions
     }
 
-    public func getDependencies(at version: Version) -> [MockPackageConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter) -> [MockPackageConstraint] {
         requestedVersions.insert(version)
-        return getDependencies(at: version.description)
+        return getDependencies(at: version.description, productFilter: productFilter)
     }
 
-    public func getDependencies(at revision: String) -> [MockPackageConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageConstraint] {
         return dependencies[revision]!.map({ value in
             let (name, requirement) = value
-            return MockPackageConstraint(container: name, requirement: requirement)
+            return MockPackageConstraint(container: name, requirement: requirement, products: productFilter)
         })
     }
 
-    public func getUnversionedDependencies() -> [MockPackageConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter) -> [MockPackageConstraint] {
         return unversionedDeps
     }
 

@@ -192,26 +192,6 @@ final class BuildToolTests: XCTestCase {
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
-
-            // Dependency does not contain a dependent product
-
-            do {
-                let result = try build(["--target", "CTarget"], packagePath: aPath)
-                XCTAssert(result.binContents.contains("CTarget.build"))
-                XCTAssert(!result.binContents.contains("aexec"))
-                XCTAssert(!result.binContents.contains("ATarget.build"))
-                XCTAssert(!result.binContents.contains("BLibrary.a"))
-                XCTAssert(!result.binContents.contains("bexec"))
-
-                // FIXME: We create the modulemap during build planning, hence this uglyness.
-                let bTargetBuildDir = ((try? localFileSystem.getDirectoryContents(result.binPath.appending(component: "BTarget1.build"))) ?? []).filter{ $0 != moduleMapFilename }
-                XCTAssertEqual(bTargetBuildDir, [])
-
-                XCTAssert(!result.binContents.contains("BTarget2.build"))
-                XCTAssert(!result.binContents.contains("cexec"))
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTFail(stderr)
-            }
         }
     }
 

@@ -192,16 +192,19 @@ public final class TestWorkspace {
 
         public let name: String
         public let requirement: Requirement
+        public let products: ProductFilter
 
-        public init(name: String, requirement: Requirement) {
+        public init(name: String, requirement: Requirement, products: ProductFilter) {
             self.name = name
             self.requirement = requirement
+            self.products = products
         }
 
         fileprivate func convert(_ packagesDir: AbsolutePath, url: String) -> PackageGraphRootInput.PackageDependency {
             return PackageGraphRootInput.PackageDependency(
                 url: url,
                 requirement: requirement,
+                productFilter: products,
                 location: name
             )
         }
@@ -343,7 +346,7 @@ public final class TestWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: CheckoutState] = [:],
+        pins: [PackageReference: (version: CheckoutState, products: ProductFilter)] = [:],
         managedDependencies: [ManagedDependency] = [],
         managedArtifacts: [ManagedArtifact] = []
     ) throws {
@@ -351,7 +354,7 @@ public final class TestWorkspace {
         let pinsStore = try workspace.pinsStore.load()
 
         for (ref, state) in pins {
-            pinsStore.pin(packageRef: ref, state: state)
+            pinsStore.pin(packageRef: ref, state: state.version, productFilter: state.products)
         }
 
         for dependency in managedDependencies {

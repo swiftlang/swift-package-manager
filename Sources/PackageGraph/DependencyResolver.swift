@@ -9,7 +9,7 @@
 */
 
 import TSCBasic
-import struct PackageModel.PackageReference
+import PackageModel
 import struct TSCUtility.Version
 import class Foundation.NSDate
 
@@ -111,7 +111,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version) throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -120,12 +120,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String) throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies() throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
@@ -154,21 +154,25 @@ public struct PackageContainerConstraint: CustomStringConvertible, Equatable, Ha
     /// The constraint requirement.
     public let requirement: PackageRequirement
 
+    /// The required products.
+    public let products: ProductFilter
+
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(container identifier: PackageReference, requirement: PackageRequirement) {
+    public init(container identifier: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
         self.identifier = identifier
         self.requirement = requirement
+        self.products = products
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(container identifier: PackageReference, versionRequirement: VersionSetSpecifier) {
-        self.init(container: identifier, requirement: .versionSet(versionRequirement))
+    public init(container identifier: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
+        self.init(container: identifier, requirement: .versionSet(versionRequirement), products: products)
     }
 
     public var description: String {
-        return "Constraint(\(identifier), \(requirement))"
+        return "Constraint(\(identifier), \(requirement), \(products)"
     }
 }
 
@@ -209,7 +213,7 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 }
 
 public class DependencyResolver {
-    public typealias Binding = (container: PackageReference, binding: BoundVersion)
+    public typealias Binding = (container: PackageReference, binding: BoundVersion, products: ProductFilter)
 
     /// The dependency resolver result.
     public enum Result {
@@ -219,4 +223,158 @@ public class DependencyResolver {
         /// The resolver encountered an error during resolution.
         case error(Swift.Error)
     }
+}
+
+/// A node in the dependency resolution graph.
+///
+/// Nodes come in three conceptual varieties:
+///
+/// 1. Empty package nodes...
+///     - have no `specificProduct` and have `isRoot` set to `false`.
+///     - indicate that a package needs to be present, but do not indicate that any of its contents are needed.
+///     - are always leaf nodes; they have no dependencies.
+///
+/// 2. Product nodes...
+///     - have a `specificProduct`.
+///     - indicate that a particular product in a particular package is required.
+///     - always have dependencies. A product node has...
+///         - one implicit dependency on its own package at an exact version (as an empty package node).
+///           This dependency is what ensures the resolve does not select two products from the same package at different versions.
+///         - zero or more dependencies on the product nodes of other packages.
+///           These are all the external products required to build all of the targets vended by this product.
+///           They derive from the manifest.
+///
+///           Tools versions before 5.2 do not know which products belong to which packages, so each product is required from every dependency.
+///           Since a non‐existant product ends up with only its implicit dependency on its own package,
+///           only whichever package contains the product will end up adding additional constraints.
+///           See `ProductFilter` and `Manifest.register(...)`.
+///
+/// 3. Root nodes...
+///     - have no `specificProduct` and have `isRoot` set to `true`.
+///     - indicate a root node in the graph, which is required no matter what.
+///     - may have dependencies. A root node has...
+///         - zero or more dependencies on each external product node required to build any of its targets (vended or not).
+///         - zero or more dependencies directly on external empty package nodes.
+///           This special case occurs when a dependecy is declared but not used.
+///           It is a warning condition, and builds do not actually need these dependencies.
+///           However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
+///           to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
+///
+/// - SeeAlso: `GraphLoadingNode`
+public struct DependencyResolutionNode: Equatable, Hashable, CustomStringConvertible {
+
+  /// The package.
+  public let package: PackageReference
+
+  /// The name of the specific product, in any.
+  ///
+  /// A node with `nil` refers to package itself without any product.
+  public let specificProduct: String?
+
+  /// Whether or not the node behaves like a root node.
+  ///
+  /// A root node requires all its dependencies, even if they are not referenced by any product.
+  public let isRoot: Bool
+
+  // To ensure cyclical dependencies are detected properly,
+  // hashing cannot include whether the node behaves as a root.
+  private struct Identity: Equatable, Hashable {
+    fileprivate let package: PackageReference
+    fileprivate let specificProduct: String?
+  }
+  private var identity: Identity {
+    return Identity(package: package, specificProduct: specificProduct)
+  }
+  public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
+    return lhs.identity == rhs.identity
+  }
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(identity)
+  }
+
+  public static func empty(package: PackageReference) -> DependencyResolutionNode {
+    return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: false)
+  }
+  public static func product(_ name: String, package: PackageReference) -> DependencyResolutionNode {
+    return DependencyResolutionNode(package: package, specificProduct: name, isRoot: false)
+  }
+  public static func root(package: PackageReference) -> DependencyResolutionNode {
+    return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: true)
+  }
+
+  /// Assembles the product filter to use on the manifest for this node to determine it’s dependencies.
+  internal func productFilter() -> ProductFilter {
+    if let product = specificProduct {
+      return .specific([product])
+    } else if isRoot {
+      return .everything
+    } else {
+      return .specific([])
+    }
+  }
+
+  /// Returns the dependency that a product has on its own package, if relevant.
+  ///
+  /// This is the constraint that requires all products from a package resolve to the same version.
+  internal func versionLock(version: Version) -> RepositoryPackageConstraint? {
+    // Don’t create a version lock for anything but a product.
+    guard specificProduct != nil else { return nil }
+    return RepositoryPackageConstraint(
+      container: package,
+      versionRequirement: .exact(version),
+      products: .specific([])
+    )
+  }
+
+  /// Returns the dependency that a product has on its own package, if relevant.
+  ///
+  /// This is the constraint that requires all products from a package resolve to the same revision.
+  internal func revisionLock(revision: String) -> RepositoryPackageConstraint? {
+    // Don’t create a revision lock for anything but a product.
+    guard specificProduct != nil else { return nil }
+    return RepositoryPackageConstraint(
+      container: package,
+      requirement: .revision(revision),
+      products: .specific([])
+    )
+  }
+
+  public var description: String {
+    return "\(package.name)\(productFilter())"
+  }
+
+  public func nameForDiagnostics() -> String {
+    if let product = specificProduct {
+      return "\(package.name)[\(product)]"
+    } else {
+      return "\(package.name)"
+    }
+  }
+}
+
+extension ProductFilter {
+
+  /// Returns each product, or an array containing `nil` if the filter is empty.
+  ///
+  /// This method is of narrow use. It is is intended to centralize functionality used by dependency resolution nodes, so that in conjunction with `map`, such nodes can easily assemble their successors.
+  ///
+  /// If:
+  ///   - `.everything`, this method produces a fatal error.
+  ///   - `.specific`, then:
+  ///     - if the set is empty, an array containing `nil` will be returned.
+  ///     - if the set is non‐empty, it will be sorted and returned.
+  ///
+  /// - Precondition: The set is not `.everything`.
+  internal func enumerated() -> [String?] {
+    switch self {
+    case .everything:
+      fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+    case .specific(let set):
+      if set.isEmpty { // Pointing at the package without a particular product.
+        return [Optional<String>.none]
+      } else {
+        return set.sorted()
+      }
+    }
+  }
 }

@@ -135,18 +135,18 @@ private struct LocalPackageContainer: PackageContainer {
         return AnySequence(reversedVersions)
     }
 
-    func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
+    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         precondition(dependency?.checkoutState?.version == version)
-        return manifest.dependencyConstraints(config: config)
+        return manifest.dependencyConstraints(productFilter: productFilter, config: config)
     }
 
-    func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Return the dependencies if the checkout state matches the revision.
         if let checkoutState = dependency?.checkoutState,
             checkoutState.version == nil,
             checkoutState.revision.identifier == revision {
-            return manifest.dependencyConstraints(config: config)
+            return manifest.dependencyConstraints(productFilter: productFilter, config: config)
         }
 
         throw ResolverPrecomputationError.differentRequirement(
@@ -156,7 +156,7 @@ private struct LocalPackageContainer: PackageContainer {
         )
     }
 
-    func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
+    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
         guard dependency?.state.isCheckout != true else {
             throw ResolverPrecomputationError.differentRequirement(
@@ -166,7 +166,7 @@ private struct LocalPackageContainer: PackageContainer {
             )
         }
 
-        return manifest.dependencyConstraints(config: config)
+        return manifest.dependencyConstraints(productFilter: productFilter, config: config)
     }
 
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {

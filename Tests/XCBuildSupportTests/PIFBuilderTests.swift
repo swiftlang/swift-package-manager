@@ -86,7 +86,7 @@ class PIFBuilderTests: XCTestCase {
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
-            XCTAssertEqual(projectBTargetNames, ["bexe", "blib", "B2"])
+            XCTAssertEqual(projectBTargetNames, ["blib", "B2"])
         }
     }
 
@@ -388,6 +388,7 @@ class PIFBuilderTests: XCTestCase {
                             "SystemLib",
                             "cfoo",
                             .product(name: "bar", package: "Bar"),
+                            .product(name: "cbar", package: "Bar")
                         ]),
                         .init(name: "cfoo"),
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
@@ -438,6 +439,7 @@ class PIFBuilderTests: XCTestCase {
                         "PACKAGE-PRODUCT:cfoo",
                         "PACKAGE-PRODUCT:bar",
                         "PACKAGE-PRODUCT:BarLib",
+                        "PACKAGE-PRODUCT:cbar",
                         "PACKAGE-TARGET:FooLib",
                         "PACKAGE-TARGET:SystemLib"
                     ])
@@ -445,6 +447,7 @@ class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.frameworks, [
                         "PACKAGE-TARGET:FooLib",
                         "PACKAGE-PRODUCT:BarLib",
+                        "PACKAGE-PRODUCT:cbar",
                         "PACKAGE-PRODUCT:bar",
                     ])
 
