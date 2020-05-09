@@ -93,6 +93,10 @@ public class ToolOptions {
     /// Emit the Swift module separately from the object files.
     public var emitSwiftModuleSeparately: Bool = false
 
+    /// Whether to use the integrated Swift driver rather than shelling out
+    /// to a separate process.
+    public var useIntegratedSwiftDriver: Bool = false
+
     /// The build system to use.
     public var buildSystem: BuildSystemKind = .native
 

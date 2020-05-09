@@ -16,11 +16,6 @@ import PackageLoading
 import Foundation
 import SPMBuildCore
 
-// FIXME: JUST TO MAKE SURE WE CAN
-import SwiftDriver
-
-public typealias FileSystem = TSCBasic.FileSystem
-
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -676,6 +671,38 @@ public final class SwiftTargetBuildDescription {
         args += buildParameters.swiftCompilerFlags
         return args
     }
+
+    public func emitCommandLine() -> [String] {
+        var result: [String] = []
+        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+
+        result.append("-module-name")
+        result.append(target.c99name)
+//        result.append("-incremental")
+        result.append("-emit-dependencies")
+        result.append("-emit-module")
+        result.append("-emit-module-path")
+        result.append(moduleOutputPath.pathString)
+
+        result.append("-output-file-map")
+        // FIXME: Eliminate side effect.
+        result.append(try! writeOutputFileMap().pathString)
+        if target.type == .library || target.type == .test {
+            result.append("-parse-as-library")
+        }
+        // FIXME: WMO
+
+        result.append("-c")
+        for source in target.sources.paths {
+            result.append(source.pathString)
+        }
+
+        result.append("-I")
+        result.append(buildParameters.buildPath.pathString)
+
+        result += compileArguments()
+        return result
+     }
 
     /// Command-line for emitting just the Swift module.
     public func emitModuleCommandLine() -> [String] {
@@ -1722,7 +1749,7 @@ public class BuildPlan {
 
             // Check that it supports macOS.
             guard let library = info.libraries.first(where: {
-                $0.platform == "macos" && $0.architectures.contains(SPMBuildCore.Triple.Arch.x86_64.rawValue)
+                $0.platform == "macos" && $0.architectures.contains(Triple.Arch.x86_64.rawValue)
             }) else {
                 diagnostics.emit(error: """
                     artifact '\(target.name)' does not support the target platform and architecture \

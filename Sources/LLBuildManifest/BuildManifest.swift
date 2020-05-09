@@ -155,6 +155,7 @@ public struct BuildManifest {
             isLibrary: isLibrary,
             WMO: WMO
         )
+      
         commands[name] = Command(name: name, tool: tool)
     }
 }

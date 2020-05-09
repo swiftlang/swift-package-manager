@@ -17,6 +17,8 @@ import PackageModel
 import PackageGraph
 import SPMBuildCore
 
+import SwiftDriver
+
 public class LLBuildManifestBuilder {
     public enum TargetKind {
         case main
@@ -177,7 +179,9 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
-        if buildParameters.emitSwiftModuleSeparately {
+        if buildParameters.useIntegratedSwiftDriver {
+            addSwiftCmdsViaIntegratedDriver(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
+        } else if buildParameters.emitSwiftModuleSeparately {
             addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else {
             addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
@@ -185,6 +189,49 @@ extension LLBuildManifestBuilder {
 
         addTargetCmd(target, cmdOutputs: cmdOutputs)
         addModuleWrapCmd(target)
+    }
+
+    private func addSwiftCmdsViaIntegratedDriver(
+        _ target: SwiftTargetBuildDescription,
+        inputs: [Node],
+        objectNodes: [Node],
+        moduleNode: Node
+    ) {
+        do {
+            var driver = try Driver(args: target.emitCommandLine())
+            let jobs = try driver.planBuild()
+            let resolver = try ArgsResolver()
+
+            for job in jobs {
+                let datool = try resolver.resolve(.path(job.tool))
+                let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
+                let arguments = [datool] + commandLine
+
+                let jobInputs = job.inputs.map { $0.resolveToNode() }
+                let jobOutputs = job.outputs.map { $0.resolveToNode() }
+
+                let displayName: String
+                if !job.displayInputs.isEmpty {
+                    displayName = job.displayInputs[0].file.name
+                } else if !job.inputs.isEmpty {
+                    displayName = job.inputs[0].file.name
+                } else if !job.outputs.isEmpty {
+                    displayName = job.outputs[0].file.name
+                } else {
+                    displayName = "???"
+                }
+
+                manifest.addShellCmd(
+                    name: target.moduleOutputPath.pathString,
+                    description: "Compile \(target.target.name) - \(displayName)",
+                    inputs: inputs + jobInputs,
+                    outputs: jobOutputs,
+                    args: arguments
+                )
+             }
+         } catch {
+             fatalError("\(error)")
+         }
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(
@@ -590,5 +637,23 @@ extension LLBuildManifestBuilder {
 
     fileprivate func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
         plan.buildParameters.buildPath.appending(component: path.basename)
+    }
+}
+
+extension TypedVirtualPath {
+    func resolveToNode() -> Node {
+        switch file {
+        case .relative(let path):
+            return Node.file(localFileSystem.currentWorkingDirectory!.appending(path))
+
+        case .absolute(let path):
+            return Node.file(path)
+
+        case .temporary(let path):
+            return Node.virtual(path.pathString)
+
+        case .standardInput, .standardOutput:
+            fatalError("Cannot handle standard input or output")
+        }
     }
 }
