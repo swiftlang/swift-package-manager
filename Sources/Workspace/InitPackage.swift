@@ -364,7 +364,7 @@ public final class InitPackage {
                         XCTAssertEqual(\(typeName)().text, "Hello, World!")
                     }
 
-            """
+                """
 
             if options.enableXCTestManifest {
                 stream <<< """
@@ -373,13 +373,13 @@ public final class InitPackage {
                             ("testExample", testExample),
                         ]
 
-                """
+                    """
             }
 
             stream <<< """
                 }
 
-            """
+                """
         }
     }
 
