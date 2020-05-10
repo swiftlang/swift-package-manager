@@ -130,6 +130,11 @@ class InitTests: XCTestCase {
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
                 ["FooTests", "LinuxMain.swift"])
 
+            let testFile = path.appending(RelativePath("Tests/FooTests/FooTests.swift"))
+            let testFileLines = try localFileSystem.readFileContents(testFile).cString.split(separator: "\n").map{ String($0) }
+            XCTAssertTrue(testFileLines.contains("import XCTest"), "\(testFileLines)")
+            XCTAssertTrue(testFileLines.contains("    static var allTests = ["), "\(testFileLines)")
+
             // Try building it
             XCTAssertBuilds(path)
             let triple = Resources.default.toolchain.triple
