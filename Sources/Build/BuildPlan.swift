@@ -678,7 +678,7 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(target.c99name)
-//        result.append("-incremental")
+        result.append("-incremental")
         result.append("-emit-dependencies")
         result.append("-emit-module")
         result.append("-emit-module-path")

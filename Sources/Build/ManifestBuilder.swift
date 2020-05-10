@@ -198,6 +198,8 @@ extension LLBuildManifestBuilder {
         moduleNode: Node
     ) {
         do {
+            // Use the integrated Swift driver to compute the set of frontend
+            // jobs needed to build this Swift target.
             var driver = try Driver(args: target.emitCommandLine())
             let jobs = try driver.planBuild()
             let resolver = try ArgsResolver()
@@ -210,20 +212,59 @@ extension LLBuildManifestBuilder {
                 let jobInputs = job.inputs.map { $0.resolveToNode() }
                 let jobOutputs = job.outputs.map { $0.resolveToNode() }
 
-                let displayName: String
-                if !job.displayInputs.isEmpty {
-                    displayName = job.displayInputs[0].file.name
-                } else if !job.inputs.isEmpty {
-                    displayName = job.inputs[0].file.name
-                } else if !job.outputs.isEmpty {
-                    displayName = job.outputs[0].file.name
-                } else {
-                    displayName = "???"
+                // Compute a description for this particular job. The output
+                // is intended to match that of the built-in Swift compiler
+                // tool so that the use of the integrated driver is mostly
+                // an implementation detail.
+                let moduleName = target.target.c99name
+                let description: String
+                switch job.kind {
+                case .compile:
+                    description = "Compiling \(moduleName) \(job.displayInputs.first!.file.name)"
+
+                case .mergeModule:
+                    description = "Merging module \(moduleName)"
+
+                case .link:
+                    description = "Linking \(moduleName)"
+
+                case .generateDSYM:
+                    description = "Generating dSYM for module \(moduleName)"
+
+                case .autolinkExtract:
+                    description = "Extracting autolink information for module \(moduleName)"
+
+                case .emitModule:
+                    description = "Emitting module for \(moduleName)"
+
+                case .generatePCH:
+                    description = "Compiling bridging header \(job.displayInputs.first!.file.name)"
+
+                case .generatePCM:
+                    description = "Compiling Clang module \(job.displayInputs.first!.file.name)"
+
+                case .interpret:
+                    description = "Interpreting \(job.displayInputs.first!.file.name)"
+
+                case .repl:
+                    description = "Executing Swift REPL"
+
+                case .verifyDebugInfo:
+                    description = "Verifying debug information for module \(moduleName)"
+
+                case .printTargetInfo:
+                    description = "Gathering target information for module \(moduleName)"
+
+                case .versionRequest:
+                    description = "Getting Swift version information"
+
+                case .help:
+                    description = "Swift help"
                 }
 
                 manifest.addShellCmd(
-                    name: target.moduleOutputPath.pathString,
-                    description: "Compile \(target.target.name) - \(displayName)",
+                    name: jobOutputs.first!.name,
+                    description: description,
                     inputs: inputs + jobInputs,
                     outputs: jobOutputs,
                     args: arguments
@@ -641,6 +682,8 @@ extension LLBuildManifestBuilder {
 }
 
 extension TypedVirtualPath {
+    /// Resolve a typed virtual path provided by the Swift driver to
+    /// a node in the build graph.
     func resolveToNode() -> Node {
         switch file {
         case .relative(let path):
