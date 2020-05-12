@@ -298,12 +298,6 @@ def test(args):
     # Test TSC.
     call_swiftpm(args, cmd, args.tsc_source_dir)
 
-    # Test Yams.
-    call_swiftpm(args, cmd, args.yams_source_dir)
-
-    # Test swift-driver.
-    call_swiftpm(args, cmd, args.swift_driver_source_dir)
-
     # Test SwiftPM.
     call_swiftpm(args, cmd)
 
