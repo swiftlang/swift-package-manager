@@ -452,6 +452,11 @@ def build_yams(args):
     if platform.system() == 'Darwin':
         cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+    else:
+        cmake_flags += [
+            get_dispatch_cmake_arg(args),
+            get_foundation_cmake_arg(args),
+        ]
 
     build_with_cmake(args, cmake_flags, args.yams_source_dir, args.yams_build_dir)
 
@@ -497,9 +502,9 @@ def build_swiftpm_with_cmake(args):
     if args.llbuild_link_framework:
         add_rpath_for_cmake_build(args, args.llbuild_build_dir)
 
-    add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "Sources", "Yams"))
-    add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "Sources", "CYaml"))
-    add_rpath_for_cmake_build(args, os.path.join(args.swift_driver_build_dir, "lib"))
+    if platform.system() == "Darwin":
+        add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.swift_driver_build_dir, "lib"))
 
 def build_swiftpm_with_swiftpm(args):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
