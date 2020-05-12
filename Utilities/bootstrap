@@ -103,6 +103,12 @@ def add_build_args(parser):
         metavar='PATH',
         help='path to the ninja binary to use for building with CMake')
     parser.add_argument(
+        "--dispatch-build-dir",
+        help="path to Dispatch build directory")
+    parser.add_argument(
+        "--foundation-build-dir",
+        help="path to Foundation build directory")
+    parser.add_argument(
         "--llbuild-build-dir",
         help="path to llbuild build directory")
     parser.add_argument(
@@ -154,6 +160,12 @@ def parse_global_args(args):
 def parse_build_args(args):
     """Parses and cleans arguments necessary for build-related actions."""
     parse_global_args(args)
+
+    if args.dispatch_build_dir:
+        args.dispatch_build_dir = os.path.abspath(args.dispatch_build_dir)
+
+    if args.foundation_build_dir:
+        args.foundation_build_dir = os.path.abspath(args.foundation_build_dir)
 
     if args.llbuild_build_dir:
         args.llbuild_build_dir = os.path.abspath(args.llbuild_build_dir)
@@ -484,6 +496,16 @@ def call_swiftpm(args, cmd, cwd=None):
 # -----------------------------------------------------------
 # Build-related helper functions
 # -----------------------------------------------------------
+
+def get_dispatch_cmake_arg(args):
+    """Returns the CMake argument to the Dispatch configuration to use for bulding SwiftPM."""
+    dispatch_dir = os.path.join(args.dispatch_build_dir, "cmake/modules")
+    return "-Ddispatch_DIR=" + dispatch_dir
+
+def get_foundation_cmake_arg(args):
+    """Returns the CMake argument to the Foundation configuration to use for bulding SwiftPM."""
+    foundation_dir = os.path.join(args.foundation_build_dir, "cmake/modules")
+    return "-DFoundation_DIR=" + foundation_dir
 
 def get_llbuild_cmake_arg(args):
     """Returns the CMake argument to the LLBuild framework/binary to use for bulding SwiftPM."""
