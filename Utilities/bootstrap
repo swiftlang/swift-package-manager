@@ -25,7 +25,7 @@ import shutil
 import subprocess
 from helpers import note, error, symlink_force, mkdir_p, call, call_output
 
-g_macos_deployment_target = '10.15'
+g_macos_deployment_target = '10.14'
 
 if platform.system() == 'Darwin':
     g_shared_lib_ext = ".dylib"
