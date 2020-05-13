@@ -689,8 +689,13 @@ public final class SwiftTargetBuildDescription {
         result.append("-output-file-map")
         // FIXME: Eliminate side effect.
         result.append(try! writeOutputFileMap().pathString)
-        if target.type == .library || target.type == .test {
+
+        switch target.type {
+        case .library, .test:
             result.append("-parse-as-library")
+
+        case .executable, .systemModule, .binary:
+            do { }
         }
 
         if buildParameters.useWholeModuleOptimization {
@@ -702,9 +707,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         result.append("-c")
-        for source in target.sources.paths {
-            result.append(source.pathString)
-        }
+        result.append(contentsOf: target.sources.paths.map { $0.pathString })
 
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
