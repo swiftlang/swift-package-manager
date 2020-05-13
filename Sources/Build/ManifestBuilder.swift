@@ -17,6 +17,8 @@ import PackageModel
 import PackageGraph
 import SPMBuildCore
 
+import SwiftDriver
+
 public class LLBuildManifestBuilder {
     public enum TargetKind {
         case main
@@ -177,7 +179,9 @@ extension LLBuildManifestBuilder {
         let moduleNode = Node.file(target.moduleOutputPath)
         let cmdOutputs = objectNodes + [moduleNode]
 
-        if buildParameters.emitSwiftModuleSeparately {
+        if buildParameters.useIntegratedSwiftDriver {
+            addSwiftCmdsViaIntegratedDriver(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
+        } else if buildParameters.emitSwiftModuleSeparately {
             addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else {
             addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
@@ -185,6 +189,102 @@ extension LLBuildManifestBuilder {
 
         addTargetCmd(target, cmdOutputs: cmdOutputs)
         addModuleWrapCmd(target)
+    }
+
+    private func addSwiftCmdsViaIntegratedDriver(
+        _ target: SwiftTargetBuildDescription,
+        inputs: [Node],
+        objectNodes: [Node],
+        moduleNode: Node
+    ) {
+        do {
+            // Use the integrated Swift driver to compute the set of frontend
+            // jobs needed to build this Swift target.
+            var driver = try Driver(args: target.emitCommandLine())
+            let jobs = try driver.planBuild()
+            let resolver = try ArgsResolver()
+
+            for job in jobs {
+                // Figure out which tool we are using.
+                // FIXME: This feels like a hack.
+                var datool: String
+                switch job.kind {
+                case .compile, .mergeModule, .emitModule, .generatePCH,
+                    .generatePCM, .interpret, .repl, .printTargetInfo,
+                    .versionRequest:
+                    datool = buildParameters.toolchain.swiftCompiler.pathString
+
+                case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
+                    datool = try resolver.resolve(.path(job.tool))
+                }
+
+                let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
+                let arguments = [datool] + commandLine
+
+                let jobInputs = job.inputs.map { $0.resolveToNode() }
+                let jobOutputs = job.outputs.map { $0.resolveToNode() }
+
+                // Compute a description for this particular job. The output
+                // is intended to match that of the built-in Swift compiler
+                // tool so that the use of the integrated driver is mostly
+                // an implementation detail.
+                let moduleName = target.target.c99name
+                let description: String
+                switch job.kind {
+                case .compile:
+                    description = "Compiling \(moduleName) \(job.displayInputs.first!.file.name)"
+
+                case .mergeModule:
+                    description = "Merging module \(moduleName)"
+
+                case .link:
+                    description = "Linking \(moduleName)"
+
+                case .generateDSYM:
+                    description = "Generating dSYM for module \(moduleName)"
+
+                case .autolinkExtract:
+                    description = "Extracting autolink information for module \(moduleName)"
+
+                case .emitModule:
+                    description = "Emitting module for \(moduleName)"
+
+                case .generatePCH:
+                    description = "Compiling bridging header \(job.displayInputs.first!.file.name)"
+
+                case .generatePCM:
+                    description = "Compiling Clang module \(job.displayInputs.first!.file.name)"
+
+                case .interpret:
+                    description = "Interpreting \(job.displayInputs.first!.file.name)"
+
+                case .repl:
+                    description = "Executing Swift REPL"
+
+                case .verifyDebugInfo:
+                    description = "Verifying debug information for module \(moduleName)"
+
+                case .printTargetInfo:
+                    description = "Gathering target information for module \(moduleName)"
+
+                case .versionRequest:
+                    description = "Getting Swift version information"
+
+                case .help:
+                    description = "Swift help"
+                }
+
+                manifest.addShellCmd(
+                    name: jobOutputs.first!.name,
+                    description: description,
+                    inputs: inputs + jobInputs,
+                    outputs: jobOutputs,
+                    args: arguments
+                )
+             }
+         } catch {
+             fatalError("\(error)")
+         }
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(
@@ -590,5 +690,25 @@ extension LLBuildManifestBuilder {
 
     fileprivate func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
         plan.buildParameters.buildPath.appending(component: path.basename)
+    }
+}
+
+extension TypedVirtualPath {
+    /// Resolve a typed virtual path provided by the Swift driver to
+    /// a node in the build graph.
+    func resolveToNode() -> Node {
+        switch file {
+        case .relative(let path):
+            return Node.file(localFileSystem.currentWorkingDirectory!.appending(path))
+
+        case .absolute(let path):
+            return Node.file(path)
+
+        case .temporary(let path):
+            return Node.virtual(path.pathString)
+
+        case .standardInput, .standardOutput:
+            fatalError("Cannot handle standard input or output")
+        }
     }
 }

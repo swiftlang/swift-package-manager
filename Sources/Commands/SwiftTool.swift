@@ -451,6 +451,10 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.emitSwiftModuleSeparately = $1 })
 
         binder.bind(
+            option: parser.add(option: "--use-integrated-swift-driver", kind: Bool.self, usage: nil),
+            to: { $0.useIntegratedSwiftDriver = $1 })
+
+        binder.bind(
             option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
             to: { $0.buildSystem = $1 })
 
@@ -791,6 +795,7 @@ public class SwiftTool<Options: ToolOptions> {
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
+                useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode
             )
         })

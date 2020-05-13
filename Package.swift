@@ -127,7 +127,7 @@ let package = Package(
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["SwiftToolsSupport-auto", "SPMBuildCore", "PackageGraph", "LLBuildManifest"]),
+            dependencies: ["SwiftToolsSupport-auto", "SPMBuildCore", "PackageGraph", "LLBuildManifest", "SwiftDriver"]),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
@@ -253,9 +253,11 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-driver.git", .branch("master")),
     ]
 } else {
     package.dependencies += [
         .package(path: "./swift-tools-support-core"),
+        .package(path: "../swift-driver"),
     ]
 }

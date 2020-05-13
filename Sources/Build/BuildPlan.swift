@@ -672,6 +672,38 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
+    public func emitCommandLine() -> [String] {
+        var result: [String] = []
+        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+
+        result.append("-module-name")
+        result.append(target.c99name)
+        result.append("-incremental")
+        result.append("-emit-dependencies")
+        result.append("-emit-module")
+        result.append("-emit-module-path")
+        result.append(moduleOutputPath.pathString)
+
+        result.append("-output-file-map")
+        // FIXME: Eliminate side effect.
+        result.append(try! writeOutputFileMap().pathString)
+        if target.type == .library || target.type == .test {
+            result.append("-parse-as-library")
+        }
+        // FIXME: WMO
+
+        result.append("-c")
+        for source in target.sources.paths {
+            result.append(source.pathString)
+        }
+
+        result.append("-I")
+        result.append(buildParameters.buildPath.pathString)
+
+        result += compileArguments()
+        return result
+     }
+
     /// Command-line for emitting just the Swift module.
     public func emitModuleCommandLine() -> [String] {
         assert(buildParameters.emitSwiftModuleSeparately)
