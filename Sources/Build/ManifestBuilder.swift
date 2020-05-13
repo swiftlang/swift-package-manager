@@ -205,7 +205,19 @@ extension LLBuildManifestBuilder {
             let resolver = try ArgsResolver()
 
             for job in jobs {
-                let datool = try resolver.resolve(.path(job.tool))
+                // Figure out which tool we are using.
+                // FIXME: This feels like a hack.
+                var datool: String
+                switch job.kind {
+                case .compile, .mergeModule, .emitModule, .generatePCH,
+                    .generatePCM, .interpret, .repl, .printTargetInfo,
+                    .versionRequest:
+                    datool = buildParameters.toolchain.swiftCompiler.pathString
+
+                case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
+                    datool = try resolver.resolve(.path(job.tool))
+                }
+
                 let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
                 let arguments = [datool] + commandLine
 
