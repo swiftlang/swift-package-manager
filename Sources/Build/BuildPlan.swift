@@ -678,8 +678,10 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-module-name")
         result.append(target.c99name)
-        result.append("-incremental")
+
         result.append("-emit-dependencies")
+
+        // FIXME: Do we always have a module?
         result.append("-emit-module")
         result.append("-emit-module-path")
         result.append(moduleOutputPath.pathString)
@@ -690,7 +692,14 @@ public final class SwiftTargetBuildDescription {
         if target.type == .library || target.type == .test {
             result.append("-parse-as-library")
         }
-        // FIXME: WMO
+
+        if (buildParameters.configuration == .release) {
+            result.append("-whole-module-optimization")
+            result.append("-num-threads")
+            result.append(String(ProcessInfo.processInfo.activeProcessorCount))
+        } else {
+            result.append("-incremental")
+        }
 
         result.append("-c")
         for source in target.sources.paths {
