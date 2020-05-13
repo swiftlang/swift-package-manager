@@ -693,7 +693,7 @@ public final class SwiftTargetBuildDescription {
             result.append("-parse-as-library")
         }
 
-        if (buildParameters.configuration == .release) {
+        if buildParameters.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
             result.append("-num-threads")
             result.append(String(ProcessInfo.processInfo.activeProcessorCount))
@@ -821,11 +821,16 @@ public final class SwiftTargetBuildDescription {
         stream <<< "{\n"
 
         let masterDepsPath = tempsPath.appending(component: "master.swiftdeps")
+        stream <<< "  \"\": {\n"
+        if buildParameters.useWholeModuleOptimization {
+            let moduleName = target.c99name
+            stream <<< "    \"dependencies\": \"" <<< tempsPath.appending(component: moduleName + ".d") <<< "\",\n"
+            // FIXME: Need to record this deps file for processing it later.
+            stream <<< "    \"object\": \"" <<< tempsPath.appending(component: moduleName + ".o") <<< "\",\n"
+        }
+        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n"
 
-        stream <<< "  \"\": {\n";
-        // FIXME: Handle WMO
-        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n";
-        stream <<< "  },\n";
+        stream <<< "  },\n"
 
         // Write out the entries for each source file.
         let sources = target.sources.paths
@@ -834,19 +839,22 @@ public final class SwiftTargetBuildDescription {
             let objectDir = object.parentDirectory
 
             let sourceFileName = source.basenameWithoutExt
-            let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
             stream <<< "  \"" <<< source.pathString <<< "\": {\n"
-            // FIXME: Handle WMO
-            let depsPath = objectDir.appending(component: sourceFileName + ".d")
-            stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
-            // FIXME: Need to record this deps file for processing it later.
+
+            if (!buildParameters.useWholeModuleOptimization) {
+                let depsPath = objectDir.appending(component: sourceFileName + ".d")
+                stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
+                // FIXME: Need to record this deps file for processing it later.
+            }
 
             stream <<< "    \"object\": \"" <<< object.pathString <<< "\",\n"
-            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n";
-            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n";
+
+            let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
+            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n"
+            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n"
             stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
         }
 
