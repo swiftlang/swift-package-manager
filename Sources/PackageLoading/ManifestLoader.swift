@@ -489,7 +489,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         /// For e.g., we could have failed to spawn the process or create temporary file.
         var errorOutput: String? {
             didSet {
-                assert(parsedManifest == nil && compilerOutput == nil)
+                assert(parsedManifest == nil)
             }
         }
     }
