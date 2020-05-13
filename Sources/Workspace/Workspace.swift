@@ -730,7 +730,8 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil
     ) -> PackageGraph {
 
         // Perform dependency resolution, if required.
@@ -758,6 +759,7 @@ extension Workspace {
             requiredDependencies: manifests.computePackageURLs().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             remoteArtifacts: remoteArtifacts,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
