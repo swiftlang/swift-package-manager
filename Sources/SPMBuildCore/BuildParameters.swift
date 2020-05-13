@@ -258,3 +258,17 @@ private struct _Toolchain: Encodable {
         try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
     }
 }
+
+extension BuildParameters {
+    /// Whether to build Swift code with whole module optimization (WMO)
+    /// enabled.
+    public var useWholeModuleOptimization: Bool {
+        switch configuration {
+        case .debug:
+            return false
+
+        case .release:
+            return true
+        }
+    }
+}
