@@ -385,4 +385,25 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testNonZeroExitStatusDoesNotAssert() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            #if canImport(Glibc)
+            import Glibc
+            #elseif os(Windows)
+            import MSVCRT
+            import WinSDK
+            #else
+            import Darwin.C
+            #endif
+
+            print("crash")
+            exit(1)
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            XCTAssertTrue(error is ManifestParseError, "unexpected error: \(error)")
+        }
+    }
 }
