@@ -238,7 +238,7 @@ public extension FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
-        fatalError("This file system currently doesn't support this method")
+        throw FileSystemError.unsupported
     }
 }
 
@@ -578,7 +578,7 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        fatalError("Unsupported")
+        throw FileSystemError.unsupported
     }
 
     public var homeDirectory: AbsolutePath {
@@ -812,7 +812,7 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        fatalError("Unsupported")
+        throw FileSystemError.unsupported
     }
 
     public var homeDirectory: AbsolutePath {
