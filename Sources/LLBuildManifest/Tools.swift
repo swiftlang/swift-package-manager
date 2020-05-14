@@ -167,14 +167,14 @@ public struct ArchiveTool: ToolProtocol {
 }
 
 /// Swift frontend tool, which maps down to a shell tool.
-struct SwiftFrontendTool: ToolProtocol {
-    static let name: String = "shell"
+public struct SwiftFrontendTool: ToolProtocol {
+    public static let name: String = "shell"
 
-    let moduleName: String
-    var description: String
-    var inputs: [Node]
-    var outputs: [Node]
-    var args: [String]
+    public let moduleName: String
+    public var description: String
+    public var inputs: [Node]
+    public var outputs: [Node]
+    public var args: [String]
 
     init(
         moduleName: String,

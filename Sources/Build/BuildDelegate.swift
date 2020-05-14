@@ -177,6 +177,9 @@ public struct BuildDescription: Codable {
     /// The Swift compiler invocation targets.
     let swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool]
 
+    /// The Swift compiler frontend invocation targets.
+    let swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool]
+
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
 
@@ -189,10 +192,12 @@ public struct BuildDescription: Codable {
     public init(
         plan: BuildPlan,
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
+        swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
     ) {
         self.swiftCommands = swiftCommands
+        self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
 
@@ -346,9 +351,15 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
-        self.swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
+
+        let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
         } ?? [:]
+        let swiftFrontendParsers = bctx.buildDescription?.swiftFrontendCommands.mapValues { tool in
+            SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
+        } ?? [:]
+        self.swiftParsers = swiftParsers.merging(swiftFrontendParsers) { (_, _) in fatalError("duplicated Swift command")
+        }
     }
 
     public var fs: SPMLLBuild.FileSystem? {
