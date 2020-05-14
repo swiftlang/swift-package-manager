@@ -207,15 +207,18 @@ extension LLBuildManifestBuilder {
             for job in jobs {
                 // Figure out which tool we are using.
                 // FIXME: This feels like a hack.
-                var datool: String
+                let datool: String
+                let isSwiftFrontend: Bool
                 switch job.kind {
                 case .compile, .mergeModule, .emitModule, .generatePCH,
                     .generatePCM, .interpret, .repl, .printTargetInfo,
                     .versionRequest:
                     datool = buildParameters.toolchain.swiftCompiler.pathString
+                    isSwiftFrontend = true
 
                 case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
                     datool = try resolver.resolve(.path(job.tool))
+                    isSwiftFrontend = false
                 }
 
                 let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
@@ -274,13 +277,24 @@ extension LLBuildManifestBuilder {
                     description = "Swift help"
                 }
 
-                manifest.addShellCmd(
-                    name: jobOutputs.first!.name,
-                    description: description,
-                    inputs: inputs + jobInputs,
-                    outputs: jobOutputs,
-                    args: arguments
-                )
+                if isSwiftFrontend {
+                    manifest.addSwiftFrontendCmd(
+                        name: jobOutputs.first!.name,
+                        moduleName: moduleName,
+                        description: description,
+                        inputs: inputs + jobInputs,
+                        outputs: jobOutputs,
+                        args: arguments
+                    )
+                } else {
+                    manifest.addShellCmd(
+                        name: jobOutputs.first!.name,
+                        description: description,
+                        inputs: inputs + jobInputs,
+                        outputs: jobOutputs,
+                        args: arguments
+                    )
+                }
              }
          } catch {
              fatalError("\(error)")
