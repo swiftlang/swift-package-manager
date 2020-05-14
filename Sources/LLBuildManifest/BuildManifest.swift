@@ -108,6 +108,24 @@ public struct BuildManifest {
         commands[name] = Command(name: name, tool: tool)
     }
 
+    public mutating func addSwiftFrontendCmd(
+        name: String,
+        moduleName: String,
+        description: String,
+        inputs: [Node],
+        outputs: [Node],
+        args: [String]
+    ) {
+        let tool = SwiftFrontendTool(
+                moduleName: moduleName,
+                description: description,
+                inputs: inputs,
+                outputs: outputs,
+                args: args
+        )
+        commands[name] = Command(name: name, tool: tool)
+    }
+
     public mutating func addClangCmd(
         name: String,
         description: String,

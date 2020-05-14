@@ -192,8 +192,6 @@ public struct BuildDescription: Codable {
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
     ) {
-        let buildConfig = plan.buildParameters.configuration.dirname
-
         self.swiftCommands = swiftCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
