@@ -232,7 +232,7 @@ extension LLBuildManifestBuilder {
                 let description: String
                 switch job.kind {
                 case .compile:
-                    description = "Compiling \(moduleName) \(job.displayInputs.first!.file.name)"
+                    description = "Compiling \(moduleName) \(job.displayInputs.first?.file.name ?? "")"
 
                 case .mergeModule:
                     description = "Merging module \(moduleName)"
