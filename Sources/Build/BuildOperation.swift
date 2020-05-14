@@ -235,12 +235,14 @@ extension BuildDescription {
         let llbuild = LLBuildManifestBuilder(plan)
         try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
+        let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let testDiscoveryCommands = llbuild.manifest.getCmdToolMap(kind: TestDiscoveryTool.self)
         let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
 
         // Create the build description.
         let buildDescription = BuildDescription(
             plan: plan,
+            swiftCommands: swiftCommands,
             testDiscoveryCommands: testDiscoveryCommands,
             copyCommands: copyCommands
         )

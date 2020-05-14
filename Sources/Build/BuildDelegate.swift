@@ -174,8 +174,8 @@ public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
 
-    /// The map of command to target names for Swift targets.
-    let swiftTargetMap: [CommandName: TargetName]
+    /// The Swift compiler invocation targets.
+    let swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool]
 
     /// The map of test discovery commands.
     let testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool]
@@ -188,16 +188,13 @@ public struct BuildDescription: Codable {
 
     public init(
         plan: BuildPlan,
+        swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
     ) {
         let buildConfig = plan.buildParameters.configuration.dirname
 
-        swiftTargetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.values.compactMap{
-            guard case .swift(let desc) = $0 else { return nil }
-            return (desc.target.getCommandName(config: buildConfig), desc.target.name)
-        })
-
+        self.swiftCommands = swiftCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
 
@@ -351,8 +348,8 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
-        self.swiftParsers = bctx.buildDescription?.swiftTargetMap.mapValues {
-            SwiftCompilerOutputParser(targetName: $0, delegate: self)
+        self.swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
+            SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
         } ?? [:]
     }
 
