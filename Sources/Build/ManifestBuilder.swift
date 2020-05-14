@@ -17,7 +17,7 @@ import PackageModel
 import PackageGraph
 import SPMBuildCore
 
-import SwiftDriver
+@_implementationOnly import SwiftDriver
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -200,9 +200,9 @@ extension LLBuildManifestBuilder {
         do {
             // Use the integrated Swift driver to compute the set of frontend
             // jobs needed to build this Swift target.
-            var driver = try Driver(args: target.emitCommandLine())
+            var driver = try Driver(args: target.emitCommandLine(), fileSystem: target.fs)
             let jobs = try driver.planBuild()
-            let resolver = try ArgsResolver()
+            let resolver = try ArgsResolver(fileSystem: target.fs)
 
             for job in jobs {
                 // Figure out which tool we are using.

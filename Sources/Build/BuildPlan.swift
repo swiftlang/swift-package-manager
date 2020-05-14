@@ -863,8 +863,8 @@ public final class SwiftTargetBuildDescription {
 
         stream <<< "}\n"
 
-        try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+        try fs.createDirectory(path.parentDirectory, recursive: true)
+        try fs.writeFileContents(path, bytes: stream.bytes)
         return path
     }
 
