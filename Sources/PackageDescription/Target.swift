@@ -545,9 +545,11 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - url: The URL to the binary artifact. It needs to point to a ZIP archive
-    ///       that contains an XCFramework in its root directory.
-    ///   - checksum: The checksum of the ZIP file that contains the XCFramework.
+    ///   - url: The URL to the binary artifact. This URL must point to an archive file
+    ///       that contains a binary artifact in its root directory.
+    ///   - checksum: The checksum of the archive file that contains the binary artifact.
+    ///
+    /// Binary targets are only available on Apple platforms.
     @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
@@ -573,7 +575,10 @@ public final class Target {
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - path: The path to the binary artifact. It can point directly to an XCFramework or a ZIP file that contains the XCFramework at its root.
+    ///   - path: The path to the binary artifact. This path can point directly to a binary artifact
+    ///       or to an archive file that contains the binary artifact at its root.
+    ///
+    /// Binary targets are only available on Apple platforms.
     @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
@@ -673,11 +678,12 @@ extension Target.Dependency {
       #endif
     }
 
-    /// Creates a by-name dependency that resolves to either a target or a product but
-    /// after the package graph has been loaded.
+    /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
     /// - parameters:
     ///   - name: The name of the dependency, either a target or a product.
+    ///
+    /// The Swift package manager creates the by-name dependency after it has loaded the package graph.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4

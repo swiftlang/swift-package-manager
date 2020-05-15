@@ -402,7 +402,7 @@ public final class Package {
 
 /// A wrapper around an IETF language tag.
 ///
-/// To learn more about the IETF worldwide standard for language tags see [RFC5646](https://tools.ietf.org/html/rfc5646).
+/// To learn more about the IETF worldwide standard for language tags, see [RFC5646](https://tools.ietf.org/html/rfc5646).
 public struct LanguageTag: Hashable {
 
     /// An IETF language tag.
