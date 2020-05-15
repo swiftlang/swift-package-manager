@@ -103,29 +103,4 @@ final class RunToolTests: XCTestCase {
             }
         }
     }
-
-    // Test that thread sanitizer works.
-    func testSanitizeThread() throws {
-        // FIXME: We need to figure out how to test this for linux.
-      #if os(macOS)
-        fixture(name: "Miscellaneous/ThreadRace") { path in
-            // Ensure that we don't abort() when we find the race. This avoids
-            // generating the crash report on macOS.
-            let env = ["TSAN_OPTIONS": "abort_on_error=0"]
-            let cmdline = {
-                try SwiftPMProduct.SwiftRun.execute(
-                    ["--sanitize=thread"], packagePath: path, env: env)
-            }
-            XCTAssertThrows(try cmdline()) { (error: SwiftPMProductError) in
-                switch error {
-                case .executionFailure(_, _, let error):
-                    XCTAssertMatch(error, .contains("ThreadSanitizer: data race"))
-                    return true
-                default:
-                    return false
-                }
-            }
-        }
-      #endif
-    }
 }

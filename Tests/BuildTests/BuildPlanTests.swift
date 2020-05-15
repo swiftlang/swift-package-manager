@@ -2342,6 +2342,73 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
     }
+
+    func testAddressSanitizer() throws {
+        try sanitizerTest(.address, expectedName: "address")
+    }
+
+    func testThreadSanitizer() throws {
+        try sanitizerTest(.thread, expectedName: "thread")
+    }
+
+    func testUndefinedSanitizer() throws {
+        try sanitizerTest(.undefined, expectedName: "undefined")
+    }
+
+    func testScudoSanitizer() throws {
+        try sanitizerTest(.scudo, expectedName: "scudo")
+    }
+
+    private func sanitizerTest(_ sanitizer: Sanitizer, expectedName: String) throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift",
+            "/Pkg/Sources/clib/clib.c",
+            "/Pkg/Sources/clib/include/clib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    packageKind: .root,
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "clib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        // Unrealistic: we can't enable all of these at once on all platforms.
+        // This test codifies current behaviour, not ideal behaviour, and
+        // may need to be amended if we change it.
+        var parameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
+        parameters.sanitizers = EnabledSanitizers([sanitizer])
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: parameters,
+            graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        )
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(3)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertTrue(exe.contains("-sanitize=\(expectedName)"))
+
+        let lib = try result.target(for: "lib").swiftTarget().compileArguments()
+        XCTAssertTrue(lib.contains("-sanitize=\(expectedName)"))
+
+        let clib  = try result.target(for: "clib").clangTarget().basicArguments()
+        XCTAssertTrue(clib.contains("-fsanitize=\(expectedName)"))
+
+        XCTAssertTrue(try result.buildProduct(for: "exe").linkArguments().contains("-sanitize=\(expectedName)"))
+    }
 }
 
 // MARK:- Test Helpers
