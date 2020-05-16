@@ -282,7 +282,7 @@ extension LLBuildManifestBuilder {
                         name: jobOutputs.first!.name,
                         moduleName: moduleName,
                         description: description,
-                        inputs: inputs + jobInputs,
+                        inputs: (inputs + jobInputs).uniqued(),
                         outputs: jobOutputs,
                         args: arguments
                     )
@@ -290,7 +290,7 @@ extension LLBuildManifestBuilder {
                     manifest.addShellCmd(
                         name: jobOutputs.first!.name,
                         description: description,
-                        inputs: inputs + jobInputs,
+                        inputs: (inputs + jobInputs).uniqued(),
                         outputs: jobOutputs,
                         args: arguments
                     )
@@ -724,5 +724,13 @@ extension TypedVirtualPath {
         case .standardInput, .standardOutput:
             fatalError("Cannot handle standard input or output")
         }
+    }
+}
+
+extension Sequence where Element: Hashable {
+    /// Unique the elements in a sequence.
+    func uniqued() -> [Element] {
+        var seen: Set<Element> = []
+        return filter { seen.insert($0).inserted }
     }
 }
