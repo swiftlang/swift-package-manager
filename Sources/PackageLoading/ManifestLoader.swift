@@ -445,7 +445,34 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let key = ManifestLoadRule.RuleKey(
                 packageIdentity: packageIdentity,
                 pathOrContents: pathOrContents, toolsVersion: toolsVersion)
-            result = try getEngine().build(key: key)
+            // Mitigation:  There are reports of occasional failures to start the engine that are
+            // suspected to be due to race conditions (https://bugs.swift.org/browse/SR-12825).
+            // If that happens, we emit a warning and try again. If the second attempt fails, we
+            // throw the error.
+            let llbEngine: LLBuildEngine
+            do {
+                llbEngine = try getEngine()
+            }
+            catch {
+                // Collect some information about the directory and database file state and emit a warning.
+                var directoryDesc: String = "-"
+                if let directoryInfo = try? localFileSystem.getFileInfo(cacheDir) {
+                    directoryDesc = "permissions=0\(String(directoryInfo.posixPermissions, radix: 8))"
+                    if let directoryEntries = try? localFileSystem.getDirectoryContents(cacheDir) {
+                        directoryDesc += ", entries=\(directoryEntries.joined(separator: ","))"
+                    }
+                }
+                var dbFileDesc: String = "-"
+                if let dbFileInfo = try? localFileSystem.getFileInfo(cacheDir.appending(component: "manifest.db")) {
+                    dbFileDesc = "permissions=0\(String(dbFileInfo.posixPermissions, radix: 8)), size=\(dbFileInfo.size)"
+                }
+                let warningMessage = "Debug information for https://bugs.swift.org/browse/SR-12825: getEngine() returned error '\(error)'; directory:{\(directoryDesc)}, database:{\(dbFileDesc)}"
+                diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: warningMessage, diagnosticFile: nil)))
+            
+                // Try one more time.  If this doesn't work, the error is thrown again.
+                llbEngine = try getEngine()
+            }
+            result = try llbEngine.build(key: key)
         }
 
         // Throw now if we weren't able to parse the manifest.
