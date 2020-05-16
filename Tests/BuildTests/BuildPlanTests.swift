@@ -232,8 +232,6 @@ final class BuildPlanTests: XCTestCase {
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
-                      "C.exe-release.module":
-                        tool: swift-compiler
                         inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
                     """))
             }
@@ -260,8 +258,6 @@ final class BuildPlanTests: XCTestCase {
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
-                      "C.exe-debug.module":
-                        tool: swift-compiler
                         inputs: ["/Pkg/Sources/exe/main.swift"]
                     """))
             }
@@ -1895,7 +1891,7 @@ final class BuildPlanTests: XCTestCase {
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("""
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
-                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/swiftlib.swiftmodule"]
+                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
                 """), contents)
         }
     }
@@ -2136,7 +2132,8 @@ final class BuildPlanTests: XCTestCase {
                     outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
                     description: "Wrapping AST for exe for debugging"
                     args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
-
+                """))
+            XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/lib.build/lib.swiftmodule.o":
                     tool: shell
                     inputs: ["/path/to/build/debug/lib.swiftmodule"]
