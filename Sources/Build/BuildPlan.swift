@@ -672,6 +672,50 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
+    public func emitCommandLine() -> [String] {
+        var result: [String] = []
+        result.append(buildParameters.toolchain.swiftCompiler.pathString)
+
+        result.append("-module-name")
+        result.append(target.c99name)
+
+        result.append("-emit-dependencies")
+
+        // FIXME: Do we always have a module?
+        result.append("-emit-module")
+        result.append("-emit-module-path")
+        result.append(moduleOutputPath.pathString)
+
+        result.append("-output-file-map")
+        // FIXME: Eliminate side effect.
+        result.append(try! writeOutputFileMap().pathString)
+
+        switch target.type {
+        case .library, .test:
+            result.append("-parse-as-library")
+
+        case .executable, .systemModule, .binary:
+            do { }
+        }
+
+        if buildParameters.useWholeModuleOptimization {
+            result.append("-whole-module-optimization")
+            result.append("-num-threads")
+            result.append(String(ProcessInfo.processInfo.activeProcessorCount))
+        } else {
+            result.append("-incremental")
+        }
+
+        result.append("-c")
+        result.append(contentsOf: target.sources.paths.map { $0.pathString })
+
+        result.append("-I")
+        result.append(buildParameters.buildPath.pathString)
+
+        result += compileArguments()
+        return result
+     }
+
     /// Command-line for emitting just the Swift module.
     public func emitModuleCommandLine() -> [String] {
         assert(buildParameters.emitSwiftModuleSeparately)
@@ -780,11 +824,16 @@ public final class SwiftTargetBuildDescription {
         stream <<< "{\n"
 
         let masterDepsPath = tempsPath.appending(component: "master.swiftdeps")
+        stream <<< "  \"\": {\n"
+        if buildParameters.useWholeModuleOptimization {
+            let moduleName = target.c99name
+            stream <<< "    \"dependencies\": \"" <<< tempsPath.appending(component: moduleName + ".d") <<< "\",\n"
+            // FIXME: Need to record this deps file for processing it later.
+            stream <<< "    \"object\": \"" <<< tempsPath.appending(component: moduleName + ".o") <<< "\",\n"
+        }
+        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n"
 
-        stream <<< "  \"\": {\n";
-        // FIXME: Handle WMO
-        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n";
-        stream <<< "  },\n";
+        stream <<< "  },\n"
 
         // Write out the entries for each source file.
         let sources = target.sources.paths
@@ -793,26 +842,29 @@ public final class SwiftTargetBuildDescription {
             let objectDir = object.parentDirectory
 
             let sourceFileName = source.basenameWithoutExt
-            let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
             stream <<< "  \"" <<< source.pathString <<< "\": {\n"
-            // FIXME: Handle WMO
-            let depsPath = objectDir.appending(component: sourceFileName + ".d")
-            stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
-            // FIXME: Need to record this deps file for processing it later.
+
+            if (!buildParameters.useWholeModuleOptimization) {
+                let depsPath = objectDir.appending(component: sourceFileName + ".d")
+                stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
+                // FIXME: Need to record this deps file for processing it later.
+            }
 
             stream <<< "    \"object\": \"" <<< object.pathString <<< "\",\n"
-            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n";
-            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n";
+
+            let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
+            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n"
+            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n"
             stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
         }
 
         stream <<< "}\n"
 
-        try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+        try fs.createDirectory(path.parentDirectory, recursive: true)
+        try fs.writeFileContents(path, bytes: stream.bytes)
         return path
     }
 
@@ -1207,7 +1259,7 @@ public class BuildPlan {
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph
     ) throws -> [(ResolvedProduct, SwiftTargetBuildDescription)] {
-        guard buildParameters.triple.isLinux() else {
+        guard !buildParameters.triple.isDarwin() else {
             return []
         }
 
@@ -1532,7 +1584,7 @@ public class BuildPlan {
             }
         }
 
-        if buildParameters.triple.isLinux() {
+        if !buildParameters.triple.isDarwin() {
             if product.type == .test {
                 linuxMainMap[product].map{ staticTargets.append($0) }
             }

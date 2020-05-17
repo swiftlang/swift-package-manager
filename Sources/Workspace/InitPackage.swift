@@ -174,7 +174,7 @@ public final class InitPackage {
             if packageType == .library || packageType == .manifest {
                 pkgParams.append("""
                     products: [
-                        // Products define the executables and libraries produced by a package, and make them visible to other packages.
+                        // Products define the executables and libraries a package produces, and make them visible to other packages.
                         .library(
                             name: "\(pkgname)",
                             targets: ["\(pkgname)"]),
@@ -193,7 +193,7 @@ public final class InitPackage {
                 pkgParams.append("""
                     targets: [
                         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-                        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
+                        // Targets can depend on other targets in this package, and on products in packages this package depends on.
                         .target(
                             name: "\(pkgname)",
                             dependencies: []),

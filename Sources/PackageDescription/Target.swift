@@ -48,19 +48,22 @@ public final class Target {
 
     /// The path of the target, relative to the package root.
     ///
-    /// If the path is `nil`, the Swift Package Manager looks for a targets source files at predefined search paths
+    /// If the path is `nil`, the Swift Package Manager looks for a target's source files at predefined search paths
     /// and in a subdirectory with the target's name.
     ///
     /// The predefined search paths are the following directories under the package root:
-    ///   - For regular targets: `Sources`, `Source`, `src`, and `srcs`
-    ///   - For test targets: `Tests`, `Sources`, `Source`, `src`, `srcs`
+    ///   - `Sources`, `Source`, `src`, and `srcs` for regular targets
+    ///   - `Tests`, `Sources`, `Source`, `src`, and `srcs` for test targets
     ///
-    /// For example, the Swift Package Manager will look for source files inside the `[PackageRoot]/Sources/[TargetName]` directory.
+    /// For example, the Swift Package Manager looks for source files inside the `[PackageRoot]/Sources/[TargetName]` directory.
     ///
-    /// Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    /// Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
     public var path: String?
 
-    /// The url of the binary target.
+    /// The URL of a binary target.
+    ///
+    /// The URL points to a ZIP file that contains an XCFramework at its root.
+    /// Binary targets are only available on Apple Platforms.
     public var url: String? {
         get { _url }
         set { _url = newValue }
@@ -69,7 +72,7 @@ public final class Target {
 
     /// The source files in this target.
     ///
-    /// If this property is `nil`, all valid source files in the target's path will be included and specified paths are relative to the target path.
+    /// If this property is `nil`, the Swift Package Manager includes all valid source files in the target's path and treats specified paths as relative to the target’s path.
     ///
     /// A path can be a path to a directory or an individual source file. In case of a directory, the Swift Package Manager searches for valid source files
     /// recursively inside it.
@@ -83,10 +86,10 @@ public final class Target {
     }
     private var _resources: [Resource]?
 
-    /// The paths you want to exclude from source inference.
+    /// The paths to source and resource files you don’t want to include in the target.
     ///
     /// Excluded paths are relative to the target path.
-    /// This property has precedence over the `sources` property.
+    /// This property has precedence over the `sources` and `resources` properties.
     public var exclude: [String]
 
     /// A boolean value that indicates if this is a test target.
@@ -99,7 +102,7 @@ public final class Target {
 
     /// The path to the directory containing public headers of a C-family target.
     ///
-    /// If this is `nil`, the directory will be set to `include`.
+    /// If this is `nil`, the directory is set to `include`.
     public var publicHeadersPath: String?
 
     /// The type of the target.
@@ -147,7 +150,7 @@ public final class Target {
     }
     private var _linkerSettings: [LinkerSetting]?
 
-    /// The binary target's checksum.
+    /// The checksum for the ZIP file that contains the referenced XCFramework.
     @available(_PackageDescription, introduced: 5.3)
     public var checksum: String? {
         get { _checksum }
@@ -230,25 +233,26 @@ public final class Target {
         }
     }
 
-    /// Create a library or executable target.
+    /// Creates a library or executable target.
     ///
-    /// A target can either contain Swift or C-family source files and you can't
-    /// mix Swift and C-family source files within a target. A target is
-    /// considered to be an executable target if there is a `main.swift`,
-    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. All
-    /// other targets are considered to be library targets.
+    /// A target can either contain Swift or C-family source files. You can't
+    /// mix Swift and C-family source files within a target. The Swift Package Manager
+    /// considers a target to be an executable target if there's a `main.swift`,
+    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. It considers
+    /// all other targets to be library targets.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager expects a target's sources to reside at predefined search paths,
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       This path is relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
-    ///   - publicHeadersPath: The path to the directory containing public headers of a C-family target.
+    ///   - sources: An explicit list of source files. In case you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
+    ///   - publicHeadersPath: The directory containing public headers of a C-family family library target.
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
     public static func target(
         name: String,
@@ -269,24 +273,25 @@ public final class Target {
         )
     }
 
-    /// Create a library or executable target.
+    /// Creates a library or executable target.
     ///
     /// A target can either contain Swift or C-family source files. You can't
-    /// mix Swift and C-family source files within a target. A target is
-    /// considered to be an executable target if there is a `main.swift`,
-    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. All
-    /// other targets are considered to be library targets.
+    /// mix Swift and C-family source files within a target. The Swift Package Manager
+    /// considers a target to be an executable target if there's a `main.swift`,
+    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. It considers
+    /// all other targets to be library targets.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid..
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager expects a target's sources to reside at predefined search paths,
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       This path is relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
+    ///   - sources: An explicit list of source files. In case you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
     ///   - publicHeadersPath: The directory containing public headers of a C-family family library target.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
@@ -320,24 +325,25 @@ public final class Target {
         )
     }
 
-    /// Create a library or executable target.
+    /// Creates a library or executable target.
     ///
     /// A target can either contain Swift or C-family source files. You can't
-    /// mix Swift and C-family source files within a target. A target is
-    /// considered to be an executable target if there is a `main.swift`,
-    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. All
-    /// other targets are considered to be library targets.
+    /// mix Swift and C-family source files within a target. The Swift Package Manager
+    /// considers a target to be an executable target if there's a `main.swift`,
+    /// `main.m`, `main.c`, or `main.cpp` file in the target's directory. It considers
+    /// all other targets to be library targets.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid..
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager expects a target's sources to reside at predefined search paths,
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       This path is relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
+    ///   - sources: An explicit list of source files. In case you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
     ///   - publicHeadersPath: The directory containing public headers of a C-family family library target.
     ///   - cSettings: The C settings for this target.
@@ -374,7 +380,7 @@ public final class Target {
         )
     }
 
-    /// Create a test target.
+    /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
     /// Test targets generally declare a dependency on the targets they test.
@@ -382,13 +388,14 @@ public final class Target {
     /// - Parameters:
     ///   - name: The name of the target.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager expects a target's sources to reside at predefined search paths,
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       This path is relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
+    ///   - sources: An explicit list of source files. In case you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
     public static func testTarget(
         name: String,
@@ -408,7 +415,7 @@ public final class Target {
         )
     }
 
-    /// Create a test target.
+    /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
     /// Test targets generally declare a dependency on the targets they test.
@@ -416,13 +423,14 @@ public final class Target {
     /// - Parameters:
     ///   - name: The name of the target.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager expects a target's sources to reside at predefined search paths,
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       This path is relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
+    ///   - sources: An explicit list of source files. In case you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
@@ -454,7 +462,7 @@ public final class Target {
         )
     }
 
-    /// Create a test target.
+    /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
     /// Test targets generally declare a dependency on the targets they test.
@@ -462,13 +470,14 @@ public final class Target {
     /// - Parameters:
     ///   - name: The name of the target.
     ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
-    ///   - path: The custom path for the target. By default, a targets sources are expected to be located in the predefined search paths,
-    ///       such as `[PackageRoot]/Sources/[TargetName]`.
-    ///       Do not escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
-    ///   - exclude: A list of paths to files or directories that should not be considered source files. This path is relative to the target's directory.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager expects a target's sources to reside at predefined search paths,
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       This path is relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
-    ///   - sources: An explicit list of source files. In case of a directory, the Swift Package Manager searches for valid source files
-    ///       recursively.
+    ///   - sources: An explicit list of source files. In case you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
@@ -504,7 +513,7 @@ public final class Target {
     }
 
   #if !PACKAGE_DESCRIPTION_4
-    /// Create a system library target.
+    /// Creates a system library target.
     ///
     /// Use system library targets to adapt a library installed on the system to work with Swift packages.
     /// Such libraries are generally installed by system package managers (such as Homebrew and apt-get)
@@ -535,15 +544,16 @@ public final class Target {
             providers: providers)
     }
 
-    /// Create a binary target referencing a remote artifact.
+    /// Creates a binary target that references a remote artifact.
     ///
     /// A binary target provides the url to a pre-built binary artifact for the target. Currently only supports
     /// artifacts for Apple platforms.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - url: The URL to the binary artifact. Should point to a `zip` archive containing a `XCFramework`.
-    ///   - checksum: The checksum of the artifact archive for validation.
+    ///   - url: The URL to the binary artifact. It needs to point to a ZIP archive
+    ///       that contains an XCFramework in its root directory.
+    ///   - checksum: The checksum of the ZIP file that contains the XCFramework.
     @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
@@ -562,15 +572,14 @@ public final class Target {
             checksum: checksum)
     }
 
-    /// Create a binary target referencing an artifact on disk.
+    /// Creates a binary target that references an artifact on disk.
     ///
-    /// A binary target provides the path to a pre-built binary artifact for the target. Currently only supports
-    /// artifacts for Apple platforms.
+    /// A binary target provides the path to a pre-built binary artifact for the target.
+    /// The Swift Package Manager only supports binary targets for Apple platforms.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
-    ///   - path: The path to the binary artifact. Can point directly to a `XCFramework` or a zip containing the
-    ///       `XCFramework`.
+    ///   - path: The path to the binary artifact. It can point directly to an XCFramework or a ZIP file that contains the XCFramework at its root.
     @available(_PackageDescription, introduced: 5.3)
     public static func binaryTarget(
         name: String,
@@ -702,18 +711,20 @@ extension Target.Dependency {
     ///
     /// - parameters:
     ///   - name: The name of the target.
-    ///   - condition: The condition under which the dependency is exercised.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
     @available(_PackageDescription, introduced: 5.3)
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return ._targetItem(name: name, condition: condition)
     }
 
-    /// Creates a dependency on a product from a package dependency.
+    /// Creates a target dependency on a product from a package dependency.
     ///
     /// - parameters:
     ///   - name: The name of the product.
     ///   - package: The name of the package.
-    ///   - condition: The condition under which the dependency is exercised.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
     @available(_PackageDescription, introduced: 5.3)
     public static func product(
         name: String,
@@ -723,12 +734,13 @@ extension Target.Dependency {
         return ._productItem(name: name, package: package, condition: condition)
     }
 
-    /// Creates a by-name dependency that resolves to either a target or a product but
-    /// after the package graph has been loaded.
+    /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
+    /// has loaded the package graph.
     ///
     /// - parameters:
     ///   - name: The name of the dependency, either a target or a product.
-    ///   - condition: The condition under which the dependency is exercised.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
     @available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return ._byNameItem(name: name, condition: condition)
@@ -762,7 +774,7 @@ public struct TargetDependencyCondition: Encodable {
         self.platforms = platforms
     }
 
-    /// Create a target dependency condition.
+    /// Creates a target dependency condition.
     ///
     /// - Parameters:
     ///   - platforms: The applicable platforms for this target dependency condition.

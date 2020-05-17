@@ -166,6 +166,36 @@ public struct ArchiveTool: ToolProtocol {
     }
 }
 
+/// Swift frontend tool, which maps down to a shell tool.
+public struct SwiftFrontendTool: ToolProtocol {
+    public static let name: String = "shell"
+
+    public let moduleName: String
+    public var description: String
+    public var inputs: [Node]
+    public var outputs: [Node]
+    public var args: [String]
+
+    init(
+        moduleName: String,
+        description: String,
+        inputs: [Node],
+        outputs: [Node],
+        args: [String]
+    ) {
+        self.moduleName = moduleName
+        self.description = description
+        self.inputs = inputs
+        self.outputs = outputs
+        self.args = args
+    }
+
+    public func write(to stream: ManifestToolStream) {
+      ShellTool(description: description, inputs: inputs, outputs: outputs, args: args)
+        .write(to: stream)
+    }
+}
+
 /// Swift compiler llbuild tool.
 public struct SwiftCompilerTool: ToolProtocol {
     public static let name: String = "swift-compiler"

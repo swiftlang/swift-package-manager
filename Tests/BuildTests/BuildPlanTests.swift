@@ -232,8 +232,6 @@ final class BuildPlanTests: XCTestCase {
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
-                      "C.exe-release.module":
-                        tool: swift-compiler
                         inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
                     """))
             }
@@ -260,8 +258,6 @@ final class BuildPlanTests: XCTestCase {
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
-                      "C.exe-debug.module":
-                        tool: swift-compiler
                         inputs: ["/Pkg/Sources/exe/main.swift"]
                     """))
             }
@@ -1895,7 +1891,7 @@ final class BuildPlanTests: XCTestCase {
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("""
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
-                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/swiftlib.swiftmodule"]
+                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
                 """), contents)
         }
     }
@@ -2136,7 +2132,8 @@ final class BuildPlanTests: XCTestCase {
                     outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
                     description: "Wrapping AST for exe for debugging"
                     args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
-
+                """))
+            XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/lib.build/lib.swiftmodule.o":
                     tool: shell
                     inputs: ["/path/to/build/debug/lib.swiftmodule"]
@@ -2350,6 +2347,73 @@ final class BuildPlanTests: XCTestCase {
         
         let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
+    }
+
+    func testAddressSanitizer() throws {
+        try sanitizerTest(.address, expectedName: "address")
+    }
+
+    func testThreadSanitizer() throws {
+        try sanitizerTest(.thread, expectedName: "thread")
+    }
+
+    func testUndefinedSanitizer() throws {
+        try sanitizerTest(.undefined, expectedName: "undefined")
+    }
+
+    func testScudoSanitizer() throws {
+        try sanitizerTest(.scudo, expectedName: "scudo")
+    }
+
+    private func sanitizerTest(_ sanitizer: Sanitizer, expectedName: String) throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift",
+            "/Pkg/Sources/clib/clib.c",
+            "/Pkg/Sources/clib/include/clib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    packageKind: .root,
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "clib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        // Unrealistic: we can't enable all of these at once on all platforms.
+        // This test codifies current behaviour, not ideal behaviour, and
+        // may need to be amended if we change it.
+        var parameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
+        parameters.sanitizers = EnabledSanitizers([sanitizer])
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: parameters,
+            graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        )
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(3)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertTrue(exe.contains("-sanitize=\(expectedName)"))
+
+        let lib = try result.target(for: "lib").swiftTarget().compileArguments()
+        XCTAssertTrue(lib.contains("-sanitize=\(expectedName)"))
+
+        let clib  = try result.target(for: "clib").clangTarget().basicArguments()
+        XCTAssertTrue(clib.contains("-fsanitize=\(expectedName)"))
+
+        XCTAssertTrue(try result.buildProduct(for: "exe").linkArguments().contains("-sanitize=\(expectedName)"))
     }
 }
 

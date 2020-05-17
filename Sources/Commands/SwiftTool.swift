@@ -581,6 +581,7 @@ public class SwiftTool {
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
+                useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode
             )
         })

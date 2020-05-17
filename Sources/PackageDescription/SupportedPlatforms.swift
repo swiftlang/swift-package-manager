@@ -34,15 +34,15 @@ public struct Platform: Encodable {
     /// The Linux platform.
     public static let linux: Platform = Platform(name: "linux")
 
-    /// The Windows platform
+    /// The Windows platform.
     @available(_PackageDescription, introduced: 5.2)
     public static let windows: Platform = Platform(name: "windows")
 
-    /// The Android platform
+    /// The Android platform.
     @available(_PackageDescription, introduced: 5.2)
     public static let android: Platform = Platform(name: "android")
 
-    /// The WASI platform
+    /// The WebAssembly System Interface platform.
     @available(_PackageDescription, introduced: 5.3)
     public static let wasi: Platform = Platform(name: "wasi")
 }
@@ -60,8 +60,8 @@ public struct Platform: Encodable {
 /// provided for supported platforms, such as an empty array, multiple declarations
 /// for the same platform, or an invalid version specification.
 ///
-/// The Swift Package Manager will emit an error if a dependency is not
-/// compatible with the top-level package's deployment version. The deployment
+/// The Swift Package Manager emits an error if a dependency isn’t compatible
+/// with the top-level package’s deployment version. The deployment
 /// target of a package's dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
 public struct SupportedPlatform: Encodable {
@@ -78,7 +78,7 @@ public struct SupportedPlatform: Encodable {
         self.version = version
     }
 
-    /// Configure the minimum deployment target version for the macOS platform.
+    /// Configures the minimum deployment target version for the macOS platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
@@ -87,7 +87,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .macOS, version: version.version)
     }
 
-    /// Configure the minimum deployment target version for the macOS platform
+    /// Configures the minimum deployment target version for the macOS platform
     /// using a version string.
     ///
     /// The version string must be a series of two or three dot-separated integers, such as `10.10` or `10.10.1`.
@@ -99,7 +99,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .macOS, version: SupportedPlatform.MacOSVersion(string: versionString).version)
     }
 
-    /// Configure the minimum deployment target version for the iOS platform.
+    /// Configures the minimum deployment target version for the iOS platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
@@ -108,7 +108,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .iOS, version: version.version)
     }
 
-    /// Configure the minimum deployment target version for the iOS platform
+    /// Configures the minimum deployment target version for the iOS platform
     /// using a custom version string.
     ///
     /// The version string must be a series of two or three dot-separated integers, such as `8.0` or `8.0.1`.
@@ -120,7 +120,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .iOS, version: SupportedPlatform.IOSVersion(string: versionString).version)
     }
 
-    /// Configure the minimum deployment target version for the tvOS platform.
+    /// Configures the minimum deployment target version for the tvOS platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
@@ -129,7 +129,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .tvOS, version: version.version)
     }
 
-    /// Configure the minimum deployment target version for the tvOS platform
+    /// Configures the minimum deployment target version for the tvOS platform
     /// using a custom version string.
     ///
     /// The version string must be a series of two or three dot-separated integers,such as `9.0` or `9.0.1`.
@@ -141,7 +141,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .tvOS, version: SupportedPlatform.TVOSVersion(string: versionString).version)
     }
 
-    /// Configure the minimum deployment target version for the watchOS platform.
+    /// Configures the minimum deployment target version for the watchOS platform.
     ///
     /// - Since: First available in PackageDescription 5.0
     ///
@@ -150,7 +150,7 @@ public struct SupportedPlatform: Encodable {
         return SupportedPlatform(platform: .watchOS, version: version.version)
     }
 
-    /// Configure the minimum deployment target version for the watchOS platform
+    /// Configures the minimum deployment target version for the watchOS platform
     /// using a custom version string.
     ///
     /// The version string must be a series of two or three dot-separated integers, such as `2.0` or `2.0.1`.

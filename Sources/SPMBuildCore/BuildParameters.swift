@@ -85,6 +85,10 @@ public struct BuildParameters: Encodable {
     /// module to finish building.
     public var emitSwiftModuleSeparately: Bool
 
+    /// Whether to use the integrated Swift driver rather than shelling out
+    /// to a separate process.
+    public var useIntegratedSwiftDriver: Bool
+
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
@@ -130,6 +134,7 @@ public struct BuildParameters: Encodable {
         enableParseableModuleInterfaces: Bool = false,
         enableTestDiscovery: Bool = false,
         emitSwiftModuleSeparately: Bool = false,
+        useIntegratedSwiftDriver: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false
     ) {
         self.dataPath = dataPath
@@ -149,6 +154,7 @@ public struct BuildParameters: Encodable {
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
         self.enableTestDiscovery = enableTestDiscovery
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
+        self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
     }
 
@@ -250,5 +256,19 @@ private struct _Toolchain: Encodable {
         try container.encode(toolchain.extraCPPFlags, forKey: .extraCPPFlags)
         try container.encode(toolchain.extraSwiftCFlags, forKey: .extraSwiftCFlags)
         try container.encode(toolchain.swiftCompiler, forKey: .swiftCompiler)
+    }
+}
+
+extension BuildParameters {
+    /// Whether to build Swift code with whole module optimization (WMO)
+    /// enabled.
+    public var useWholeModuleOptimization: Bool {
+        switch configuration {
+        case .debug:
+            return false
+
+        case .release:
+            return true
+        }
     }
 }

@@ -195,7 +195,12 @@ public struct SwiftToolOptions: ParsableArguments {
     /// Emit the Swift module separately from the object files.
     @Flag()
     var emitSwiftModuleSeparately: Bool
-    
+
+    /// Whether to use the integrated Swift driver rather than shelling out
+    /// to a separate process.
+    @Flag()
+    var useIntegratedSwiftDriver: Bool = false
+
     /// The build system to use.
     @Option(default: .native)
     var buildSystem: BuildSystemKind
