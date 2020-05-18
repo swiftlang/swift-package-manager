@@ -203,7 +203,9 @@ def get_swiftc_path(args):
     if os.path.basename(swiftc_path) == 'swift':
         swiftc_path = swiftc_path + 'c'
 
-    return swiftc_path
+    if os.path.exists(swiftc_path):
+        return swiftc_path
+    error("unable to find swiftc at %s" % swiftc_path)
 
 def get_clang_path(args):
     """Returns the path to the Clang compiler."""
