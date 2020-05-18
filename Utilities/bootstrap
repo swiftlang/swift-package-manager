@@ -301,6 +301,11 @@ def test(args):
     # Test SwiftPM.
     call_swiftpm(args, cmd)
 
+    # Test SwiftPM with the integrated driver.
+    integratedDriverCmd = cmd
+    integratedDriverCmd.append("--use-integrated-swift-driver")
+    call_swiftpm(args, integratedDriverCmd)
+
 def install(args):
     """Builds SwiftPM, then installs its build products."""
     build(args)
