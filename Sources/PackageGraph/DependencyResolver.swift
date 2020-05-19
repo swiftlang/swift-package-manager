@@ -239,7 +239,7 @@ public class DependencyResolver {
 ///     - indicate that a particular product in a particular package is required.
 ///     - always have dependencies. A product node has...
 ///         - one implicit dependency on its own package at an exact version (as an empty package node).
-///           This dependency is what ensures the resolve does not select two products from the same package at different versions.
+///           This dependency is what ensures the resolver does not select two products from the same package at different versions.
 ///         - zero or more dependencies on the product nodes of other packages.
 ///           These are all the external products required to build all of the targets vended by this product.
 ///           They derive from the manifest.
