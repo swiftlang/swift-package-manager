@@ -276,7 +276,8 @@ public final class PackageBuilder {
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = [:],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+          = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         diagnostics: DiagnosticsEngine,
         kind: PackageReference.Kind = .root
     ) throws -> Package {
