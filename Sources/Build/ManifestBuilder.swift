@@ -212,7 +212,7 @@ extension LLBuildManifestBuilder {
                 switch job.kind {
                 case .compile, .mergeModule, .emitModule, .generatePCH,
                     .generatePCM, .interpret, .repl, .printTargetInfo,
-                    .versionRequest:
+                    .versionRequest, .backend:
                     datool = buildParameters.toolchain.swiftCompiler.pathString
                     isSwiftFrontend = true
 
@@ -275,6 +275,9 @@ extension LLBuildManifestBuilder {
 
                 case .help:
                     description = "Swift help"
+
+                case .backend:
+                  description = "Embedding bitcode for \(moduleName)"
                 }
 
                 if isSwiftFrontend {
