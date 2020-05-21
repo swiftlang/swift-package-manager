@@ -284,7 +284,7 @@ public final class Target {
     ///       for example, `[PackageRoot]/Sources/[TargetName]`.
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
-    ///       A path is relative to the target's directory.
+    ///       Paths are relative to the target's directory.
     ///       This parameter has precedence over the `sources` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
