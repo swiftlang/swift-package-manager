@@ -200,29 +200,28 @@ extension LLBuildManifestBuilder {
         do {
             // Use the integrated Swift driver to compute the set of frontend
             // jobs needed to build this Swift target.
-            var driver = try Driver(args: target.emitCommandLine(), fileSystem: target.fs)
+            var commandLine = target.emitCommandLine();
+            commandLine.append("-driver-use-frontend-path")
+            commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+            var driver = try Driver(args: commandLine, fileSystem: target.fs)
             let jobs = try driver.planBuild()
             let resolver = try ArgsResolver(fileSystem: target.fs)
 
             for job in jobs {
-                // Figure out which tool we are using.
-                // FIXME: This feels like a hack.
-                let datool: String
+                let tool = try resolver.resolve(.path(job.tool))
                 let isSwiftFrontend: Bool
                 switch job.kind {
                 case .compile, .mergeModule, .emitModule, .generatePCH,
                     .generatePCM, .interpret, .repl, .printTargetInfo,
                     .versionRequest, .backend:
-                    datool = buildParameters.toolchain.swiftCompiler.pathString
                     isSwiftFrontend = true
 
                 case .autolinkExtract, .generateDSYM, .help, .link, .verifyDebugInfo:
-                    datool = try resolver.resolve(.path(job.tool))
                     isSwiftFrontend = false
                 }
 
                 let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
-                let arguments = [datool] + commandLine
+                let arguments = [tool] + commandLine
 
                 let jobInputs = job.inputs.map { $0.resolveToNode() }
                 let jobOutputs = job.outputs.map { $0.resolveToNode() }
