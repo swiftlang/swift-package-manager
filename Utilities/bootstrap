@@ -282,7 +282,7 @@ def build(args):
     build_yams(args)
     build_swift_driver(args)
     build_swiftpm_with_cmake(args)
-    build_swiftpm_with_swiftpm(args)
+    build_swiftpm_with_swiftpm(args,integrated_swift_driver=False)
 
 def test(args):
     """Builds SwiftPM, then tests itself."""
@@ -302,6 +302,19 @@ def test(args):
 
     # Test SwiftPM.
     call_swiftpm(args, cmd)
+
+    # Build SwiftPM with the integrated driver.
+    note("Bootstrap with the integrated Swift driver")
+    build_swiftpm_with_swiftpm(args,integrated_swift_driver=True)
+
+    # Test SwiftPM with the integrated driver. Only the build and
+    # functional tests are interesting.
+    integratedDriverCmd = cmd
+    integratedDriverCmd.append("--use-integrated-swift-driver")
+    if args.filter:
+        integratedDriverCmd.append("--filter")
+        integratedDriverCmd.append("BuildTests;FunctionalTests")
+    call_swiftpm(args, integratedDriverCmd)
 
 def install(args):
     """Builds SwiftPM, then installs its build products."""
@@ -508,16 +521,20 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.swift_driver_build_dir, "lib"))
 
-def build_swiftpm_with_swiftpm(args):
+def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
     note("Building SwiftPM (with swift-build)")
 
-    call_swiftpm(args, [
+    swiftpm_args = [
         "SWIFT_EXEC=" + args.swiftc_path,
         "SWIFTPM_PD_LIBS=" + os.path.join(args.bootstrap_dir, "pm"),
         os.path.join(args.bootstrap_dir, "bin/swift-build"),
         "--disable-sandbox",
-    ])
+    ]
+    if integrated_swift_driver:
+        swiftpm_args.append("--use-integrated-swift-driver")
+
+    call_swiftpm(args, swiftpm_args)
 
     # Setup symlinks that'll allow using swiftpm from the build directory.
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swiftc"))
