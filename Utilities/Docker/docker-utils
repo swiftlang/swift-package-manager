@@ -31,6 +31,8 @@ def docker_run(command_args):
     """Runs a command in the container."""
     swiftpm_dir = os.path.normpath(os.path.join(script_dir, '../..'))
     llbuild_dir = os.path.normpath(os.path.join(swiftpm_dir, '../llbuild'))
+    swift_driver_dir = os.path.normpath(os.path.join(swiftpm_dir, '../swift-driver'))
+    yams_dir = os.path.normpath(os.path.join(swiftpm_dir, '../yams'))
     call([
         "docker",
         "run",
@@ -38,6 +40,8 @@ def docker_run(command_args):
         "--security-opt", "seccomp=unconfined",
         "-v", "%s:/swiftpm" % swiftpm_dir,
         "-v", "%s:/llbuild" % llbuild_dir,
+        "-v", "%s:/swift-driver" % swift_driver_dir,
+        "-v", "%s:/yams" % yams_dir,
         "-w", "/swiftpm",
         "--rm",
         "swiftpm-docker-1804"
