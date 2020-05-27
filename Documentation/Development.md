@@ -93,7 +93,11 @@ swiftpm llbuild
 Note: Make sure the directory for llbuild is called "llbuild" and not
     "swift-llbuild".
 
-4. Build the Swift Package Manager.
+4. Clone [Yams](https://github.com/jpsim/yams) beside the package manager directory.
+
+5. Clone [swift-driver](https://github.com/apple/swift-driver) beside the package manager directory.
+
+6. Build the Swift Package Manager.
 
 ```sh
 $ cd swiftpm
