@@ -368,6 +368,7 @@ class PackageGraphTests: XCTestCase {
             container: "Foo.xcodeproj",
             schemesDir: AbsolutePath("/Foo.xcodeproj/xcshareddata/xcschemes"),
             isCodeCoverageEnabled: true,
+            isLibrarySchemeGenerationEnabled: false,
             fs: fs).buildSchemes()
 
         let schemes = Dictionary(uniqueKeysWithValues: generatedSchemes.map({ ($0.name, $0) }))
@@ -382,6 +383,28 @@ class PackageGraphTests: XCTestCase {
 
         XCTAssertEqual(schemes["Foo-Package"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests", "libdTests"])
         XCTAssertEqual(schemes["Foo-Package"]?.regularTargets.map({ $0.name }).sorted(), ["a", "b", "c", "d", "libd"])
+        
+        let generatedSchemesWithLibrariesEnabled = SchemesGenerator(
+            graph: graph,
+            container: "Foo.xcodeproj",
+            schemesDir: AbsolutePath("/Foo.xcodeproj/xcshareddata/xcschemes"),
+            isCodeCoverageEnabled: true,
+            isLibrarySchemeGenerationEnabled: true,
+            fs: fs).buildSchemes()
+
+        let schemesWithLibrariesEnabled = Dictionary(uniqueKeysWithValues: generatedSchemesWithLibrariesEnabled.map({ ($0.name, $0) }))
+
+        XCTAssertEqual(generatedSchemesWithLibrariesEnabled.count, 6)
+        XCTAssertEqual(schemesWithLibrariesEnabled["a"]?.testTargets.map({ $0.name }).sorted(), ["aTests"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["a"]?.regularTargets.map({ $0.name }).sorted(), ["a"])
+
+        XCTAssertEqual(schemesWithLibrariesEnabled["b"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["c"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["d"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["libd"]?.regularTargets.map({ $0.name }).sorted(), ["libd"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["libd"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests", "libdTests"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["Foo-Package"]?.testTargets.map({ $0.name }).sorted(), ["aTests", "bcTests", "dTests", "libdTests"])
+        XCTAssertEqual(schemesWithLibrariesEnabled["Foo-Package"]?.regularTargets.map({ $0.name }).sorted(), ["a", "b", "c", "d", "libd"])
     }
 
     func testSwiftVersion() throws {

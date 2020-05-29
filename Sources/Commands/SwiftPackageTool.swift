@@ -609,6 +609,13 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
             subparser: PackageMode.generateXcodeproj.rawValue,
             overview: "Generates an Xcode project")
         binder.bind(
+            option: generateXcodeParser.add(
+                option: "--enable-library-schemes", kind: Bool.self,
+                usage: "Enables creation of schemes for library products"),
+            to: {
+                $0.xcodeprojOptions.isLibrarySchemeGenerationEnabled = $1
+            })
+        binder.bind(
             generateXcodeParser.add(
                 option: "--xcconfig-overrides", kind: PathArgument.self,
                 usage: "Path to xcconfig file"),

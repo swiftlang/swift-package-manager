@@ -26,6 +26,9 @@ public struct XcodeprojOptions {
 
     /// Whether code coverage should be enabled in the generated scheme.
     public var isCodeCoverageEnabled: Bool
+    
+    /// Whether library products are included while generating schemes.
+    public var isLibrarySchemeGenerationEnabled: Bool
 
     /// Whether to use legacy scheme generation logic.
     public var useLegacySchemeGenerator: Bool
@@ -43,6 +46,7 @@ public struct XcodeprojOptions {
         flags: BuildFlags = BuildFlags(),
         xcconfigOverrides: AbsolutePath? = nil,
         isCodeCoverageEnabled: Bool? = nil,
+        isLibrarySchemeGenerationEnabled: Bool? = nil,
         useLegacySchemeGenerator: Bool? = nil,
         enableAutogeneration: Bool? = nil,
         addExtraFiles: Bool? = nil
@@ -50,6 +54,7 @@ public struct XcodeprojOptions {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
         self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
+        self.isLibrarySchemeGenerationEnabled = isLibrarySchemeGenerationEnabled ?? false
         self.useLegacySchemeGenerator = useLegacySchemeGenerator ?? false
         self.enableAutogeneration = enableAutogeneration ?? false
         self.addExtraFiles = addExtraFiles ?? true
@@ -259,6 +264,7 @@ func generateSchemes(
             container: schemeContainer,
             schemesDir: schemesDir,
             isCodeCoverageEnabled: options.isCodeCoverageEnabled,
+            isLibrarySchemeGenerationEnabled: options.isLibrarySchemeGenerationEnabled,
             fs: localFileSystem
         ).generate()
     }

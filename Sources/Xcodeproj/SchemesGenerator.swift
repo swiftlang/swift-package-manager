@@ -42,6 +42,7 @@ public final class SchemesGenerator {
     private let container: String
     private let schemesDir: AbsolutePath
     private let isCodeCoverageEnabled: Bool
+    private let isLibrarySchemeGenerationEnabled: Bool
     private let fs: FileSystem
 
     public init(
@@ -49,21 +50,26 @@ public final class SchemesGenerator {
         container: String,
         schemesDir: AbsolutePath,
         isCodeCoverageEnabled: Bool,
+        isLibrarySchemeGenerationEnabled: Bool,
         fs: FileSystem
     ) {
         self.graph = graph
         self.container = container
         self.schemesDir = schemesDir
         self.isCodeCoverageEnabled = isCodeCoverageEnabled
+        self.isLibrarySchemeGenerationEnabled = isLibrarySchemeGenerationEnabled
         self.fs = fs
+    }
+    
+    private var schemeTypesToGenerate: [Target.Kind] {
+        isLibrarySchemeGenerationEnabled ? [.executable, .library] : [.executable]
     }
 
     public func buildSchemes() -> [Scheme] {
         let rootPackage = graph.rootPackages[0]
 
         var schemes: [Scheme] = []
-
-        let testTargetsMap = graph.computeTestTargetsForExecutableTargets()
+        let testTargetsMap = graph.computeTestTargets(for: self.schemeTypesToGenerate)
 
         // Create one scheme per executable target.
         for target in rootPackage.targets where target.type == .executable {
@@ -74,6 +80,19 @@ public final class SchemesGenerator {
                 regularTargets: [target],
                 testTargets: testTargets ?? []
             ))
+        }
+        
+        // If enabled, create one scheme per library target
+        if self.isLibrarySchemeGenerationEnabled {
+            for target in rootPackage.targets where target.type == .library {
+                let testTargets = testTargetsMap[target]
+                
+                schemes.append(Scheme(
+                    name: target.name,
+                    regularTargets: [target],
+                    testTargets: testTargets ?? []
+                ))
+            }
         }
 
         // Finally, create one master scheme for the entire package.

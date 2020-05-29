@@ -92,8 +92,10 @@ public struct PackageGraph {
         self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
     }
 
-    /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    public func computeTestTargetsForExecutableTargets() -> [ResolvedTarget: [ResolvedTarget]] {
+    /// Computes a map from each target in in any of the root packages to the corresponding test targets.
+    /// - Parameter types: the list of types to include in the filter
+    /// - Returns: a map from each target to the corresponding test targets
+    public func computeTestTargets(for types: [Target.Kind]) -> [ResolvedTarget: [ResolvedTarget]] {
         var result = [ResolvedTarget: [ResolvedTarget]]()
 
         let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
@@ -106,12 +108,12 @@ public struct PackageGraph {
             return Dictionary(uniqueKeysWithValues: testTargetDeps)
         }()
 
-        for target in rootTargets where target.type == .executable {
+        for target in rootTargets where types.contains(target.type) {
             // Find all dependencies of this target within its package.
             let dependencies = try! topologicalSort(target.dependencies, successors: {
                 $0.dependencies.compactMap { $0.target }.map { .target($0, conditions: []) }
             }).compactMap({ $0.target })
-
+            
             // Include the test targets whose dependencies intersect with the
             // current target's (recursive) dependencies.
             let testTargets = testTargetDepMap.filter({ (testTarget, deps) in
