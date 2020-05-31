@@ -328,6 +328,68 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testCacheFetch() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "1.2.3")
+            let repo = GitRepository(path: testRepoPath)
+            XCTAssertEqual(repo.tags, ["1.2.3"])
+
+            // Clone it somewhere.
+            let testClonePath = path.appending(component: "clone")
+            let testCachePath = AbsolutePath(path, ".cache/swiftpm/repositories")
+            let provider = GitRepositoryProvider(cachePath: testCachePath)
+            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+
+            XCTAssertDirectoryExists(testCachePath.appending(component: repoSpec.fileSystemIdentifier))
+        }
+    }
+
+    func testCachePurge() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "1.2.3")
+            let repo = GitRepository(path: testRepoPath)
+            XCTAssertEqual(repo.tags, ["1.2.3"])
+
+            // Clone it somewhere.
+            let testClonePath = path.appending(component: "clone")
+            let testCachePath = AbsolutePath(path, ".cache/swiftpm/repositories")
+            let provider = GitRepositoryProvider(cachePath: testCachePath, maxCacheSize: 0)
+            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+
+            XCTAssertFalse(localFileSystem.isDirectory(testCachePath.appending(component: repoSpec.fileSystemIdentifier)))
+        }
+    }
+
+    func testCacheFallback() throws {
+        mktmpdir { path in
+            // Create a repo.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "1.2.3")
+            let repo = GitRepository(path: testRepoPath)
+            XCTAssertEqual(repo.tags, ["1.2.3"])
+
+            // Clone it somewhere.
+            let testClonePath = path.appending(component: "clone")
+            let testCachePath = AbsolutePath(path, ".cache/swiftpm/repositories")
+            // Make directroy non-writeable to force falling back to a normal clone without using the cache
+            try localFileSystem.createDirectory(testCachePath, recursive: true)
+            try localFileSystem.chmod(.userUnWritable, path: testCachePath)
+            let provider = GitRepositoryProvider(cachePath: testCachePath)
+            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+            XCTAssertDirectoryExists(testClonePath)
+        }
+    }
+
     func testHasUnpushedCommits() throws {
         mktmpdir { path in
             // Create a repo.

@@ -33,9 +33,59 @@ public class GitRepositoryProvider: RepositoryProvider {
 
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
+    /// The path to the directory where all cached git repositories are stored.
+    private let cachePath: AbsolutePath
+    /// The maximum size of the cache in bytes.
+    private let maxCacheSize: UInt64
 
-    public init(processSet: ProcessSet? = nil) {
+    public init(processSet: ProcessSet? = nil,
+                cachePath: AbsolutePath = AbsolutePath(localFileSystem.homeDirectory, ".swiftpm/cache/repositories"),
+                maxCacheSize: UInt64 = 21_474_836_480) {
         self.processSet = processSet
+        self.cachePath = cachePath
+        self.maxCacheSize = maxCacheSize
+    }
+
+    /// Clones the  git repository we want to cache into the cache directory if it does not already exist and returns it.
+    private func setupCacheIfNeeded(for repository: RepositorySpecifier) throws -> GitRepository {
+        let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
+
+        guard !localFileSystem.exists(repositoryPath) else { return GitRepository(path: repositoryPath, isWorkingRepo: false) }
+
+        try localFileSystem.createDirectory(repositoryPath, recursive: true)
+
+        // We are cloning each repository into its own directory instead of using one large bare repository and adding a remote for each repository.
+        // This avoids the large overhead that occurs when git tries to determine if it has any revision in common with the remote repository,
+        // which involves sending a list of all local commits to the server (a potentially huge list depending on cache size
+        // with most commits unrelated to the repository we actually want to fetch).
+        try Process.checkNonZeroExit(
+            args: Git.tool, "clone", "--mirror", repository.url, repositoryPath.pathString)
+
+        return GitRepository(path: repositoryPath, isWorkingRepo: false)
+    }
+
+    /// Purges git repositories from the cache directory in order to free some space.
+    private func purgeCacheIfNeeded() {
+        do {
+            let cacheSize = try localFileSystem.getDirectorySize(cachePath)
+            let desiredCacheSize = maxCacheSize - (maxCacheSize / 8)
+
+            guard cacheSize > maxCacheSize else { return }
+
+            let repositories = try localFileSystem.getDirectoryContents(cachePath)
+                .map { GitRepository(path:  cachePath.appending(component: $0), isWorkingRepo: false) }
+                .sorted { (try localFileSystem.getFileInfo($0.path).modTime) < (try localFileSystem.getFileInfo($1.path).modTime) }
+
+            // Purges repositories until the desired cache size is reached.
+            for repository in repositories {
+                let cacheSize = try localFileSystem.getDirectorySize(cachePath)
+                guard cacheSize > desiredCacheSize else { break }
+                try localFileSystem.removeFileTree(repository.path)
+            }
+        } catch {
+            // The cache seems to be broken. Lets remove everything.
+            try? localFileSystem.removeFileTree(cachePath)
+        }
     }
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
@@ -50,9 +100,26 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
-        let process = Process(
-            args: Git.tool, "clone", "--mirror", repository.url, path.pathString, environment: Git.environment)
-        // Add to process set.
+        let process: Process
+
+        do {
+            let cache = try setupCacheIfNeeded(for: repository)
+            // Fetch repository in cache.
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", cache.path.pathString, "fetch")
+            // Clone the repository using the cache as a reference if possible.
+            // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
+            // deleted or the package is copied somewhere it cannot reach the cache directory.
+            process = Process(
+                args: Git.tool, "clone", "--reference-if-able", cache.path.pathString, "--dissociate", "--mirror", repository.url, path.pathString, environment: Git.environment)
+
+            purgeCacheIfNeeded()
+        } catch {
+            // Fallback to cloning without using the cache.
+            process = Process(
+                args: Git.tool, "clone", "--mirror", repository.url, path.pathString, environment: Git.environment)
+        }
+
         try processSet?.add(process)
 
         try process.launch()
@@ -274,6 +341,29 @@ public class GitRepository: Repository, WorkingCheckout {
                     args: Git.tool, "-C", path.pathString, "config", "--get", "remote.\(name).url").spm_chomp()
                 return (name, url)
             })
+        }
+    }
+
+    /// Adds a remote to the repository
+    /// - Parameters:
+    ///   - remote: The name of the remote to add.
+    ///   - url: The url of the remote to add.
+    public func add(remote: String, url: String) throws {
+        try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.pathString, "remote", "add", remote, url)
+            return
+        }
+    }
+
+
+    /// Removes a remote from the repository
+    /// - Parameter remote: The name of the remote to remove.
+    public func remove(remote: String) throws {
+        try queue.sync {
+            try Process.checkNonZeroExit(
+                args: Git.tool, "-C", path.pathString, "remote", "remove", remote)
+            return
         }
     }
 
@@ -752,5 +842,18 @@ private class GitFileSystemView: FileSystem {
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         fatalError("will never be supported")
+    }
+}
+
+extension FileSystem {
+    /// Recursively sums up the file size in bytes of all files inside a directory.
+    func getDirectorySize(_ path: AbsolutePath) throws -> UInt64 {
+        if isFile(path) {
+            return try getFileInfo(path).size
+        } else if isDirectory(path) {
+            return try getDirectoryContents(path).reduce(0) { $0 + (try getDirectorySize(path.appending(component: $1))) }
+        } else {
+            return 0
+        }
     }
 }
