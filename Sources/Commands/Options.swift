@@ -199,7 +199,7 @@ public struct SwiftToolOptions: ParsableArguments {
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    var useIntegratedSwiftDriver: Bool = false
+    var useIntegratedSwiftDriver: Bool
 
     /// The build system to use.
     @Option(default: .native)
