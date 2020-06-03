@@ -501,7 +501,7 @@ public func xcodeProject(
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
-                hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)")
+                hdrInclPaths.append("\"$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)\"")
                 if let pkgArgs = pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
@@ -671,7 +671,7 @@ public func xcodeProject(
                 // Workaround for a interface generation bug. <rdar://problem/30071677>
                 if moduleMap.isGenerated {
                     xcodeTarget.buildSettings.common.HEADER_SEARCH_PATHS += [
-                        "$(SRCROOT)/\(moduleMap.path.parentDirectory.relative(to: sourceRootDir).pathString)"
+                        "\"$(SRCROOT)/\(moduleMap.path.parentDirectory.relative(to: sourceRootDir).pathString)\""
                     ]
                 }
             }
@@ -817,11 +817,11 @@ func appendSetting(
     case .HEADER_SEARCH_PATHS:
         switch config {
         case .debug?:
-            table.debug.HEADER_SEARCH_PATHS += value
+            table.debug.HEADER_SEARCH_PATHS += "\"\(value)\""
         case .release?:
-            table.release.HEADER_SEARCH_PATHS += value
+            table.release.HEADER_SEARCH_PATHS += "\"\(value)\""
         case nil:
-            table.common.HEADER_SEARCH_PATHS += value
+            table.common.HEADER_SEARCH_PATHS += "\"\(value)\""
         }
     case .OTHER_CFLAGS:
         switch config {
