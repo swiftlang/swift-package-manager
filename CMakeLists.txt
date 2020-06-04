@@ -46,3 +46,4 @@ find_package(Yams CONFIG REQUIRED)
 find_package(SwiftDriver CONFIG REQUIRED)
 
 add_subdirectory(Sources)
+add_subdirectory(cmake/modules)
