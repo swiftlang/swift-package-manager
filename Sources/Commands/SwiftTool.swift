@@ -458,6 +458,10 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
             to: { $0.buildSystem = $1 })
 
+        binder.bind(
+            option: parser.add(option: "--experimental-track-content-hash", kind: Bool.self, usage: nil),
+            to: { $0.experimentalTrackContentHash = $1 })
+
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
 
@@ -796,7 +800,8 @@ public class SwiftTool<Options: ToolOptions> {
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
-                isXcodeBuildSystemEnabled: options.buildSystem == .xcode
+                isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
+                trackContentHash: options.experimentalTrackContentHash
             )
         })
     }()

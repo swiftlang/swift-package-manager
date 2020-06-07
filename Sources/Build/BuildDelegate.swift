@@ -352,6 +352,13 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
 
+      #if canImport(CryptoKit)
+        let trackContentHash = buildExecutionContext.buildParameters.trackContentHash
+        self.fs = trackContentHash ? LLBContentHashFileSystem() : nil
+      #else
+        self.fs = nil
+      #endif
+
         let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
         } ?? [:]
@@ -362,9 +369,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         }
     }
 
-    public var fs: SPMLLBuild.FileSystem? {
-        return nil
-    }
+    public let fs: SPMLLBuild.FileSystem?
 
     public func lookupTool(_ name: String) -> Tool? {
         switch name {
@@ -684,3 +689,66 @@ private extension Diagnostic.Message {
         .error("failed parsing the Swift compiler output: \(error)")
     }
 }
+
+#if canImport(CryptoKit)
+import CryptoKit
+
+/// A filesystem for LLBuild that returns hash of the files
+/// instead of stat information. This is obviously a hack
+/// until llbuild has proper support for content-based tracking.
+fileprivate struct LLBContentHashFileSystem: SPMLLBuild.FileSystem {
+    public struct HashFileInfo: SPMLLBuild.FileInfo {
+        var statBuf: stat
+
+        init(_ statBuf: stat) {
+            self.statBuf = statBuf
+        }
+    }
+
+    func fileContents(_ path: String) throws -> ByteString {
+        try localFileSystem.readFileContents(AbsolutePath(path))
+    }
+
+    func read(_ path: String) throws -> [UInt8] {
+        try fileContents(path).contents
+    }
+
+    func getFileInfo(_ path: String) throws -> SPMLLBuild.FileInfo {
+        if #available(macOS 10.15, *) {
+            var hasher = CryptoKit.SHA256()
+            hasher.update(data: try read(path))
+
+            var hash = [UInt8]()
+            hasher.finalize().withUnsafeBytes { pointer in
+                hash.append(contentsOf: pointer)
+            }
+
+            // Mangle the hash into some of the fields used by llbuild.
+            var statbuf = stat()
+            hash[0..<8].withUnsafeBytes {
+                let ptr = $0.bindMemory(to: Int64.self)
+                statbuf.st_ino = UInt64(abs(ptr.first!))
+            }
+
+            hash[8..<16].withUnsafeBytes {
+                let ptr = $0.bindMemory(to: Int64.self)
+                statbuf.st_size = abs(ptr.first!)
+            }
+
+            hash[16..<24].withUnsafeBytes {
+                let ptr = $0.bindMemory(to: Int64.self)
+                statbuf.st_mtimespec.tv_sec = abs(Int(ptr.first!))
+            }
+
+            hash[24..<32].withUnsafeBytes {
+                let ptr = $0.bindMemory(to: Int64.self)
+                statbuf.st_mtimespec.tv_nsec = abs(Int(ptr.first!))
+            }
+
+            return HashFileInfo(statbuf)
+        } else {
+            fatalError("unreachable")
+        }
+    }
+}
+#endif

@@ -116,6 +116,9 @@ public struct BuildParameters: Encodable {
     /// Extra arguments to pass when using xcbuild.
     public var xcbuildFlags: [String]
 
+    /// Track content hash instead of stat info for incremental builds.
+    public var trackContentHash: Bool
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -135,7 +138,8 @@ public struct BuildParameters: Encodable {
         enableTestDiscovery: Bool = false,
         emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
-        isXcodeBuildSystemEnabled: Bool = false
+        isXcodeBuildSystemEnabled: Bool = false,
+        trackContentHash: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -156,6 +160,7 @@ public struct BuildParameters: Encodable {
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
+        self.trackContentHash = trackContentHash
     }
 
     /// The path to the build directory (inside the data directory).

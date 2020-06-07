@@ -103,6 +103,9 @@ public class ToolOptions {
     /// Extra arguments to pass when using xcbuild.
     public var xcbuildFlags: [String] = []
 
+    /// Track content hash instead of stat info for incremental builds.
+    public var experimentalTrackContentHash: Bool = false
+
     public required init() {}
 }
 
