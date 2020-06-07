@@ -701,7 +701,7 @@ To build your package with Xcode from command line you can use
 An example invocation would be:
 
 ```
-xcodebuild -scheme Foo -destination 'platform=iOS Simulator,OS=13.5,name=iPhone 11 Pro'
+xcodebuild -scheme Foo -destination 'generic/platform=iOS'
 ```
 
 where `Foo` would be the name of the library product you're trying to build. You can
