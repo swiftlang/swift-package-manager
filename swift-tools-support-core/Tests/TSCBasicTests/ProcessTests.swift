@@ -191,7 +191,7 @@ class ProcessTests: XCTestCase {
         do {
             let result = try Process.popen(args: script("simple-stdout-stderr"))
             XCTAssertEqual(try result.utf8Output(), "simple output\n")
-            XCTAssertEqual(try result.utf8stderrOutput(), "simple error")
+            XCTAssertEqual(try result.utf8stderrOutput(), "simple error\n")
         }
 
         // A long stdout and stderr output.
@@ -211,32 +211,94 @@ class ProcessTests: XCTestCase {
         }
     }
 
-  #if os(macOS)
+    func testStdoutStdErrRedirected() throws {
+        // A simple script to check that stdout and stderr are captured in the same location.
+        do {
+            let process = Process(args: script("simple-stdout-stderr"), outputRedirection: .collect(redirectStderr: true))
+            try process.launch()
+            let result = try process.waitUntilExit()
+            XCTAssertEqual(try result.utf8Output(), "simple error\nsimple output\n")
+            XCTAssertEqual(try result.utf8stderrOutput(), "")
+        }
+
+        // A long stdout and stderr output.
+        do {
+            let process = Process(args: script("long-stdout-stderr"), outputRedirection: .collect(redirectStderr: true))
+            try process.launch()
+            let result = try process.waitUntilExit()
+
+            let count = 16 * 1024
+            XCTAssertEqual(try result.utf8Output(), String(repeating: "12", count: count))
+            XCTAssertEqual(try result.utf8stderrOutput(), "")
+        }
+    }
+
+    func testStdoutStdErrStreaming() throws {
+        var stdout = [UInt8]()
+        var stderr = [UInt8]()
+        let process = Process(args: script("long-stdout-stderr"), outputRedirection: .stream(stdout: { stdoutBytes in
+            stdout += stdoutBytes
+        }, stderr: { stderrBytes in
+            stderr += stderrBytes
+        }))
+        try process.launch()
+        try process.waitUntilExit()
+
+        let count = 16 * 1024
+        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), String(repeating: "1", count: count))
+        XCTAssertEqual(String(bytes: stderr, encoding: .utf8), String(repeating: "2", count: count))
+    }
+
+    func testStdoutStdErrStreamingRedirected() throws {
+        var stdout = [UInt8]()
+        var stderr = [UInt8]()
+        let process = Process(args: script("long-stdout-stderr"), outputRedirection: .stream(stdout: { stdoutBytes in
+            stdout += stdoutBytes
+        }, stderr: { stderrBytes in
+            stderr += stderrBytes
+        }, redirectStderr: true))
+        try process.launch()
+        try process.waitUntilExit()
+
+        let count = 16 * 1024
+        XCTAssertEqual(String(bytes: stdout, encoding: .utf8), String(repeating: "12", count: count))
+        XCTAssertEqual(stderr, [])
+    }
+
     func testWorkingDirectory() throws {
-        if #available(macOS 10.15, *) {
-            try! withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-                let parentPath = tempDirPath.appending(component: "file")
-                let childPath = tempDirPath.appending(component: "subdir").appending(component: "file")
+        guard #available(macOS 10.15, *) else {
+            // Skip this test since it's not supported in this OS.
+            return
+        }
 
-                try localFileSystem.writeFileContents(parentPath, bytes: ByteString("parent"))
-                try localFileSystem.createDirectory(childPath.parentDirectory, recursive: true)
-                try localFileSystem.writeFileContents(childPath, bytes: ByteString("child"))
+      #if os(Linux)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            // Skip this test since it's not supported in this OS.
+            return
+        }
+      #endif
 
-                do {
-                    let process = Process(arguments: ["cat", "file"], workingDirectory: tempDirPath)
-                    try process.launch()
-                    let result = try process.waitUntilExit()
-                    XCTAssertEqual(try result.utf8Output(), "parent")
-                }
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
+            let parentPath = tempDirPath.appending(component: "file")
+            let childPath = tempDirPath.appending(component: "subdir").appending(component: "file")
 
-                do {
-                    let process = Process(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
-                    try process.launch()
-                    let result = try process.waitUntilExit()
-                    XCTAssertEqual(try result.utf8Output(), "child")
-                }
+            try localFileSystem.writeFileContents(parentPath, bytes: ByteString("parent"))
+            try localFileSystem.createDirectory(childPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(childPath, bytes: ByteString("child"))
+
+            do {
+                let process = Process(arguments: ["cat", "file"], workingDirectory: tempDirPath)
+                try process.launch()
+                let result = try process.waitUntilExit()
+                XCTAssertEqual(try result.utf8Output(), "parent")
+            }
+
+            do {
+                let process = Process(arguments: ["cat", "file"], workingDirectory: childPath.parentDirectory)
+                try process.launch()
+                let result = try process.waitUntilExit()
+                XCTAssertEqual(try result.utf8Output(), "child")
             }
         }
     }
-  #endif
 }
