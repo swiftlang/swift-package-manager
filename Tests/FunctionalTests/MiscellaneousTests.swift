@@ -107,7 +107,7 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testPackageManagerDefineAndXArgs() {
+    func DISABLED_testPackageManagerDefineAndXArgs() {
         fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { prefix in
             XCTAssertBuildFails(prefix)
             XCTAssertBuilds(prefix, Xcc: ["-DEXTRA_C_DEFINE=2"], Xswiftc: ["-DEXTRA_SWIFTC_DEFINE"])

@@ -468,10 +468,11 @@ def build_yams(args):
         cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
     else:
-        cmake_flags += [
-            get_dispatch_cmake_arg(args),
-            get_foundation_cmake_arg(args),
-        ]
+        if args.dispatch_build_dir:
+            cmake_flags.append(get_dispatch_cmake_arg(args))
+
+        if args.foundation_build_dir:
+            cmake_flags.append(get_foundation_cmake_arg(args))
 
     build_with_cmake(args, cmake_flags, args.yams_source_dir, args.yams_build_dir)
 
