@@ -24,14 +24,14 @@ public enum FileSystemError: Swift.Error, Equatable {
     ///
     /// This is used when an operation cannot be completed due to an otherwise
     /// unspecified IO error.
-    case ioError(AbsolutePath)
+    case ioError(code: Int32, AbsolutePath)
 
     /// IO Error encoding
     ///
     /// This is used when an operation cannot be completed due to an otherwise
     /// unspecified IO error on a file descriptor. As not all file descriptors
     /// refer to files, it doesn't have an associated path value
-    case fileDescriptorIOError
+    case fileDescriptorIOError(code: Int32)
 
     /// Is a directory
     ///
@@ -63,8 +63,12 @@ public enum FileSystemError: Swift.Error, Equatable {
     /// system implementation.
     case unsupported(AbsolutePath)
 
-    /// An unspecific operating system error.
+    /// An unspecific operating system error at a given path.
     case unknownOSError(AbsolutePath)
+
+    /// An unspecific operating system error when operating on a file descriptor, no file
+    /// path available.
+    case unknownFileDescriptorError
 
     /// File or folder already exists at destination.
     ///
@@ -345,11 +349,12 @@ private class LocalFileSystem: FileSystem {
             let n = fread(&tmpBuffer, 1, tmpBuffer.count, fp)
             if n < 0 {
                 if errno == EINTR { continue }
-                throw FileSystemError.ioError(path)
+                throw FileSystemError.ioError(code: errno, path)
             }
             if n == 0 {
-                if ferror(fp) != 0 {
-                    throw FileSystemError.ioError(path)
+                let code = ferror(fp)
+                if code != 0 {
+                    throw FileSystemError.ioError(code: code, path)
                 }
                 break
             }
@@ -373,10 +378,10 @@ private class LocalFileSystem: FileSystem {
             let n = fwrite(&contents, 1, contents.count, fp)
             if n < 0 {
                 if errno == EINTR { continue }
-                throw FileSystemError.ioError(path)
+                throw FileSystemError.ioError(code: errno, path)
             }
             if n != contents.count {
-                throw FileSystemError.ioError(path)
+                throw FileSystemError.unknownOSError(path)
             }
             break
         }

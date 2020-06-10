@@ -644,8 +644,8 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     /// The pointer to the file.
     let filePointer: UnsafeMutablePointer<FILE>
 
-    /// True if there were any IO error during writing.
-    private var error: Bool = false
+    /// Set to an error value if there were any IO error during writing.
+    private var error: FileSystemError?
 
     /// Closes the file on deinit if true.
     private var closeOnDeinit: Bool
@@ -690,8 +690,17 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         }
     }
 
-    func errorDetected() {
-        error = true
+    func errorDetected(code: Int32?) {
+        switch (code, path) {
+        case let (code?, path?):
+            error = .ioError(code: code, path)
+        case let (code?, nil):
+            error = .fileDescriptorIOError(code: code)
+        case let (nil, path?):
+            error = .unknownOSError(path)
+        case (nil, nil):
+            error = .unknownFileDescriptorError
+        }
     }
 
     override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
@@ -701,9 +710,9 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
             let n = fwrite(&contents, 1, contents.count, filePointer)
             if n < 0 {
                 if errno == EINTR { continue }
-                errorDetected()
+                errorDetected(code: errno)
             } else if n != contents.count {
-                errorDetected()
+                errorDetected(code: nil)
             }
             break
         }
@@ -715,9 +724,9 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
                 let n = fwrite(bytesPtr.baseAddress, 1, bytesPtr.count, filePointer)
                 if n < 0 {
                     if errno == EINTR { continue }
-                    errorDetected()
+                    errorDetected(code: errno)
                 } else if n != bytesPtr.count {
-                    errorDetected()
+                    errorDetected(code: nil)
                 }
                 break
             }
@@ -735,12 +744,8 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
             closeOnDeinit = false
         }
         // Throw if errors were found during writing.
-        if error {
-            if let path = path {
-                throw FileSystemError.ioError(path)
-            } else {
-                throw FileSystemError.fileDescriptorIOError
-            }
+        if let error = error {
+            throw error
         }
     }
 }
