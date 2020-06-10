@@ -40,57 +40,57 @@ public struct BuildParameters: Encodable {
     public var dataPath: AbsolutePath
 
     /// The build configuration.
-    public var configuration: BuildConfiguration
+    public let configuration: BuildConfiguration
 
     /// The toolchain.
     public var toolchain: Toolchain { _toolchain.toolchain }
     private let _toolchain: _Toolchain
 
     /// Destination triple.
-    public var triple: Triple
+    public let triple: Triple
 
     /// Extra build flags.
-    public var flags: BuildFlags
+    public let flags: BuildFlags
 
     /// The tools version to use.
-    public var toolsVersion: ToolsVersion
+    public let toolsVersion: ToolsVersion
 
     /// How many jobs should llbuild and the Swift compiler spawn
-    public var jobs: UInt32
+    public let jobs: UInt32
 
     /// If should link the Swift stdlib statically.
-    public var shouldLinkStaticSwiftStdlib: Bool
+    public let shouldLinkStaticSwiftStdlib: Bool
 
     /// Which compiler sanitizers should be enabled
     public var sanitizers: EnabledSanitizers
 
     /// If should enable llbuild manifest caching.
-    public var shouldEnableManifestCaching: Bool
+    public let shouldEnableManifestCaching: Bool
 
     /// The mode to use for indexing-while-building feature.
-    public var indexStoreMode: IndexStoreMode
+    public let indexStoreMode: IndexStoreMode
 
     /// Whether to enable code coverage.
-    public var enableCodeCoverage: Bool
+    public let enableCodeCoverage: Bool
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
-    public var enableTestDiscovery: Bool
+    public let enableTestDiscovery: Bool
 
     /// Whether to enable generation of `.swiftinterface` files alongside
     /// `.swiftmodule`s.
-    public var enableParseableModuleInterfaces: Bool
+    public let enableParseableModuleInterfaces: Bool
 
     /// Emit Swift module separately from object files. This can enable more parallelism
     /// since downstream targets can begin compiling without waiting for the entire
     /// module to finish building.
-    public var emitSwiftModuleSeparately: Bool
+    public let emitSwiftModuleSeparately: Bool
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
-    public var useIntegratedSwiftDriver: Bool
+    public let useIntegratedSwiftDriver: Bool
 
     /// Whether to create dylibs for dynamic library products.
-    public var shouldCreateDylibForDynamicProducts: Bool
+    public let shouldCreateDylibForDynamicProducts: Bool
 
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
@@ -111,10 +111,10 @@ public struct BuildParameters: Encodable {
     }
 
     /// Whether the Xcode build system is used.
-    public var isXcodeBuildSystemEnabled: Bool
+    public let isXcodeBuildSystemEnabled: Bool
 
     /// Extra arguments to pass when using xcbuild.
-    public var xcbuildFlags: [String]
+    public let xcbuildFlags: [String]
 
     public init(
         dataPath: AbsolutePath,
