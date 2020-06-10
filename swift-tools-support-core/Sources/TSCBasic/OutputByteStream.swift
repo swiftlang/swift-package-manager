@@ -691,15 +691,10 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     }
 
     func errorDetected(code: Int32?) {
-        switch (code, path) {
-        case let (code?, path?):
-            error = .ioError(code: code, path)
-        case let (code?, nil):
-            error = .fileDescriptorIOError(code: code)
-        case let (nil, path?):
-            error = .unknownOSError(path)
-        case (nil, nil):
-            error = .unknownFileDescriptorError
+        if let code = code {
+            error = .init(.ioError(code: code), path)
+        } else {
+            error = .init(.unknownOSError, path)
         }
     }
 

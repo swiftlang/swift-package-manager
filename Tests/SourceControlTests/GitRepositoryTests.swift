@@ -211,33 +211,33 @@ class GitRepositoryTests: XCTestCase {
             let subdirPath = AbsolutePath("/subdir")
             XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/")).sorted(), ["file.swift", "subdir", "test-file-1.txt", "test-file-3.sh"])
             XCTAssertEqual(try view.getDirectoryContents(subdirPath).sorted(), ["test-file-2.txt"])
-            XCTAssertThrows(FileSystemError.isDirectory(subdirPath)) {
+            XCTAssertThrows(FileSystemError(.isDirectory, subdirPath)) {
                 _ = try view.readFileContents(subdirPath)
             }
 
             // Check read versus root.
             let rootPath = AbsolutePath("/")
-            XCTAssertThrows(FileSystemError.isDirectory(rootPath)) {
+            XCTAssertThrows(FileSystemError(.isDirectory, rootPath)) {
                 _ = try view.readFileContents(rootPath)
             }
 
             // Check read through a non-directory.
             let notDirectoryPath1 = AbsolutePath("/test-file-1.txt")
-            XCTAssertThrows(FileSystemError.notDirectory(notDirectoryPath1)) {
+            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath1)) {
                 _ = try view.getDirectoryContents(notDirectoryPath1)
             }
             let notDirectoryPath2 = AbsolutePath("/test-file-1.txt/thing")
-            XCTAssertThrows(FileSystemError.notDirectory(notDirectoryPath2)) {
+            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath2)) {
                 _ = try view.readFileContents(notDirectoryPath2)
             }
 
             // Check read/write into a missing directory.
             let noEntryPath1 = AbsolutePath("/does-not-exist")
-            XCTAssertThrows(FileSystemError.noEntry(noEntryPath1)) {
+            XCTAssertThrows(FileSystemError(.noEntry, noEntryPath1)) {
                 _ = try view.getDirectoryContents(noEntryPath1)
             }
             let noEntryPath2 = AbsolutePath("/does/not/exist")
-            XCTAssertThrows(FileSystemError.noEntry(noEntryPath2)) {
+            XCTAssertThrows(FileSystemError(.noEntry, noEntryPath2)) {
                 _ = try view.readFileContents(noEntryPath2)
             }
 
