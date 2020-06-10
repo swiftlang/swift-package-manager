@@ -650,10 +650,14 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     /// Closes the file on deinit if true.
     private var closeOnDeinit: Bool
 
+    /// Path to the file this stream should operate on.
+    private let path: AbsolutePath?
+
     /// Instantiate using the file pointer.
     public init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
+        self.path = nil
         super.init(buffered: buffered)
     }
 
@@ -672,8 +676,9 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     /// - Throws: FileSystemError
     public init(_ path: AbsolutePath, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         guard let filePointer = fopen(path.pathString, "wb") else {
-            throw FileSystemError(errno: errno)
+            throw FileSystemError(errno: errno, path)
         }
+        self.path = path
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
         super.init(buffered: buffered)
@@ -731,7 +736,11 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         }
         // Throw if errors were found during writing.
         if error {
-            throw FileSystemError.ioError
+            if let path = path {
+                throw FileSystemError.ioError(path)
+            } else {
+                throw FileSystemError.fileDescriptorIOError
+            }
         }
     }
 }
