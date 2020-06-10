@@ -46,6 +46,9 @@ public struct BuildParameters: Encodable {
     public var toolchain: Toolchain { _toolchain.toolchain }
     private let _toolchain: _Toolchain
 
+    /// Host triple.
+    public var hostTriple: Triple
+
     /// Destination triple.
     public var triple: Triple
 
@@ -140,6 +143,7 @@ public struct BuildParameters: Encodable {
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
+        self.hostTriple = .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
