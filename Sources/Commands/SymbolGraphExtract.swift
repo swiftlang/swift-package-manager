@@ -46,7 +46,7 @@ public struct SymbolGraphExtract {
             args += buildPlan.createAPIDigesterArgs()
             args += ["-module-cache-path", buildParameters.moduleCache.pathString]
 
-            args += ["-o", symbolGraphDirectory.appending(components: target.name + ".json").pathString]
+            args += ["-output-dir", symbolGraphDirectory.pathString]
 
             print("-- Emitting symbol graph for", target.name)
             try runTool(args)
