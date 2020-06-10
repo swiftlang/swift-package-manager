@@ -203,6 +203,9 @@ extension LLBuildManifestBuilder {
             var commandLine = target.emitCommandLine();
             commandLine.append("-driver-use-frontend-path")
             commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+            if buildParameters.useExplicitModuleBuild {
+              commandLine.append("-experimental-explicit-module-build")
+            }
             var driver = try Driver(args: commandLine, fileSystem: target.fs)
             let jobs = try driver.planBuild()
             let resolver = try ArgsResolver(fileSystem: target.fs)

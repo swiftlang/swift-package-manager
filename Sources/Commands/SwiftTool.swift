@@ -455,6 +455,10 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.useIntegratedSwiftDriver = $1 })
 
         binder.bind(
+            option: parser.add(option: "--experimental-explicit-module-build", kind: Bool.self, usage: nil),
+            to: { $0.useExplicitModuleBuild = $1 })
+
+        binder.bind(
             option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
             to: { $0.buildSystem = $1 })
 
@@ -538,6 +542,10 @@ public class SwiftTool<Options: ToolOptions> {
         if result.exists(arg: "--multiroot-data-file") {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
+      if result.exists(arg: "--experimental-explicit-module-build") &&
+          !result.exists(arg: "--use-integrated-swift-driver") {
+        diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
+      }
     }
 
     class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
@@ -796,6 +804,7 @@ public class SwiftTool<Options: ToolOptions> {
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: options.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode
             )
         })

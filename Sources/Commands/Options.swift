@@ -97,6 +97,9 @@ public class ToolOptions {
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool = false
 
+    /// Whether to use the explicit module build flow (with the integrated driver)
+    public var useExplicitModuleBuild: Bool = false
+
     /// The build system to use.
     public var buildSystem: BuildSystemKind = .native
 
