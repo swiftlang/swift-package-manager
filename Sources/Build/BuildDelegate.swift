@@ -262,7 +262,7 @@ public final class BuildExecutionContext {
     private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
     private func createIndexStoreAPI() -> Result<IndexStoreAPI, Error> {
         Result {
-            let ext = buildParameters.triple.dynamicLibraryExtension
+            let ext = buildParameters.hostTriple.dynamicLibraryExtension
             let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
             return try IndexStoreAPI(dylib: indexStoreLib)
         }
