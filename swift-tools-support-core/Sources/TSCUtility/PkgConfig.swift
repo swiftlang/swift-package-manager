@@ -110,9 +110,6 @@ public struct PkgConfig {
     /// DiagnosticsEngine to emit diagnostics
     let diagnostics: DiagnosticsEngine
 
-    /// Helper to query `pkg-config` for library locations
-    private let pkgFileFinder: PCFileFinder
-
     /// Load the information for the named package.
     ///
     /// It will search `fileSystem` for the pkg config file in the following order:
@@ -132,12 +129,19 @@ public struct PkgConfig {
         fileSystem: FileSystem = localFileSystem,
         brewPrefix: AbsolutePath?
     ) throws {
-        self.name = name
-        self.pkgFileFinder = PCFileFinder(diagnostics: diagnostics, brewPrefix: brewPrefix)
-        self.pcFile = try pkgFileFinder.locatePCFile(
-            name: name,
-            customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
-            fileSystem: fileSystem)
+
+        if let path = try? AbsolutePath(validating: name) {
+            guard fileSystem.isFile(path) else { throw PkgConfigError.couldNotFindConfigFile }
+            self.name = path.basenameWithoutExt
+            self.pcFile = path
+        } else {
+            self.name = name
+            let pkgFileFinder = PCFileFinder(diagnostics: diagnostics, brewPrefix: brewPrefix)
+            self.pcFile = try pkgFileFinder.locatePCFile(
+                name: name,
+                customSearchPaths: PkgConfig.envSearchPaths + additionalSearchPaths,
+                fileSystem: fileSystem)
+        }
 
         self.diagnostics = diagnostics
         var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
