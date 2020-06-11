@@ -66,6 +66,7 @@ final class BuildPlanTests: XCTestCase {
             dataPath: buildPath,
             configuration: config,
             toolchain: MockToolchain(),
+            hostTriple: hostTriple,
             destinationTriple: destinationTriple,
             flags: flags,
             jobs: 3,
