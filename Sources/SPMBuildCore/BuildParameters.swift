@@ -123,6 +123,7 @@ public struct BuildParameters: Encodable {
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
+        hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
@@ -143,7 +144,7 @@ public struct BuildParameters: Encodable {
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
-        self.hostTriple = .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
