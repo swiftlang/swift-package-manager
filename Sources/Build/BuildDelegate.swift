@@ -102,7 +102,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         // We could write everything in one file but that can easily run into type conflicts due
         // in complex packages with large number of test targets.
         for file in outputs {
-            if isMainFile(file) {
+            if mainFile == nil && isMainFile(file) {
                 mainFile = file
                 continue 
             }
