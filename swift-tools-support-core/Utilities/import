@@ -15,7 +15,7 @@ __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRCROOT="`cd "${__dir}/..";pwd`"
 echo "SRCROOT is $SRCROOT"
 
-IMPORT_DIR="`cd "${SRCROOT}/../swiftpm/TSC";pwd`"
+IMPORT_DIR="`cd "${SRCROOT}/../swiftpm/swift-tools-support-core";pwd`"
 
 echo Copying from $IMPORT_DIR
 cp -r ${IMPORT_DIR}/* $SRCROOT
