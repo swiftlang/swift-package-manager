@@ -89,6 +89,9 @@ public struct BuildParameters: Encodable {
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
 
+    // Whether to use the explicit module build flow (with the integrated driver)
+    public var useExplicitModuleBuild: Bool
+
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
@@ -135,6 +138,7 @@ public struct BuildParameters: Encodable {
         enableTestDiscovery: Bool = false,
         emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
+        useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false
     ) {
         self.dataPath = dataPath
@@ -155,6 +159,7 @@ public struct BuildParameters: Encodable {
         self.enableTestDiscovery = enableTestDiscovery
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
+        self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
     }
 
