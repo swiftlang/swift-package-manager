@@ -12,14 +12,14 @@ import TSCBasic
 import Foundation
 
 public enum PkgConfigError: Swift.Error, CustomStringConvertible {
-    case couldNotFindConfigFile
+    case couldNotFindConfigFile(name: String)
     case parsingError(String)
     case nonWhitelistedFlags(String)
 
     public var description: String {
         switch self {
-        case .couldNotFindConfigFile:
-            return "couldn't find pc file"
+        case .couldNotFindConfigFile(let name):
+            return "couldn't find pc file for \(name)"
         case .parsingError(let error):
             return "parsing error(s): \(error)"
         case .nonWhitelistedFlags(let flags):
@@ -89,7 +89,7 @@ public struct PCFileFinder {
             PCFileFinder.shouldEmitPkgConfigPathsDiagnostic = false
             diagnostics.emit(warning: "failed to retrieve search paths with pkg-config; maybe pkg-config is not installed")
         }
-        throw PkgConfigError.couldNotFindConfigFile
+        throw PkgConfigError.couldNotFindConfigFile(name: name)
     }
 }
 
@@ -131,7 +131,7 @@ public struct PkgConfig {
     ) throws {
 
         if let path = try? AbsolutePath(validating: name) {
-            guard fileSystem.isFile(path) else { throw PkgConfigError.couldNotFindConfigFile }
+            guard fileSystem.isFile(path) else { throw PkgConfigError.couldNotFindConfigFile(name: name) }
             self.name = path.basenameWithoutExt
             self.pcFile = path
         } else {
