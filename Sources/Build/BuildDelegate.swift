@@ -96,12 +96,16 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             return path.basename == "main.swift"
         }
 
+        var mainFile: AbsolutePath?
         // Write one file for each test module.
         //
         // We could write everything in one file but that can easily run into type conflicts due
         // in complex packages with large number of test targets.
         for file in outputs {
-            if isMainFile(file) { continue }
+            if mainFile == nil && isMainFile(file) {
+                mainFile = file
+                continue 
+            }
 
             // FIXME: This is relying on implementation detail of the output but passing the
             // the context all the way through is not worth it right now.
@@ -116,8 +120,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         }
 
         // Write the main file.
-        let mainFile = outputs.first(where: isMainFile)!
-        let stream = try LocalFileOutputByteStream(mainFile)
+        let stream = try LocalFileOutputByteStream(mainFile!)
 
         stream <<< "import XCTest" <<< "\n\n"
         stream <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
