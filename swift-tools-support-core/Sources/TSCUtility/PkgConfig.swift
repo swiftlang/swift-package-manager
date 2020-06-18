@@ -157,6 +157,7 @@ public struct PkgConfig {
                     name: dep, 
                     additionalSearchPaths: additionalSearchPaths,
                     diagnostics: diagnostics,
+                    fileSystem: fileSystem,
                     brewPrefix: brewPrefix
                 )
 
