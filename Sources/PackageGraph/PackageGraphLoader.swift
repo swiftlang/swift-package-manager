@@ -136,7 +136,7 @@ public struct PackageGraphLoader {
             node.requiredDependencies().compactMap({ dependency in
                 let url = config.mirroredURL(forURL: dependency.declaration.url)
                 return manifestMap[PackageReference.computeIdentity(packageURL: url)].map { manifest in
-                  GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                    GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
             })
         }
@@ -148,8 +148,8 @@ public struct PackageGraphLoader {
         }))
         let rootManifestNodes = root.manifests.map { GraphLoadingNode(manifest: $0, productFilter: .everything) }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageGraphRoot.PackageDependency) -> GraphLoadingNode? in
-          guard let manifest = manifestMap[PackageReference.computeIdentity(packageURL: dependency.url)] else { return nil }
-          return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+            guard let manifest = manifestMap[PackageReference.computeIdentity(packageURL: dependency.url)] else { return nil }
+            return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
 
@@ -167,15 +167,15 @@ public struct PackageGraphLoader {
         }
         var flattenedManifests: [String: GraphLoadingNode] = [:]
         for node in allManifests {
-          if let existing = flattenedManifests[node.manifest.name] {
-            let merged = GraphLoadingNode(
-              manifest: node.manifest,
-              productFilter: existing.productFilter.union(node.productFilter)
-            )
-            flattenedManifests[node.manifest.name] = merged
-          } else {
-            flattenedManifests[node.manifest.name] = node
-          }
+            if let existing = flattenedManifests[node.manifest.name] {
+                let merged = GraphLoadingNode(
+                    manifest: node.manifest,
+                    productFilter: existing.productFilter.union(node.productFilter)
+                )
+                flattenedManifests[node.manifest.name] = merged
+            } else {
+                flattenedManifests[node.manifest.name] = node
+            }
         }
         allManifests = flattenedManifests.values.sorted(by: { $0.manifest.name < $1.manifest.name })
 
@@ -211,9 +211,9 @@ public struct PackageGraphLoader {
 
                     // Throw if any of the non-root package is empty.
                     if package.targets.isEmpty // System packages have targets in the package but not the manifest.
-                      && package.manifest.targets.isEmpty // An unneeded dependency will not have loaded anything from the manifest.
-                      && manifest.packageKind != .root {
-                        throw PackageGraphError.noModules(package)
+                        && package.manifest.targets.isEmpty // An unneeded dependency will not have loaded anything from the manifest.
+                        && manifest.packageKind != .root {
+                            throw PackageGraphError.noModules(package)
                     }
                 }
             }
@@ -295,9 +295,9 @@ private func createResolvedPackages(
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.path == package.manifest.url }
         return ResolvedPackageBuilder(
-          package,
-          productFilter: node.productFilter,
-          isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts
+            package,
+            productFilter: node.productFilter,
+            isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts
         )
     })
 
@@ -314,31 +314,31 @@ private func createResolvedPackages(
 
         // Establish the manifest-declared package dependencies.
         packageBuilder.dependencies = package.manifest.dependenciesRequired(for: packageBuilder.productFilter)
-          .compactMap { dependency in
-            // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
-            if let dependencyName = dependency.declaration.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
+            .compactMap { dependency in
+                // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
+                if let dependencyName = dependency.declaration.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
+                    return resolvedPackage
+                }
+
+                // Otherwise, look it up by its identity.
+                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
+
+                // We check that the explicit package dependency name matches the package name.
+                if let resolvedPackage = resolvedPackage,
+                    let explicitDependencyName = dependency.declaration.explicitName,
+                    resolvedPackage.package.name != dependency.declaration.explicitName
+                {
+                    let error = PackageGraphError.incorrectPackageDependencyName(
+                        dependencyName: explicitDependencyName,
+                        dependencyURL: dependency.declaration.url,
+                        packageName: resolvedPackage.package.name)
+                    let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
+                    diagnostics.emit(error, location: diagnosticLocation)
+                }
+
                 return resolvedPackage
             }
-
-            // Otherwise, look it up by its identity.
-            let url = config.mirroredURL(forURL: dependency.declaration.url)
-            let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
-
-            // We check that the explicit package dependency name matches the package name.
-            if let resolvedPackage = resolvedPackage,
-                let explicitDependencyName = dependency.declaration.explicitName,
-                resolvedPackage.package.name != dependency.declaration.explicitName
-            {
-                let error = PackageGraphError.incorrectPackageDependencyName(
-                    dependencyName: explicitDependencyName,
-                    dependencyURL: dependency.declaration.url,
-                    packageName: resolvedPackage.package.name)
-                let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
-                diagnostics.emit(error, location: diagnosticLocation)
-            }
-
-            return resolvedPackage
-        }
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map({ ResolvedTargetBuilder(target: $0, diagnostics: diagnostics) })
@@ -691,30 +691,30 @@ private extension Diagnostic.Message {
 /// - SeeAlso: DependencyResolutionNode
 public struct GraphLoadingNode: Equatable, Hashable, CustomStringConvertible {
 
-  /// The package manifest.
-  public let manifest: Manifest
+    /// The package manifest.
+    public let manifest: Manifest
 
-  /// The product filter applied to the package.
-  public let productFilter: ProductFilter
+    /// The product filter applied to the package.
+    public let productFilter: ProductFilter
 
-  public init(manifest: Manifest, productFilter: ProductFilter) {
-    self.manifest = manifest
-    self.productFilter = productFilter
-  }
-
-  /// Returns the dependencies required by this node.
-  internal func requiredDependencies() -> [FilteredDependencyDescription] {
-    return manifest.dependenciesRequired(for: productFilter)
-  }
-
-  public var description: String {
-    switch productFilter {
-    case .everything:
-      return manifest.name
-    case .specific(let set):
-      return "\(manifest.name)[\(set.sorted().joined(separator: ", "))]"
+    public init(manifest: Manifest, productFilter: ProductFilter) {
+        self.manifest = manifest
+        self.productFilter = productFilter
     }
-  }
+
+    /// Returns the dependencies required by this node.
+    internal func requiredDependencies() -> [FilteredDependencyDescription] {
+        return manifest.dependenciesRequired(for: productFilter)
+    }
+
+    public var description: String {
+        switch productFilter {
+        case .everything:
+            return manifest.name
+        case .specific(let set):
+            return "\(manifest.name)[\(set.sorted().joined(separator: ", "))]"
+        }
+    }
 }
 
 /// Finds the first cycle encountered in a graph.

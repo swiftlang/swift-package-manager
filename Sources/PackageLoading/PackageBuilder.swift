@@ -277,7 +277,7 @@ public final class PackageBuilder {
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
-          = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         diagnostics: DiagnosticsEngine,
         kind: PackageReference.Kind = .root
     ) throws -> Package {
@@ -1090,9 +1090,9 @@ public final class PackageBuilder {
         let filteredProducts: [ProductDescription]
         switch productFilter {
         case .everything:
-          filteredProducts = manifest.products
+            filteredProducts = manifest.products
         case .specific(let set):
-          filteredProducts = manifest.products.filter { set.contains($0.name) }
+            filteredProducts = manifest.products.filter { set.contains($0.name) }
         }
         for product in filteredProducts {
             let targets = try modulesFrom(targetNames: product.targets, product: product.name)

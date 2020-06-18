@@ -938,7 +938,7 @@ fileprivate extension SwiftPackageTool {
             case let .added(state):
                 stream <<< "+ \(package.name) \(state.requirement.prettyPrinted)"
             case let .updated(state):
-              stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(state.requirement.prettyPrinted)"
+                stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(state.requirement.prettyPrinted)"
             case .removed:
                 stream <<< "- \(package.name) \(currentVersion)"
             case .unchanged:

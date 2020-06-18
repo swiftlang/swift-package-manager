@@ -177,10 +177,10 @@ extension Manifest {
             let targets: [TargetDescription]
             switch productFilter {
             case .everything:
-              return self.targets
+                return self.targets
             case .specific(let productFilter):
-              let products = self.products.filter { productFilter.contains($0.name) }
-              targets = targetsRequired(for: products)
+                let products = self.products.filter { productFilter.contains($0.name) }
+                targets = targetsRequired(for: products)
             }
 
             _requiredTargets[productFilter] = targets
@@ -253,8 +253,8 @@ extension Manifest {
     ///
     /// The returned dependencies have their particular product filters registered. (To determine product filters without removing any dependencies from the list, specify `keepUnused: true`.)
     public func dependenciesRequired(
-      for targets: [TargetDescription],
-      keepUnused: Bool = false
+        for targets: [TargetDescription],
+        keepUnused: Bool = false
     ) -> [FilteredDependencyDescription] {
 
         var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
@@ -262,7 +262,7 @@ extension Manifest {
 
         for target in targets {
             for targetDependency in target.dependencies {
-              register(targetDependency: targetDependency, registry: &registry, availablePackages: availablePackages)
+                register(targetDependency: targetDependency, registry: &registry, availablePackages: availablePackages)
             }
         }
 
@@ -271,21 +271,21 @@ extension Manifest {
         var associations = registry.known
         let unknown = registry.unknown
         if !registry.unknown.isEmpty {
-          for package in availablePackages {
-            associations[package, default: .specific([])].formUnion(.specific(unknown))
-          }
+            for package in availablePackages {
+                associations[package, default: .specific([])].formUnion(.specific(unknown))
+            }
         }
 
         return dependencies.compactMap { dependency in
-          if let filter = associations[dependency.name] {
-            return FilteredDependencyDescription(declaration: dependency, productFilter: filter)
-          } else if keepUnused {
-            // Register that while the dependency was kept, no products are needed.
-            return FilteredDependencyDescription(declaration: dependency, productFilter: .specific([]))
-          } else {
-            // Dependencies known to not have any relevant products are discarded.
-            return nil
-          }
+            if let filter = associations[dependency.name] {
+                return FilteredDependencyDescription(declaration: dependency, productFilter: filter)
+            } else if keepUnused {
+                // Register that while the dependency was kept, no products are needed.
+                return FilteredDependencyDescription(declaration: dependency, productFilter: .specific([]))
+            } else {
+                // Dependencies known to not have any relevant products are discarded.
+                return nil
+            }
         }
     }
 
@@ -315,56 +315,56 @@ extension Manifest {
     ///   - registry: The registry in which to record the assocation.
     ///   - availablePackages: The set of available packages.
     private func register(
-      targetDependency: TargetDescription.Dependency,
-      registry: inout (known: [String: ProductFilter], unknown: Set<String>),
-      availablePackages: Set<String>
+        targetDependency: TargetDescription.Dependency,
+        registry: inout (known: [String: ProductFilter], unknown: Set<String>),
+        availablePackages: Set<String>
     ) {
-      switch targetDependency {
-      case .target:
-        break
-      case .product(let product, let package, _):
-        if let package = package { // ≥ 5.2
-          if !register(
-            product: product,
-            inPackage: package,
-            registry: &registry.known,
-            availablePackages: availablePackages) {
-            // This is an invalid manifest condition diagnosed later. (No such package.)
-            // Treating it as unknown gracefully allows resolution to continue for now.
-            registry.unknown.insert(product)
-          }
-        } else { // < 5.2
-          registry.unknown.insert(product)
-        }
-      case .byName(let product, _):
-        if toolsVersion < .v5_2 {
-          // A by‐name entry might be a product from anywhere.
-          if targets.contains(where: { $0.name == product }) {
-            // Save the resolver some effort if it is known to only be a target anyway.
+        switch targetDependency {
+        case .target:
             break
-          } else {
-            registry.unknown.insert(product)
-          }
-        } else { // ≥ 5.2
-          // If a by‐name entry is a product, it must be in a package of the same name.
-          if !register(
-            product: product,
-            inPackage: product,
-            registry: &registry.known,
-            availablePackages: availablePackages) {
-            // If it doesn’t match a package, it should be a target, not a product.
-            if targets.contains(where: { $0.name == product }) {
-              break
-            } else {
-              // But in case the user is trying to reference a product,
-              // we still need to pass on the invalid reference
-              // so that the resolver fetches all dependencies
-              // in order to provide the diagnostic pass with the information it needs.
-              registry.unknown.insert(product)
+        case .product(let product, let package, _):
+            if let package = package { // ≥ 5.2
+                if !register(
+                    product: product,
+                    inPackage: package,
+                    registry: &registry.known,
+                    availablePackages: availablePackages) {
+                        // This is an invalid manifest condition diagnosed later. (No such package.)
+                        // Treating it as unknown gracefully allows resolution to continue for now.
+                    registry.unknown.insert(product)
+                }
+            } else { // < 5.2
+                registry.unknown.insert(product)
             }
-          }
+        case .byName(let product, _):
+            if toolsVersion < .v5_2 {
+                // A by‐name entry might be a product from anywhere.
+                if targets.contains(where: { $0.name == product }) {
+                    // Save the resolver some effort if it is known to only be a target anyway.
+                    break
+                } else {
+                    registry.unknown.insert(product)
+                }
+            } else { // ≥ 5.2
+                // If a by‐name entry is a product, it must be in a package of the same name.
+                if !register(
+                    product: product,
+                    inPackage: product,
+                    registry: &registry.known,
+                    availablePackages: availablePackages) {
+                        // If it doesn’t match a package, it should be a target, not a product.
+                        if targets.contains(where: { $0.name == product }) {
+                            break
+                        } else {
+                            // But in case the user is trying to reference a product,
+                            // we still need to pass on the invalid reference
+                            // so that the resolver fetches all dependencies
+                            // in order to provide the diagnostic pass with the information it needs.
+                            registry.unknown.insert(product)
+                        }
+                }
+            }
         }
-      }
     }
 
     /// Registers a required product with a particular dependency if possible.
@@ -377,20 +377,20 @@ extension Manifest {
     ///
     /// - Returns: `true` if the particular dependency was found and the product was registered; `false` if no matching dependency was found and the product has not yet been handled.
     private func register(
-      product: String,
-      inPackage package: String,
-      registry: inout [String: ProductFilter],
-      availablePackages: Set<String>
+        product: String,
+        inPackage package: String,
+        registry: inout [String: ProductFilter],
+        availablePackages: Set<String>
     ) -> Bool {
-      if let existing = registry[package] {
-        registry[package] = existing.union(.specific([product]))
-        return true
-      } else if availablePackages.contains(package) {
-        registry[package] = .specific([product])
-        return true
-      } else {
-        return false
-      }
+        if let existing = registry[package] {
+            registry[package] = existing.union(.specific([product]))
+            return true
+        } else if availablePackages.contains(package) {
+            registry[package] = .specific([product])
+            return true
+        } else {
+            return false
+        }
     }
 }
 
@@ -655,105 +655,105 @@ public struct PackageDependencyDescription: Equatable, Codable {
 /// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fullfill the request; packages that do not know what it is will simply ignore it.
 public enum ProductFilter: Equatable, Hashable, Codable, JSONMappable, JSONSerializable, CustomStringConvertible {
 
-  /// All products, targets, and tests are requested.
-  ///
-  /// This is used for root packages.
-  case everything
+    /// All products, targets, and tests are requested.
+    ///
+    /// This is used for root packages.
+    case everything
 
-  /// A set of specific products requested by one or more client packages.
-  case specific(Set<String>)
+    /// A set of specific products requested by one or more client packages.
+    case specific(Set<String>)
 
-  public func union(_ other: ProductFilter) -> ProductFilter {
-    switch self {
-    case .everything:
-      return .everything
-    case .specific(let set):
-      switch other {
-      case .everything:
-        return .everything
-      case .specific(let otherSet):
-        return .specific(set.union(otherSet))
-      }
+    public func union(_ other: ProductFilter) -> ProductFilter {
+        switch self {
+        case .everything:
+            return .everything
+        case .specific(let set):
+            switch other {
+            case .everything:
+                return .everything
+            case .specific(let otherSet):
+                return .specific(set.union(otherSet))
+            }
+        }
     }
-  }
-  public mutating func formUnion(_ other: ProductFilter) {
-    self = self.union(other)
-  }
+    public mutating func formUnion(_ other: ProductFilter) {
+        self = self.union(other)
+    }
 
-  public func contains(_ product: String) -> Bool {
-    switch self {
-    case .everything:
-      return true
-    case .specific(let set):
-      return set.contains(product)
+    public func contains(_ product: String) -> Bool {
+        switch self {
+        case .everything:
+            return true
+        case .specific(let set):
+            return set.contains(product)
+        }
     }
-  }
 
-  public func encode(to encoder: Encoder) throws {
-    let optionalSet: Set<String>?
-    switch self {
-    case .everything:
-      optionalSet = nil
-    case .specific(let set):
-      optionalSet = set
+    public func encode(to encoder: Encoder) throws {
+        let optionalSet: Set<String>?
+        switch self {
+        case .everything:
+            optionalSet = nil
+        case .specific(let set):
+            optionalSet = set
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(optionalSet?.sorted())
     }
-    var container = encoder.singleValueContainer()
-    try container.encode(optionalSet?.sorted())
-  }
-  public init(from decoder: Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    let optionalSet: Set<String>? = try container.decode([String]?.self).map { Set($0) }
-    if let set = optionalSet {
-      self = .specific(set)
-    } else {
-      self = .everything
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let optionalSet: Set<String>? = try container.decode([String]?.self).map { Set($0) }
+        if let set = optionalSet {
+            self = .specific(set)
+        } else {
+            self = .everything
+        }
     }
-  }
 
-  public func toJSON() -> JSON {
-    switch self {
-    case .everything:
-      return "all".toJSON()
-    case .specific(let products):
-      return products.sorted().toJSON()
+    public func toJSON() -> JSON {
+        switch self {
+        case .everything:
+            return "all".toJSON()
+        case .specific(let products):
+            return products.sorted().toJSON()
+        }
     }
-  }
-  public init(json: JSON) throws {
-    if let products = try? [String](json: json) {
-      self = .specific(Set(products))
-    } else {
-      self = .everything
+    public init(json: JSON) throws {
+        if let products = try? [String](json: json) {
+            self = .specific(Set(products))
+        } else {
+            self = .everything
+        }
     }
-  }
 
-  public var description: String {
-    switch self {
-    case .everything:
-      return "[everything]"
-    case .specific(let set):
-      return "[\(set.sorted().joined(separator: ", "))]"
+    public var description: String {
+        switch self {
+        case .everything:
+            return "[everything]"
+        case .specific(let set):
+            return "[\(set.sorted().joined(separator: ", "))]"
+        }
     }
-  }
 }
 
 /// A dependency description along with its associated product filter.
 public struct FilteredDependencyDescription: Codable {
 
-  /// Creates a filtered dependency.
-  ///
-  /// - Parameters:
-  ///   - declaration: The raw dependency.
-  ///   - productFilter: The product filter to apply.
-  public init(declaration: PackageDependencyDescription, productFilter: ProductFilter) {
-    self.declaration = declaration
-    self.productFilter = productFilter
-  }
+    /// Creates a filtered dependency.
+    ///
+    /// - Parameters:
+    ///   - declaration: The raw dependency.
+    ///   - productFilter: The product filter to apply.
+    public init(declaration: PackageDependencyDescription, productFilter: ProductFilter) {
+        self.declaration = declaration
+        self.productFilter = productFilter
+    }
 
-  /// The loaded dependency declaration.
-  public let declaration: PackageDependencyDescription
+    /// The loaded dependency declaration.
+    public let declaration: PackageDependencyDescription
 
-  /// The resolved product filter.
-  public let productFilter: ProductFilter
+    /// The resolved product filter.
+    public let productFilter: ProductFilter
 }
 
 public struct PlatformDescription: Codable, Equatable {

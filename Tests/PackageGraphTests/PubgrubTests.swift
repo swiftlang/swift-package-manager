@@ -708,10 +708,10 @@ final class PubgrubTests: XCTestCase {
 
     func testUnversioned8() {
         builder.serve("entry", at: .unversioned, with: [
-          "entry": [
-            "remote": (.versionSet(v1Range), .specific(["remote"])),
-            "local": (.unversioned, .specific(["local"])),
-          ]
+            "entry": [
+                "remote": (.versionSet(v1Range), .specific(["remote"])),
+                "local": (.unversioned, .specific(["local"])),
+            ]
         ])
         builder.serve("local", at: .unversioned, with: [
             "local": ["remote": (.unversioned, .specific(["remote"]))]
@@ -734,10 +734,10 @@ final class PubgrubTests: XCTestCase {
 
     func testUnversioned9() {
         builder.serve("entry", at: .unversioned, with: [
-          "entry": [
-            "local": (.unversioned, .specific(["local"])),
-            "remote": (.versionSet(v1Range), .specific(["remote"])),
-          ]
+            "entry": [
+                "local": (.unversioned, .specific(["local"])),
+                "remote": (.versionSet(v1Range), .specific(["remote"])),
+            ]
         ])
         builder.serve("local", at: .unversioned, with: [
             "local": ["remote": (.unversioned, .specific(["remote"]))]
@@ -910,16 +910,16 @@ final class PubgrubTests: XCTestCase {
             "swift-nio-ssl": ["swift-nio": (.versionSet(v2Range), .specific(["swift-nio"]))],
         ])
         builder.serve("nio-postgres", at: .revision("master"), with: [
-          "nio-postgres": [
-            "swift-nio": (.revision("master"), .specific(["swift-nio"])),
-            "swift-nio-ssl": (.revision("master"), .specific(["swift-nio-ssl"])),
-          ]
+            "nio-postgres": [
+                "swift-nio": (.revision("master"), .specific(["swift-nio"])),
+                "swift-nio-ssl": (.revision("master"), .specific(["swift-nio-ssl"])),
+            ]
         ])
         builder.serve("http-client", at: v1, with: [
-          "http-client": [
-            "swift-nio": (.versionSet(v1Range), .specific(["swift-nio"])),
-            "boring-ssl": (.versionSet(v1Range), .specific(["boring-ssl"])),
-          ]
+            "http-client": [
+                "swift-nio": (.versionSet(v1Range), .specific(["swift-nio"])),
+                "boring-ssl": (.versionSet(v1Range), .specific(["boring-ssl"])),
+            ]
         ])
         builder.serve("boring-ssl", at: v1, with: [
             "boring-ssl": ["swift-nio": (.versionSet(v1Range), .specific(["swift-nio"]))],
@@ -1060,52 +1060,52 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUnreachableProductsSkipped() {
-      builder.serve("root", at: .unversioned, with: [
-        "root": ["immediate": (.versionSet(v1Range), .specific(["ImmediateUsed"]))]
-      ])
-      builder.serve("immediate", at: v1, with: [
-        "ImmediateUsed": ["transitive": (.versionSet(v1Range), .specific(["TransitiveUsed"]))],
-        "ImmediateUnused": [
-          "transitive": (.versionSet(v1Range), .specific(["TransitiveUnused"])),
-          "nonexistent": (.versionSet(v1Range), .specific(["Nonexistent"]))
-        ]
-      ])
-      builder.serve("transitive", at: v1, with: [
-        "TransitiveUsed": [:],
-        "TransitiveUnused": [
-          "nonexistent": (.versionSet(v1Range), .specific(["Nonexistent"]))
-        ]
-      ])
+        builder.serve("root", at: .unversioned, with: [
+            "root": ["immediate": (.versionSet(v1Range), .specific(["ImmediateUsed"]))]
+        ])
+        builder.serve("immediate", at: v1, with: [
+            "ImmediateUsed": ["transitive": (.versionSet(v1Range), .specific(["TransitiveUsed"]))],
+            "ImmediateUnused": [
+                "transitive": (.versionSet(v1Range), .specific(["TransitiveUnused"])),
+                "nonexistent": (.versionSet(v1Range), .specific(["Nonexistent"]))
+            ]
+        ])
+        builder.serve("transitive", at: v1, with: [
+            "TransitiveUsed": [:],
+            "TransitiveUnused": [
+                "nonexistent": (.versionSet(v1Range), .specific(["Nonexistent"]))
+            ]
+        ])
 
-      let resolver = builder.create()
-      let dependencies = builder.create(dependencies: [
-        "root": (.unversioned, .everything)
-      ])
-      let result = resolver.solve(dependencies: dependencies)
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "root": (.unversioned, .everything)
+        ])
+        let result = resolver.solve(dependencies: dependencies)
 
-      AssertResult(result, [
-        ("root", .unversioned),
-        ("immediate", .version(v1)),
-        ("transitive", .version(v1))
-      ])
+        AssertResult(result, [
+            ("root", .unversioned),
+            ("immediate", .version(v1)),
+            ("transitive", .version(v1))
+        ])
     }
 }
 
 final class PubGrubTestsBasicGraphs: XCTestCase {
     func testSimple1() {
         builder.serve("a", at: v1, with: [
-          "a": [
-            "aa": (.versionSet(.exact("1.0.0")), .specific(["aa"])),
-            "ab": (.versionSet(.exact("1.0.0")), .specific(["ab"])),
-          ]
+            "a": [
+                "aa": (.versionSet(.exact("1.0.0")), .specific(["aa"])),
+                "ab": (.versionSet(.exact("1.0.0")), .specific(["ab"])),
+            ]
         ])
         builder.serve("aa", at: v1)
         builder.serve("ab", at: v1)
         builder.serve("b", at: v1, with: [
-          "b": [
-            "ba": (.versionSet(.exact("1.0.0")), .specific(["ba"])),
-            "bb": (.versionSet(.exact("1.0.0")), .specific(["bb"])),
-          ]
+            "b": [
+                "ba": (.versionSet(.exact("1.0.0")), .specific(["ba"])),
+                "bb": (.versionSet(.exact("1.0.0")), .specific(["bb"])),
+            ]
         ])
         builder.serve("ba", at: v1)
         builder.serve("bb", at: v1)
@@ -1261,16 +1261,16 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
     func testResolutionBranchingErrorReporting() {
         builder.serve("foo", at: v1, with: [
-          "foo": [
-            "a": (.versionSet(v1Range), .specific(["a"])),
-            "b": (.versionSet(v1Range), .specific(["b"]))
-          ]
+            "foo": [
+                "a": (.versionSet(v1Range), .specific(["a"])),
+                "b": (.versionSet(v1Range), .specific(["b"]))
+            ]
         ])
         builder.serve("foo", at: v1_1, with: [
-          "foo": [
-            "x": (.versionSet(v1Range), .specific(["x"])),
-            "y": (.versionSet(v1Range), .specific(["y"]))
-          ]
+            "foo": [
+                "x": (.versionSet(v1Range), .specific(["x"])),
+                "y": (.versionSet(v1Range), .specific(["y"]))
+            ]
         ])
         builder.serve("a", at: v1, with: ["a": ["b": (.versionSet(v2Range), .specific(["b"]))]])
         builder.serve("b", at: v1)
@@ -1578,45 +1578,45 @@ final class PubGrubDiagnosticsTests: XCTestCase {
     }
 
     func testProductsCannotResolveToDifferentVersions() {
-      builder.serve("root", at: .unversioned, with: [
-        "root": [
-          "intermediate_a": (.versionSet(v1Range), .specific(["Intermediate A"])),
-          "intermediate_b": (.versionSet(v1Range), .specific(["Intermediate B"]))
-        ]
-      ])
-      builder.serve("intermediate_a", at: v1, with: [
-        "Intermediate A": [
-          "transitive": (.versionSet(.exact(v1)), .specific(["Product A"]))
-        ]
-      ])
-      builder.serve("intermediate_b", at: v1, with: [
-        "Intermediate B": [
-          "transitive": (.versionSet(.exact(v1_1)), .specific(["Product B"]))
-        ]
-      ])
-      builder.serve("transitive", at: v1, with: [
-        "Product A": [:],
-        "Product B": [:]
-      ])
-      builder.serve("transitive", at: v1_1, with: [
-        "Product A": [:],
-        "Product B": [:]
-      ])
+        builder.serve("root", at: .unversioned, with: [
+            "root": [
+                "intermediate_a": (.versionSet(v1Range), .specific(["Intermediate A"])),
+                "intermediate_b": (.versionSet(v1Range), .specific(["Intermediate B"]))
+            ]
+        ])
+        builder.serve("intermediate_a", at: v1, with: [
+            "Intermediate A": [
+                "transitive": (.versionSet(.exact(v1)), .specific(["Product A"]))
+            ]
+        ])
+        builder.serve("intermediate_b", at: v1, with: [
+            "Intermediate B": [
+                "transitive": (.versionSet(.exact(v1_1)), .specific(["Product B"]))
+            ]
+        ])
+        builder.serve("transitive", at: v1, with: [
+            "Product A": [:],
+            "Product B": [:]
+        ])
+        builder.serve("transitive", at: v1_1, with: [
+            "Product A": [:],
+            "Product B": [:]
+        ])
 
-      let resolver = builder.create()
-      let dependencies = builder.create(dependencies: [
-        "root": (.unversioned, .everything)
-      ])
-      let result = resolver.solve(dependencies: dependencies)
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "root": (.unversioned, .everything)
+        ])
+        let result = resolver.solve(dependencies: dependencies)
 
-      XCTAssertEqual(
-        result.errorMsg,
-        """
-        because every version of intermediate_b[Intermediate B] depends on transitive[Product B] 1.1.0 and transitive[Product B] >=1.1.0 depends on transitive 1.1.0, every version of intermediate_b[Intermediate B] requires transitive 1.1.0.
-        And because transitive[Product A] <1.1.0 depends on transitive 1.0.0 and every version of intermediate_a[Intermediate A] depends on transitive[Product A] 1.0.0, intermediate_b[Intermediate B] is incompatible with intermediate_a[Intermediate A].
-        And because root depends on intermediate_a[Intermediate A] 1.0.0..<2.0.0 and root depends on intermediate_b[Intermediate B] 1.0.0..<2.0.0, version solving failed.
-        """
-      )
+        XCTAssertEqual(
+            result.errorMsg,
+            """
+            because every version of intermediate_b[Intermediate B] depends on transitive[Product B] 1.1.0 and transitive[Product B] >=1.1.0 depends on transitive 1.1.0, every version of intermediate_b[Intermediate B] requires transitive 1.1.0.
+            And because transitive[Product A] <1.1.0 depends on transitive 1.0.0 and every version of intermediate_a[Intermediate A] depends on transitive[Product A] 1.0.0, intermediate_b[Intermediate B] is incompatible with intermediate_a[Intermediate A].
+            And because root depends on intermediate_a[Intermediate A] 1.0.0..<2.0.0 and root depends on intermediate_b[Intermediate B] 1.0.0..<2.0.0, version solving failed.
+            """
+        )
     }
 }
 
@@ -1684,10 +1684,10 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         builder.serve("c", at: "1.0.0")
         builder.serve("c", at: "2.0.0", with: [
-          "c": [
-            "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
-            "b": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["b"])),
-          ]
+            "c": [
+                "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
+                "b": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["b"])),
+            ]
         ])
 
         builder.serve("x", at: "0.0.0")
@@ -1723,10 +1723,10 @@ final class PubGrubBacktrackTests: XCTestCase {
 
         builder.serve("c", at: "1.0.0")
         builder.serve("c", at: "2.0.0", with: [
-          "c": [
-            "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
-            "b": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["b"])),
-          ]
+            "c": [
+                "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
+                "b": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["b"])),
+            ]
         ])
 
         builder.serve("x", at: "0.0.0")
@@ -1949,7 +1949,7 @@ public class MockContainer: PackageContainer {
         }
         var filteredDependencies: [MockContainer.Dependency] = []
         for (product, productDependencies) in revisionDependencies where productFilter.contains(product) {
-          filteredDependencies.append(contentsOf: productDependencies)
+            filteredDependencies.append(contentsOf: productDependencies)
         }
         return filteredDependencies.map({ value in
             let (name, requirement, filter) = value
@@ -1984,20 +1984,20 @@ public class MockContainer: PackageContainer {
     public convenience init(
         name: PackageReference,
         dependenciesByVersion: [Version: [String: [(
-          package: PackageReference,
-          requirement: VersionSetSpecifier,
-          productFilter: ProductFilter
+            package: PackageReference,
+            requirement: VersionSetSpecifier,
+            productFilter: ProductFilter
         )]]]) {
         var dependencies: [String: [String: [Dependency]]] = [:]
         for (version, productDependencies) in dependenciesByVersion {
-          if dependencies[version.description] == nil {
-            dependencies[version.description] = [:]
-          }
-          for (product, deps) in productDependencies {
-            dependencies[version.description, default: [:]][product] = deps.map({
-                ($0.package, .versionSet($0.requirement), $0.productFilter)
-            })
-          }
+            if dependencies[version.description] == nil {
+                dependencies[version.description] = [:]
+            }
+            for (product, deps) in productDependencies {
+                dependencies[version.description, default: [:]][product] = deps.map({
+                    ($0.package, .versionSet($0.requirement), $0.productFilter)
+                })
+            }
         }
         self.init(name: name, dependencies: dependencies)
     }
@@ -2103,13 +2103,13 @@ class DependencyGraphBuilder {
             .reversed()
 
         if container.dependencies[version.description] == nil {
-          container.dependencies[version.description] = [:]
+            container.dependencies[version.description] = [:]
         }
         for (product, filteredDependencies) in dependencies {
-          let packageDependencies: [MockContainer.Dependency] = filteredDependencies.map {
-            (container: reference(for: $0), requirement: $1.0, products: $1.1)
-          }
-          container.dependencies[version.description, default: [:]][product] = packageDependencies
+            let packageDependencies: [MockContainer.Dependency] = filteredDependencies.map {
+                (container: reference(for: $0), requirement: $1.0, products: $1.1)
+            }
+            container.dependencies[version.description, default: [:]][product] = packageDependencies
         }
         self.containers[package] = container
     }

@@ -263,118 +263,118 @@ public class DependencyResolver {
 /// - SeeAlso: `GraphLoadingNode`
 public struct DependencyResolutionNode: Equatable, Hashable, CustomStringConvertible {
 
-  /// The package.
-  public let package: PackageReference
+    /// The package.
+    public let package: PackageReference
 
-  /// The name of the specific product, in any.
-  ///
-  /// A node with `nil` refers to package itself without any product.
-  public let specificProduct: String?
+    /// The name of the specific product, in any.
+    ///
+    /// A node with `nil` refers to package itself without any product.
+    public let specificProduct: String?
 
-  /// Whether or not the node behaves like a root node.
-  ///
-  /// A root node requires all its dependencies, even if they are not referenced by any product.
-  public let isRoot: Bool
+    /// Whether or not the node behaves like a root node.
+    ///
+    /// A root node requires all its dependencies, even if they are not referenced by any product.
+    public let isRoot: Bool
 
-  // To ensure cyclical dependencies are detected properly,
-  // hashing cannot include whether the node behaves as a root.
-  private struct Identity: Equatable, Hashable {
-    fileprivate let package: PackageReference
-    fileprivate let specificProduct: String?
-  }
-  private var identity: Identity {
-    return Identity(package: package, specificProduct: specificProduct)
-  }
-  public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
-    return lhs.identity == rhs.identity
-  }
-  public func hash(into hasher: inout Hasher) {
-    hasher.combine(identity)
-  }
-
-  public static func empty(package: PackageReference) -> DependencyResolutionNode {
-    return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: false)
-  }
-  public static func product(_ name: String, package: PackageReference) -> DependencyResolutionNode {
-    return DependencyResolutionNode(package: package, specificProduct: name, isRoot: false)
-  }
-  public static func root(package: PackageReference) -> DependencyResolutionNode {
-    return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: true)
-  }
-
-  /// Assembles the product filter to use on the manifest for this node to determine it’s dependencies.
-  internal func productFilter() -> ProductFilter {
-    if let product = specificProduct {
-      return .specific([product])
-    } else if isRoot {
-      return .everything
-    } else {
-      return .specific([])
+    // To ensure cyclical dependencies are detected properly,
+    // hashing cannot include whether the node behaves as a root.
+    private struct Identity: Equatable, Hashable {
+        fileprivate let package: PackageReference
+        fileprivate let specificProduct: String?
     }
-  }
-
-  /// Returns the dependency that a product has on its own package, if relevant.
-  ///
-  /// This is the constraint that requires all products from a package resolve to the same version.
-  internal func versionLock(version: Version) -> RepositoryPackageConstraint? {
-    // Don’t create a version lock for anything but a product.
-    guard specificProduct != nil else { return nil }
-    return RepositoryPackageConstraint(
-      container: package,
-      versionRequirement: .exact(version),
-      products: .specific([])
-    )
-  }
-
-  /// Returns the dependency that a product has on its own package, if relevant.
-  ///
-  /// This is the constraint that requires all products from a package resolve to the same revision.
-  internal func revisionLock(revision: String) -> RepositoryPackageConstraint? {
-    // Don’t create a revision lock for anything but a product.
-    guard specificProduct != nil else { return nil }
-    return RepositoryPackageConstraint(
-      container: package,
-      requirement: .revision(revision),
-      products: .specific([])
-    )
-  }
-
-  public var description: String {
-    return "\(package.name)\(productFilter())"
-  }
-
-  public func nameForDiagnostics() -> String {
-    if let product = specificProduct {
-      return "\(package.name)[\(product)]"
-    } else {
-      return "\(package.name)"
+    private var identity: Identity {
+        return Identity(package: package, specificProduct: specificProduct)
     }
-  }
+    public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
+        return lhs.identity == rhs.identity
+    }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(identity)
+    }
+
+    public static func empty(package: PackageReference) -> DependencyResolutionNode {
+        return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: false)
+    }
+    public static func product(_ name: String, package: PackageReference) -> DependencyResolutionNode {
+        return DependencyResolutionNode(package: package, specificProduct: name, isRoot: false)
+    }
+    public static func root(package: PackageReference) -> DependencyResolutionNode {
+        return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: true)
+    }
+
+    /// Assembles the product filter to use on the manifest for this node to determine it’s dependencies.
+    internal func productFilter() -> ProductFilter {
+        if let product = specificProduct {
+            return .specific([product])
+        } else if isRoot {
+            return .everything
+        } else {
+            return .specific([])
+        }
+    }
+
+    /// Returns the dependency that a product has on its own package, if relevant.
+    ///
+    /// This is the constraint that requires all products from a package resolve to the same version.
+    internal func versionLock(version: Version) -> RepositoryPackageConstraint? {
+        // Don’t create a version lock for anything but a product.
+        guard specificProduct != nil else { return nil }
+        return RepositoryPackageConstraint(
+            container: package,
+            versionRequirement: .exact(version),
+            products: .specific([])
+        )
+    }
+
+    /// Returns the dependency that a product has on its own package, if relevant.
+    ///
+    /// This is the constraint that requires all products from a package resolve to the same revision.
+    internal func revisionLock(revision: String) -> RepositoryPackageConstraint? {
+        // Don’t create a revision lock for anything but a product.
+        guard specificProduct != nil else { return nil }
+        return RepositoryPackageConstraint(
+            container: package,
+            requirement: .revision(revision),
+            products: .specific([])
+        )
+    }
+
+    public var description: String {
+        return "\(package.name)\(productFilter())"
+    }
+
+    public func nameForDiagnostics() -> String {
+        if let product = specificProduct {
+            return "\(package.name)[\(product)]"
+        } else {
+            return "\(package.name)"
+        }
+    }
 }
 
 extension ProductFilter {
 
-  /// Returns each product, or an array containing `nil` if the filter is empty.
-  ///
-  /// This method is of narrow use. It is is intended to centralize functionality used by dependency resolution nodes, so that in conjunction with `map`, such nodes can easily assemble their successors.
-  ///
-  /// If:
-  ///   - `.everything`, this method produces a fatal error.
-  ///   - `.specific`, then:
-  ///     - if the set is empty, an array containing `nil` will be returned.
-  ///     - if the set is non‐empty, it will be sorted and returned.
-  ///
-  /// - Precondition: The set is not `.everything`.
-  internal func enumerated() -> [String?] {
-    switch self {
-    case .everything:
-      fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
-    case .specific(let set):
-      if set.isEmpty { // Pointing at the package without a particular product.
-        return [Optional<String>.none]
-      } else {
-        return set.sorted()
-      }
+    /// Returns each product, or an array containing `nil` if the filter is empty.
+    ///
+    /// This method is of narrow use. It is is intended to centralize functionality used by dependency resolution nodes, so that in conjunction with `map`, such nodes can easily assemble their successors.
+    ///
+    /// If:
+    ///   - `.everything`, this method produces a fatal error.
+    ///   - `.specific`, then:
+    ///     - if the set is empty, an array containing `nil` will be returned.
+    ///     - if the set is non‐empty, it will be sorted and returned.
+    ///
+    /// - Precondition: The set is not `.everything`.
+    internal func enumerated() -> [String?] {
+        switch self {
+        case .everything:
+            fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+        case .specific(let set):
+            if set.isEmpty { // Pointing at the package without a particular product.
+                return [Optional<String>.none]
+            } else {
+                return set.sorted()
+            }
+        }
     }
-  }
 }

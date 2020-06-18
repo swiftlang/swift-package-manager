@@ -768,12 +768,12 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.specific([])
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.specific([])
         )
         let v2 = (
-          CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
-          products: ProductFilter.specific([])
+            CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
+            products: ProductFilter.specific([])
         )
 
         let workspace = try TestWorkspace(
@@ -814,8 +814,8 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v1 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -874,8 +874,8 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let branchRequirement: TestDependency.Requirement = .branch("master")
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -936,8 +936,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
 
         let testWorkspace = try TestWorkspace(
@@ -991,8 +991,8 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let masterRequirement: TestDependency.Requirement = .branch("master")
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -1056,8 +1056,8 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let localRequirement: TestDependency.Requirement = .localPackage
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -1121,12 +1121,12 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let localRequirement: TestDependency.Requirement = .localPackage
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
         let master = (
-          version: CheckoutState(revision: Revision(identifier: "master"), branch: "master"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "master"), branch: "master"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -1190,8 +1190,8 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -1251,12 +1251,12 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
         )
         let v2 = (
-          version: CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
+            products: ProductFilter.everything
         )
 
         let workspace = try TestWorkspace(
@@ -1495,10 +1495,10 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             let expectedChange = (
-              PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
-              Workspace.PackageStateChange.updated(
-                .init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"]))
-              )
+                PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
+                Workspace.PackageStateChange.updated(
+                    .init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"]))
+                )
             )
             guard let change = changes?.first, changes?.count == 1 else {
                 XCTFail()
@@ -4191,11 +4191,11 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     targets: [
                         TestTarget(name: "Foo", dependencies: [
-                          "B",
-                          .product(name: "A1", package: "A"),
-                          .product(name: "A2", package: "A"),
-                          .product(name: "A3", package: "A"),
-                          .product(name: "A4", package: "A"),
+                            "B",
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                            .product(name: "A3", package: "A"),
+                            .product(name: "A4", package: "A"),
                         ]),
                     ],
                     products: [],
@@ -4268,8 +4268,8 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = (
-          version: CheckoutState(revision: aRevision, version: "1.0.0"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: aRevision, version: "1.0.0"),
+            products: ProductFilter.everything
         )
 
         try workspace.set(
@@ -4517,8 +4517,8 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = (
-          version: CheckoutState(revision: aRevision, version: "1.0.0"),
-          products: ProductFilter.everything
+            version: CheckoutState(revision: aRevision, version: "1.0.0"),
+            products: ProductFilter.everything
         )
         let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState.version, productFilter: aState.products)
 

@@ -65,9 +65,9 @@ final class PinsStoreTests: XCTestCase {
         // We should be able to pin again.
         store.pin(packageRef: fooRef, state: state, productFilter: products)
         store.pin(
-          packageRef: fooRef,
-          state: CheckoutState(revision: revision, version: "1.0.2"),
-          productFilter: .specific(["some", "products"])
+            packageRef: fooRef,
+            state: CheckoutState(revision: revision, version: "1.0.2"),
+            productFilter: .specific(["some", "products"])
         )
         store.pin(packageRef: barRef, state: state, productFilter: products)
         try store.saveState()
@@ -78,9 +78,9 @@ final class PinsStoreTests: XCTestCase {
         // Test branch pin.
         do {
             store.pin(
-              packageRef: barRef,
-              state: CheckoutState(revision: revision, branch: "develop"),
-              productFilter: .specific(["a", "product"])
+                packageRef: barRef,
+                state: CheckoutState(revision: revision, branch: "develop"),
+                productFilter: .specific(["a", "product"])
             )
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)

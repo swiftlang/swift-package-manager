@@ -270,19 +270,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var products =  manifestBuilder.products
         var targets = manifestBuilder.targets
         if products.isEmpty, targets.isEmpty,
-          (fileSystem ?? localFileSystem).isFile(inputPath.parentDirectory.appending(component: moduleMapFilename)) {
-          products.append(ProductDescription(
-            name: manifestBuilder.name,
-            type: .library(.automatic),
-            targets: [manifestBuilder.name])
-          )
-          targets.append(TargetDescription(
-            name: manifestBuilder.name,
-            path: "",
-            type: .system,
-            pkgConfig: manifestBuilder.pkgConfig,
-            providers: manifestBuilder.providers
-          ))
+            (fileSystem ?? localFileSystem).isFile(inputPath.parentDirectory.appending(component: moduleMapFilename)) {
+                products.append(ProductDescription(
+                name: manifestBuilder.name,
+                type: .library(.automatic),
+                targets: [manifestBuilder.name])
+            )
+            targets.append(TargetDescription(
+                name: manifestBuilder.name,
+                path: "",
+                type: .system,
+                pkgConfig: manifestBuilder.pkgConfig,
+                providers: manifestBuilder.providers
+            ))
         }
 
         let manifest = Manifest(

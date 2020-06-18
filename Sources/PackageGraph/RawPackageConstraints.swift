@@ -38,19 +38,19 @@ extension Manifest {
 
 extension RepositoryPackageConstraint {
 
-  internal func nodes() -> [DependencyResolutionNode] {
-    switch products {
-    case .everything:
-      return [.root(package: identifier)]
-    case .specific:
-      return products.enumerated().map { node in
-        switch node {
-        case .none:
-          return .empty(package: identifier)
-        case .some(let product):
-          return .product(product, package: identifier)
+    internal func nodes() -> [DependencyResolutionNode] {
+        switch products {
+        case .everything:
+            return [.root(package: identifier)]
+        case .specific:
+            return products.enumerated().map { node in
+                switch node {
+                case .none:
+                    return .empty(package: identifier)
+                case .some(let product):
+                    return .product(product, package: identifier)
+                }
+            }
         }
-      }
     }
-  }
 }

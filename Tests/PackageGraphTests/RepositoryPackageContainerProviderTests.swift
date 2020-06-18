@@ -378,9 +378,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let config = SwiftPMConfig()
 
         let v5ProductMapping: [String: ProductFilter] = [
-          "Bar1": .specific(["Bar1", "Bar3"]),
-          "Bar2": .specific(["B2", "Bar1", "Bar3"]),
-          "Bar3": .specific(["Bar1", "Bar3"])
+            "Bar1": .specific(["Bar1", "Bar3"]),
+            "Bar2": .specific(["B2", "Bar1", "Bar3"]),
+            "Bar3": .specific(["Bar1", "Bar3"])
         ]
         let v5Constraints = dependencies.map({
             RepositoryPackageConstraint(
@@ -389,15 +389,15 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 products: v5ProductMapping[$0.name]!)
         })
         let v5_2ProductMapping: [String: ProductFilter] = [
-          "Bar1": .specific(["Bar1"]),
-          "Bar2": .specific(["B2"]),
-          "Bar3": .specific(["Bar3"])
+            "Bar1": .specific(["Bar1"]),
+            "Bar2": .specific(["B2"]),
+            "Bar3": .specific(["Bar3"])
         ]
         let v5_2Constraints = dependencies.map({
-          RepositoryPackageConstraint(
-            container: $0.createPackageRef(config: config),
-            requirement: $0.requirement.toConstraintRequirement(),
-            products: v5_2ProductMapping[$0.name]!)
+            RepositoryPackageConstraint(
+                container: $0.createPackageRef(config: config),
+                requirement: $0.requirement.toConstraintRequirement(),
+                products: v5_2ProductMapping[$0.name]!)
         })
 
         do {

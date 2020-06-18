@@ -144,9 +144,9 @@ public class Workspace {
         let workspace: Workspace
 
         fileprivate init(
-          root: PackageGraphRoot,
-          dependencies: [(Manifest, ManagedDependency)],
-          workspace: Workspace
+            root: PackageGraphRoot,
+            dependencies: [(Manifest, ManagedDependency)],
+            workspace: Workspace
         ) {
             self.root = root
             self.dependencies = dependencies
@@ -265,8 +265,8 @@ public class Workspace {
                     break
                 }
                 allConstraints += externalManifest.dependencyConstraints(
-                  productFilter: managedDependency.productFilter,
-                  config: workspace.config
+                    productFilter: managedDependency.productFilter,
+                    config: workspace.config
                 )
             }
             return allConstraints
@@ -759,16 +759,16 @@ extension Workspace {
         let manifests: DependencyManifests
         if forceResolvedVersions {
             manifests = self._resolveToResolvedVersion(
-              root: root,
-              explicitProduct: explicitProduct,
-              diagnostics: diagnostics
+                root: root,
+                explicitProduct: explicitProduct,
+                diagnostics: diagnostics
             )
         } else {
             manifests = self._resolve(
-              root: root,
-              explicitProduct: explicitProduct,
-              forceResolution: false,
-              diagnostics: diagnostics
+                root: root,
+                explicitProduct: explicitProduct,
+                forceResolution: false,
+                diagnostics: diagnostics
             )
         }
 
@@ -1040,11 +1040,11 @@ extension Workspace {
         }
 
         if let checkoutState = dependency.basedOn?.checkoutState,
-          let productFilter = dependency.basedOn?.productFilter {
-            // Restore the original checkout.
-            //
-            // The clone method will automatically update the managed dependency state.
-            _ = try clone(package: dependency.packageRef, at: checkoutState, productFilter: productFilter)
+            let productFilter = dependency.basedOn?.productFilter {
+                // Restore the original checkout.
+                //
+                // The clone method will automatically update the managed dependency state.
+                _ = try clone(package: dependency.packageRef, at: checkoutState, productFilter: productFilter)
         } else {
             // The original dependency was removed, update the managed dependency state.
             state.dependencies.remove(forURL: dependency.packageRef.path)
@@ -1862,12 +1862,12 @@ extension Workspace {
             }
         }
         public struct State: Equatable {
-          public let requirement: Requirement
-          public let products: ProductFilter
-          public init(requirement: Requirement, products: ProductFilter) {
-            self.requirement = requirement
-            self.products = products
-          }
+            public let requirement: Requirement
+            public let products: ProductFilter
+            public init(requirement: Requirement, products: ProductFilter) {
+                self.requirement = requirement
+                self.products = products
+            }
         }
 
         /// The package is added.

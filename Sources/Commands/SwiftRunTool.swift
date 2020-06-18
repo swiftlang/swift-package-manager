@@ -96,9 +96,9 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
         case .repl:
             // Load a custom package graph which has a special product for REPL.
             let graphLoader = {
-              try self.loadPackageGraph(
-                explicitProduct: self.options.executable,
-                createREPLProduct: self.options.shouldLaunchREPL)
+                try self.loadPackageGraph(
+                    explicitProduct: self.options.executable,
+                    createREPLProduct: self.options.shouldLaunchREPL)
             }
             let buildParameters = try self.buildParameters()
 

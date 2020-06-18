@@ -1225,8 +1225,8 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(diagnostics.diagnostics.count, 1)
         let firstDiagnostic = diagnostics.diagnostics.first.map({ $0.message.text })
         XCTAssert(
-          firstDiagnostic == "dependency 'C' is not used by any target",
-          "Unexpected diagnostic: " + (firstDiagnostic ?? "[none]")
+            firstDiagnostic == "dependency 'C' is not used by any target",
+            "Unexpected diagnostic: " + (firstDiagnostic ?? "[none]")
         )
 
         let graphResult = PackageGraphResult(graph)

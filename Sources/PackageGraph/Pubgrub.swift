@@ -741,9 +741,9 @@ public final class PubgrubDependencyResolver {
     private func processInputs(
         with constraints: [Constraint]
     ) throws -> (
-      overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
-      rootIncompatibilities: [Incompatibility]
-      ) {
+        overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
+        rootIncompatibilities: [Incompatibility]
+    ) {
         let root = self.root!
 
         // The list of constraints that we'll be working with. We start with the input constraints
@@ -770,33 +770,33 @@ public final class PubgrubDependencyResolver {
 
             // Mark the package as overridden.
             if var existing = overriddenPackages[constraint.identifier] {
-              assert(existing.version == .unversioned, "Overridden package is not unversioned: \(constraint.identifier)@\(existing.version)")
-              existing.products.formUnion(constraint.products)
-              overriddenPackages[constraint.identifier] = existing
+                assert(existing.version == .unversioned, "Overridden package is not unversioned: \(constraint.identifier)@\(existing.version)")
+                existing.products.formUnion(constraint.products)
+                overriddenPackages[constraint.identifier] = existing
             } else {
-              overriddenPackages[constraint.identifier] = (version: .unversioned, products: constraint.products)
+                overriddenPackages[constraint.identifier] = (version: .unversioned, products: constraint.products)
             }
 
             for node in constraint.nodes() {
-              // Process dependencies of this package.
-              //
-              // We collect all version-based dependencies in a separate structure so they can
-              // be process at the end. This allows us to override them when there is a non-version
-              // based (unversioned/branch-based) constraint present in the graph.
-              let container = try provider.getContainer(for: node.package)
-              for dependency in try container.packageContainer.getUnversionedDependencies(
-                productFilter: node.productFilter()
-              ) {
-                if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
-                  for constraint in versionedBasedConstraints {
-                    versionBasedDependencies[node, default: []].append(constraint)
-                  }
-                } else if !overriddenPackages.keys.contains(dependency.identifier) {
-                  // Add the constraint if its not already present. This will ensure we don't
-                  // end up looping infinitely due to a cycle (which are diagnosed seperately).
-                  constraints.append(dependency)
+                // Process dependencies of this package.
+                //
+                // We collect all version-based dependencies in a separate structure so they can
+                // be process at the end. This allows us to override them when there is a non-version
+                // based (unversioned/branch-based) constraint present in the graph.
+                let container = try provider.getContainer(for: node.package)
+                for dependency in try container.packageContainer.getUnversionedDependencies(
+                    productFilter: node.productFilter()
+                ) {
+                    if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
+                        for constraint in versionedBasedConstraints {
+                            versionBasedDependencies[node, default: []].append(constraint)
+                        }
+                    } else if !overriddenPackages.keys.contains(dependency.identifier) {
+                        // Add the constraint if its not already present. This will ensure we don't
+                        // end up looping infinitely due to a cycle (which are diagnosed seperately).
+                        constraints.append(dependency)
+                    }
                 }
-              }
             }
         }
 
@@ -848,29 +848,29 @@ public final class PubgrubDependencyResolver {
             }
 
             for node in constraint.nodes() {
-              var unprocessedDependencies = try container.packageContainer.getDependencies(
-                at: revisionForDependencies,
-                productFilter: constraint.products
-              )
-              if let sharedRevision = node.revisionLock(revision: revision) {
-                unprocessedDependencies.append(sharedRevision)
-              }
-              for dependency in unprocessedDependencies {
-                switch dependency.requirement {
-                case .versionSet(let req):
-                    for node in dependency.nodes() {
-                      let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
-                      versionBasedDependencies[node, default: []].append(versionedBasedConstraint)
-                    }
-                case .revision:
-                    constraints.append(dependency)
-                case .unversioned:
-                    throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                        dependency: package.name,
-                        localPackage: dependency.identifier.name
-                    )
+                var unprocessedDependencies = try container.packageContainer.getDependencies(
+                    at: revisionForDependencies,
+                    productFilter: constraint.products
+                )
+                if let sharedRevision = node.revisionLock(revision: revision) {
+                    unprocessedDependencies.append(sharedRevision)
                 }
-              }
+                for dependency in unprocessedDependencies {
+                    switch dependency.requirement {
+                    case .versionSet(let req):
+                        for node in dependency.nodes() {
+                            let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
+                            versionBasedDependencies[node, default: []].append(versionedBasedConstraint)
+                        }
+                    case .revision:
+                        constraints.append(dependency)
+                    case .unversioned:
+                        throw DependencyResolverError.revisionDependencyContainsLocalPackage(
+                            dependency: package.name,
+                            localPackage: dependency.identifier.name
+                        )
+                    }
+                }
             }
         }
 
@@ -880,10 +880,10 @@ public final class PubgrubDependencyResolver {
             switch dependency.requirement {
             case .versionSet(let req):
                 for node in dependency.nodes() {
-                  let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
-                  // FIXME: It would be better to record where this constraint came from, instead of just
-                  // using root.
-                  versionBasedDependencies[root, default: []].append(versionedBasedConstraint)
+                    let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
+                    // FIXME: It would be better to record where this constraint came from, instead of just
+                    // using root.
+                    versionBasedDependencies[root, default: []].append(versionedBasedConstraint)
                 }
             case .revision, .unversioned:
                 fatalError("Unexpected revision/unversioned requirement in the constraints list: \(constraints)")
@@ -983,20 +983,20 @@ public final class PubgrubDependencyResolver {
             let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
 
             if var existing = flattenedAssignments[identifier] {
-              assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
-              existing.products.formUnion(products)
-              flattenedAssignments[identifier] = existing
+                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                existing.products.formUnion(products)
+                flattenedAssignments[identifier] = existing
             } else {
-              flattenedAssignments[identifier] = (binding: boundVersion, products: products)
+                flattenedAssignments[identifier] = (binding: boundVersion, products: products)
             }
         }
         var finalAssignments: [(
-          container: PackageReference,
-          binding: BoundVersion,
-          products: ProductFilter
-          )] = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
-            let details = flattenedAssignments[package]!
-            return (container: package, binding: details.binding, products: details.products)
+            container: PackageReference,
+            binding: BoundVersion,
+            products: ProductFilter
+            )] = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
+                let details = flattenedAssignments[package]!
+                return (container: package, binding: details.binding, products: details.products)
         }
 
         // Add overriden packages to the result.
@@ -1207,10 +1207,10 @@ public final class PubgrubDependencyResolver {
 
         // Add all of this version's dependencies as incompatibilities.
         let depIncompatibilities = try container.incompatibilites(
-          at: version,
-          node: pkgTerm.node,
-          overriddenPackages: overriddenPackages,
-          root: root!)
+            at: version,
+            node: pkgTerm.node,
+            overriddenPackages: overriddenPackages,
+            root: root!)
 
         var haveConflict = false
         for incompatibility in depIncompatibilities {
@@ -1702,7 +1702,7 @@ private final class PubGrubPackageContainer {
 
         var unprocessedDependencies = try packageContainer.getDependencies(at: version, productFilter: node.productFilter())
         if let sharedVersion = node.versionLock(version: version) {
-          unprocessedDependencies.append(sharedVersion)
+            unprocessedDependencies.append(sharedVersion)
         }
         var dependencies: [PackageContainerConstraint] = []
         for dep in unprocessedDependencies {
@@ -1739,10 +1739,10 @@ private final class PubGrubPackageContainer {
             return Array(dependencies.map({ (constraint: PackageContainerConstraint) -> [Incompatibility] in
                 guard case .versionSet(let vs) = constraint.requirement else { fatalError("Unexpected unversioned requirement: \(constraint)") }
                 return constraint.nodes().map { dependencyNode in
-                  var terms: OrderedSet<Term> = []
-                  terms.append(Term(node, .exact(version)))
-                  terms.append(Term(not: dependencyNode, vs))
-                  return Incompatibility(terms, root: root, cause: .dependency(node: node))
+                    var terms: OrderedSet<Term> = []
+                    terms.append(Term(node, .exact(version)))
+                    terms.append(Term(not: dependencyNode, vs))
+                    return Incompatibility(terms, root: root, cause: .dependency(node: node))
                 }
             }).joined())
         }
