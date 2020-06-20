@@ -25,7 +25,7 @@ import Foundation
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
     public static let configuration = CommandConfiguration(
-        commandName: "swift package",
+        commandName: "package",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
         version: Versioning.currentVersion.completeDisplayString,
@@ -53,6 +53,7 @@ public struct SwiftPackageTool: ParsableCommand {
             ToolsVersionCommand.self,
             GenerateXcodeProject.self,
             ComputeChecksum.self,
+            CompletionTool.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
@@ -795,6 +796,62 @@ extension SwiftPackageTool {
             
             let resolveCommand = Resolve(swiftOptions: _swiftOptions, resolveOptions: _resolveOptions)
             try resolveCommand.run(swiftTool)
+        }
+    }
+}
+
+extension SwiftPackageTool {
+    struct CompletionTool: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Completion tool (for shell completions)"
+        )
+
+        enum Mode: String, CaseIterable, ExpressibleByArgument {
+            case generateBashScript = "generate-bash-script"
+            case generateZshScript = "generate-zsh-script"
+            case listDependencies = "list-dependencies"
+            case listExecutables = "list-executables"
+        }
+
+        /// A dummy version of the root `swift` command, to act as a parent
+        /// for all the subcommands.
+        struct Swift: ParsableCommand {
+            static let configuration = CommandConfiguration(
+                abstract: "The Swift compiler",
+                subcommands: [
+                    SwiftRunTool.self,
+                    SwiftBuildTool.self,
+                    SwiftTestTool.self,
+                    SwiftPackageTool.self,
+                ]
+            )
+        }
+      
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Argument()
+        var mode: Mode
+
+        func run(_ swiftTool: SwiftTool) throws {
+            switch mode {
+            case .generateBashScript:
+                let script = Swift.completionScript(for: .bash)
+                print(script)
+            case .generateZshScript:
+                print("generate zsh script")
+            case .listDependencies:
+                let graph = try swiftTool.loadPackageGraph()
+                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
+            case .listExecutables:
+                let graph = try swiftTool.loadPackageGraph()
+                let package = graph.rootPackages[0].underlyingPackage
+                let executables = package.targets.filter { $0.type == .executable }
+                for executable in executables {
+                    stdoutStream <<< "\(executable.name)\n"
+                }
+                stdoutStream.flush()
+            }
         }
     }
 }
