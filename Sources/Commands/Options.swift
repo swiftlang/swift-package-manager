@@ -57,6 +57,9 @@ public class ToolOptions {
     /// Path to the compilation destination’s toolchain.
     public var customCompileToolchain: AbsolutePath?
 
+    /// The architectures to compile for.
+    public var archs: [String] = []
+
     /// If should link the Swift stdlib statically.
     public var shouldLinkStaticSwiftStdlib = false
 
@@ -101,7 +104,12 @@ public class ToolOptions {
     public var useExplicitModuleBuild: Bool = false
 
     /// The build system to use.
-    public var buildSystem: BuildSystemKind = .native
+    public var buildSystem: BuildSystemKind {
+        // Force the Xcode build system if we want to build more than one arch.
+        archs.count > 1 ? .xcode : _buildSystem
+    }
+
+    public var _buildSystem: BuildSystemKind = .native
 
     /// Extra arguments to pass when using xcbuild.
     public var xcbuildFlags: [String] = []

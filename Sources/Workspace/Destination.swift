@@ -37,6 +37,9 @@ public struct Destination: Encodable, Equatable {
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
     public var target: Triple?
 
+    /// The architectures to build for. We build for host architecture if this is empty.
+    public var archs: [String] = []
+
     /// The SDK used to compile for the destination.
     public var sdk: AbsolutePath
 
