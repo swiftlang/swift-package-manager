@@ -57,6 +57,9 @@ public final class UserToolchain: Toolchain {
     /// The target triple that should be used for compilation.
     public let triple: Triple
 
+    /// The list of archs to build for.
+    public let archs: [String]
+
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
@@ -254,8 +257,17 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
+        self.archs = destination.archs
         // Use the triple from destination or compute the host triple using swiftc.
-        let triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+
+        // Change the triple to the specified arch if there's exactly one of them.
+        // The Triple property is only looked at by the native build system currently.
+        if archs.count == 1 {
+            let components = triple.tripleString.drop(while: { $0 != "-" })
+            triple = try Triple(archs[0] + components)
+        }
+
         self.triple = triple
         self.extraSwiftCFlags = UserToolchain.deriveSwiftCFlags(triple: triple, destination: destination)
 
