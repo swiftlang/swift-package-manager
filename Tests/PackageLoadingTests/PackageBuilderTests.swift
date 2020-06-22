@@ -1563,7 +1563,7 @@ class PackageBuilderTests: XCTestCase {
         var expectedPlatforms = [
             "linux": "0.0",
             "macos": "10.12",
-            "ios": "8.0",
+            "ios": "9.0",
             "tvos": "9.0",
             "watchos": "2.0",
             "android": "0.0",
@@ -1619,7 +1619,7 @@ class PackageBuilderTests: XCTestCase {
             "macos": "10.12",
             "tvos": "10.0",
             "linux": "0.0",
-            "ios": "8.0",
+            "ios": "9.0",
             "watchos": "2.0",
             "android": "0.0",
             "wasi": "0.0",
