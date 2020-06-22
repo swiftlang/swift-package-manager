@@ -44,5 +44,36 @@ final class SwiftPMTests: XCTestCase {
             }
         }
     }
+
+    func testArchCustomization() throws {
+        try withTemporaryDirectory { tmpDir in
+            let foo = tmpDir.appending(component: "foo")
+            try localFileSystem.createDirectory(foo)
+            try sh(swiftPackage, "--package-path", foo, "init", "--type", "executable")
+
+            try localFileSystem.removeFileTree(foo.appending(RelativePath("Sources/foo/main.swift")))
+            try localFileSystem.writeFileContents(foo.appending(RelativePath("Sources/foo/main.m"))) {
+                $0 <<< "int main() {}"
+            }
+            let archs = ["x86_64", "x86_64h"]
+
+            for arch in archs {
+                try sh(swiftBuild, "--package-path", foo, "--arch", arch)
+                let fooPath = foo.appending(RelativePath(".build/\(arch)-apple-macosx/debug/foo"))
+                XCTAssertFileExists(fooPath)
+            }
+
+            let args = [swiftBuild.pathString, "--package-path", foo.pathString] + archs.flatMap{ ["--arch", $0] }
+            try _sh(args)
+
+            let fooPath = foo.appending(RelativePath(".build/apple/Products/Debug/foo"))
+            XCTAssertFileExists(fooPath)
+
+            let objectsDir = foo.appending(RelativePath(".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal"))
+            for arch in archs {
+                XCTAssertDirectoryExists(objectsDir.appending(component: arch))
+            }
+        }
+    }
   #endif
 }

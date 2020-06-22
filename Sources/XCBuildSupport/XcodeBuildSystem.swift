@@ -8,6 +8,8 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import class Foundation.JSONEncoder
+
 import TSCBasic
 import TSCUtility
 import PackageModel
@@ -78,7 +80,7 @@ public final class XcodeBuildSystem: BuildSystem {
         let pif = try pifBuilder.generatePIF()
         try localFileSystem.writeIfChanged(path: buildParameters.pifManifest, bytes: ByteString(encodingAsUTF8: pif))
 
-        let arguments = [
+        var arguments = [
             xcbuildPath.pathString,
             "build",
             buildParameters.pifManifest.pathString,
@@ -88,7 +90,14 @@ public final class XcodeBuildSystem: BuildSystem {
             buildParameters.dataPath.pathString,
             "--target",
             subset.pifTargetName
-        ] + buildParameters.xcbuildFlags
+        ]
+
+        let buildParamsFile = try createBuildParametersFile()
+        if let buildParamsFile = buildParamsFile {
+            arguments += ["--buildParametersFile", buildParamsFile.pathString]
+        }
+
+        arguments += buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
         let redirection: Process.OutputRedirection = .stream(stdout: delegate.parse(bytes:), stderr: { bytes in
@@ -99,9 +108,45 @@ public final class XcodeBuildSystem: BuildSystem {
         try process.launch()
         let result = try process.waitUntilExit()
 
+        if let buildParamsFile = buildParamsFile {
+            try? localFileSystem.removeFileTree(buildParamsFile)
+        }
+
         guard result.exitStatus == .terminated(code: 0) else {
             throw Diagnostics.fatalError
         }
+    }
+
+    func createBuildParametersFile() throws -> AbsolutePath? {
+        // We only generate the build parameters file if it's required.
+        guard !buildParameters.archs.isEmpty else { return nil }
+
+        let runDestination = XCBBuildParameters.RunDestination(
+            platform: "macosx",
+            sdk: "macosx",
+            sdkVariant: nil,
+            targetArchitecture: "x86_64",
+            supportedArchitectures: [],
+            disableOnlyActiveArch: true
+        )
+        let params = XCBBuildParameters(
+            configurationName: buildParameters.configuration.xcbuildName,
+            overrides: .init(commandLine: .init(table: [
+                "ARCHS": "\(buildParameters.archs.joined(separator: " "))",
+            ])),
+            activeRunDestination: runDestination
+        )
+
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        }
+
+        let data = try encoder.encode(params)
+        let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
+        try localFileSystem.writeFileContents(file, bytes: ByteString(data))
+
+        return file
     }
 
     public func cancel() {
@@ -136,6 +181,29 @@ public final class XcodeBuildSystem: BuildSystem {
             try packageGraphLoader()
         }
     }
+}
+
+struct XCBBuildParameters: Encodable {
+    struct RunDestination: Encodable {
+        var platform: String
+        var sdk: String
+        var sdkVariant: String?
+        var targetArchitecture: String
+        var supportedArchitectures: [String]
+        var disableOnlyActiveArch: Bool
+    }
+
+    struct XCBSettingsTable: Encodable {
+        var table: [String: String]
+    }
+
+    struct SettingsOverride: Encodable {
+        var commandLine: XCBSettingsTable? = nil
+    }
+
+    var configurationName: String
+    var overrides: SettingsOverride
+    var activeRunDestination: RunDestination
 }
 
 extension BuildConfiguration {

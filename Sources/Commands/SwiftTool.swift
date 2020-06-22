@@ -389,6 +389,12 @@ public class SwiftTool<Options: ToolOptions> {
             option: parser.add(option: "--toolchain", kind: PathArgument.self),
             to: { $0.customCompileToolchain = $1.path })
 
+        binder.bind(
+            option: parser.add(
+                option: "--arch", kind: [String].self, strategy: .oneByOne,
+                usage: "Build the package for the these architectures"),
+            to: { $0.archs = $1 })
+
         // FIXME: We need to allow -vv type options for this.
         binder.bind(
             option: parser.add(option: "--verbose", shortName: "-v", kind: Bool.self,
@@ -452,7 +458,7 @@ public class SwiftTool<Options: ToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
-            to: { $0.buildSystem = $1 })
+            to: { $0._buildSystem = $1 })
 
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
@@ -474,7 +480,7 @@ public class SwiftTool<Options: ToolOptions> {
 
             // Force building with the native build system on other platforms than macOS.
           #if !os(macOS)
-            options.buildSystem = .native
+            options._buildSystem = .native
           #endif
 
             let processSet = ProcessSet()
@@ -533,6 +539,10 @@ public class SwiftTool<Options: ToolOptions> {
 
         if result.exists(arg: "--multiroot-data-file") {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
+        }
+
+        if result.exists(arg: "--arch") && result.exists(arg: "--triple") {
+            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
     }
 
@@ -779,6 +789,7 @@ public class SwiftTool<Options: ToolOptions> {
                 configuration: options.configuration,
                 toolchain: toolchain,
                 destinationTriple: triple,
+                archs: options.archs,
                 flags: options.buildFlags,
                 xcbuildFlags: options.xcbuildFlags,
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
@@ -812,7 +823,7 @@ public class SwiftTool<Options: ToolOptions> {
         }
         // Apply any manual overrides.
         if let triple = self.options.customCompileTriple {
-          destination.target = triple
+            destination.target = triple
         }
         if let binDir = self.options.customCompileToolchain {
             destination.binDir = binDir.appending(components: "usr", "bin")
@@ -820,6 +831,7 @@ public class SwiftTool<Options: ToolOptions> {
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
         }
+        destination.archs = options.archs
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {
