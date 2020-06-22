@@ -229,7 +229,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "Foo",
                platforms: [
-                   .macOS(.v10_15), .iOS(.v13),
+                   .macOS(.v11), .iOS(.v14),
                ]
             )
             """
@@ -242,9 +242,34 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                 return XCTFail("\(error)")
             }
 
-            XCTAssertMatch(message, .contains("error: 'v10_15' is unavailable"))
-            XCTAssertMatch(message, .contains("note: 'v10_15' was introduced in PackageDescription 5.1"))
-            XCTAssertMatch(message, .contains("note: 'v13' was introduced in PackageDescription 5.1"))
+            XCTAssertMatch(message, .contains("error: 'v11' is unavailable"))
+            XCTAssertMatch(message, .contains("note: 'v11' was introduced in PackageDescription 5.3"))
+            XCTAssertMatch(message, .contains("note: 'v14' was introduced in PackageDescription 5.3"))
+        }
+
+        // Newer OS version alias.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v10_16), .iOS(.v14),
+               ]
+            )
+            """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("Unexpected success")
+        } catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("\(error)")
+            }
+
+            XCTAssertMatch(message, .contains("error: 'v10_16' is unavailable"))
+            XCTAssertMatch(message, .contains("note: 'v10_16' was introduced in PackageDescription 5.3"))
+            XCTAssertMatch(message, .contains("note: 'v14' was introduced in PackageDescription 5.3"))
         }
     }
 

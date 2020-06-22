@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018-2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -208,6 +208,19 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v10_15: MacOSVersion = .init(string: "10.15")
+
+        /// The value that represents macOS 10.16, which is treated
+        /// as an alias for macOS 11.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3
+        @available(_PackageDescription, introduced: 5.3)
+        public static let v10_16: MacOSVersion = .init(string: "11.0")
+
+        /// The value that represents macOS 11.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3
+        @available(_PackageDescription, introduced: 5.3)
+        public static let v11: MacOSVersion = .init(string: "11.0")
     }
 
     /// The supported tvOS version.
@@ -247,6 +260,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v13: TVOSVersion = .init(string: "13.0")
+        
+        /// The value that represents tvOS 14.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3
+        @available(_PackageDescription, introduced: 5.3)
+        public static let v14: TVOSVersion = .init(string: "14.0")
     }
 
     /// The supported iOS version.
@@ -291,6 +310,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v13: IOSVersion = .init(string: "13.0")
+
+        /// The value that represents iOS 14.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3
+        @available(_PackageDescription, introduced: 5.3)
+        public static let v14: IOSVersion = .init(string: "14.0")
     }
 
     /// The supported watchOS version.
@@ -330,6 +355,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.1
         @available(_PackageDescription, introduced: 5.1)
         public static let v6: WatchOSVersion = .init(string: "6.0")
+
+        /// The value that represents watchOS 7.0.
+        ///
+        /// - Since: First available in PackageDescription 5.3
+        @available(_PackageDescription, introduced: 5.3)
+        public static let v7: WatchOSVersion = .init(string: "7.0")
     }
 }
 
