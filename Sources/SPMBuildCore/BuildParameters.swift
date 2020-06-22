@@ -52,6 +52,9 @@ public struct BuildParameters: Encodable {
     /// Destination triple.
     public var triple: Triple
 
+    /// The architectures to build for.
+    public var archs: [String]
+
     /// Extra build flags.
     public var flags: BuildFlags
 
@@ -128,6 +131,7 @@ public struct BuildParameters: Encodable {
         toolchain: Toolchain,
         hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
+        archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
@@ -150,6 +154,7 @@ public struct BuildParameters: Encodable {
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        self.archs = archs
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
         self.toolsVersion = toolsVersion

@@ -34,12 +34,15 @@ public struct Triple: Encodable, Equatable {
 
     public enum Arch: String, Encodable {
         case x86_64
+        case x86_64h
         case i686
         case powerpc64le
         case s390x
         case aarch64
         case armv7
         case arm
+        case arm64
+        case arm64e
         case wasm32
     }
 
