@@ -355,30 +355,3 @@ public enum DependencyResolutionNode: Equatable, Hashable, CustomStringConvertib
         }
     }
 }
-
-extension ProductFilter {
-
-    /// Returns each product, or an array containing `nil` if the filter is empty.
-    ///
-    /// This method is of narrow use. It is is intended to centralize functionality used by dependency resolution nodes, so that in conjunction with `map`, such nodes can easily assemble their successors.
-    ///
-    /// If:
-    ///   - `.everything`, this method produces a fatal error.
-    ///   - `.specific`, then:
-    ///     - if the set is empty, an array containing `nil` will be returned.
-    ///     - if the set is non‐empty, it will be sorted and returned.
-    ///
-    /// - Precondition: The set is not `.everything`.
-    internal func enumerated() -> [String?] {
-        switch self {
-        case .everything:
-            fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
-        case .specific(let set):
-            if set.isEmpty { // Pointing at the package without a particular product.
-                return [Optional<String>.none]
-            } else {
-                return set.sorted()
-            }
-        }
-    }
-}

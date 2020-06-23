@@ -43,12 +43,14 @@ extension RepositoryPackageConstraint {
         case .everything:
             return [.root(package: identifier)]
         case .specific:
-            return products.enumerated().map { node in
-                switch node {
-                case .none:
-                    return .empty(package: identifier)
-                case .some(let product):
-                    return .product(product, package: identifier)
+            switch products {
+            case .everything:
+                fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+            case .specific(let set):
+                if set.isEmpty { // Pointing at the package without a particular product.
+                    return [.empty(package: identifier)]
+                } else {
+                    return set.sorted().map { .product($0, package: identifier) }
                 }
             }
         }
