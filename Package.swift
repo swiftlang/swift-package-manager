@@ -167,7 +167,10 @@ let package = Package(
         .target(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
-            dependencies: []),
+            dependencies: [],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
+            ]),
 
         // MARK: Additional Test Dependencies
 
