@@ -990,11 +990,8 @@ public final class PubgrubDependencyResolver {
                 flattenedAssignments[identifier] = (binding: boundVersion, products: products)
             }
         }
-        var finalAssignments: [(
-            container: PackageReference,
-            binding: BoundVersion,
-            products: ProductFilter
-            )] = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
+        var finalAssignments: [DependencyResolver.Binding]
+            = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
                 let details = flattenedAssignments[package]!
                 return (container: package, binding: details.binding, products: details.products)
         }
