@@ -227,54 +227,67 @@ public class DependencyResolver {
 
 /// A node in the dependency resolution graph.
 ///
-/// Nodes come in three conceptual varieties:
-///
-/// 1. Empty package nodes...
-///     - have no `specificProduct` and have `isRoot` set to `false`.
-///     - indicate that a package needs to be present, but do not indicate that any of its contents are needed.
-///     - are always leaf nodes; they have no dependencies.
-///
-/// 2. Product nodes...
-///     - have a `specificProduct`.
-///     - indicate that a particular product in a particular package is required.
-///     - always have dependencies. A product node has...
-///         - one implicit dependency on its own package at an exact version (as an empty package node).
-///           This dependency is what ensures the resolver does not select two products from the same package at different versions.
-///         - zero or more dependencies on the product nodes of other packages.
-///           These are all the external products required to build all of the targets vended by this product.
-///           They derive from the manifest.
-///
-///           Tools versions before 5.2 do not know which products belong to which packages, so each product is required from every dependency.
-///           Since a non‐existant product ends up with only its implicit dependency on its own package,
-///           only whichever package contains the product will end up adding additional constraints.
-///           See `ProductFilter` and `Manifest.register(...)`.
-///
-/// 3. Root nodes...
-///     - have no `specificProduct` and have `isRoot` set to `true`.
-///     - indicate a root node in the graph, which is required no matter what.
-///     - may have dependencies. A root node has...
-///         - zero or more dependencies on each external product node required to build any of its targets (vended or not).
-///         - zero or more dependencies directly on external empty package nodes.
-///           This special case occurs when a dependecy is declared but not used.
-///           It is a warning condition, and builds do not actually need these dependencies.
-///           However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
-///           to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
+/// See the documentation of each case for more detailed descriptions of each kind and how they interact.
 ///
 /// - SeeAlso: `GraphLoadingNode`
-public struct DependencyResolutionNode: Equatable, Hashable, CustomStringConvertible {
+public enum DependencyResolutionNode: Equatable, Hashable, CustomStringConvertible {
+
+    /// An empty package node.
+    ///
+    /// This node indicates that a package needs to be present, but does not indicate that any of its contents are needed.
+    ///
+    /// Empty package nodes are always leaf nodes; they have no dependencies.
+    case empty(package: PackageReference)
+
+    /// A product node.
+    ///
+    /// This node indicates that a particular product in a particular package is required.
+    ///
+    /// Product nodes always have dependencies. A product node has...
+    ///
+    /// - one implicit dependency on its own package at an exact version (as an empty package node).
+    ///   This dependency is what ensures the resolver does not select two products from the same package at different versions.
+    /// - zero or more dependencies on the product nodes of other packages.
+    ///   These are all the external products required to build all of the targets vended by this product.
+    ///   They derive from the manifest.
+    ///
+    ///   Tools versions before 5.2 do not know which products belong to which packages, so each product is required from every dependency.
+    ///   Since a non‐existant product ends up with only its implicit dependency on its own package,
+    ///   only whichever package contains the product will end up adding additional constraints.
+    ///   See `ProductFilter` and `Manifest.register(...)`.
+    case product(String, package: PackageReference)
+
+    /// A root node.
+    ///
+    /// This node indicates a root node in the graph, which is required no matter what.
+    ///
+    /// Root nodes may have dependencies. A root node has...
+    ///
+    /// - zero or more dependencies on each external product node required to build any of its targets (vended or not).
+    /// - zero or more dependencies directly on external empty package nodes.
+    ///   This special case occurs when a dependecy is declared but not used.
+    ///   It is a warning condition, and builds do not actually need these dependencies.
+    ///   However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
+    ///   to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
+    case root(package: PackageReference)
 
     /// The package.
-    public let package: PackageReference
+    public var package: PackageReference {
+        switch self {
+        case .empty(let package), .product(_, let package), .root(let package):
+            return package
+        }
+    }
 
-    /// The name of the specific product, in any.
-    ///
-    /// A node with `nil` refers to package itself without any product.
-    public let specificProduct: String?
-
-    /// Whether or not the node behaves like a root node.
-    ///
-    /// A root node requires all its dependencies, even if they are not referenced by any product.
-    public let isRoot: Bool
+    /// The name of the specific product if the node is a product node, otherwise `nil`.
+    public var specificProduct: String? {
+        switch self {
+        case .empty, .root:
+            return nil
+        case .product(let product, _):
+            return product
+        }
+    }
 
     // To ensure cyclical dependencies are detected properly,
     // hashing cannot include whether the node behaves as a root.
@@ -292,24 +305,15 @@ public struct DependencyResolutionNode: Equatable, Hashable, CustomStringConvert
         hasher.combine(identity)
     }
 
-    public static func empty(package: PackageReference) -> DependencyResolutionNode {
-        return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: false)
-    }
-    public static func product(_ name: String, package: PackageReference) -> DependencyResolutionNode {
-        return DependencyResolutionNode(package: package, specificProduct: name, isRoot: false)
-    }
-    public static func root(package: PackageReference) -> DependencyResolutionNode {
-        return DependencyResolutionNode(package: package, specificProduct: nil, isRoot: true)
-    }
-
     /// Assembles the product filter to use on the manifest for this node to determine it’s dependencies.
     internal func productFilter() -> ProductFilter {
-        if let product = specificProduct {
-            return .specific([product])
-        } else if isRoot {
-            return .everything
-        } else {
+        switch self {
+        case .empty:
             return .specific([])
+        case .product(let product, _):
+            return .specific([product])
+        case .root:
+            return .everything
         }
     }
 
