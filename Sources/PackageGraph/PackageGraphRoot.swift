@@ -105,7 +105,13 @@ public struct PackageGraphRoot {
         }
         self.manifests = manifests
 
-        // FIXME: Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility. However, changing the dependencies based on the command line arguments may force pins to temporarily change, which can become a nuissance. Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target. But in the future it might be worth providing a way of declaring them in the manifest without a dummy target, at which time the current special casing can be deprecated.
+        // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
+        // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
+        // However, changing the dependencies based on the command line arguments may force pins to temporarily change,
+        // which can become a nuissance.
+        // Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target.
+        // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
+        // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies
         if let product = explicitProduct {
             for dependency in manifests.lazy
