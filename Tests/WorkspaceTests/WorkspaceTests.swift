@@ -70,8 +70,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Quix", requirement: .upToNextMajor(from: "1.0.0")),
-            .init(name: "Baz", requirement: .exact("1.0.0")),
+            .init(name: "Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
+            .init(name: "Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -328,11 +328,13 @@ final class WorkspaceTests: XCTestCase {
             .init(
                 url: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
+                productFilter: .specific(["Foo"]),
                 location: ""
             ),
             .init(
                 url: workspace.packagesDir.appending(component: "Bar").pathString + ".git",
                 requirement: .upToNextMajor(from: "1.0.0"),
+                productFilter: .specific(["Bar"]),
                 location: ""
             ),
         ]
@@ -579,11 +581,13 @@ final class WorkspaceTests: XCTestCase {
             .init(
                 url: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
+                productFilter: .specific(["Bar"]),
                 location: ""
             ),
             .init(
                 url: "file://\(workspace.packagesDir.appending(component: "Foo").pathString)/",
                 requirement: .upToNextMajor(from: "1.0.0"),
+                productFilter: .specific(["Foo"]),
                 location: ""
             ),
         ]
@@ -653,7 +657,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.0.
         do {
             let deps: [TestWorkspace.PackageDependency] = [
-                .init(name: "A", requirement: .exact("1.0.0"))
+                .init(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"]))
             ]
             workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
                 PackageGraphTester(graph) { result in
@@ -676,7 +680,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.1.
         do {
             let deps: [TestWorkspace.PackageDependency] = [
-                .init(name: "A", requirement: .exact("1.0.1"))
+                .init(name: "A", requirement: .exact("1.0.1"), products: .specific(["A"]))
             ]
             workspace.checkPackageGraph(deps: deps) { (graph, diagnostics) in
                 PackageGraphTester(graph) { result in
@@ -747,8 +751,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "A", requirement: .exact("1.0.0")),
-            .init(name: "B", requirement: .exact("1.0.0")),
+            .init(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+            .init(name: "B", requirement: .exact("1.0.0"), products: .specific(["B"])),
         ]
         workspace.checkPackageGraph(deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
@@ -763,8 +767,14 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.specific([])
+        )
+        let v2 = (
+            CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
+            products: ProductFilter.specific([])
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -787,7 +797,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products)
                     .editedDependency(subpath: bPath, unmanagedPath: nil)
             ]
         )
@@ -803,7 +813,10 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
+        let v1 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -843,7 +856,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1.version, productFilter: v1.products)
             ]
         )
 
@@ -860,7 +873,10 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let branchRequirement: TestDependency.Requirement = .branch("master")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -900,8 +916,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
             ]
         )
 
@@ -909,7 +925,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5),
+                state: .checkout(v1_5.version),
                 requirement: .revision("master")
             )))
         }
@@ -919,7 +935,10 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
 
         let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
@@ -950,7 +969,7 @@ final class WorkspaceTests: XCTestCase {
         try testWorkspace.set(
             pins: [cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
             ]
         )
 
@@ -958,7 +977,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5),
+                state: .checkout(v1_5.version),
                 requirement: .revision("hello")
             )))
         }
@@ -971,7 +990,10 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let masterRequirement: TestDependency.Requirement = .branch("master")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1011,8 +1033,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency.local(packageRef: cRef)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency.local(packageRef: cRef, productFilter: .specific(["C"]))
             ]
         )
 
@@ -1033,7 +1055,10 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let localRequirement: TestDependency.Requirement = .localPackage
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1073,8 +1098,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
             ]
         )
 
@@ -1082,7 +1107,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5),
+                state: .checkout(v1_5.version),
                 requirement: .unversioned
             )))
         }
@@ -1095,8 +1120,14 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let localRequirement: TestDependency.Requirement = .localPackage
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
+        let master = (
+            version: CheckoutState(revision: Revision(identifier: "master"), branch: "master"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1136,8 +1167,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: master],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master.version, productFilter: master.products),
             ]
         )
 
@@ -1145,7 +1176,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(master),
+                state: .checkout(master.version),
                 requirement: .unversioned
             )))
         }
@@ -1158,7 +1189,10 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1198,8 +1232,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
             ]
         )
 
@@ -1216,8 +1250,14 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+        let v1_5 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
+            products: ProductFilter.everything
+        )
+        let v2 = (
+            version: CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
+            products: ProductFilter.everything
+        )
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1257,8 +1297,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2.version, productFilter: v2.products),
             ]
         )
 
@@ -1352,7 +1392,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0")),
+            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -1437,7 +1477,7 @@ final class WorkspaceTests: XCTestCase {
         
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0")),
+            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
@@ -1454,8 +1494,12 @@ final class WorkspaceTests: XCTestCase {
         // Run update.
         workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            let expectedChange = (PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
-                Workspace.PackageStateChange.updated(.version(Version("1.5.0"))))
+            let expectedChange = (
+                PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
+                Workspace.PackageStateChange.updated(
+                    .init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"]))
+                )
+            )
             guard let change = changes?.first, changes?.count == 1 else {
                 XCTFail()
                 return
@@ -1537,7 +1581,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0")),
+            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1842,7 +1886,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We request Bar via revision.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Bar", requirement: .revision(barRevision))
+            .init(name: "Bar", requirement: .revision(barRevision), products: .specific(["Bar"]))
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -1919,7 +1963,7 @@ final class WorkspaceTests: XCTestCase {
         // Check failure.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Foo 1.3.0"), behavior: .error)
+                result.check(diagnostic: .contains("Foo[Foo] 1.3.0"), behavior: .error)
             }
         }
         workspace.checkManagedDependencies() { result in
@@ -2012,7 +2056,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraph(roots: ["Root"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Foo 1.0.0..<2.0.0"), behavior: .error)
+                result.check(diagnostic: .contains("Foo[Foo] 1.0.0..<2.0.0"), behavior: .error)
             }
         }
     }
@@ -2266,7 +2310,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         let ws = workspace.createWorkspace()
 
@@ -2354,7 +2398,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0")),
+            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         // Load the graph.
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
@@ -2499,7 +2543,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .localPackage),
+            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -2658,11 +2702,11 @@ final class WorkspaceTests: XCTestCase {
 
         // Try resolving a bad graph.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Bar", requirement: .exact("1.1.0")),
+            .init(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Bar 1.1.0"), behavior: .error)
+                result.check(diagnostic: .contains("Bar[Bar] 1.1.0"), behavior: .error)
             }
         }
     }
@@ -2848,7 +2892,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(targets: "Foo")
             }
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Bar {1.0.0..<1.5.0, 1.5.1..<2.0.0} is forbidden"), behavior: .error)
+                result.check(diagnostic: .contains("Bar[Bar] {1.0.0..<1.5.0, 1.5.1..<2.0.0} is forbidden"), behavior: .error)
             }
         }
     }
@@ -2899,7 +2943,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Override with local package and run update.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Bar", requirement: .localPackage),
+            .init(name: "Bar", requirement: .localPackage, products: .specific(["Bar"])),
         ]
         workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -2952,7 +2996,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .branch("develop"))
+            .init(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"]))
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -2966,7 +3010,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -2976,7 +3020,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .branch("develop"))
+            .init(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"]))
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3021,7 +3065,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .localPackage),
+            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -3035,7 +3079,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3045,7 +3089,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .localPackage),
+            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3101,7 +3145,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .localPackage),
+            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             PackageGraphTester(graph) { result in
@@ -3115,7 +3159,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo2", requirement: .localPackage),
+            .init(name: "Foo2", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3171,7 +3215,7 @@ final class WorkspaceTests: XCTestCase {
          // different locations works correctly.
 
          var deps: [TestWorkspace.PackageDependency] = [
-             .init(name: "Foo", requirement: .localPackage),
+             .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
          ]
          workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
@@ -3189,7 +3233,7 @@ final class WorkspaceTests: XCTestCase {
          }
 
          deps = [
-             .init(name: "Nested/Foo", requirement: .localPackage),
+             .init(name: "Nested/Foo", requirement: .localPackage, products: .specific(["Foo"])),
          ]
          workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
              XCTAssertNoDiagnostics(diagnostics)
@@ -3235,7 +3279,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (_, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3346,7 +3390,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+            .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { (graph, diagnostics) in
@@ -3450,7 +3494,7 @@ final class WorkspaceTests: XCTestCase {
          // dependencies.
 
          var deps: [TestWorkspace.PackageDependency] = [
-             .init(name: "Bar", requirement: .exact("1.0.0")),
+             .init(name: "Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
          ]
          workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
@@ -3474,7 +3518,7 @@ final class WorkspaceTests: XCTestCase {
          }
 
          deps = [
-             .init(name: "Bar", requirement: .exact("1.1.0")),
+             .init(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
          ]
          workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
              PackageGraphTester(graph) { result in
@@ -3540,7 +3584,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the initial graph.
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "Bar", requirement: .revision("develop")),
+            .init(name: "Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { (graph, diagnostics) in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3564,7 +3608,7 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = CheckoutState(revision: revision, version: "1.0.0")
 
-            pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
+            pinsStore.pin(packageRef: fooPin.packageRef, state: newState, productFilter: .specific(["Foo"]))
             try pinsStore.saveState()
         }
 
@@ -3765,7 +3809,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [TestWorkspace.PackageDependency] = [
-            .init(name: "bazzz", requirement: .exact("1.0.0")),
+            .init(name: "bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Overridden/bazzz-master"], deps: deps) { (graph, diagnostics) in
@@ -3986,10 +4030,12 @@ final class WorkspaceTests: XCTestCase {
                     name: "Bar",
                     targets: [
                         TestTarget(name: "Bar"),
+                        TestTarget(name: "BarUnused", dependencies: ["Biz"]),
                         TestTarget(name: "BarTests", dependencies: ["TestHelper2"], type: .test),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
+                        TestProduct(name: "BarUnused", targets: ["BarUnused"])
                     ],
                     dependencies: [
                         TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
@@ -4144,7 +4190,13 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: [.product(name: "A1", package: "A"), "B"]),
+                        TestTarget(name: "Foo", dependencies: [
+                            "B",
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                            .product(name: "A3", package: "A"),
+                            .product(name: "A4", package: "A"),
+                        ]),
                     ],
                     products: [],
                     dependencies: [
@@ -4215,7 +4267,10 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference(identity: "a", path: aPath)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aState = (
+            version: CheckoutState(revision: aRevision, version: "1.0.0"),
+            products: ProductFilter.everything
+        )
 
         try workspace.set(
             pins: [aRef: aState],
@@ -4461,8 +4516,11 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference(identity: "a", path: aPath)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
-        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
+        let aState = (
+            version: CheckoutState(revision: aRevision, version: "1.0.0"),
+            products: ProductFilter.everything
+        )
+        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState.version, productFilter: aState.products)
 
         try workspace.set(
             pins: [aRef: aState],

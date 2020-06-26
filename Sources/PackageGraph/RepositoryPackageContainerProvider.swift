@@ -139,15 +139,15 @@ public class BasePackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
-    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
-    public func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 
@@ -212,8 +212,8 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
         return _manifest!
     }
 
-    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(config: config)
+    public override func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        return try loadManifest().dependencyConstraints(productFilter: productFilter, config: config)
     }
 
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
@@ -362,12 +362,12 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return try toolsVersionLoader.load(at: .root, fileSystem: fs)
     }
 
-    public override func getDependencies(at version: Version) throws -> [RepositoryPackageConstraint] {
+    public override func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
         do {
             return try cachedDependencies(forIdentifier: version.description) {
                 let tag = knownVersions[version]!
                 let revision = try repository.resolveRevision(tag: tag)
-                return try getDependencies(at: revision, version: version)
+                return try getDependencies(at: revision, version: version, productFilter: productFilter)
             }.1
         } catch {
             throw GetDependenciesErrorWrapper(
@@ -375,12 +375,12 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }
     }
 
-    public override func getDependencies(at revision: String) throws -> [RepositoryPackageConstraint] {
+    public override func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
         do {
             return try cachedDependencies(forIdentifier: revision) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
-                return try getDependencies(at: revision)
+                return try getDependencies(at: revision, productFilter: productFilter)
             }.1
         } catch {
             throw GetDependenciesErrorWrapper(
@@ -405,13 +405,14 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     /// Returns dependencies of a container at the given revision.
     private func getDependencies(
         at revision: Revision,
-        version: Version? = nil
+        version: Version? = nil,
+        productFilter: ProductFilter
     ) throws -> (Manifest, [RepositoryPackageConstraint]) {
         let manifest = try loadManifest(at: revision, version: version)
-        return (manifest, manifest.dependencyConstraints(config: config))
+        return (manifest, manifest.dependencyConstraints(productFilter: productFilter, config: config))
     }
 
-    public override func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
+    public override func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }

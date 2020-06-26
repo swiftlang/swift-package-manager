@@ -32,7 +32,8 @@ final class PinsStoreTests: XCTestCase {
         let barRef = PackageReference(identity: bar, path: barRepo.url)
 
         let state = CheckoutState(revision: revision, version: v1)
-        let pin = PinsStore.Pin(packageRef: fooRef, state: state)
+        let products: ProductFilter = .everything
+        let pin = PinsStore.Pin(packageRef: fooRef, state: state, productFilter: products)
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
 
@@ -43,7 +44,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
 
-        store.pin(packageRef: fooRef, state: state)
+        store.pin(packageRef: fooRef, state: state, productFilter: products)
         try store.saveState()
 
         XCTAssert(fs.exists(pinsFile))
@@ -62,9 +63,13 @@ final class PinsStoreTests: XCTestCase {
         }
 
         // We should be able to pin again.
-        store.pin(packageRef: fooRef, state: state)
-        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: "1.0.2"))
-        store.pin(packageRef: barRef, state: state)
+        store.pin(packageRef: fooRef, state: state, productFilter: products)
+        store.pin(
+            packageRef: fooRef,
+            state: CheckoutState(revision: revision, version: "1.0.2"),
+            productFilter: .specific(["some", "products"])
+        )
+        store.pin(packageRef: barRef, state: state, productFilter: products)
         try store.saveState()
 
         store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
@@ -72,7 +77,11 @@ final class PinsStoreTests: XCTestCase {
 
         // Test branch pin.
         do {
-            store.pin(packageRef: barRef, state: CheckoutState(revision: revision, branch: "develop"))
+            store.pin(
+                packageRef: barRef,
+                state: CheckoutState(revision: revision, branch: "develop"),
+                productFilter: .specific(["a", "product"])
+            )
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
 
@@ -85,7 +94,7 @@ final class PinsStoreTests: XCTestCase {
 
         // Test revision pin.
         do {
-            store.pin(packageRef: barRef, state: CheckoutState(revision: revision))
+            store.pin(packageRef: barRef, state: CheckoutState(revision: revision), productFilter: .specific(["other", "product"]))
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
 
@@ -112,8 +121,9 @@ final class PinsStoreTests: XCTestCase {
                         "state": {
                           "branch": null,
                           "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
-                          "version": "1.0.2"
-                        }
+                          "version": "1.0.2",
+                        },
+                        "products": ["a", "b"]
                       },
                       {
                         "package": "Commandant",
@@ -122,7 +132,8 @@ final class PinsStoreTests: XCTestCase {
                           "branch": null,
                           "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
                           "version": "0.12.0"
-                        }
+                        },
+                        "products": "all"
                       }
                     ]
                   },
@@ -145,7 +156,7 @@ final class PinsStoreTests: XCTestCase {
 
         let fooRef = PackageReference(identity: "foo", path: "/foo")
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
-        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1))
+        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1), productFilter: .specific([]))
 
         XCTAssert(!fs.exists(pinsFile))
 

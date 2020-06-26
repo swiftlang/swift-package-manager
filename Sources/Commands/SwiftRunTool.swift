@@ -95,7 +95,11 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
 
         case .repl:
             // Load a custom package graph which has a special product for REPL.
-            let graphLoader = { try self.loadPackageGraph(createREPLProduct: self.options.shouldLaunchREPL) }
+            let graphLoader = {
+                try self.loadPackageGraph(
+                    explicitProduct: self.options.executable,
+                    createREPLProduct: self.options.shouldLaunchREPL)
+            }
             let buildParameters = try self.buildParameters()
 
             // Construct the build operation.
@@ -140,7 +144,7 @@ public class SwiftRunTool: SwiftTool<RunToolOptions> {
                 return
             }
 
-            let buildSystem = try createBuildSystem()
+            let buildSystem = try createBuildSystem(explicitProduct: options.executable)
             let productName = try findProductName(in: buildSystem.getPackageGraph())
 
             if options.shouldBuildTests {

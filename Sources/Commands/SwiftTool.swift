@@ -686,8 +686,12 @@ public class SwiftTool<Options: ToolOptions> {
     }
 
     /// Fetch and load the complete package graph.
+    ///
+    /// - Parameters:
+    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
     func loadPackageGraph(
+        explicitProduct: String? = nil,
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
@@ -697,6 +701,7 @@ public class SwiftTool<Options: ToolOptions> {
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
                 root: getWorkspaceRoot(),
+                explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
@@ -739,9 +744,9 @@ public class SwiftTool<Options: ToolOptions> {
         return enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }
 
-    func createBuildOperation(useBuildManifestCaching: Bool = true) throws -> BuildOperation {
+    func createBuildOperation(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildOperation {
         // Load a custom package graph which has a special product for REPL.
-        let graphLoader = { try self.loadPackageGraph() }
+        let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
         let buildOp = try BuildOperation(
@@ -757,11 +762,11 @@ public class SwiftTool<Options: ToolOptions> {
         return buildOp
     }
 
-    func createBuildSystem(useBuildManifestCaching: Bool = true) throws -> BuildSystem {
+    func createBuildSystem(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildSystem {
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
-            let graphLoader = { try self.loadPackageGraph() }
+            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters(),
                 useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
@@ -770,7 +775,7 @@ public class SwiftTool<Options: ToolOptions> {
                 stdoutStream: stdoutStream
             )
         case .xcode:
-            let graphLoader = { try self.loadPackageGraph(createMultipleTestProducts: true) }
+            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters(),
                 packageGraphLoader: graphLoader,

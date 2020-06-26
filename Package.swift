@@ -224,6 +224,13 @@ let package = Package(
         .testTarget(
             name: "XCBuildSupportTests",
             dependencies: ["XCBuildSupport", "SPMTestSupport"]),
+
+        // Examples (These are built to ensure they stay up to date with the API.)
+        .target(
+            name: "package-info",
+            dependencies: ["PackageModel", "PackageLoading", "PackageGraph", "Workspace"],
+            path: "Examples/package-info/Sources/package-info"
+        )
     ],
     swiftLanguageVersions: [.v5]
 )

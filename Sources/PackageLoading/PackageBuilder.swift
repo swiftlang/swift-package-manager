@@ -203,6 +203,9 @@ public final class PackageBuilder {
     /// The manifest for the package being constructed.
     private let manifest: Manifest
 
+    /// The product filter to apply to the package.
+    private let productFilter: ProductFilter
+
     /// The path of the package.
     private let packagePath: AbsolutePath
 
@@ -241,6 +244,7 @@ public final class PackageBuilder {
     ///     each test target.
     public init(
         manifest: Manifest,
+        productFilter: ProductFilter,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
         remoteArtifacts: [RemoteArtifact] = [],
@@ -251,6 +255,7 @@ public final class PackageBuilder {
         createREPLProduct: Bool = false
     ) {
         self.manifest = manifest
+        self.productFilter = productFilter
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.remoteArtifacts = remoteArtifacts
@@ -271,7 +276,8 @@ public final class PackageBuilder {
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         diagnostics: DiagnosticsEngine,
         kind: PackageReference.Kind = .root
     ) throws -> Package {
@@ -281,6 +287,7 @@ public final class PackageBuilder {
             packageKind: kind)
         let builder = PackageBuilder(
             manifest: manifest,
+            productFilter: .everything,
             path: packagePath,
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics)
@@ -527,7 +534,7 @@ public final class PackageBuilder {
 
         // Create potential targets.
         let potentialTargets: [PotentialModule]
-        potentialTargets = try manifest.allRequiredTargets.map({ target in
+        potentialTargets = try manifest.targetsRequired(for: productFilter).map({ target in
             let path = try findPath(for: target)
             return PotentialModule(name: target.name, path: path, type: target.type)
         })
@@ -537,7 +544,7 @@ public final class PackageBuilder {
     // Create targets from the provided potential targets.
     private func createModules(_ potentialModules: [PotentialModule]) throws -> [Target] {
         // Find if manifest references a target which isn't present on disk.
-        let allVisibleModuleNames = manifest.allVisibleModuleNames()
+        let allVisibleModuleNames = manifest.visibleModuleNames(for: productFilter)
         let potentialModulesName = Set(potentialModules.map({ $0.name }))
         let missingModuleNames = allVisibleModuleNames.subtracting(potentialModulesName)
         if let missingModuleName = missingModuleNames.first {
@@ -1080,7 +1087,14 @@ public final class PackageBuilder {
             }
         }
 
-        for product in manifest.products {
+        let filteredProducts: [ProductDescription]
+        switch productFilter {
+        case .everything:
+            filteredProducts = manifest.products
+        case .specific(let set):
+            filteredProducts = manifest.products.filter { set.contains($0.name) }
+        }
+        for product in filteredProducts {
             let targets = try modulesFrom(targetNames: product.targets, product: product.name)
             // Peform special validations if this product is exporting
             // a system library target.
@@ -1187,8 +1201,8 @@ private struct PotentialModule: Hashable {
 
 private extension Manifest {
     /// Returns the names of all the visible targets in the manifest.
-    func allVisibleModuleNames() -> Set<String> {
-        let names = allRequiredTargets.flatMap({ target in
+    func visibleModuleNames(for productFilter: ProductFilter) -> Set<String> {
+        let names = targetsRequired(for: productFilter).flatMap({ target in
             [target.name] + target.dependencies.compactMap({
                 switch $0 {
                 case .target(let name, _):

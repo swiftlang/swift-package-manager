@@ -114,6 +114,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             let builder = PackageBuilder(
                 manifest: manifest,
+                productFilter: .everything,
                 path: try getPackageRoot(),
                 xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
                 diagnostics: diagnostics
@@ -354,6 +355,7 @@ public class SwiftPackageTool: SwiftTool<PackageToolOptions> {
 
             let builder = PackageBuilder(
                 manifest: manifest,
+                productFilter: .everything,
                 path: try getPackageRoot(),
                 xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                 diagnostics: diagnostics
@@ -933,10 +935,10 @@ fileprivate extension SwiftPackageTool {
         for (package, change) in changes {
             let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
             switch change {
-            case let .added(requirement):
-                stream <<< "+ \(package.name) \(requirement.prettyPrinted)"
-            case let .updated(requirement):
-                stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(requirement.prettyPrinted)"
+            case let .added(state):
+                stream <<< "+ \(package.name) \(state.requirement.prettyPrinted)"
+            case let .updated(state):
+                stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(state.requirement.prettyPrinted)"
             case .removed:
                 stream <<< "- \(package.name) \(currentVersion)"
             case .unchanged:

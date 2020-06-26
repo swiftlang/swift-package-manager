@@ -146,7 +146,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
-                        TargetDescription(name: "Foo"),
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -156,8 +156,11 @@ class PackageGraphTests: XCTestCase {
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
+                    products: [
+                        ProductDescription(name: "Bar", targets: ["Bar"])
+                    ],
                     targets: [
-                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Bar", dependencies: ["Baz"]),
                     ]),
                 Manifest.createV4Manifest(
                     name: "Baz",
@@ -167,8 +170,11 @@ class PackageGraphTests: XCTestCase {
                     dependencies: [
                         PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
+                    products: [
+                        ProductDescription(name: "Baz", targets: ["Baz"])
+                    ],
                     targets: [
-                        TargetDescription(name: "Baz"),
+                        TargetDescription(name: "Baz", dependencies: ["Bar"]),
                     ]),
             ]
         )
@@ -733,6 +739,7 @@ class PackageGraphTests: XCTestCase {
 
         DiagnosticsEngineTester(diagnostics) { result in
             result.check(diagnostic: "dependency 'Baz' is not used by any target", behavior: .warning)
+            result.check(diagnostic: "dependency 'Biz' is not used by any target", behavior: .warning)
         }
     }
 
@@ -1059,5 +1066,94 @@ class PackageGraphTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testUnreachableProductsSkipped() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Root/Sources/Root/Root.swift",
+            "/Immediate/Sources/ImmediateUsed/ImmediateUsed.swift",
+            "/Immediate/Sources/ImmediateUnused/ImmediateUnused.swift",
+            "/Transitive/Sources/TransitiveUsed/TransitiveUsed.swift",
+            "/Transitive/Sources/TransitiveUnused/TransitiveUnused.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Root",
+                    path: "/Root",
+                    url: "/Root",
+                    v: .v5_2,
+                    packageKind: .root,
+                    dependencies: [
+                        PackageDependencyDescription(name: "Immediate", url: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Root", dependencies: [
+                            .product(name: "ImmediateUsed", package: "Immediate")
+                        ]),
+                    ]
+                ),
+                Manifest.createManifest(
+                    name: "Immediate",
+                    path: "/Immediate",
+                    url: "/Immediate",
+                    v: .v5_2,
+                    packageKind: .local,
+                    dependencies: [
+                        PackageDependencyDescription(
+                            name: "Transitive",
+                            url: "/Transitive",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        ),
+                        PackageDependencyDescription(
+                            name: "Nonexistent",
+                            url: "/Nonexistent",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ],
+                    products: [
+                        ProductDescription(name: "ImmediateUsed", targets: ["ImmediateUsed"]),
+                        ProductDescription(name: "ImmediateUnused", targets: ["ImmediateUnused"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "ImmediateUsed", dependencies: [
+                            .product(name: "TransitiveUsed", package: "Transitive")
+                        ]),
+                        TargetDescription(name: "ImmediateUnused", dependencies: [
+                            .product(name: "TransitiveUnused", package: "Transitive"),
+                            .product(name: "Nonexistent", package: "Nonexistent")
+                        ]),
+                    ]
+                ),
+                Manifest.createManifest(
+                    name: "Transitive",
+                    path: "/Transitive",
+                    url: "/Transitive",
+                    v: .v5_2,
+                    packageKind: .local,
+                    dependencies: [
+                        PackageDependencyDescription(
+                            name: "Nonexistent",
+                            url: "/Nonexistent",
+                            requirement: .upToNextMajor(from: "1.0.0")
+                        )
+                    ],
+                    products: [
+                        ProductDescription(name: "TransitiveUsed", targets: ["TransitiveUsed"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "TransitiveUsed"),
+                        TargetDescription(name: "TransitiveUnused", dependencies: [
+                            .product(name: "Nonexistent", package: "Nonexistent")
+                        ])
+                ]),
+            ]
+        )
+
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
     }
 }

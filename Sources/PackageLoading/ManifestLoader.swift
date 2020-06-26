@@ -63,6 +63,7 @@ public protocol ManifestLoaderProtocol {
     ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
+    ///   - revision: The revision the manifest is from, if known.
     ///   - toolsVersion: The version of the tools the manifest supports.
     ///   - kind: The kind of package the manifest is from.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
@@ -71,6 +72,7 @@ public protocol ManifestLoaderProtocol {
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
+        revision: String?,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,
@@ -85,6 +87,7 @@ extension ManifestLoaderProtocol {
     ///   - path: The root path of the package.
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
+    ///   - revision: The revision the manifest is from, if known.
     ///   - toolsVersion: The version of the tools the manifest supports.
     ///   - kind: The kind of package the manifest is from.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
@@ -93,6 +96,7 @@ extension ManifestLoaderProtocol {
         package path: AbsolutePath,
         baseURL: String,
         version: Version? = nil,
+        revision: String? = nil,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
@@ -102,6 +106,7 @@ extension ManifestLoaderProtocol {
             packagePath: path,
             baseURL: baseURL,
             version: version,
+            revision: revision,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
             fileSystem: fileSystem,
@@ -190,6 +195,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packagePath path: AbsolutePath,
         baseURL: String,
         version: Version?,
+        revision: String?,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
@@ -199,6 +205,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             path: Manifest.path(atPackagePath: path, fileSystem: fileSystem ?? localFileSystem),
             baseURL: baseURL,
             version: version,
+            revision: revision,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
             fileSystem: fileSystem,
@@ -212,12 +219,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///   - path: The path to the manifest file (or a package root).
     ///   - baseURL: The URL the manifest was loaded from.
     ///   - version: The version the manifest is from, if known.
+    ///   - revision: The revision the manifest is from, if known.
     ///   - kind: The kind of package the manifest is from.
     ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
     func loadFile(
         path inputPath: AbsolutePath,
         baseURL: String,
         version: Version?,
+        revision: String?,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
@@ -257,6 +266,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
         }
 
+        // Convert legacy system packages to the current target‐based model.
+        var products =  manifestBuilder.products
+        var targets = manifestBuilder.targets
+        if products.isEmpty, targets.isEmpty,
+            (fileSystem ?? localFileSystem).isFile(inputPath.parentDirectory.appending(component: moduleMapFilename)) {
+                products.append(ProductDescription(
+                name: manifestBuilder.name,
+                type: .library(.automatic),
+                targets: [manifestBuilder.name])
+            )
+            targets.append(TargetDescription(
+                name: manifestBuilder.name,
+                path: "",
+                type: .system,
+                pkgConfig: manifestBuilder.pkgConfig,
+                providers: manifestBuilder.providers
+            ))
+        }
+
         let manifest = Manifest(
             name: manifestBuilder.name,
             defaultLocalization: manifestBuilder.defaultLocalization,
@@ -264,6 +292,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             path: inputPath,
             url: baseURL,
             version: version,
+            revision: revision,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
             pkgConfig: manifestBuilder.pkgConfig,
@@ -272,8 +301,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cxxLanguageStandard: manifestBuilder.cxxLanguageStandard,
             swiftLanguageVersions: manifestBuilder.swiftLanguageVersions,
             dependencies: manifestBuilder.dependencies,
-            products: manifestBuilder.products,
-            targets: manifestBuilder.targets
+            products: products,
+            targets: targets
         )
 
         try validate(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import PackageModel
 import PackageGraph
 
 extension ManagedDependency {
@@ -36,7 +37,8 @@ extension PinsStore {
 
         self.pin(
             packageRef: dependency.packageRef,
-            state: checkoutState)
+            state: checkoutState,
+            productFilter: dependency.productFilter)
     }
 }
 

@@ -50,6 +50,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         packagePath path: TSCBasic.AbsolutePath,
         baseURL: String,
         version: Version?,
+        revision: String?,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,

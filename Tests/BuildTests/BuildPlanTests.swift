@@ -1218,12 +1218,19 @@ final class BuildPlanTests: XCTestCase {
                     ]),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+
+        XCTAssertEqual(diagnostics.diagnostics.count, 1)
+        let firstDiagnostic = diagnostics.diagnostics.first.map({ $0.message.text })
+        XCTAssert(
+            firstDiagnostic == "dependency 'C' is not used by any target",
+            "Unexpected diagnostic: " + (firstDiagnostic ?? "[none]")
+        )
+
         let graphResult = PackageGraphResult(graph)
         graphResult.check(reachableProducts: "aexec", "BLibrary")
         graphResult.check(reachableTargets: "ATarget", "BTarget1")
-        graphResult.check(products: "aexec", "BLibrary", "bexec", "cexec")
-        graphResult.check(targets: "ATarget", "BTarget1", "BTarget2", "CTarget")
+        graphResult.check(products: "aexec", "BLibrary")
+        graphResult.check(targets: "ATarget", "BTarget1")
 
         let planResult = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
@@ -1232,8 +1239,8 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fileSystem
         ))
 
-        planResult.checkProductsCount(4)
-        planResult.checkTargetsCount(4)
+        planResult.checkProductsCount(2)
+        planResult.checkTargetsCount(2)
     }
 
     func testReachableBuildProductsAndTargets() throws {
@@ -1879,7 +1886,8 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
                     ]),
-            ]
+            ],
+            explicitProduct: "exe"
         )
         XCTAssertNoDiagnostics(diagnostics)
 
