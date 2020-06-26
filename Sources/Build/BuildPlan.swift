@@ -570,6 +570,8 @@ public final class SwiftTargetBuildDescription {
             if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
+        } else {
+            try self.generateResourceUnavailableAccessor()
         }
     }
 
@@ -592,6 +594,37 @@ public final class SwiftTargetBuildDescription {
                     fatalError("could not load resource bundle: \\(bundlePath)")
                 }
                 return bundle
+            }()
+        }
+        """
+
+        let subpath = RelativePath("resource_bundle_accessor.swift")
+
+        // Add the file to the dervied sources.
+        derivedSources.relativePaths.append(subpath)
+
+        // Write this file out.
+        // FIXME: We should generate this file during the actual build.
+        let path = derivedSources.root.appending(subpath)
+        try fs.writeIfChanged(path: path, bytes: stream.bytes)
+    }
+    
+    /// Generate an inaccessible resource bundle accessor, if appropriate.
+    ///
+    /// This addresses SR-13084 by creating an unavailable accessor which informs users of the underlying issue.
+    private func generateResourceUnavailableAccessor() throws {
+        // If a bundle has been generated then we shouldn't be here.
+        guard self.bundlePath == nil else { return }
+
+        let message = "target '\(target.name)' is either missing or is solely containing invalid resource references"
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        import class Foundation.Bundle
+
+        extension Foundation.Bundle {
+            @available(*, unavailable, message: "\(message)")
+            static var module: Bundle = {
+                fatalError("no resource bundle exists for this module")
             }()
         }
         """
