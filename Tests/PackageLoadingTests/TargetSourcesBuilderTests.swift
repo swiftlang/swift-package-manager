@@ -143,8 +143,11 @@ class TargetSourcesBuilderTests: XCTestCase {
             toolsVersion: .minimumRequired,
             fileTypes: ["something"])
 
-        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5, fs: fs) { _, _, _ in
-            // No diagnostics
+        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5, fs: fs) { _, _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("target 'Foo' does not have resources at the following paths"),
+                behavior: .warning
+            )
         }
     }
 
@@ -165,6 +168,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", behavior: .note)
                 diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", behavior: .note)
+                diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
             }
         }
 
@@ -291,6 +295,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, diagnostics in
             diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", behavior: .error)
+            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -310,6 +315,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     and has an explicit localization declaration
                     """),
                 behavior: .error)
+            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -334,6 +340,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' is missing the default localization 'fr'"),
                 behavior: .warning)
+            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -367,6 +374,9 @@ class TargetSourcesBuilderTests: XCTestCase {
                 behavior: .warning)
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' has both localized and un-localized variants"),
+                behavior: .warning)
+            diagnostics.checkUnordered(
+                diagnostic: .contains("target 'Foo' does not have resources at the following paths"),
                 behavior: .warning)
         }
     }
@@ -403,6 +413,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 Resource(rule: .process, path: AbsolutePath("/Other/Launch.storyboard"), localization: "Base"),
                 Resource(rule: .process, path: AbsolutePath("/Other/Image.png"), localization: "fr"),
             ])
+            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -418,6 +429,72 @@ class TargetSourcesBuilderTests: XCTestCase {
                 Resource(rule: .process, path: AbsolutePath("/Foo/es.lproj/Image.png"), localization: "es"),
             ])
         }
+    }
+    
+    func testMissingResources() {
+        
+        do {
+            // No Failures
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "foo.txt"),
+                .init(rule: .process, path: "bar.txt")
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/foo.txt",
+                "/bar.txt"
+            )
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _) in
+                XCTAssertEqual(resources.count, 2)
+            }
+        }
+        
+        do {
+            // Partial Success
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "foo.txt"),
+                .init(rule: .process, path: "bar.txt")
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/foo.txt"
+            )
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, diagnostics) in
+                XCTAssertEqual(resources.count, 1)
+                diagnostics.check(
+                    diagnostic: .contains("""
+                    target 'Foo' does not have resources at the following paths, they will be ignored
+                        'bar.txt' (/bar.txt)
+                    """),
+                    behavior: .warning
+                )
+            }
+        }
+        
+        do {
+            // Complete Failure
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "foo.txt"),
+                .init(rule: .process, path: "bar.txt")
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles: [])
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, diagnostics) in
+                XCTAssertEqual(resources.count, 0)
+                diagnostics.check(
+                    diagnostic: .contains("""
+                    target 'Foo' does not have resources at the following paths, they will be ignored
+                        'foo.txt' (/foo.txt)
+                        'bar.txt' (/bar.txt)
+                    """),
+                    behavior: .warning
+                )
+            }
+        }
+        
     }
 
     func testInfoPlistResource() {

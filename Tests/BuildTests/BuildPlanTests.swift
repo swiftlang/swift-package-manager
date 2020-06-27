@@ -2197,6 +2197,7 @@ final class BuildPlanTests: XCTestCase {
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
         let contents = try fs.readFileContents(resourceAccessor).cString
         XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+        XCTAssertFalse(contents.contains("@available(*, unavailable,"), contents)
     }
     
     func testSwiftBundleUnavailableAccessor() throws {
@@ -2233,8 +2234,6 @@ final class BuildPlanTests: XCTestCase {
                 )
             ]
         )
-
-        XCTAssertNoDiagnostics(diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
