@@ -130,6 +130,15 @@ public struct Destination: Encodable, Equatable {
             extraSwiftCFlags: extraSwiftCFlags,
             extraCPPFlags: ["-lc++"]
         )
+      #elseif os(Android)
+        return Destination(
+            target: nil,
+            sdk: AbsolutePath(ProcessEnv.vars["PREFIX"]!).parentDirectory,
+            binDir: binDir,
+            extraCCFlags: ["-fPIC"],
+            extraSwiftCFlags: [],
+            extraCPPFlags: ["-lstdc++"]
+        )
       #else
         return Destination(
             target: nil,
