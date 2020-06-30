@@ -1616,9 +1616,6 @@ extension Workspace {
         // Compute the missing package identities.
         let missingPackageURLs = currentManifests.missingPackageURLs()
 
-        // The pins to use.
-        let validPins = pinsStore.createConstraints()
-
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
         if !missingPackageURLs.isEmpty {
@@ -1658,7 +1655,6 @@ extension Workspace {
         let result = resolveDependencies(
             resolver: resolver,
             dependencies: constraints,
-            pins: validPins,
             pinsMap: pinsStore.pinsMap,
             diagnostics: diagnostics)
         activeResolver = nil
@@ -2038,7 +2034,6 @@ extension Workspace {
     fileprivate func resolveDependencies(
         resolver: PubgrubDependencyResolver,
         dependencies: [RepositoryPackageConstraint],
-        pins: [RepositoryPackageConstraint] = [],
         pinsMap: PinsStore.PinsMap,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {
