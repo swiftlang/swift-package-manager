@@ -1541,7 +1541,7 @@ extension Workspace {
         // Clone the required pins.
         for pin in requiredPins {
             diagnostics.wrap {
-                _ = try self.clone(package: pin.packageRef, at: pin.state, productFilter: pin.productFilter)
+                _ = try self.clone(package: pin.packageRef, at: pin.state, productFilter: .everything)
             }
         }
 

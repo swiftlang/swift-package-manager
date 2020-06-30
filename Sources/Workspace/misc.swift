@@ -37,8 +37,7 @@ extension PinsStore {
 
         self.pin(
             packageRef: dependency.packageRef,
-            state: checkoutState,
-            productFilter: dependency.productFilter)
+            state: checkoutState)
     }
 }
 

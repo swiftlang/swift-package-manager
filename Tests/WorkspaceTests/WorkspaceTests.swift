@@ -3608,7 +3608,7 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = CheckoutState(revision: revision, version: "1.0.0")
 
-            pinsStore.pin(packageRef: fooPin.packageRef, state: newState, productFilter: .specific(["Foo"]))
+            pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState()
         }
 

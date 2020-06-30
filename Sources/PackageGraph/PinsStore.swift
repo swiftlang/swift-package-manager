@@ -23,17 +23,12 @@ public final class PinsStore {
         /// The pinned state.
         public let state: CheckoutState
 
-        /// The product filter applied by the pin.
-        public let productFilter: ProductFilter
-
         public init(
             packageRef: PackageReference,
-            state: CheckoutState,
-            productFilter: ProductFilter
+            state: CheckoutState
         ) {
             self.packageRef = packageRef
             self.state = state
-            self.productFilter = productFilter
         }
     }
 
@@ -88,13 +83,11 @@ public final class PinsStore {
     ///   - state: The state to pin at.
     public func pin(
         packageRef: PackageReference,
-        state: CheckoutState,
-        productFilter: ProductFilter
+        state: CheckoutState
     ) {
         pinsMap[packageRef.identity] = Pin(
             packageRef: packageRef,
-            state: state,
-            productFilter: productFilter
+            state: state
         )
     }
 
@@ -117,7 +110,7 @@ public final class PinsStore {
     public func createConstraints() -> [RepositoryPackageConstraint] {
         return pins.map({ pin in
             return RepositoryPackageConstraint(
-                container: pin.packageRef, requirement: pin.state.requirement(), products: pin.productFilter)
+                container: pin.packageRef, requirement: pin.state.requirement(), products: .everything)
         })
     }
 }
@@ -159,7 +152,6 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
         let ref = PackageReference(identity: identity, path: url)
         self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")
-        self.productFilter = try json.get("products")
     }
 
     /// Convert the pin to JSON.
@@ -167,8 +159,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
         return .init([
             "package": packageRef.name.toJSON(),
             "repositoryURL": packageRef.path,
-            "state": state,
-            "products": productFilter,
+            "state": state
         ])
     }
 }
