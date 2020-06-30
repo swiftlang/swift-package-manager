@@ -32,7 +32,6 @@ final class PinsStoreTests: XCTestCase {
         let barRef = PackageReference(identity: bar, path: barRepo.url)
 
         let state = CheckoutState(revision: revision, version: v1)
-        let products: ProductFilter = .everything
         let pin = PinsStore.Pin(packageRef: fooRef, state: state)
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
@@ -120,8 +119,7 @@ final class PinsStoreTests: XCTestCase {
                           "branch": null,
                           "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
                           "version": "1.0.2",
-                        },
-                        "products": ["a", "b"]
+                        }
                       },
                       {
                         "package": "Commandant",
@@ -130,8 +128,7 @@ final class PinsStoreTests: XCTestCase {
                           "branch": null,
                           "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
                           "version": "0.12.0"
-                        },
-                        "products": "all"
+                        }
                       }
                     ]
                   },

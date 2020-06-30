@@ -767,14 +767,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.specific([])
-        )
-        let v2 = (
-            CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
-            products: ProductFilter.specific([])
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -797,7 +791,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
                     .editedDependency(subpath: bPath, unmanagedPath: nil)
             ]
         )
@@ -813,10 +807,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let v1 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0"),
-            products: ProductFilter.everything
-        )
+        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -856,7 +847,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1.version, productFilter: v1.products)
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1)
             ]
         )
 
@@ -873,10 +864,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let branchRequirement: TestDependency.Requirement = .branch("master")
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -916,8 +904,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
             ]
         )
 
@@ -925,7 +913,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5.version),
+                state: .checkout(v1_5),
                 requirement: .revision("master")
             )))
         }
@@ -935,10 +923,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let testWorkspace = try TestWorkspace(
             sandbox: sandbox,
@@ -969,7 +954,7 @@ final class WorkspaceTests: XCTestCase {
         try testWorkspace.set(
             pins: [cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
             ]
         )
 
@@ -977,7 +962,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5.version),
+                state: .checkout(v1_5),
                 requirement: .revision("hello")
             )))
         }
@@ -990,10 +975,7 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let masterRequirement: TestDependency.Requirement = .branch("master")
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1033,8 +1015,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
-                ManagedDependency.local(packageRef: cRef, productFilter: .specific(["C"]))
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency.local(packageRef: cRef)
             ]
         )
 
@@ -1055,10 +1037,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let localRequirement: TestDependency.Requirement = .localPackage
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1098,8 +1077,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
             ]
         )
 
@@ -1107,7 +1086,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5.version),
+                state: .checkout(v1_5),
                 requirement: .unversioned
             )))
         }
@@ -1120,14 +1099,8 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let localRequirement: TestDependency.Requirement = .localPackage
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
-        let master = (
-            version: CheckoutState(revision: Revision(identifier: "master"), branch: "master"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1167,8 +1140,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: master],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master.version, productFilter: master.products),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master),
             ]
         )
 
@@ -1176,7 +1149,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(master.version),
+                state: .checkout(master),
                 requirement: .unversioned
             )))
         }
@@ -1189,10 +1162,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1232,8 +1202,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5.version, productFilter: v1_5.products),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
             ]
         )
 
@@ -1250,14 +1220,8 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5"),
-            products: ProductFilter.everything
-        )
-        let v2 = (
-            version: CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0"),
-            products: ProductFilter.everything
-        )
+        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
         let workspace = try TestWorkspace(
             sandbox: sandbox,
@@ -1297,8 +1261,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5.version, productFilter: v1_5.products),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2.version, productFilter: v2.products),
+                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
+                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2),
             ]
         )
 
@@ -1963,7 +1927,7 @@ final class WorkspaceTests: XCTestCase {
         // Check failure.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Foo[Foo] 1.3.0"), behavior: .error)
+                result.check(diagnostic: .contains("Foo 1.3.0"), behavior: .error)
             }
         }
         workspace.checkManagedDependencies() { result in
@@ -4267,10 +4231,7 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference(identity: "a", path: aPath)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = (
-            version: CheckoutState(revision: aRevision, version: "1.0.0"),
-            products: ProductFilter.everything
-        )
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
 
         try workspace.set(
             pins: [aRef: aState],
@@ -4516,11 +4477,8 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference(identity: "a", path: aPath)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = (
-            version: CheckoutState(revision: aRevision, version: "1.0.0"),
-            products: ProductFilter.everything
-        )
-        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState.version, productFilter: aState.products)
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
 
         try workspace.set(
             pins: [aRef: aState],

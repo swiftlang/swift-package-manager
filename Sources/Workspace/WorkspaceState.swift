@@ -49,9 +49,6 @@ public final class ManagedDependency {
     /// The state of the managed dependency.
     public let state: State
 
-    /// The product filter applied to the package.
-    public let productFilter: ProductFilter
-
     /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
     public let subpath: RelativePath
 
@@ -65,25 +62,21 @@ public final class ManagedDependency {
     public init(
         packageRef: PackageReference,
         subpath: RelativePath,
-        checkoutState: CheckoutState,
-        productFilter: ProductFilter
+        checkoutState: CheckoutState
     ) {
         self.packageRef = packageRef
         self.state = .checkout(checkoutState)
-        self.productFilter = productFilter
         self.basedOn = nil
         self.subpath = subpath
     }
 
     /// Create a dependency present locally on the filesystem.
     public static func local(
-        packageRef: PackageReference,
-        productFilter: ProductFilter
+        packageRef: PackageReference
     ) -> ManagedDependency {
         return ManagedDependency(
             packageRef: packageRef,
             state: .local,
-            productFilter: productFilter,
             // FIXME: This is just a fake entry, we should fix it.
             subpath: RelativePath(packageRef.identity),
             basedOn: nil
@@ -93,7 +86,6 @@ public final class ManagedDependency {
     private init(
         packageRef: PackageReference,
         state: State,
-        productFilter: ProductFilter,
         subpath: RelativePath,
         basedOn: ManagedDependency?
     ) {
@@ -101,7 +93,6 @@ public final class ManagedDependency {
         self.subpath = subpath
         self.basedOn = basedOn
         self.state = state
-        self.productFilter = productFilter
     }
 
     private init(
@@ -114,7 +105,6 @@ public final class ManagedDependency {
         self.packageRef = dependency.packageRef
         self.subpath = subpath
         self.state = .edited(unmanagedPath)
-        self.productFilter = dependency.productFilter
     }
 
     /// Create an editable managed dependency based on a dependency which
@@ -358,7 +348,6 @@ extension ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvert
         try self.init(
             packageRef: json.get("packageRef"),
             state: json.get("state"),
-            productFilter: json.get("products"),
             subpath: RelativePath(json.get("subpath")),
             basedOn: json.get("basedOn")
         )
@@ -369,13 +358,12 @@ extension ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvert
             "packageRef": packageRef.toJSON(),
             "subpath": subpath,
             "basedOn": basedOn.toJSON(),
-            "state": state,
-            "products": productFilter
+            "state": state
         ])
     }
 
     public var description: String {
-        return "<ManagedDependency: \(packageRef.name) \(state) \(productFilter)>"
+        return "<ManagedDependency: \(packageRef.name) \(state)>"
     }
 }
 
