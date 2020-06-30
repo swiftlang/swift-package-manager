@@ -583,8 +583,7 @@ public final class SwiftTargetBuildDescription {
         // Compute the basename of the bundle.
         let bundleBasename = bundlePath.basename
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let contents = """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
@@ -598,17 +597,9 @@ public final class SwiftTargetBuildDescription {
         }
         """
 
-        let subpath = RelativePath("resource_bundle_accessor.swift")
-
-        // Add the file to the dervied sources.
-        derivedSources.relativePaths.append(subpath)
-
-        // Write this file out.
-        // FIXME: We should generate this file during the actual build.
-        let path = derivedSources.root.appending(subpath)
-        try fs.writeIfChanged(path: path, bytes: stream.bytes)
+        try addFile(withPath: RelativePath("resource_bundle_accessor.swift"), contents: contents)
     }
-    
+
     /// Generate an inaccessible resource bundle accessor, if appropriate.
     ///
     /// This addresses SR-13084 by creating an unavailable accessor which informs users of the underlying issue.
@@ -617,8 +608,7 @@ public final class SwiftTargetBuildDescription {
         guard self.bundlePath == nil else { return }
 
         let message = "target '\(target.name)' is either missing or is solely containing invalid resource references"
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let contents = """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
@@ -629,7 +619,13 @@ public final class SwiftTargetBuildDescription {
         }
         """
 
-        let subpath = RelativePath("resource_bundle_accessor.swift")
+        try addFile(withPath: RelativePath("resource_bundle_accessor.swift"), contents: contents)
+    }
+
+    /// Creates a new file with the contents provided at the path given. The file will be added to the target's derived sources.
+    private func addFile(withPath subpath: RelativePath, contents: String) throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< contents
 
         // Add the file to the dervied sources.
         derivedSources.relativePaths.append(subpath)
