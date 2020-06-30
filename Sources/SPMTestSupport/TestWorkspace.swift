@@ -354,7 +354,7 @@ public final class TestWorkspace {
         let pinsStore = try workspace.pinsStore.load()
 
         for (ref, state) in pins {
-            pinsStore.pin(packageRef: ref, state: state.version, productFilter: state.products)
+            pinsStore.pin(packageRef: ref, state: state.version)
         }
 
         for dependency in managedDependencies {

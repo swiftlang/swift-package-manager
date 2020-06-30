@@ -2120,7 +2120,7 @@ class DependencyGraphBuilder {
         let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs)
 
         for (package, pin) in pins {
-            store.pin(packageRef: reference(for: package), state: pin.0, productFilter: pin.1)
+            store.pin(packageRef: reference(for: package), state: pin.0)
         }
 
         try! store.saveState()
