@@ -346,7 +346,7 @@ public final class TestWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: (version: CheckoutState, products: ProductFilter)] = [:],
+        pins: [PackageReference: CheckoutState] = [:],
         managedDependencies: [ManagedDependency] = [],
         managedArtifacts: [ManagedArtifact] = []
     ) throws {
@@ -354,7 +354,7 @@ public final class TestWorkspace {
         let pinsStore = try workspace.pinsStore.load()
 
         for (ref, state) in pins {
-            pinsStore.pin(packageRef: ref, state: state.version)
+            pinsStore.pin(packageRef: ref, state: state)
         }
 
         for dependency in managedDependencies {

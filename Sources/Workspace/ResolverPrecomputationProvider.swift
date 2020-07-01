@@ -61,7 +61,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
         // Start by searching manifests from the Workspace's resolved dependencies.
-        if let manifest = dependencyManifests.dependencies.first(where: { $1.packageRef == identifier }) {
+        if let manifest = dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == identifier }) {
             let container = LocalPackageContainer(
                 package: identifier,
                 manifest: manifest.manifest,

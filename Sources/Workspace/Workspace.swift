@@ -139,13 +139,13 @@ public class Workspace {
         let root: PackageGraphRoot
 
         /// The dependency manifests in the transitive closure of root manifest.
-        let dependencies: [(manifest: Manifest, dependency: ManagedDependency)]
+        let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter)]
 
         let workspace: Workspace
 
         fileprivate init(
             root: PackageGraphRoot,
-            dependencies: [(Manifest, ManagedDependency)],
+            dependencies: [(Manifest, ManagedDependency, ProductFilter)],
             workspace: Workspace
         ) {
             self.root = root
@@ -244,7 +244,7 @@ public class Workspace {
         func dependencyConstraints() -> [RepositoryPackageConstraint] {
             var allConstraints = [RepositoryPackageConstraint]()
 
-            for (externalManifest, managedDependency) in dependencies {
+            for (externalManifest, managedDependency, productFilter) in dependencies {
                 // For edited packages, add a constraint with unversioned requirement so the
                 // resolver doesn't try to resolve it.
                 switch managedDependency.state {
@@ -259,13 +259,13 @@ public class Workspace {
                     let constraint = RepositoryPackageConstraint(
                         container: ref,
                         requirement: .unversioned,
-                        products: managedDependency.productFilter)
+                        products: productFilter)
                     allConstraints.append(constraint)
                 case .checkout, .local:
                     break
                 }
                 allConstraints += externalManifest.dependencyConstraints(
-                    productFilter: managedDependency.productFilter,
+                    productFilter: productFilter,
                     config: workspace.config
                 )
             }
@@ -277,7 +277,7 @@ public class Workspace {
         public func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
             var constraints = [RepositoryPackageConstraint]()
 
-            for (_, managedDependency) in dependencies {
+            for (_, managedDependency, productFilter) in dependencies {
                 switch managedDependency.state {
                 case .checkout, .local: continue
                 case .edited: break
@@ -292,7 +292,7 @@ public class Workspace {
                 let constraint = RepositoryPackageConstraint(
                     container: ref,
                     requirement: .unversioned,
-                    products: managedDependency.productFilter)
+                    products: productFilter)
                 constraints.append(constraint)
             }
             return constraints
@@ -568,7 +568,8 @@ extension Workspace {
             requirement = currentState.requirement()
         }
         let constraint = RepositoryPackageConstraint(
-                container: dependency.packageRef, requirement: requirement, products: dependency.productFilter)
+                // If any products are required, the rest of the package graph will supply those constraints.
+                container: dependency.packageRef, requirement: requirement, products: .specific([]))
 
         // Run the resolution.
         _resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
@@ -1039,12 +1040,11 @@ extension Workspace {
             try fileSystem.removeFileTree(editablesPath)
         }
 
-        if let checkoutState = dependency.basedOn?.checkoutState,
-            let productFilter = dependency.basedOn?.productFilter {
+        if let checkoutState = dependency.basedOn?.checkoutState {
                 // Restore the original checkout.
                 //
                 // The clone method will automatically update the managed dependency state.
-                _ = try clone(package: dependency.packageRef, at: checkoutState, productFilter: productFilter)
+                _ = try clone(package: dependency.packageRef, at: checkoutState)
         } else {
             // The original dependency was removed, update the managed dependency state.
             state.dependencies.remove(forURL: dependency.packageRef.path)
@@ -1191,17 +1191,17 @@ extension Workspace {
         var loadedManifests = [String: Manifest]()
 
         // Compute the transitive closure of available dependencies.
-        let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair($0, key: $0.name) })) { node in
-            return node.item.dependencies.compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.url)
+        let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: $0.name)})) { node in
+            return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
+                let url = config.mirroredURL(forURL: dependency.declaration.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
-                return manifest.flatMap({ KeyedPair($0, key: $0.name) })
+                return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: $0.name) })
             })
         }
 
-        let allDependencyManifests = allManifests.map({ $0.item }).filter({ !root.manifests.contains($0) })
-        let deps = allDependencyManifests.map({ ($0, state.dependencies[forURL: $0.url]!) })
+        let allDependencyManifests = allManifests.map({ $0.item }).filter({ !root.manifests.contains($0.0) })
+        let deps = allDependencyManifests.map({ ($0, state.dependencies[forURL: $0.url]!, $1) })
 
         return DependencyManifests(root: root, dependencies: deps, workspace: self)
     }
@@ -1365,7 +1365,7 @@ extension Workspace {
     private func artifacts(from manifests: DependencyManifests) -> [ManagedArtifact] {
         let packageAndManifests: [(PackageReference, Manifest)] =
             zip(manifests.root.packageRefs, manifests.root.manifests) + // Root package and manifests.
-            manifests.dependencies.map({ ($1.packageRef, $0) }) // Dependency package and manifests.
+            manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
 
         var artifacts: [ManagedArtifact] = []
 
@@ -1541,7 +1541,7 @@ extension Workspace {
         // Clone the required pins.
         for pin in requiredPins {
             diagnostics.wrap {
-                _ = try self.clone(package: pin.packageRef, at: pin.state, productFilter: .everything)
+                _ = try self.clone(package: pin.packageRef, at: pin.state)
             }
         }
 
@@ -1552,7 +1552,7 @@ extension Workspace {
             let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
             for localPackage in dependencies {
                 let package = localPackage.createPackageRef(config: self.config)
-                state.dependencies.add(ManagedDependency.local(packageRef: package, productFilter: .everything))
+                state.dependencies.add(ManagedDependency.local(packageRef: package))
             }
         }
         diagnostics.wrap { try state.saveState() }
@@ -2090,7 +2090,7 @@ extension Workspace {
                 switch dependency.state {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
-                    _ = try clone(package: dependency.packageRef, at: checkoutState, productFilter: dependency.productFilter)
+                    _ = try clone(package: dependency.packageRef, at: checkoutState)
                     diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.name))
 
                 case .edited:
@@ -2235,8 +2235,7 @@ extension Workspace {
     /// - Throws: If the operation could not be satisfied.
     func clone(
         package: PackageReference,
-        at checkoutState: CheckoutState,
-        productFilter: ProductFilter
+        at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
         // Get the repository.
         let path = try fetch(package: package)
@@ -2256,8 +2255,7 @@ extension Workspace {
         state.dependencies.add(ManagedDependency(
             packageRef: package,
             subpath: path.relative(to: checkoutsPath),
-            checkoutState: checkoutState,
-            productFilter: productFilter))
+            checkoutState: checkoutState))
         try state.saveState()
 
         return path
@@ -2287,12 +2285,12 @@ extension Workspace {
             checkoutState = CheckoutState(revision: revision, branch: branch)
 
         case .unversioned:
-            state.dependencies.add(ManagedDependency.local(packageRef: package, productFilter: productFilter))
+            state.dependencies.add(ManagedDependency.local(packageRef: package))
             try state.saveState()
             return AbsolutePath(package.path)
         }
 
-        return try self.clone(package: package, at: checkoutState, productFilter: productFilter)
+        return try self.clone(package: package, at: checkoutState)
     }
 
     /// Removes the clone and checkout of the provided specifier.
