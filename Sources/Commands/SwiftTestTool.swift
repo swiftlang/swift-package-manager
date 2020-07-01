@@ -431,7 +431,8 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             to: { $0.shouldPrintCodeCovPath = $1 })
 
         binder.bind(
-            option: parser.add(option: "--test-product", kind: String.self, usage: nil),
+            option: parser.add(option: "--test-product", kind: String.self, 
+                usage: "Test the specified product"),
             to: { $0.testProduct = $1 })
     }
 
