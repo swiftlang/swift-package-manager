@@ -206,10 +206,14 @@ public final class UserToolchain: Toolchain {
     }
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
-      return (triple.isDarwin() || triple.isAndroid() || triple.isWASI()
-        ? ["-sdk", destination.sdk.pathString]
-        : [])
-        + destination.extraSwiftCFlags
+        guard let sdk = destination.sdk else {
+            return destination.extraSwiftCFlags
+        }
+
+        return (triple.isDarwin() || triple.isAndroid() || triple.isWASI()
+            ? ["-sdk", sdk.pathString]
+            : [])
+            + destination.extraSwiftCFlags
     }
 
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
@@ -252,9 +256,13 @@ public final class UserToolchain: Toolchain {
 
         self.extraSwiftCFlags = UserToolchain.deriveSwiftCFlags(triple: triple, destination: destination)
 
-        self.extraCCFlags = [
-            triple.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
-        ] + destination.extraCCFlags
+        if let sdk = destination.sdk {
+            self.extraCCFlags = [
+                triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
+            ] + destination.extraCCFlags
+        } else {
+            self.extraCCFlags = destination.extraCCFlags
+        }
 
         // Compute the path of directory containing the PackageDescription libraries.
         var pdLibDir = UserManifestResources.libDir(forBinDir: binDir)
