@@ -465,6 +465,11 @@ public class SwiftTool<Options: ToolOptions> {
             to: { $0.useExplicitModuleBuild = $1 })
 
         binder.bind(
+            option: parser.add(option: "--print-manifest-job-graph", kind: Bool.self,
+                usage: "Write the command graph for the build manifest as a graphviz file"),
+            to: { $0.printManifestGraphviz = $1 })
+
+        binder.bind(
             option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
             to: { $0._buildSystem = $1 })
 
@@ -822,7 +827,8 @@ public class SwiftTool<Options: ToolOptions> {
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
                 useExplicitModuleBuild: options.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.buildSystem == .xcode
+                isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
+                printManifestGraphviz: options.printManifestGraphviz
             )
         })
     }()
