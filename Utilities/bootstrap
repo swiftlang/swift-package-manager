@@ -528,6 +528,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
 
     swiftpm_args = [
         "SWIFT_EXEC=" + args.swiftc_path,
+        "SWIFT_DRIVER_SWIFT_EXEC=" + args.swiftc_path,
         "SWIFTPM_PD_LIBS=" + os.path.join(args.bootstrap_dir, "pm"),
         os.path.join(args.bootstrap_dir, "bin/swift-build"),
         "--disable-sandbox",
