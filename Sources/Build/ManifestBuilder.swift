@@ -213,8 +213,16 @@ extension LLBuildManifestBuilder {
             if buildParameters.useExplicitModuleBuild {
               commandLine.append("-experimental-explicit-module-build")
             }
-
-            var driver = try Driver(args: commandLine, fileSystem: target.fs)
+            // FIXME: At some point SwiftPM should provide its own executor for
+            // running jobs/launching processes during planning
+            let executor = try SwiftDriverExecutor(diagnosticsEngine: plan.diagnostics,
+                                                   processSet: ProcessSet(),
+                                                   fileSystem: target.fs,
+                                                   env: ProcessEnv.vars)
+            var driver = try Driver(args: commandLine,
+                                    diagnosticsEngine: plan.diagnostics,
+                                    fileSystem: target.fs,
+                                    executor: executor)
             let jobs = try driver.planBuild()
             let resolver = try ArgsResolver(fileSystem: target.fs)
 
