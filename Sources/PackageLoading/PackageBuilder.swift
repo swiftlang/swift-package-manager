@@ -711,7 +711,7 @@ public final class PackageBuilder {
             fs: fileSystem,
             diags: diagnostics
         )
-        let (sources, resources) = try sourcesBuilder.run()
+        let (sources, resources, headers) = try sourcesBuilder.run()
 
         // Make sure defaultLocalization is set if the target has localized resources.
         let hasLocalizedResources = resources.contains(where: { $0.localization != nil })
@@ -750,6 +750,7 @@ public final class PackageBuilder {
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
+                headers: headers,
                 isTest: potentialModule.isTest,
                 sources: sources,
                 resources: resources,
