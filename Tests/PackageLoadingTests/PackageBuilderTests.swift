@@ -587,6 +587,7 @@ class PackageBuilderTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/inc/module.modulemap",
             "/Sources/Foo/inc/Foo.h",
+            "/Sources/Foo/Foo_private.h",
             "/Sources/Foo/Foo.c",
             "/Sources/Bar/include/module.modulemap",
             "/Sources/Bar/include/Bar.h",
@@ -608,6 +609,8 @@ class PackageBuilderTests: XCTestCase {
             package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
             package.checkModule("Foo") { module in
+                let clangTarget = module.target as? ClangTarget
+                XCTAssertEqual(clangTarget?.headers.map{ $0.pathString }, ["/Sources/Foo/Foo_private.h", "/Sources/Foo/inc/Foo.h"])
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.c")
                 module.check(includeDir: "/Sources/Foo/inc")

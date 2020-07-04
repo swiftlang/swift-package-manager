@@ -357,6 +357,11 @@ public class ClangTarget: Target {
     /// The path to include directory.
     public let includeDir: AbsolutePath
 
+    /// The headers present in the target.
+    ///
+    /// Note that this contains both public and non-public headers.
+    public let headers: [AbsolutePath]
+
     /// True if this is a C++ target.
     public let isCXX: Bool
 
@@ -374,6 +379,7 @@ public class ClangTarget: Target {
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
+        headers: [AbsolutePath] = [],
         isTest: Bool = false,
         sources: Sources,
         resources: [Resource] = [],
@@ -386,6 +392,7 @@ public class ClangTarget: Target {
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         self.includeDir = includeDir
+        self.headers = headers
         super.init(
             name: name,
             bundleName: bundleName,
@@ -400,12 +407,13 @@ public class ClangTarget: Target {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case includeDir, isCXX, cLanguageStandard, cxxLanguageStandard
+        case includeDir, headers, isCXX, cLanguageStandard, cxxLanguageStandard
     }
 
     public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(includeDir, forKey: .includeDir)
+        try container.encode(headers, forKey: .headers)
         try container.encode(isCXX, forKey: .isCXX)
         try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
         try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
@@ -415,6 +423,7 @@ public class ClangTarget: Target {
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.includeDir = try container.decode(AbsolutePath.self, forKey: .includeDir)
+        self.headers = try container.decode([AbsolutePath].self, forKey: .headers)
         self.isCXX = try container.decode(Bool.self, forKey: .isCXX)
         self.cLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cLanguageStandard)
         self.cxxLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cxxLanguageStandard)
