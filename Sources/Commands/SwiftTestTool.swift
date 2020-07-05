@@ -126,11 +126,11 @@ public class TestToolOptions: ToolOptions {
 /// This is used to filter tests to run
 ///   .none     => No filtering
 ///   .specific => Specify test with fully quantified name
-///   .regex    => RegEx pattern
+///   .regex    => RegEx patterns
 public enum TestCaseSpecifier {
     case none
     case specific(String)
-    case regex(String)
+    case regex([String])
     case skip([String])
 }
 
@@ -415,7 +415,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             to: { $0.xUnitOutput = $1.path })
 
         binder.bind(
-            option: parser.add(option: "--filter", kind: String.self,
+            option: parser.add(option: "--filter", kind: [String].self,
                 usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
             to: { $0._testCaseSpecifier = .regex($1) })
@@ -958,10 +958,12 @@ fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite]
         switch specifier {
         case .none:
             return allTests
-        case .regex(let pattern):
+        case .regex(let patterns):
             return allTests.filter({ test in
-                test.specifier.range(of: pattern,
-                                     options: .regularExpression) != nil
+                patterns.contains { pattern in
+                    test.specifier.range(of: pattern,
+                                         options: .regularExpression) != nil
+                }
             })
         case .specific(let name):
             return allTests.filter{ $0.specifier == name }
