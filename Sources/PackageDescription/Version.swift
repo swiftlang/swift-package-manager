@@ -25,7 +25,7 @@
 /// behavioral changes of the existing API.
 ///
 /// **The Minor Version**
-//
+///
 /// Update the second digit of a version, or *minor version*, if you add functionality in a backward-compatible manner.
 /// For example, the semantic versioning specification considers adding a new method
 /// or type without changing any other API to be backward-compatible.
