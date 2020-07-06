@@ -206,6 +206,7 @@ extension LLBuildManifestBuilder {
             if buildParameters.useExplicitModuleBuild {
               commandLine.append("-experimental-explicit-module-build")
             }
+
             var driver = try Driver(args: commandLine, fileSystem: target.fs)
             let jobs = try driver.planBuild()
             let resolver = try ArgsResolver(fileSystem: target.fs)
@@ -218,6 +219,20 @@ extension LLBuildManifestBuilder {
                 let jobInputs = job.inputs.map { $0.resolveToNode() }
                 let jobOutputs = job.outputs.map { $0.resolveToNode() }
 
+                // Add target dependencies as inputs to the main module build command.
+                //
+                // Jobs for a target's intermediate build artifacts, such as PCMs or
+                // modules built from a .swiftinterface, do not have a
+                // dependency on cross-target build products. If multiple targets share
+                // common intermediate dependency modules, such dependencies can lead
+                // to cycles in the resulting manifest.
+                var manifestNodeInputs : [Node] = []
+                if buildParameters.useExplicitModuleBuild && !driver.isExplicitMainModuleJob(job: job) {
+                  manifestNodeInputs = jobInputs
+                } else {
+                  manifestNodeInputs = (inputs + jobInputs).uniqued()
+                }
+
                 let moduleName = target.target.c99name
                 let description = job.description
                 if job.kind.isSwiftFrontend {
@@ -225,7 +240,7 @@ extension LLBuildManifestBuilder {
                         name: jobOutputs.first!.name,
                         moduleName: moduleName,
                         description: description,
-                        inputs: (inputs + jobInputs).uniqued(),
+                        inputs: manifestNodeInputs,
                         outputs: jobOutputs,
                         args: arguments
                     )
@@ -233,7 +248,7 @@ extension LLBuildManifestBuilder {
                     manifest.addShellCmd(
                         name: jobOutputs.first!.name,
                         description: description,
-                        inputs: (inputs + jobInputs).uniqued(),
+                        inputs: manifestNodeInputs,
                         outputs: jobOutputs,
                         args: arguments
                     )
