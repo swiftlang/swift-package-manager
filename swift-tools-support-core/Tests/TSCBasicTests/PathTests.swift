@@ -214,6 +214,9 @@ class PathTests: XCTestCase {
         XCTAssertEqual(AbsolutePath("/").appending(components: "..").pathString, "/")
         XCTAssertEqual(AbsolutePath("/").appending(components: ".").pathString, "/")
         XCTAssertEqual(AbsolutePath("/").appending(components: "..", "a").pathString, "/a")
+
+        XCTAssertEqual(RelativePath("hello").appending(components: "a", "b", "c", "..").pathString, "hello/a/b")
+        XCTAssertEqual(RelativePath("hello").appending(RelativePath("a/b/../c/d")).pathString, "hello/a/c/d")
     }
 
     func testPathComponents() {
