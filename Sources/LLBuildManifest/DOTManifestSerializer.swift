@@ -32,9 +32,10 @@ public struct DOTManifestSerializer {
         return label
     }
 
-    /// Quote the name and escape the quotes
+    /// Quote the name and escape the quotes and backslashes
     func quoteName(_ name: String) -> String {
-        return "\"" + name.replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        return "\"" + name.replacingOccurrences(of: "\"", with: "\\\"")
+                          .replacingOccurrences(of: "\\", with: "\\\\") + "\""
     }
 
     public mutating func writeDOT<Stream: TextOutputStream>(to stream: inout Stream) {
