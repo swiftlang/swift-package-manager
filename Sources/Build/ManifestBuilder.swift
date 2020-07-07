@@ -72,6 +72,13 @@ public class LLBuildManifestBuilder {
             createProductCommand(description)
         }
 
+        // Output a dot graph
+        if buildParameters.printManifestGraphviz {
+            var serializer = DOTManifestSerializer(manifest: manifest)
+            serializer.writeDOT(to: &stdoutStream)
+            stdoutStream.flush()
+        }
+
         try ManifestWriter().write(manifest, at: path)
     }
 

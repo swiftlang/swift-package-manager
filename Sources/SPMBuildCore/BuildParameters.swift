@@ -95,8 +95,11 @@ public struct BuildParameters: Encodable {
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
 
-    // Whether to use the explicit module build flow (with the integrated driver)
+    /// Whether to use the explicit module build flow (with the integrated driver)
     public var useExplicitModuleBuild: Bool
+
+    /// Whether to output a graphviz file visualization of the combined job graph for all targets
+    public var printManifestGraphviz: Bool
 
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
@@ -147,7 +150,8 @@ public struct BuildParameters: Encodable {
         emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
-        isXcodeBuildSystemEnabled: Bool = false
+        isXcodeBuildSystemEnabled: Bool = false,
+        printManifestGraphviz: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
@@ -171,6 +175,7 @@ public struct BuildParameters: Encodable {
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
+        self.printManifestGraphviz = printManifestGraphviz
     }
 
     /// The path to the build directory (inside the data directory).

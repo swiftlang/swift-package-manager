@@ -103,6 +103,9 @@ public class ToolOptions {
     /// Whether to use the explicit module build flow (with the integrated driver)
     public var useExplicitModuleBuild: Bool = false
 
+    /// Whether to output a graphviz file visualization of the combined job graph for all targets
+    public var printManifestGraphviz: Bool = false
+
     /// The build system to use.
     public var buildSystem: BuildSystemKind {
         // Force the Xcode build system if we want to build more than one arch.
