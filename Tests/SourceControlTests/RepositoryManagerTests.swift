@@ -217,13 +217,6 @@ class RepositoryManagerTests: XCTestCase {
             // Remove the repo.
             try manager.remove(repository: dummyRepo)
 
-            // Check removing the repo updates the persistent file.
-            do {
-                let checkoutsStateFile = path.appending(component: "checkouts-state.json")
-                let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
-                XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.url], nil)
-            }
-
             // We should get a new handle now because we deleted the exisiting repository.
             XCTNonNil(prevHandle) {
                 try XCTAssert($0 !== manager.lookupSynchronously(repository: dummyRepo))
@@ -293,7 +286,6 @@ class RepositoryManagerTests: XCTestCase {
             do {
                 let delegate = DummyRepositoryManagerDelegate()
                 var manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
-                try! localFileSystem.removeFileTree(path.appending(component: "checkouts-state.json"))
                 manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
 
@@ -385,10 +377,6 @@ class RepositoryManagerTests: XCTestCase {
             // Perform a lookup.
             _ = try manager.lookupSynchronously(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 1)
-
-            // Delete the checkout state file.
-            let stateFile = repos.appending(component: "checkouts-state.json")
-            try localFileSystem.removeFileTree(stateFile)
 
             // We should refetch the repository since we lost the state file.
             _ = try manager.lookupSynchronously(repository: dummyRepo)

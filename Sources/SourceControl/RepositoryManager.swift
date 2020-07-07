@@ -113,14 +113,6 @@ public class RepositoryManager {
             precondition(status == .available, "cloneCheckout() called in invalid state")
             try self.manager.cloneCheckout(self, to: path, editable: editable)
         }
-
-        fileprivate func toJSON() -> JSON {
-            return .init([
-                "status": status.rawValue,
-                "repositoryURL": repository,
-                "subpath": subpath,
-            ])
-        }
     }
 
     /// The path under which repositories are stored.
@@ -131,18 +123,6 @@ public class RepositoryManager {
 
     /// The delegate interface.
     private let delegate: RepositoryManagerDelegate?
-
-    // FIXME: We should use a more sophisticated map here, which tracks the
-    // full specifier but then is capable of efficiently determining if two
-    // repositories map to the same location.
-    //
-    /// The map of registered repositories.
-    fileprivate var repositories: [String: RepositoryHandle] = [:]
-
-    /// The map of serialized repositories.
-    ///
-    /// NOTE: This is to be used only for persistence support.
-    fileprivate var serializedRepositories: [String: JSON] = [:]
 
     /// Queue to protect concurrent reads and mutations to repositories registery.
     private let serialQueue = DispatchQueue(label: "org.swift.swiftpm.repomanagerqueue-serial")
@@ -158,9 +138,6 @@ public class RepositoryManager {
 
     /// The filesystem to operate on.
     public let fileSystem: FileSystem
-
-    /// Simple persistence helper.
-    private let persistence: SimplePersistence
 
     /// Create a new empty manager.
     ///
@@ -185,24 +162,6 @@ public class RepositoryManager {
         self.operationQueue = OperationQueue()
         self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
         self.operationQueue.maxConcurrentOperationCount = 10
-
-        self.persistence = SimplePersistence(
-            fileSystem: fileSystem,
-            schemaVersion: 1,
-            statePath: path.appending(component: "checkouts-state.json"))
-
-        // Load the state from disk, if possible.
-        do {
-            _ = try self.persistence.restoreState(self)
-        } catch {
-            // State restoration errors are ignored, for now.
-            //
-            // FIXME: We need to do something better here.
-            print("warning: unable to restore checkouts state: \(error)")
-
-            // Try to save the empty state.
-            try? self.persistence.saveState(self)
-        }
     }
 
     /// Get a handle to a repository.
@@ -282,21 +241,6 @@ public class RepositoryManager {
                     self.callbacksQueue.async {
                         self.delegate?.fetchingDidFinish(handle: handle, error: fetchError)
                     }
-
-                    // Save the manager state.
-                    self.serialQueue.sync {
-                        do {
-                            // Update the serialized repositories map.
-                            //
-                            // We do this so we don't have to read the other
-                            // handles when saving the sate of this handle.
-                            self.serializedRepositories[repository.url] = handle.toJSON()
-                            try self.persistence.saveState(self)
-                        } catch {
-                            // FIXME: Handle failure gracefully, somehow.
-                            fatalError("unable to save manager state \(error)")
-                        }
-                    }
                 }
                 // Call the completion handler.
                 self.callbacksQueue.async {
@@ -311,20 +255,11 @@ public class RepositoryManager {
     /// Note: This method is thread safe.
     private func getHandle(repository: RepositorySpecifier) -> RepositoryHandle {
         return serialQueue.sync {
-
-            // Reset if the state file was deleted during the lifetime of RepositoryManager.
-            if !self.serializedRepositories.isEmpty && !self.persistence.stateFileExists() {
-                self.unsafeReset()
-            }
-
-            let handle: RepositoryHandle
-            if let oldHandle = self.repositories[repository.url] {
-                handle = oldHandle
-            } else {
-                let subpath = RelativePath(repository.fileSystemIdentifier)
-                let newHandle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
-                self.repositories[repository.url] = newHandle
-                handle = newHandle
+            let subpath = RelativePath(repository.fileSystemIdentifier)
+            let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
+            let repositoryPath = path.appending(RelativePath(repository.fileSystemIdentifier))
+            if fileSystem.exists(repositoryPath) {
+                handle.status = .available
             }
             return handle
         }
@@ -352,15 +287,8 @@ public class RepositoryManager {
     /// Removes the repository.
     public func remove(repository: RepositorySpecifier) throws {
         try serialQueue.sync {
-            // If repository isn't present, we're done.
-            guard let handle = repositories[repository.url] else {
-                return
-            }
-            repositories[repository.url] = nil
-            serializedRepositories[repository.url] = nil
-            let repositoryPath = path.appending(handle.subpath)
+            let repositoryPath = path.appending(RelativePath(repository.fileSystemIdentifier))
             try fileSystem.removeFileTree(repositoryPath)
-            try self.persistence.saveState(self)
         }
     }
 
@@ -375,28 +303,7 @@ public class RepositoryManager {
 
     /// Performs the reset operation without the serial queue.
     private func unsafeReset() {
-        self.repositories = [:]
-        self.serializedRepositories = [:]
         try? self.fileSystem.removeFileTree(path)
-    }
-}
-
-// MARK: Persistence
-extension RepositoryManager: SimplePersistanceProtocol {
-
-    public func restore(from json: JSON) throws {
-        // Update the serialized repositories.
-        //
-        // We will use this to save the state so we don't have to read the other
-        // handles when saving the sate of a handle.
-        self.serializedRepositories = try json.get("repositories")
-        self.repositories = try serializedRepositories.mapValues({
-            try RepositoryHandle(manager: self, json: $0)
-        })
-    }
-
-    public func toJSON() -> JSON {
-        return JSON(["repositories": JSON(self.serializedRepositories)])
     }
 }
 

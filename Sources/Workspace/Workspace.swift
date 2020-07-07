@@ -453,7 +453,7 @@ public class Workspace {
         self.resolvedFile = pinsFile
         self.additionalFileRules = additionalFileRules
 
-        let repositoriesPath = self.dataPath.appending(component: "repositories")
+        let repositoriesPath = fileSystem.homeDirectory.appending(RelativePath("Library/Caches/SwiftPM/Repositories"))
         let repositoryManager = repositoryManager ?? RepositoryManager(
             path: repositoriesPath,
             provider: repositoryProvider,
