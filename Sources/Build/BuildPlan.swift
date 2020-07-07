@@ -562,8 +562,8 @@ public final class SwiftTargetBuildDescription {
             self.moduleMap = try self.generateModuleMap()
         }
 
-        // Do nothing if we're not generating a bundle.
         if bundlePath != nil {
+            // If we've generated a bundle then create a plist and generate a `Bundle.module` accessor
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending(component: "Info.plist")
@@ -571,6 +571,8 @@ public final class SwiftTargetBuildDescription {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
         } else {
+            // If we've not generated a bundle then create an unavailable `Bundle.module` accessor in order to
+            // support easier debugging.
             try self.generateResourceUnavailableAccessor()
         }
     }

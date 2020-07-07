@@ -474,6 +474,25 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
         
         do {
+            // Ensure paths are normalised before comparison
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "./foo.txt"),
+                .init(rule: .process, path: "./dir/bar.txt"),
+                .init(rule: .copy, path: "./dir/../baz.txt"),
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/foo.txt",
+                "/dir/bar.txt",
+                "/baz.txt"
+            )
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _) in
+                XCTAssertEqual(resources.count, 3)
+            }
+        }
+        
+        do {
             // Complete Failure
             let target = TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "foo.txt"),
