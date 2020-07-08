@@ -221,14 +221,19 @@ public final class UserToolchain: Toolchain {
         self.xctest = nil
       #endif
 
-        self.extraSwiftCFlags = (destination.target.isDarwin()
-                                    ? ["-sdk", destination.sdk.pathString]
+        if let sdk = destination.sdk {
+            self.extraSwiftCFlags = (destination.target.isDarwin()
+                                    ? ["-sdk", sdk.pathString]
                                     : [])
                                   + destination.extraSwiftCFlags
 
-        self.extraCCFlags = [
-            destination.target.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
-        ] + destination.extraCCFlags
+            self.extraCCFlags = [
+                destination.target.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
+            ] + destination.extraCCFlags
+        } else {
+            self.extraSwiftCFlags = destination.extraSwiftCFlags
+            self.extraCCFlags = destination.extraCCFlags
+        }
 
         // Compute the path of directory containing the PackageDescription libraries.
         var pdLibDir = UserManifestResources.libDir(forBinDir: binDir)
