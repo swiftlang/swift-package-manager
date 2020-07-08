@@ -37,7 +37,7 @@ public struct Destination: Encodable {
     public let target: Triple
 
     /// The SDK used to compile for the destination.
-    public let sdk: AbsolutePath
+    public let sdk: AbsolutePath?
 
     /// The binDir in the containing the compilers/linker to be used for the compilation.
     public let binDir: AbsolutePath
@@ -112,7 +112,7 @@ public struct Destination: Encodable {
       #else
         return Destination(
             target: hostTargetTriple,
-            sdk: .root,
+            sdk: nil,
             binDir: binDir,
             extraCCFlags: ["-fPIC"],
             extraSwiftCFlags: [],
