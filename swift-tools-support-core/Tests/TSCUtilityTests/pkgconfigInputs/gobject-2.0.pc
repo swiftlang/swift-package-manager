@@ -1,0 +1,12 @@
+prefix=/usr/local/Cellar/glib/2.64.3
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: GObject
+Description: GLib Type, Object, Parameter and Signal Library
+Version: 2.64.3
+# Requires: glib-2.0
+Requires.private: /usr/local/opt/libffi/lib/pkgconfig/libffi.pc >=  3.0.0
+Libs: -L${libdir} -lgobject-2.0
+Libs.private: -lintl
+Cflags:-I${includedir}

@@ -1460,7 +1460,7 @@ final class BuildPlanTests: XCTestCase {
 
         let diagnostic = diagnostics.diagnostics.last!
 
-        XCTAssertEqual(diagnostic.message.text, "couldn't find pc file")
+        XCTAssertEqual(diagnostic.message.text, "couldn't find pc file for BTarget")
         XCTAssertEqual(diagnostic.message.behavior, .warning)
         XCTAssertEqual(diagnostic.location.description, "'BTarget' BTarget.pc")
     }
