@@ -4010,7 +4010,7 @@ final class WorkspaceTests: XCTestCase {
                     toolsVersion: .v5_2
                 ),
             ],
-            toolsVersion: .v5_2,
+            toolsVersion: ToolsVersion(version: "5.2.5"),
             enablePubGrub: true
         )
 
