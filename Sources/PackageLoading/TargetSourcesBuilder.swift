@@ -257,7 +257,7 @@ public struct TargetSourcesBuilder {
         // Filter the package list of resources down to those which are not included in the valid resources array
         let invalidResources = self.target.resources.filter { targetResource in
             return resources.contains(where: { resource in
-                resource.path.relative(to: self.targetPath).pathString == targetResource.path
+                resource.path.relative(to: self.targetPath).pathString.hasPrefix(targetResource.path)
             }) == false
         }
         

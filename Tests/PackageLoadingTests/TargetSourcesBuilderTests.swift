@@ -165,7 +165,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", behavior: .note)
                 diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", behavior: .note)
-                diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
             }
         }
 
@@ -337,7 +336,6 @@ class TargetSourcesBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' is missing the default localization 'fr'"),
                 behavior: .warning)
-            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -371,9 +369,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 behavior: .warning)
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' has both localized and un-localized variants"),
-                behavior: .warning)
-            diagnostics.checkUnordered(
-                diagnostic: .contains("target 'Foo' does not have resources at the following paths"),
                 behavior: .warning)
         }
     }
@@ -410,7 +405,6 @@ class TargetSourcesBuilderTests: XCTestCase {
                 Resource(rule: .process, path: AbsolutePath("/Other/Launch.storyboard"), localization: "Base"),
                 Resource(rule: .process, path: AbsolutePath("/Other/Image.png"), localization: "fr"),
             ])
-            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -442,7 +436,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/bar.txt"
             )
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _) in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _, _) in
                 XCTAssertEqual(resources.count, 2)
             }
         }
@@ -458,7 +452,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/foo.txt"
             )
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, diagnostics) in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
                 XCTAssertEqual(resources.count, 1)
                 diagnostics.check(
                     diagnostic: .contains("""
@@ -484,7 +478,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/baz.txt"
             )
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _) in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _ in
                 XCTAssertEqual(resources.count, 3)
             }
         }
@@ -498,7 +492,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             
             let fs = InMemoryFileSystem(emptyFiles: [])
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, diagnostics) in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
                 XCTAssertEqual(resources.count, 0)
                 diagnostics.check(
                     diagnostic: .contains("""
