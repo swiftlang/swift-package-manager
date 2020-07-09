@@ -291,6 +291,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
             diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", behavior: .error)
+            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -310,6 +311,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                     and has an explicit localization declaration
                     """),
                 behavior: .error)
+            diagnostics.checkUnordered(diagnostic: .contains("target 'Foo' does not have resources at the following paths"), behavior: .warning)
         }
     }
 
@@ -418,6 +420,91 @@ class TargetSourcesBuilderTests: XCTestCase {
                 Resource(rule: .process, path: AbsolutePath("/Foo/es.lproj/Image.png"), localization: "es"),
             ])
         }
+    }
+    
+    func testMissingResources() {
+        
+        do {
+            // No Failures
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "foo.txt"),
+                .init(rule: .process, path: "bar.txt")
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/foo.txt",
+                "/bar.txt"
+            )
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _, _) in
+                XCTAssertEqual(resources.count, 2)
+            }
+        }
+        
+        do {
+            // Partial Success
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "foo.txt"),
+                .init(rule: .process, path: "bar.txt")
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/foo.txt"
+            )
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
+                XCTAssertEqual(resources.count, 1)
+                diagnostics.check(
+                    diagnostic: .contains("""
+                    target 'Foo' does not have resources at the following paths, they will be ignored
+                        'bar.txt' (/bar.txt)
+                    """),
+                    behavior: .warning
+                )
+            }
+        }
+        
+        do {
+            // Ensure paths are normalised before comparison
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "./foo.txt"),
+                .init(rule: .process, path: "./dir/bar.txt"),
+                .init(rule: .copy, path: "./dir/../baz.txt"),
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/foo.txt",
+                "/dir/bar.txt",
+                "/baz.txt"
+            )
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _ in
+                XCTAssertEqual(resources.count, 3)
+            }
+        }
+        
+        do {
+            // Complete Failure
+            let target = TargetDescription(name: "Foo", resources: [
+                .init(rule: .copy, path: "foo.txt"),
+                .init(rule: .process, path: "bar.txt")
+            ])
+            
+            let fs = InMemoryFileSystem(emptyFiles: [])
+            
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
+                XCTAssertEqual(resources.count, 0)
+                diagnostics.check(
+                    diagnostic: .contains("""
+                    target 'Foo' does not have resources at the following paths, they will be ignored
+                        'foo.txt' (/foo.txt)
+                        'bar.txt' (/bar.txt)
+                    """),
+                    behavior: .warning
+                )
+            }
+        }
+        
     }
 
     func testInfoPlistResource() {

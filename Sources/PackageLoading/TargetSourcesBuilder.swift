@@ -135,6 +135,7 @@ public struct TargetSourcesBuilder {
         diagnoseLocalizedAndUnlocalizedVariants(in: resources)
         diagnoseMissingDevelopmentRegionResource(in: resources)
         diagnoseInfoPlistConflicts(in: resources)
+        diagnoseMissingResources(in: resources)
 
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
@@ -247,6 +248,34 @@ public struct TargetSourcesBuilder {
         }
     }
 
+    private func diagnoseMissingResources(in resources: [Resource]) {
+        // Stop early if the valid resources array count is the same as the user defined list
+        if resources.count == self.target.resources.count {
+            return
+        }
+        
+        // Filter the package list of resources down to those which are not included in the valid resources array
+        let invalidResources = self.target.resources.filter { targetResource in
+            return resources.contains(where: { resource in
+                resource.path.relative(to: self.targetPath).pathString.hasPrefix(targetResource.path)
+            }) == false
+        }
+        
+        // If the list is empty then all were succesfully included so no error needs to be thrown
+        if invalidResources.isEmpty {
+            return
+        }
+        
+        var message = "target '\(self.target.name)' does not have resources at the following paths, they will be ignored\n"
+        
+        for resource in invalidResources {
+            let resourcePath = self.targetPath.appending(RelativePath(resource.path))
+            message += "    '\(resource.path)' (\(resourcePath))\n"
+        }
+        
+        diags.emit(.warning(message))
+    }
+    
     private func diagnoseConflictingResources(in resources: [Resource]) {
         let duplicateResources = resources.spm_findDuplicateElements(by: \.destination)
         for resources in duplicateResources {
