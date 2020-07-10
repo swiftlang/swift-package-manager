@@ -58,7 +58,24 @@ extension BuildConfiguration: ExpressibleByArgument {
     }
 }
 
-enum BuildSystemKind: String, ExpressibleByArgument {
+extension AbsolutePath: ExpressibleByArgument {
+    public init?(argument: String) {
+        if let cwd = localFileSystem.currentWorkingDirectory {
+            self.init(argument, relativeTo: cwd)
+        } else {
+          guard let path = try? AbsolutePath(validating: argument) else {
+              return nil
+          }
+          self = path
+        }
+    }
+  
+    public static var defaultCompletionKind: CompletionKind {
+        .file()
+    }
+}
+
+enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
     case native
     case xcode
 }

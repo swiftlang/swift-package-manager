@@ -70,7 +70,7 @@ struct RunToolOptions: ParsableArguments {
     var shouldLaunchREPL: Bool = false
 
     /// The executable product to run.
-    @Argument(help: "The executable to run")
+    @Argument(help: "The executable to run", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
 
     /// The arguments to pass to the executable.

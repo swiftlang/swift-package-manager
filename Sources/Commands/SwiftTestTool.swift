@@ -20,14 +20,6 @@ import Workspace
 
 import func TSCLibc.exit
 
-func parseAbsolutePath(_ argument: String) throws -> AbsolutePath {
-    if let cwd = localFileSystem.currentWorkingDirectory {
-        return AbsolutePath(argument, relativeTo: cwd)
-    } else {
-        return try AbsolutePath(validating: argument)
-    }
-}
-
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
@@ -124,8 +116,7 @@ struct TestToolOptions: ParsableArguments {
 
     /// Path where the xUnit xml file should be generated.
     @Option(name: .customLong("xunit-output"),
-            help: "Path where the xUnit xml file should be generated.",
-            transform: parseAbsolutePath)
+            help: "Path where the xUnit xml file should be generated.")
     var xUnitOutput: AbsolutePath?
 
     /// The test product to use. This is useful when there are multiple test products

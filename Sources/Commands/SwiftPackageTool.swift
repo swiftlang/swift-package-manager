@@ -379,8 +379,7 @@ extension SwiftPackageTool {
         @Option(name: .customLong("branch"), help: "The branch to create")
         var checkoutBranch: String?
         
-        @Option(help: "Create or use the checkout at this path",
-                transform: parseAbsolutePath(_:))
+        @Option(help: "Create or use the checkout at this path")
         var path: AbsolutePath?
         
         @Argument(help: "The name of the package to edit")
@@ -510,8 +509,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Argument(help: "The absolute or relative path to the binary artifact",
-                  transform: parseAbsolutePath(_:))
+        @Argument(help: "The absolute or relative path to the binary artifact")
         var path: AbsolutePath
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -538,7 +536,7 @@ extension SwiftPackageTool {
             abstract: "Generates an Xcode project")
 
         struct Options: ParsableArguments {
-            @Option(help: "Path to xcconfig file", transform: parseAbsolutePath(_:))
+            @Option(help: "Path to xcconfig file")
             var xcconfigOverrides: AbsolutePath?
             
             @Flag(name: .customLong("code-coverage"),
@@ -547,8 +545,7 @@ extension SwiftPackageTool {
             var isCodeCoverageEnabled: Bool = false
             
             @Option(name: .customLong("output"),
-                    help: "Path where the Xcode project should be generated",
-                    transform: parseAbsolutePath(_:))
+                    help: "Path where the Xcode project should be generated")
             var outputPath: AbsolutePath?
             
             @Flag(name: .customLong("legacy-scheme-generator"),
