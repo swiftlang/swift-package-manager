@@ -24,38 +24,42 @@ import Foundation
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
-    public static let configuration = CommandConfiguration(
-        commandName: "package",
-        abstract: "Perform operations on Swift packages",
-        discussion: "SEE ALSO: swift build, swift run, swift test",
-        version: Versioning.currentVersion.completeDisplayString,
-        subcommands: [
-            Clean.self,
-            Reset.self,
-            Update.self,
-            Describe.self,
-            Init.self,
-            Format.self,
+    public static var configuration: CommandConfiguration {
+        var config = CommandConfiguration(
+            commandName: "package",
+            abstract: "Perform operations on Swift packages",
+            discussion: "SEE ALSO: swift build, swift run, swift test",
+            version: Versioning.currentVersion.completeDisplayString,
+            subcommands: [
+                Clean.self,
+                Reset.self,
+                Update.self,
+                Describe.self,
+                Init.self,
+                Format.self,
 
-            APIDiff.self,
-            DumpSymbolGraph.self,
-            DumpPIF.self,
-            DumpPackage.self,
-            
-            Edit.self,
-            Unedit.self,
-            
-            Config.self,
-            Resolve.self,
-            Fetch.self,
+                APIDiff.self,
+                DumpSymbolGraph.self,
+                DumpPIF.self,
+                DumpPackage.self,
+                
+                Edit.self,
+                Unedit.self,
+                
+                Config.self,
+                Resolve.self,
+                Fetch.self,
 
-            ShowDependencies.self,
-            ToolsVersionCommand.self,
-            GenerateXcodeProject.self,
-            ComputeChecksum.self,
-            CompletionTool.self,
-        ],
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+                ShowDependencies.self,
+                ToolsVersionCommand.self,
+                GenerateXcodeProject.self,
+                ComputeChecksum.self,
+                CompletionTool.self,
+            ],
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+        config._superCommandName = "swift"
+        return config
+    }
 
     @OptionGroup()
     var swiftOptions: SwiftToolOptions
