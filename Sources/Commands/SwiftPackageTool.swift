@@ -101,10 +101,10 @@ extension SwiftPackageTool {
         
         @Flag(name: [.long, .customShort("n")],
               help: "Display the list of dependencies that can be updated")
-        var dryRun: Bool
+        var dryRun: Bool = false
         
         @Argument(help: "The packages to update")
-        var packages: [String]
+        var packages: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {
             let workspace = try swiftTool.getActiveWorkspace()
@@ -131,8 +131,8 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
                 
-        @Option(default: .text)
-        var type: DescribeMode
+        @Option()
+        var type: DescribeMode = .text
 
         func run(_ swiftTool: SwiftTool) throws {
             let workspace = try swiftTool.getActiveWorkspace()
@@ -160,8 +160,8 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Option(name: .customLong("type"), default: .library)
-        var initMode: InitPackage.PackageType
+        @Option(name: .customLong("type"))
+        var initMode: InitPackage.PackageType = .library
         
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
@@ -189,7 +189,7 @@ extension SwiftPackageTool {
         
         @Argument(parsing: .unconditionalRemaining,
                   help: "Pass flag through to the swift-format tool")
-        var swiftFormatFlags: [String]
+        var swiftFormatFlags: [String] = []
         
         func run(_ swiftTool: SwiftTool) throws {
             // Look for swift-format binary.
@@ -255,7 +255,7 @@ extension SwiftPackageTool {
         var treeish: String
         
         @Flag(help: "Invert the baseline which is helpful for determining API additions")
-        var invertBaseline: Bool
+        var invertBaseline: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
@@ -351,7 +351,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         @Flag(help: "Preserve the internal structure of PIF")
-        var preserveStructure: Bool
+        var preserveStructure: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
@@ -405,7 +405,7 @@ extension SwiftPackageTool {
         
         @Flag(name: .customLong("force"),
               help: "Unedit the package even if it has uncommited and unpushed changes")
-        var shouldForceRemove: Bool
+        var shouldForceRemove: Bool = false
         
         @Argument(help: "The name of the package to unedit")
         var packageName: String
@@ -430,8 +430,8 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Option(default: .text)
-        var format: ShowDependenciesMode
+        @Option()
+        var format: ShowDependenciesMode = .text
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
@@ -447,11 +447,11 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Option(default: .text)
-        var format: ShowDependenciesMode
+        @Option()
+        var format: ShowDependenciesMode = .text
 
         @Flag(help: "Set tools version of package to the current tools version in use")
-        var setCurrent: Bool
+        var setCurrent: Bool = false
         
         @Option(help: "Set tools version of package to the given value")
         var set: String?
@@ -538,10 +538,9 @@ extension SwiftPackageTool {
             var xcconfigOverrides: AbsolutePath?
             
             @Flag(name: .customLong("code-coverage"),
-                  default: false,
                   inversion: .prefixedEnableDisable,
                   help: "Enable code coverage in the generated project")
-            var isCodeCoverageEnabled: Bool
+            var isCodeCoverageEnabled: Bool = false
             
             @Option(name: .customLong("output"),
                     help: "Path where the Xcode project should be generated",
@@ -550,14 +549,14 @@ extension SwiftPackageTool {
             
             @Flag(name: .customLong("legacy-scheme-generator"),
                   help: "Use the legacy scheme generator")
-            var useLegacySchemeGenerator: Bool
+            var useLegacySchemeGenerator: Bool = false
             
             @Flag(name: .customLong("watch"),
                   help: "Watch for changes to the Package manifest to regenerate the Xcode project")
-            var enableAutogeneration: Bool
+            var enableAutogeneration: Bool = false
             
             @Flag(help: "Do not add file references for extra files to the generated Xcode project")
-            var skipExtraFiles: Bool
+            var skipExtraFiles: Bool = false
             
             func xcodeprojOptions(with buildFlags: BuildFlags) -> XcodeprojOptions {
                 XcodeprojOptions(

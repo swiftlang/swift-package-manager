@@ -19,27 +19,27 @@ struct BuildFlagsGroup: ParsableArguments {
     @Option(name: .customLong("Xcc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C compiler invocations")
-    var cCompilerFlags: [String]
+    var cCompilerFlags: [String] = []
     
     @Option(name: .customLong("Xswiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all Swift compiler invocations")
-    var swiftCompilerFlags: [String]
+    var swiftCompilerFlags: [String] = []
     
     @Option(name: .customLong("Xlinker", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all linker invocations")
-    var linkerFlags: [String]
+    var linkerFlags: [String] = []
     
     @Option(name: .customLong("Xccxx", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C++ compiler invocations")
-    var cxxCompilerFlags: [String]
+    var cxxCompilerFlags: [String] = []
     
     @Option(name: .customLong("Xxcbuild", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to the Xcode build system invocations")
-    var xcbuildFlags: [String]
+    var xcbuildFlags: [String] = []
     
     var buildFlags: BuildFlags {
         BuildFlags(
@@ -77,8 +77,8 @@ public struct SwiftToolOptions: ParsableArguments {
     }
     
     /// Build configuration.
-    @Option(name: .shortAndLong, default: .debug, help: "Build with configuration")
-    var configuration: BuildConfiguration
+    @Option(name: .shortAndLong, help: "Build with configuration")
+    var configuration: BuildConfiguration = .debug
 
     /// The custom build directory, if provided.
     @Option(help: "Specify build/cache directory",
@@ -101,23 +101,23 @@ public struct SwiftToolOptions: ParsableArguments {
     var multirootPackageDataFile: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
-    @Flag(name: .customLong("prefetching"), default: true, inversion: .prefixedEnableDisable)
-    var shouldEnableResolverPrefetching: Bool
+    @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
+    var shouldEnableResolverPrefetching: Bool = true
 
     // FIXME: We need to allow -vv type options for this.
     /// The verbosity of informational output.
     @Flag(name: .shortAndLong, help: "Increase verbosity of informational output")
-    var verbose: Bool
+    var verbose: Bool = false
     
     var verbosity: Int { verbose ? 1 : 0 }
 
     /// Disables sandboxing when executing subprocesses.
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
-    var shouldDisableSandbox: Bool
+    var shouldDisableSandbox: Bool = false
 
     /// Disables manifest caching.
     @Flag(name: .customLong("disable-package-manifest-caching"), help: "Disable caching Package.swift manifests")
-    var shouldDisableManifestCaching: Bool
+    var shouldDisableManifestCaching: Bool = false
 
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("destination"), transform: { try PathArgument(argument: $0).path })
@@ -136,18 +136,18 @@ public struct SwiftToolOptions: ParsableArguments {
     var customCompileToolchain: AbsolutePath?
 
     /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), default: false, inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    var shouldLinkStaticSwiftStdlib: Bool
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
+    var shouldLinkStaticSwiftStdlib: Bool = false
 
     /// Skip updating dependencies from their remote during a resolution.
     @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
-    var skipDependencyUpdate: Bool
+    var skipDependencyUpdate: Bool = false
 
     /// Which compile-time sanitizers should be enabled.
     @Option(name: .customLong("sanitize"),
             help: "Turn on runtime checks for erroneous behavior",
             transform: { try Sanitizer(argument: $0) })
-    var sanitizers: [Sanitizer]
+    var sanitizers: [Sanitizer] = []
 
     var enabledSanitizers: EnabledSanitizers {
         EnabledSanitizers(Set(sanitizers))
@@ -155,13 +155,13 @@ public struct SwiftToolOptions: ParsableArguments {
     
     /// Whether to enable code coverage.
     @Flag(name: .customLong("enable-code-coverage"), help: "Test with code coverage enabled")
-    var shouldEnableCodeCoverage: Bool
+    var shouldEnableCodeCoverage: Bool = false
 
     // TODO: Does disable-automatic-resolution alias force-resolved-versions?
     
     /// Use Package.resolved file for resolving dependencies.
     @Flag(name: [.long, .customLong("disable-automatic-resolution")], help: "Disable automatic resolution if Package.resolved file is out-of-date")
-    var forceResolvedVersions: Bool
+    var forceResolvedVersions: Bool = false
 
     @Flag(name: .customLong("index-store"), inversion: .prefixedEnableDisable, help: "Enable or disable  indexing-while-building feature")
     var indexStoreEnable: Bool?
@@ -174,11 +174,11 @@ public struct SwiftToolOptions: ParsableArguments {
     
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
-    var shouldEnableParseableModuleInterfaces: Bool
+    var shouldEnableParseableModuleInterfaces: Bool = false
 
     /// Write dependency resolver trace to a file.
     @Flag(name: .customLong("trace-resolver"))
-    var enableResolverTrace: Bool
+    var enableResolverTrace: Bool = false
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
@@ -186,24 +186,24 @@ public struct SwiftToolOptions: ParsableArguments {
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
     @Flag(help: "Enable test discovery on platforms without Objective-C runtime")
-    var enableTestDiscovery: Bool
+    var enableTestDiscovery: Bool = false
 
     /// Whether to enable llbuild manifest caching.
     @Flag()
-    var enableBuildManifestCaching: Bool
+    var enableBuildManifestCaching: Bool = false
 
     /// Emit the Swift module separately from the object files.
     @Flag()
-    var emitSwiftModuleSeparately: Bool
+    var emitSwiftModuleSeparately: Bool = false
 
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
-    var useIntegratedSwiftDriver: Bool
+    var useIntegratedSwiftDriver: Bool = false
 
     /// The build system to use.
-    @Option(default: .native)
-    var buildSystem: BuildSystemKind
+    @Option()
+    var buildSystem: BuildSystemKind = .native
     
     public init() {}
 }

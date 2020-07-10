@@ -71,7 +71,7 @@ struct TestToolOptions: ParsableArguments {
     
     @Flag(name: .customLong("skip-build"),
           help: "Skip building the test target")
-    var shouldSkipBuilding: Bool
+    var shouldSkipBuilding: Bool = false
     
     /// If the test target should be built before testing.
     var shouldBuildTests: Bool {
@@ -81,7 +81,7 @@ struct TestToolOptions: ParsableArguments {
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
           help: "Run the tests in parallel.")
-    var shouldRunInParallel: Bool
+    var shouldRunInParallel: Bool = false
 
     /// Number of tests to execute in parallel
     @Option(name: .customLong("num-workers"),
@@ -91,17 +91,17 @@ struct TestToolOptions: ParsableArguments {
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
           help: "Lists test methods in specifier format")
-    var shouldListTests: Bool
+    var shouldListTests: Bool = false
 
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("generate-linuxmain"),
           help: "Generate LinuxMain.swift entries for the package")
-    var shouldGenerateLinuxMain: Bool
+    var shouldGenerateLinuxMain: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
     @Flag(name: .customLong("show-codecov-path"),
           help: "Print the path of the exported code coverage JSON file")
-    var shouldPrintCodeCovPath: Bool
+    var shouldPrintCodeCovPath: Bool = false
 
     var testCaseSpecifier: TestCaseSpecifier {
         if let override = testCaseSpecifierOverride() {

@@ -57,17 +57,17 @@ struct RunToolOptions: ParsableArguments {
     
     /// If the executable product should be built before running.
     @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
-    var shouldSkipBuild: Bool
+    var shouldSkipBuild: Bool = false
     
     var shouldBuild: Bool { !shouldSkipBuild }
 
     /// If the test should be built.
     @Flag(name: .customLong("build-tests"), help: "Build both source and test targets")
-    var shouldBuildTests: Bool
+    var shouldBuildTests: Bool = false
 
     /// If should launch the Swift REPL.
     @Flag(name: .customLong("repl"), help: "Launch Swift REPL for the package")
-    var shouldLaunchREPL: Bool
+    var shouldLaunchREPL: Bool = false
 
     /// The executable product to run.
     @Argument(help: "The executable to run")
@@ -76,7 +76,7 @@ struct RunToolOptions: ParsableArguments {
     /// The arguments to pass to the executable.
     @Argument(parsing: .unconditionalRemaining,
               help: "The arguments to pass to the executable")
-    var arguments: [String]
+    var arguments: [String] = []
 }
 
 /// swift-run tool namespace

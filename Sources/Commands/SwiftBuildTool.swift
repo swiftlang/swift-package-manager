@@ -57,11 +57,11 @@ struct BuildToolOptions: ParsableArguments {
 
     /// If the test should be built.
     @Flag(help: "Build both source and test targets")
-    var buildTests: Bool
+    var buildTests: Bool = false
 
     /// If the binary output path should be printed.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path")
-    var shouldPrintBinPath: Bool
+    var shouldPrintBinPath: Bool = false
 
     /// Specific target to build.
     @Option(help: "Build the specified target")
