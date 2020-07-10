@@ -100,9 +100,11 @@ struct TestToolOptions: ParsableArguments {
             return override
         }
         
-        return filter.map { .regex($0) }
-            ?? specifier.map { .specific($0) }
-            ?? .none
+        if !filter.isEmpty {
+            return .regex(filter)
+        }
+        
+        return specifier.map { .specific($0) } ?? .none
     }
 
     @Option(name: .shortAndLong)
@@ -112,7 +114,7 @@ struct TestToolOptions: ParsableArguments {
         Run test cases matching regular expression, Format: <test-target>.<test-case> \
         or <test-target>.<test-case>/<test>
         """)
-    var filter: String?
+    var filter: [String] = []
 
     /// Path where the xUnit xml file should be generated.
     @Option(name: .customLong("xunit-output"),
@@ -121,7 +123,7 @@ struct TestToolOptions: ParsableArguments {
 
     /// The test product to use. This is useful when there are multiple test products
     /// to choose from (usually in multiroot packages).
-    @Option(help: "The test product to use.")
+    @Option(help: "Test the specified product.")
     var testProduct: String?
 
     /// Returns the test case specifier if overridden in the env.
@@ -154,11 +156,11 @@ struct TestToolOptions: ParsableArguments {
 /// This is used to filter tests to run
 ///   .none     => No filtering
 ///   .specific => Specify test with fully quantified name
-///   .regex    => RegEx pattern
+///   .regex    => RegEx patterns
 public enum TestCaseSpecifier {
     case none
     case specific(String)
-    case regex(String)
+    case regex([String])
     case skip([String])
 }
 
@@ -935,10 +937,12 @@ fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite]
         switch specifier {
         case .none:
             return allTests
-        case .regex(let pattern):
+        case .regex(let patterns):
             return allTests.filter({ test in
-                test.specifier.range(of: pattern,
-                                     options: .regularExpression) != nil
+                patterns.contains { pattern in
+                    test.specifier.range(of: pattern,
+                                         options: .regularExpression) != nil
+                }
             })
         case .specific(let name):
             return allTests.filter{ $0.specifier == name }

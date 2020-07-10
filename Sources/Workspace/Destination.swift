@@ -37,8 +37,11 @@ public struct Destination: Encodable, Equatable {
     /// for more information see //https://clang.llvm.org/docs/CrossCompilation.html
     public var target: Triple?
 
+    /// The architectures to build for. We build for host architecture if this is empty.
+    public var archs: [String] = []
+
     /// The SDK used to compile for the destination.
-    public var sdk: AbsolutePath
+    public var sdk: AbsolutePath?
 
     /// The binDir in the containing the compilers/linker to be used for the compilation.
     public var binDir: AbsolutePath
@@ -55,7 +58,7 @@ public struct Destination: Encodable, Equatable {
     /// Creates a compilation destination with the specified properties.
     public init(
       target: Triple? = nil,
-      sdk: AbsolutePath,
+      sdk: AbsolutePath?,
       binDir: AbsolutePath,
       extraCCFlags: [String] = [],
       extraSwiftCFlags: [String] = [],
@@ -127,10 +130,19 @@ public struct Destination: Encodable, Equatable {
             extraSwiftCFlags: extraSwiftCFlags,
             extraCPPFlags: ["-lc++"]
         )
+      #elseif os(Android)
+        return Destination(
+            target: nil,
+            sdk: AbsolutePath(ProcessEnv.vars["PREFIX"]!).parentDirectory,
+            binDir: binDir,
+            extraCCFlags: ["-fPIC"],
+            extraSwiftCFlags: [],
+            extraCPPFlags: ["-lstdc++"]
+        )
       #else
         return Destination(
             target: nil,
-            sdk: .root,
+            sdk: nil,
             binDir: binDir,
             extraCCFlags: ["-fPIC"],
             extraSwiftCFlags: [],

@@ -296,7 +296,7 @@ public class SwiftTool {
 
             // Force building with the native build system on other platforms than macOS.
           #if !os(macOS)
-            self.options.buildSystem = .native
+            self.options._buildSystem = .native
           #endif
 
             let processSet = ProcessSet()
@@ -359,6 +359,14 @@ public class SwiftTool {
 
         if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
+        }
+
+        if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
+            diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
+        }
+
+        if !options.archs.isEmpty && options.customCompileTriple != nil {
+            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
     }
 
@@ -453,8 +461,12 @@ public class SwiftTool {
     }
 
     /// Fetch and load the complete package graph.
+    ///
+    /// - Parameters:
+    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
     func loadPackageGraph(
+        explicitProduct: String? = nil,
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
@@ -464,6 +476,7 @@ public class SwiftTool {
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
                 root: getWorkspaceRoot(),
+                explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
@@ -506,9 +519,9 @@ public class SwiftTool {
         return enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
     }
 
-    func createBuildOperation(useBuildManifestCaching: Bool = true) throws -> BuildOperation {
+    func createBuildOperation(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildOperation {
         // Load a custom package graph which has a special product for REPL.
-        let graphLoader = { try self.loadPackageGraph() }
+        let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
         let buildOp = try BuildOperation(
@@ -524,11 +537,11 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(useBuildManifestCaching: Bool = true) throws -> BuildSystem {
+    func createBuildSystem(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildSystem {
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
-            let graphLoader = { try self.loadPackageGraph() }
+            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters(),
                 useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
@@ -537,7 +550,7 @@ public class SwiftTool {
                 stdoutStream: stdoutStream
             )
         case .xcode:
-            let graphLoader = { try self.loadPackageGraph(createMultipleTestProducts: true) }
+            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters(),
                 packageGraphLoader: graphLoader,
@@ -571,6 +584,7 @@ public class SwiftTool {
                 configuration: options.configuration,
                 toolchain: toolchain,
                 destinationTriple: triple,
+                archs: options.archs,
                 flags: options.buildFlags,
                 xcbuildFlags: options.xcbuildFlags,
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
@@ -582,7 +596,9 @@ public class SwiftTool {
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
-                isXcodeBuildSystemEnabled: options.buildSystem == .xcode
+                useExplicitModuleBuild: options.useExplicitModuleBuild,
+                isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
+                printManifestGraphviz: options.printManifestGraphviz
             )
         })
     }()
@@ -605,7 +621,7 @@ public class SwiftTool {
         }
         // Apply any manual overrides.
         if let triple = self.options.customCompileTriple {
-          destination.target = triple
+            destination.target = triple
         }
         if let binDir = self.options.customCompileToolchain {
             destination.binDir = binDir.appending(components: "usr", "bin")
@@ -613,6 +629,7 @@ public class SwiftTool {
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
         }
+        destination.archs = options.archs
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {

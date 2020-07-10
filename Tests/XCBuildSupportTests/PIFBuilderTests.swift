@@ -86,7 +86,7 @@ class PIFBuilderTests: XCTestCase {
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
-            XCTAssertEqual(projectBTargetNames, ["bexe", "blib", "B2"])
+            XCTAssertEqual(projectBTargetNames, ["blib", "B2"])
         }
     }
 
@@ -171,7 +171,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "8.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
                         XCTAssertEqual(settings[.ONLY_ACTIVE_ARCH], "YES")
@@ -215,7 +215,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
-                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "8.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
@@ -388,6 +388,7 @@ class PIFBuilderTests: XCTestCase {
                             "SystemLib",
                             "cfoo",
                             .product(name: "bar", package: "Bar"),
+                            .product(name: "cbar", package: "Bar")
                         ]),
                         .init(name: "cfoo"),
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
@@ -438,6 +439,7 @@ class PIFBuilderTests: XCTestCase {
                         "PACKAGE-PRODUCT:cfoo",
                         "PACKAGE-PRODUCT:bar",
                         "PACKAGE-PRODUCT:BarLib",
+                        "PACKAGE-PRODUCT:cbar",
                         "PACKAGE-TARGET:FooLib",
                         "PACKAGE-TARGET:SystemLib"
                     ])
@@ -445,6 +447,7 @@ class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.frameworks, [
                         "PACKAGE-TARGET:FooLib",
                         "PACKAGE-PRODUCT:BarLib",
+                        "PACKAGE-PRODUCT:cbar",
                         "PACKAGE-PRODUCT:bar",
                     ])
 

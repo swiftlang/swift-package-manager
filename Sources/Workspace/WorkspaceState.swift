@@ -358,7 +358,7 @@ extension ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvert
             "packageRef": packageRef.toJSON(),
             "subpath": subpath,
             "basedOn": basedOn.toJSON(),
-            "state": state,
+            "state": state
         ])
     }
 

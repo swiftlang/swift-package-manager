@@ -105,14 +105,6 @@ public final class PinsStore {
         // Reset the pins map.
         pinsMap = [:]
     }
-
-    /// Creates constraints based on the pins in the store.
-    public func createConstraints() -> [RepositoryPackageConstraint] {
-        return pins.map({ pin in
-            return RepositoryPackageConstraint(
-                container: pin.packageRef, requirement: pin.state.requirement())
-        })
-    }
 }
 
 /// Persistence.
@@ -159,7 +151,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
         return .init([
             "package": packageRef.name.toJSON(),
             "repositoryURL": packageRef.path,
-            "state": state,
+            "state": state
         ])
     }
 }

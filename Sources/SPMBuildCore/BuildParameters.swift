@@ -46,8 +46,14 @@ public struct BuildParameters: Encodable {
     public var toolchain: Toolchain { _toolchain.toolchain }
     private let _toolchain: _Toolchain
 
+    /// Host triple.
+    public var hostTriple: Triple
+
     /// Destination triple.
     public var triple: Triple
+
+    /// The architectures to build for.
+    public var archs: [String]
 
     /// Extra build flags.
     public var flags: BuildFlags
@@ -89,6 +95,12 @@ public struct BuildParameters: Encodable {
     /// to a separate process.
     public var useIntegratedSwiftDriver: Bool
 
+    /// Whether to use the explicit module build flow (with the integrated driver)
+    public var useExplicitModuleBuild: Bool
+
+    /// Whether to output a graphviz file visualization of the combined job graph for all targets
+    public var printManifestGraphviz: Bool
+
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
@@ -120,7 +132,9 @@ public struct BuildParameters: Encodable {
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
+        hostTriple: Triple? = nil,
         destinationTriple: Triple? = nil,
+        archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
@@ -135,12 +149,16 @@ public struct BuildParameters: Encodable {
         enableTestDiscovery: Bool = false,
         emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
-        isXcodeBuildSystemEnabled: Bool = false
+        useExplicitModuleBuild: Bool = false,
+        isXcodeBuildSystemEnabled: Bool = false,
+        printManifestGraphviz: Bool = false
     ) {
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
+        self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
         self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        self.archs = archs
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
         self.toolsVersion = toolsVersion
@@ -155,7 +173,9 @@ public struct BuildParameters: Encodable {
         self.enableTestDiscovery = enableTestDiscovery
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
+        self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
+        self.printManifestGraphviz = printManifestGraphviz
     }
 
     /// The path to the build directory (inside the data directory).

@@ -129,6 +129,36 @@ final class PkgConfigParserTests: XCTestCase {
         XCTAssertEqual(PCFileFinder.pkgConfigPaths, [AbsolutePath("/Volumes/BestDrive/pkgconfig")])
     }
 
+    func testAbsolutePathDependency() throws {
+
+        let libffiPath = "/usr/local/opt/libffi/lib/pkgconfig/libffi.pc"
+
+        try loadPCFile("gobject-2.0.pc") { parser in
+            XCTAssert(parser.dependencies.isEmpty)
+            XCTAssertEqual(parser.privateDependencies, [libffiPath])
+        }
+
+        try loadPCFile("libffi.pc") { parser in
+            XCTAssert(parser.dependencies.isEmpty)
+            XCTAssert(parser.privateDependencies.isEmpty)
+        }
+
+        let fileSystem = try InMemoryFileSystem(
+            files: [
+                "/usr/local/opt/glib/lib/pkgconfig/gobject-2.0.pc": pcFileByteString("gobject-2.0.pc"),
+                libffiPath: pcFileByteString("libffi.pc")
+            ]
+        )
+
+        XCTAssertNoThrow(
+            try PkgConfig(
+                name: "gobject-2.0",
+                additionalSearchPaths: [AbsolutePath("/usr/local/opt/glib/lib/pkgconfig")],
+                diagnostics: DiagnosticsEngine(),
+                fileSystem: fileSystem,
+                brewPrefix: AbsolutePath("/usr/local")))
+    }
+
     func testUnevenQuotes() throws {
         do {
             try loadPCFile("quotes_failure.pc")
@@ -138,10 +168,17 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    private func pcFilePath(_ inputName: String) -> AbsolutePath {
+        return AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
+    }
+
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {
-        let input = AbsolutePath(#file).parentDirectory.appending(components: "pkgconfigInputs", inputName)
-        var parser = PkgConfigParser(pcFile: input, fileSystem: localFileSystem)
+        var parser = PkgConfigParser(pcFile: pcFilePath(inputName), fileSystem: localFileSystem)
         try parser.parse()
         body?(parser)
+    }
+
+    private func pcFileByteString(_ inputName: String) throws -> ByteString {
+        return try localFileSystem.readFileContents(pcFilePath(inputName))
     }
 }

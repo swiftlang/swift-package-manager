@@ -103,7 +103,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Run the builder to produce the sources of the target.
-    public func run() throws -> (sources: Sources, resources: [Resource]) {
+    public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath]) {
         let contents = computeContents()
         var pathToRule: [AbsolutePath: Rule] = [:]
 
@@ -125,6 +125,7 @@ public struct TargetSourcesBuilder {
             }
         }
 
+        let headers = pathToRule.lazy.filter { $0.value.rule == .header }.map { $0.key }.sorted()
         let compilePaths = pathToRule.lazy.filter { $0.value.rule == .compile }.map { $0.key }
         let sources = Sources(paths: Array(compilePaths), root: targetPath)
         let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) }
@@ -140,7 +141,7 @@ public struct TargetSourcesBuilder {
             throw Target.Error.mixedSources(targetPath)
         }
 
-        return (sources, resources)
+        return (sources, resources, headers)
     }
 
     private struct Rule {

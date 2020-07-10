@@ -696,6 +696,22 @@ A C language target is built with following flags in release mode:
 
 Swift Package Manager includes a build system that can build for macOS and Linux.
 Xcode 11 integrates with `libSwiftPM` to provide support for iOS, watchOS, and tvOS platforms.
+To build your package with Xcode from command line you can use 
+[`xcodebuild`](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
+An example invocation would be:
+
+```
+xcodebuild -scheme Foo -destination 'generic/platform=iOS'
+```
+
+where `Foo` would be the name of the library product you're trying to build. You can
+get the full list of available schemes for you SwiftPM package with `xcodebuild -list`.
+You can get the list of available destinations for a given scheme with this invocation:
+
+```
+xcodebuild -showdestinations -scheme Foo
+```
+
 
 ## Creating C Language Targets
 

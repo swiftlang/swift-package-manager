@@ -152,6 +152,10 @@ public struct SwiftToolOptions: ParsableArguments {
     @Option(name: .customLong("toolchain"), transform: { try PathArgument(argument: $0).path })
     var customCompileToolchain: AbsolutePath?
 
+    /// The architectures to compile for.
+    @Option(name: .customLong("arch"), help: "Build the package for the these architectures")
+    public var archs: [String] = []
+
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
     var shouldLinkStaticSwiftStdlib: Bool = false
@@ -218,9 +222,24 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag()
     var useIntegratedSwiftDriver: Bool = false
 
+    /// Whether to use the explicit module build flow (with the integrated driver)
+    @Flag(name: .customLong("experimental-explicit-module-build"))
+    var useExplicitModuleBuild: Bool = false
+
+    /// Whether to output a graphviz file visualization of the combined job graph for all targets
+    @Flag(
+        name: .customLong("print-manifest-job-graph"),
+        help: "Write the command graph for the build manifest as a graphviz file")
+    var printManifestGraphviz: Bool = false
+
     /// The build system to use.
-    @Option()
-    var buildSystem: BuildSystemKind = .native
+    @Option(name: .customLong("build-system"))
+    var _buildSystem: BuildSystemKind = .native
+
+    var buildSystem: BuildSystemKind {
+        // Force the Xcode build system if we want to build more than one arch.
+        archs.count > 1 ? .xcode : _buildSystem
+    }
     
     public init() {}
 }

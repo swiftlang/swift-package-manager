@@ -132,10 +132,12 @@ public struct PackageGraphLoader {
         // API to specify identity in the manifest file
         let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
-        let successors: (Manifest) -> [Manifest] = { manifest in
-            manifest.allRequiredDependencies.compactMap({
-                let url = config.mirroredURL(forURL: $0.url)
-                return manifestMap[PackageReference.computeIdentity(packageURL: url)]
+        let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
+            node.requiredDependencies().compactMap({ dependency in
+                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                return manifestMap[PackageReference.computeIdentity(packageURL: url)].map { manifest in
+                    GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                }
             })
         }
 
@@ -144,24 +146,44 @@ public struct PackageGraphLoader {
         let rootDependencies = Set(root.dependencies.compactMap({
             manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
         }))
-        let inputManifests = root.manifests + rootDependencies
+        let rootManifestNodes = root.manifests.map { GraphLoadingNode(manifest: $0, productFilter: .everything) }
+        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageGraphRoot.PackageDependency) -> GraphLoadingNode? in
+            guard let manifest = manifestMap[PackageReference.computeIdentity(packageURL: dependency.url)] else { return nil }
+            return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+        }
+        let inputManifests = rootManifestNodes + rootDependencyNodes
 
         // Collect the manifests for which we are going to build packages.
-        let allManifests: [Manifest]
+        var allManifests: [GraphLoadingNode]
 
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(inputManifests, successors: successors) {
             diagnostics.emit(PackageGraphError.cycleDetected(cycle))
             // Break the cycle so we can build a partial package graph.
-            allManifests = inputManifests.filter({ $0 != cycle.cycle[0] })
+            allManifests = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
         } else {
             // Sort all manifests toplogically.
             allManifests = try! topologicalSort(inputManifests, successors: successors)
         }
+        var flattenedManifests: [String: GraphLoadingNode] = [:]
+        for node in allManifests {
+            if let existing = flattenedManifests[node.manifest.name] {
+                let merged = GraphLoadingNode(
+                    manifest: node.manifest,
+                    productFilter: existing.productFilter.union(node.productFilter)
+                )
+                flattenedManifests[node.manifest.name] = merged
+            } else {
+                flattenedManifests[node.manifest.name] = node
+            }
+        }
+        allManifests = flattenedManifests.values.sorted(by: { $0.manifest.name < $1.manifest.name })
 
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
-        for manifest in allManifests {
+        for node in allManifests {
+            let manifest = node.manifest
+
             // Derive the path to the package.
             //
             // FIXME: Lift this out of the manifest.
@@ -170,6 +192,7 @@ public struct PackageGraphLoader {
             // Create a package from the manifest and sources.
             let builder = PackageBuilder(
                 manifest: manifest,
+                productFilter: node.productFilter,
                 path: packagePath,
                 additionalFileRules: additionalFileRules,
                 remoteArtifacts: remoteArtifacts,
@@ -187,8 +210,10 @@ public struct PackageGraphLoader {
                     manifestToPackage[manifest] = package
 
                     // Throw if any of the non-root package is empty.
-                    if package.targets.isEmpty && manifest.packageKind != .root {
-                        throw PackageGraphError.noModules(package)
+                    if package.targets.isEmpty // System packages have targets in the package but not the manifest.
+                        && package.manifest.targets.isEmpty // An unneeded dependency will not have loaded anything from the manifest.
+                        && manifest.packageKind != .root {
+                            throw PackageGraphError.noModules(package)
                     }
                 }
             }
@@ -254,7 +279,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
-    allManifests: [Manifest],
+    allManifests: [GraphLoadingNode],
     config: SwiftPMConfig,
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
@@ -264,12 +289,16 @@ private func createResolvedPackages(
 ) -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = allManifests.compactMap({
-        guard let package = manifestToPackage[$0] else {
+    let packageBuilders: [ResolvedPackageBuilder] = allManifests.compactMap({ node in
+        guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.path == package.manifest.url }
-        return ResolvedPackageBuilder(package, isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts)
+        return ResolvedPackageBuilder(
+            package,
+            productFilter: node.productFilter,
+            isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts
+        )
     })
 
     // Create a map of package builders keyed by the package identity.
@@ -284,31 +313,32 @@ private func createResolvedPackages(
         let package = packageBuilder.package
 
         // Establish the manifest-declared package dependencies.
-        packageBuilder.dependencies = package.manifest.allRequiredDependencies.compactMap { dependency in
-            // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
-            if let dependencyName = dependency.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
+        packageBuilder.dependencies = package.manifest.dependenciesRequired(for: packageBuilder.productFilter)
+            .compactMap { dependency in
+                // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
+                if let dependencyName = dependency.declaration.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
+                    return resolvedPackage
+                }
+
+                // Otherwise, look it up by its identity.
+                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
+
+                // We check that the explicit package dependency name matches the package name.
+                if let resolvedPackage = resolvedPackage,
+                    let explicitDependencyName = dependency.declaration.explicitName,
+                    resolvedPackage.package.name != dependency.declaration.explicitName
+                {
+                    let error = PackageGraphError.incorrectPackageDependencyName(
+                        dependencyName: explicitDependencyName,
+                        dependencyURL: dependency.declaration.url,
+                        packageName: resolvedPackage.package.name)
+                    let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
+                    diagnostics.emit(error, location: diagnosticLocation)
+                }
+
                 return resolvedPackage
             }
-
-            // Otherwise, look it up by its identity.
-            let url = config.mirroredURL(forURL: dependency.url)
-            let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
-
-            // We check that the explicit package dependency name matches the package name.
-            if let resolvedPackage = resolvedPackage,
-                let explicitDependencyName = dependency.explicitName,
-                resolvedPackage.package.name != dependency.explicitName
-            {
-                let error = PackageGraphError.incorrectPackageDependencyName(
-                    dependencyName: explicitDependencyName,
-                    dependencyURL: dependency.url,
-                    packageName: resolvedPackage.package.name)
-                let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
-                diagnostics.emit(error, location: diagnosticLocation)
-            }
-
-            return resolvedPackage
-        }
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map({ ResolvedTargetBuilder(target: $0, diagnostics: diagnostics) })
@@ -576,6 +606,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The package reference.
     let package: Package
 
+    /// The product filter applied to the package.
+    let productFilter: ProductFilter
+
     /// The targets in the package.
     var targets: [ResolvedTargetBuilder] = []
 
@@ -587,8 +620,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     let isAllowedToVendUnsafeProducts: Bool
 
-    init(_ package: Package, isAllowedToVendUnsafeProducts: Bool) {
+    init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool) {
         self.package = package
+        self.productFilter = productFilter
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
     }
 
@@ -648,4 +682,79 @@ private extension Diagnostic.Message {
     static func productUsesUnsafeFlags(product: String, target: String) -> Diagnostic.Message {
         .error("the target '\(target)' in product '\(product)' contains unsafe build flags")
     }
+}
+
+/// A node used while loading the packages in a resolved graph.
+///
+/// This node uses the product filter that was already finalized during resolution.
+///
+/// - SeeAlso: DependencyResolutionNode
+public struct GraphLoadingNode: Equatable, Hashable, CustomStringConvertible {
+
+    /// The package manifest.
+    public let manifest: Manifest
+
+    /// The product filter applied to the package.
+    public let productFilter: ProductFilter
+
+    public init(manifest: Manifest, productFilter: ProductFilter) {
+        self.manifest = manifest
+        self.productFilter = productFilter
+    }
+
+    /// Returns the dependencies required by this node.
+    internal func requiredDependencies() -> [FilteredDependencyDescription] {
+        return manifest.dependenciesRequired(for: productFilter)
+    }
+
+    public var description: String {
+        switch productFilter {
+        case .everything:
+            return manifest.name
+        case .specific(let set):
+            return "\(manifest.name)[\(set.sorted().joined(separator: ", "))]"
+        }
+    }
+}
+
+/// Finds the first cycle encountered in a graph.
+///
+/// This is different from the one in tools support core, in that it handles equality separately from node traversal. Nodes traverse product filters, but only the manifests must be equal for there to be a cycle.
+internal func findCycle(
+    _ nodes: [GraphLoadingNode],
+    successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
+) rethrows -> (path: [Manifest], cycle: [Manifest])? {
+    // Ordered set to hold the current traversed path.
+    var path = OrderedSet<Manifest>()
+
+    // Function to visit nodes recursively.
+    // FIXME: Convert to stack.
+    func visit(
+      _ node: GraphLoadingNode,
+      _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
+    ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
+        // If this node is already in the current path then we have found a cycle.
+        if !path.append(node.manifest) {
+            let index = path.firstIndex(of: node.manifest)!
+            return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
+        }
+
+        for succ in try successors(node) {
+            if let cycle = try visit(succ, successors) {
+                return cycle
+            }
+        }
+        // No cycle found for this node, remove it from the path.
+        let item = path.removeLast()
+        assert(item == node.manifest)
+        return nil
+    }
+
+    for node in nodes {
+        if let cycle = try visit(node, successors) {
+            return cycle
+        }
+    }
+    // Couldn't find any cycle in the graph.
+    return nil
 }

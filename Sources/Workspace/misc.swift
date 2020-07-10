@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import PackageModel
 import PackageGraph
 
 extension ManagedDependency {

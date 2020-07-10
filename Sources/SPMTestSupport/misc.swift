@@ -193,6 +193,7 @@ public func loadPackageGraph(
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
+    explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false
 ) -> PackageGraph {
@@ -200,7 +201,7 @@ public func loadPackageGraph(
     let externalManifests = manifests.filter({ $0.packageKind != .root })
     let packages = rootManifests.map({ $0.path })
     let input = PackageGraphRootInput(packages: packages)
-    let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests)
+    let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
 
     return PackageGraphLoader().load(
         root: graphRoot,

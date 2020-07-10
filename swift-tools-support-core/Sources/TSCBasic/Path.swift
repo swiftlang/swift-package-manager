@@ -266,6 +266,30 @@ public struct RelativePath: Hashable {
     public var components: [String] {
         return _impl.components
     }
+
+    /// Returns the relative path with the given relative path applied.
+    public func appending(_ subpath: RelativePath) -> RelativePath {
+        return RelativePath(_impl.appending(relativePath: subpath._impl))
+    }
+
+    /// Returns the relative path with an additional literal component appended.
+    ///
+    /// This method accepts pseudo-path like '.' or '..', but should not contain "/".
+    public func appending(component: String) -> RelativePath {
+        return RelativePath(_impl.appending(component: component))
+    }
+
+    /// Returns the relative path with additional literal components appended.
+    ///
+    /// This method should only be used in cases where the input is guaranteed
+    /// to be a valid path component (i.e., it cannot be empty, contain a path
+    /// separator, or be a pseudo-path like '.' or '..').
+    public func appending(components names: String...) -> RelativePath {
+        // FIXME: This doesn't seem a particularly efficient way to do this.
+        return names.reduce(self, { path, name in
+            path.appending(component: name)
+        })
+    }
 }
 
 extension AbsolutePath: Codable {

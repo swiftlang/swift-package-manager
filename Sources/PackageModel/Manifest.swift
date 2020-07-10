@@ -37,6 +37,9 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The version this package was loaded from, if known.
     public let version: Version?
 
+    /// The revision this package was loaded from, if known.
+    public let revision: String?
+
     /// The tools version declared in the manifest.
     public let toolsVersion: ToolsVersion
 
@@ -79,11 +82,11 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     /// The system package providers of a system package.
     public let providers: [SystemPackageProviderDescription]?
 
-    /// Targets required for building all the products.
-    private var _allRequiredTargets: [TargetDescription]?
+    /// Targets required for building particular product filters.
+    private var _requiredTargets: [ProductFilter: [TargetDescription]]
 
-    /// Dependencies required for building all the products.
-    private var _allRequiredDependencies: [PackageDependencyDescription]?
+    /// Dependencies required for building particular product filters.
+    private var _requiredDependencies: [ProductFilter: [FilteredDependencyDescription]]
 
     public init(
         name: String,
@@ -92,6 +95,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         path: AbsolutePath,
         url: String,
         version: TSCUtility.Version? = nil,
+        revision: String? = nil,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         pkgConfig: String? = nil,
@@ -109,6 +113,7 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.path = path
         self.url = url
         self.version = version
+        self.revision = revision
         self.toolsVersion = toolsVersion
         self.packageKind = packageKind
         self.pkgConfig = pkgConfig
@@ -120,6 +125,8 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+        self._requiredTargets = [:]
+        self._requiredDependencies = [:]
     }
 
     public var description: String {
@@ -161,43 +168,35 @@ extension ToolsVersion {
 }
 
 extension Manifest {
-    /// Targets required for building all the products. If this manifest is a root manifest, it returns all targets.
-    public var allRequiredTargets: [TargetDescription] {
-        // Special case root packages to return all targets.
-        switch packageKind {
-        case .root:
-            return targets
-        case .local, .remote:
-            break
-        }
-
-        // If we have already calcualted allRequiredTargets, returned the cached value.
-        if let targets = _allRequiredTargets {
+    /// Returns the targets required for a particular product filter.
+    public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
+        // If we have already calcualted it, returned the cached value.
+        if let targets = _requiredTargets[productFilter] {
             return targets
         } else {
-            let targets = targetsRequired(for: products)
-            _allRequiredTargets = targets
+            let targets: [TargetDescription]
+            switch productFilter {
+            case .everything:
+                return self.targets
+            case .specific(let productFilter):
+                let products = self.products.filter { productFilter.contains($0.name) }
+                targets = targetsRequired(for: products)
+            }
+
+            _requiredTargets[productFilter] = targets
             return targets
         }
     }
 
-    /// The package dependencies required for building all the products.  If this manifest is a root manifest, it
-    /// returns all dependencies.
-    public var allRequiredDependencies: [PackageDependencyDescription] {
-        // Special case root packages to return all depdendencies.
-        switch packageKind {
-        case .root:
-            return dependencies
-        case .local, .remote:
-            break
-        }
-
-        // If we have already calcualted allRequiredDependencies, returned the cached value.
-        if let dependencies = _allRequiredDependencies {
+    /// Returns the package dependencies required for a particular products filter.
+    public func dependenciesRequired(for productFilter: ProductFilter) -> [FilteredDependencyDescription] {
+        // If we have already calcualted it, returned the cached value.
+        if let dependencies = _requiredDependencies[productFilter] {
             return dependencies
         } else {
-            let dependencies = dependenciesRequired(for: products)
-            _allRequiredDependencies = dependencies
+            let targets = targetsRequired(for: productFilter)
+            let dependencies = dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
+            _requiredDependencies[productFilter] = dependencies
             return dependencies
         }
     }
@@ -250,26 +249,44 @@ extension Manifest {
         return requiredTargets
     }
 
-    /// Returns the package dependencies required for building the provided products. If the tools version is less than
-    /// 5.2, this function returns all dependencies as we can't link target dependencies with package dependencies.
-    public func dependenciesRequired(for products: [ProductDescription]) -> [PackageDependencyDescription] {
-        guard toolsVersion >= .v5_2 else {
-            return dependencies
-        }
+    /// Returns the package dependencies required for building the provided targets.
+    ///
+    /// The returned dependencies have their particular product filters registered. (To determine product filters without removing any dependencies from the list, specify `keepUnused: true`.)
+    public func dependenciesRequired(
+        for targets: [TargetDescription],
+        keepUnused: Bool = false
+    ) -> [FilteredDependencyDescription] {
 
-        var requiredDependencyNames: Set<String> = []
+        var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
+        let availablePackages = Set(dependencies.lazy.map({ $0.name }))
 
-        for target in targetsRequired(for: products) {
+        for target in targets {
             for targetDependency in target.dependencies {
-                if let dependency = packageDependency(referencedBy: targetDependency) {
-                    requiredDependencyNames.insert(dependency.name)
-                }
+                register(targetDependency: targetDependency, registry: &registry, availablePackages: availablePackages)
             }
         }
 
-        let dependenciesByName = Dictionary(dependencies.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
-        let requiredDependencies = requiredDependencyNames.compactMap({ dependenciesByName[$0] })
-        return requiredDependencies
+        // Products whose package could not be determined are marked as needed on every dependency.
+        // (This way none of them filters such a product out.)
+        var associations = registry.known
+        let unknown = registry.unknown
+        if !registry.unknown.isEmpty {
+            for package in availablePackages {
+                associations[package, default: .specific([])].formUnion(.specific(unknown))
+            }
+        }
+
+        return dependencies.compactMap { dependency in
+            if let filter = associations[dependency.name] {
+                return FilteredDependencyDescription(declaration: dependency, productFilter: filter)
+            } else if keepUnused {
+                // Register that while the dependency was kept, no products are needed.
+                return FilteredDependencyDescription(declaration: dependency, productFilter: .specific([]))
+            } else {
+                // Dependencies known to not have any relevant products are discarded.
+                return nil
+            }
+        }
     }
 
     /// Finds the package dependency referenced by the specified target dependency.
@@ -289,6 +306,91 @@ extension Manifest {
         }
 
         return dependencies.first(where: { $0.name == packageName })
+    }
+
+    /// Registers a required product with a particular dependency if possible, or registers it as unknown.
+    ///
+    /// - Parameters:
+    ///   - targetDependency: The target dependency to register.
+    ///   - registry: The registry in which to record the assocation.
+    ///   - availablePackages: The set of available packages.
+    private func register(
+        targetDependency: TargetDescription.Dependency,
+        registry: inout (known: [String: ProductFilter], unknown: Set<String>),
+        availablePackages: Set<String>
+    ) {
+        switch targetDependency {
+        case .target:
+            break
+        case .product(let product, let package, _):
+            if let package = package { // ≥ 5.2
+                if !register(
+                    product: product,
+                    inPackage: package,
+                    registry: &registry.known,
+                    availablePackages: availablePackages) {
+                        // This is an invalid manifest condition diagnosed later. (No such package.)
+                        // Treating it as unknown gracefully allows resolution to continue for now.
+                    registry.unknown.insert(product)
+                }
+            } else { // < 5.2
+                registry.unknown.insert(product)
+            }
+        case .byName(let product, _):
+            if toolsVersion < .v5_2 {
+                // A by‐name entry might be a product from anywhere.
+                if targets.contains(where: { $0.name == product }) {
+                    // Save the resolver some effort if it is known to only be a target anyway.
+                    break
+                } else {
+                    registry.unknown.insert(product)
+                }
+            } else { // ≥ 5.2
+                // If a by‐name entry is a product, it must be in a package of the same name.
+                if !register(
+                    product: product,
+                    inPackage: product,
+                    registry: &registry.known,
+                    availablePackages: availablePackages) {
+                        // If it doesn’t match a package, it should be a target, not a product.
+                        if targets.contains(where: { $0.name == product }) {
+                            break
+                        } else {
+                            // But in case the user is trying to reference a product,
+                            // we still need to pass on the invalid reference
+                            // so that the resolver fetches all dependencies
+                            // in order to provide the diagnostic pass with the information it needs.
+                            registry.unknown.insert(product)
+                        }
+                }
+            }
+        }
+    }
+
+    /// Registers a required product with a particular dependency if possible.
+    ///
+    /// - Parameters:
+    ///   - product: The product to try registering.
+    ///   - package: The package to try associating it with.
+    ///   - registry: The registry in which to record the assocation.
+    ///   - availablePackages: The set of available packages.
+    ///
+    /// - Returns: `true` if the particular dependency was found and the product was registered; `false` if no matching dependency was found and the product has not yet been handled.
+    private func register(
+        product: String,
+        inPackage package: String,
+        registry: inout [String: ProductFilter],
+        availablePackages: Set<String>
+    ) -> Bool {
+        if let existing = registry[package] {
+            registry[package] = existing.union(.specific([product]))
+            return true
+        } else if availablePackages.contains(package) {
+            registry[package] = .specific([product])
+            return true
+        } else {
+            return false
+        }
     }
 }
 
@@ -544,6 +646,114 @@ public struct PackageDependencyDescription: Equatable, Codable {
         self.url = url
         self.requirement = requirement
     }
+}
+
+/// The products requested of a package.
+///
+/// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ingored.
+///
+/// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fullfill the request; packages that do not know what it is will simply ignore it.
+public enum ProductFilter: Equatable, Hashable, Codable, JSONMappable, JSONSerializable, CustomStringConvertible {
+
+    /// All products, targets, and tests are requested.
+    ///
+    /// This is used for root packages.
+    case everything
+
+    /// A set of specific products requested by one or more client packages.
+    case specific(Set<String>)
+
+    public func union(_ other: ProductFilter) -> ProductFilter {
+        switch self {
+        case .everything:
+            return .everything
+        case .specific(let set):
+            switch other {
+            case .everything:
+                return .everything
+            case .specific(let otherSet):
+                return .specific(set.union(otherSet))
+            }
+        }
+    }
+    public mutating func formUnion(_ other: ProductFilter) {
+        self = self.union(other)
+    }
+
+    public func contains(_ product: String) -> Bool {
+        switch self {
+        case .everything:
+            return true
+        case .specific(let set):
+            return set.contains(product)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        let optionalSet: Set<String>?
+        switch self {
+        case .everything:
+            optionalSet = nil
+        case .specific(let set):
+            optionalSet = set
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(optionalSet?.sorted())
+    }
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let optionalSet: Set<String>? = try container.decode([String]?.self).map { Set($0) }
+        if let set = optionalSet {
+            self = .specific(set)
+        } else {
+            self = .everything
+        }
+    }
+
+    public func toJSON() -> JSON {
+        switch self {
+        case .everything:
+            return "all".toJSON()
+        case .specific(let products):
+            return products.sorted().toJSON()
+        }
+    }
+    public init(json: JSON) throws {
+        if let products = try? [String](json: json) {
+            self = .specific(Set(products))
+        } else {
+            self = .everything
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .everything:
+            return "[everything]"
+        case .specific(let set):
+            return "[\(set.sorted().joined(separator: ", "))]"
+        }
+    }
+}
+
+/// A dependency description along with its associated product filter.
+public struct FilteredDependencyDescription: Codable {
+
+    /// Creates a filtered dependency.
+    ///
+    /// - Parameters:
+    ///   - declaration: The raw dependency.
+    ///   - productFilter: The product filter to apply.
+    public init(declaration: PackageDependencyDescription, productFilter: ProductFilter) {
+        self.declaration = declaration
+        self.productFilter = productFilter
+    }
+
+    /// The loaded dependency declaration.
+    public let declaration: PackageDependencyDescription
+
+    /// The resolved product filter.
+    public let productFilter: ProductFilter
 }
 
 public struct PlatformDescription: Codable, Equatable {

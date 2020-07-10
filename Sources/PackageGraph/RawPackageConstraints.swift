@@ -26,11 +26,33 @@ extension PackageDependencyDescription {
 extension Manifest {
 
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
-        return allRequiredDependencies.map({
+    public func dependencyConstraints(productFilter: ProductFilter, config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
+        return dependenciesRequired(for: productFilter).map({
             return RepositoryPackageConstraint(
-                container: $0.createPackageRef(config: config),
-                requirement: $0.requirement.toConstraintRequirement())
+                container: $0.declaration.createPackageRef(config: config),
+                requirement: $0.declaration.requirement.toConstraintRequirement(),
+                products: $0.productFilter)
         })
+    }
+}
+
+extension RepositoryPackageConstraint {
+
+    internal func nodes() -> [DependencyResolutionNode] {
+        switch products {
+        case .everything:
+            return [.root(package: identifier)]
+        case .specific:
+            switch products {
+            case .everything:
+                fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+            case .specific(let set):
+                if set.isEmpty { // Pointing at the package without a particular product.
+                    return [.empty(package: identifier)]
+                } else {
+                    return set.sorted().map { .product($0, package: identifier) }
+                }
+            }
+        }
     }
 }

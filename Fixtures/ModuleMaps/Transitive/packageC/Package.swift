@@ -10,6 +10,6 @@ let package = Package(
         .package(url: "../packageD", from: "1.0.0"),
     ],
     targets: [
-        .target(name: "x", dependencies: []),
+        .target(name: "x", dependencies: ["CFoo"]),
     ]
 )

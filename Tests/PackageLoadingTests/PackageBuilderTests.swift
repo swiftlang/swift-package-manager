@@ -587,6 +587,7 @@ class PackageBuilderTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/inc/module.modulemap",
             "/Sources/Foo/inc/Foo.h",
+            "/Sources/Foo/Foo_private.h",
             "/Sources/Foo/Foo.c",
             "/Sources/Bar/include/module.modulemap",
             "/Sources/Bar/include/Bar.h",
@@ -608,6 +609,8 @@ class PackageBuilderTests: XCTestCase {
             package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
             package.checkModule("Foo") { module in
+                let clangTarget = module.target as? ClangTarget
+                XCTAssertEqual(clangTarget?.headers.map{ $0.pathString }, ["/Sources/Foo/Foo_private.h", "/Sources/Foo/inc/Foo.h"])
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.c")
                 module.check(includeDir: "/Sources/Foo/inc")
@@ -1563,7 +1566,7 @@ class PackageBuilderTests: XCTestCase {
         var expectedPlatforms = [
             "linux": "0.0",
             "macos": "10.12",
-            "ios": "8.0",
+            "ios": "9.0",
             "tvos": "9.0",
             "watchos": "2.0",
             "android": "0.0",
@@ -1619,7 +1622,7 @@ class PackageBuilderTests: XCTestCase {
             "macos": "10.12",
             "tvos": "10.0",
             "linux": "0.0",
-            "ios": "8.0",
+            "ios": "9.0",
             "watchos": "2.0",
             "android": "0.0",
             "wasi": "0.0",
@@ -2079,6 +2082,7 @@ final class PackageBuilderTester {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
                 manifest: manifest,
+                productFilter: .everything,
                 path: path,
                 remoteArtifacts: remoteArtifacts,
                 xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,

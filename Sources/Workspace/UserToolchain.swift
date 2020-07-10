@@ -53,6 +53,9 @@ public final class UserToolchain: Toolchain {
     /// The target triple that should be used for compilation.
     public let triple: Triple
 
+    /// The list of archs to build for.
+    public let archs: [String]
+
     /// Search paths from the PATH environment variable.
     let envSearchPaths: [AbsolutePath]
 
@@ -203,10 +206,14 @@ public final class UserToolchain: Toolchain {
     }
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
-      return (triple.isDarwin() || triple.isAndroid() || triple.isWASI()
-        ? ["-sdk", destination.sdk.pathString]
-        : [])
-        + destination.extraSwiftCFlags
+        guard let sdk = destination.sdk else {
+            return destination.extraSwiftCFlags
+        }
+
+        return (triple.isDarwin() || triple.isAndroid() || triple.isWASI()
+            ? ["-sdk", sdk.pathString]
+            : [])
+            + destination.extraSwiftCFlags
     }
 
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
@@ -224,9 +231,18 @@ public final class UserToolchain: Toolchain {
 
         let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) }, envSearchPaths: searchPaths)
         self.swiftCompiler = swiftCompilers.compile
-     
+        self.archs = destination.archs
+    
         // Use the triple from destination or compute the host triple using swiftc.
-        let triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+
+        // Change the triple to the specified arch if there's exactly one of them.
+        // The Triple property is only looked at by the native build system currently.
+        if archs.count == 1 {
+            let components = triple.tripleString.drop(while: { $0 != "-" })
+            triple = try Triple(archs[0] + components)
+        }
+
         self.triple = triple
 
         // We require xctest to exist on macOS.
@@ -240,9 +256,13 @@ public final class UserToolchain: Toolchain {
 
         self.extraSwiftCFlags = UserToolchain.deriveSwiftCFlags(triple: triple, destination: destination)
 
-        self.extraCCFlags = [
-            triple.isDarwin() ? "-isysroot" : "--sysroot", destination.sdk.pathString
-        ] + destination.extraCCFlags
+        if let sdk = destination.sdk {
+            self.extraCCFlags = [
+                triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
+            ] + destination.extraCCFlags
+        } else {
+            self.extraCCFlags = destination.extraCCFlags
+        }
 
         // Compute the path of directory containing the PackageDescription libraries.
         var pdLibDir = UserManifestResources.libDir(forBinDir: binDir)

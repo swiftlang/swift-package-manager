@@ -273,7 +273,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let container = try await { provider.getContainer(for: ref, completion: $0) } as! RepositoryPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
-                _ = try container.getDependencies(at: revision.identifier)
+                _ = try container.getDependencies(at: revision.identifier, productFilter: .specific([]))
             } catch let error as RepositoryPackageContainer.GetDependenciesErrorWrapper {
                 let error = error.underlyingError as! UnsupportedToolsVersion
                 XCTAssertMatch(error.description, .and(.prefix("package at '/' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version")))
@@ -377,10 +377,27 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let config = SwiftPMConfig()
 
-        let constraints = dependencies.map({
+        let v5ProductMapping: [String: ProductFilter] = [
+            "Bar1": .specific(["Bar1", "Bar3"]),
+            "Bar2": .specific(["B2", "Bar1", "Bar3"]),
+            "Bar3": .specific(["Bar1", "Bar3"])
+        ]
+        let v5Constraints = dependencies.map({
             RepositoryPackageConstraint(
                 container: $0.createPackageRef(config: config),
-                requirement: $0.requirement.toConstraintRequirement())
+                requirement: $0.requirement.toConstraintRequirement(),
+                products: v5ProductMapping[$0.name]!)
+        })
+        let v5_2ProductMapping: [String: ProductFilter] = [
+            "Bar1": .specific(["Bar1"]),
+            "Bar2": .specific(["B2"]),
+            "Bar3": .specific(["Bar3"])
+        ]
+        let v5_2Constraints = dependencies.map({
+            RepositoryPackageConstraint(
+                container: $0.createPackageRef(config: config),
+                requirement: $0.requirement.toConstraintRequirement(),
+                products: v5_2ProductMapping[$0.name]!)
         })
 
         do {
@@ -397,12 +414,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(config: config)
+                    .dependencyConstraints(productFilter: .everything, config: config)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
-                    constraints[0],
-                    constraints[1],
-                    constraints[2],
+                    v5Constraints[0],
+                    v5Constraints[1],
+                    v5Constraints[2],
                 ]
             )
         }
@@ -421,12 +438,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(config: config)
+                    .dependencyConstraints(productFilter: .everything, config: config)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
-                    constraints[0],
-                    constraints[1],
-                    constraints[2],
+                    v5Constraints[0],
+                    v5Constraints[1],
+                    v5Constraints[2],
                 ]
             )
         }
@@ -445,12 +462,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(config: config)
+                    .dependencyConstraints(productFilter: .everything, config: config)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
-                    constraints[0],
-                    constraints[1],
-                    constraints[2],
+                    v5_2Constraints[0],
+                    v5_2Constraints[1],
+                    v5_2Constraints[2],
                 ]
             )
         }
@@ -469,11 +486,11 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(config: config)
+                    .dependencyConstraints(productFilter: .specific(Set(products.map({ $0.name }))), config: config)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
-                    constraints[0],
-                    constraints[1],
+                    v5_2Constraints[0],
+                    v5_2Constraints[1],
                 ]
             )
         }

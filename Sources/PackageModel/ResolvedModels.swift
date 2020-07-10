@@ -213,7 +213,7 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
         self.targets = targets
 
         self.linuxMainTarget = underlyingProduct.linuxMain.map({ linuxMain in
-            // Create an exectutable resolved target with the linux main, adding product's targets as dependencies.
+            // Create an executable resolved target with the linux main, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
             let swiftTarget = SwiftTarget(linuxMain: linuxMain, name: product.name, dependencies: dependencies)
             return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
