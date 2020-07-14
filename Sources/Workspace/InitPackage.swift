@@ -153,8 +153,8 @@ public final class InitPackage {
 
                 var param = ".\(platform.manifestName)("
                 if supportedPlatform.isManifestAPIAvailable {
-                    if platform == .macOS {
-                        param += ".v10_\(version.minor)"
+                    if version.minor > 0 {
+                        param += ".v\(version.major)_\(version.minor)"
                     } else {
                         param += ".v\(version.major)"
                     }
@@ -518,11 +518,11 @@ extension PackageModel.Platform {
 
 extension SupportedPlatform {
     var isManifestAPIAvailable: Bool {
-        if platform == .macOS {
-            guard self.version.major == 10, self.version.patch == 0 else {
+        if platform == .macOS && self.version.major == 10 {
+            guard self.version.patch == 0 else {
                 return false
             }
-        } else if [Platform.iOS, .watchOS, .tvOS].contains(platform) {
+        } else if [Platform.macOS, .iOS, .watchOS, .tvOS].contains(platform) {
             guard self.version.minor == 0, self.version.patch == 0 else {
                 return false
             }
@@ -531,14 +531,16 @@ extension SupportedPlatform {
         }
 
         switch platform {
-        case .macOS:
+        case .macOS where version.major == 10:
             return (10...15).contains(version.minor)
+        case .macOS:
+            return (11...11).contains(version.major)
         case .iOS:
-            return (8...13).contains(version.major)
+            return (8...14).contains(version.major)
         case .tvOS:
-            return (9...13).contains(version.major)
+            return (9...14).contains(version.major)
         case .watchOS:
-            return (2...6).contains(version.major)
+            return (2...7).contains(version.major)
 
         default:
             return false
