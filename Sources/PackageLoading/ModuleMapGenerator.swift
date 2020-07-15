@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -44,11 +44,11 @@ extension ClangTarget: ModuleMapProtocol {
 ///
 /// Modulemap is generated under the following rules provided it is not already present in include directory:
 ///
-/// * "include/foo/foo.h" exists and `foo` is the only directory under include directory.
+/// * "include/foo/foo.h" exists and `foo` is the only directory under the "include" directory, and the "include" directory contains no header files:
 ///    Generates: `umbrella header "/path/to/include/foo/foo.h"`
-/// * "include/foo.h" exists and include contains no other directory.
+/// * "include/foo.h" exists and "include" contains no other subdirectory:
 ///    Generates: `umbrella header "/path/to/include/foo.h"`
-/// *  Otherwise in all other cases.
+/// *  Otherwise, if the "include" directory only contains header files and no other subdirectory:
 ///    Generates: `umbrella "path/to/include"`
 public struct ModuleMapGenerator {
 
@@ -81,8 +81,7 @@ public struct ModuleMapGenerator {
         }
     }
 
-    /// Create the synthesized modulemap, if necessary.
-    /// Note: modulemap is not generated for test targets.
+    /// Generates a modulemap based on the layout of the target's public headers.  This is only valid for library targets.
     public mutating func generateModuleMap(inDir wd: AbsolutePath) throws {
         assert(target.type == .library)
 
@@ -105,8 +104,10 @@ public struct ModuleMapGenerator {
         let files = walked.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
         let dirs = walked.filter({ fileSystem.isDirectory($0) })
 
+        // If 'include/ModuleName.h' exists, then use it as the umbrella header (this is case 2 at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets).
         let umbrellaHeaderFlat = includeDir.appending(component: target.c99name + ".h")
         if fileSystem.isFile(umbrellaHeaderFlat) {
+            // In this case, 'include' is expected to contain no subdirectories.
             guard dirs.isEmpty else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
                     target.name,
@@ -117,8 +118,10 @@ public struct ModuleMapGenerator {
         }
         diagnoseInvalidUmbrellaHeader(includeDir)
 
+        // If 'include/ModuleName/ModuleName.h' exists, then use it as the umbrella header (this is case 1 at Documentation/Usage.md#creating-c-language-targets).
         let umbrellaHeader = includeDir.appending(components: target.c99name, target.c99name + ".h")
         if fileSystem.isFile(umbrellaHeader) {
+            // In this case, 'include' is expected to contain no subdirectories other than 'ModuleName', and no header files.
             guard dirs.count == 1 else {
                 throw ModuleMapError.unsupportedIncludeLayoutForModule(
                     target.name,
@@ -134,6 +137,17 @@ public struct ModuleMapGenerator {
         }
         diagnoseInvalidUmbrellaHeader(includeDir.appending(component: target.c99name))
 
+        // Otherwise, if 'include' contains only header files and no subdirectories, use it as the umbrella directory (this is case 3 at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets).
+        if files.count == walked.count {
+            try createModuleMap(inDir: wd, type: .directory(includeDir))
+            return
+        }
+        
+        // Otherwise, the target's public headers are considered to be incompatible with modules.  Other C targets can still import them, but Swift won't be able to see them.  This is documented as an error, but because SwiftPM has previously allowed it (creating module maps that then cause errors when used), we instead emit a warning and for now, continue to emit what SwiftPM has historically emitted (an umbrella directory include).
+        warningStream <<< "warning: the include directory of target '\(target.name)' has "
+        warningStream <<< "a layout that is incompatible with modules; consider adding a "
+        warningStream <<< "custom module map to the target"
+        warningStream.flush()
         try createModuleMap(inDir: wd, type: .directory(includeDir))
     }
 
