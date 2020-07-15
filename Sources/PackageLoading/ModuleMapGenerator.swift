@@ -143,12 +143,12 @@ public struct ModuleMapGenerator {
             return
         }
         
-        // Otherwise, the target's public headers are considered to be incompatible with modules.  Other C targets can still import them, but Swift won't be able to see them.  This is documented as an error, but because SwiftPM has previously allowed it (creating module maps that then cause errors when used), we instead emit a warning and for now, continue to emit what SwiftPM has historically emitted (an umbrella directory include).
+        // Otherwise, the target's public headers are considered to be incompatible with modules.  Other C targets can still import them, but Swift won't be able to see them.  This is documented as an error, but because SwiftPM has previously allowed it (creating module maps that then cause errors when used), we instead emit a warning.
         warningStream <<< "warning: the include directory of target '\(target.name)' has "
-        warningStream <<< "a layout that is incompatible with modules; consider adding a "
-        warningStream <<< "custom module map to the target"
+        warningStream <<< "a layout that is incompatible with modules; no module map will "
+        warningStream <<< "be generated; consider adding a custom module map to the target"
         warningStream.flush()
-        try createModuleMap(inDir: wd, type: .directory(includeDir))
+        try createModuleMap(inDir: wd, type: .empty)
     }
 
     /// Warn user if in case target name and c99name are different and there is a
@@ -164,6 +164,7 @@ public struct ModuleMapGenerator {
     }
 
     private enum UmbrellaType {
+        case empty
         case header(AbsolutePath)
         case directory(AbsolutePath)
     }
@@ -172,6 +173,8 @@ public struct ModuleMapGenerator {
         let stream = BufferedOutputByteStream()
         stream <<< "module \(target.c99name) {\n"
         switch type {
+        case .empty:
+            break
         case .header(let header):
             stream <<< "    umbrella header \"\(header.pathString)\"\n"
         case .directory(let path):

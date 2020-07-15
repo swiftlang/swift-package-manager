@@ -111,12 +111,11 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
         let expected2 = BufferedOutputByteStream()
         expected2 <<< "module Foo {\n"
-        expected2 <<< "    umbrella \"/include\"\n"
         expected2 <<< "    export *\n"
         expected2 <<< "}\n"
         ModuleMapTester("Foo", in: fs) { result in
             result.check(value: expected2.bytes)
-            result.checkDiagnostics("warning: the include directory of target \'Foo\' has a layout that is incompatible with modules; consider adding a custom module map to the target")
+            result.checkDiagnostics("warning: the include directory of target \'Foo\' has a layout that is incompatible with modules; no module map will be generated; consider adding a custom module map to the target")
         }
     }
 
