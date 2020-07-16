@@ -517,7 +517,7 @@ public struct FileRuleDescription {
         .init(
             rule: .header,
             toolsVersion: .minimumRequired,
-            fileTypes: ["h", "hh", "hpp", "h++"]
+            fileTypes: ["h", "hh", "hpp", "h++", "hp", "hxx", "H", "ipp", "def"]
         )
     }()
 
