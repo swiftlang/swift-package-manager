@@ -400,6 +400,9 @@ public final class InitPackage {
                             return
                         }
 
+                        // Mac Catalyst won't have `Process`, but it is supported for executables.
+                        #if !targetEnvironment(macCatalyst)
+
                         let fooBinary = productsDirectory.appendingPathComponent("\(pkgname)")
 
                         let process = Process()
@@ -415,6 +418,7 @@ public final class InitPackage {
                         let output = String(data: data, encoding: .utf8)
 
                         XCTAssertEqual(output, "Hello, world!\\n")
+                        #endif
                     }
 
                     /// Returns path to the built products directory.
