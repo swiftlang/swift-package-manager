@@ -577,14 +577,16 @@ public final class SwiftTargetBuildDescription {
     private func generateResourceAccessor() throws {
         // Do nothing if we're not generating a bundle.
         guard let bundlePath = self.bundlePath else { return }
-
+      
+        let pathToModule = isTestTarget ? bundlePath : "Bundle.main.bundlePath/\(bundlePath.basename)"
+      
         let stream = BufferedOutputByteStream()
         stream <<< """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let bundlePath = "\(bundlePath)"
+                let bundlePath = "\(pathToModule)"
                 guard let bundle = Bundle(path: bundlePath) else {
                     fatalError("could not load resource bundle: \\(bundlePath)")
                 }
