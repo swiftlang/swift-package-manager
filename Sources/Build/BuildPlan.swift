@@ -578,7 +578,7 @@ public final class SwiftTargetBuildDescription {
         // Do nothing if we're not generating a bundle.
         guard let bundlePath = self.bundlePath else { return }
       
-        let pathToModule = isTestTarget ? bundlePath : "Bundle.main.bundlePath/\(bundlePath.basename)"
+        let pathToModule = isTestTarget ? #""\#(bundlePath.pathString)""# : #"Bundle.main.bundlePath + "/" + "\#(bundlePath.basename)""#
       
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -586,7 +586,7 @@ public final class SwiftTargetBuildDescription {
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let bundlePath = "\(pathToModule)"
+                let bundlePath = \(pathToModule)
                 guard let bundle = Bundle(path: bundlePath) else {
                     fatalError("could not load resource bundle: \\(bundlePath)")
                 }
