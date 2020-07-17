@@ -46,6 +46,7 @@ public class LLBuildManifestBuilder {
         self.plan = plan
     }
 
+    // MARK:- Generate Manifest
     /// Generate manifest at the given path.
     public func generateManifest(at path: AbsolutePath) throws {
         manifest.createTarget(TargetKind.main.targetName)
@@ -54,14 +55,22 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-
-        // Create commands for all target descriptions in the plan.
-        for (_, description) in plan.targetMap {
-            switch description {
-            case .swift(let desc):
-                createSwiftCompileCommand(desc)
-            case .clang(let desc):
-                createClangCompileCommand(desc)
+        if buildParameters.useExplicitModuleBuild {
+            // Explicit module builds use the integrated driver directly and
+            // require that every target's build jobs specify its dependencies explicitly to plan
+            // its build.
+            // Currently behind:
+            // --experimental-explicit-module-build
+            try addTargetsToExplicitBuildManifest()
+        } else {
+            // Create commands for all target descriptions in the plan.
+            for (_, description) in plan.targetMap {
+                switch description {
+                    case .swift(let desc):
+                        try createSwiftCompileCommand(desc)
+                    case .clang(let desc):
+                        createClangCompileCommand(desc)
+                }
             }
         }
 
@@ -177,7 +186,7 @@ extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Swift target description.
     private func createSwiftCompileCommand(
         _ target: SwiftTargetBuildDescription
-    ) {
+    ) throws {
         // Inputs.
         let inputs = computeSwiftCompileCmdInputs(target)
 
@@ -187,7 +196,7 @@ extension LLBuildManifestBuilder {
         let cmdOutputs = objectNodes + [moduleNode]
 
         if buildParameters.useIntegratedSwiftDriver {
-            addSwiftCmdsViaIntegratedDriver(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
+            try addSwiftCmdsViaIntegratedDriver(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else if buildParameters.emitSwiftModuleSeparately {
             addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else {
@@ -203,75 +212,208 @@ extension LLBuildManifestBuilder {
         inputs: [Node],
         objectNodes: [Node],
         moduleNode: Node
-    ) {
-        do {
-            // Use the integrated Swift driver to compute the set of frontend
-            // jobs needed to build this Swift target.
-            var commandLine = target.emitCommandLine();
-            commandLine.append("-driver-use-frontend-path")
-            commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
-            if buildParameters.useExplicitModuleBuild {
-              commandLine.append("-experimental-explicit-module-build")
+    ) throws {
+        // Use the integrated Swift driver to compute the set of frontend
+        // jobs needed to build this Swift target.
+        var commandLine = target.emitCommandLine();
+        commandLine.append("-driver-use-frontend-path")
+        commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+        // FIXME: At some point SwiftPM should provide its own executor for
+        // running jobs/launching processes during planning
+        let executor = try SwiftDriverExecutor(diagnosticsEngine: plan.diagnostics,
+                                               processSet: ProcessSet(),
+                                               fileSystem: target.fs,
+                                               env: ProcessEnv.vars)
+        var driver = try Driver(args: commandLine,
+                                diagnosticsEngine: plan.diagnostics,
+                                fileSystem: target.fs,
+                                executor: executor)
+        let jobs = try driver.planBuild()
+        try addSwiftDriverJobs(for: target, jobs: jobs, inputs: inputs,
+                               isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
+    }
+
+    private func addSwiftDriverJobs(for targetDescription: SwiftTargetBuildDescription,
+                                    jobs: [Job], inputs: [Node],
+                                    isMainModule: (Job) -> Bool) throws {
+        // Add build jobs to the manifest
+        let resolver = try ArgsResolver(fileSystem: targetDescription.fs)
+        for job in jobs {
+            let tool = try resolver.resolve(.path(job.tool))
+            let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
+            let arguments = [tool] + commandLine
+
+            let jobInputs = job.inputs.map { $0.resolveToNode() }
+            let jobOutputs = job.outputs.map { $0.resolveToNode() }
+
+            // Add target dependencies as inputs to the main module build command.
+            //
+            // Jobs for a target's intermediate build artifacts, such as PCMs or
+            // modules built from a .swiftinterface, do not have a
+            // dependency on cross-target build products. If multiple targets share
+            // common intermediate dependency modules, such dependencies can lead
+            // to cycles in the resulting manifest.
+            var manifestNodeInputs : [Node] = []
+            if buildParameters.useExplicitModuleBuild && !isMainModule(job) {
+                manifestNodeInputs = jobInputs
+            } else {
+                manifestNodeInputs = (inputs + jobInputs).uniqued()
             }
-            // FIXME: At some point SwiftPM should provide its own executor for
-            // running jobs/launching processes during planning
-            let executor = try SwiftDriverExecutor(diagnosticsEngine: plan.diagnostics,
-                                                   processSet: ProcessSet(),
-                                                   fileSystem: target.fs,
-                                                   env: ProcessEnv.vars)
-            var driver = try Driver(args: commandLine,
-                                    diagnosticsEngine: plan.diagnostics,
-                                    fileSystem: target.fs,
-                                    executor: executor)
-            let jobs = try driver.planBuild()
-            let resolver = try ArgsResolver(fileSystem: target.fs)
 
-            for job in jobs {
-                let tool = try resolver.resolve(.path(job.tool))
-                let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
-                let arguments = [tool] + commandLine
+            let moduleName = targetDescription.target.c99name
+            let description = job.description
+            if job.kind.isSwiftFrontend {
+                manifest.addSwiftFrontendCmd(
+                    name: jobOutputs.first!.name,
+                    moduleName: moduleName,
+                    description: description,
+                    inputs: manifestNodeInputs,
+                    outputs: jobOutputs,
+                    args: arguments
+                )
+            } else {
+                manifest.addShellCmd(
+                    name: jobOutputs.first!.name,
+                    description: description,
+                    inputs: manifestNodeInputs,
+                    outputs: jobOutputs,
+                    args: arguments
+                )
+            }
+        }
+    }
 
-                let jobInputs = job.inputs.map { $0.resolveToNode() }
-                let jobOutputs = job.outputs.map { $0.resolveToNode() }
+    // Building a Swift module in Explicit Module Build mode requires passing all of its module
+    // dependencies as explicit arguments to the build command. Thus, building a SwiftPM package
+    // with multiple inter-dependent targets thus requires that each target’s build job must
+    // have its target dependencies’ modules passed into it as explicit module dependencies.
+    // Because none of the targets have been built yet, a given target's dependency scanning
+    // action will not be able to discover its target dependencies' modules. Instead, it is
+    // SwiftPM's responsibility to communicate to the driver, when planning a given target's
+    // build, that this target has dependencies that are other targets, along with a list of
+    // future artifacts of such dependencies (.swiftmodule and .pcm files).
+    // The driver will then use those artifacts as explicit inputs to its module’s build jobs.
+    //
+    // Consider an example SwiftPM package with two targets: target B, and target A, where A
+    // depends on B:
+    // SwiftPM will process targets in a topological order and “bubble-up” each target’s
+    // inter-module dependency graph to its dependees. First, SwiftPM will process B, and be
+    // able to plan its full build because it does not have any target dependencies. Then the
+    // driver is tasked with planning a build for A. SwiftPM will pass as input to the driver
+    // the module dependency graph of its target’s dependencies, in this case, just the
+    // dependency graph of B. The driver is then responsible for the necessary post-processing
+    // to merge the dependency graphs and plan the build for A, using artifacts of B as explicit
+    // inputs.
+    public func addTargetsToExplicitBuildManifest() throws {
+        // Sort the product targets in topological order in order to collect and "bubble up"
+        // their respective dependency graphs to the depending targets.
+        let nodes: [ResolvedTarget.Dependency] = plan.targetMap.keys.map { ResolvedTarget.Dependency.target($0, conditions: []) }
+        let allTargets = try! topologicalSort(nodes, successors: { $0.dependencies })
 
-                // Add target dependencies as inputs to the main module build command.
-                //
-                // Jobs for a target's intermediate build artifacts, such as PCMs or
-                // modules built from a .swiftinterface, do not have a
-                // dependency on cross-target build products. If multiple targets share
-                // common intermediate dependency modules, such dependencies can lead
-                // to cycles in the resulting manifest.
-                var manifestNodeInputs : [Node] = []
-                if buildParameters.useExplicitModuleBuild && !driver.isExplicitMainModuleJob(job: job) {
-                  manifestNodeInputs = jobInputs
-                } else {
-                  manifestNodeInputs = (inputs + jobInputs).uniqued()
-                }
+        // Collect all targets' dependency graphs
+        var targetDepGraphMap : [ResolvedTarget: InterModuleDependencyGraph] = [:]
 
-                let moduleName = target.target.c99name
-                let description = job.description
-                if job.kind.isSwiftFrontend {
-                    manifest.addSwiftFrontendCmd(
-                        name: jobOutputs.first!.name,
-                        moduleName: moduleName,
-                        description: description,
-                        inputs: manifestNodeInputs,
-                        outputs: jobOutputs,
-                        args: arguments
-                    )
-                } else {
-                    manifest.addShellCmd(
-                        name: jobOutputs.first!.name,
-                        description: description,
-                        inputs: manifestNodeInputs,
-                        outputs: jobOutputs,
-                        args: arguments
-                    )
-                }
-             }
-         } catch {
-             fatalError("\(error)")
-         }
+        // Create commands for all target descriptions in the plan.
+        for dependency in allTargets.reversed() {
+            guard case .target(let target, _) = dependency else {
+                // TODO
+                fatalError("Product Dependencies not supported in Explicit Module Build Mode.")
+            }
+            guard let description = plan.targetMap[target] else {
+                fatalError("Expected description for target: \(target)")
+            }
+            switch description {
+                case .swift(let desc):
+                    try createExplicitSwiftTargetCompileCommand(description: desc,
+                                                                targetDepGraphMap: &targetDepGraphMap)
+                case .clang(let desc):
+                    createClangCompileCommand(desc)
+            }
+        }
+    }
+
+    private func createExplicitSwiftTargetCompileCommand(
+        description: SwiftTargetBuildDescription,
+        targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
+    ) throws {
+        // Inputs.
+        let inputs = computeSwiftCompileCmdInputs(description)
+
+        // Outputs.
+        let objectNodes = description.objects.map(Node.file)
+        let moduleNode = Node.file(description.moduleOutputPath)
+        let cmdOutputs = objectNodes + [moduleNode]
+
+        // Commands.
+        try addExplicitBuildSwiftCmds(description, inputs: inputs,
+                                      objectNodes: objectNodes,
+                                      moduleNode: moduleNode,
+                                      targetDepGraphMap: &targetDepGraphMap)
+
+        addTargetCmd(description, cmdOutputs: cmdOutputs)
+        addModuleWrapCmd(description)
+    }
+
+    private func addExplicitBuildSwiftCmds(
+        _ targetDescription: SwiftTargetBuildDescription,
+        inputs: [Node], objectNodes: [Node], moduleNode: Node,
+        targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
+    ) throws {
+        // Pass the driver its external dependencies (target dependencies)
+        let targetDependencyMap = collectTargetDependencyInfos(for: targetDescription.target,
+                                                               targetDepGraphMap: targetDepGraphMap)
+
+        // Compute the set of frontend
+        // jobs needed to build this Swift target.
+        var commandLine = targetDescription.emitCommandLine();
+        commandLine.append("-driver-use-frontend-path")
+        commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
+        commandLine.append("-experimental-explicit-module-build")
+        // FIXME: At some point SwiftPM should provide its own executor for
+        // running jobs/launching processes during planning
+        let executor = try SwiftDriverExecutor(diagnosticsEngine: plan.diagnostics,
+                                               processSet: ProcessSet(),
+                                               fileSystem: targetDescription.fs,
+                                               env: ProcessEnv.vars)
+        var driver = try Driver(args: commandLine, fileSystem: targetDescription.fs,
+                                executor: executor,
+                                externalModuleDependencies: targetDependencyMap)
+
+        let jobs = try driver.planBuild()
+
+        // Save the dependency graph of this target to be used by its dependents
+        guard let dependencyGraph = driver.interModuleDependencyGraph else {
+            fatalError("Expected module dependency graph for target: \(targetDescription)")
+        }
+        targetDepGraphMap[targetDescription.target] = dependencyGraph
+        try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs,
+                               isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
+    }
+
+    /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
+    /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
+    private func collectTargetDependencyInfos(for target: ResolvedTarget,
+                                              targetDepGraphMap: [ResolvedTarget: InterModuleDependencyGraph])
+    -> SwiftDriver.ExternalDependencyArtifactMap {
+        var targetDependencyMap : [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)] = [:]
+        for dependency in target.dependencies {
+            guard let dependencyTarget = dependency.target else {
+                fatalError("Expected dependency target: \(dependency.description)")
+            }
+            // Only other swift targets will have corresponding dependency maps
+            guard case .swift(let dependencySwiftTargetDescription) =
+                    plan.targetMap[dependencyTarget] else {
+                continue
+            }
+            guard let dependencyGraph = targetDepGraphMap[dependencyTarget] else {
+                fatalError("Expected dependency graph for target: \(dependency.description)")
+            }
+            let moduleName = dependencyTarget.name
+            let dependencyModulePath = dependencySwiftTargetDescription.moduleOutputPath
+            targetDependencyMap[ModuleDependencyId.swiftPlaceholder(moduleName)] =
+                (dependencyModulePath, dependencyGraph)
+        }
+        return targetDependencyMap
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(

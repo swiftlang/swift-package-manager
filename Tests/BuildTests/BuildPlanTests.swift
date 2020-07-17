@@ -48,7 +48,8 @@ private struct MockToolchain: Toolchain {
 }
 
 final class BuildPlanTests: XCTestCase {
-
+    let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
+    
     /// The j argument.
     private var j: String {
         return "-j3"
@@ -57,21 +58,24 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
+        toolchain: Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
         destinationTriple: Triple = hostTriple,
-        indexStoreMode: BuildParameters.IndexStoreMode = .off
+        indexStoreMode: BuildParameters.IndexStoreMode = .off,
+        useExplicitModuleBuild: Bool = false
     ) -> BuildParameters {
         return BuildParameters(
             dataPath: buildPath,
             configuration: config,
-            toolchain: MockToolchain(),
+            toolchain: toolchain,
             hostTriple: hostTriple,
             destinationTriple: destinationTriple,
             flags: flags,
             jobs: 3,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
-            indexStoreMode: indexStoreMode
+            indexStoreMode: indexStoreMode,
+            useExplicitModuleBuild: useExplicitModuleBuild
         )
     }
 
@@ -161,6 +165,88 @@ final class BuildPlanTests: XCTestCase {
       #else
         XCTAssertNoDiagnostics(diagnostics)
       #endif
+    }
+
+    func testExplicitSwiftPackageBuild() throws {
+        try withTemporaryDirectory { path in
+            // Create a test package with three targets:
+            // A -> B -> C
+            let fs = localFileSystem
+            try fs.changeCurrentWorkingDirectory(to: path)
+            let testDirPath = path.appending(component: "ExplicitTest")
+            let buildDirPath = path.appending(component: ".build")
+            let sourcesPath = testDirPath.appending(component: "Sources")
+            let aPath = sourcesPath.appending(component: "A")
+            let bPath = sourcesPath.appending(component: "B")
+            let cPath = sourcesPath.appending(component: "C")
+            try fs.createDirectory(testDirPath)
+            try fs.createDirectory(buildDirPath)
+            try fs.createDirectory(sourcesPath)
+            try fs.createDirectory(aPath)
+            try fs.createDirectory(bPath)
+            try fs.createDirectory(cPath)
+            let main = aPath.appending(component: "main.swift")
+            let aSwift = aPath.appending(component: "A.swift")
+            let bSwift = bPath.appending(component: "B.swift")
+            let cSwift = cPath.appending(component: "C.swift")
+            try localFileSystem.writeFileContents(main) {
+              $0 <<< "baz()"
+            }
+            try localFileSystem.writeFileContents(aSwift) {
+                $0 <<< "import B"
+                $0 <<< "public func baz() { bar() }"
+            }
+            try localFileSystem.writeFileContents(bSwift) {
+                $0 <<< "import C"
+                $0 <<< "public func bar() { foo() }"
+            }
+            try localFileSystem.writeFileContents(cSwift) {
+                $0 <<< "public func foo() {}"
+            }
+
+            // Plan package build with explicit module build
+            let diagnostics = DiagnosticsEngine()
+            let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+                manifests: [
+                    Manifest.createV4Manifest(
+                        name: "ExplicitTest",
+                        path: testDirPath.description,
+                        url: "/ExplicitTest",
+                        packageKind: .root,
+                        targets: [
+                            TargetDescription(name: "A", dependencies: ["B"]),
+                            TargetDescription(name: "B", dependencies: ["C"]),
+                            TargetDescription(name: "C", dependencies: []),
+                        ]),
+                ]
+            )
+            XCTAssertNoDiagnostics(diagnostics)
+            let plan = try BuildPlan(
+                buildParameters: mockBuildParameters(
+                    buildPath: buildDirPath,
+                    config: .release,
+                    toolchain: Resources.default.toolchain,
+                    destinationTriple: Resources.default.toolchain.triple,
+                    useExplicitModuleBuild: true
+                ),
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fs
+            )
+
+            let yaml = buildDirPath.appending(component: "release.yaml")
+            let llbuild = LLBuildManifestBuilder(plan)
+            try llbuild.generateManifest(at: yaml)
+            let contents = try localFileSystem.readFileContents(yaml).description
+
+            // A few basic checks
+            XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
+            XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
+            XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
+            XCTAssertMatch(contents, .contains("A-dependencies.json"))
+            XCTAssertMatch(contents, .contains("B-dependencies.json"))
+            XCTAssertMatch(contents, .contains("C-dependencies.json"))
+        }
     }
 
     func testSwiftConditionalDependency() throws {
