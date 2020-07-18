@@ -6,7 +6,7 @@ let package = Package(
     targets: [
 		.target(
             name: "Baz",
-            dependencies: ["FlatInclude", "UmbrellaHeader", "UmbellaModuleNameInclude", "UmbrellaHeaderFlat"]),
+            dependencies: ["FlatInclude", "NonModuleDirectoryInclude", "UmbrellaHeader", "UmbrellaDirectoryInclude", "UmbrellaHeaderFlat"]),
 		.target(
             name: "FlatInclude",
             dependencies: []),
@@ -14,7 +14,10 @@ let package = Package(
             name: "NoIncludeDir",
             dependencies: []),
 		.target(
-            name: "UmbellaModuleNameInclude",
+            name: "NonModuleDirectoryInclude",
+            dependencies: []),
+		.target(
+            name: "UmbrellaDirectoryInclude",
             dependencies: []),
 		.target(
             name: "UmbrellaHeader",

@@ -724,9 +724,10 @@ automatically generate a modulemap for each C language library target for these
 3 cases:
 
 * If `include/Foo/Foo.h` exists and `Foo` is the only directory under the
-  include directory, then `include/Foo/Foo.h` becomes the umbrella header.
+  include directory, and the include directory contains no header files, then
+  `include/Foo/Foo.h` becomes the umbrella header.
 
-* If `include/Foo.h` exists and `include` contains no other subdirectory then
+* If `include/Foo.h` exists and `include` contains no other subdirectory, then
   `include/Foo.h` becomes the umbrella header.
 
 * Otherwise, if the `include` directory only contains header files and no other

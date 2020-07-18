@@ -1,6 +1,6 @@
-#include "UmbellaModuleNameInclude/Paz.h"
+#include "NonModuleDirectoryInclude/Maz.h"
 
-int jaz() {
+int maz() {
     int a = 6;
     int b = a;
     a = b;
