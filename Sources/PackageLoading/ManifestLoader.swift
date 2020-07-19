@@ -616,7 +616,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
                 // Set path to compiled manifest executable.
-                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest")
+#if os(Windows)
+                let executableSuffix = ".exe"
+#else
+                let executableSuffix = ""
+#endif
+                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
                 cmd += ["-o", compiledManifestFile.pathString]
 
                 // Compile the manifest.
