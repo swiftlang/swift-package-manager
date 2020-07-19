@@ -41,6 +41,10 @@ final class PackageToolTests: XCTestCase {
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
+    
+    func testNetrcFile() throws {
+        XCTAssert(try execute(["--netrc-file", "/Users/me/.hidden/.netrc"]).stdout.contains("Absolute path to netrc file"))
+    }
 
     func testResolve() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in

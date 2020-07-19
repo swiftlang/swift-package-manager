@@ -10,6 +10,7 @@
 
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
+import func Foundation.NSHomeDirectory
 import Dispatch
 
 import ArgumentParser
@@ -370,6 +371,18 @@ public class SwiftTool {
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
+
+        if options.netrcFilePath != nil {
+             // --netrc-file option only supported on macOS >=10.13
+             #if os(macOS)
+             if #available(macOS 10.13, *) {
+              // ok, check succeeds
+             } else {
+                diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
+             }
+             #else
+             diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
+        }
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -405,6 +418,10 @@ public class SwiftTool {
     private lazy var _swiftpmConfig: Result<SwiftPMConfig, Swift.Error> = {
         return Result(catching: { SwiftPMConfig(path: try configFilePath()) })
     }()
+    
+    func resolvedNetrcFilePath() -> AbsolutePath? {
+        return options.netrcFilePath 
+    }
 
     /// Holds the currently active workspace.
     ///
@@ -430,6 +447,7 @@ public class SwiftTool {
             delegate: delegate,
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
+            netrcFilePath: resolvedNetrcFilePath(),
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace
