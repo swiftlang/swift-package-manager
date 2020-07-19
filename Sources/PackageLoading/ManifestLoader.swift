@@ -578,8 +578,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 cmd += [
                     "-L", runtimePath.pathString,
                     "-lPackageDescription",
-                    "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString
                 ]
+#if !os(Windows)
+                // -rpath argument is not supported on Windows,
+                // so we add runtimePath to PATH when executing the manifest instead
+                cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+#endif
 
                 // note: this is not correct for all platforms, but we only actually use it on macOS.
                 macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
