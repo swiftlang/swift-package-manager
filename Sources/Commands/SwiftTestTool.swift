@@ -174,16 +174,13 @@ public enum TestMode {
 
 /// swift-test tool namespace
 public struct SwiftTestTool: SwiftCommand {
-    public static var configuration: CommandConfiguration {
-        var config = CommandConfiguration(
-            commandName: "test",
-            abstract: "Build and run tests",
-            discussion: "SEE ALSO: swift build, swift run, swift package",
-            version: Versioning.currentVersion.completeDisplayString,
-            helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
-        config._superCommandName = "swift"
-        return config
-    }
+    public static var configuration = CommandConfiguration(
+        commandName: "test",
+        _superCommandName: "swift",
+        abstract: "Build and run tests",
+        discussion: "SEE ALSO: swift build, swift run, swift package",
+        version: Versioning.currentVersion.completeDisplayString,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
     var swiftOptions: SwiftToolOptions

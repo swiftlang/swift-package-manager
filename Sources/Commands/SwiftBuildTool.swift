@@ -145,16 +145,13 @@ struct BuildToolOptions: ParsableArguments {
 
 /// swift-build tool namespace
 public struct SwiftBuildTool: SwiftCommand {
-    public static var configuration: CommandConfiguration {
-        var config = CommandConfiguration(
-            commandName: "build",
-            abstract: "Build sources into binary products",
-            discussion: "SEE ALSO: swift run, swift package, swift test",
-            version: Versioning.currentVersion.completeDisplayString,
-            helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
-        config._superCommandName = "swift"
-        return config
-    }
+    public static var configuration = CommandConfiguration(
+        commandName: "build",
+        _superCommandName: "swift",
+        abstract: "Build sources into binary products",
+        discussion: "SEE ALSO: swift run, swift package, swift test",
+        version: Versioning.currentVersion.completeDisplayString,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
     var swiftOptions: SwiftToolOptions

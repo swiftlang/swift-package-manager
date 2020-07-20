@@ -81,16 +81,13 @@ struct RunToolOptions: ParsableArguments {
 
 /// swift-run tool namespace
 public struct SwiftRunTool: SwiftCommand {
-    public static var configuration: CommandConfiguration {
-        var config = CommandConfiguration(
-            commandName: "run",
-            abstract: "Build and run an executable product",
-            discussion: "SEE ALSO: swift build, swift package, swift test",
-            version: Versioning.currentVersion.completeDisplayString,
-            helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
-        config._superCommandName = "swift"
-        return config
-    }
+    public static var configuration = CommandConfiguration(
+        commandName: "run",
+        _superCommandName: "swift",
+        abstract: "Build and run an executable product",
+        discussion: "SEE ALSO: swift build, swift package, swift test",
+        version: Versioning.currentVersion.completeDisplayString,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
     public var swiftOptions: SwiftToolOptions
