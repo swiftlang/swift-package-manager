@@ -656,7 +656,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
               #endif
 
                 // Run the compiled manifest.
-                let runResult = try Process.popen(arguments: cmd)
+                var environment = ProcessEnv.vars
+#if os(Windows)
+                let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
+                environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
+#endif
+                let runResult = try Process.popen(arguments: cmd, environment: environment)
                 fclose(jsonOutputFileDesc)
                 let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
                 if let runOutput = runOutput {
