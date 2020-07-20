@@ -435,7 +435,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5)
+    @available(_PackageDescription, introduced: 5, obsoleted: 5.3)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],

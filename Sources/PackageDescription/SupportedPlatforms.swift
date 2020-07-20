@@ -209,11 +209,11 @@ extension SupportedPlatform {
         @available(_PackageDescription, introduced: 5.1)
         public static let v10_15: MacOSVersion = .init(string: "10.15")
 
-        /// The value that represents macOS 10.16, which is treated
-        /// as an alias for macOS 11.0.
+        /// The value that represents macOS 10.16, which has been
+        /// replaced by the value for macOS 11.0.
         ///
         /// - Since: First available in PackageDescription 5.3
-        @available(_PackageDescription, introduced: 5.3)
+        @available(*, unavailable, renamed: "v11")
         public static let v10_16: MacOSVersion = .init(string: "11.0")
 
         /// The value that represents macOS 11.0.
