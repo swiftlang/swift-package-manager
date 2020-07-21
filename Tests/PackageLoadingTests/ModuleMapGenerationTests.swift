@@ -11,6 +11,7 @@
 import XCTest
 
 import TSCBasic
+import SPMTestSupport
 import PackageModel
 import PackageLoading
 
@@ -20,18 +21,14 @@ class ModuleMapGeneration: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo.h",
             "/Foo.c")
-
-        let expected = BufferedOutputByteStream()
-        expected <<< """
+        ModuleMapTester("Foo", in: fs) { result in
+            result.check(contents: """
             module Foo {
                 umbrella header "/include/Foo.h"
                 export *
             }
 
-            """
-
-        ModuleMapTester("Foo", in: fs) { result in
-            result.check(value: expected.bytes)
+            """)
         }
     }
 
@@ -39,61 +36,59 @@ class ModuleMapGeneration: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/Foo.c")
-
-        let expected = BufferedOutputByteStream()
-        expected <<< """
+        ModuleMapTester("Foo", in: fs) { result in
+            result.check(contents: """
             module Foo {
                 umbrella header "/include/Foo/Foo.h"
                 export *
             }
 
-            """
-
-        ModuleMapTester("Foo", in: fs) { result in
-            result.check(value: expected.bytes)
+            """)
         }
     }
 
     func testOtherCases() throws {
+        var fs: InMemoryFileSystem
 
-        let expected = BufferedOutputByteStream()
-        expected <<< """
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Bar.h",
+            "/Foo.c")
+        ModuleMapTester("Foo", in: fs) { result in
+            result.check(contents: """
             module Foo {
                 umbrella "/include"
                 export *
             }
 
-            """
-
-        var fs: InMemoryFileSystem
-        func checkExpected() {
-            ModuleMapTester("Foo", in: fs) { result in
-                result.check(value: expected.bytes)
-            }
+            """)
         }
-
-        fs = InMemoryFileSystem(emptyFiles:
-            "/include/Bar.h",
-            "/Foo.c")
-        checkExpected()
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Baz.h",
             "/include/Bar.h",
             "/Foo.c")
-        checkExpected()
-        
+        ModuleMapTester("Foo", in: fs) { result in
+            result.check(contents: """
+            module Foo {
+                umbrella "/include"
+                export *
+            }
+
+            """)
+        }
+
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Baz/Foo.h",
             "/include/Bar/Bar.h",
             "/Foo.c")
-        let expected2 = BufferedOutputByteStream()
-        expected2 <<< "module Foo {\n"
-        expected2 <<< "    umbrella \"/include\"\n"
-        expected2 <<< "    export *\n"
-        expected2 <<< "}\n"
         ModuleMapTester("Foo", in: fs) { result in
-            result.check(value: expected2.bytes)
+            result.check(contents: """
+            module Foo {
+                umbrella "/include"
+                export *
+            }
+
+            """)
         }
     }
 
@@ -102,58 +97,62 @@ class ModuleMapGeneration: XCTestCase {
             "/Foo.c")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
-            result.checkDiagnostics("warning: no include directory found for target \'Foo\'; libraries cannot be imported without public headers")
+            result.checkDiagnostics { result in
+                result.check(diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers", behavior: .warning)
+            }
         }
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/F-o-o.h",
             "/Foo.c")
-        let expected = BufferedOutputByteStream()
-        expected <<< "module F_o_o {\n"
-        expected <<< "    umbrella \"/include\"\n"
-        expected <<< "    export *\n"
-        expected <<< "}\n"
         ModuleMapTester("F-o-o", in: fs) { result in
-            result.check(value: expected.bytes)
-            result.checkDiagnostics("warning: /include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header")
+            result.check(contents: """
+                module F_o_o {
+                    umbrella "/include"
+                    export *
+                }
+
+                """)
+            result.checkDiagnostics { result in
+                result.check(diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header", behavior: .warning)
+            }
         }
     }
 
     func testUnsupportedLayouts() throws {
         var fs: InMemoryFileSystem
-        func checkExpected(_ str: String, file: StaticString = #file, line: UInt = #line) {
-            ModuleMapTester("Foo", in: fs) { result in
-                result.checkNotCreated()
-                result.checkDiagnostics(str, file: file, line: line)
-            }
-        }
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo/Foo.h', " +
-            "but more than one directories exist: /include/Bar, /include/Foo; consider reducing them to one")
+        ModuleMapTester("Foo", in: fs) { result in
+            result.checkNotCreated()
+            result.checkDiagnostics { result in
+                result.check(diagnostic: "target 'Foo' failed modulemap generation: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar, /include/Foo; consider reducing them to one", behavior: .error)
+            }
+        }
 
         fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo.h",
             "/include/Bar/Foo.h")
-        checkExpected("target 'Foo' failed modulemap generation; umbrella header defined at '/include/Foo.h', but " +
-            "directories exist: /include/Bar; consider removing them")
+        ModuleMapTester("Foo", in: fs) { result in
+            result.checkNotCreated()
+            result.checkDiagnostics { result in
+                result.check(diagnostic: "target 'Foo' failed modulemap generation: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them", behavior: .error)
+            }
+        }
     }
 }
 
 func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
     let includeDir = AbsolutePath.root.appending(component: includeDir)
     let target = ClangTarget(name: name, cLanguageStandard: nil, cxxLanguageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
-    let warningStream = BufferedOutputByteStream()
-    var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, warningStream: warningStream)
-    var diagnostics = Set<String>()
+    let diagnostics = DiagnosticsEngine()
+    var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, diagnostics: diagnostics)
     do {
         try generator.generateModuleMap(inDir: .root)
-        // FIXME: Find a better way.
-        diagnostics = Set(warningStream.bytes.description.split(separator: "\n").map(String.init))
     } catch {
-      diagnostics.insert("\(error)")
+        //
     }
     let genPath = AbsolutePath.root.appending(components: "module.modulemap")
     let result = ModuleMapResult(diagnostics: diagnostics, path: genPath, fs: fileSystem)
@@ -163,31 +162,30 @@ func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSyst
 
 final class ModuleMapResult {
 
-    private var diagnostics: Set<String>
+    private var diags: DiagnosticsEngine
+    private var diagsChecked: Bool
     private let path: AbsolutePath
     private let fs: FileSystem
 
-    init(diagnostics: Set<String>, path: AbsolutePath, fs: FileSystem) {
-        self.diagnostics = diagnostics
+    init(diagnostics: DiagnosticsEngine, path: AbsolutePath, fs: FileSystem) {
+        self.diags = diagnostics
+        self.diagsChecked = false
         self.path = path
         self.fs = fs
     }
 
     func validateDiagnostics(file: StaticString = #file, line: UInt = #line) {
-        guard !diagnostics.isEmpty else { return }
-        XCTFail("Unchecked diagnostics: \(diagnostics)", file: file, line: line)
+        if diagsChecked || diags.diagnostics.isEmpty { return }
+        XCTFail("Unchecked diagnostics: \(diags)", file: (file), line: line)
     }
 
-    func checkDiagnostics(_ str: String, file: StaticString = #file, line: UInt = #line) {
-        if diagnostics.contains(str) {
-            diagnostics.remove(str)
-        } else {
-            XCTFail("no error: \"\(str)\" or is already checked", file: file, line: line)
-        }
+    func checkDiagnostics(_ result: (DiagnosticsEngineResult) throws -> Void) {
+        DiagnosticsEngineTester(diags, result: result)
+        diagsChecked = true
     }
 
     func checkNotCreated(file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(isCreated, false, "unexpected modulemap created: \(contents)", file: file, line: line)
+        XCTAssertEqual(isCreated, false, "unexpected modulemap created: \(contents)", file: (file), line: line)
     }
 
     private var contents: ByteString {
@@ -198,10 +196,10 @@ final class ModuleMapResult {
         return fs.isFile(path)
     }
 
-    func check(value: ByteString, file: StaticString = #file, line: UInt = #line) {
+    func check(contents: String, file: StaticString = #file, line: UInt = #line) {
         guard isCreated else {
-            return XCTFail("Can't compare values, modulemap not generated.", file: file, line: line)
+            return XCTFail("Can't compare values, modulemap not generated.", file: (file), line: line)
         }
-        XCTAssertEqual(value, contents, file: file, line: line)
+        XCTAssertEqual(ByteString(encodingAsUTF8: contents), self.contents, file: (file), line: line)
     }
 }

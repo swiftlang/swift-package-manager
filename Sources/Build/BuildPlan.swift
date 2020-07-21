@@ -232,6 +232,9 @@ public final class ClangTargetBuildDescription {
 
     /// The filesystem to operate on.
     let fileSystem: FileSystem
+    
+    /// Where to emit any warnings and errors.
+    let diagnostics: DiagnosticsEngine
 
     /// If this target is a test target.
     public var isTestTarget: Bool {
@@ -239,15 +242,16 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Create a new target description with target and build parameters.
-    init(target: ResolvedTarget, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem) throws {
+    init(target: ResolvedTarget, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem, diagnostics: DiagnosticsEngine) throws {
         assert(target.underlyingTarget is ClangTarget, "underlying target type mismatch \(target)")
         self.fileSystem = fileSystem
+        self.diagnostics = diagnostics
         self.target = target
         self.buildParameters = buildParameters
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
 
-        // Try computing modulemap path for a C library.
+        // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
         if target.type == .library {
             self.moduleMap = try computeModulemapPath()
         }
@@ -405,7 +409,7 @@ public final class ClangTargetBuildDescription {
             return clangTarget.moduleMapPath
         } else {
             // Otherwise try to generate one.
-            var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem)
+            var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem, diagnostics: diagnostics)
             // FIXME: We should probably only warn if we're unable to generate the modulemap
             // because the clang target is still a valid, it just can't be imported from Swift targets.
             try moduleMapGenerator.generateModuleMap(inDir: tempsPath)
@@ -1348,7 +1352,8 @@ public class BuildPlan {
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
                     buildParameters: buildParameters,
-                    fileSystem: fileSystem))
+                    fileSystem: fileSystem,
+                    diagnostics: diagnostics))
             case is SystemLibraryTarget, is BinaryTarget:
                  break
             default:
