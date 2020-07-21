@@ -82,6 +82,19 @@ class ModuleMapGeneration: XCTestCase {
             "/include/Bar.h",
             "/Foo.c")
         checkExpected()
+        
+        fs = InMemoryFileSystem(emptyFiles:
+            "/include/Baz/Foo.h",
+            "/include/Bar/Bar.h",
+            "/Foo.c")
+        let expected2 = BufferedOutputByteStream()
+        expected2 <<< "module Foo {\n"
+        expected2 <<< "    umbrella \"/include\"\n"
+        expected2 <<< "    export *\n"
+        expected2 <<< "}\n"
+        ModuleMapTester("Foo", in: fs) { result in
+            result.check(value: expected2.bytes)
+        }
     }
 
     func testWarnings() throws {
@@ -103,20 +116,6 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("F-o-o", in: fs) { result in
             result.check(value: expected.bytes)
             result.checkDiagnostics("warning: /include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header")
-        }
-        
-        fs = InMemoryFileSystem(emptyFiles:
-            "/include/Baz/Foo.h",
-            "/include/Bar/Bar.h",
-            "/Foo.c")
-        let expected2 = BufferedOutputByteStream()
-        expected2 <<< "module Foo {\n"
-        expected2 <<< "    umbrella \"/include\"\n"
-        expected2 <<< "    export *\n"
-        expected2 <<< "}\n"
-        ModuleMapTester("Foo", in: fs) { result in
-            result.check(value: expected2.bytes)
-            result.checkDiagnostics("warning: the include directory of target \'Foo\' has a layout that is incompatible with modules; consider adding a custom module map to the target")
         }
     }
 
