@@ -318,7 +318,7 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bindArray(
             option: parser.add(
                 option: "-Xxcbuild", kind: [String].self, strategy: .oneByOne,
-                usage: "Pass flag through to the Xcode build system invocations"),
+                usage: nil),
             to: { $0.xcbuildFlags = $1 })
 
         binder.bind(
@@ -392,7 +392,7 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bind(
             option: parser.add(
                 option: "--arch", kind: [String].self, strategy: .oneByOne,
-                usage: "Build the package for the these architectures"),
+                usage: nil),
             to: { $0.archs = $1 })
 
         // FIXME: We need to allow -vv type options for this.
