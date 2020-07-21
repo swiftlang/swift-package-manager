@@ -143,11 +143,7 @@ public struct ModuleMapGenerator {
             return
         }
         
-        // Otherwise, the target's public headers are considered to be incompatible with modules.  Other C targets can still import them, but Swift won't be able to see them.  This is documented as an error, but because SwiftPM has previously allowed it (creating module maps that then cause errors when used), we instead emit a warning and for now, continue to emit what SwiftPM has historically emitted (an umbrella directory include).
-        warningStream <<< "warning: the include directory of target '\(target.name)' has "
-        warningStream <<< "a layout that is incompatible with modules; consider adding a "
-        warningStream <<< "custom module map to the target"
-        warningStream.flush()
+        // Otherwise, the target's public headers are considered to be incompatible with modules.  Per the original design, an umbrella directory is still created for them.  This is will lead to build failures if those headers are included and they are not compatible with modules.  A future evolution proposal should revisit these semantics.
         try createModuleMap(inDir: wd, type: .directory(includeDir))
     }
 
