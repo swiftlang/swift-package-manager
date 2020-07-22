@@ -598,7 +598,7 @@ public func xcodeProject(
             } else {
                 // Generate and drop the modulemap inside Xcodeproj folder.
                 let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name)
-                var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem)
+                var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem, diagnostics: diagnostics)
                 try moduleMapGenerator.generateModuleMap(inDir: path)
                 moduleMapPath = path.appending(component: moduleMapFilename)
                 isGenerated = true
