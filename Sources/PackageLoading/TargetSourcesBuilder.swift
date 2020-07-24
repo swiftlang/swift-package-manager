@@ -117,11 +117,11 @@ public struct TargetSourcesBuilder {
         if toolsVersion >= .v5_3 {
             let filesWithNoRules = pathToRule.filter { $0.value.rule == .none }
             if !filesWithNoRules.isEmpty {
-                var error = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+                var warning = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
                 for (file, _) in filesWithNoRules {
-                    error += "    " + file.pathString + "\n"
+                    warning += "    " + file.pathString + "\n"
                 }
-                diags.emit(.error(error))
+                diags.emit(.warning(warning))
             }
         }
 
@@ -517,7 +517,7 @@ public struct FileRuleDescription {
         .init(
             rule: .header,
             toolsVersion: .minimumRequired,
-            fileTypes: ["h"]
+            fileTypes: ["h", "hh", "hpp", "h++", "hp", "hxx", "H", "ipp", "def"]
         )
     }()
 

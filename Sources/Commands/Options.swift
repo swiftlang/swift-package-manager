@@ -38,7 +38,9 @@ struct BuildFlagsGroup: ParsableArguments {
     
     @Option(name: .customLong("Xxcbuild", withSingleDash: true),
             parsing: .unconditionalSingleValue,
-            help: "Pass flag through to the Xcode build system invocations")
+            help: ArgumentHelp(
+                "Pass flag through to the Xcode build system invocations",
+                shouldDisplay: false))
     var xcbuildFlags: [String] = []
     
     var buildFlags: BuildFlags {
@@ -149,7 +151,11 @@ public struct SwiftToolOptions: ParsableArguments {
     var customCompileToolchain: AbsolutePath?
 
     /// The architectures to compile for.
-    @Option(name: .customLong("arch"), help: "Build the package for the these architectures")
+    @Option(
+      name: .customLong("arch"),
+      help: ArgumentHelp(
+        "Build the package for the these architectures"
+        shouldDisplay: false))
     public var archs: [String] = []
 
     /// If should link the Swift stdlib statically.
