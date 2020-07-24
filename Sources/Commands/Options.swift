@@ -63,10 +63,10 @@ extension AbsolutePath: ExpressibleByArgument {
         if let cwd = localFileSystem.currentWorkingDirectory {
             self.init(argument, relativeTo: cwd)
         } else {
-          guard let path = try? AbsolutePath(validating: argument) else {
-              return nil
-          }
-          self = path
+            guard let path = try? AbsolutePath(validating: argument) else {
+                return nil
+            }
+            self = path
         }
     }
   
@@ -98,23 +98,19 @@ public struct SwiftToolOptions: ParsableArguments {
     var configuration: BuildConfiguration = .debug
 
     /// The custom build directory, if provided.
-    @Option(help: "Specify build/cache directory",
-            transform: { try PathArgument(argument: $0).path })
+    @Option(help: "Specify build/cache directory")
     var buildPath: AbsolutePath?
 
     /// The custom working directory that the tool should operate in (deprecated).
-    @Option(name: [.long, .customShort("C")],
-            transform: { try PathArgument(argument: $0).path })
+    @Option(name: [.long, .customShort("C")])
     var chdir: AbsolutePath?
 
     /// The custom working directory that the tool should operate in.
-    @Option(help: "Change working directory before any other operation",
-            transform: { try PathArgument(argument: $0).path })
+    @Option(help: "Change working directory before any other operation")
     var packagePath: AbsolutePath?
 
     /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
-    @Option(name: .customLong("multiroot-data-file"),
-            transform: { try PathArgument(argument: $0).path })
+    @Option(name: .customLong("multiroot-data-file"))
     var multirootPackageDataFile: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
@@ -137,7 +133,7 @@ public struct SwiftToolOptions: ParsableArguments {
     var shouldDisableManifestCaching: Bool = false
 
     /// Path to the compilation destination describing JSON file.
-    @Option(name: .customLong("destination"), transform: { try PathArgument(argument: $0).path })
+    @Option(name: .customLong("destination"))
     var customCompileDestination: AbsolutePath?
 
     /// The compilation destination’s target triple.
@@ -145,11 +141,11 @@ public struct SwiftToolOptions: ParsableArguments {
     var customCompileTriple: Triple?
     
     /// Path to the compilation destination’s SDK.
-    @Option(name: .customLong("sdk"), transform: { try PathArgument(argument: $0).path })
+    @Option(name: .customLong("sdk"))
     var customCompileSDK: AbsolutePath?
     
     /// Path to the compilation destination’s toolchain.
-    @Option(name: .customLong("toolchain"), transform: { try PathArgument(argument: $0).path })
+    @Option(name: .customLong("toolchain"))
     var customCompileToolchain: AbsolutePath?
 
     /// The architectures to compile for.
