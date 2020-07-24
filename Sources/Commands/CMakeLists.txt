@@ -8,8 +8,6 @@
 
 add_library(Commands
   APIDigester.swift
-  Completions+bash.swift
-  Completions+zsh.swift
   Describe.swift
   Error.swift
   GenerateLinuxMain.swift
