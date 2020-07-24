@@ -154,7 +154,7 @@ public struct SwiftToolOptions: ParsableArguments {
     @Option(
       name: .customLong("arch"),
       help: ArgumentHelp(
-        "Build the package for the these architectures"
+        "Build the package for the these architectures",
         shouldDisplay: false))
     public var archs: [String] = []
 
