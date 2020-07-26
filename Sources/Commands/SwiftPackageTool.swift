@@ -838,7 +838,8 @@ extension SwiftPackageTool {
                 let script = Swift.completionScript(for: .bash)
                 print(script)
             case .generateZshScript:
-                print("generate zsh script")
+                let script = Swift.completionScript(for: .zsh)
+                print(script)
             case .listDependencies:
                 let graph = try swiftTool.loadPackageGraph()
                 dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
