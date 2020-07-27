@@ -247,7 +247,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertMatch(message, .contains("note: 'v14' was introduced in PackageDescription 5.3"))
         }
 
-        // Newer OS version alias.
+        // Newer OS version alias (now marked as unavailable).
         stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -267,8 +267,8 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                 return XCTFail("\(error)")
             }
 
-            XCTAssertMatch(message, .contains("error: 'v10_16' is unavailable"))
-            XCTAssertMatch(message, .contains("note: 'v10_16' was introduced in PackageDescription 5.3"))
+            XCTAssertMatch(message, .contains("error: 'v10_16' has been renamed to 'v11'"))
+            XCTAssertMatch(message, .contains("note: 'v10_16' has been explicitly marked unavailable here"))
             XCTAssertMatch(message, .contains("note: 'v14' was introduced in PackageDescription 5.3"))
         }
     }
