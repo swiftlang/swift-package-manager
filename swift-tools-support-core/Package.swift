@@ -15,6 +15,7 @@ import PackageDescription
 
 let package = Package(
     name: "swift-tools-support-core",
+    platforms: [.macOS(.v10_13)],
     products: [
         .library(
             name: "SwiftToolsSupport",

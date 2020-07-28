@@ -43,7 +43,25 @@ final class PackageToolTests: XCTestCase {
     }
     
     func testNetrcFile() throws {
-        XCTAssert(try execute(["--netrc-file", "/Users/me/.hidden/.netrc"]).stdout.contains("Absolute path to netrc file"))
+        func verifyUnsupportedOSThrows() {
+            do {
+                // should throw and be caught
+                try execute(["--netrc-file", "/Users/me/.hidden/.netrc"])
+                XCTFail()
+            } catch {
+                XCTAssert(true)
+            }
+        }
+        #if os(macOS)
+        if #available(macOS 10.13, *) {
+            // should succeed
+            XCTAssert(try execute(["--netrc-file", "/Users/me/.hidden/.netrc"]).stdout.contains("Absolute path to netrc file"))
+        } else {
+            verifyUnsupportedOSThrows()
+        }
+        #else
+            verifyUnsupportedOSThrows()
+        #endif
     }
 
     func testResolve() throws {

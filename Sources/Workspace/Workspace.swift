@@ -1404,9 +1404,15 @@ extension Workspace {
     private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) {
         let group = DispatchGroup()
         let tempDiagnostics = DiagnosticsEngine()
-
-        let netrc = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
         
+        var authProvider: AuthorizationProviding? = nil
+        #if os(macOS)
+        // Netrc feature currently only supported on macOS 10.13+ due to dependency
+        // on NSTextCheckingResult.range(with:)
+        if #available(macOS 10.13, *) {
+            authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
+        }
+        #endif
         for artifact in artifacts {
             group.enter()
 
@@ -1430,7 +1436,7 @@ extension Workspace {
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
-                withAuthorizationProvider: netrc,
+                withAuthorizationProvider: authProvider,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     self.delegate?.downloadingBinaryArtifact(
                         from: url,
