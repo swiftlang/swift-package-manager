@@ -2216,7 +2216,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testBinaryTargets() throws {
+    func testBinaryTargets(platform: String, arch: String, destinationTriple: Triple) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/Library/Library.swift",
@@ -2236,15 +2236,15 @@ final class BuildPlanTests: XCTestCase {
                     <array>
                         <dict>
                             <key>LibraryIdentifier</key>
-                            <string>macos-x86_64</string>
+                            <string>\(platform)-\(arch)</string>
                             <key>LibraryPath</key>
                             <string>Framework.framework</string>
                             <key>SupportedArchitectures</key>
                             <array>
-                                <string>x86_64</string>
+                                <string>\(arch)</string>
                             </array>
                             <key>SupportedPlatform</key>
-                            <string>macos</string>
+                            <string>\(platform)</string>
                         </dict>
                     </array>
                     <key>CFBundlePackageType</key>
@@ -2267,17 +2267,17 @@ final class BuildPlanTests: XCTestCase {
                     <array>
                         <dict>
                             <key>LibraryIdentifier</key>
-                            <string>macos-x86_64</string>
+                            <string>\(platform)-\(arch)</string>
                             <key>HeadersPath</key>
                             <string>Headers</string>
                             <key>LibraryPath</key>
                             <string>libStaticLibrary.a</string>
                             <key>SupportedArchitectures</key>
                             <array>
-                                <string>x86_64</string>
+                                <string>\(arch)</string>
                             </array>
                             <key>SupportedPlatform</key>
-                            <string>macos</string>
+                            <string>\(platform)</string>
                         </dict>
                     </array>
                     <key>CFBundlePackageType</key>
@@ -2316,7 +2316,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(destinationTriple: .macOS),
+            buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
             diagnostics: diagnostics,
             fileSystem: fs
@@ -2344,7 +2344,7 @@ final class BuildPlanTests: XCTestCase {
 
         let clibraryBasicArguments = try result.target(for: "CLibrary").clangTarget().basicArguments()
         XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
-        XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-I", "/Pkg/StaticLibrary.xcframework/macos-x86_64/Headers", .anySequence])
+        XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-I", "/Pkg/StaticLibrary.xcframework/\(platform)-\(arch)/Headers", .anySequence])
 
         let clibraryLinkArguments = try result.buildProduct(for: "CLibrary").linkArguments()
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
@@ -2356,6 +2356,14 @@ final class BuildPlanTests: XCTestCase {
         
         let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
+    }
+
+    func testBinaryTargets() throws {
+        try testBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
+        let arm64Triple = try Triple("arm64-apple-macosx")
+        try testBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
+        let arm64eTriple = try Triple("arm64e-apple-macosx")
+        try testBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
     func testAddressSanitizer() throws {
