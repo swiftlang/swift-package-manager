@@ -7,7 +7,7 @@
 * [PackageDescription API](PackageDescription.md)
 * [**Resources**](Resources.md)
   * [Support](#support)
-  * [Reporting a SwiftPM Bug](#reporting-a-good-swiftpm-bug)
+  * [Reporting a SwiftPM Bug](#reporting-a-swiftpm-bug)
 
 ---
 
