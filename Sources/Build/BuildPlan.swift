@@ -1711,9 +1711,9 @@ public class BuildPlan {
                 return nil
             }
 
-            // Check that it supports macOS.
+            // Check that it supports the target platform and architecture.
             guard let library = info.libraries.first(where: {
-                $0.platform == "macos" && $0.architectures.contains(Triple.Arch.x86_64.rawValue)
+                return $0.platform == buildParameters.triple.os.asXCFrameworkPlatformString && $0.architectures.contains(buildParameters.triple.arch.rawValue)
             }) else {
                 diagnostics.emit(error: """
                     artifact '\(target.name)' does not support the target platform and architecture \
@@ -1832,4 +1832,16 @@ private func generateResourceInfoPlist(
 
     try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     return true
+}
+
+fileprivate extension Triple.OS {
+    /// Returns a representation of the receiver that can be compared with platform strings declared in an XCFramework.
+    var asXCFrameworkPlatformString: String? {
+        switch self {
+        case .darwin, .linux, .wasi, .windows:
+            return nil // XCFrameworks do not support any of these platforms today.
+        case .macOS:
+            return "macos"
+        }
+    }
 }
