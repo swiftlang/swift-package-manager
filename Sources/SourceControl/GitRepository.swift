@@ -40,7 +40,7 @@ public class GitRepositoryProvider: RepositoryProvider {
 
     public init(processSet: ProcessSet? = nil,
                 cachePath: AbsolutePath = AbsolutePath(localFileSystem.homeDirectory, ".swiftpm/cache/repositories"),
-                maxCacheSize: UInt64 = 21_474_836_480) {
+                maxCacheSize: UInt64 = 20 * 1024 * 1024 * 1024) {
         self.processSet = processSet
         self.cachePath = cachePath
         self.maxCacheSize = maxCacheSize
