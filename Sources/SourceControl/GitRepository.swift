@@ -40,11 +40,16 @@ public class GitRepositoryProvider: RepositoryProvider {
     private let maxCacheSize: UInt64
 
     public init(processSet: ProcessSet? = nil,
-                cachePath: AbsolutePath = AbsolutePath(localFileSystem.homeDirectory, ".swiftpm/cache/repositories"),
-                maxCacheSize: UInt64 = 20 * 1024 * 1024 * 1024) {
+                cachePath: AbsolutePath? = nil,
+                maxCacheSize: UInt64? = nil) {
         self.processSet = processSet
-        self.cachePath = cachePath
-        self.maxCacheSize = maxCacheSize
+        #if os(macOS)
+        let osCachePath = AbsolutePath(localFileSystem.homeDirectory, "Library/Caches/com.apple.swiftpm/repositories")
+        #else
+        let osCachePath = AbsolutePath(localFileSystem.homeDirectory, ".cache/swiftpm/repositories")
+        #endif
+        self.cachePath = cachePath ?? osCachePath
+        self.maxCacheSize = maxCacheSize ?? 20 * 1024 * 1024 * 1024
     }
 
     /// Clones the  git repository we want to cache into the cache directory if it does not already exist and returns it.
