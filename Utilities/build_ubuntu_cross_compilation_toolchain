@@ -13,7 +13,7 @@ else
 fi
 
 function usage() {
-    echo >&2 "Usage: $0 SWIFT-FOR-MACOS.pkg SWIFT-FOR-LINUX.tar.gz"
+    echo >&2 "Usage: $0 TMP-DIR SWIFT-FOR-MACOS.pkg SWIFT-FOR-LINUX.tar.gz"
     echo >&2
     echo >&2 "Example: $0 /tmp/ ~/Downloads/swift-${VERSION}-osx.pkg ~/Downloads/swift-${VERSION}-ubuntu16.04.tar.gz"
     echo >&2
