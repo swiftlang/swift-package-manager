@@ -13,14 +13,14 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
-// We default to a 10.10 minimum deployment target for clients of libSwiftPM,
+// We default to a 10.13 minimum deployment target for clients of libSwiftPM,
 // but allow overriding it when building for a toolchain.
 
 let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
-    macOSPlatform = .macOS(.v10_10)
+    macOSPlatform = .macOS(.v10_13)
 }
 
 let package = Package(
