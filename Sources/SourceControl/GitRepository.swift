@@ -35,6 +35,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     private let processSet: ProcessSet?
     /// The path to the directory where all cached git repositories are stored.
     private let cachePath: AbsolutePath
+
     /// The maximum size of the cache in bytes.
     private let maxCacheSize: UInt64
 
@@ -50,13 +51,16 @@ public class GitRepositoryProvider: RepositoryProvider {
     private func setupCacheIfNeeded(for repository: RepositorySpecifier) throws -> GitRepository {
         let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
 
-        guard !localFileSystem.exists(repositoryPath) else { return GitRepository(path: repositoryPath, isWorkingRepo: false) }
+        guard !localFileSystem.exists(repositoryPath) else {
+            return GitRepository(path: repositoryPath, isWorkingRepo: false)
+        }
 
         try localFileSystem.createDirectory(repositoryPath, recursive: true)
 
-        // We are cloning each repository into its own directory instead of using one large bare repository and adding a remote for each repository.
-        // This avoids the large overhead that occurs when git tries to determine if it has any revision in common with the remote repository,
-        // which involves sending a list of all local commits to the server (a potentially huge list depending on cache size
+        // We are cloning each repository into its own directory instead of using one large bare repository and
+        // adding a remote for each repository. This avoids the large overhead that occurs when git tries to determine
+        // if it has any revision in common with the remote repository, which involves sending a list of all local
+        // commits to the server (a potentially huge list depending on cache size
         // with most commits unrelated to the repository we actually want to fetch).
         try Process.checkNonZeroExit(
             args: Git.tool, "clone", "--mirror", repository.url, repositoryPath.pathString)
@@ -74,7 +78,7 @@ public class GitRepositoryProvider: RepositoryProvider {
 
             let repositories = try localFileSystem.getDirectoryContents(cachePath)
                 .map { GitRepository(path:  cachePath.appending(component: $0), isWorkingRepo: false) }
-                .sorted { (try localFileSystem.getFileInfo($0.path).modTime) < (try localFileSystem.getFileInfo($1.path).modTime) }
+                .sorted { try localFileSystem.getFileInfo($0.path).modTime < localFileSystem.getFileInfo($1.path).modTime }
 
             // Purges repositories until the desired cache size is reached.
             for repository in repositories {
@@ -110,8 +114,8 @@ public class GitRepositoryProvider: RepositoryProvider {
             // Clone the repository using the cache as a reference if possible.
             // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
             // deleted or the package is copied somewhere it cannot reach the cache directory.
-            process = Process(
-                args: Git.tool, "clone", "--reference-if-able", cache.path.pathString, "--dissociate", "--mirror", repository.url, path.pathString, environment: Git.environment)
+            process = Process(args: Git.tool, "clone", "--reference-if-able", cache.path.pathString, "--dissociate",
+                              "--mirror", repository.url, path.pathString, environment: Git.environment)
 
             purgeCacheIfNeeded()
         } catch {
