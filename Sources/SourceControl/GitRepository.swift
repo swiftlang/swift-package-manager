@@ -132,6 +132,7 @@ public class GitRepositoryProvider: RepositoryProvider {
         // NOTE: We intentionally do not create a shallow clone here; the
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
+        defer { purgeCacheIfNeeded() }
 
         precondition(!localFileSystem.exists(path))
 
@@ -140,14 +141,12 @@ public class GitRepositoryProvider: RepositoryProvider {
 
         let process: Process
 
-        if let cache = setupCacheIfNeeded(for: repository),
-           URL.scheme(repository.url) == "ssh" || URL.scheme(repository.url) == "https" {
+        if let cache = setupCacheIfNeeded(for: repository) {
             // Clone the repository using the cache as a reference if possible.
             // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
             // deleted or the package is copied somewhere it cannot reach the cache directory.
             process = Process(args: Git.tool, "clone", "--reference", cache.path.pathString, "--dissociate",
                               "--mirror", repository.url, path.pathString, environment: Git.environment)
-            purgeCacheIfNeeded()
         } else {
             process = Process(args: Git.tool, "clone", "--mirror",
                               repository.url, path.pathString, environment: Git.environment)
