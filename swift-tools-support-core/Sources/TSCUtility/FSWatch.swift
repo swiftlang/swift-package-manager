@@ -562,7 +562,8 @@ public final class FSEventStream {
     public init(
         paths: [AbsolutePath],
         latency: Double,
-        delegate: FSEventStreamDelegate
+        delegate: FSEventStreamDelegate,
+        flags: FSEventStreamCreateFlags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes)
     ) {
         self.delegate = delegate
 
@@ -577,8 +578,7 @@ public final class FSEventStream {
             paths.map({ $0.pathString }) as CFArray, 
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             latency,
-            // FIXME: This needs to be customizable.
-            FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes)
+            flags
         )
     }
 

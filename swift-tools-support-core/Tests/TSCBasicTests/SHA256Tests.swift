@@ -43,4 +43,15 @@ class SHA256Tests: XCTestCase {
         let digest = SHA256().hash(ByteString(data)).hexadecimalRepresentation
         XCTAssertEqual(digest, "907422e2f24d749d0add2b504ccae8ad1aa392477591905880fb2dc494e33d63")
     }
+
+  #if os(macOS)
+    @available(macOS 10.15, *)
+    func testCryptoKitSHA256() {
+        let sha = CryptoKitSHA256()
+        XCTAssertEqual(
+            sha.hash(ByteString("The quick brown fox jumps over the lazy dog")).hexadecimalRepresentation,
+            "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"
+        )
+    }
+  #endif
 }
