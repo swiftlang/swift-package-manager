@@ -11,6 +11,7 @@
 import TSCBasic
 import Dispatch
 import TSCUtility
+import class Foundation.NSFileManager.FileManager
 
 public struct GitCloneError: Swift.Error, CustomStringConvertible {
 
@@ -33,48 +34,76 @@ public class GitRepositoryProvider: RepositoryProvider {
 
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
+
     /// The path to the directory where all cached git repositories are stored.
-    private let cachePath: AbsolutePath
+    private let cachePath: AbsolutePath?
 
     /// The maximum size of the cache in bytes.
     private let maxCacheSize: UInt64
 
+    /// The default location of the git repository cache
+    private static let defaultCachePath: AbsolutePath? = {
+        guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        return AbsolutePath(cacheURL.absoluteString).appending(components: "org.swift.swiftpm, repositories")
+    }()
+
+    /// Initializes a GitRepositoryProvider
+    /// - Parameters:
+    ///   - processSet: Reference to process set.
+    ///   - cachePath: Path to the directory where all cached git repositories are stored. If `nil` is passed as the`cachePath`
+    ///   fetched repositores will not be cached.
+    ///   - maxCacheSize: Maximum size of the cache in bytes.
     public init(processSet: ProcessSet? = nil,
-                cachePath: AbsolutePath? = nil,
+                cachePath: AbsolutePath?,
                 maxCacheSize: UInt64? = nil) {
         self.processSet = processSet
-        #if os(macOS)
-        let osCachePath = AbsolutePath(localFileSystem.homeDirectory, "Library/Caches/com.apple.swiftpm/repositories")
-        #else
-        let osCachePath = AbsolutePath(localFileSystem.homeDirectory, ".cache/swiftpm/repositories")
-        #endif
-        self.cachePath = cachePath ?? osCachePath
+        self.cachePath = cachePath
         self.maxCacheSize = maxCacheSize ?? 20 * 1024 * 1024 * 1024
     }
 
+    /// Initializes a GitRepositoryProvider
+    /// - Parameters:
+    ///   - processSet: Reference to process set.
+    ///   - maxCacheSize: Maximum size of the cache in bytes.
+    public convenience init(processSet: ProcessSet? = nil,
+                            maxCacheSize: UInt64? = nil) {
+        self.init(processSet: processSet, cachePath: GitRepositoryProvider.defaultCachePath, maxCacheSize: maxCacheSize)
+    }
+
     /// Clones the  git repository we want to cache into the cache directory if it does not already exist and returns it.
-    private func setupCacheIfNeeded(for repository: RepositorySpecifier) throws -> GitRepository {
+    /// If the repository is already cached we perfrom a fetch. In case the `RepositoryProvider`has no `cachePath` or an error occured while
+    /// setting up the cache `nil` is returned.
+    private func setupCacheIfNeeded(for repository: RepositorySpecifier) -> GitRepository? {
+        guard let cachePath = cachePath else { return nil }
         let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
 
-        guard !localFileSystem.exists(repositoryPath) else {
-            return GitRepository(path: repositoryPath, isWorkingRepo: false)
+        do {
+            let process: Process
+
+            if localFileSystem.exists(repositoryPath) {
+                process = Process(args: Git.tool, "-C", cachePath.pathString, "fetch")
+            } else {
+                try localFileSystem.createDirectory(repositoryPath, recursive: true)
+                // We are cloning each repository into its own directory instead of using one large bare repository and
+                // adding a remote for each repository. This avoids the large overhead that occurs when git tries to
+                // determine if it has any revision in common with the remote repository, which involves sending a list
+                // of all local commits to the server (a potentially huge list depending on cache size
+                // with most commits unrelated to the repository we actually want to fetch).
+                process = Process(args: Git.tool, "clone", "--mirror", repository.url, repositoryPath.pathString)
+            }
+
+            try processSet?.add(process)
+            try process.checkNonZeroExit()
+        } catch {
+            return nil
         }
-
-        try localFileSystem.createDirectory(repositoryPath, recursive: true)
-
-        // We are cloning each repository into its own directory instead of using one large bare repository and
-        // adding a remote for each repository. This avoids the large overhead that occurs when git tries to determine
-        // if it has any revision in common with the remote repository, which involves sending a list of all local
-        // commits to the server (a potentially huge list depending on cache size
-        // with most commits unrelated to the repository we actually want to fetch).
-        try Process.checkNonZeroExit(
-            args: Git.tool, "clone", "--mirror", repository.url, repositoryPath.pathString)
 
         return GitRepository(path: repositoryPath, isWorkingRepo: false)
     }
 
     /// Purges git repositories from the cache directory in order to free some space.
     private func purgeCacheIfNeeded() {
+        guard let cachePath = cachePath else { return }
         do {
             let cacheSize = try localFileSystem.getDirectorySize(cachePath)
             let desiredCacheSize = maxCacheSize - (maxCacheSize / 8)
@@ -111,22 +140,17 @@ public class GitRepositoryProvider: RepositoryProvider {
 
         let process: Process
 
-        do {
-            let cache = try setupCacheIfNeeded(for: repository)
-            // Fetch repository in cache.
-            try Process.checkNonZeroExit(
-                args: Git.tool, "-C", cache.path.pathString, "fetch")
+        if let cache = setupCacheIfNeeded(for: repository),
+           URL.scheme(repository.url) == "ssh" || URL.scheme(repository.url) == "https" {
             // Clone the repository using the cache as a reference if possible.
             // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
             // deleted or the package is copied somewhere it cannot reach the cache directory.
-            process = Process(args: Git.tool, "clone", "--reference-if-able", cache.path.pathString, "--dissociate",
+            process = Process(args: Git.tool, "clone", "--reference", cache.path.pathString, "--dissociate",
                               "--mirror", repository.url, path.pathString, environment: Git.environment)
-
             purgeCacheIfNeeded()
-        } catch {
-            // Fallback to cloning without using the cache.
-            process = Process(
-                args: Git.tool, "clone", "--mirror", repository.url, path.pathString, environment: Git.environment)
+        } else {
+            process = Process(args: Git.tool, "clone", "--mirror",
+                              repository.url, path.pathString, environment: Git.environment)
         }
 
         try processSet?.add(process)
@@ -864,5 +888,21 @@ extension FileSystem {
         } else {
             return 0
         }
+    }
+}
+
+extension Process {
+
+    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
+    /// - Returns: The process output (stdout + stderr).
+    @discardableResult
+    public func checkNonZeroExit() throws -> String {
+        try launch()
+        let result = try waitUntilExit()
+        // Throw if there was a non zero termination.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
+        return try result.utf8Output()
     }
 }
