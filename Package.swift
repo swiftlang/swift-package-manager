@@ -73,7 +73,9 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .branch("nate/you_had_me_at_hello")),
+        .package(
+          url: "https://github.com/apple/swift-argument-parser.git",
+          .upToNextMinor(from: "0.2.1")),
     ],
     targets: [
         // The `PackageDescription` targets define the API which is available to
