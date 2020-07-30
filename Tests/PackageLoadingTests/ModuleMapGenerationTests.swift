@@ -128,7 +128,7 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "target 'Foo' failed modulemap generation: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar, /include/Foo; consider reducing them to one", behavior: .error)
+                result.check(diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one", behavior: .error)
             }
         }
 
@@ -138,25 +138,32 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "target 'Foo' failed modulemap generation: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them", behavior: .error)
+                result.check(diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them", behavior: .error)
             }
         }
     }
 }
 
-func ModuleMapTester(_ name: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
-    let includeDir = AbsolutePath.root.appending(component: includeDir)
-    let target = ClangTarget(name: name, cLanguageStandard: nil, cxxLanguageStandard: nil, includeDir: includeDir, isTest: false, sources: Sources(paths: [], root: .root))
+/// Helper function to test module map generation.  Given a target name and optionally the name of a public-headers directory, this function determines the module map type of the public-headers directory by examining the contents of a file system and invokes a given block to check the module result (including any diagnostics).
+func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
+    // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let diagnostics = DiagnosticsEngine()
-    var generator = ModuleMapGenerator(for: target, fileSystem: fileSystem, diagnostics: diagnostics)
-    do {
-        try generator.generateModuleMap(inDir: .root)
-    } catch {
-        //
+    let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
+    let moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
+    
+    // Generate a module map and capture any emitted diagnostics.
+    let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
+    diagnostics.wrap {
+        if let generatedModuleMapType = moduleMapType.generatedModuleMapType {
+            try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
+        }
     }
-    let genPath = AbsolutePath.root.appending(components: "module.modulemap")
-    let result = ModuleMapResult(diagnostics: diagnostics, path: genPath, fs: fileSystem)
+    
+    // Invoke the closure to check the results.
+    let result = ModuleMapResult(diagnostics: diagnostics, path: generatedModuleMapPath, fs: fileSystem)
     body(result)
+    
+    // Check for any unexpected diagnostics (the ones the closure didn't check for).
     result.validateDiagnostics()
 }
 

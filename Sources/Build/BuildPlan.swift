@@ -253,7 +253,18 @@ public final class ClangTargetBuildDescription {
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
         if target.type == .library {
-            self.moduleMap = try computeModulemapPath()
+            // If there's a custom module map, use it as given.
+            if case .custom(let path) = clangTarget.moduleMapType {
+                self.moduleMap = path
+            }
+            // If a generated module map is needed, generate one now in our temporary directory.
+            else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
+                let path = tempsPath.appending(component: moduleMapFilename)
+                let moduleMapGenerator = ModuleMapGenerator(targetName: clangTarget.name, moduleName: clangTarget.c99name, publicHeadersDir: clangTarget.includeDir, fileSystem: fileSystem)
+                try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: path)
+                self.moduleMap = path
+            }
+            // Otherwise there is no module map, and we leave `moduleMap` unset.
         }
 
         // Do nothing if we're not generating a bundle.
@@ -397,24 +408,6 @@ public final class ClangTargetBuildDescription {
         }
 
         return compilationConditions
-    }
-
-
-    /// Helper function to compute the modulemap path.
-    ///
-    /// This function either returns path to user provided modulemap or tries to automatically generates it.
-    private func computeModulemapPath() throws -> AbsolutePath {
-        // If user provided the modulemap, we're done.
-        if fileSystem.isFile(clangTarget.moduleMapPath) {
-            return clangTarget.moduleMapPath
-        } else {
-            // Otherwise try to generate one.
-            var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem, diagnostics: diagnostics)
-            // FIXME: We should probably only warn if we're unable to generate the modulemap
-            // because the clang target is still a valid, it just can't be imported from Swift targets.
-            try moduleMapGenerator.generateModuleMap(inDir: tempsPath)
-            return tempsPath.appending(component: moduleMapFilename)
-        }
     }
 
     /// Module cache arguments.

@@ -356,6 +356,9 @@ public class ClangTarget: Target {
 
     /// The path to include directory.
     public let includeDir: AbsolutePath
+    
+    /// The target's module map type, which determines whether this target vends a custom module map, a generated module map, or no module map at all.
+    public let moduleMapType: ModuleMapType
 
     /// The headers present in the target.
     ///
@@ -379,6 +382,7 @@ public class ClangTarget: Target {
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
+        moduleMapType: ModuleMapType,
         headers: [AbsolutePath] = [],
         isTest: Bool = false,
         sources: Sources,
@@ -392,6 +396,7 @@ public class ClangTarget: Target {
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         self.includeDir = includeDir
+        self.moduleMapType = moduleMapType
         self.headers = headers
         super.init(
             name: name,
@@ -407,12 +412,13 @@ public class ClangTarget: Target {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case includeDir, headers, isCXX, cLanguageStandard, cxxLanguageStandard
+        case includeDir, moduleMapType, headers, isCXX, cLanguageStandard, cxxLanguageStandard
     }
 
     public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(includeDir, forKey: .includeDir)
+        try container.encode(moduleMapType, forKey: .moduleMapType)
         try container.encode(headers, forKey: .headers)
         try container.encode(isCXX, forKey: .isCXX)
         try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
@@ -423,6 +429,7 @@ public class ClangTarget: Target {
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.includeDir = try container.decode(AbsolutePath.self, forKey: .includeDir)
+        self.moduleMapType = try container.decode(ModuleMapType.self, forKey: .moduleMapType)
         self.headers = try container.decode([AbsolutePath].self, forKey: .headers)
         self.isCXX = try container.decode(Bool.self, forKey: .isCXX)
         self.cLanguageStandard = try container.decodeIfPresent(String.self, forKey: .cLanguageStandard)
@@ -483,6 +490,52 @@ public class BinaryTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
         try super.init(from: decoder)
+    }
+}
+
+/// A type of module map layout.  Contains all the information needed to generate or use a module map for a target that can have C-style headers.
+public enum ModuleMapType: Equatable, Codable {
+    /// No module map file.
+    case none
+    /// A custom module map file.
+    case custom(AbsolutePath)
+    /// An umbrella header included by a generated module map file.
+    case umbrellaHeader(AbsolutePath)
+    /// An umbrella directory included by a generated module map file.
+    case umbrellaDirectory(AbsolutePath)
+
+    private enum CodingKeys: String, CodingKey {
+        case none, custom, umbrellaHeader, umbrellaDirectory
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .custom) {
+            self = .custom(path)
+        }
+        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaHeader) {
+            self = .umbrellaHeader(path)
+        }
+        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaDirectory) {
+            self = .umbrellaDirectory(path)
+        }
+        else {
+            self = .none
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .none:
+            break
+        case .custom(let path):
+            try container.encode(path, forKey: .custom)
+        case .umbrellaHeader(let path):
+            try container.encode(path, forKey: .umbrellaHeader)
+        case .umbrellaDirectory(let path):
+            try container.encode(path, forKey: .umbrellaDirectory)
+        }
     }
 }
 

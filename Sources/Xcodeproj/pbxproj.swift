@@ -588,8 +588,8 @@ public func xcodeProject(
             var isGenerated = false
 
             // If user provided the modulemap no need to generate.
-            if fileSystem.isFile(clangTarget.moduleMapPath) {
-                moduleMapPath = clangTarget.moduleMapPath
+            if case .custom(let path) = clangTarget.moduleMapType {
+                moduleMapPath = path
             } else if includeGroup.subitems.contains(where: { $0.path == clangTarget.c99name + ".h" }) {
                 // If an umbrella header exists, enable Xcode's builtin module's feature rather than generating
                 // a custom module map. This increases the compatibility of generated Xcode projects.
@@ -600,12 +600,13 @@ public func xcodeProject(
                 }
                 targetSettings.common.CLANG_ENABLE_MODULES = "YES"
                 targetSettings.common.DEFINES_MODULE = "YES"
-            } else {
-                // Generate and drop the modulemap inside Xcodeproj folder.
-                let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name)
-                var moduleMapGenerator = ModuleMapGenerator(for: clangTarget, fileSystem: fileSystem, diagnostics: diagnostics)
-                try moduleMapGenerator.generateModuleMap(inDir: path)
-                moduleMapPath = path.appending(component: moduleMapFilename)
+            } else if let generatedModuleMapType = clangTarget.moduleMapType.generatedModuleMapType {
+                // Generate and drop the modulemap inside the .xcodeproj wrapper.
+                let path = xcodeprojPath.appending(components: "GeneratedModuleMap", clangTarget.c99name, moduleMapFilename)
+                try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+                let moduleMapGenerator = ModuleMapGenerator(targetName: clangTarget.name, moduleName: clangTarget.c99name, publicHeadersDir: clangTarget.includeDir, fileSystem: fileSystem)
+                try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: path)
+                moduleMapPath = path
                 isGenerated = true
             }
 
