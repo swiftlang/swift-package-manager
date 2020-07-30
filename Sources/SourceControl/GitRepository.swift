@@ -44,7 +44,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     /// The default location of the git repository cache
     private static let defaultCachePath: AbsolutePath? = {
         guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        return AbsolutePath(cacheURL.absoluteString).appending(components: "org.swift.swiftpm, repositories")
+        return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
     }()
 
     /// Initializes a GitRepositoryProvider
