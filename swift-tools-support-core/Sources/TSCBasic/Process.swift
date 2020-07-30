@@ -121,15 +121,28 @@ public final class Process: ObjectIdentifierProtocol {
     public enum Error: Swift.Error {
         /// The program requested to be executed cannot be found on the existing search paths, or is not executable.
         case missingExecutableProgram(program: String)
+
+        /// The current OS does not support the workingDirectory API.
+        case workingDirectoryNotSupported
     }
 
     public enum OutputRedirection {
         /// Do not redirect the output
         case none
-        /// Collect stdout and stderr output and provide it back via ProcessResult object
-        case collect
-        /// Stream stdout and stderr via the corresponding closures
-        case stream(stdout: OutputClosure, stderr: OutputClosure)
+        /// Collect stdout and stderr output and provide it back via ProcessResult object. If redirectStderr is true,
+        /// stderr be redirected to stdout.
+        case collect(redirectStderr: Bool)
+        /// Stream stdout and stderr via the corresponding closures. If redirectStderr is true, stderr be redirected to
+        /// stdout.
+        case stream(stdout: OutputClosure, stderr: OutputClosure, redirectStderr: Bool)
+
+        /// Default collect OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
+        public static let collect: OutputRedirection = .collect(redirectStderr: false)
+
+        /// Default stream OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
+        public static func stream(stdout: @escaping OutputClosure, stderr: @escaping OutputClosure) -> Self {
+            return .stream(stdout: stdout, stderr: stderr, redirectStderr: false)
+        }
 
         public var redirectsOutput: Bool {
             switch self {
@@ -142,10 +155,21 @@ public final class Process: ObjectIdentifierProtocol {
 
         public var outputClosures: (stdoutClosure: OutputClosure, stderrClosure: OutputClosure)? {
             switch self {
-            case .stream(let stdoutClosure, let stderrClosure):
+            case let .stream(stdoutClosure, stderrClosure, _):
                 return (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
             case .collect, .none:
                 return nil
+            }
+        }
+
+        public var redirectStderr: Bool {
+            switch self {
+            case let .collect(redirectStderr):
+                return redirectStderr
+            case let .stream(_, _, redirectStderr):
+                return redirectStderr
+            default:
+                return false
             }
         }
     }
@@ -226,7 +250,6 @@ public final class Process: ObjectIdentifierProtocol {
     /// Value: Path to the executable, if found.
     static private var validatedExecutablesMap = [String: AbsolutePath?]()
 
-  #if os(macOS)
     /// Create a new process instance.
     ///
     /// - Parameters:
@@ -254,7 +277,6 @@ public final class Process: ObjectIdentifierProtocol {
         self.verbose = verbose
         self.startNewProcessGroup = startNewProcessGroup
     }
-  #endif
 
     /// Create a new process instance.
     ///
@@ -326,6 +348,7 @@ public final class Process: ObjectIdentifierProtocol {
         _process = Foundation.Process()
         _process?.arguments = arguments
         _process?.executableURL = URL(fileURLWithPath: arguments[0])
+        _process?.environment = environment
 
         if outputRedirection.redirectsOutput {
             let stdoutPipe = Pipe()
@@ -404,16 +427,24 @@ public final class Process: ObjectIdentifierProtocol {
         posix_spawn_file_actions_init(&fileActions)
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
-      #if os(macOS)
         if let workingDirectory = workingDirectory?.pathString {
+          #if os(macOS)
             // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
             // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
             // exists here to make the compiler happy.
             if #available(macOS 10.15, *) {
                 posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
             }
+          #elseif os(Linux)
+            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+                throw Process.Error.workingDirectoryNotSupported
+            }
+
+            SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+          #else
+            throw Process.Error.workingDirectoryNotSupported
+          #endif
         }
-      #endif
 
         // Workaround for https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=89e435f3559c53084498e9baad22172b64429362
         // Change allowing for newer version of glibc
@@ -424,19 +455,30 @@ public final class Process: ObjectIdentifierProtocol {
         // Open /dev/null as stdin.
         posix_spawn_file_actions_addopen(&fileActions, 0, devNull, O_RDONLY, 0)
 
-        var outputPipe: [Int32] = [0, 0]
-        var stderrPipe: [Int32] = [0, 0]
+        var outputPipe: [Int32] = [-1, -1]
+        var stderrPipe: [Int32] = [-1, -1]
         if outputRedirection.redirectsOutput {
-            // Open the pipes.
+            // Open the pipe.
             try open(pipe: &outputPipe)
-            try open(pipe: &stderrPipe)
-            // Open the write end of the pipe as stdout and stderr, if desired.
+
+            // Open the write end of the pipe.
             posix_spawn_file_actions_adddup2(&fileActions, outputPipe[1], 1)
-            posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
+
             // Close the other ends of the pipe.
-            for pipe in [outputPipe, stderrPipe] {
-                posix_spawn_file_actions_addclose(&fileActions, pipe[0])
-                posix_spawn_file_actions_addclose(&fileActions, pipe[1])
+            posix_spawn_file_actions_addclose(&fileActions, outputPipe[0])
+            posix_spawn_file_actions_addclose(&fileActions, outputPipe[1])
+
+            if outputRedirection.redirectStderr {
+                // If merged was requested, send stderr to stdout.
+                posix_spawn_file_actions_adddup2(&fileActions, 1, 2)
+            } else {
+                // If no redirect was requested, open the pipe for stderr.
+                try open(pipe: &stderrPipe)
+                posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], 2)
+
+                // Close the other ends of the pipe.
+                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[0])
+                posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
             }
         } else {
             posix_spawn_file_actions_adddup2(&fileActions, 1, 1)
@@ -466,17 +508,20 @@ public final class Process: ObjectIdentifierProtocol {
             thread.start()
             self.stdout.thread = thread
 
-            // Close the write end of the stderr pipe.
-            try close(fd: &stderrPipe[1])
+            // Only schedule a thread for stderr if no redirect was requested.
+            if !outputRedirection.redirectStderr {
+                // Close the write end of the stderr pipe.
+                try close(fd: &stderrPipe[1])
 
-            // Create a thread and start reading the stderr output on it.
-            thread = Thread { [weak self] in
-                if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
-                    self?.stderr.result = readResult
+                // Create a thread and start reading the stderr output on it.
+                thread = Thread { [weak self] in
+                    if let readResult = self?.readOutput(onFD: stderrPipe[0], outputClosure: outputClosures?.stderrClosure) {
+                        self?.stderr.result = readResult
+                    }
                 }
+                thread.start()
+                self.stderr.thread = thread
             }
-            thread.start()
-            self.stderr.thread = thread
         }
       #endif // POSIX implementation
     }
@@ -691,6 +736,8 @@ extension Process.Error: CustomStringConvertible {
         switch self {
         case .missingExecutableProgram(let program):
             return "could not find executable for '\(program)'"
+        case .workingDirectoryNotSupported:
+            return "workingDirectory is not supported in this platform"
         }
     }
 }

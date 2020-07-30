@@ -2,7 +2,7 @@
 
 import sys
 
-sys.stderr.write("simple error")
+sys.stderr.write("simple error\n")
 sys.stderr.flush()
 sys.stdout.write("simple output\n")
 sys.stdout.flush()

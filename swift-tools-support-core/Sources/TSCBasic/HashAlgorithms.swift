@@ -8,6 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+
 public protocol HashAlgorithm {
 
     /// Hashes the input bytes, returning the digest.
@@ -166,6 +170,24 @@ public struct SHA256: HashAlgorithm {
             input.append(byte)
         }
         assert((input.count * 8) % 512 == 0, "Expected padded length to be 512.")
+    }
+}
+
+/// Wraps CryptoKit.SHA256 to provide a HashAlgorithm conformance to it.
+@available(macOS 10.15, *)
+public struct CryptoKitSHA256: HashAlgorithm {
+    public init() {
+    }
+
+    public func hash(_ bytes: ByteString) -> ByteString {
+      #if canImport(CryptoKit)
+        return bytes.withData { data in
+            let digest = CryptoKit.SHA256.hash(data: data)
+            return ByteString(digest)
+        }
+      #else
+        fatalError("not supported on this platform")
+      #endif
     }
 }
 

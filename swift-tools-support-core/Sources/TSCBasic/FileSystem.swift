@@ -66,7 +66,7 @@ public enum FileSystemError: Swift.Error {
     case alreadyExistsAtDestination
 }
 
-extension FileSystemError {
+public extension FileSystemError {
     init(errno: Int32) {
         switch errno {
         case TSCLibc.EACCES:
@@ -899,3 +899,16 @@ extension FileSystem {
         }
     }
 }
+
+extension dirent {
+    /// Get the directory name.
+    ///
+    /// This returns nil if the name is not valid UTF8.
+    public var name: String? {
+        var d_name = self.d_name
+        return withUnsafePointer(to: &d_name) {
+            String(validatingUTF8: UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self))
+        }
+    }
+}
+
