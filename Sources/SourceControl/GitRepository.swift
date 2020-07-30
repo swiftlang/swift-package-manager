@@ -139,30 +139,24 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
-        let process: Process
-
         if let cache = setupCacheIfNeeded(for: repository) {
             // Clone the repository using the cache as a reference if possible.
             // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
             // deleted or the package is copied somewhere it cannot reach the cache directory.
-            process = Process(args: Git.tool, "clone", "--reference", cache.path.pathString, "--dissociate",
-                              "--mirror", repository.url, path.pathString, environment: Git.environment)
+            let process = Process(args: Git.tool, "clone", "--mirror",
+                                  cache.path.pathString, path.pathString, environment: Git.environment)
+            try processSet?.add(process)
+            try process.checkGitError(repository: repository)
+
+            let clone = GitRepository(path: path, isWorkingRepo: false)
+            // In destination repo remove the remote which will be pointing to the cached source repo.
+            // Set the original remote to the new clone.
+            try clone.setURL(remote: "origin", url: repository.url)
         } else {
-            process = Process(args: Git.tool, "clone", "--mirror",
-                              repository.url, path.pathString, environment: Git.environment)
-        }
-
-        try processSet?.add(process)
-
-        try process.launch()
-        let result = try process.waitUntilExit()
-
-        // Throw if cloning failed.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw GitCloneError(
-                repository: repository.url,
-                result: result
-            )
+            let process = Process(args: Git.tool, "clone", "--mirror",
+                                  repository.url, path.pathString, environment: Git.environment)
+            try processSet?.add(process)
+            try process.checkGitError(repository: repository)
         }
     }
 
@@ -901,6 +895,24 @@ extension Process {
         // Throw if there was a non zero termination.
         guard result.exitStatus == .terminated(code: 0) else {
             throw ProcessResult.Error.nonZeroExit(result)
+        }
+        return try result.utf8Output()
+    }
+
+    /// Execute a  git subprocess and get its (UTF-8) output if it has a non zero exit.
+    /// - Parameter repository: The repository the process operates on
+    /// - Throws: `GitCloneErrorGitCloneError`
+    /// - Returns: The process output (stdout + stderr).The process output (stdout + stderr).
+    @discardableResult
+    public func checkGitError(repository: RepositorySpecifier) throws -> String {
+        try launch()
+        let result = try waitUntilExit()
+        // Throw if cloning failed.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw GitCloneError(
+                repository: repository.url,
+                result: result
+            )
         }
         return try result.utf8Output()
     }
