@@ -19,7 +19,7 @@ $ ./swift/utils/build-script --preset=buildbot_swiftpm_macos_platform,tools=RA,s
 ### Linux
 
 ```sh
-$ ./swift/utils/build-script" --preset=buildbot_swiftpm_linux_platform,tools=RA,stdlib=RA
+$ ./swift/utils/build-script --preset=buildbot_swiftpm_linux_platform,tools=RA,stdlib=RA
 ```
 
 Once the build is complete, you should be able to run the swiftpm binaries from the build folder.
