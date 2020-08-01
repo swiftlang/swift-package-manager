@@ -1298,7 +1298,8 @@ public class BuildPlan {
             let swiftTarget = SwiftTarget(
                 testDiscoverySrc: src,
                 name: testProduct.name,
-                dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
+                dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
+                toolsVersion: .currentToolsVersion
             )
             let linuxMainTarget = ResolvedTarget(
                 target: swiftTarget,

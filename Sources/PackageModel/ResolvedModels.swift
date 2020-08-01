@@ -207,7 +207,7 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
         return targets.first(where: { $0.type == .executable })!
     }
 
-    public init(product: Product, targets: [ResolvedTarget]) {
+    public init(product: Product, targets: [ResolvedTarget], toolsVersion: ToolsVersion) {
         assert(product.targets.count == targets.count && product.targets.map({ $0.name }) == targets.map({ $0.name }))
         self.underlyingProduct = product
         self.targets = targets
@@ -215,7 +215,7 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
         self.linuxMainTarget = underlyingProduct.linuxMain.map({ linuxMain in
             // Create an executable resolved target with the linux main, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(linuxMain: linuxMain, name: product.name, dependencies: dependencies)
+            let swiftTarget = SwiftTarget(linuxMain: linuxMain, name: product.name, dependencies: dependencies, toolsVersion: toolsVersion)
             return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
         })
     }

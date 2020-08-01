@@ -2039,6 +2039,32 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+    
+    func testTargetToolsVersions() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift"
+        )
+        
+        func checkToolsVersion(_ toolsVersion: ToolsVersion) {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                v: toolsVersion,
+                targets: [ TargetDescription(name: "Foo") ]
+            )
+
+            PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { result, diagnostics in
+                result.checkModule("Foo") { result in
+                    XCTAssertEqual(result.target.toolsVersion, toolsVersion)
+                }
+            }
+        }
+        
+        checkToolsVersion(.v4)
+        checkToolsVersion(.v4_2)
+        checkToolsVersion(.v5_2)
+        checkToolsVersion(.vNext)
+    }
+
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}

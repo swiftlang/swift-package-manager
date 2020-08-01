@@ -132,6 +132,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
+    
+    /// The tools version of the package that declared the target.
+    public let toolsVersion: ToolsVersion
 
     fileprivate init(
         name: String,
@@ -142,7 +145,8 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency],
-        buildSettings: BuildSettings.AssignmentTable
+        buildSettings: BuildSettings.AssignmentTable,
+        toolsVersion: ToolsVersion
     ) {
         self.name = name
         self.bundleName = bundleName
@@ -154,10 +158,11 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.dependencies = dependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
+        self.toolsVersion = toolsVersion
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, bundleName, defaultLocalization, platforms, type, sources, resources, buildSettings
+        case name, bundleName, defaultLocalization, platforms, type, sources, resources, buildSettings, toolsVersion
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -173,6 +178,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
         try container.encode(buildSettings, forKey: .buildSettings)
+        try container.encode(toolsVersion, forKey: .toolsVersion)
     }
 
     required public init(from decoder: Decoder) throws {
@@ -189,6 +195,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.dependencies = []
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
+        self.toolsVersion = try container.decode(ToolsVersion.self, forKey: .toolsVersion)
     }
 }
 
@@ -197,7 +204,7 @@ public class SwiftTarget: Target {
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
 
-    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target.Dependency]) {
+    public init(testDiscoverySrc: Sources, name: String, dependencies: [Target.Dependency], toolsVersion: ToolsVersion) {
         self.swiftVersion = .v5
 
         super.init(
@@ -207,12 +214,13 @@ public class SwiftTarget: Target {
             type: .executable,
             sources: testDiscoverySrc,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            toolsVersion: toolsVersion
         )
     }
 
     /// Create an executable Swift target from linux main test manifest file.
-    init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
+    init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency], toolsVersion: ToolsVersion) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -237,7 +245,8 @@ public class SwiftTarget: Target {
             type: .executable,
             sources: sources,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            toolsVersion: toolsVersion
         )
     }
 
@@ -254,7 +263,8 @@ public class SwiftTarget: Target {
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
-        buildSettings: BuildSettings.AssignmentTable = .init()
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        toolsVersion: ToolsVersion
     ) {
         let type: Kind = isTest ? .test : sources.computeTargetType()
         self.swiftVersion = swiftVersion
@@ -267,7 +277,8 @@ public class SwiftTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            toolsVersion: toolsVersion
         )
     }
 
@@ -311,7 +322,8 @@ public class SystemLibraryTarget: Target {
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
-        providers: [SystemPackageProviderDescription]? = nil
+        providers: [SystemPackageProviderDescription]? = nil,
+        toolsVersion: ToolsVersion
     ) {
         let sources = Sources(paths: [], root: path)
         self.pkgConfig = pkgConfig
@@ -324,7 +336,8 @@ public class SystemLibraryTarget: Target {
             type: .systemModule,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            toolsVersion: toolsVersion
         )
     }
 
@@ -384,7 +397,8 @@ public class ClangTarget: Target {
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
-        buildSettings: BuildSettings.AssignmentTable = .init()
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        toolsVersion: ToolsVersion
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
         let type: Kind = isTest ? .test : sources.computeTargetType()
@@ -402,7 +416,8 @@ public class ClangTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            toolsVersion: toolsVersion
         )
     }
 
@@ -455,7 +470,8 @@ public class BinaryTarget: Target {
         name: String,
         platforms: [SupportedPlatform] = [],
         path: AbsolutePath,
-        artifactSource: ArtifactSource
+        artifactSource: ArtifactSource,
+        toolsVersion: ToolsVersion
     ) {
         self.artifactSource = artifactSource
         let sources = Sources(paths: [], root: path)
@@ -466,7 +482,8 @@ public class BinaryTarget: Target {
             type: .binary,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            toolsVersion: toolsVersion
         )
     }
 

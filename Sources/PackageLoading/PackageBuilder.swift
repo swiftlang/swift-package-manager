@@ -429,7 +429,8 @@ public final class PackageBuilder {
                     platforms: self.platforms(),
                     path: packagePath, isImplicit: true,
                     pkgConfig: manifest.pkgConfig,
-                    providers: manifest.providers)
+                    providers: manifest.providers,
+                    toolsVersion: manifest.toolsVersion)
             ]
         }
 
@@ -628,7 +629,8 @@ public final class PackageBuilder {
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                dependencies: dependencies
+                dependencies: dependencies,
+                toolsVersion: manifest.toolsVersion
             )
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {
@@ -655,7 +657,8 @@ public final class PackageBuilder {
     private func createTarget(
         potentialModule: PotentialModule,
         manifestTarget: TargetDescription?,
-        dependencies: [Target.Dependency]
+        dependencies: [Target.Dependency],
+        toolsVersion: ToolsVersion
     ) throws -> Target? {
         guard let manifestTarget = manifestTarget else { return nil }
 
@@ -671,7 +674,8 @@ public final class PackageBuilder {
                 platforms: self.platforms(),
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
-                providers: manifestTarget.providers
+                providers: manifestTarget.providers,
+                toolsVersion: toolsVersion
             )
         } else if potentialModule.type == .binary {
             let remoteURL = remoteArtifacts.first(where: { $0.path == potentialModule.path })
@@ -680,7 +684,8 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 platforms: self.platforms(),
                 path: potentialModule.path,
-                artifactSource: artifactSource
+                artifactSource: artifactSource,
+                toolsVersion: toolsVersion
             )
         }
 
@@ -739,7 +744,8 @@ public final class PackageBuilder {
                 resources: resources,
                 dependencies: dependencies,
                 swiftVersion: try swiftVersion(),
-                buildSettings: buildSettings
+                buildSettings: buildSettings,
+                toolsVersion: manifest.toolsVersion
             )
         } else {
             return ClangTarget(
@@ -755,7 +761,8 @@ public final class PackageBuilder {
                 sources: sources,
                 resources: resources,
                 dependencies: dependencies,
-                buildSettings: buildSettings
+                buildSettings: buildSettings,
+                toolsVersion: manifest.toolsVersion
             )
         }
     }

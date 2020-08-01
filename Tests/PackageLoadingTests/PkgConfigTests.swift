@@ -22,7 +22,8 @@ extension SystemLibraryTarget {
             name: "Foo",
             path: AbsolutePath("/fake"),
             pkgConfig: pkgConfig.isEmpty ? nil : pkgConfig,
-            providers: providers.isEmpty ? nil : providers)
+            providers: providers.isEmpty ? nil : providers,
+            toolsVersion: .currentToolsVersion)
     }
 }
 

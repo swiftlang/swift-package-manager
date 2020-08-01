@@ -537,7 +537,8 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
     override func constructImpl() -> ResolvedProduct {
         return ResolvedProduct(
             product: product,
-            targets: targets.map({ $0.construct() })
+            targets: targets.map({ $0.construct() }),
+            toolsVersion: packageBuilder.package.manifest.toolsVersion
         )
     }
 }
