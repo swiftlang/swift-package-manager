@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
+import class Foundation.NSFileManager.FileManager
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
@@ -453,7 +454,12 @@ public class Workspace {
         self.resolvedFile = pinsFile
         self.additionalFileRules = additionalFileRules
 
-        let repositoriesPath = fileSystem.homeDirectory.appending(RelativePath("Library/Caches/SwiftPM/Repositories"))
+        /// The default location of the git repository cache
+        let repositoriesPath: AbsolutePath = {
+            let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
+        }()
+
         let repositoryManager = repositoryManager ?? RepositoryManager(
             path: repositoriesPath,
             provider: repositoryProvider,

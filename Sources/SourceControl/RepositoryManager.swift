@@ -186,6 +186,7 @@ public class RepositoryManager {
             // Dispatch the action we want to take on the serial queue of the handle.
             handle.serialQueue.sync {
                 let result: LookupResult
+                let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: self.path)
 
                 switch handle.status {
                 case .available:
@@ -202,7 +203,9 @@ public class RepositoryManager {
                             self.delegate?.handleWillUpdate(handle: handle)
                         }
 
-                        try repo.fetch()
+                        try lock.withLock {
+                            try repo.fetch()
+                        }
 
                         self.callbacksQueue.async {
                             self.delegate?.handleDidUpdate(handle: handle)
@@ -226,8 +229,10 @@ public class RepositoryManager {
                     // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
-                        // Start fetching.
-                        try self.provider.fetch(repository: handle.repository, to: repositoryPath)
+                        try lock.withLock {
+                            // Start fetching.
+                            try self.provider.fetch(repository: handle.repository, to: repositoryPath)
+                        }
                         // Update status to available.
                         handle.status = .available
                         result = .success(handle)
@@ -277,11 +282,14 @@ public class RepositoryManager {
         to destinationPath: AbsolutePath,
         editable: Bool
     ) throws {
-        try provider.cloneCheckout(
-            repository: handle.repository,
-            at: path.appending(handle.subpath),
-            to: destinationPath,
-            editable: editable)
+        let lock = FileLock(name: handle.repository.basename, cachePath: self.path)
+        try lock.withLock {
+            try provider.cloneCheckout(
+                repository: handle.repository,
+                at: path.appending(handle.subpath),
+                to: destinationPath,
+                editable: editable)
+        }
     }
 
     /// Removes the repository.

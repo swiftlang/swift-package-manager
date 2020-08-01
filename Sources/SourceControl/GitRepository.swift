@@ -35,101 +35,14 @@ public class GitRepositoryProvider: RepositoryProvider {
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
 
-    /// The path to the directory where all cached git repositories are stored.
-    private let cachePath: AbsolutePath?
-
-    /// The maximum size of the cache in bytes.
-    private let maxCacheSize: UInt64
-
-    /// The default location of the git repository cache
-    private static let defaultCachePath: AbsolutePath? = {
-        guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
-    }()
-
     /// Initializes a GitRepositoryProvider
     /// - Parameters:
     ///   - processSet: Reference to process set.
     ///   - cachePath: Path to the directory where all cached git repositories are stored. If `nil` is passed as the`cachePath`
     ///   fetched repositores will not be cached.
     ///   - maxCacheSize: Maximum size of the cache in bytes.
-    public init(processSet: ProcessSet? = nil,
-                cachePath: AbsolutePath?,
-                maxCacheSize: UInt64? = nil) {
+    public init(processSet: ProcessSet? = nil) {
         self.processSet = processSet
-        self.cachePath = cachePath
-        self.maxCacheSize = maxCacheSize ?? 20 * 1024 * 1024 * 1024
-    }
-
-    /// Initializes a GitRepositoryProvider
-    /// - Parameters:
-    ///   - processSet: Reference to process set.
-    ///   - maxCacheSize: Maximum size of the cache in bytes.
-    public convenience init(processSet: ProcessSet? = nil,
-                            maxCacheSize: UInt64? = nil) {
-        self.init(processSet: processSet, cachePath: GitRepositoryProvider.defaultCachePath, maxCacheSize: maxCacheSize)
-    }
-
-    /// Clones the  git repository we want to cache into the cache directory if it does not already exist and returns it.
-    /// If the repository is already cached we perfrom a fetch. In case the `RepositoryProvider`has no `cachePath` or an error occured while
-    /// setting up the cache `nil` is returned.
-    private func setupCacheIfNeeded(for repository: RepositorySpecifier) throws -> GitRepository? {
-        guard let cachePath = cachePath else { return nil }
-        let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
-
-        do {
-            let process: Process
-
-            if localFileSystem.exists(repositoryPath) {
-                process = Process(args: Git.tool, "-C", repositoryPath.pathString, "fetch")
-            } else {
-                try localFileSystem.createDirectory(repositoryPath, recursive: true)
-                // We are cloning each repository into its own directory instead of using one large bare repository and
-                // adding a remote for each repository. This avoids the large overhead that occurs when git tries to
-                // determine if it has any revision in common with the remote repository, which involves sending a list
-                // of all local commits to the server (a potentially huge list depending on cache size
-                // with most commits unrelated to the repository we actually want to fetch).
-                process = Process(args: Git.tool, "clone", "--mirror", repository.url, repositoryPath.pathString)
-            }
-
-            try processSet?.add(process)
-            let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
-            try lock.withLock {
-                try process.checkNonZeroExit()
-            }
-        } catch {
-            return nil
-        }
-
-        return GitRepository(path: repositoryPath, isWorkingRepo: false)
-    }
-
-    /// Purges git repositories from the cache directory in order to free some space.
-    private func purgeCacheIfNeeded() {
-        guard let cachePath = cachePath else { return }
-        do {
-            let cacheSize = try localFileSystem.getDirectorySize(cachePath)
-            let desiredCacheSize = maxCacheSize - (maxCacheSize / 8)
-
-            guard cacheSize > maxCacheSize else { return }
-
-            let repositories = try localFileSystem.getDirectoryContents(cachePath)
-                .map { GitRepository(path:  cachePath.appending(component: $0), isWorkingRepo: false) }
-                .sorted { try localFileSystem.getFileInfo($0.path).modTime < localFileSystem.getFileInfo($1.path).modTime }
-
-            // Purges repositories until the desired cache size is reached.
-            for repository in repositories {
-                let cacheSize = try localFileSystem.getDirectorySize(cachePath)
-                guard cacheSize > desiredCacheSize else { break }
-                let lock = FileLock(name: repository.path.basename, cachePath: cachePath)
-                try lock.withLock {
-                    try localFileSystem.removeFileTree(repository.path)
-                }
-            }
-        } catch {
-            // The cache seems to be broken. Lets remove everything.
-            print("Error purging cache")
-        }
     }
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
@@ -138,34 +51,23 @@ public class GitRepositoryProvider: RepositoryProvider {
         // NOTE: We intentionally do not create a shallow clone here; the
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
-        defer { purgeCacheIfNeeded() }
-
         precondition(!localFileSystem.exists(path))
 
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
-        if let cachePath = cachePath, let cache = try setupCacheIfNeeded(for: repository) {
-            // Clone the repository using the cache as a reference if possible.
-            // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
-            // deleted or the package is copied somewhere it cannot reach the cache directory.
-            let process = Process(args: Git.tool, "clone", "--mirror",
-                                  cache.path.pathString, path.pathString, environment: Git.environment)
-            try processSet?.add(process)
-            let lock = FileLock(name: cache.path.basename, cachePath: cachePath)
-            try lock.withLock {
-                try process.checkGitError(repository: repository)
-            }
+        let process = Process(args: Git.tool, "clone", "--mirror",
+                              repository.url, path.pathString, environment: Git.environment)
+        try processSet?.add(process)
 
-            let clone = GitRepository(path: path, isWorkingRepo: false)
-            // In destination repo remove the remote which will be pointing to the cached source repo.
-            // Set the original remote to the new clone.
-            try clone.setURL(remote: "origin", url: repository.url)
-        } else {
-            let process = Process(args: Git.tool, "clone", "--mirror",
-                                  repository.url, path.pathString, environment: Git.environment)
-            try processSet?.add(process)
-            try process.checkGitError(repository: repository)
+        try process.launch()
+        let result = try process.waitUntilExit()
+        // Throw if cloning failed.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw GitCloneError(
+                repository: repository.url,
+                result: result
+            )
         }
     }
 
@@ -179,33 +81,20 @@ public class GitRepositoryProvider: RepositoryProvider {
         to destinationPath: AbsolutePath,
         editable: Bool
     ) throws {
-
-        if editable {
-            // For editable clones, i.e. the user is expected to directly work on them, first we create
-            // a clone from our cache of repositories and then we replace the remote to the one originally
-            // present in the bare repository.
-            try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", "--no-checkout", sourcePath.pathString, destinationPath.pathString)
-            // The default name of the remote.
-            let origin = "origin"
-            // In destination repo remove the remote which will be pointing to the source repo.
-            let clone = GitRepository(path: destinationPath)
-            // Set the original remote to the new clone.
-            try clone.setURL(remote: origin, url: repository.url)
-            // FIXME: This is unfortunate that we have to fetch to update remote's data.
-            try clone.fetch()
-        } else {
-            // Clone using a shared object store with the canonical copy.
-            //
-            // We currently expect using shared storage here to be safe because we
-            // only ever expect to attempt to use the working copy to materialize a
-            // revision we selected in response to dependency resolution, and if we
-            // re-resolve such that the objects in this repository changed, we would
-            // only ever expect to get back a revision that remains present in the
-            // object storage.
-            try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", "--shared", "--no-checkout", sourcePath.pathString, destinationPath.pathString)
-        }
+        // For editable clones, i.e. the user is expected to directly work on them, first we create
+        // a clone from our cache of repositories and then we replace the remote to the one originally
+        // present in the bare repository.
+        try Process.checkNonZeroExit(args: Git.tool, "clone", "--no-checkout", sourcePath.pathString, destinationPath.pathString)
+        // The default name of the remote.
+        let origin = "origin"
+        // In destination repo remove the remote which will be pointing to the source repo.
+        let clone = GitRepository(path: destinationPath)
+        // Set the original remote to the new clone.
+        try clone.setURL(remote: origin, url: repository.url)
+        // FIXME: This is unfortunate that we have to fetch to update remote's data.
+        try clone.fetch()
+//        try Process.checkNonZeroExit(args: Git.tool, "clone", "--reference", sourcePath.pathString,
+//                                     repository.url, "--dissociate", destinationPath.pathString)
     }
 
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
@@ -877,52 +766,5 @@ private class GitFileSystemView: FileSystem {
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         fatalError("will never be supported")
-    }
-}
-
-extension FileSystem {
-    /// Recursively sums up the file size in bytes of all files inside a directory.
-    func getDirectorySize(_ path: AbsolutePath) throws -> UInt64 {
-        if isFile(path) {
-            return try getFileInfo(path).size
-        } else if isDirectory(path) {
-            return try getDirectoryContents(path).reduce(0) { $0 + (try getDirectorySize(path.appending(component: $1))) }
-        } else {
-            return 0
-        }
-    }
-}
-
-extension Process {
-
-    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
-    /// - Returns: The process output (stdout + stderr).
-    @discardableResult
-    public func checkNonZeroExit() throws -> String {
-        try launch()
-        let result = try waitUntilExit()
-        // Throw if there was a non zero termination.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
-        }
-        return try result.utf8Output()
-    }
-
-    /// Execute a  git subprocess and get its (UTF-8) output if it has a non zero exit.
-    /// - Parameter repository: The repository the process operates on
-    /// - Throws: `GitCloneErrorGitCloneError`
-    /// - Returns: The process output (stdout + stderr).The process output (stdout + stderr).
-    @discardableResult
-    public func checkGitError(repository: RepositorySpecifier) throws -> String {
-        try launch()
-        let result = try waitUntilExit()
-        // Throw if cloning failed.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw GitCloneError(
-                repository: repository.url,
-                result: result
-            )
-        }
-        return try result.utf8Output()
     }
 }
