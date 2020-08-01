@@ -8,8 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import func Foundation.NSUserName
-import class Foundation.ProcessInfo
+import Foundation
 import Dispatch
 
 import TSCLibc
@@ -855,10 +854,15 @@ public class SwiftTool<Options: ToolOptions> {
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath
+                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.cachePath()
             )
         })
     }()
+
+    func cachePath() -> AbsolutePath {
+        let cachePath = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path
+        return cachePath.map{ AbsolutePath($0).appending(component: "org.swift.swiftpm") } ?? self.buildPath
+    }
 
     /// An enum indicating the execution status of run commands.
     enum ExecutionStatus {
