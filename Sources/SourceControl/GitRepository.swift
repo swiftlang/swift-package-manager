@@ -73,7 +73,7 @@ public class GitRepositoryProvider: RepositoryProvider {
     /// Clones the  git repository we want to cache into the cache directory if it does not already exist and returns it.
     /// If the repository is already cached we perfrom a fetch. In case the `RepositoryProvider`has no `cachePath` or an error occured while
     /// setting up the cache `nil` is returned.
-    private func setupCacheIfNeeded(for repository: RepositorySpecifier) -> GitRepository? {
+    private func setupCacheIfNeeded(for repository: RepositorySpecifier) throws -> GitRepository? {
         guard let cachePath = cachePath else { return nil }
         let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
 
@@ -81,7 +81,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             let process: Process
 
             if localFileSystem.exists(repositoryPath) {
-                process = Process(args: Git.tool, "-C", cachePath.pathString, "fetch")
+                process = Process(args: Git.tool, "-C", repositoryPath.pathString, "fetch")
             } else {
                 try localFileSystem.createDirectory(repositoryPath, recursive: true)
                 // We are cloning each repository into its own directory instead of using one large bare repository and
@@ -93,7 +93,10 @@ public class GitRepositoryProvider: RepositoryProvider {
             }
 
             try processSet?.add(process)
-            try process.checkNonZeroExit()
+            let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
+            try lock.withLock {
+                try process.checkNonZeroExit()
+            }
         } catch {
             return nil
         }
@@ -118,11 +121,14 @@ public class GitRepositoryProvider: RepositoryProvider {
             for repository in repositories {
                 let cacheSize = try localFileSystem.getDirectorySize(cachePath)
                 guard cacheSize > desiredCacheSize else { break }
-                try localFileSystem.removeFileTree(repository.path)
+                let lock = FileLock(name: repository.path.basename, cachePath: cachePath)
+                try lock.withLock {
+                    try localFileSystem.removeFileTree(repository.path)
+                }
             }
         } catch {
             // The cache seems to be broken. Lets remove everything.
-            try? localFileSystem.removeFileTree(cachePath)
+            print("Error purging cache")
         }
     }
 
@@ -139,14 +145,17 @@ public class GitRepositoryProvider: RepositoryProvider {
         // FIXME: We need infrastructure in this subsystem for reporting
         // status information.
 
-        if let cache = setupCacheIfNeeded(for: repository) {
+        if let cachePath = cachePath, let cache = try setupCacheIfNeeded(for: repository) {
             // Clone the repository using the cache as a reference if possible.
             // Git objects are not shared (--dissociate) to avoid problems that might occur when the cache is
             // deleted or the package is copied somewhere it cannot reach the cache directory.
             let process = Process(args: Git.tool, "clone", "--mirror",
                                   cache.path.pathString, path.pathString, environment: Git.environment)
             try processSet?.add(process)
-            try process.checkGitError(repository: repository)
+            let lock = FileLock(name: cache.path.basename, cachePath: cachePath)
+            try lock.withLock {
+                try process.checkGitError(repository: repository)
+            }
 
             let clone = GitRepository(path: path, isWorkingRepo: false)
             // In destination repo remove the remote which will be pointing to the cached source repo.
