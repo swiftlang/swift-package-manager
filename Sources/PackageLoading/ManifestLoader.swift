@@ -446,7 +446,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 packageIdentity: packageIdentity,
                 pathOrContents: pathOrContents,
                 toolsVersion: toolsVersion,
-                env: ProcessEnv.vars,
+                env: [:],
                 swiftpmVersion: Versioning.currentVersion.displayString
             )
            result = try loadManifestFromCache(key: key, cache: cache)
