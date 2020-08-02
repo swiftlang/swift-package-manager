@@ -79,22 +79,13 @@ public class GitRepositoryProvider: RepositoryProvider {
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        editable: Bool
+        editable: Bool = false
     ) throws {
         // For editable clones, i.e. the user is expected to directly work on them, first we create
         // a clone from our cache of repositories and then we replace the remote to the one originally
         // present in the bare repository.
-        try Process.checkNonZeroExit(args: Git.tool, "clone", "--no-checkout", sourcePath.pathString, destinationPath.pathString)
-        // The default name of the remote.
-        let origin = "origin"
-        // In destination repo remove the remote which will be pointing to the source repo.
-        let clone = GitRepository(path: destinationPath)
-        // Set the original remote to the new clone.
-        try clone.setURL(remote: origin, url: repository.url)
-        // FIXME: This is unfortunate that we have to fetch to update remote's data.
-        try clone.fetch()
-//        try Process.checkNonZeroExit(args: Git.tool, "clone", "--reference", sourcePath.pathString,
-//                                     repository.url, "--dissociate", destinationPath.pathString)
+        try Process.checkNonZeroExit(args: Git.tool, "clone", "--no-checkout", "--reference", sourcePath.pathString,
+                                     repository.url, "--dissociate", destinationPath.pathString)
     }
 
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
