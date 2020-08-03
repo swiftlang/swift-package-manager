@@ -49,6 +49,12 @@ public struct PackageGraph {
         return rootPackages.contains(package)
     }
 
+    /// Looks up and returns the package that contains the target.
+    public func package(for target: ResolvedTarget) -> ResolvedPackage? {
+        // FIXME: This can be easily cached.
+        return packages.first { $0.targets.contains(target) }
+    }
+
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 

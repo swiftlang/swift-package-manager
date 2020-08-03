@@ -1611,8 +1611,11 @@ public class BuildPlan {
 
                 // Add the modulemap of the dependency if it has one.
                 if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
-                    if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                    let dependencyTargetToolsVersion = graph.package(for: dependencyTargetDescription.target)!.manifest.toolsVersion
+                    if dependencyTargetToolsVersion >= .v5_2 {
+                        if let moduleMap = dependencyTargetDescription.moduleMap {
+                            clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                        }
                     }
                 }
             case let target as SystemLibraryTarget:

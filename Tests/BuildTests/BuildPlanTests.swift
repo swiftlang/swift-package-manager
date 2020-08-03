@@ -445,9 +445,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=exe",
             "-I", "/Pkg/Sources/exe/include", "-I", "/Pkg/Sources/lib/include",
-            "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
             "-I", "/ExtPkg/Sources/extlib/include",
-            "-fmodule-map-file=/path/to/build/debug/extlib.build/module.modulemap",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache",
         ]
         XCTAssertEqual(exe.basicArguments(), args)
@@ -481,6 +479,51 @@ final class BuildPlanTests: XCTestCase {
           /path/to/build/debug/lib.build/lib.c.o
 
           """)
+    }
+    
+    /// Tests that Clang modules defined in packages with a tools version of 5.2 and later get a module also when used by other Clang targets (not just Swift targets).
+    func testClangToClangModules() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.c",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+        
+        for toolsVersion in [ToolsVersion.v4_2, ToolsVersion.v5_2, ToolsVersion.v5_3] {
+            let diagnostics = DiagnosticsEngine()
+            let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+                manifests: [
+                    Manifest.createManifest(
+                        name: "Pkg",
+                        path: "/Pkg",
+                        url: "/Pkg",
+                        v: toolsVersion,
+                        packageKind: .root,
+                        dependencies: [],
+                        targets: [
+                            TargetDescription(name: "exe", dependencies: ["lib"]),
+                            TargetDescription(name: "lib"),
+                        ]
+                    )
+                ]
+            )
+            XCTAssertNoDiagnostics(diagnostics)
+
+            let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+
+            result.checkProductsCount(1)
+            result.checkTargetsCount(2)
+
+            let exe = try result.target(for: "exe").clangTarget()
+            
+            let expectedArg = "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap"
+            if toolsVersion >= .v5_2 {
+                XCTAssertMatch(exe.basicArguments(), [.contains(expectedArg)])
+            }
+            else {
+                XCTAssertNoMatch(exe.basicArguments(), [.contains(expectedArg)])
+            }
+        }
     }
 
     func testClangConditionalDependency() throws {
