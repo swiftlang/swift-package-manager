@@ -406,4 +406,30 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertTrue(error is ManifestParseError, "unexpected error: \(error)")
         }
     }
+
+    func testManifestLoadingIsSandboxed() throws {
+        #if os(macOS) // Sandboxing is only done on macOS today.
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import Foundation
+
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
+            try! task.run()
+
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
+            XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
+        }
+        #endif
+    }
 }
