@@ -46,6 +46,9 @@ public enum XCBuildMessage {
     public struct TargetStartedInfo {
         public enum Kind: String {
             case native = "Native"
+            case aggregate = "Aggregate"
+            case external = "External"
+            case packageProduct = "Package Product"
         }
 
         public let targetID: Int
