@@ -413,9 +413,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
         stream <<< """
             import Foundation
 
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
-            try! task.run()
+            try! "should not be allowed".write(to: URL(fileURLWithPath: "/tmp/file.txt"), atomically: true, encoding: String.Encoding.utf8)
 
             import PackageDescription
             let package = Package(
