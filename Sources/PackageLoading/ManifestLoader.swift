@@ -711,7 +711,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         moduleCachePath.map({ AbsolutePath($0) })
                     ].compactMap({ $0 })
                     let profile = sandboxProfile(toolsVersion: toolsVersion, cacheDirectories: cacheDirectories)
-                    cmd += ["sandbox-exec", "-p", profile]
+                    cmd = ["sandbox-exec", "-p", profile] + cmd
                 }
               #endif
 
@@ -834,9 +834,9 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
         for directory in cacheDirectories {
             stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
         }
+        stream <<< ")" <<< "\n"
     }
 
-    stream <<< ")" <<< "\n"
     return stream.bytes.description
 }
 
