@@ -62,6 +62,8 @@ public struct SwiftPackageTool: ParsableCommand {
     var swiftOptions: SwiftToolOptions
 
     public init() {}
+
+    public static var _errorLabel: String { "error" }
 }
 
 extension DescribeMode: ExpressibleByArgument {}

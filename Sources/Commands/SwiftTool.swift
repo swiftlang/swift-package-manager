@@ -218,6 +218,8 @@ extension SwiftCommand {
             throw ExitCode.failure
         }
     }
+
+    public static var _errorLabel: String { "error" }
 }
 
 public class SwiftTool {
