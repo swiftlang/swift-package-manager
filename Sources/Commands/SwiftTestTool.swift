@@ -83,11 +83,14 @@ public class TestToolOptions: ToolOptions {
     /// If the path of the exported code coverage JSON should be printed.
     var shouldPrintCodeCovPath = false
 
-    var testCaseSpecifier: TestCaseSpecifier {
-        testCaseSpecifierOverride() ?? _testCaseSpecifier
+    var testCaseSpecifier: TestCaseSpecifier = .none
+
+    var testCaseSkip: TestCaseSpecifier {
+        // TODO: Remove this once the environment variable is no longer used.
+        testCaseSkipOverride() ?? _testCaseSkip
     }
 
-    var _testCaseSpecifier: TestCaseSpecifier = .none
+    var _testCaseSkip: TestCaseSpecifier = .none
 
     /// Path where the xUnit xml file should be generated.
     var xUnitOutput: AbsolutePath?
@@ -97,7 +100,7 @@ public class TestToolOptions: ToolOptions {
     public var testProduct: String?
 
     /// Returns the test case specifier if overridden in the env.
-    private func testCaseSpecifierOverride() -> TestCaseSpecifier? {
+    private func testCaseSkipOverride() -> TestCaseSpecifier? {
         guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }
@@ -126,7 +129,8 @@ public class TestToolOptions: ToolOptions {
 /// This is used to filter tests to run
 ///   .none     => No filtering
 ///   .specific => Specify test with fully quantified name
-///   .regex    => RegEx patterns
+///   .regex    => RegEx patterns for tests to run
+///   .skip     => RegEx patterns for tests to skip
 public enum TestCaseSpecifier {
     case none
     case specific(String)
@@ -168,7 +172,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
         case .listTests:
             let testProducts = try buildTestsIfNeeded()
             let testSuites = try getTestSuites(in: testProducts)
-            let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+            let tests = testSuites
+                .filteredTests(specifier: options.testCaseSpecifier)
+                .skippedTests(specifier: options.testCaseSkip)
 
             // Print the tests.
             for test in tests {
@@ -208,7 +214,11 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
             switch options.testCaseSpecifier {
             case .none:
-                xctestArg = nil
+                if case .skip = options.testCaseSkip {
+                    fallthrough
+                } else {
+                    xctestArg = nil
+                }
 
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
@@ -218,7 +228,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
                 // Find the tests we need to run.
                 let testSuites = try getTestSuites(in: testProducts)
-                let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+                let tests = testSuites
+                    .filteredTests(specifier: options.testCaseSpecifier)
+                    .skippedTests(specifier: options.testCaseSkip)
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
@@ -252,7 +264,9 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             let toolchain = try getToolchain()
             let testProducts = try buildTestsIfNeeded()
             let testSuites = try getTestSuites(in: testProducts)
-            let tests = testSuites.filteredTests(specifier: options.testCaseSpecifier)
+            let tests = testSuites
+                .filteredTests(specifier: options.testCaseSpecifier)
+                .skippedTests(specifier: options.testCaseSkip)
             let buildParameters = try self.buildParameters()
 
             // If there were no matches, emit a warning and exit.
@@ -408,7 +422,7 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
 
         binder.bind(
             option: parser.add(option: "--specifier", shortName: "-s", kind: String.self),
-            to: { $0._testCaseSpecifier = .specific($1) })
+            to: { $0.testCaseSpecifier = .specific($1) })
 
         binder.bind(
             option: parser.add(option: "--xunit-output", kind: PathArgument.self),
@@ -418,7 +432,12 @@ public class SwiftTestTool: SwiftTool<TestToolOptions> {
             option: parser.add(option: "--filter", kind: [String].self,
                 usage: "Run test cases matching regular expression, Format: <test-target>.<test-case> or " +
                     "<test-target>.<test-case>/<test>"),
-            to: { $0._testCaseSpecifier = .regex($1) })
+            to: { $0.testCaseSpecifier = .regex($1) })
+
+        binder.bind(
+            option: parser.add(option: "--skip", kind: [String].self,
+                usage: "Skip test cases matching regular expression, Example: --skip PerformanceTests"),
+            to: { $0._testCaseSkip = .skip($1) })
 
         binder.bind(
             option: parser.add(option: "--enable-code-coverage", kind: Bool.self,
@@ -967,14 +986,28 @@ fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite]
             })
         case .specific(let name):
             return allTests.filter{ $0.specifier == name }
+        case .skip:
+            fatalError("Tests to skip should never have been passed here.")
+        }
+    }
+}
+
+fileprivate extension Array where Element == UnitTest {
+    /// Skip tests matching the provided specifier
+    func skippedTests(specifier: TestCaseSpecifier) -> [UnitTest] {
+        switch specifier {
+        case .none:
+            return self
         case .skip(let skippedTests):
-            var result = allTests
+            var result = self
             for skippedTest in skippedTests {
                 result = result.filter{
                     $0.specifier.range(of: skippedTest, options: .regularExpression) == nil
                 }
             }
             return result
+        case .regex, .specific:
+            fatalError("Tests to filter should never have been passed here.")
         }
     }
 }
@@ -1086,6 +1119,6 @@ final class XUnitGenerator {
 
 private extension Diagnostic.Message {
     static var noMatchingTests: Diagnostic.Message {
-        .warning("'--filter' predicate did not match any test case")
+        .warning("No matching test cases were run")
     }
 }

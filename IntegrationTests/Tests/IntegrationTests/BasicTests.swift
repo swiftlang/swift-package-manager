@@ -222,13 +222,13 @@ final class BasicTests: XCTestCase {
                         func testBaz() { }
                     }
                     """))
-            let testOutput = try sh(swiftTest, "--package-path", toolDir, "--filter", "MyTests.*").stderr
+            let testOutput = try sh(swiftTest, "--package-path", toolDir, "--filter", "MyTests.*", "--skip", "testBaz").stderr
 
             // Check the test log.
             XCTAssertContents(testOutput) { checker in
                 checker.check(.contains("Test Suite 'MyTests' started"))
                 checker.check(.contains("Test Suite 'MyTests' passed"))
-                checker.check(.contains("Executed 3 tests, with 0 failures"))
+                checker.check(.contains("Executed 2 tests, with 0 failures"))
             }
         }
     }

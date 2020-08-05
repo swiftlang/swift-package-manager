@@ -266,10 +266,34 @@ class MiscellaneousTestCase: XCTestCase {
         }
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "--filter", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
-            XCTAssertMatch(stdout, .contains("testExample1"))
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*1", "--filter", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertNoMatch(stdout, .contains("testExample1"))
+            XCTAssertMatch(stdout, .contains("testExample2"))
+            XCTAssertMatch(stdout, .contains("testSureFailure"))
+        }
+    }
+
+    func testSwiftTestSkip() throws {
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--skip", "ParallelTestsTests", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
+        }
+
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*2", "--filter", "TestsFailure", "--skip", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertMatch(stdout, .contains("testExample1"))
+            XCTAssertNoMatch(stdout, .contains("testExample2"))
+            XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+        }
+
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["--skip", "Tests", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertNoMatch(stdout, .contains("testExample1"))
+            XCTAssertNoMatch(stdout, .contains("testExample2"))
+            XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+            XCTAssertMatch(stderr, .contains("No matching test cases were run"))
         }
     }
 
