@@ -13,20 +13,20 @@ add_library(TSCUtility
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
-  dlopen.swift
   Downloader.swift
-  FloatingPointExtensions.swift
   FSWatch.swift
+  FloatingPointExtensions.swift
   Git.swift
   IndexStore.swift
   InterruptHandler.swift
   JSONMessageStreamingParser.swift
-  misc.swift
   OSLog.swift
+  PersistenceCache.swift
   PkgConfig.swift
   Platform.swift
   PolymorphicCodable.swift
   ProgressAnimation.swift
+  SQLite.swift
   SimplePersistence.swift
   StringExtensions.swift
   StringMangling.swift
@@ -34,6 +34,8 @@ add_library(TSCUtility
   Verbosity.swift
   Version.swift
   Versioning.swift
+  dlopen.swift
+  misc.swift
 )
 target_link_libraries(TSCUtility PUBLIC
   TSCBasic)

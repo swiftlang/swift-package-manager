@@ -11,7 +11,6 @@
 import TSCBasic
 import PackageModel
 import TSCUtility
-import SPMLLBuild
 import Foundation
 public typealias FileSystem = TSCBasic.FileSystem
 
@@ -137,6 +136,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
     let cacheDir: AbsolutePath!
     let delegate: ManifestLoaderDelegate?
+    let cache: PersistentCacheProtocol?
 
     public init(
         manifestResources: ManifestResourceProvider,
@@ -155,6 +155,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             try? localFileSystem.createDirectory(cacheDir, recursive: true)
         }
         self.cacheDir = cacheDir.map(resolveSymlinks)
+
+        self.cache = cacheDir.flatMap {
+            // FIXME: It would be nice to emit a warning if we weren't able to create the cache.
+            try? SQLiteBackedPersistentCache(cacheFilePath: $0.appending(component: "manifest.db"))
+        }
     }
 
     @available(*, deprecated)
@@ -465,16 +470,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             pathOrContents = .path(inputPath)
         }
 
-        if !self.isManifestCachingEnabled {
-            // Load directly if manifest caching is not enabled.
+        if let cache = self.cache {
+            let key = ManifestCacheKey(
+                packageIdentity: packageIdentity,
+                pathOrContents: pathOrContents,
+                toolsVersion: toolsVersion,
+                env: ProcessEnv.vars,
+                swiftpmVersion: Versioning.currentVersion.displayString
+            )
+           result = try loadManifestFromCache(key: key, cache: cache)
+        } else {
             result = parse(
                 packageIdentity: packageIdentity,
                 pathOrContents: pathOrContents, toolsVersion: toolsVersion)
-        } else {
-            let key = ManifestLoadRule.RuleKey(
-                packageIdentity: packageIdentity,
-                pathOrContents: pathOrContents, toolsVersion: toolsVersion)
-            result = try getEngine().build(key: key)
         }
 
         // Throw now if we weren't able to parse the manifest.
@@ -495,7 +503,68 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return parsedManifest
     }
 
-    fileprivate struct ManifestParseResult: LLBuildValue {
+    fileprivate func loadManifestFromCache(
+        key: ManifestCacheKey,
+        cache: PersistentCacheProtocol
+    ) throws -> ManifestParseResult {
+        let keyHash = try key.computeHash()
+        let cacheHit = try keyHash.withData {
+            try cache.get(key: $0)
+        }.flatMap {
+            try? JSONDecoder().decode(ManifestParseResult.self, from: $0)
+        }
+        if let result = cacheHit {
+            return result
+        }
+
+        let result = parse(
+            packageIdentity: key.packageIdentity,
+            pathOrContents: key.pathOrContents,
+            toolsVersion: key.toolsVersion
+        )
+
+        let encoder = JSONEncoder()
+        if #available(macOS 10.15, *) {
+            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        }
+
+        try keyHash.withData {
+            try cache.put(key: $0, value: encoder.encode(result))
+        }
+
+        return result
+    }
+
+    fileprivate struct ManifestCacheKey {
+        let packageIdentity: String
+        let pathOrContents: ManifestPathOrContents
+        let toolsVersion: ToolsVersion
+        let env: [String: String]
+        let swiftpmVersion: String
+
+        func computeHash() throws -> ByteString {
+            let stream = BufferedOutputByteStream()
+            stream <<< packageIdentity
+
+            switch pathOrContents {
+            case .path(let path):
+                stream <<< (try localFileSystem.readFileContents(path))
+            case .contents(let contents):
+                stream <<< contents
+            }
+
+            stream <<< toolsVersion.description
+
+            for key in env.keys.sorted(by: >) {
+                stream <<< key <<< env[key]!
+            }
+            stream <<< swiftpmVersion
+
+            return SHA256().hash(stream.bytes)
+        }
+    }
+
+    fileprivate struct ManifestParseResult: Codable {
         var hasErrors: Bool {
             return parsedManifest == nil
         }
@@ -739,25 +808,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
         return resources.binDir ?? resources.libDir.appending(version.runtimeSubpath)
     }
-
-    /// Returns the build engine.
-    private func getEngine() throws -> LLBuildEngine {
-        if let engine = _engine {
-            return engine
-        }
-
-        let cacheDelegate = ManifestCacheDelegate()
-        let engine = LLBuildEngine(delegate: cacheDelegate)
-        cacheDelegate.loader = self
-
-        if isManifestCachingEnabled {
-            try localFileSystem.createDirectory(cacheDir, recursive: true)
-            try engine.attachDB(path: cacheDir.appending(component: "manifest.db").pathString)
-        }
-        _engine = engine
-        return engine
-    }
-    private var _engine: LLBuildEngine?
 }
 
 /// Returns the sandbox profile to be used when parsing manifest on macOS.
@@ -790,229 +840,11 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
     return stream.bytes.description
 }
 
-// MARK:- Caching support.
-
-final class ManifestCacheDelegate: LLBuildEngineDelegate {
-
-    weak var loader: ManifestLoader!
-
-    func lookupRule(rule: String, key: Key) -> Rule {
-        switch rule {
-        case ManifestLoadRule.ruleName:
-            return ManifestLoadRule(key, loader: loader)
-        case FileInfoRule.ruleName:
-            return FileInfoRule(key)
-        case SwiftPMVersionRule.ruleName:
-            return SwiftPMVersionRule()
-        case ProcessEnvRule.ruleName:
-            return ProcessEnvRule()
-        default:
-            fatalError("Unknown rule \(rule)")
-        }
-    }
-}
-
-/// A rule to load a package manifest.
-///
-/// The rule can currently only load manifests which are physically present on
-/// the local file system. The rule will re-run if the manifest is modified.
-final class ManifestLoadRule: LLBuildRule {
-
-    fileprivate struct RuleKey: LLBuildKey {
-        typealias BuildValue = ManifestLoader.ManifestParseResult
-        typealias BuildRule = ManifestLoadRule
-
-        let packageIdentity: String
-        let pathOrContents: ManifestPathOrContents
-        let toolsVersion: ToolsVersion
-    }
-
-    override class var ruleName: String { return "\(ManifestLoadRule.self)" }
-
-    private let key: RuleKey
-    private weak var loader: ManifestLoader!
-
-    init(_ key: Key, loader: ManifestLoader) {
-        self.key = RuleKey(key)
-        self.loader = loader
-        super.init()
-    }
-
-    override func start(_ engine: LLTaskBuildEngine) {
-        // FIXME: Ideally, we should expose an API in the manifest file to track individual
-        // environment variables instead of blindly invalidating when *anything* changes.
-        engine.taskNeedsInput(ProcessEnvRule.RuleKey(), inputID: 1)
-
-        engine.taskNeedsInput(SwiftPMVersionRule.RuleKey(), inputID: 2)
-        if case .path(let path) = key.pathOrContents {
-            engine.taskNeedsInput(FileInfoRule.RuleKey(path: path), inputID: 3)
-        }
-    }
-
-    override func isResultValid(_ priorValue: Value) -> Bool {
-        // Always rebuild if we had a failure.
-        do {
-            let value = try RuleKey.BuildValue(priorValue)
-            if value.hasErrors { return false }
-        } catch {
-            return false
-        }
-
-        return super.isResultValid(priorValue)
-    }
-
-    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        let value = loader.parse(
-            packageIdentity: key.packageIdentity,
-            pathOrContents: key.pathOrContents, toolsVersion: key.toolsVersion)
-        engine.taskIsComplete(value)
-    }
-}
-
-// FIXME: Find a proper place for this rule.
-/// A rule to compute the current process environment.
-///
-/// This rule will always run.
-final class ProcessEnvRule: LLBuildRule {
-
-    struct RuleKey: LLBuildKey {
-        typealias BuildValue = RuleValue
-        typealias BuildRule = ProcessEnvRule
-    }
-
-    struct RuleValue: LLBuildValue, Equatable {
-        let env: [String: String]
-    }
-
-    override class var ruleName: String { return "\(ProcessEnvRule.self)" }
-
-    override func isResultValid(_ priorValue: Value) -> Bool {
-        // Always rebuild this rule.
-        return false
-    }
-
-    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        let env = ProcessInfo.processInfo.environment
-        engine.taskIsComplete(RuleValue(env: env))
-    }
-}
-
-// FIXME: Find a proper place for this rule.
-/// A rule to get file info of a file on disk.
-final class FileInfoRule: LLBuildRule {
-
-    struct RuleKey: LLBuildKey {
-        typealias BuildValue = RuleValue
-        typealias BuildRule = FileInfoRule
-
-        let path: AbsolutePath
-    }
-
-    typealias RuleValue = CodableResult<TSCBasic.FileInfo, StringError>
-
-    override class var ruleName: String { return "\(FileInfoRule.self)" }
-
-    private let key: RuleKey
-
-    init(_ key: Key) {
-        self.key = RuleKey(key)
-        super.init()
-    }
-
-    override func isResultValid(_ priorValue: Value) -> Bool {
-        let priorValue = try? RuleValue(priorValue)
-
-        // Always rebuild if we had a failure.
-        if case .failure = priorValue?.result {
-            return false
-        }
-        return getFileInfo(key.path).result == priorValue?.result
-    }
-
-    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        engine.taskIsComplete(getFileInfo(key.path))
-    }
-
-    private func getFileInfo(_ path: AbsolutePath) -> RuleValue {
-        return RuleValue(body: {
-            try localFileSystem.getFileInfo(key.path)
-        })
-    }
-}
-
-// FIXME: Find a proper place for this rule.
-/// A rule to compute the current version of the pacakge manager.
-///
-/// This rule will always run.
-final class SwiftPMVersionRule: LLBuildRule {
-
-    struct RuleKey: LLBuildKey {
-        typealias BuildValue = RuleValue
-        typealias BuildRule = SwiftPMVersionRule
-    }
-
-    struct RuleValue: LLBuildValue, Equatable {
-        let version: String
-    }
-
-    override class var ruleName: String { return "\(SwiftPMVersionRule.self)" }
-
-    override func isResultValid(_ priorValue: Value) -> Bool {
-        // Always rebuild this rule.
-        return false
-    }
-
-    override func inputsAvailable(_ engine: LLTaskBuildEngine) {
-        // FIXME: We need to include git hash in the version
-        // string to make this rule more correct.
-        let version = Versioning.currentVersion.displayString
-        engine.taskIsComplete(RuleValue(version: version))
-    }
-}
-
 /// Enum to represent either the manifest path or its content.
 private enum ManifestPathOrContents {
     case path(AbsolutePath)
     case contents([UInt8])
 }
-
-extension ManifestPathOrContents: Codable {
-    private enum CodingKeys: String, CodingKey {
-        case path
-        case contents
-    }
-
-    init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        guard let key = values.allKeys.first(where: values.contains) else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
-        }
-        switch key {
-        case .path:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(AbsolutePath.self)
-            self = .path(a1)
-        case .contents:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode([UInt8].self)
-            self = .contents(a1)
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case let .path(a1):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .path)
-            try unkeyedContainer.encode(a1)
-        case let .contents(a1):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .contents)
-            try unkeyedContainer.encode(a1)
-        }
-    }
-}
-
-extension CodableResult: LLBuildValue { }
 
 extension TSCBasic.Diagnostic.Message {
     static func duplicateTargetName(targetName: String) -> Self {
