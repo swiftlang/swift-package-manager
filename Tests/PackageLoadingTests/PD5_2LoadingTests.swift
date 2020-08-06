@@ -352,7 +352,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         stream <<< """
             import Foundation
 
-            try! String(contentsOf:URL(string: "http://swift.org")!)
+            try! String(contentsOf:URL(string: "http://127.0.0.1")!)
 
             import PackageDescription
             let package = Package(
