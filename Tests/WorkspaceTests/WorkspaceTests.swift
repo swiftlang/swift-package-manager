@@ -3835,7 +3835,8 @@ final class WorkspaceTests: XCTestCase {
         // We should only see errors about use of unsafe flag in the version-based dependency.
         workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { (graph, diagnostics) in
             DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-               result.check(diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"), behavior: .error)
+               result.checkUnordered(diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"), behavior: .error)
+               result.checkUnordered(diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"), behavior: .error)
            }
         }
     }
