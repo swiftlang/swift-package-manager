@@ -711,7 +711,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         moduleCachePath.map({ AbsolutePath($0) })
                     ].compactMap({ $0 })
                     let profile = sandboxProfile(toolsVersion: toolsVersion, cacheDirectories: cacheDirectories)
-                    cmd += ["sandbox-exec", "-p", profile]
+                    cmd = ["sandbox-exec", "-p", profile] + cmd
                 }
               #endif
 
@@ -818,13 +818,14 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
     stream <<< "(deny default)" <<< "\n"
     // Import the system sandbox profile.
     stream <<< "(import \"system.sb\")" <<< "\n"
+    // Allow reading all files. Even in 5.3 we need to be able to read the PD dylibs.
+    stream <<< "(allow file-read*)" <<< "\n"
+    // This is needed to launch any processes.
+    stream <<< "(allow process*)" <<< "\n"
 
     // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
     if toolsVersion < .v5_3 {
-        // Allow reading all files.
-        stream <<< "(allow file-read*)" <<< "\n"
-        // These are required by the Swift compiler.
-        stream <<< "(allow process*)" <<< "\n"
+        // This is required by the Swift compiler.
         stream <<< "(allow sysctl*)" <<< "\n"
         // Allow writing in temporary locations.
         stream <<< "(allow file-write*" <<< "\n"
@@ -834,9 +835,9 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
         for directory in cacheDirectories {
             stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
         }
+        stream <<< ")" <<< "\n"
     }
 
-    stream <<< ")" <<< "\n"
     return stream.bytes.description
 }
 
