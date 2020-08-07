@@ -880,9 +880,11 @@ class PackageGraphTests: XCTestCase {
     func testUnsafeFlags() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
+            "/Foo/Sources/Foo2/foo.swift",
             "/Bar/Sources/Bar/bar.swift",
             "/Bar/Sources/Bar2/bar.swift",
             "/Bar/Sources/Bar3/bar.swift",
+            "/Bar/Sources/TransitiveBar/bar.swift",
             "<end>"
         )
 
@@ -899,6 +901,7 @@ class PackageGraphTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        TargetDescription(name: "Foo2", dependencies: ["TransitiveBar"]),
                     ]),
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -906,7 +909,8 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar", "Bar2", "Bar3"])
+                        ProductDescription(name: "Bar", targets: ["Bar", "Bar2", "Bar3"]),
+                        ProductDescription(name: "TransitiveBar", targets: ["TransitiveBar"]),
                     ],
                     targets: [
                         TargetDescription(
@@ -926,14 +930,19 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(
                             name: "Bar3"
                         ),
+                        TargetDescription(
+                            name: "TransitiveBar",
+                            dependencies: ["Bar2"]
+                        ),
                     ]),
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics.count, 2)
+        XCTAssertEqual(diagnostics.diagnostics.count, 3)
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), behavior: .error)
-            result.check(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), behavior: .error)
+            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), behavior: .error)
+            result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), behavior: .error)
+            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), behavior: .error)
         }
     }
 

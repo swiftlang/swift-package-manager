@@ -235,6 +235,12 @@ public final class ResolvedProduct: ObjectIdentifierProtocol, CustomStringConver
       // contain Swift code we don't know about as part of this build).
       return targets.contains { $0.underlyingTarget is SwiftTarget }
     }
+
+    /// Returns the recursive target dependencies.
+    public func recursiveTargetDependencies() -> [ResolvedTarget] {
+        let recursiveDependencies = targets.lazy.flatMap { $0.recursiveTargetDependencies() }
+        return Array(Set(targets).union(recursiveDependencies))
+    }
 }
 
 extension ResolvedTarget.Dependency: CustomStringConvertible {
