@@ -406,4 +406,28 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             XCTAssertTrue(error is ManifestParseError, "unexpected error: \(error)")
         }
     }
+
+    func testManifestLoadingIsSandboxed() throws {
+        #if os(macOS) // Sandboxing is only done on macOS today.
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import Foundation
+
+            try! "should not be allowed".write(to: URL(fileURLWithPath: "/tmp/file.txt"), atomically: true, encoding: String.Encoding.utf8)
+
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
+            XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
+        }
+        #endif
+    }
 }
