@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "llbuild",
+        "repositoryURL": "https://github.com/apple/swift-llbuild.git",
+        "state": {
+          "branch": "master",
+          "revision": "d057ebdc28d913f5d37acf4909ba68a341497f12",
+          "version": null
+        }
+      },
+      {
+        "package": "swift-tools-support-core",
+        "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
+        "state": {
+          "branch": "master",
+          "revision": "266a491f90de63e142e600aa2ed43d70ccfaf1b0",
+          "version": null
+        }
+      }
+    ]
+  },
+  "version": 1
+}
