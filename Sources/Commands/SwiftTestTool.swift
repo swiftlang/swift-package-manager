@@ -647,8 +647,10 @@ final class TestRunner {
             switch result.exitStatus {
             case .terminated(code: 0):
                 success = true
+#if !os(Windows)
             case .signalled(let signal):
                 output += "\n" + exitSignalText(code: signal)
+#endif
             default: break
             }
         } catch {
@@ -668,8 +670,10 @@ final class TestRunner {
             switch result.exitStatus {
             case .terminated(code: 0):
                 return true
+#if !os(Windows)
             case .signalled(let signal):
                 print(exitSignalText(code: signal))
+#endif
             default: break
             }
         } catch {
