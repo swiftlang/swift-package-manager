@@ -121,10 +121,10 @@ public final class UserToolchain: Toolchain {
         // We require there is at least one valid swift compiler, either in the
         // bin dir or SWIFT_EXEC.
         let resolvedBinDirCompiler: AbsolutePath
-        if let binDirCompiler = try? UserToolchain.getTool("swiftc", binDir: binDir) {
-            resolvedBinDirCompiler = binDirCompiler
-        } else if let SWIFT_EXEC = SWIFT_EXEC {
+        if let SWIFT_EXEC = SWIFT_EXEC {
             resolvedBinDirCompiler = SWIFT_EXEC
+        } else if let binDirCompiler = try? UserToolchain.getTool("swiftc", binDir: binDir) {
+            resolvedBinDirCompiler = binDirCompiler
         } else {
             // Try to lookup swift compiler on the system which is possible when
             // we're built outside of the Swift toolchain.
