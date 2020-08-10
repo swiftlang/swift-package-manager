@@ -28,14 +28,14 @@ public struct SwiftCompilerMessage {
         public struct BeganInfo {
             public let pid: Int
             public let inputs: [String]
-            public let outputs: [Output]
+            public let outputs: [Output]?
             public let commandExecutable: String
             public let commandArguments: [String]
 
             public init(
                 pid: Int,
                 inputs: [String],
-                outputs: [Output],
+                outputs: [Output]?,
                 commandExecutable: String,
                 commandArguments: [String]
             ) {
@@ -49,7 +49,7 @@ public struct SwiftCompilerMessage {
 
         public struct SkippedInfo {
             public let inputs: [String]
-            public let outputs: [Output]
+            public let outputs: [Output]?
 
             public init(inputs: [String], outputs: [SwiftCompilerMessage.Kind.Output]) {
                 self.inputs = inputs

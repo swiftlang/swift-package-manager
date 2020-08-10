@@ -57,6 +57,17 @@ class SwiftCompilerOutputParserTests: XCTestCase {
               ],
               "pid": 58776
             }
+            250
+            {
+              "kind": "began",
+              "name": "verify-module-interface",
+              "inputs": [
+                "main.swiftinterface"
+              ],
+              "pid": 31337,
+              "command_executable": "swift",
+              "command_arguments" : ["-frontend", "-typecheck-module-from-interface", "main.swiftinterface"]
+            }
             299
             {
               "kind": "began",
@@ -108,6 +119,14 @@ class SwiftCompilerOutputParserTests: XCTestCase {
                     outputs: [.init(
                         type: "object",
                         path: "/var/folders/yc/rgflx8m11p5d71k1ydy0l_pr0000gn/T/test2-77d991.o")]))),
+            SwiftCompilerMessage(
+                name: "verify-module-interface",
+                kind: .began(.init(
+                    pid: 31337,
+                    inputs: ["main.swiftinterface"],
+                    outputs: nil,
+                    commandExecutable: "swift",
+                    commandArguments: ["-frontend", "-typecheck-module-from-interface", "main.swiftinterface"]))),
             SwiftCompilerMessage(
                 name: "link",
                 kind: .began(.init(
