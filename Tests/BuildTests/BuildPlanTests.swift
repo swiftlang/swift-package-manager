@@ -17,6 +17,7 @@ import PackageModel
 @testable import PackageLoading
 import SPMBuildCore
 import Build
+import SwiftDriver
 
 let hostTriple = Resources.default.toolchain.triple
 #if os(macOS)
@@ -25,7 +26,7 @@ let hostTriple = Resources.default.toolchain.triple
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
-private struct MockToolchain: Toolchain {
+private struct MockToolchain: SPMBuildCore.Toolchain {
     let swiftCompiler = AbsolutePath("/fake/path/to/swiftc")
     let extraCCFlags: [String] = []
     let extraSwiftCFlags: [String] = []
@@ -58,10 +59,10 @@ final class BuildPlanTests: XCTestCase {
     func mockBuildParameters(
         buildPath: AbsolutePath = AbsolutePath("/path/to/build"),
         config: BuildConfiguration = .debug,
-        toolchain: Toolchain = MockToolchain(),
+        toolchain: SPMBuildCore.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
-        destinationTriple: Triple = hostTriple,
+        destinationTriple: SPMBuildCore.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
         useExplicitModuleBuild: Bool = false
     ) -> BuildParameters {
@@ -80,7 +81,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
-        let triple: Triple
+        let triple: SPMBuildCore.Triple
         switch environment.platform {
         case .macOS:
             triple = Triple.macOS
@@ -221,31 +222,40 @@ final class BuildPlanTests: XCTestCase {
                 ]
             )
             XCTAssertNoDiagnostics(diagnostics)
-            let plan = try BuildPlan(
-                buildParameters: mockBuildParameters(
-                    buildPath: buildDirPath,
-                    config: .release,
-                    toolchain: Resources.default.toolchain,
-                    destinationTriple: Resources.default.toolchain.triple,
-                    useExplicitModuleBuild: true
-                ),
-                graph: graph,
-                diagnostics: diagnostics,
-                fileSystem: fs
-            )
+            do {
+                let plan = try BuildPlan(
+                    buildParameters: mockBuildParameters(
+                        buildPath: buildDirPath,
+                        config: .release,
+                        toolchain: Resources.default.toolchain,
+                        destinationTriple: Resources.default.toolchain.triple,
+                        useExplicitModuleBuild: true
+                    ),
+                    graph: graph,
+                    diagnostics: diagnostics,
+                    fileSystem: fs
+                )
 
-            let yaml = buildDirPath.appending(component: "release.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
-            try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
 
-            // A few basic checks
-            XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
-            XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
-            XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
-            XCTAssertMatch(contents, .contains("A-dependencies.json"))
-            XCTAssertMatch(contents, .contains("B-dependencies.json"))
-            XCTAssertMatch(contents, .contains("C-dependencies.json"))
+                let yaml = buildDirPath.appending(component: "release.yaml")
+                let llbuild = LLBuildManifestBuilder(plan)
+                try llbuild.generateManifest(at: yaml)
+                let contents = try localFileSystem.readFileContents(yaml).description
+
+                // A few basic checks
+                XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
+                XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
+                XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
+                XCTAssertMatch(contents, .contains("A-dependencies.json"))
+                XCTAssertMatch(contents, .contains("B-dependencies.json"))
+                XCTAssertMatch(contents, .contains("C-dependencies.json"))
+            } catch Driver.Error.unableToDecodeFrontendTargetInfo {
+                // If the toolchain being used is sufficiently old, the integrated driver
+                // will not be able to parse the `-print-target-info` output. In which case,
+                // we cannot yet rely on the integrated swift driver.
+                // This effectively guards the test from running on unupported, older toolchains.
+                return
+            }
         }
     }
 
@@ -1858,7 +1868,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        func createResult(for dest: Triple) throws -> BuildPlanResult {
+        func createResult(for dest: SPMBuildCore.Triple) throws -> BuildPlanResult {
             return BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph, diagnostics: diagnostics,
@@ -2302,7 +2312,8 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testBinaryTargets(platform: String, arch: String, destinationTriple: Triple) throws {
+    func testBinaryTargets(platform: String, arch: String, destinationTriple: SPMBuildCore.Triple)
+    throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/Library/Library.swift",
@@ -2446,9 +2457,9 @@ final class BuildPlanTests: XCTestCase {
 
     func testBinaryTargets() throws {
         try testBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
-        let arm64Triple = try Triple("arm64-apple-macosx")
+        let arm64Triple = try SPMBuildCore.Triple("arm64-apple-macosx")
         try testBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
-        let arm64eTriple = try Triple("arm64e-apple-macosx")
+        let arm64eTriple = try SPMBuildCore.Triple("arm64e-apple-macosx")
         try testBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
@@ -2468,7 +2479,7 @@ final class BuildPlanTests: XCTestCase {
         try sanitizerTest(.scudo, expectedName: "scudo")
     }
 
-    private func sanitizerTest(_ sanitizer: Sanitizer, expectedName: String) throws {
+    private func sanitizerTest(_ sanitizer: SPMBuildCore.Sanitizer, expectedName: String) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift",
@@ -2582,7 +2593,7 @@ fileprivate extension TargetBuildDescription {
     }
 }
 
-fileprivate extension Triple {
+fileprivate extension SPMBuildCore.Triple {
     static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
     static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
     static let arm64Android = try! Triple("aarch64-unknown-linux-android")
