@@ -434,9 +434,15 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let executableName: String
         let productType: PIF.Target.ProductType
         if product.type == .library(.dynamic) {
-            pifTargetProductName = product.name + ".framework"
-            executableName = product.name
-            productType = .framework
+            if parameters.shouldCreateDylibForDynamicProducts {
+                pifTargetProductName = "lib\(product.name).dylib"
+                executableName = pifTargetProductName
+                productType = .dynamicLibrary
+            } else {
+                pifTargetProductName = product.name + ".framework"
+                executableName = product.name
+                productType = .framework
+            }
         } else {
             pifTargetProductName = "lib\(product.name).a"
             executableName = pifTargetProductName
