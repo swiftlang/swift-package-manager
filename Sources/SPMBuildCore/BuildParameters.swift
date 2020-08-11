@@ -141,7 +141,7 @@ public struct BuildParameters: Encodable {
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
-        shouldCreateDylibForDynamicProducts: Bool = false,
+        shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
