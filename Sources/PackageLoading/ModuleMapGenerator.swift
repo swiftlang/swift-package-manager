@@ -10,8 +10,15 @@
 
 import TSCBasic
 import PackageModel
+import Foundation
 
 public let moduleMapFilename = "module.modulemap"
+
+extension AbsolutePath {
+  fileprivate var moduleEscapedPathString: String {
+    return self.pathString.replacingOccurrences(of: "\\", with: "\\\\")
+  }
+}
 
 /// A protocol for targets which might have a modulemap.
 protocol ModuleMapProtocol {
@@ -152,9 +159,9 @@ public struct ModuleMapGenerator {
         stream <<< "module \(target.c99name) {\n"
         switch type {
         case .header(let header):
-            stream <<< "    umbrella header \"\(header.pathString)\"\n"
+            stream <<< "    umbrella header \"\(header.moduleEscapedPathString)\"\n"
         case .directory(let path):
-            stream <<< "    umbrella \"\(path.pathString)\"\n"
+            stream <<< "    umbrella \"\(path.moduleEscapedPathString)\"\n"
         }
         stream <<< "    export *\n"
         stream <<< "}\n"
