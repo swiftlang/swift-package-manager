@@ -647,8 +647,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 cmd += [
                     "-L", runtimePath.pathString,
                     "-lPackageDescription",
-                    "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString
                 ]
+#if !os(Windows)
+                // -rpath argument is not supported on Windows,
+                // so we add runtimePath to PATH when executing the manifest instead
+                cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+#endif
 
                 // note: this is not correct for all platforms, but we only actually use it on macOS.
                 macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
@@ -681,7 +685,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
                 // Set path to compiled manifest executable.
-                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest")
+#if os(Windows)
+                let executableSuffix = ".exe"
+#else
+                let executableSuffix = ""
+#endif
+                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
                 cmd += ["-o", compiledManifestFile.pathString]
 
                 // Compile the manifest.
@@ -716,7 +725,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
               #endif
 
                 // Run the compiled manifest.
-                let runResult = try Process.popen(arguments: cmd)
+                var environment = ProcessEnv.vars
+#if os(Windows)
+                let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
+                environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
+#endif
+                let runResult = try Process.popen(arguments: cmd, environment: environment)
                 fclose(jsonOutputFileDesc)
                 let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
                 if let runOutput = runOutput {
