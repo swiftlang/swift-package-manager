@@ -708,7 +708,16 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
                     throw StringError("couldn't create the manifest's JSON output file")
                 }
-                cmd = [compiledManifestFile.pathString, "-fileno", "\(fileno(jsonOutputFileDesc))"]
+
+                cmd = [compiledManifestFile.pathString]
+#if os(Windows)
+                // NOTE: `_get_osfhandle` returns a non-owning, unsafe,
+                // unretained HANDLE.  DO NOT invoke `CloseHandle` on `hFile`.
+                let hFile: Int = _get_osfhandle(_fileno(jsonOutputFileDesc))
+                cmd += ["-handle", "\(String(hFile, radix: 16))"]
+#else
+                cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
+#endif
 
               #if os(macOS)
                 // If enabled, use sandbox-exec on macOS. This provides some safety against
