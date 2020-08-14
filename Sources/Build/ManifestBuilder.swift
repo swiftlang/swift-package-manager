@@ -360,8 +360,10 @@ extension LLBuildManifestBuilder {
         targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
-        let targetDependencyMap = collectTargetDependencyInfos(for: targetDescription.target,
-                                                               targetDepGraphMap: targetDepGraphMap)
+        var targetDependencyMap: SwiftDriver.ExternalDependencyArtifactMap = [:]
+        collectTargetDependencyInfos(for: targetDescription.target,
+                                     targetDepGraphMap: targetDepGraphMap,
+                                     dependencyArtifactMap: &targetDependencyMap)
 
         // Compute the set of frontend
         // jobs needed to build this Swift target.
@@ -393,9 +395,9 @@ extension LLBuildManifestBuilder {
     /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
     /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
     private func collectTargetDependencyInfos(for target: ResolvedTarget,
-                                              targetDepGraphMap: [ResolvedTarget: InterModuleDependencyGraph])
-    -> SwiftDriver.ExternalDependencyArtifactMap {
-        var targetDependencyMap : [ModuleDependencyId: (AbsolutePath, InterModuleDependencyGraph)] = [:]
+                                              targetDepGraphMap: [ResolvedTarget: InterModuleDependencyGraph],
+                                              dependencyArtifactMap: inout SwiftDriver.ExternalDependencyArtifactMap
+    ) {
         for dependency in target.dependencies {
             guard let dependencyTarget = dependency.target else {
                 fatalError("Expected dependency target: \(dependency.description)")
@@ -410,10 +412,13 @@ extension LLBuildManifestBuilder {
             }
             let moduleName = dependencyTarget.name
             let dependencyModulePath = dependencySwiftTargetDescription.moduleOutputPath
-            targetDependencyMap[ModuleDependencyId.swiftPlaceholder(moduleName)] =
-                (dependencyModulePath, dependencyGraph)
+            dependencyArtifactMap[ModuleDependencyId.swiftPlaceholder(moduleName)] =
+                  (dependencyModulePath, dependencyGraph)
+
+            collectTargetDependencyInfos(for: dependencyTarget,
+                                         targetDepGraphMap: targetDepGraphMap,
+                                         dependencyArtifactMap: &dependencyArtifactMap)
         }
-        return targetDependencyMap
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(

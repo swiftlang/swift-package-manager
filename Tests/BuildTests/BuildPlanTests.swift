@@ -195,6 +195,7 @@ final class BuildPlanTests: XCTestCase {
             }
             try localFileSystem.writeFileContents(aSwift) {
                 $0 <<< "import B"
+                $0 <<< "import C"
                 $0 <<< "public func baz() { bar() }"
             }
             try localFileSystem.writeFileContents(bSwift) {
