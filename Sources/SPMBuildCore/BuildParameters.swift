@@ -234,18 +234,16 @@ public struct BuildParameters: Encodable {
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
-        switch (self.triple.os, product.type) {
-        case (_, .executable):
+        switch product.type {
+        case .executable:
             return RelativePath("\(product.name)\(triple.executableExtension)")
-        case (_, .library(.static)):
+        case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
-        case (.windows, .library(.dynamic)):
-            return RelativePath("\(product.name)\(triple.dynamicLibraryExtension)")
-        case (_, .library(.dynamic)):
-            return RelativePath("lib\(product.name)\(triple.dynamicLibraryExtension)")
-        case (_, .library(.automatic)):
+        case .library(.dynamic):
+            return RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
+        case .library(.automatic):
             fatalError()
-        case (_, .test):
+        case .test:
             let base = "\(product.name).xctest"
             if triple.isDarwin() {
                 return RelativePath("\(base)/Contents/MacOS/\(product.name)")
