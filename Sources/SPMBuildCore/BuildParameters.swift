@@ -117,6 +117,8 @@ public struct BuildParameters: Encodable {
             return .android
         } else if self.triple.isWASI() {
             return .wasi
+        } else if self.triple.isWindows() {
+            return .windows
         } else {
             return .linux
         }
