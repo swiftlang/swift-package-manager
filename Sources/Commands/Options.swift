@@ -73,7 +73,9 @@ extension AbsolutePath: ExpressibleByArgument {
     }
   
     public static var defaultCompletionKind: CompletionKind {
-        .file()
+        // This type is most commonly used to select a directory, not a file.
+        // Specify '.file()' in an argument declaration when necessary.
+        .directory
     }
 }
 
@@ -112,7 +114,7 @@ public struct SwiftToolOptions: ParsableArguments {
     var packagePath: AbsolutePath?
 
     /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
-    @Option(name: .customLong("multiroot-data-file"))
+    @Option(name: .customLong("multiroot-data-file"), completion: .file())
     var multirootPackageDataFile: AbsolutePath?
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
@@ -135,7 +137,7 @@ public struct SwiftToolOptions: ParsableArguments {
     var shouldDisableManifestCaching: Bool = false
 
     /// Path to the compilation destination describing JSON file.
-    @Option(name: .customLong("destination"))
+    @Option(name: .customLong("destination"), completion: .file())
     var customCompileDestination: AbsolutePath?
 
     /// The compilation destination’s target triple.

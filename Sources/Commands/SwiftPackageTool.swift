@@ -537,7 +537,7 @@ extension SwiftPackageTool {
             abstract: "Generates an Xcode project")
 
         struct Options: ParsableArguments {
-            @Option(help: "Path to xcconfig file")
+            @Option(help: "Path to xcconfig file", completion: .file())
             var xcconfigOverrides: AbsolutePath?
             
             @Flag(name: .customLong("code-coverage"),
