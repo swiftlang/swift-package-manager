@@ -448,6 +448,11 @@ public func xcodeProject(
 
         let infoPlistFilePath = xcodeprojPath.appending(component: target.infoPlistFileName)
         targetSettings.common.INFOPLIST_FILE = infoPlistFilePath.relative(to: sourceRootDir).pathString
+        // The generated Info.plist has $(CURRENT_PROJECT_VERSION) as value for the CFBundleVersion key.
+        // CFBundleVersion is required for apps to e.g. be submitted to the app store.
+        // So we need to set it to some valid value in the project settings.
+        // TODO: Extract version from SPM target (see SR-4265 and SR-12926).
+        targetSettings.common.CURRENT_PROJECT_VERSION = "1"
 
         if target.type == .test {
             targetSettings.common.CLANG_ENABLE_MODULES = "YES"

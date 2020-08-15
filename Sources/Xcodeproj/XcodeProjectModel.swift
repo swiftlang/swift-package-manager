@@ -354,6 +354,7 @@ public struct Xcode {
             public var CLANG_ENABLE_OBJC_ARC: String?
             public var COMBINE_HIDPI_IMAGES: String?
             public var COPY_PHASE_STRIP: String?
+            public var CURRENT_PROJECT_VERSION: String?
             public var DEBUG_INFORMATION_FORMAT: String?
             public var DEFINES_MODULE: String?
             public var DYLIB_INSTALL_NAME_BASE: String?
@@ -400,6 +401,7 @@ public struct Xcode {
                 CLANG_ENABLE_OBJC_ARC: String? = nil,
                 COMBINE_HIDPI_IMAGES: String? = nil,
                 COPY_PHASE_STRIP: String? = nil,
+                CURRENT_PROJECT_VERSION: String? = nil,
                 DEBUG_INFORMATION_FORMAT: String? = nil,
                 DEFINES_MODULE: String? = nil,
                 DYLIB_INSTALL_NAME_BASE: String? = nil,
@@ -445,6 +447,7 @@ public struct Xcode {
                 self.CLANG_ENABLE_OBJC_ARC = CLANG_CXX_LANGUAGE_STANDARD
                 self.COMBINE_HIDPI_IMAGES = COMBINE_HIDPI_IMAGES
                 self.COPY_PHASE_STRIP = COPY_PHASE_STRIP
+                self.CURRENT_PROJECT_VERSION = CURRENT_PROJECT_VERSION
                 self.DEBUG_INFORMATION_FORMAT = DEBUG_INFORMATION_FORMAT
                 self.DEFINES_MODULE = DEFINES_MODULE
                 self.DYLIB_INSTALL_NAME_BASE = DYLIB_INSTALL_NAME_BASE

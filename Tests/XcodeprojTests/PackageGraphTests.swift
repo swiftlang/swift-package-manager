@@ -123,6 +123,7 @@ class PackageGraphTests: XCTestCase {
                 XCTAssertEqual(targetResult.target.buildSettings.debug.SWIFT_ACTIVE_COMPILATION_CONDITIONS, ["DMACOS"])
                 XCTAssertNil(targetResult.target.buildSettings.release.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
 
+                XCTAssertEqual(targetResult.commonBuildSettings.CURRENT_PROJECT_VERSION, "1")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_SWIFT_FLAGS?.first, "$(inherited)")
@@ -134,6 +135,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Bar") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertEqual(targetResult.commonBuildSettings.CURRENT_PROJECT_VERSION, "1")
                 XCTAssertEqual(targetResult.commonBuildSettings.LD_RUNPATH_SEARCH_PATHS ?? [], ["$(inherited)", "$(TOOLCHAIN_DIR)/usr/lib/swift/macosx"])
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_LDFLAGS?.first, "$(inherited)")
@@ -145,6 +147,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea") { targetResult in
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
+                XCTAssertEqual(targetResult.commonBuildSettings.CURRENT_PROJECT_VERSION, "1")
                 XCTAssertEqual(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES, "YES")
                 XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "YES")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
@@ -159,6 +162,7 @@ class PackageGraphTests: XCTestCase {
                 targetResult.check(productType: .framework)
                 targetResult.check(dependencies: ["Foo"])
                 XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.CURRENT_PROJECT_VERSION, "1")
                 XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
                 XCTAssertEqual(targetResult.commonBuildSettings.OTHER_CFLAGS?.first, "$(inherited)")
@@ -171,6 +175,7 @@ class PackageGraphTests: XCTestCase {
             result.check(target: "Sea3") { targetResult in
                 targetResult.check(productType: .framework)
                 XCTAssertNil(targetResult.commonBuildSettings.CLANG_ENABLE_MODULES)
+                XCTAssertEqual(targetResult.commonBuildSettings.CURRENT_PROJECT_VERSION, "1")
                 XCTAssertEqual(targetResult.commonBuildSettings.DEFINES_MODULE, "NO")
                 XCTAssertEqual(targetResult.commonBuildSettings.MODULEMAP_FILE, nil)
             }
