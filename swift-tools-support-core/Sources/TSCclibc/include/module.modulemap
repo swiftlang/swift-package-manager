@@ -1,5 +1,12 @@
 module TSCclibc {
     header "TSCclibc.h"
     header "indexstore_functions.h"
+    header "process.h"
+    export *
+}
+
+module CSQLite3 [system] {
+    header "csqlite3.h"
+    link "sqlite3"
     export *
 }

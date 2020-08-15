@@ -495,7 +495,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 check(loader: manifestLoader, expectCached: true)
             }
 
-            check(loader: manifestLoader, expectCached: false)
             check(loader: manifestLoader, expectCached: true)
         }
     }
@@ -619,61 +618,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             try check(loader: manifestLoader)
             XCTAssertEqual(delegate.loaded.count, 3)
             XCTAssertEqual(delegate.parsed.count, 2)
-        }
-    }
-
-    func testLLBuildEngineErrors() {
-        mktmpdir { path in
-            let fs = localFileSystem
-
-            let manifestPath = path.appending(components: "pkg", "Package.swift")
-            try fs.writeFileContents(manifestPath) { stream in
-                stream <<< """
-                import PackageDescription
-                    let package = Package(
-                        name: "Trivial",
-                        targets: [
-                            .target(
-                                name: "foo",
-                                dependencies: []),
-                        ]
-                )
-                """
-            }
-
-            let delegate = ManifestTestDelegate()
-
-            let manifestLoader = ManifestLoader(
-                manifestResources: Resources.default, cacheDir: path, delegate: delegate)
-
-            func load() throws {
-                let manifest = try manifestLoader.load(
-                    package: manifestPath.parentDirectory,
-                    baseURL: manifestPath.pathString,
-                    toolsVersion: .v4_2,
-                    packageKind: .root
-                )
-
-                XCTAssertEqual(delegate.loaded, [manifestPath])
-                XCTAssertEqual(delegate.parsed, [manifestPath])
-                XCTAssertEqual(manifest.name, "Trivial")
-                XCTAssertEqual(manifest.targets[0].name, "foo")
-            }
-
-            // Check that we can load properly.
-            try load()
-
-            // Replace the db with garbage and check if we correctly diagnose.
-            let db = path.appending(component: "manifest.db")
-            try localFileSystem.removeFileTree(db)
-            try localFileSystem.writeFileContents(db) { $0 <<< "🗑" }
-            do {
-                try load()
-                XCTFail("unexpected success")
-            } catch {
-                let error = String(describing: error)
-                XCTAssertMatch(error, .contains("not a database"))
-            }
         }
     }
 

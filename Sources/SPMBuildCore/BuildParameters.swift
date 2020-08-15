@@ -117,6 +117,8 @@ public struct BuildParameters: Encodable {
             return .android
         } else if self.triple.isWASI() {
             return .wasi
+        } else if self.triple.isWindows() {
+            return .windows
         } else {
             return .linux
         }
@@ -141,7 +143,7 @@ public struct BuildParameters: Encodable {
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
-        shouldCreateDylibForDynamicProducts: Bool = false,
+        shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
@@ -240,7 +242,7 @@ public struct BuildParameters: Encodable {
         case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return RelativePath("lib\(product.name)\(triple.dynamicLibraryExtension)")
+            return RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
         case .library(.automatic):
             fatalError()
         case .test:

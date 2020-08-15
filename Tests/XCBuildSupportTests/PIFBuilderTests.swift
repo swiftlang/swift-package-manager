@@ -1397,6 +1397,52 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
+    func testLibraryTargetsAsDylib() {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Bar/Sources/BarLib/lib.c"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    v: .v4_2,
+                    packageKind: .root,
+                    cLanguageStandard: "c11",
+                    swiftLanguageVersions: [.v4_2],
+                    products: [
+                        .init(name: "BarLib", type: .library(.dynamic), targets: ["BarLib"]),
+                    ],
+                    targets: [
+                        .init(name: "BarLib"),
+                    ]),
+            ]
+        )
+
+        var pif: PIF.TopLevelObject!
+        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+            let builder = PIFBuilder(graph: graph, parameters: .mock(shouldCreateDylibForDynamicProducts: true), diagnostics: diagnostics)
+            pif = builder.construct()
+        }
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        PIFTester(pif) { workspace in
+            workspace.checkProject("PACKAGE:/Bar") { project in
+                project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
+                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.productType, .dynamicLibrary)
+                    XCTAssertEqual(target.productName, "libBarLib.dylib")
+                }
+            }
+        }
+    }
+
     func testSystemLibraryTargets() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/SystemLib1/module.modulemap",

@@ -358,11 +358,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
         } ?? [:]
-        let swiftFrontendParsers = bctx.buildDescription?.swiftFrontendCommands.mapValues { tool in
-            SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
-        } ?? [:]
-        self.swiftParsers = swiftParsers.merging(swiftFrontendParsers) { (_, _) in fatalError("duplicated Swift command")
-        }
+        self.swiftParsers = swiftParsers
     }
 
     public var fs: SPMLLBuild.FileSystem? {

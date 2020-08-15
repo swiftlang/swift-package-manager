@@ -345,4 +345,28 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testManifestLoadingIsSandboxed() throws {
+        #if os(macOS) // Sandboxing is only done on macOS today.
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import Foundation
+
+            try! String(contentsOf:URL(string: "http://127.0.0.1")!)
+
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
+            XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
+        }
+        #endif
+    }
 }

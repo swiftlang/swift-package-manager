@@ -14,6 +14,7 @@ import Glibc
 import Darwin.C
 #elseif os(Windows)
 import ucrt
+import struct WinSDK.HANDLE
 #endif
 import Foundation
 
@@ -388,11 +389,22 @@ public final class Package {
         // Warning:  The `-fileno` flag is a contract between PackageDescription
         // and libSwiftPM, and since different versions of the two can be used
         // together, it isn't safe to rename or remove it.
+        //
+        // Note: `-fileno` is not viable on Windows.  Instead, we pass the file
+        // handle through the `-handle` option.
+#if os(Windows)
+        if let index = CommandLine.arguments.firstIndex(of: "-handle") {
+          if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
+            dumpPackageAtExit(self, to: handle)
+          }
+        }
+#else
         if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
             if let jsonOutputFileDesc = Int32(CommandLine.arguments[optIdx + 1]) {
                 dumpPackageAtExit(self, to: jsonOutputFileDesc)
             }
         }
+#endif
     }
 }
 
@@ -640,6 +652,32 @@ func manifestToJSON(_ package: Package) -> String {
 }
 
 var errors: [String] = []
+
+#if os(Windows)
+private var dumpInfo: (package: Package, handle: Int)?
+private func dumpPackageAtExit(_ package: Package, to handle: Int) {
+  let dump: @convention(c) () -> Void = {
+    guard let dumpInfo = dumpInfo else { return }
+
+    let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
+    // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
+    // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
+    let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
+    // NOTE: `_fdopen` transfers ownership of the file descriptor to the
+    // `FILE *`.  DO NOT invoke `_close` on the `fd`.
+    guard let fp = _fdopen(fd, "w") else {
+      _close(fd)
+      return
+    }
+    defer { fclose(fp) }
+
+    fputs(manifestToJSON(dumpInfo.package), fp)
+  }
+
+  dumpInfo = (package, handle)
+  atexit(dump)
+}
+#else
 private var dumpInfo: (package: Package, fileDesc: Int32)?
 private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
     func dump() {
@@ -651,3 +689,4 @@ private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
     dumpInfo = (package, fileDesc)
     atexit(dump)
 }
+#endif

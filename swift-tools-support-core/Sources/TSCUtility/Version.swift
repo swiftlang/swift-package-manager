@@ -204,29 +204,29 @@ extension Version: Codable {
 
 // MARK:- Range operations
 
-@available(*, unavailable)
 extension ClosedRange where Bound == Version {
     /// Marked as unavailable because we have custom rules for contains.
     public func contains(_ element: Version) -> Bool {
+        // Unfortunately, we can't use unavailable here.
         fatalError("contains(_:) is unavailable, use contains(version:)")
     }
 }
 
 // Disabled because compiler hits an assertion https://bugs.swift.org/browse/SR-5014
 #if false
-@available(*, unavailable)
 extension CountableRange where Bound == Version {
     /// Marked as unavailable because we have custom rules for contains.
     public func contains(_ element: Version) -> Bool {
+        // Unfortunately, we can't use unavailable here.
         fatalError("contains(_:) is unavailable, use contains(version:)")
     }
 }
 #endif
 
-@available(*, unavailable)
 extension Range where Bound == Version {
     /// Marked as unavailable because we have custom rules for contains.
     public func contains(_ element: Version) -> Bool {
+        // Unfortunately, we can't use unavailable here.
         fatalError("contains(_:) is unavailable, use contains(version:)")
     }
 }

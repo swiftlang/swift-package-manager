@@ -454,7 +454,7 @@ def build_tsc(args):
 
     cmake_flags = []
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
@@ -465,7 +465,7 @@ def build_yams(args):
 
     cmake_flags = []
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
     else:
         if args.dispatch_build_dir:
@@ -486,7 +486,7 @@ def build_swift_driver(args):
         "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
     ]
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, args.swift_driver_source_dir, args.swift_driver_build_dir)
@@ -510,7 +510,7 @@ def build_swiftpm_with_cmake(args):
     ]
 
     if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target x86_64-apple-macosx%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir)

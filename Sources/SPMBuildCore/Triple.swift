@@ -156,6 +156,16 @@ public struct Triple: Encodable, Equatable {
 }
 
 extension Triple {
+    /// The file prefix for dynamcic libraries
+    public var dynamicLibraryPrefix: String {
+        switch os {
+        case .windows:
+            return ""
+        default:
+            return "lib"
+        }
+    }
+
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
         switch os {

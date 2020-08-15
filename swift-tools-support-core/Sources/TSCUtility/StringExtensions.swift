@@ -8,6 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
+
+
 extension String {
     /**
      Remove trailing newline characters. By default chomp removes
@@ -102,4 +105,36 @@ extension String {
             .map { indent + $0 }
             .joined(separator: "\n")
     }
+
+    @inlinable
+    public init(tsc_fromUTF8 bytes: Array<UInt8>) {
+        if let string = bytes.withContiguousStorageIfAvailable({ bptr in
+            String(decoding: bptr, as: UTF8.self)
+        }) {
+            self = string
+        } else {
+            self = bytes.withUnsafeBufferPointer { ubp in
+                String(decoding: ubp, as: UTF8.self)
+            }
+        }
+    }
+
+    @inlinable
+    public init(tsc_fromUTF8 bytes: ArraySlice<UInt8>) {
+        if let string = bytes.withContiguousStorageIfAvailable({ bptr in
+            String(decoding: bptr, as: UTF8.self)
+        }) {
+            self = string
+        } else {
+            self = bytes.withUnsafeBufferPointer { ubp in
+                String(decoding: ubp, as: UTF8.self)
+            }
+        }
+    }
+
+    @inlinable
+    public init(tsc_fromUTF8 bytes: Data) {
+        self = String(decoding: bytes, as: UTF8.self)
+    }
+
 }

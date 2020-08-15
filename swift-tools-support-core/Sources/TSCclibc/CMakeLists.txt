@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(TSCclibc STATIC
-  libc.c)
+  libc.c process.c)
 target_include_directories(TSCclibc PUBLIC
   include)
 
