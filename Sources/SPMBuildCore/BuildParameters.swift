@@ -242,11 +242,7 @@ public struct BuildParameters: Encodable {
         case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")
         case .library(.dynamic):
-            if self.triple.os == .windows {
-              return RelativePath("\(product.name)\(triple.dynamicLibraryExtension)")
-            } else {
-              return RelativePath("lib\(product.name)\(triple.dynamicLibraryExtension)")
-            }
+            return RelativePath("\(triple.dynamicLibraryPrefix)\(product.name)\(triple.dynamicLibraryExtension)")
         case .library(.automatic):
             fatalError()
         case .test:
