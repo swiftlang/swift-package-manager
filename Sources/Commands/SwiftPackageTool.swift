@@ -810,14 +810,16 @@ extension SwiftPackageTool {
         enum Mode: String, CaseIterable, ExpressibleByArgument {
             case generateBashScript = "generate-bash-script"
             case generateZshScript = "generate-zsh-script"
+            case generateFishScript = "generate-fish-script"
             case listDependencies = "list-dependencies"
             case listExecutables = "list-executables"
         }
 
         /// A dummy version of the root `swift` command, to act as a parent
         /// for all the subcommands.
-        struct Swift: ParsableCommand {
+        fileprivate struct SwiftCommand: ParsableCommand {
             static let configuration = CommandConfiguration(
+                commandName: "swift",
                 abstract: "The Swift compiler",
                 subcommands: [
                     SwiftRunTool.self,
@@ -837,10 +839,13 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             switch mode {
             case .generateBashScript:
-                let script = Swift.completionScript(for: .bash)
+                let script = SwiftCommand.completionScript(for: .bash)
                 print(script)
             case .generateZshScript:
-                let script = Swift.completionScript(for: .zsh)
+                let script = SwiftCommand.completionScript(for: .zsh)
+                print(script)
+            case .generateFishScript:
+                let script = SwiftCommand.completionScript(for: .fish)
                 print(script)
             case .listDependencies:
                 let graph = try swiftTool.loadPackageGraph()
