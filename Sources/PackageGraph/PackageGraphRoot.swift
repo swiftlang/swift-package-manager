@@ -92,7 +92,7 @@ public struct PackageGraphRoot {
     public let manifests: [Manifest]
 
     /// The root package references.
-     public let packageRefs: [PackageReference]
+    public let packageRefs: [PackageReference]
 
     /// The top level dependencies.
     public let dependencies: [PackageDependency]
