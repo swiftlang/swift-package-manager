@@ -47,6 +47,9 @@ $ swift test --parallel
 
 # Run a single test.
 $ swift test --filter PackageGraphTests.DependencyResolverTests/testBasics
+
+# Run tests for the test targets BuildTests and WorkspaceTests, but skip some test cases.
+$ swift test --filter BuildTests --skip BuildPlanTests --filter WorkspaceTests --skip InitTests
 ```
 
 Note: PackageDescription v4 is not available when developing using this method.
@@ -183,14 +186,6 @@ installed. This path can be overridden by setting the environment variable
 absolute search paths. SwiftPM will choose the first
 path which exists on disk. If none of the paths are present on disk, it will fall
 back to built-in computation.
-
-## Skipping SwiftPM tests
-
-SwiftPM has a hidden env variable `_SWIFTPM_SKIP_TESTS_LIST` that can be used
-to skip a list of tests. This value of the variable is either a file path that contains a
-newline separated list of tests to skip, or a colon-separated list of tests.
-
-This is only a development feature and should be considered _unsupported_.
 
 ## Making changes in TSC targets
 

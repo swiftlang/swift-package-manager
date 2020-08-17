@@ -213,19 +213,21 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSwiftTestParallel() throws {
-        // Running swift-test fixtures on linux is not yet possible.
-      #if os(macOS)
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
           // First try normal serial testing.
           do {
-            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-            XCTAssertTrue(stderr.contains("Executed 2 tests"))
+            _ = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: prefix)
+          } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
+            #if os(macOS)
+              XCTAssertTrue(stderr.contains("Executed 2 tests"))
+            #else
+              XCTAssertTrue(output.contains("Executed 2 tests"))
+            #endif
           }
 
           do {
             // Run tests in parallel.
-            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
+            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel", "--enable-test-discovery"], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
             XCTAssert(output.contains("testExample2"))
@@ -238,7 +240,7 @@ class MiscellaneousTestCase: XCTestCase {
           do {
             // Run tests in parallel with verbose output.
             _ = try SwiftPMProduct.SwiftTest.execute(
-                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
+                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString, "--enable-test-discovery"],
                 packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
@@ -253,25 +255,46 @@ class MiscellaneousTestCase: XCTestCase {
           let contents = try localFileSystem.readFileContents(xUnitOutput).description
           XCTAssertTrue(contents.contains("tests=\"3\" failures=\"1\""))
         }
-      #endif
     }
 
     func testSwiftTestFilter() throws {
-        #if os(macOS)
-            fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l"], packagePath: prefix)
-                XCTAssertMatch(stdout, .contains("testExample1"))
-                XCTAssertNoMatch(stdout, .contains("testExample2"))
-                XCTAssertNoMatch(stdout, .contains("testSureFailure"))
-            }
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertMatch(stdout, .contains("testExample1"))
+            XCTAssertNoMatch(stdout, .contains("testExample2"))
+            XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+        }
 
-            fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-                let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "--filter", "testSureFailure", "-l"], packagePath: prefix)
-                XCTAssertMatch(stdout, .contains("testExample1"))
-                XCTAssertNoMatch(stdout, .contains("testExample2"))
-                XCTAssertMatch(stdout, .contains("testSureFailure"))
-            }
-        #endif
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*1", "--filter", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertNoMatch(stdout, .contains("testExample1"))
+            XCTAssertMatch(stdout, .contains("testExample2"))
+            XCTAssertMatch(stdout, .contains("testSureFailure"))
+        }
+    }
+
+    func testSwiftTestSkip() throws {
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--skip", "ParallelTestsTests", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertNoMatch(stdout, .contains("testExample1"))
+            XCTAssertNoMatch(stdout, .contains("testExample2"))
+            XCTAssertMatch(stdout, .contains("testSureFailure"))
+        }
+
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*2", "--filter", "TestsFailure", "--skip", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertMatch(stdout, .contains("testExample1"))
+            XCTAssertNoMatch(stdout, .contains("testExample2"))
+            XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+        }
+
+        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
+            let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["--skip", "Tests", "--enable-test-discovery"], packagePath: prefix)
+            XCTAssertNoMatch(stdout, .contains("testExample1"))
+            XCTAssertNoMatch(stdout, .contains("testExample2"))
+            XCTAssertNoMatch(stdout, .contains("testSureFailure"))
+            XCTAssertMatch(stderr, .contains("No matching test cases were run"))
+        }
     }
 
     func testOverridingSwiftcArguments() throws {
