@@ -218,13 +218,14 @@ public final class Package {
     public var cxxLanguageStandard: CXXLanguageStandard?
 
   #if PACKAGE_DESCRIPTION_4
-    /// Initializes a Swift package with the provided configuration options.
+    /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///           name from the package’s Git URL.
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
-    ///           Package Manager searches for a <name>.pc file to get the
-    ///           required additional flags for a system target.
+    ///           Package Manager searches for a `<name>.pc` file to get the
+    ///           additional flags required for a system target.
     ///     - providers: The package providers for a system package.
     ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
@@ -255,14 +256,15 @@ public final class Package {
         registerExitHandler()
     }
   #else
-    /// Initializes a Swift package with the provided configuration options.
+    /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///           name from the package’s Git URL.
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
-    ///           Package Manager searches for a <name>.pc file to get the
-    ///           required additional flags for a system target.
-    ///     - products: The list of products that this package vends and that clients can use.
+    ///           Package Manager searches for a `<name>.pc` file to get the
+    ///           additional flags required for a system target.
+    ///     - products: The list of products that this package makes available for clients to use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -292,15 +294,16 @@ public final class Package {
         registerExitHandler()
     }
 
-    /// Initializes a Swift package with the provided configuration options.
+    /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
-    ///     - platforms: The list of supported platforms with a custom deployment target.
+    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///           name from the package’s Git URL.
+    ///     - platforms: The list of supported platforms that have a custom deployment target.
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
-    ///           Package Manager searches for a <name>.pc file to get the
-    ///           required additional flags for a system target.
-    ///     - products: The list of products that this package vends and that clients can use.
+    ///           Package Manager searches for a `<name>.pc` file to get the
+    ///           additional flags required for a system target.
+    ///     - products: The list of products that this package makes available for clients to use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
@@ -332,15 +335,16 @@ public final class Package {
         registerExitHandler()
     }
 
-    /// Initializes a Swift package with the provided configuration options.
+    /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
-    ///     - name: The name of the Swift package or `nil` to deduce the name from the package’s Git URL.
+    ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
+    ///           name from the package’s Git URL.
     ///     - defaultLocalization: The default localization for resources.
-    ///     - platforms: The list of supported platforms with a custom deployment target.
+    ///     - platforms: The list of supported platforms that have a custom deployment target.
     ///     - pkgConfig: The name to use for C modules. If present, the Swift 
-    ///           Package Manager searches for a <name>.pc file to get the
-    ///           required additional flags for a system target.
+    ///           Package Manager searches for a `<name>.pc` file to get the
+    ///           additional flags required for a system target.
     ///     - products: The list of products that this package vends and that clients can use.
     ///     - dependencies: The list of package dependencies.
     ///     - targets: The list of targets that are part of this package.
@@ -410,8 +414,7 @@ public final class Package {
 
 /// A wrapper around an IETF language tag.
 ///
-/// To learn more about IETF language tags, a worldwide standard for language
-/// tags, visit [the IEFT website for RFC5646](https://tools.ietf.org/html/rfc5646).
+/// To learn more about the IETF worldwide standard for language tags, see [RFC5646](https://tools.ietf.org/html/rfc5646).
 public struct LanguageTag: Hashable {
 
     /// An IETF language tag.
@@ -464,7 +467,7 @@ public enum SystemPackageProvider {
   #endif
 
     /// Creates a system package provider with a list of installable packages
-    /// for users of the homebrew package manager on macOS.
+    /// for users of the HomeBrew package manager on macOS.
     ///
     /// - Parameters:
     ///     - packages: The list of package names.
