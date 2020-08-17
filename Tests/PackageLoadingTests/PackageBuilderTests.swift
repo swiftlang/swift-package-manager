@@ -1570,6 +1570,7 @@ class PackageBuilderTests: XCTestCase {
             "tvos": "9.0",
             "watchos": "2.0",
             "android": "0.0",
+            "windows": "0.0",
             "wasi": "0.0",
         ]
 
@@ -1625,6 +1626,7 @@ class PackageBuilderTests: XCTestCase {
             "ios": "9.0",
             "watchos": "2.0",
             "android": "0.0",
+            "windows": "0.0",
             "wasi": "0.0",
         ]
 
