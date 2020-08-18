@@ -269,8 +269,14 @@ public final class UserToolchain: Toolchain {
 
         // Look for an override in the env.
         if let pdLibDirEnvStr = ProcessEnv.vars["SWIFTPM_PD_LIBS"] {
-            // We pick the first path which exists in a colon seperated list.
-            let paths = pdLibDirEnvStr.split(separator: ":").map(String.init)
+            // We pick the first path which exists in an environment variable
+            // delimited by the platform specific string separator.
+#if os(Windows)
+            let separator: Character = ";"
+#else
+            let separator: Character = ":"
+#endif
+            let paths = pdLibDirEnvStr.split(separator: separator).map(String.init)
             var foundPDLibDir = false
             for pathString in paths {
                 if let path = try? AbsolutePath(validating: pathString), localFileSystem.exists(path) {
