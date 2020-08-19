@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# FIXME: Temporarily disabled until #2876 lands
-exit 0
-
 set -eu
 
 __dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
