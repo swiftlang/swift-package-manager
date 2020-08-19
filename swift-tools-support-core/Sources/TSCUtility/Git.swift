@@ -57,7 +57,7 @@ public class Git {
     }
 
     /// A shell command to run for Git. Can be either a name or a path.
-    public static var tool: String = "git"
+    public static var tool: String = "git\(executableFileSuffix)"
 
     /// Returns true if the git reference name is well formed.
     public static func checkRefFormat(ref: String) -> Bool {

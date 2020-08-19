@@ -29,10 +29,45 @@ public func realpath(
 }
 
 // char *mkdtemp(char *template);
+// NOTE(compnerd) this is unsafe!  This assumes that the template is *ASCII*.
 public func mkdtemp(
     _ template: UnsafeMutablePointer<CChar>?
 ) -> UnsafeMutablePointer<CChar>? {
-  fatalError("mkdtemp is unimplemented")
+  // Although the signature of the function is `char *(*)(char *)`, the C
+  // library treats it as `char *(*)(char * _Nonull)`.  Most implementations
+  // will simply use and trigger a segmentation fault on x86 (and similar faults
+  // on other architectures) when the memory is accessed.  This roughly emulates
+  // that by terminating in the case even though it is possible for us to return
+  // an error.
+  guard let template = template else { fatalError() }
+
+  let length: Int = strlen(template)
+
+  // Validate the precondition: the template must terminate with 6 `X` which
+  // will be filled in to generate a unique directory.
+  guard length >= 6, memcmp(template + length - 6, "XXXXXX", 6) == 0 else {
+    _set_errno(EINVAL)
+    return nil
+  }
+
+  let stampSuffix = { (buffer: UnsafeMutablePointer<CChar>) in
+    let alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    _ = (0 ..< 6).map { index in
+        buffer[index] = CChar(alpha.shuffled().randomElement()!.utf8.first!)
+    }
+  }
+
+  // Attempt to create the directory
+  var retries: Int = 100
+  repeat {
+    stampSuffix(template + length - 6)
+    if _mkdir(template) == 0 {
+      return template
+    }
+    retries = retries - 1
+  } while retries > 0
+
+  return nil
 }
 
 // int mkstemps(char *template, int suffixlen);

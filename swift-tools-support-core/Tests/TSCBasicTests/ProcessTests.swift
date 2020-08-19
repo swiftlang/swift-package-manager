@@ -271,7 +271,7 @@ class ProcessTests: XCTestCase {
             return
         }
 
-      #if os(Linux)
+      #if os(Linux) || os(Android)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             // Skip this test since it's not supported in this OS.
             return

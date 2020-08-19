@@ -840,12 +840,12 @@ public final class PackageBuilder {
     func buildConditions(from condition: PackageConditionDescription?) -> [PackageConditionProtocol] {
         var conditions: [PackageConditionProtocol] = []
 
-        if let config = condition?.config.map({ BuildConfiguration(rawValue: $0)! }) {
+        if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
             let condition = ConfigurationCondition(configuration: config)
             conditions.append(condition)
         }
 
-        if let platforms = condition?.platformNames.map({ platformRegistry.platformByName[$0]! }), !platforms.isEmpty {
+        if let platforms = condition?.platformNames.flatMap({ platformRegistry.platformByName[$0] }), !platforms.isEmpty {
             let condition = PlatformsCondition(platforms: platforms)
             conditions.append(condition)
         }

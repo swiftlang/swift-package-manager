@@ -1421,6 +1421,7 @@ extension Workspace {
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
+                withAuthorizationProvider: nil,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     self.delegate?.downloadingBinaryArtifact(
                         from: url,
