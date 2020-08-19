@@ -845,7 +845,7 @@ public final class PackageBuilder {
             conditions.append(condition)
         }
 
-        if let platforms = condition?.platformNames.flatMap({ platformRegistry.platformByName[$0] }), !platforms.isEmpty {
+        if let platforms = condition?.platformNames.compactMap({ platformRegistry.platformByName[$0] }), !platforms.isEmpty {
             let condition = PlatformsCondition(platforms: platforms)
             conditions.append(condition)
         }
