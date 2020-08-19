@@ -57,6 +57,16 @@ public enum ProcessEnv {
         invalidateEnv()
     }
 
+    /// `PATH` variable in the process's environment (`Path` under Windows).
+    public static var path: String? {
+#if os(Windows)
+        let pathArg = "Path"
+#else
+        let pathArg = "PATH"
+#endif
+        return vars[pathArg]
+    }
+
     /// The current working directory of the process.
     public static var cwd: AbsolutePath? {
         return localFileSystem.currentWorkingDirectory

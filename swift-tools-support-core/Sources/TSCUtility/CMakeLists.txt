@@ -20,6 +20,8 @@ add_library(TSCUtility
   IndexStore.swift
   InterruptHandler.swift
   JSONMessageStreamingParser.swift
+  misc.swift
+  Netrc.swift
   OSLog.swift
   PersistenceCache.swift
   PkgConfig.swift
@@ -39,6 +41,8 @@ add_library(TSCUtility
 )
 target_link_libraries(TSCUtility PUBLIC
   TSCBasic)
+target_link_libraries(TSCUtility PRIVATE
+  SQLite::SQLite3)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   target_link_libraries(TSCUtility PUBLIC
     FoundationNetworking)
@@ -46,5 +50,12 @@ endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCUtility PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+  install(TARGETS TSCUtility
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin)
+endif()
 
 set_property(GLOBAL APPEND PROPERTY TSC_EXPORTS TSCUtility)
