@@ -222,7 +222,7 @@ public final class UserToolchain: Toolchain {
 
         // Get the search paths from PATH.
         let searchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
+            pathString: ProcessEnv.path, currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
 
         self.envSearchPaths = searchPaths
 
