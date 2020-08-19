@@ -541,6 +541,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     # Setup symlinks that'll allow using swiftpm from the build directory.
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swiftc"))
     symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swift"))
+    symlink_force(args.swiftc_path, os.path.join(args.target_dir, args.conf, "swift-autolink-extract"))
 
     lib_dir = os.path.join(args.target_dir, "lib", "swift")
 
