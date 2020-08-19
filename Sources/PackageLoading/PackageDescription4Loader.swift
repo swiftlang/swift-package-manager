@@ -172,12 +172,7 @@ extension ManifestBuilder {
     }
 
     func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool, settingName: String) throws -> [TargetBuildSettingDescription.Setting] {
-
         let declaredSettings = try json.getArray()
-        if declaredSettings.isEmpty {
-            throw ManifestParseError.runtimeManifestErrors(["\(settingName) cannot be an empty array; provide at least one setting or remove it"])
-        }
-
         return try declaredSettings.map({
             try parseBuildSetting($0, tool: tool)
         })
