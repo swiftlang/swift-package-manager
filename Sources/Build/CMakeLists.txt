@@ -19,7 +19,8 @@ target_link_libraries(Build PUBLIC
   LLBuildManifest
   SPMBuildCore
   CYaml
-  Yams
+  Yams)
+target_link_libraries(Build PRIVATE
   SwiftDriver)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
