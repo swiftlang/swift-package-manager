@@ -18,6 +18,7 @@ import FoundationNetworking
 #endif
 
 class DownloaderTests: XCTestCase {
+
     func testSuccess() {
       // FIXME: Remove once https://github.com/apple/swift-corelibs-foundation/pull/2593 gets inside a toolchain.
       #if os(macOS)
@@ -72,6 +73,140 @@ class DownloaderTests: XCTestCase {
         }
       #endif
     }
+    
+    #if os(macOS)
+    @available(OSX 10.13, *)
+    /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
+    /// which is only available in macOS 10.13+ at this time.
+    func testAuthenticatedSuccess() {
+        let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
+        guard case .success(let netrc) = Netrc.from(netrcContent) else {
+            return XCTFail("Cannot load netrc content")
+        }
+        let authData = "anonymous:qwerty".data(using: .utf8)!
+        let testAuthHeader = "Basic \(authData.base64EncodedString())"
+        
+        let configuration = URLSessionConfiguration.default
+        configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
+        let downloader = FoundationDownloader(configuration: configuration)
+
+        mktmpdir { tmpdir in
+            let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
+            let destination = tmpdir.appending(component: "download")
+
+            let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
+            let progress50Expectation = XCTestExpectation(description: "progress50")
+            let progress100Expectation = XCTestExpectation(description: "progress100")
+            let successExpectation = XCTestExpectation(description: "success")
+            MockAuthenticatingURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
+
+            downloader.downloadFile(at: url, to: destination, withAuthorizationProvider: netrc, progress: { bytesDownloaded, totalBytesToDownload in
+                
+                XCTAssertEqual(MockAuthenticatingURLProtocol.authenticationHeader(for: url), testAuthHeader)
+
+                switch (bytesDownloaded, totalBytesToDownload) {
+                case (512, 1024):
+                    progress50Expectation.fulfill()
+                case (1024, 1024):
+                    progress100Expectation.fulfill()
+                default:
+                    XCTFail("unexpected progress")
+                }
+            }, completion: { result in
+                switch result {
+                case .success:
+                    XCTAssert(localFileSystem.exists(destination))
+                    let bytes = ByteString(Array(repeating: 0xbe, count: 512) + Array(repeating: 0xef, count: 512))
+                    XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
+                    successExpectation.fulfill()
+                case .failure(let error):
+                    XCTFail("\(error)")
+                }
+            })
+
+            wait(for: [didStartLoadingExpectation], timeout: 1.0)
+
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "1.1", headerFields: [
+                "Content-Length": "1024"
+            ])!
+
+            MockAuthenticatingURLProtocol.sendResponse(response, for: url)
+            MockAuthenticatingURLProtocol.sendData(Data(repeating: 0xbe, count: 512), for: url)
+            wait(for: [progress50Expectation], timeout: 1.0)
+            MockAuthenticatingURLProtocol.sendData(Data(repeating: 0xef, count: 512), for: url)
+            wait(for: [progress100Expectation], timeout: 1.0)
+            MockAuthenticatingURLProtocol.sendCompletion(for: url)
+            wait(for: [successExpectation], timeout: 1.0)
+        }
+    }
+    #endif
+    
+    #if os(macOS)
+    @available(OSX 10.13, *)
+    /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
+    /// which is only available in macOS 10.13+ at this time.
+    func testDefaultAuthenticationSuccess() {
+        let netrcContent = "default login default password default"
+        guard case .success(let netrc) = Netrc.from(netrcContent) else {
+            return XCTFail("Cannot load netrc content")
+        }
+        let authData = "default:default".data(using: .utf8)!
+        let testAuthHeader = "Basic \(authData.base64EncodedString())"
+        
+        let configuration = URLSessionConfiguration.default
+        configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
+        let downloader = FoundationDownloader(configuration: configuration)
+
+        mktmpdir { tmpdir in
+            let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
+            let destination = tmpdir.appending(component: "download")
+
+            let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
+            let progress50Expectation = XCTestExpectation(description: "progress50")
+            let progress100Expectation = XCTestExpectation(description: "progress100")
+            let successExpectation = XCTestExpectation(description: "success")
+            MockAuthenticatingURLProtocol.notifyDidStartLoading(for: url, completion: { didStartLoadingExpectation.fulfill() })
+
+            downloader.downloadFile(at: url, to: destination, withAuthorizationProvider: netrc, progress: { bytesDownloaded, totalBytesToDownload in
+                
+                XCTAssertEqual(MockAuthenticatingURLProtocol.authenticationHeader(for: url), testAuthHeader)
+
+                switch (bytesDownloaded, totalBytesToDownload) {
+                case (512, 1024):
+                    progress50Expectation.fulfill()
+                case (1024, 1024):
+                    progress100Expectation.fulfill()
+                default:
+                    XCTFail("unexpected progress")
+                }
+            }, completion: { result in
+                switch result {
+                case .success:
+                    XCTAssert(localFileSystem.exists(destination))
+                    let bytes = ByteString(Array(repeating: 0xbe, count: 512) + Array(repeating: 0xef, count: 512))
+                    XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
+                    successExpectation.fulfill()
+                case .failure(let error):
+                    XCTFail("\(error)")
+                }
+            })
+
+            wait(for: [didStartLoadingExpectation], timeout: 1.0)
+
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "1.1", headerFields: [
+                "Content-Length": "1024"
+            ])!
+
+            MockAuthenticatingURLProtocol.sendResponse(response, for: url)
+            MockAuthenticatingURLProtocol.sendData(Data(repeating: 0xbe, count: 512), for: url)
+            wait(for: [progress50Expectation], timeout: 1.0)
+            MockAuthenticatingURLProtocol.sendData(Data(repeating: 0xef, count: 512), for: url)
+            wait(for: [progress100Expectation], timeout: 1.0)
+            MockAuthenticatingURLProtocol.sendCompletion(for: url)
+            wait(for: [successExpectation], timeout: 1.0)
+        }
+    }
+    #endif
 
     func testClientError() {
       // FIXME: Remove once https://github.com/apple/swift-corelibs-foundation/pull/2593 gets inside a toolchain.
@@ -208,6 +343,16 @@ private struct DummyError: Error {
 
 private typealias Action = () -> Void
 
+private class MockAuthenticatingURLProtocol: MockURLProtocol {
+    
+    fileprivate static func authenticationHeader(for url: Foundation.URL) -> String? {
+        guard let instance = instance(for: url) else {
+            fatalError("url did not start loading")
+        }
+        return instance.request.allHTTPHeaderFields?["Authorization"]
+    }
+}
+
 private class MockURLProtocol: URLProtocol {
     private static var queue = DispatchQueue(label: "org.swift.swiftpm.basic-tests.mock-url-protocol")
     private static var observers: [Foundation.URL: Action] = [:]
@@ -308,6 +453,10 @@ private class MockURLProtocol: URLProtocol {
             let url = self.request.url!
             Self.instances[url] = nil
         }
+    }
+    
+    fileprivate static func instance(for url: Foundation.URL) -> URLProtocol? {
+        return Self.instances[url]
     }
 }
 

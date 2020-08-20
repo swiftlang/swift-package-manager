@@ -43,11 +43,13 @@ public protocol Downloader {
     /// - Parameters:
     ///   - url: The `URL` to the file to download.
     ///   - destination: The `AbsolutePath` to download the file to.
+    ///   - authorizationProvider: Optional provider supplying `Authorization` header to be added to `URLRequest`.
     ///   - progress: A closure to receive the download's progress as number of bytes.
     ///   - completion: A closure to be notifed of the completion of the download.
     func downloadFile(
         at url: Foundation.URL,
         to destination: AbsolutePath,
+        withAuthorizationProvider authorizationProvider: AuthorizationProviding?,
         progress: @escaping Progress,
         completion: @escaping Completion
     )
@@ -109,11 +111,18 @@ public final class FoundationDownloader: NSObject, Downloader {
     public func downloadFile(
         at url: Foundation.URL,
         to destination: AbsolutePath,
+        withAuthorizationProvider authorizationProvider: AuthorizationProviding? = nil,
         progress: @escaping Downloader.Progress,
         completion: @escaping Downloader.Completion
     ) {
         queue.addOperation {
-            let task = self.session.downloadTask(with: url)
+            var request = URLRequest(url: url)
+            
+            if let authorization = authorizationProvider?.authorization(for: url) {
+                request.addValue(authorization, forHTTPHeaderField: "Authorization")
+            }
+            
+            let task = self.session.downloadTask(with: request)
             let download = Download(
                 task: task,
                 destination: destination,

@@ -31,9 +31,10 @@ public struct ProcessResult: CustomStringConvertible {
     public enum ExitStatus: Equatable {
         /// The process was terminated normally with a exit code.
         case terminated(code: Int32)
-
+#if !os(Windows)
         /// The process was terminated due to a signal.
         case signalled(signal: Int32)
+#endif
     }
 
     /// The arguments with which the process was launched.
@@ -177,6 +178,8 @@ public final class Process: ObjectIdentifierProtocol {
     /// Typealias for process id type.
   #if !os(Windows)
     public typealias ProcessID = pid_t
+  #else
+    public typealias ProcessID = DWORD
   #endif
 
     /// Typealias for stdout/stderr output closure.
@@ -206,6 +209,9 @@ public final class Process: ObjectIdentifierProtocol {
     /// The process id of the spawned process, available after the process is launched.
   #if os(Windows)
     private var _process: Foundation.Process?
+    public var processID: ProcessID {
+        return DWORD(_process?.processIdentifier ?? 0)
+    }
   #else
     public private(set) var processID = ProcessID()
   #endif
@@ -314,7 +320,7 @@ public final class Process: ObjectIdentifierProtocol {
             }
             // FIXME: This can be cached.
             let envSearchPaths = getEnvSearchPaths(
-                pathString: ProcessEnv.vars["PATH"],
+                pathString: ProcessEnv.path,
                 currentWorkingDirectory: localFileSystem.currentWorkingDirectory
             )
             // Lookup and cache the executable path.
@@ -340,14 +346,15 @@ public final class Process: ObjectIdentifierProtocol {
         }
 
         // Look for executable.
-        guard Process.findExecutable(arguments[0]) != nil else {
-            throw Process.Error.missingExecutableProgram(program: arguments[0])
+        let executable = arguments[0]
+        guard let executablePath = Process.findExecutable(executable) else {
+            throw Process.Error.missingExecutableProgram(program: executable)
         }
 
     #if os(Windows)
         _process = Foundation.Process()
-        _process?.arguments = arguments
-        _process?.executableURL = URL(fileURLWithPath: arguments[0])
+        _process?.arguments = Array(arguments.dropFirst()) // Avoid including the executable URL twice.
+        _process?.executableURL = executablePath.asURL
         _process?.environment = environment
 
         if outputRedirection.redirectsOutput {
@@ -752,9 +759,10 @@ extension ProcessResult.Error: CustomStringConvertible {
             switch result.exitStatus {
             case .terminated(let code):
                 stream <<< "terminated(\(code)): "
-
+#if !os(Windows)
             case .signalled(let signal):
                 stream <<< "signalled(\(signal)): "
+#endif
             }
 
             // Strip sandbox information from arguments to keep things pretty.

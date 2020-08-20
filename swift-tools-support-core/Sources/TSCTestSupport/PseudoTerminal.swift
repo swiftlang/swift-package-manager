@@ -11,6 +11,8 @@
 import TSCBasic
 import TSCLibc
 
+#if os(Windows)
+#else
 public final class PseudoTerminal {
     let master: Int32
     let slave: Int32
@@ -51,3 +53,4 @@ public final class PseudoTerminal {
         closeMaster()
     }
 }
+#endif

@@ -21,10 +21,11 @@ else()
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-option(BUILD_SHARED_LIBS "Build shared libraryes by default" YES)
+option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
 
 find_package(dispatch QUIET)
 find_package(Foundation QUIET)
+find_package(SQLite3 REQUIRED)
 
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)

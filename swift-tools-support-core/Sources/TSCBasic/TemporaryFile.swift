@@ -135,7 +135,13 @@ public func withTemporaryFile<Result>(
     let tempFile = try TemporaryFile(dir: dir, prefix: prefix, suffix: suffix)
     defer {
         if deleteOnClose {
+#if os(Windows)
+            _ = tempFile.path.pathString.withCString(encodedAs: UTF16.self) {
+              _wunlink($0)
+            }
+#else
             unlink(tempFile.path.pathString)
+#endif
         }
     }
     return try body(tempFile)

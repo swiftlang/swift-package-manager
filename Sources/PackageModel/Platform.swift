@@ -29,7 +29,7 @@ public final class PlatformRegistry {
 
     /// The static list of known platforms.
     private static var _knownPlatforms: [Platform] {
-        return [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .wasi]
+        return [.macOS, .iOS, .tvOS, .watchOS, .linux, .windows, .android, .wasi]
     }
 }
 

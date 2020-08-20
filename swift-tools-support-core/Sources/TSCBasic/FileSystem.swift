@@ -900,6 +900,7 @@ extension FileSystem {
     }
 }
 
+#if !os(Windows)
 extension dirent {
     /// Get the directory name.
     ///
@@ -911,4 +912,4 @@ extension dirent {
         }
     }
 }
-
+#endif

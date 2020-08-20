@@ -421,6 +421,12 @@ private struct UNIXPath: Path {
         return name != "" && name != "." && name != ".." && !name.contains("/")
     }
 
+#if os(Windows)
+    static func isAbsolutePath(_ path: String) -> Bool {
+        return !path.withCString(encodedAs: UTF16.self, PathIsRelativeW)
+    }
+#endif
+
     var dirname: String {
 #if os(Windows)
         let dir = string.deletingLastPathComponent
@@ -445,7 +451,11 @@ private struct UNIXPath: Path {
     }
 
     var isAbsolute: Bool {
-        string.hasPrefix("/")
+#if os(Windows)
+        return UNIXPath.isAbsolutePath(string)
+#else
+        return string.hasPrefix("/")
+#endif
     }
 
     var basename: String {
@@ -632,7 +642,7 @@ private struct UNIXPath: Path {
         defer { fsr.deallocate() }
 
         let realpath = String(cString: fsr)
-        if realpath.withCString(encodedAs: UTF16.self, PathIsRelativeW) {
+        if !UNIXPath.isAbsolutePath(realpath) {
             throw PathValidationError.invalidAbsolutePath(path)
         }
         self.init(normalizingAbsolutePath: path)
@@ -654,7 +664,7 @@ private struct UNIXPath: Path {
         defer { fsr.deallocate() }
 
         let realpath: String = String(cString: fsr)
-        if !realpath.withCString(encodedAs: UTF16.self, PathIsRelativeW) {
+        if UNIXPath.isAbsolutePath(realpath) {
             throw PathValidationError.invalidRelativePath(path)
         }
         self.init(normalizingRelativePath: path)
