@@ -588,9 +588,8 @@ public final class SwiftTargetBuildDescription {
                 let buildPath = "\(bundlePath.pathString)"
 
                 let preferredBundle = Bundle(path: mainPath)
-                let fallBackBundle = Bundle(path: buildPath)
 
-                guard let bundle = preferredBundle != nil ? preferredBundle : fallBackBundle else {
+                guard let bundle = preferredBundle != nil ? preferredBundle : Bundle(path: buildPath) else {
                     fatalError("could not load resource bundle: from \\(mainPath) or \\(buildPath)")
                 }
 
