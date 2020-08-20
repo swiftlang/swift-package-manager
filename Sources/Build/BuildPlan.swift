@@ -578,17 +578,14 @@ public final class SwiftTargetBuildDescription {
         // Do nothing if we're not generating a bundle.
         guard let bundlePath = self.bundlePath else { return }
 
-        let buildPath = #""\#(bundlePath.pathString)""#
-        let mainPath = #"Bundle.main.bundlePath + "/" + "\#(bundlePath.basename)""#
-
         let stream = BufferedOutputByteStream()
         stream <<< """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let mainPath = \(mainPath)
-                let buildPath = \(buildPath)
+                let mainPath = Bundle.main.bundlePath + "/" + "\(bundlePath.basename)"
+                let buildPath = "\(bundlePath.pathString)"
 
                 let preferredBundle = Bundle(path: mainPath)
                 let fallBackBundle = Bundle(path: buildPath)
