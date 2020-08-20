@@ -840,7 +840,7 @@ public final class PackageBuilder {
     func buildConditions(from condition: PackageConditionDescription?) -> [PackageConditionProtocol] {
         var conditions: [PackageConditionProtocol] = []
 
-        if let config = condition?.config.flatMap({ BuildConfiguration(rawValue: $0) }) {
+        if let config = condition?.config.compactMap({ BuildConfiguration(rawValue: $0) }) {
             let condition = ConfigurationCondition(configuration: config)
             conditions.append(condition)
         }
@@ -1067,7 +1067,7 @@ public final class PackageBuilder {
             // Compute the list of targets which are being used in an
             // executable product so we don't create implicit executables
             // for them.
-            let executableProductTargets = manifest.products.flatMap({ product -> [String] in
+            let executableProductTargets = manifest.products.compactMap({ product -> [String] in
                 switch product.type {
                 case .library, .test:
                     return []
