@@ -533,6 +533,7 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, args.llbuild_build_dir)
 
     if platform.system() == "Darwin":
+        add_rpath_for_cmake_build(args, os.path.join(args.argparser_build_dir, "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.swift_driver_build_dir, "lib"))
 
