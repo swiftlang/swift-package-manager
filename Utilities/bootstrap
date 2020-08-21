@@ -130,6 +130,11 @@ def add_build_args(parser):
         help="paths (relative to the project root) where to install build products [%(default)s]",
         default=["/tmp/swiftpm"],
         metavar="PATHS")
+    parser.add_argument(
+        "--skip-integrated-driver-tests",
+        action="store_true",
+        help="whether to skip tests with the integrated driver",
+        default=True)
 
 def add_test_args(parser):
     """Configures the parser with the arguments necessary for the test action."""
@@ -302,6 +307,9 @@ def test(args):
 
     # Test SwiftPM.
     call_swiftpm(args, cmd)
+
+    if args.skip_integrated_driver_tests:
+        return
 
     # Build SwiftPM with the integrated driver.
     note("Bootstrap with the integrated Swift driver")
