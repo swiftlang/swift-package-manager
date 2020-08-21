@@ -72,11 +72,6 @@ let package = Package(
             targets: ["PackageDescription"]
         ),
     ],
-    dependencies: [
-        .package(
-          url: "https://github.com/apple/swift-argument-parser.git",
-          .upToNextMinor(from: "0.3.0")),
-    ],
     targets: [
         // The `PackageDescription` targets define the API which is available to
         // the `Package.swift` manifest files. We build the latest API version
@@ -268,11 +263,13 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.3.0")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch("master")),
     ]
 } else {
     package.dependencies += [
         .package(path: "./swift-tools-support-core"),
+        .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
     ]
 }

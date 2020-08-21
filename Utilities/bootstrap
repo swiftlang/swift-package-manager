@@ -150,6 +150,7 @@ def parse_global_args(args):
     args.build_dir = os.path.abspath(args.build_dir)
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     args.tsc_source_dir = os.path.join(args.project_root, "swift-tools-support-core")
+    args.argparser_source_dir = os.path.join(args.project_root, "..", "swift-argument-parser")
     args.yams_source_dir = os.path.join(args.project_root, "..", "yams")
     args.swift_driver_source_dir = os.path.join(args.project_root, "..", "swift-driver")
     args.source_root = os.path.join(args.project_root, "Sources")
@@ -279,6 +280,7 @@ def build(args):
         build_llbuild(args)
 
     build_tsc(args)
+    build_argparser(args)
     build_yams(args)
     build_swift_driver(args)
     build_swiftpm_with_cmake(args)
@@ -459,6 +461,17 @@ def build_tsc(args):
 
     build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
 
+def build_argparser(args):
+    note("Building ArgumentParser")
+    args.argparser_build_dir = os.path.join(args.target_dir, "swift-argument-parser")
+
+    cmake_flags = ["-DBUILD_TESTING=OFF"]
+    if platform.system() == 'Darwin':
+        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
+        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+
+    build_with_cmake(args, cmake_flags, args.argparser_source_dir, args.argparser_build_dir)
+
 def build_yams(args):
     note("Building Yams")
     args.yams_build_dir = os.path.join(args.target_dir, "yams")
@@ -505,6 +518,7 @@ def build_swiftpm_with_cmake(args):
     cmake_flags = [
         get_llbuild_cmake_arg(args),
         "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
+        "-DArgumentParser_DIR=" + os.path.join(args.argparser_build_dir, "cmake/modules"),
         "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
         "-DSwiftDriver_DIR=" + os.path.join(args.swift_driver_build_dir, "cmake/modules"),
     ]
@@ -606,6 +620,7 @@ def get_swiftpm_env_cmd(args):
         os.path.join(args.bootstrap_dir, "lib"),
         os.path.join(args.tsc_build_dir, "lib"),
         os.path.join(args.llbuild_build_dir, "lib"),
+        os.path.join(args.argparser_build_dir, "lib"),
         os.path.join(args.yams_build_dir, "lib"),
         os.path.join(args.swift_driver_build_dir, "lib"),
     ])
