@@ -232,4 +232,80 @@ final class BasicTests: XCTestCase {
             }
         }
     }
+  
+    func testSwiftTestWithResources() throws {
+        try withTemporaryDirectory { dir in
+            let toolDir = dir.appending(component: "swiftTestResources")
+            try localFileSystem.createDirectory(toolDir)
+            try localFileSystem.writeFileContents(
+              toolDir.appending(component: "Package.swift"),
+              bytes: ByteString(encodingAsUTF8: """
+                    // swift-tools-version:5.3
+                    import PackageDescription
+
+                    let package = Package(
+                       name: "AwesomeResources",
+                       targets: [
+                           .target(name: "AwesomeResources", resources: [.copy("hello.txt")]),
+                           .testTarget(name: "AwesomeResourcesTest", dependencies: ["AwesomeResources"], resources: [.copy("world.txt")])
+                       ]
+                    )
+                    """)
+            )
+            try localFileSystem.createDirectory(toolDir.appending(component: "Sources"))
+            try localFileSystem.createDirectory(toolDir.appending(components: "Sources", "AwesomeResources"))
+            try localFileSystem.writeFileContents(
+              toolDir.appending(components: "Sources", "AwesomeResources", "AwesomeResource.swift"),
+              bytes: ByteString(encodingAsUTF8: """
+                    import Foundation
+
+                    public struct AwesomeResource {
+                      public init() {}
+                      public let hello = try! String(contentsOf: Bundle.module.url(forResource: "hello", withExtension: "txt")!)
+                    }
+
+                    """)
+            )
+
+            try localFileSystem.writeFileContents(
+              toolDir.appending(components: "Sources", "AwesomeResources", "hello.txt"),
+              bytes: ByteString(encodingAsUTF8: "hello")
+            )
+
+            try localFileSystem.createDirectory(toolDir.appending(component: "Tests"))
+            try localFileSystem.createDirectory(toolDir.appending(components: "Tests", "AwesomeResourcesTest"))
+
+            try localFileSystem.writeFileContents(
+              toolDir.appending(components: "Tests", "AwesomeResourcesTest", "world.txt"),
+              bytes: ByteString(encodingAsUTF8: "world")
+            )
+
+            try localFileSystem.writeFileContents(
+                toolDir.appending(components: "Tests", "AwesomeResourcesTest", "MyTests.swift"),
+                bytes: ByteString(encodingAsUTF8: """
+                    import XCTest
+                    import Foundation
+                    import AwesomeResources
+
+                    final class MyTests: XCTestCase {
+                        func testFoo() {
+                            XCTAssertTrue(AwesomeResource().hello == "hello")
+                        }
+                        func testBar() {
+                            let world = try! String(contentsOf: Bundle.module.url(forResource: "world", withExtension: "txt")!)
+                            XCTAssertTrue(world == "world")
+                        }
+                    }
+                    """))
+          
+            let testOutput = try sh(swiftTest, "--package-path", toolDir, "--filter", "MyTests.*").stderr
+
+//             Check the test log.
+              XCTAssertContents(testOutput) { checker in
+                  checker.check(.contains("Test Suite 'MyTests' started"))
+                  checker.check(.contains("Test Suite 'MyTests' passed"))
+                  checker.check(.contains("Executed 2 tests, with 0 failures"))
+              }
+        }
+    }
 }
