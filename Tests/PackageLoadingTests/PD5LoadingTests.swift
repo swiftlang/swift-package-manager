@@ -431,12 +431,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        do {
-            try loadManifestThrowing(stream.bytes) { _ in }
-            XCTFail("Unexpected success")
-        } catch ManifestParseError.runtimeManifestErrors(let errors) {
-            XCTAssertEqual(errors, ["cSettings cannot be an empty array; provide at least one setting or remove it"])
-        }
+        try loadManifestThrowing(stream.bytes) { _ in }
     }
 
     func testWindowsPlatform() throws {
