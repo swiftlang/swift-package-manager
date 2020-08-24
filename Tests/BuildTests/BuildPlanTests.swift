@@ -62,7 +62,7 @@ final class BuildPlanTests: XCTestCase {
         toolchain: SPMBuildCore.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
-        destinationTriple: SPMBuildCore.Triple = hostTriple,
+        destinationTriple: TSCUtility.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
         useExplicitModuleBuild: Bool = false
     ) -> BuildParameters {
@@ -81,7 +81,7 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func mockBuildParameters(environment: BuildEnvironment) -> BuildParameters {
-        let triple: SPMBuildCore.Triple
+        let triple: TSCUtility.Triple
         switch environment.platform {
         case .macOS:
             triple = Triple.macOS
@@ -1869,7 +1869,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        func createResult(for dest: SPMBuildCore.Triple) throws -> BuildPlanResult {
+        func createResult(for dest: TSCUtility.Triple) throws -> BuildPlanResult {
             return BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph, diagnostics: diagnostics,
@@ -2313,7 +2313,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testBinaryTargets(platform: String, arch: String, destinationTriple: SPMBuildCore.Triple)
+    func testBinaryTargets(platform: String, arch: String, destinationTriple: TSCUtility.Triple)
     throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
@@ -2458,9 +2458,9 @@ final class BuildPlanTests: XCTestCase {
 
     func testBinaryTargets() throws {
         try testBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
-        let arm64Triple = try SPMBuildCore.Triple("arm64-apple-macosx")
+        let arm64Triple = try TSCUtility.Triple("arm64-apple-macosx")
         try testBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
-        let arm64eTriple = try SPMBuildCore.Triple("arm64e-apple-macosx")
+        let arm64eTriple = try TSCUtility.Triple("arm64e-apple-macosx")
         try testBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
@@ -2594,7 +2594,7 @@ fileprivate extension TargetBuildDescription {
     }
 }
 
-fileprivate extension SPMBuildCore.Triple {
+fileprivate extension TSCUtility.Triple {
     static let x86_64Linux = try! Triple("x86_64-unknown-linux-gnu")
     static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
     static let arm64Android = try! Triple("aarch64-unknown-linux-android")
