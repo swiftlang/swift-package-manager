@@ -307,17 +307,21 @@ extension LLBuildManifestBuilder {
     public func addTargetsToExplicitBuildManifest() throws {
         // Sort the product targets in topological order in order to collect and "bubble up"
         // their respective dependency graphs to the depending targets.
-        let nodes: [ResolvedTarget.Dependency] = plan.targetMap.keys.map { ResolvedTarget.Dependency.target($0, conditions: []) }
-        let allTargets = try! topologicalSort(nodes, successors: { $0.dependencies })
+        let nodes: [ResolvedTarget.Dependency] = plan.targetMap.keys.map {
+            ResolvedTarget.Dependency.target($0, conditions: [])
+        }
+        let allPackageDependencies = try! topologicalSort(nodes, successors: { $0.dependencies })
 
         // Collect all targets' dependency graphs
         var targetDepGraphMap : [ResolvedTarget: InterModuleDependencyGraph] = [:]
 
         // Create commands for all target descriptions in the plan.
-        for dependency in allTargets.reversed() {
+        for dependency in allPackageDependencies.reversed() {
             guard case .target(let target, _) = dependency else {
-                // TODO
-                fatalError("Product Dependencies not supported in Explicit Module Build Mode.")
+                // Product dependency build jobs are added after the fact.
+                // Targets that depend on product dependencies will expand the corresponding
+                // product into its constituent targets.
+                continue
             }
             guard let description = plan.targetMap[target] else {
                 fatalError("Expected description for target: \(target)")
@@ -399,26 +403,43 @@ extension LLBuildManifestBuilder {
                                               dependencyArtifactMap: inout SwiftDriver.ExternalDependencyArtifactMap
     ) {
         for dependency in target.dependencies {
-            guard let dependencyTarget = dependency.target else {
-                fatalError("Expected dependency target: \(dependency.description)")
-            }
-            // Only other swift targets will have corresponding dependency maps
-            guard case .swift(let dependencySwiftTargetDescription) =
-                    plan.targetMap[dependencyTarget] else {
-                continue
-            }
-            guard let dependencyGraph = targetDepGraphMap[dependencyTarget] else {
-                fatalError("Expected dependency graph for target: \(dependency.description)")
-            }
-            let moduleName = dependencyTarget.name
-            let dependencyModulePath = dependencySwiftTargetDescription.moduleOutputPath
-            dependencyArtifactMap[ModuleDependencyId.swiftPlaceholder(moduleName)] =
-                  (dependencyModulePath, dependencyGraph)
+            switch dependency {
+                case .product:
+                    // Product dependencies are broken down into the targets that make them up.
+                    let dependencyProduct = dependency.product!
+                    for dependencyProductTarget in dependencyProduct.targets {
+                        addTargetDependencyInfo(for: dependencyProductTarget,
+                                                targetDepGraphMap: targetDepGraphMap,
+                                                dependencyArtifactMap: &dependencyArtifactMap)
 
-            collectTargetDependencyInfos(for: dependencyTarget,
-                                         targetDepGraphMap: targetDepGraphMap,
-                                         dependencyArtifactMap: &dependencyArtifactMap)
+                    }
+                case .target:
+                    // Product dependencies are broken down into the targets that make them up.
+                    let dependencyTarget = dependency.target!
+                    addTargetDependencyInfo(for: dependencyTarget,
+                                            targetDepGraphMap: targetDepGraphMap,
+                                            dependencyArtifactMap: &dependencyArtifactMap)
+            }
         }
+    }
+
+    private func addTargetDependencyInfo(for target: ResolvedTarget,
+                                         targetDepGraphMap: [ResolvedTarget: InterModuleDependencyGraph],
+                                         dependencyArtifactMap: inout SwiftDriver.ExternalDependencyArtifactMap) {
+        guard case .swift(let dependencySwiftTargetDescription) = plan.targetMap[target] else {
+            return
+        }
+        guard let dependencyGraph = targetDepGraphMap[target] else {
+            fatalError("Expected dependency graph for target: \(target.description)")
+        }
+        let moduleName = target.name
+        let dependencyModulePath = dependencySwiftTargetDescription.moduleOutputPath
+        dependencyArtifactMap[ModuleDependencyId.swiftPlaceholder(moduleName)] =
+            (dependencyModulePath, dependencyGraph)
+
+        collectTargetDependencyInfos(for: target,
+                                     targetDepGraphMap: targetDepGraphMap,
+                                     dependencyArtifactMap: &dependencyArtifactMap)
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(
