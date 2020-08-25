@@ -47,10 +47,10 @@ public struct BuildParameters: Encodable {
     private let _toolchain: _Toolchain
 
     /// Host triple.
-    public var hostTriple: Triple
+    public var hostTriple: TSCUtility.Triple
 
     /// Destination triple.
-    public var triple: Triple
+    public var triple: TSCUtility.Triple
 
     /// The architectures to build for.
     public var archs: [String]
@@ -134,8 +134,8 @@ public struct BuildParameters: Encodable {
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
-        hostTriple: Triple? = nil,
-        destinationTriple: Triple? = nil,
+        hostTriple: TSCUtility.Triple? = nil,
+        destinationTriple: TSCUtility.Triple? = nil,
         archs: [String] = [],
         flags: BuildFlags,
         xcbuildFlags: [String] = [],
