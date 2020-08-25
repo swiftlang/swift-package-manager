@@ -625,6 +625,7 @@ extension Workspace {
         guard removed else { return }
 
         repositoryManager.reset()
+        try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(dataPath)
     }
 
