@@ -43,6 +43,7 @@ find_package(dispatch QUIET)
 find_package(Foundation QUIET)
 
 find_package(Yams CONFIG REQUIRED)
+find_package(ArgumentParser CONFIG REQUIRED)
 find_package(SwiftDriver CONFIG REQUIRED)
 
 add_subdirectory(Sources)

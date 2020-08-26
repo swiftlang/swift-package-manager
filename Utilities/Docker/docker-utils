@@ -33,6 +33,7 @@ def docker_run(command_args):
     llbuild_dir = os.path.normpath(os.path.join(swiftpm_dir, '../llbuild'))
     swift_driver_dir = os.path.normpath(os.path.join(swiftpm_dir, '../swift-driver'))
     yams_dir = os.path.normpath(os.path.join(swiftpm_dir, '../yams'))
+    argument_parser_dir = os.path.normpath(os.path.join(swiftpm_dir, '../swift-argument-parser'))
     call([
         "docker",
         "run",
@@ -42,6 +43,7 @@ def docker_run(command_args):
         "-v", "%s:/llbuild" % llbuild_dir,
         "-v", "%s:/swift-driver" % swift_driver_dir,
         "-v", "%s:/yams" % yams_dir,
+        "-v", "%s:/swift-argument-parser" % argument_parser_dir,
         "-w", "/swiftpm",
         "--rm",
         "swiftpm-docker-1804"

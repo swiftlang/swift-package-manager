@@ -8,8 +8,6 @@
 
 add_library(Commands
   APIDigester.swift
-  Completions+bash.swift
-  Completions+zsh.swift
   Describe.swift
   Error.swift
   GenerateLinuxMain.swift
@@ -24,6 +22,7 @@ add_library(Commands
   SymbolGraphExtract.swift
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
+  ArgumentParser
   Build
   PackageGraph
   SourceControl

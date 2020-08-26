@@ -10,5 +10,4 @@
 
 import Commands
 
-let tool = SwiftTestTool(args: Array(CommandLine.arguments.dropFirst()))
-tool.run()
+SwiftTestTool.main()
