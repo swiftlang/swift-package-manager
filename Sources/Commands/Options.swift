@@ -31,7 +31,7 @@ struct BuildFlagsGroup: ParsableArguments {
             help: "Pass flag through to all linker invocations")
     var linkerFlags: [String] = []
     
-    @Option(name: .customLong("Xccxx", withSingleDash: true),
+    @Option(name: .customLong("Xcxx", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C++ compiler invocations")
     var cxxCompilerFlags: [String] = []
