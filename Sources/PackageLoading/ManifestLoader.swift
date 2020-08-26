@@ -143,18 +143,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     let cacheDir: AbsolutePath!
     let delegate: ManifestLoaderDelegate?
     private(set) var cache: PersistentCacheProtocol?
+    private let extraManifestFlags: [String]
 
     public init(
         manifestResources: ManifestResourceProvider,
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
-        delegate: ManifestLoaderDelegate? = nil
+        delegate: ManifestLoaderDelegate? = nil,
+        extraManifestFlags: [String] = []
     ) {
         self.resources = manifestResources
         self.serializedDiagnostics = serializedDiagnostics
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.delegate = delegate
+        self.extraManifestFlags = extraManifestFlags
 
         // Resolve symlinks since we can't use them in sandbox profiles.
         if let cacheDir = cacheDir {
@@ -689,6 +692,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             cmd += [manifestPath.pathString]
+
+            cmd += self.extraManifestFlags
 
             try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
                 // Set path to compiled manifest executable.
