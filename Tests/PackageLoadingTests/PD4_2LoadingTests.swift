@@ -570,6 +570,11 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
+
+            // Resetting the cache should allow us to remove the cache
+            // directory without triggering assertions in sqlite.
+            try manifestLoader.resetCache()
+            try localFileSystem.removeFileTree(path)
         }
     }
 
