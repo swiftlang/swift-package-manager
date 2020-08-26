@@ -655,7 +655,8 @@ public class SwiftTool {
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath
+                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath,
+                extraManifestFlags: self.options.manifestFlags
             )
         })
     }()
