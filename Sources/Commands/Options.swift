@@ -42,13 +42,7 @@ struct BuildFlagsGroup: ParsableArguments {
                 "Pass flag through to the Xcode build system invocations",
                 shouldDisplay: false))
     var xcbuildFlags: [String] = []
-
-    @Option(name: .customLong("Xmanifest", withSingleDash: true),
-            parsing: .unconditionalSingleValue,
-            help: ArgumentHelp("Pass flag to the manifest build invocation",
-                               shouldDisplay: false))
-    var manifestFlags: [String] = []
-
+    
     var buildFlags: BuildFlags {
         BuildFlags(
             xcc: cCompilerFlags,
@@ -102,11 +96,7 @@ public struct SwiftToolOptions: ParsableArguments {
     var xcbuildFlags: [String] {
         buildFlagsGroup.xcbuildFlags
     }
-
-    var manifestFlags: [String] {
-        buildFlagsGroup.manifestFlags
-    }
-
+    
     /// Build configuration.
     @Option(name: .shortAndLong, help: "Build with configuration")
     var configuration: BuildConfiguration = .debug
