@@ -562,7 +562,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         let generatedModuleMapDir = "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
         let moduleMapFile = "\(generatedModuleMapDir)/\(target.name).modulemap"
-        let moduleMapFileContents: String
+        let moduleMapFileContents: String?
 
         if let clangTarget = target.underlyingTarget as? ClangTarget {
             // Let the target itself find its own headers.
@@ -572,15 +572,20 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
             // Also propagate this search path to all direct and indirect clients.
             impartedSettings[.HEADER_SEARCH_PATHS, default: ["$(inherited)"]].append(clangTarget.includeDir.pathString)
-            impartedSettings[.OTHER_SWIFT_FLAGS, default: ["$(inherited)"]] +=
-                ["-Xcc", "-fmodule-map-file=\(moduleMapFile)"]
 
-            moduleMapFileContents = """
-                module \(target.c99name) {
-                    umbrella "\(clangTarget.includeDir.pathString)"
-                    export *
-                }
-                """
+            if !fileSystem.exists(clangTarget.moduleMapPath) {
+                impartedSettings[.OTHER_SWIFT_FLAGS, default: ["$(inherited)"]] +=
+                    ["-Xcc", "-fmodule-map-file=\(moduleMapFile)"]
+
+                moduleMapFileContents = """
+                    module \(target.c99name) {
+                        umbrella "\(clangTarget.includeDir.pathString)"
+                        export *
+                    }
+                    """
+            } else {
+                moduleMapFileContents = nil
+            }
         } else if let swiftTarget = target.underlyingTarget as? SwiftTarget {
             settings[.SWIFT_VERSION] = swiftTarget.swiftVersion.description
             // Generate ObjC compatibility header for Swift library targets.
@@ -597,8 +602,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             fatalError("unexpected target")
         }
 
-        settings[.MODULEMAP_PATH] = moduleMapFile
-        settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
+        if let moduleMapFileContents = moduleMapFileContents {
+            settings[.MODULEMAP_PATH] = moduleMapFile
+            settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
+        }
 
         // Pass the path of the module map up to all direct and indirect clients.
         impartedSettings[.OTHER_CFLAGS, default: ["$(inherited)"]].append("-fmodule-map-file=\(moduleMapFile)")
