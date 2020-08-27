@@ -65,6 +65,7 @@ $ swift test -c release --filter PerformanceTests
 ## Using a Trunk Snapshot
 
 1. [Download](https://swift.org/download/#snapshots) and install the latest Trunk Development snapshot.
+
 2. Run the following commands depending on your platform.
 
 ### macOS
@@ -98,9 +99,23 @@ Note: Make sure the directory for llbuild is called "llbuild" and not
 
 4. Clone [Yams](https://github.com/jpsim/yams) beside the package manager directory.
 
+```sh
+$ git clone https://github.com/jpsim/yams
+```
+
 5. Clone [swift-driver](https://github.com/apple/swift-driver) beside the package manager directory.
 
-6. Build the Swift Package Manager.
+```sh
+$ git clone https://github.com/apple/swift-driver
+```
+
+6. Clone [swift-argument-parser](https://github.com/apple/swift-argument-parser) beside the package manager directory and check out tag 0.3.0.
+
+```sh
+$ git clone https://github.com/apple/swift-argument-parser --branch 0.3.0
+```
+
+7. Build the Swift Package Manager.
 
 ```sh
 $ cd swiftpm
@@ -121,7 +136,7 @@ $ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
 $ /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
 ```
 
-5. Test the Swift Package Manager.
+8. Test the Swift Package Manager.
 
 ```sh
 $ Utilities/bootstrap test
