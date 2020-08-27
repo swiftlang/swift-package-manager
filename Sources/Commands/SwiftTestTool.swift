@@ -114,7 +114,13 @@ struct TestToolOptions: ParsableArguments {
 
     var testCaseSkip: TestCaseSpecifier {
         // TODO: Remove this once the environment variable is no longer used.
-        testCaseSkipOverride() ?? .skip(_testCaseSkip)
+        if let override = testCaseSkipOverride() {
+            return override
+        }
+      
+        return _testCaseSkip.isEmpty
+            ? .none
+            : .skip(_testCaseSkip)
     }
 
     @Option(name: .customLong("skip"),
