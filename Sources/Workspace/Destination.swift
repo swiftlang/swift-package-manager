@@ -134,6 +134,8 @@ public struct Destination: Encodable, Equatable {
         var extraCPPFlags: [String] = []
 #if os(macOS)
         extraCPPFlags += ["-lc++"]
+#elseif os(Windows)
+        extraCPPFlags += []
 #else
         extraCPPFlags += ["-lstdc++"]
 #endif
