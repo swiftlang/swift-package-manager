@@ -12,7 +12,6 @@ import func Foundation.NSUserName
 import class Foundation.ProcessInfo
 import Dispatch
 
-import ArgumentParser
 import TSCLibc
 import TSCBasic
 import TSCUtility
@@ -189,8 +188,20 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 }
 
+protocol ToolName {
+    static var toolName: String { get }
+}
+
+extension ToolName {
+    static func otherToolNames() -> String {
+        let allTools: [ToolName.Type] = [SwiftBuildTool.self, SwiftRunTool.self, SwiftPackageTool.self, SwiftTestTool.self]
+        return  allTools.filter({ $0 != self }).map({ $0.toolName }).joined(separator: ", ")
+    }
+}
+
 /// Handler for the main DiagnosticsEngine used by the SwiftTool class.
 private final class DiagnosticsEngineHandler {
+
     /// The standard output stream.
     var stdoutStream = TSCBasic.stdoutStream
 
@@ -204,30 +215,12 @@ private final class DiagnosticsEngineHandler {
     }
 }
 
-protocol SwiftCommand: ParsableCommand {
-    var swiftOptions: SwiftToolOptions { get }
-  
-    func run(_ swiftTool: SwiftTool) throws
-}
-
-extension SwiftCommand {
-    public func run() throws {
-        let swiftTool = try SwiftTool(options: swiftOptions)
-        try self.run(swiftTool)
-        if swiftTool.diagnostics.hasErrors || swiftTool.executionStatus == .failure {
-            throw ExitCode.failure
-        }
-    }
-
-    public static var _errorLabel: String { "error" }
-}
-
-public class SwiftTool {
+public class SwiftTool<Options: ToolOptions> {
     /// The original working directory.
     let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    var options: SwiftToolOptions
+    let options: Options
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
@@ -256,6 +249,9 @@ public class SwiftTool {
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
+    /// Reference to the argument parser.
+    let parser: ArgumentParser
+
     /// The process set to hold the launched processes. These will be terminated on any signal
     /// received by the swift tools.
     let processSet: ProcessSet
@@ -279,18 +275,217 @@ public class SwiftTool {
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(options: SwiftToolOptions) throws {
+    public init(toolName: String, usage: String, overview: String, args: [String], seeAlso: String? = nil) {
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
             diagnostics.emit(error: "couldn't determine the current working directory")
-            throw ExitCode.failure
+            SwiftTool.exit(with: .failure)
         }
         originalWorkingDirectory = cwd
 
+        // Create the parser.
+        parser = ArgumentParser(
+            commandName: "swift \(toolName)",
+            usage: usage,
+            overview: overview,
+            seeAlso: seeAlso)
+
+        // Create the binder.
+        let binder = ArgumentBinder<Options>()
+
+        // Bind the common options.
+        binder.bindArray(
+            parser.add(
+                option: "-Xcc", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to all C compiler invocations"),
+            parser.add(
+                option: "-Xswiftc", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to all Swift compiler invocations"),
+            parser.add(
+                option: "-Xlinker", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to all linker invocations"),
+            to: {
+                $0.buildFlags.cCompilerFlags = $1
+                $0.buildFlags.swiftCompilerFlags = $2
+                $0.buildFlags.linkerFlags = $3
+            })
+        binder.bindArray(
+            option: parser.add(
+                option: "-Xcxx", kind: [String].self, strategy: .oneByOne,
+                usage: "Pass flag through to all C++ compiler invocations"),
+            to: { $0.buildFlags.cxxCompilerFlags = $1 })
+
+        binder.bindArray(
+            option: parser.add(
+                option: "-Xxcbuild", kind: [String].self, strategy: .oneByOne,
+                usage: nil),
+            to: { $0.xcbuildFlags = $1 })
+
+        binder.bind(
+            option: parser.add(
+                option: "--configuration", shortName: "-c", kind: BuildConfiguration.self,
+                usage: "Build with configuration (debug|release) [default: debug]"),
+            to: { $0.configuration = $1 })
+
+        binder.bind(
+            option: parser.add(
+                option: "--build-path", kind: PathArgument.self,
+                usage: "Specify build/cache directory [default: ./.build]"),
+            to: { $0.buildPath = $1.path })
+
+        binder.bind(
+            option: parser.add(
+                option: "--chdir", shortName: "-C", kind: PathArgument.self),
+            to: { $0.chdir = $1.path })
+
+        binder.bind(
+            option: parser.add(
+                option: "--package-path", kind: PathArgument.self,
+                usage: "Change working directory before any other operation"),
+            to: { $0.packagePath = $1.path })
+
+        binder.bind(
+            option: parser.add(
+                option: "--multiroot-data-file", kind: PathArgument.self, usage: nil),
+            to: { $0.multirootPackageDataFile = $1.path })
+
+        binder.bindArray(
+            option: parser.add(option: "--sanitize", kind: [Sanitizer].self,
+                strategy: .oneByOne, usage: "Turn on runtime checks for erroneous behavior"),
+            to: { $0.sanitizers = EnabledSanitizers(Set($1)) })
+
+        binder.bind(
+            option: parser.add(option: "--disable-prefetching", kind: Bool.self, usage: ""),
+            to: { $0.shouldEnableResolverPrefetching = !$1 })
+
+        binder.bind(
+            option: parser.add(option: "--skip-update", kind: Bool.self, usage: "Skip updating dependencies from their remote during a resolution"),
+            to: { $0.skipDependencyUpdate = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--disable-sandbox", kind: Bool.self,
+            usage: "Disable using the sandbox when executing subprocesses"),
+            to: { $0.shouldDisableSandbox = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--disable-package-manifest-caching", kind: Bool.self,
+            usage: "Disable caching Package.swift manifests"),
+            to: { $0.shouldDisableManifestCaching = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--version", kind: Bool.self),
+            to: { $0.shouldPrintVersion = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--destination", kind: PathArgument.self),
+            to: { $0.customCompileDestination = $1.path })
+        binder.bind(
+            option: parser.add(option: "--triple", kind: String.self),
+            to: { $0.customCompileTriple = try Triple($1) })
+        binder.bind(
+            option: parser.add(option: "--sdk", kind: PathArgument.self),
+            to: { $0.customCompileSDK = $1.path })
+        binder.bind(
+            option: parser.add(option: "--toolchain", kind: PathArgument.self),
+            to: { $0.customCompileToolchain = $1.path })
+
+        binder.bind(
+            option: parser.add(
+                option: "--arch", kind: [String].self, strategy: .oneByOne,
+                usage: nil),
+            to: { $0.archs = $1 })
+
+        // FIXME: We need to allow -vv type options for this.
+        binder.bind(
+            option: parser.add(option: "--verbose", shortName: "-v", kind: Bool.self,
+                usage: "Increase verbosity of informational output"),
+            to: { $0.verbosity = $1 ? 1 : 0 })
+
+        binder.bind(
+            option: parser.add(option: "--no-static-swift-stdlib", kind: Bool.self,
+                usage: "Do not link Swift stdlib statically [default]"),
+            to: { $0.shouldLinkStaticSwiftStdlib = !$1 })
+
+        binder.bind(
+            option: parser.add(option: "--static-swift-stdlib", kind: Bool.self,
+                usage: "Link Swift stdlib statically"),
+            to: { $0.shouldLinkStaticSwiftStdlib = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--force-resolved-versions", kind: Bool.self),
+            to: { $0.forceResolvedVersions = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--disable-automatic-resolution", kind: Bool.self,
+               usage: "Disable automatic resolution if Package.resolved file is out-of-date"),
+            to: { $0.forceResolvedVersions = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--enable-index-store", kind: Bool.self,
+                usage: "Enable indexing-while-building feature"),
+            to: { if $1 { $0.indexStoreMode = .on } })
+
+        binder.bind(
+            option: parser.add(option: "--disable-index-store", kind: Bool.self,
+                usage: "Disable indexing-while-building feature"),
+            to: { if $1 { $0.indexStoreMode = .off } })
+
+        binder.bind(
+            option: parser.add(option: "--enable-parseable-module-interfaces", kind: Bool.self),
+            to: { $0.shouldEnableParseableModuleInterfaces = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--trace-resolver", kind: Bool.self),
+            to: { $0.enableResolverTrace = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--jobs", shortName: "-j", kind: Int.self,
+                usage: "The number of jobs to spawn in parallel during the build process"),
+            to: { $0.jobs = UInt32($1) })
+
+        binder.bind(
+            option: parser.add(option: "--enable-test-discovery", kind: Bool.self,
+               usage: "Enable test discovery on platforms without Objective-C runtime"),
+            to: { $0.enableTestDiscovery = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--enable-build-manifest-caching", kind: Bool.self, usage: nil),
+            to: { $0.enableBuildManifestCaching = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--emit-swift-module-separately", kind: Bool.self, usage: nil),
+            to: { $0.emitSwiftModuleSeparately = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--use-integrated-swift-driver", kind: Bool.self, usage: nil),
+            to: { $0.useIntegratedSwiftDriver = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--experimental-explicit-module-build", kind: Bool.self, usage: nil),
+            to: { $0.useExplicitModuleBuild = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--print-manifest-job-graph", kind: Bool.self,
+                usage: "Write the command graph for the build manifest as a graphviz file"),
+            to: { $0.printManifestGraphviz = $1 })
+
+        binder.bind(
+            option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
+            to: { $0._buildSystem = $1 })
+
+        // Let subclasses bind arguments.
+        type(of: self).defineArguments(parser: parser, binder: binder)
+
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: diagnostics)
+            // Parse the result.
+            let result = try parser.parse(args)
+
+            try Self.postprocessArgParserResult(result: result, diagnostics: diagnostics)
+
+            var options = Options()
+            try binder.fill(parseResult: result, into: &options)
+
             self.options = options
-            
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 try ProcessEnv.chdir(packagePath)
@@ -298,7 +493,7 @@ public class SwiftTool {
 
             // Force building with the native build system on other platforms than macOS.
           #if !os(macOS)
-            self.options._buildSystem = .native
+            options._buildSystem = .native
           #endif
 
             let processSet = ProcessSet()
@@ -337,7 +532,7 @@ public class SwiftTool {
 
         } catch {
             handle(error: error)
-            throw ExitCode.failure
+            SwiftTool.exit(with: .failure)
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
@@ -348,28 +543,29 @@ public class SwiftTool {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
-        
-        // Setup the globals.
-        verbosity = Verbosity(rawValue: options.verbosity)
-        Process.verbose = verbosity != .concise
     }
 
-    static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
-        if options.chdir != nil {
+    class func postprocessArgParserResult(result: ArgumentParser.Result, diagnostics: DiagnosticsEngine) throws {
+        if result.exists(arg: "--chdir") || result.exists(arg: "-C") {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
-        if options.multirootPackageDataFile != nil {
+        if result.exists(arg: "--multiroot-data-file") {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
-        if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
+        if result.exists(arg: "--experimental-explicit-module-build") &&
+          !result.exists(arg: "--use-integrated-swift-driver") {
             diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.archs.isEmpty && options.customCompileTriple != nil {
+        if result.exists(arg: "--arch") && result.exists(arg: "--triple") {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
+    }
+
+    class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
+        fatalError("Must be implemented by subclasses")
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -438,6 +634,38 @@ public class SwiftTool {
         return workspace
     }
 
+    /// Execute the tool.
+    public func run() {
+        do {
+            // Setup the globals.
+            verbosity = Verbosity(rawValue: options.verbosity)
+            Process.verbose = verbosity != .concise
+            // Call the implementation.
+            try runImpl()
+            if diagnostics.hasErrors {
+                throw Diagnostics.fatalError
+            }
+        } catch {
+            // Set execution status to failure in case of errors.
+            executionStatus = .failure
+            handle(error: error)
+        }
+        SwiftTool.exit(with: executionStatus)
+    }
+
+    /// Exit the tool with the given execution status.
+    private static func exit(with status: ExecutionStatus) -> Never {
+        switch status {
+        case .success: TSCLibc.exit(0)
+        case .failure: TSCLibc.exit(1)
+        }
+    }
+
+    /// Run method implementation to be overridden by subclasses.
+    func runImpl() throws {
+        fatalError("Must be implemented by subclasses")
+    }
+
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
         self.stdoutStream = TSCBasic.stderrStream
@@ -458,7 +686,7 @@ public class SwiftTool {
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !diagnostics.hasErrors else {
-            throw ExitCode.failure
+            throw Diagnostics.fatalError
         }
     }
 
@@ -488,7 +716,7 @@ public class SwiftTool {
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
             guard !diagnostics.hasErrors else {
-                throw ExitCode.failure
+                throw Diagnostics.fatalError
             }
             return graph
         } catch {
@@ -591,9 +819,9 @@ public class SwiftTool {
                 xcbuildFlags: options.xcbuildFlags,
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-                sanitizers: options.enabledSanitizers,
+                sanitizers: options.sanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStore,
+                indexStoreMode: options.indexStoreMode,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
@@ -722,6 +950,13 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     }
     stream <<< ")" <<< "\n"
     return stream.bytes.description
+}
+
+extension BuildConfiguration: StringEnumArgument {
+    public static var completion: ShellCompletion = .values([
+        (debug.rawValue, "build with DEBUG configuration"),
+        (release.rawValue, "build with RELEASE configuration"),
+    ])
 }
 
 /// A wrapper to hold the build system so we can use it inside

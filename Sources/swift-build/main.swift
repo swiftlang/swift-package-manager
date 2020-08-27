@@ -10,4 +10,5 @@
 
 import Commands
 
-SwiftBuildTool.main()
+let tool = SwiftBuildTool(args: Array(CommandLine.arguments.dropFirst()))
+tool.run()

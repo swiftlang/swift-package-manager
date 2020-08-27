@@ -10,4 +10,5 @@
 
 import Commands
 
-SwiftRunTool.main()
+let tool = SwiftRunTool(args: Array(CommandLine.arguments.dropFirst()))
+tool.run()

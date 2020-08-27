@@ -141,7 +141,7 @@ private final class JSONDumper: DependenciesDumper {
     }
 }
 
-public enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible {
+public enum ShowDependenciesMode: CustomStringConvertible {
     case text, dot, json, flatlist
 
     public init?(rawValue: String) {

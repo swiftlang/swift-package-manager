@@ -156,7 +156,6 @@ def parse_global_args(args):
     args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     args.tsc_source_dir = os.path.join(args.project_root, "swift-tools-support-core")
     args.yams_source_dir = os.path.join(args.project_root, "..", "yams")
-    args.swift_argument_parser_source_dir = os.path.join(args.project_root, "..", "swift-argument-parser")
     args.swift_driver_source_dir = os.path.join(args.project_root, "..", "swift-driver")
     args.source_root = os.path.join(args.project_root, "Sources")
 
@@ -286,7 +285,6 @@ def build(args):
 
     build_tsc(args)
     build_yams(args)
-    build_swift_argument_parser(args)
     build_swift_driver(args)
     build_swiftpm_with_cmake(args)
     build_swiftpm_with_swiftpm(args,integrated_swift_driver=False)
@@ -469,19 +467,6 @@ def build_tsc(args):
 
     build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
 
-def build_swift_argument_parser(args):
-    note("Building swift-argument-parser")
-    args.swift_argument_parser_build_dir = os.path.join(args.target_dir, "swift-argument-parser")
-
-    cmake_flags = []
-    if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
-
-    cmake_flags.append("-DBUILD_TESTING=NO")
-    cmake_flags.append("-DBUILD_EXAMPLES=NO")
-    build_with_cmake(args, cmake_flags, args.swift_argument_parser_source_dir, args.swift_argument_parser_build_dir)
-
 def build_yams(args):
     note("Building Yams")
     args.yams_build_dir = os.path.join(args.target_dir, "yams")
@@ -529,7 +514,6 @@ def build_swiftpm_with_cmake(args):
         get_llbuild_cmake_arg(args),
         "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
         "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
-        "-DArgumentParser_DIR=" + os.path.join(args.swift_argument_parser_build_dir, "cmake/modules"),
         "-DSwiftDriver_DIR=" + os.path.join(args.swift_driver_build_dir, "cmake/modules"),
     ]
 
@@ -544,7 +528,6 @@ def build_swiftpm_with_cmake(args):
 
     if platform.system() == "Darwin":
         add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "lib"))
-        add_rpath_for_cmake_build(args, os.path.join(args.swift_argument_parser_build_dir, "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.swift_driver_build_dir, "lib"))
 
 def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
@@ -632,7 +615,6 @@ def get_swiftpm_env_cmd(args):
         os.path.join(args.tsc_build_dir, "lib"),
         os.path.join(args.llbuild_build_dir, "lib"),
         os.path.join(args.yams_build_dir, "lib"),
-        os.path.join(args.swift_argument_parser_build_dir, "lib"),
         os.path.join(args.swift_driver_build_dir, "lib"),
     ] + args.target_info["paths"]["runtimeLibraryPaths"])
 
