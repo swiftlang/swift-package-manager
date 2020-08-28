@@ -1,5 +1,0 @@
-#!/bin/sh
-trap '' INT
-set -e
-touch $1
-while true; do sleep 1; done
