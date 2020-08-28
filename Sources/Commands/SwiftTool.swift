@@ -10,7 +10,6 @@
 
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
-import func Foundation.NSHomeDirectory
 import Dispatch
 
 import ArgumentParser
@@ -354,34 +353,35 @@ public class SwiftTool {
         verbosity = Verbosity(rawValue: options.verbosity)
         Process.verbose = verbosity != .concise
     }
-
+    
     static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
         if options.chdir != nil {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
-
+        
         if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
-
+        
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
             diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
-
+        
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
-
+        
         if options.netrcFilePath != nil {
-             // --netrc-file option only supported on macOS >=10.13
-             #if os(macOS)
-             if #available(macOS 10.13, *) {
-              // ok, check succeeds
-             } else {
+            // --netrc-file option only supported on macOS >=10.13
+            #if os(macOS)
+            if #available(macOS 10.13, *) {
+                // ok, check succeeds
+            } else {
                 diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
-             }
-             #else
-             diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
+            }
+            #else
+            diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
+            #endif
         }
     }
 
