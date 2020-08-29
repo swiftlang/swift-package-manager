@@ -283,7 +283,16 @@ public class RepositoryManager {
         editable: Bool
     ) throws {
         let lock = FileLock(name: handle.repository.basename, cachePath: self.path)
-        try lock.withLock {
+        // FIXME: Workaround for `FileLock` only working on `LocaFileSystem`
+        if localFileSystem.exists(self.path) {
+            try lock.withLock {
+                try provider.cloneCheckout(
+                    repository: handle.repository,
+                    at: path.appending(handle.subpath),
+                    to: destinationPath,
+                    editable: editable)
+            }
+        } else {
             try provider.cloneCheckout(
                 repository: handle.repository,
                 at: path.appending(handle.subpath),
