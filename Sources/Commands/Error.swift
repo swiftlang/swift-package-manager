@@ -80,7 +80,7 @@ func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
         break
     }
 
-    writer.write(diagnostic.description)
+    writer.write(diagnostic.description.replacingOccurrences(of: "\r", with: ""))
     writer.write("\n")
 }
 
