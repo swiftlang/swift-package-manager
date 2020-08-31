@@ -34,7 +34,10 @@ public final class PseudoTerminal {
         let buf: [CChar] = .init(unsafeUninitializedCapacity: n + 1 /* +1 for null terminator */ ) {
             buf, initializedCapacity in
             initializedCapacity = read(master, &buf, n)
-            guard initializedCapacity > 0 else { return }
+            guard initializedCapacity > 0 else {
+                initializedCapacity = 0 // for case read returned -1
+                return
+            }
             buf[initializedCapacity] = 0 // nul terminator
             initializedCapacity += 1
         }
