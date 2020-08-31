@@ -326,7 +326,6 @@ final class CopyCommand: CustomLLBuildCommand {
     }
 }
 
-private let newLineByte: UInt8 = 10
 public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
     public var outputStream: ThreadSafeOutputByteStream
