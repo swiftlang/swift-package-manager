@@ -124,6 +124,11 @@ def add_build_args(parser):
         help="paths (relative to the project root) where to install build products [%(default)s]",
         default=["/tmp/swiftpm"],
         metavar="PATHS")
+    parser.add_argument(
+        "--cross-compile-hosts",
+        dest="cross_compile_hosts",
+        help="List of cross compile hosts targets.",
+        default=[])
 
 def add_test_args(parser):
     """Configures the parser with the arguments necessary for the test action."""
@@ -162,7 +167,7 @@ def parse_build_args(args):
     args.clang_path = get_clang_path(args)
     args.cmake_path = get_cmake_path(args)
     args.ninja_path = get_ninja_path(args)
-    if os.getenv("CROSS_COMPILE_HOSTS"): # Use XCBuild target directory when building for multiple arches.
+    if args.cross_compile_hosts: # Use XCBuild target directory when building for multiple arches.
         args.target_dir = os.path.join(args.build_dir, "apple/Products")
     else:
         args.target_dir = os.path.join(args.build_dir, get_build_target(args))
@@ -315,7 +320,7 @@ def install(args):
         # Install the swiftmodule and swiftdoc files.
         for module in libswiftpm_modules:
             install_binary(args, module + ".swiftmodule", dest)
-            if not os.getenv("CROSS_COMPILE_HOSTS"): # When compiling for multiple arches, swiftdoc is part of the swiftmodule directory
+            if not args.cross_compile_hosts: # When compiling for multiple arches, swiftdoc is part of the swiftmodule directory
                 install_binary(args, module + ".swiftdoc", dest)
 
         # Install the C headers.
@@ -362,7 +367,7 @@ def install_binary(args, binary, dest_dir):
     note("Installing %s to %s" % (src, dest))
 
     mkdir_p(os.path.dirname(dest))
-    if os.path.isdir(src) and os.getenv("CROSS_COMPILE_HOSTS"): # Handle swiftmodule directories if compiling for multiple arches.
+    if os.path.isdir(src) and args.cross_compile_hosts: # Handle swiftmodule directories if compiling for multiple arches.
         dir_util.copy_tree(src, dest)
     else:
         file_util.copy_file(src, dest, update=1)
@@ -468,11 +473,11 @@ def build_swiftpm_with_swiftpm(args):
     ]
 
     build_target = get_build_target(args)
-    cross_compile_host = os.getenv("CROSS_COMPILE_HOSTS")
-    if build_target == 'x86_64-apple-macosx' and cross_compile_host == "macosx-arm64":
+    cross_compile_hosts = args.cross_compile_hosts
+    if build_target == 'x86_64-apple-macosx' and "macosx-arm64" in cross_compile_hosts:
         swiftpm_args += ["--arch", "x86_64", "--arch", "arm64"]
-    elif cross_compile_host:
-        error("cannot cross-compile for %s" % cross_compile_host)
+    elif cross_compile_hosts:
+        error("cannot cross-compile for %s" % cross_compile_hosts)
 
     call_swiftpm(args, swiftpm_args)
 
