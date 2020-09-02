@@ -46,7 +46,7 @@ final class PackageToolTests: XCTestCase {
         func verifyUnsupportedOSThrows() {
             do {
                 // should throw and be caught
-                try execute(["--netrc-file", "/Users/me/.hidden/.netrc"])
+                try execute(["update", "--netrc-file", "/Users/me/.hidden/.netrc"])
                 XCTFail()
             } catch {
                 XCTAssert(true)

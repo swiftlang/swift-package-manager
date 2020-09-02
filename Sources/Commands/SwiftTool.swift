@@ -377,10 +377,10 @@ public class SwiftTool {
             if #available(macOS 10.13, *) {
                 // ok, check succeeds
             } else {
-                diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
+                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
             }
             #else
-            diagnostics.emit(error: "--netrc-file option is only supported on macOS >=10.13")
+            diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
             #endif
         }
     }
