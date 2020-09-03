@@ -27,7 +27,7 @@ target_link_libraries(PackageLoading PUBLIC
 set_target_properties(PackageLoading PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(USE_CMAKE_INSTALL)
 install(TARGETS PackageLoading
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

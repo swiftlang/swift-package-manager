@@ -21,7 +21,7 @@ target_link_libraries(LLBuildManifest PUBLIC
 set_target_properties(LLBuildManifest PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(USE_CMAKE_INSTALL)
     install(TARGETS LLBuildManifest
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
