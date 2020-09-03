@@ -346,6 +346,8 @@ public class Workspace {
 
     /// The downloader used for downloading binary artifacts.
     fileprivate let downloader: Downloader
+    
+    fileprivate let netrcFilePath: AbsolutePath?
 
     /// The downloader used for unarchiving binary artifacts.
     fileprivate let archiver: Archiver
@@ -396,6 +398,7 @@ public class Workspace {
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         downloader: Downloader = FoundationDownloader(),
+        netrcFilePath: AbsolutePath? = nil,
         archiver: Archiver = ZipArchiver(),
         checksumAlgorithm: HashAlgorithm = SHA256(),
         additionalFileRules: [FileRuleDescription] = [],
@@ -412,6 +415,7 @@ public class Workspace {
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
         self.downloader = downloader
+        self.netrcFilePath = netrcFilePath
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
@@ -1400,7 +1404,15 @@ extension Workspace {
     private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) {
         let group = DispatchGroup()
         let tempDiagnostics = DiagnosticsEngine()
-
+        
+        var authProvider: AuthorizationProviding? = nil
+        #if os(macOS)
+        // Netrc feature currently only supported on macOS 10.13+ due to dependency
+        // on NSTextCheckingResult.range(with:)
+        if #available(macOS 10.13, *) {
+            authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
+        }
+        #endif
         for artifact in artifacts {
             group.enter()
 
@@ -1419,10 +1431,12 @@ extension Workspace {
 
             let parsedURL = URL(string: url)!
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
+            
+            
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
-                withAuthorizationProvider: nil,
+                withAuthorizationProvider: authProvider,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     self.delegate?.downloadingBinaryArtifact(
                         from: url,

@@ -49,7 +49,7 @@ public class MockDownloader: Downloader {
     public func downloadFile(
         at url: Foundation.URL,
         to destinationPath: AbsolutePath,
-        withAuthorizationProvider: AuthorizationProviding? = nil,
+        withAuthorizationProvider authorizationProvider: AuthorizationProviding? = nil,
         progress: @escaping Downloader.Progress,
         completion: @escaping Downloader.Completion
     ) {

@@ -41,6 +41,28 @@ final class PackageToolTests: XCTestCase {
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
     }
+    
+    func testNetrcFile() throws {
+        func verifyUnsupportedOSThrows() {
+            do {
+                // should throw and be caught
+                try execute(["update", "--netrc-file", "/Users/me/.hidden/.netrc"])
+                XCTFail()
+            } catch {
+                XCTAssert(true)
+            }
+        }
+        #if os(macOS)
+        if #available(macOS 10.13, *) {
+            // should succeed
+            XCTAssert(try execute(["--netrc-file", "/Users/me/.hidden/.netrc"]).stdout.contains("USAGE: swift package"))
+        } else {
+            verifyUnsupportedOSThrows()
+        }
+        #else
+            verifyUnsupportedOSThrows()
+        #endif
+    }
 
     func testResolve() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in

@@ -255,5 +255,9 @@ public struct SwiftToolOptions: ParsableArguments {
         archs.count > 1 ? .xcode : _buildSystem
     }
     
+    /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.  
+    @Option(name: .customLong("netrc-file"), completion: .file())
+    var netrcFilePath: AbsolutePath?
+    
     public init() {}
 }
