@@ -459,6 +459,12 @@ public class SwiftTool<Options: ToolOptions> {
         binder.bind(
             option: parser.add(option: "--build-system", kind: BuildSystemKind.self, usage: nil),
             to: { $0._buildSystem = $1 })
+        
+        binder.bind(
+            option: parser.add(
+                option: "--netrc-file", kind: PathArgument.self,
+                usage: "The path to the netrc file which should be use for authentication when downloading binary target artifacts."),
+            to: { $0.netrcFilePath = $1.path })
 
         // Let subclasses bind arguments.
         type(of: self).defineArguments(parser: parser, binder: binder)
@@ -544,6 +550,19 @@ public class SwiftTool<Options: ToolOptions> {
         if result.exists(arg: "--arch") && result.exists(arg: "--triple") {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
+        
+        if result.exists(arg: "--netrc-file") {
+            // --netrc-file option only supported on macOS >=10.13
+            #if os(macOS)
+            if #available(macOS 10.13, *) {
+                // ok, check succeeds
+            } else {
+                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
+            }
+            #else
+            diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
+            #endif
+        }
     }
 
     class func defineArguments(parser: ArgumentParser, binder: ArgumentBinder<Options>) {
@@ -583,6 +602,10 @@ public class SwiftTool<Options: ToolOptions> {
     private lazy var _swiftpmConfig: Result<SwiftPMConfig, Swift.Error> = {
         return Result(catching: { SwiftPMConfig(path: try configFilePath()) })
     }()
+    
+    func resolvedNetrcFilePath() -> AbsolutePath? {
+        return options.netrcFilePath 
+    }
 
     /// Holds the currently active workspace.
     ///
@@ -608,6 +631,7 @@ public class SwiftTool<Options: ToolOptions> {
             delegate: delegate,
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
+            netrcFilePath: resolvedNetrcFilePath(),
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace

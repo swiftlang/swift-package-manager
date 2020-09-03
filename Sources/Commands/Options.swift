@@ -35,6 +35,9 @@ public class ToolOptions {
 
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var shouldEnableResolverPrefetching = true
+    
+    /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.
+    public var netrcFilePath: AbsolutePath?
 
     /// If print version option was passed.
     public var shouldPrintVersion: Bool = false

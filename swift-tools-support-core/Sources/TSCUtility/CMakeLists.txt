@@ -22,6 +22,7 @@ add_library(TSCUtility
   InterruptHandler.swift
   JSONMessageStreamingParser.swift
   misc.swift
+  Netrc.swift
   OSLog.swift
   PkgConfig.swift
   Platform.swift
