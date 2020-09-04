@@ -129,7 +129,7 @@ builds an executable:
     $ cd example
     example$ swift package init --type executable
 
-Edit the `Sources/main.swift` so it consists of this code:
+Edit the `Sources/example/main.swift` so it consists of this code:
 
 ```swift
 import Clibgit
@@ -163,6 +163,8 @@ This creates `Package.swift` and `module.modulemap` files in the directory.
 Edit `Package.swift` and add `pkgConfig` parameter:
 
 ```swift
+// swift-tools-version:5.3
+
 import PackageDescription
 
 let package = Package(
