@@ -371,20 +371,7 @@ public protocol PropertyListDictionaryConvertible {
 }
 
 extension PropertyListDictionaryConvertible {
-    // FIXME: Internal only for unit testing.
-    //
-    /// Returns a property list representation of the build settings, in which
-    /// every struct field is represented as a dictionary entry.  Fields of
-    /// type `String` are represented as `PropertyList.string` values; fields
-    /// of type `[String]` are represented as `PropertyList.array` values with
-    /// `PropertyList.string` values as the array elements.  The property list
-    /// dictionary only contains entries for struct fields that aren't nil.
-    ///
-    /// Note: BuildSettings is a value type and PropertyListSerializable only
-    /// applies to classes.  Creating a property list representation is totally
-    /// independent of that serialization infrastructure (though it might well
-    /// be invoked during of serialization of actual model objects).
-    public func asPropertyList() -> PropertyList {
+    public static func asPropertyList(_ object: PropertyListDictionaryConvertible) -> PropertyList {
         // Borderline hacky, but the main thing is that adding or changing a
         // build setting does not require any changes to the property list
         // representation code.  Using a handcoded serializer might be more
@@ -392,7 +379,7 @@ extension PropertyListDictionaryConvertible {
         // key factor for this use case, as there aren't going to be millions
         // of BuildSettings structs.
         var dict = [String: PropertyList]()
-        let mirror = Mirror(reflecting: self)
+        let mirror = Mirror(reflecting: object)
         for child in mirror.children {
             guard let name = child.label else {
                 preconditionFailure("unnamed build settings are not supported")
@@ -410,10 +397,76 @@ extension PropertyListDictionaryConvertible {
         }
         return .dictionary(dict)
     }
+
+    /// Returns a property list representation of the build settings, in which
+    /// every struct field is represented as a dictionary entry.  Fields of
+    /// type `String` are represented as `PropertyList.string` values; fields
+    /// of type `[String]` are represented as `PropertyList.array` values with
+    /// `PropertyList.string` values as the array elements.  The property list
+    /// dictionary only contains entries for struct fields that aren't nil.
+    ///
+    /// Note: BuildSettings is a value type and PropertyListSerializable only
+    /// applies to classes.  Creating a property list representation is totally
+    /// independent of that serialization infrastructure (though it might well
+    /// be invoked during of serialization of actual model objects).
+    public func asPropertyList() -> PropertyList {
+        return type(of: self).asPropertyList(self)
+    }
 }
 
 extension Xcode.BuildFile.Settings: PropertyListDictionaryConvertible {}
-extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConvertible {}
+extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConvertible {
+    public func asPropertyList() -> PropertyList {
+        var buildSettings = self
+
+        // Space-separated setting is a setting whose value is split into multiple
+        // values using space as a separator.
+        //
+        // Example: ["value1", "value2 value3"] -> ["value1", "value2", "value3"]
+        // https://github.com/apple/swift-package-manager/pull/2770#issuecomment-638453861
+        let spaceSeparatedSettingKeyPaths: [WritableKeyPath<Xcode.BuildSettingsTable.BuildSettings, [String]?>] = [
+            \.FRAMEWORK_SEARCH_PATHS,
+            \.GCC_PREPROCESSOR_DEFINITIONS,
+            \.HEADER_SEARCH_PATHS,
+            \.LD_RUNPATH_SEARCH_PATHS,
+            \.LIBRARY_SEARCH_PATHS,
+            \.OTHER_CFLAGS,
+            \.OTHER_CPLUSPLUSFLAGS,
+            \.OTHER_LDFLAGS
+        ]
+
+        for settingKeyPath in spaceSeparatedSettingKeyPaths {
+            guard let values = buildSettings[keyPath: settingKeyPath] else { continue }
+
+            buildSettings[keyPath: settingKeyPath] = values.map {
+                // Here we assume that the user of SPM is unaware of Xcode's behavior
+                // to space-separate values and thus each value is considered a single value.
+                //
+                // However, users who have encountered this issue before it was addressed
+                // may have modified their package definitions to circumvent it.
+                // An attempt is made to detect such cases to bypass the values unmodified.
+
+                // Extra quotes around the value: "\"single value\"".
+                if $0.hasPrefix("\"") && $0.hasSuffix("\"") {
+                    return $0
+                }
+                // Nothing to escape.
+                else if !$0.contains(" ") {
+                    return $0
+                }
+                // All spaces are escaped: "single\ value".
+                else if $0.components(separatedBy: " ").dropLast().allSatisfy({ $0.hasSuffix(#"\"#) }) {
+                    return $0
+                }
+                else {
+                    return "\"\($0)\""
+                }
+            }
+        }
+
+        return type(of: self).asPropertyList(buildSettings)
+    }
+}
 
 /// Private helper function that combines a base property list and an overlay
 /// property list, respecting the semantics of `$(inherited)` as we go.
