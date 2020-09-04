@@ -30,7 +30,12 @@ else()
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-option(BUILD_SHARED_LIBS "Build shared libraryes by default" YES)
+option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
+
+string(COMPARE EQUAL ${CMAKE_SYSTEM_NAME} Windows CMAKE_INSTALL_DEFAULT)
+option(USE_CMAKE_INSTALL
+  "Install build products using cmake's install() instead of the bootstrap script's install()"
+  ${CMAKE_INSTALL_DEFAULT})
 
 find_package(TSC CONFIG REQUIRED)
 

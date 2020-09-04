@@ -21,7 +21,7 @@ target_link_libraries(SPMBuildCore PUBLIC
   PackageGraph)
 
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(USE_CMAKE_INSTALL)
 install(TARGETS SPMBuildCore
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

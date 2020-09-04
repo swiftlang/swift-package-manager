@@ -23,8 +23,8 @@ target_link_libraries(XCBuildSupport PUBLIC
 set_target_properties(XCBuildSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
-    install(TARGETS XCBuildSupport
+if(USE_CMAKE_INSTALL)
+install(TARGETS XCBuildSupport
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)

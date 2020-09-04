@@ -29,7 +29,7 @@ target_link_libraries(Workspace PUBLIC
 set_target_properties(Workspace PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(USE_CMAKE_INSTALL)
 install(TARGETS Workspace
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

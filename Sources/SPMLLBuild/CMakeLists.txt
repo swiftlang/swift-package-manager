@@ -16,8 +16,7 @@ target_link_libraries(SPMLLBuild PUBLIC
   TSCUtility
   llbuildSwift)
 
-
-if(CMAKE_SYSTEM_NAME STREQUAL Windows)
+if(USE_CMAKE_INSTALL)
 install(TARGETS SPMLLBuild
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
