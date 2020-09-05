@@ -25,7 +25,7 @@ public struct MinimumDeploymentTarget {
     }
 
     static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> PlatformVersion? {
-        let runResult = try Process.popen(arguments: ["xcrun", "vtool", "-show-build", binaryPath.pathString])
+        let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
         guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
         return PlatformVersion(versionString)
     }
@@ -45,7 +45,7 @@ public struct MinimumDeploymentTarget {
         // On macOS, we are determining the deployment target by looking at the XCTest binary.
         #if os(macOS)
         do {
-            let runResult = try Process.popen(arguments: ["xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
+            let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
 
             if let version = try computeXCTestMinimumDeploymentTarget(with: runResult) {
                 return version

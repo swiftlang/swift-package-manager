@@ -754,4 +754,36 @@ final class PackageToolTests: XCTestCase {
             }
         }
     }
+    
+    func testPackageLoadingCommandPathResilience() throws {
+      #if os(macOS)
+        fixture(name: "ValidLayouts/SingleModule") { prefix in
+            mktmpdir { tmpdir in
+                // Create fake `xcrun` and `sandbox-exec` commands.
+                let fakeBinDir = tmpdir
+                for fakeCmdName in ["xcrun", "sandbox-exec"] {
+                    let fakeCmdPath = fakeBinDir.appending(component: fakeCmdName)
+                    try localFileSystem.writeFileContents(fakeCmdPath, body: { stream in
+                        stream <<< """
+                        #!/bin/sh
+                        echo "wrong \(fakeCmdName) invoked"
+                        exit 1
+                        """
+                    })
+                    try localFileSystem.chmod(.executable, path: fakeCmdPath)
+                }
+                
+                // Invoke `swift-package`, passing in the overriding `PATH` environment variable.
+                let packageRoot = prefix.appending(component: "Library")
+                let patchedPATH = fakeBinDir.pathString + ":" + ProcessInfo.processInfo.environment["PATH"]!
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
+                let textOutput = try result.utf8Output() + result.utf8stderrOutput()
+                
+                // Check that the wrong tools weren't invoked.  We can't just check the exit code because of fallbacks.
+                XCTAssertNoMatch(textOutput, .contains("wrong xcrun invoked"))
+                XCTAssertNoMatch(textOutput, .contains("wrong sandbox-exec invoked"))
+            }
+        }
+      #endif
+    }
 }
