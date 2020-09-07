@@ -27,3 +27,4 @@ install(TARGETS SourceControl
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 endif()
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SourceControl)
