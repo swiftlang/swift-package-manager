@@ -464,6 +464,10 @@ def build_llbuild(args):
         "-DLLBUILD_SUPPORT_BINDINGS:=Swift",
     ]
 
+    # On Darwin, make sure we're building for the host architecture.
+    if platform.system() == 'Darwin':
+        flags.append("-DCMAKE_OSX_ARCHITECTURES:=%s" % (get_build_target(args).split('-')[0]))
+
     if args.sysroot:
         flags.append("-DSQLite3_INCLUDE_DIR=%s/usr/include" % args.sysroot)
 
