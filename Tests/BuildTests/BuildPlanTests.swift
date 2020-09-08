@@ -330,7 +330,7 @@ final class BuildPlanTests: XCTestCase {
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
-                        inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
+                        inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/exe.build/DerivedSources/resource_bundle_accessor.swift","/path/to/build/release/PkgLib.swiftmodule"]
                     """))
             }
         }
@@ -356,7 +356,7 @@ final class BuildPlanTests: XCTestCase {
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
-                        inputs: ["/Pkg/Sources/exe/main.swift"]
+                        inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/debug/exe.build/DerivedSources/resource_bundle_accessor.swift"]
                     """))
             }
         }
@@ -1996,8 +1996,8 @@ final class BuildPlanTests: XCTestCase {
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertTrue(contents.contains("""
-                    inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
-                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
+                    inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/swiftlib.build/DerivedSources/resource_bundle_accessor.swift","/path/to/build/debug/exe"]
+                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/swiftlib.build/resource_bundle_accessor.swift.o","/path/to/build/debug/swiftlib.swiftmodule"]
                 """), contents)
         }
     }
@@ -2361,6 +2361,7 @@ final class BuildPlanTests: XCTestCase {
         let barTarget = try result.target(for: "Bar").swiftTarget()
         XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
             "/path/to/build/debug/Bar.build/Bar.swift.o",
+            "/path/to/build/debug/Bar.build/resource_bundle_accessor.swift.o"
         ])
     }
 

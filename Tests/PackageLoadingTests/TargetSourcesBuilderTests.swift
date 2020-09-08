@@ -291,6 +291,13 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
             diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", behavior: .error)
+            diagnostics.check(
+                diagnostic: .contains("""
+                target 'Foo' does not have resources at the following paths, they will be ignored
+                    'Processed' (/Processed)
+                """),
+                behavior: .warning
+            )
         }
     }
 
@@ -310,6 +317,13 @@ class TargetSourcesBuilderTests: XCTestCase {
                     and has an explicit localization declaration
                     """),
                 behavior: .error)
+            diagnostics.check(
+                diagnostic: .contains("""
+                target 'Foo' does not have resources at the following paths, they will be ignored
+                    'Resources' (/Resources)
+                """),
+                behavior: .warning
+            )
         }
     }
 
