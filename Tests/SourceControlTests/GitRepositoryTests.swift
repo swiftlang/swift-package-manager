@@ -639,4 +639,43 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertTrue(ignored[0])
         }
     }
+
+    func testMissingDefaultBranch() throws {
+        mktmpdir { path in
+            // Create a repository.
+            let testRepoPath = path.appending(component: "test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath)
+            let repo = GitRepository(path: testRepoPath)
+            
+            // Create a `main` branch and remove `master`.
+            try repo.checkout(newBranch: "main")
+            try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "branch", "-D", "master"])
+            
+            // Change the branch name to something non-existent.
+            try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "symbolic-ref", "HEAD", "refs/heads/_non_existent_branch_"])
+
+            // Clone it somewhere.
+            let testClonePath = path.appending(component: "clone")
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
+            let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
+            XCTAssertEqual(clonedRepo.tags, [])
+
+            // Clone off a checkout.
+            let checkoutPath = path.appending(component: "checkout")
+            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
+            XCTAssertFalse(localFileSystem.exists(checkoutPath.appending(component: "file.swift")))
+            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
+
+            // Try to check out the `main` branch.
+            try checkoutRepo.checkout(revision: Revision(identifier: "main"))
+            XCTAssertTrue(localFileSystem.exists(checkoutPath.appending(component: "file.swift")))
+
+            // The following will throw if HEAD was set incorrectly and we didn't do a no-checkout clone.
+            XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())
+        }
+    }
+
 }

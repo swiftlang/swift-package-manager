@@ -83,7 +83,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // a clone from our cache of repositories and then we replace the remote to the one originally
             // present in the bare repository.
             try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", sourcePath.pathString, destinationPath.pathString)
+                    Git.tool, "clone", "--no-checkout", sourcePath.pathString, destinationPath.pathString)
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
@@ -102,7 +102,7 @@ public class GitRepositoryProvider: RepositoryProvider {
             // only ever expect to get back a revision that remains present in the
             // object storage.
             try Process.checkNonZeroExit(args:
-                    Git.tool, "clone", "--shared", sourcePath.pathString, destinationPath.pathString)
+                    Git.tool, "clone", "--shared", "--no-checkout", sourcePath.pathString, destinationPath.pathString)
         }
     }
 

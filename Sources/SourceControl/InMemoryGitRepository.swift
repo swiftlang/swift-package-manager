@@ -341,7 +341,6 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     ) throws {
         let checkout = fetchedMap[sourcePath]!.copy(at: destinationPath)
         checkoutsMap[destinationPath] = checkout
-        try checkout.installHead()
     }
 
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
