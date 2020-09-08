@@ -741,7 +741,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         moduleCachePath.map({ AbsolutePath($0) })
                     ].compactMap({ $0 })
                     let profile = sandboxProfile(toolsVersion: toolsVersion, cacheDirectories: cacheDirectories)
-                    cmd = ["sandbox-exec", "-p", profile] + cmd
+                    cmd = ["/usr/bin/sandbox-exec", "-p", profile] + cmd
                 }
               #endif
 
