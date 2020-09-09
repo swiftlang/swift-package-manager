@@ -472,13 +472,6 @@ def build_swiftpm_with_swiftpm(args):
         "--disable-sandbox",
     ]
 
-    build_target = get_build_target(args)
-    cross_compile_hosts = args.cross_compile_hosts
-    if build_target == 'x86_64-apple-macosx' and "macosx-arm64" in cross_compile_hosts:
-        swiftpm_args += ["--arch", "x86_64", "--arch", "arm64"]
-    elif cross_compile_hosts:
-        error("cannot cross-compile for %s" % cross_compile_hosts)
-
     call_swiftpm(args, swiftpm_args)
 
     # Setup symlinks that'll allow using swiftpm from the build directory.
@@ -609,6 +602,13 @@ def get_swiftpm_flags(args):
     # Don't use GNU strerror_r on Android.
     if 'ANDROID_DATA' in os.environ:
         build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
+
+    build_target = get_build_target(args)
+    cross_compile_hosts = args.cross_compile_hosts
+    if build_target == 'x86_64-apple-macosx' and "macosx-arm64" in cross_compile_hosts:
+        build_flags += ["--arch", "x86_64", "--arch", "arm64"]
+    elif cross_compile_hosts:
+        error("cannot cross-compile for %s" % cross_compile_hosts)
 
     return build_flags
 
