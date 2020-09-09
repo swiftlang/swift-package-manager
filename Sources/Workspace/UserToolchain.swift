@@ -13,6 +13,7 @@ import TSCUtility
 import PackageLoading
 import SPMBuildCore
 import Build
+import Foundation
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
@@ -207,6 +208,61 @@ public final class UserToolchain: Toolchain {
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
         guard let sdk = destination.sdk else {
+            if triple.isWindows() {
+                // Windows uses a variable named SDKROOT to determine the root of
+                // the SDK.  This is not the same value as the SDKROOT parameter
+                // in Xcode, however, the value represents a similar concept.
+                if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+                    var runtime: [String] = []
+                    var xctest: [String] = []
+
+                    let SDKSettingsPList = root.appending(component: "SDKSettings.plist")
+                    if let contents = FileManager.default.contents(atPath: SDKSettingsPList.pathString) {
+                        if let plist = try? PropertyListSerialization.propertyList(from: contents, format: nil) as? [String:AnyObject] {
+                            if let defaults: [String:AnyObject] = plist["DefaultProperties"] as? [String:AnyObject] {
+                                if let UseRuntime = defaults["DEFAULT_USE_RUNTIME"] as? String {
+                                    runtime = [ "-libc", UseRuntime ]
+                                }
+                            }
+                        }
+                    }
+
+                    if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
+                            let root = try? AbsolutePath(validating: DEVELOPER_DIR)
+                                                .appending(component: "Platforms")
+                                                .appending(component: "Windows.platform") {
+                        let InfoPList = root.appending(component: "Info.plist")
+                        if let contents = FileManager.default.contents(atPath: InfoPList.pathString) {
+                            if let plist = try? PropertyListSerialization.propertyList(from: contents, format: nil) as? [String:AnyObject] {
+                                if let defaults = plist["DefaultProperties"] as? [String:AnyObject] {
+                                    if let version: String = defaults["XCTEST_VERSION"] as? String {
+                                        let path: AbsolutePath = root.appending(RelativePath("Developer/Library/XCTest-\(version)"))
+                                        xctest = [
+                                            "-I", path.appending(RelativePath("usr/lib/swift/windows/\(triple.arch)")).pathString,
+                                            "-L", path.appending(RelativePath("usr/lib/swift/windows")).pathString,
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return [
+                        "-sdk", root.pathString,
+
+                        // FIXME: these should not be necessary with the `-sdk`
+                        // parameter.  However, it seems that the layout on Windows
+                        // is not entirely correct yet and the driver does not pick
+                        // up the include search path, library search path, nor
+                        // resource dir.  Workaround that for the time being to
+                        // enable use of swift-package-manager on Windows.
+                        "-I", root.appending(RelativePath("usr/lib/swift")).pathString,
+                        "-L", root.appending(RelativePath("usr/lib/swift/windows")).pathString,
+                        "-resource-dir", root.appending(RelativePath("usr/lib/swift")).pathString,
+                    ] + xctest + runtime
+                }
+            }
+
             return destination.extraSwiftCFlags
         }
 

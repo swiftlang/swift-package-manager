@@ -677,6 +677,40 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
 
+#if os(Windows)
+            // Infer the default flags from the SDKROOT environment variable
+            //
+            // Windows uses a variable named SDKROOT to determine the root of
+            // the SDK.  This is not the same value as the SDKROOT parameter
+            // in Xcode, however, the value represents a similar concept.
+            if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+                cmd += [ "-sdk", root.pathString ]
+
+                // FIXME: these should not be necessary with the `-sdk`
+                // parameter.  However, it seems that the layout on Windows is
+                // not entirely correct yet and the driver does not pick up the
+                // include search path, library search path, nor resource dir.
+                // Workaround that for the time being to enable use of
+                // swift-package-manager on Windows.
+                cmd += [
+                  "-I", root.appending(RelativePath("usr/lib/swift")).pathString,
+                  "-L", root.appending(RelativePath("usr/lib/swift/windows")).pathString,
+                  "-resource-dir", root.appending(RelativePath("usr/lib/swift")).pathString,
+                ]
+
+                let SDKSettingsPList = root.appending(component: "SDKSettings.plist")
+                if let contents = FileManager.default.contents(atPath: SDKSettingsPList.pathString) {
+                    if let plist = try? PropertyListSerialization.propertyList(from: contents, format: nil) as? [String:AnyObject] {
+                        if let defaults: [String:AnyObject] = plist["DefaultProperties"] as? [String:AnyObject] {
+                            if let UseRuntime = defaults["DEFAULT_USE_RUNTIME"] as? String {
+                                cmd += [ "-libc", UseRuntime ]
+                            }
+                        }
+                    }
+                }
+            }
+#endif
+
             cmd += compilerFlags
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
