@@ -218,6 +218,7 @@ extension BuildConfiguration {
 extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
+            enableTestDiscovery: buildParameters.enableTestDiscovery,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts
         )
     }
