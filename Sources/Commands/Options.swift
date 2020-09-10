@@ -189,7 +189,9 @@ public struct SwiftToolOptions: ParsableArguments {
     }
     
     /// Whether to enable code coverage.
-    @Flag(name: .customLong("enable-code-coverage"), help: "Test with code coverage enabled")
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage")
     var shouldEnableCodeCoverage: Bool = false
 
     // TODO: Does disable-automatic-resolution alias force-resolved-versions?
