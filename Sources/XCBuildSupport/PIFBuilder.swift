@@ -20,13 +20,18 @@ import PackageGraph
 /// The parameters required by `PIFBuilder`.
 public struct PIFBuilderParameters {
 
+    /// Whether or not test discovery is enabled.
+    public let enableTestDiscovery: Bool
+
     /// Whether to create dylibs for dynamic library products.
     public let shouldCreateDylibForDynamicProducts: Bool
 
     /// Creates a `PIFBuilderParameters` instance.
     /// - Parameters:
+    ///   - enableTestDiscovery: Whether or not test discovery is enabled.
     ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(shouldCreateDylibForDynamicProducts: Bool) {
+    public init(enableTestDiscovery: Bool, shouldCreateDylibForDynamicProducts: Bool) {
+        self.enableTestDiscovery = enableTestDiscovery
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
     }
 }
@@ -315,6 +320,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
+
+        if parameters.enableTestDiscovery {
+            releaseSettings[.ENABLE_TESTABILITY] = "YES"
+        }
+
         addBuildConfiguration(name: "Release", settings: releaseSettings)
 
         for product in package.products.sorted(by: { $0.name < $1.name }) {
