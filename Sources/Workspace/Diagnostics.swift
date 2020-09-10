@@ -153,3 +153,28 @@ extension Diagnostic.Message {
         .error("downloaded archive of binary target '\(targetName)' does not contain expected binary artifact '\(artifactName)'")
     }
 }
+
+
+extension FileSystemError: CustomStringConvertible {
+    
+    public var description: String {
+        switch self {
+        case .invalidAccess:
+            return "invalid access"
+        case .ioError:
+            return "encountered I/O error"
+        case .isDirectory:
+            return "is a directory"
+        case .noEntry:
+            return "doesn't exist in file system"
+        case .notDirectory:
+            return "is not a directory"
+        case .unsupported:
+            return "unsupported operation"
+        case .unknownOSError:
+            return "unknown system error"
+        case .alreadyExistsAtDestination:
+            return "already exists in file system"
+        }
+    }
+}

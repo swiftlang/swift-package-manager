@@ -12,6 +12,7 @@ import TSCBasic
 import PackageModel
 import Foundation
 
+/// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"
 
 extension AbsolutePath {
@@ -47,135 +48,197 @@ extension ClangTarget: ModuleMapProtocol {
     }
 }
 
-/// A modulemap generator for clang targets.
+/// A module map generator for Clang targets.  Module map generation consists of two steps:
+/// 1. Examining a target's public-headers directory to determine the appropriate module map type
+/// 2. Generating a module map for any target that doesn't have a custom module map file
 ///
-/// Modulemap is generated under the following rules provided it is not already present in include directory:
+/// When a custom module map exists in the header directory, it is used as-is.  When a custom module map does not exist, a module map is generated based on the following rules:
 ///
-/// * "include/foo/foo.h" exists and `foo` is the only directory under the "include" directory, and the "include" directory contains no header files:
+/// *  If "include/foo/foo.h" exists and `foo` is the only directory under the "include" directory, and the "include" directory contains no header files:
 ///    Generates: `umbrella header "/path/to/include/foo/foo.h"`
-/// * "include/foo.h" exists and "include" contains no other subdirectory:
+/// *  If "include/foo.h" exists and "include" contains no other subdirectory:
 ///    Generates: `umbrella header "/path/to/include/foo.h"`
 /// *  Otherwise, if the "include" directory only contains header files and no other subdirectory:
 ///    Generates: `umbrella "path/to/include"`
+///
+/// These rules are documented at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the target.
+///
+/// Note that a module map generator doesn't require a target to already have been instantiated; it can operate on information that will later be used to instantiate a target.
 public struct ModuleMapGenerator {
-
-    /// The clang target to operate on.
-    private let target: ClangTarget
-
+    
+    /// The name of the Clang target (for diagnostics).
+    private let targetName: String
+    
+    /// The module name of the target.
+    private let moduleName: String
+    
+    /// The target's public-headers directory.
+    private let publicHeadersDir: AbsolutePath
+    
     /// The file system to be used.
-    private var fileSystem: FileSystem
-
-    /// Where to emit any warnings and errors.
-    private let diagnostics: DiagnosticsEngine
-
-    public init(
-        for target: ClangTarget,
-        fileSystem: FileSystem = localFileSystem,
-        diagnostics: DiagnosticsEngine
-    ) {
-        self.target = target
+    private let fileSystem: FileSystem
+    
+    public init(targetName: String, moduleName: String, publicHeadersDir: AbsolutePath, fileSystem: FileSystem) {
+        self.targetName = targetName
+        self.moduleName = moduleName
+        self.publicHeadersDir = publicHeadersDir
         self.fileSystem = fileSystem
-        self.diagnostics = diagnostics
     }
-
-    /// Generates a module map based on the layout of the target's public headers, or does nothing if an error occurs or no module map is appropriate.  Any diagnostics are added to the receiver's diagnostics engine.
-    public mutating func generateModuleMap(inDir wd: AbsolutePath) throws {
-        assert(target.type == .library)
-
-        // Do nothing if modulemap is already present.
-        guard !fileSystem.isFile(target.moduleMapPath) else {
-            return
-        }
-
-        let includeDir = target.includeDir
-        // Warn and return if there's no include directory.
-        guard fileSystem.isDirectory(includeDir) else {
-            diagnostics.emit(warning: "no include directory found for target '\(target.name)'; libraries cannot be imported without public headers")
-            return
-        }
-
-        let walked = try fileSystem.getDirectoryContents(includeDir).map({ includeDir.appending(component: $0) })
-
-        let files = walked.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
-        let dirs = walked.filter({ fileSystem.isDirectory($0) })
-
-        // If 'include/ModuleName.h' exists, then use it as the umbrella header (this is case 2 at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets).
-        let umbrellaHeaderFlat = includeDir.appending(component: target.c99name + ".h")
-        if fileSystem.isFile(umbrellaHeaderFlat) {
-            // In this case, 'include' is expected to contain no subdirectories.
-            guard dirs.isEmpty else {
-                diagnostics.emit(error: "target '\(target.name)' failed modulemap generation: umbrella header found at '\(umbrellaHeaderFlat)', but directories exist next to it: \(dirs.map({ $0.description }).sorted().joined(separator: ", ")); consider removing them")
-                return
-            }
-            try createModuleMap(inDir: wd, type: .header(umbrellaHeaderFlat))
-            return
-        }
-        diagnoseInvalidUmbrellaHeader(includeDir)
-
-        // If 'include/ModuleName/ModuleName.h' exists, then use it as the umbrella header (this is case 1 at Documentation/Usage.md#creating-c-language-targets).
-        let umbrellaHeader = includeDir.appending(components: target.c99name, target.c99name + ".h")
-        if fileSystem.isFile(umbrellaHeader) {
-            // In this case, 'include' is expected to contain no subdirectories other than 'ModuleName', and no header files.
-            guard dirs.count == 1 else {
-                diagnostics.emit(error: "target '\(target.name)' failed modulemap generation: umbrella header found at '\(umbrellaHeader)', but more than one directory exists next to its parent directory: \(dirs.map({ $0.description }).sorted().joined(separator: ", ")); consider reducing them to one")
-                return
-            }
-            guard files.isEmpty else {
-                diagnostics.emit(error: "target '\(target.name)' failed modulemap generation: umbrella header found at '\(umbrellaHeader)', but additional header files exist: \((files.map({ $0.description }).sorted().joined(separator: ", "))); consider reducing them to one")
-                return
-            }
-            try createModuleMap(inDir: wd, type: .header(umbrellaHeader))
-            return
-        }
-        diagnoseInvalidUmbrellaHeader(includeDir.appending(component: target.c99name))
-
-        // Otherwise, if 'include' contains only header files and no subdirectories, use it as the umbrella directory (this is case 3 at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets).
-        if files.count == walked.count {
-            try createModuleMap(inDir: wd, type: .directory(includeDir))
-            return
+    
+    /// Inspects the file system at the public-headers directory with which the module map generator was instantiated, and returns the type of module map that applies to that directory.  This function contains all of the heuristics that implement module map policy for package targets; other functions just use the results of this determination.
+    public func determineModuleMapType(diagnostics: DiagnosticsEngine) -> ModuleMapType {
+        // The following rules are documented at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the target.
+        
+        // First check for a custom module map.
+        let customModuleMapFile = publicHeadersDir.appending(component: moduleMapFilename)
+        if fileSystem.isFile(customModuleMapFile) {
+            return .custom(customModuleMapFile)
         }
         
-        // Otherwise, the target's public headers are considered to be incompatible with modules.  Per the original design, an umbrella directory is still created for them.  This is will lead to build failures if those headers are included and they are not compatible with modules.  A future evolution proposal should revisit these semantics.
-        try createModuleMap(inDir: wd, type: .directory(includeDir))
-    }
-
-    /// Warn user if in case target name and c99name are different and there is a
-    /// `name.h` umbrella header.
-    private func diagnoseInvalidUmbrellaHeader(_ path: AbsolutePath) {
-        let umbrellaHeader = path.appending(component: target.c99name + ".h")
-        let invalidUmbrellaHeader = path.appending(component: target.name + ".h")
-        if target.c99name != target.name && fileSystem.isFile(invalidUmbrellaHeader) {
-            diagnostics.emit(warning: "\(invalidUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
+        // Warn if the public-headers directory is missing.  For backward compatibility reasons, this is not an error, we just won't generate a module map in that case.
+        guard fileSystem.exists(publicHeadersDir) else {
+            diagnostics.emit(.missingPublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir))
+            return .none
         }
-    }
 
-    private enum UmbrellaType {
-        case header(AbsolutePath)
-        case directory(AbsolutePath)
-    }
+        // Next try to get the entries in the public-headers directory.
+        let entries: Set<AbsolutePath>
+        do {
+            entries = try Set(fileSystem.getDirectoryContents(publicHeadersDir).map({ publicHeadersDir.appending(component: $0) }))
+        }
+        catch {
+            // This might fail because of a file system error, etc.
+            diagnostics.emit(.inaccessiblePublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir, fileSystemError: error))
+            return .none
+        }
+        
+        // Filter out headers and directories at the top level of the public-headers directory.
+        // FIXME: What about .hh files, or .hpp, etc?  We should centralize the detection of file types based on names (and ideally share with SwiftDriver).
+        let headers = entries.filter({ fileSystem.isFile($0) && $0.suffix == ".h" })
+        let directories = entries.filter({ fileSystem.isDirectory($0) })
+        
+        // If 'PublicHeadersDir/ModuleName.h' exists, then use it as the umbrella header.
+        let umbrellaHeader = publicHeadersDir.appending(component: moduleName + ".h")
+        if fileSystem.isFile(umbrellaHeader) {
+            // In this case, 'PublicHeadersDir' is expected to contain no subdirectories.
+            if directories.count != 0 {
+                diagnostics.emit(.umbrellaHeaderHasSiblingDirectories(targetName: targetName, umbrellaHeader: umbrellaHeader, siblingDirs: directories))
+                return .none
+            }
+            return .umbrellaHeader(umbrellaHeader)
+        }
 
-    private mutating func createModuleMap(inDir wd: AbsolutePath, type: UmbrellaType) throws {
+        /// Check for the common mistake of naming the umbrella header 'TargetName.h' instead of 'ModuleName.h'.
+        let misnamedUmbrellaHeader = publicHeadersDir.appending(component: targetName + ".h")
+        if fileSystem.isFile(misnamedUmbrellaHeader) {
+            diagnostics.emit(.misnamedUmbrellaHeader(misnamedUmbrellaHeader: misnamedUmbrellaHeader, umbrellaHeader: umbrellaHeader))
+        }
+
+        // If 'PublicHeadersDir/ModuleName/ModuleName.h' exists, then use it as the umbrella header.
+        let nestedUmbrellaHeader = publicHeadersDir.appending(components: moduleName, moduleName + ".h")
+        if fileSystem.isFile(nestedUmbrellaHeader) {
+            // In this case, 'PublicHeadersDir' is expected to contain no subdirectories other than 'ModuleName'.
+            if directories.count != 1 {
+                diagnostics.emit(.umbrellaHeaderParentDirHasSiblingDirectories(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingDirs: directories.filter{ $0.basename != moduleName }))
+                return .none
+            }
+            // In this case, 'PublicHeadersDir' is also expected to contain no header files.
+            if headers.count != 0 {
+                diagnostics.emit(.umbrellaHeaderParentDirHasSiblingHeaders(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingHeaders: headers))
+                return .none
+            }
+            return .umbrellaHeader(nestedUmbrellaHeader)
+        }
+        
+        /// Check for the common mistake of naming the nested umbrella header 'TargetName.h' instead of 'ModuleName.h'.
+        let misnamedNestedUmbrellaHeader = publicHeadersDir.appending(components: moduleName, targetName + ".h")
+        if fileSystem.isFile(misnamedNestedUmbrellaHeader) {
+            diagnostics.emit(.misnamedUmbrellaHeader(misnamedUmbrellaHeader: misnamedNestedUmbrellaHeader, umbrellaHeader: nestedUmbrellaHeader))
+        }
+
+        // Otherwise, if 'PublicHeadersDir' contains only header files and no subdirectories, use it as the umbrella directory.
+        if headers.count == entries.count {
+            return .umbrellaDirectory(publicHeadersDir)
+        }
+        
+        // Otherwise, the target's public headers are considered to be incompatible with modules.  Per the original design, though, an umbrella directory is still created for them.  This will lead to build failures if those headers are included and they are not compatible with modules.  A future evolution proposal should revisit these semantics, especially to make it easier to existing wrap C source bases that are incompatible with modules.
+        return .umbrellaDirectory(publicHeadersDir)
+    }
+    
+    /// Generates a module map based of the specified type, throwing an error if anything goes wrong.  Any diagnostics are added to the receiver's diagnostics engine.
+    public func generateModuleMap(type: GeneratedModuleMapType, at path: AbsolutePath) throws {
         let stream = BufferedOutputByteStream()
-        stream <<< "module \(target.c99name) {\n"
+        stream <<< "module \(moduleName) {\n"
         switch type {
-        case .header(let header):
-            stream <<< "    umbrella header \"\(header.moduleEscapedPathString)\"\n"
-        case .directory(let path):
-            stream <<< "    umbrella \"\(path.moduleEscapedPathString)\"\n"
+        case .umbrellaHeader(let hdr):
+            stream <<< "    umbrella header \"\(hdr.moduleEscapedPathString)\"\n"
+        case .umbrellaDirectory(let dir):
+            stream <<< "    umbrella \"\(dir.moduleEscapedPathString)\"\n"
         }
         stream <<< "    export *\n"
         stream <<< "}\n"
 
         // FIXME: This doesn't belong here.
-        try fileSystem.createDirectory(wd, recursive: true)
-
-        let file = wd.appending(component: moduleMapFilename)
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
 
         // If the file exists with the identical contents, we don't need to rewrite it.
         // Otherwise, compiler will recompile even if nothing else has changed.
-        if let contents = try? fileSystem.readFileContents(file), contents == stream.bytes {
+        if let contents = try? fileSystem.readFileContents(path), contents == stream.bytes {
             return
         }
-        try fileSystem.writeFileContents(file, bytes: stream.bytes)
+        try fileSystem.writeFileContents(path, bytes: stream.bytes)
+    }
+}
+
+
+/// A type of module map to generate.
+public enum GeneratedModuleMapType {
+    case umbrellaHeader(AbsolutePath)
+    case umbrellaDirectory(AbsolutePath)
+}
+
+
+public extension ModuleMapType {
+    /// Returns the type of module map to generate for this kind of module map, or nil to not generate one at all.
+    var generatedModuleMapType: GeneratedModuleMapType? {
+        switch self {
+        case .umbrellaHeader(let path): return .umbrellaHeader(path)
+        case .umbrellaDirectory(let path): return .umbrellaDirectory(path)
+        case .none, .custom(_): return nil
+        }
+    }
+}
+
+
+private extension Diagnostic.Message {
+    
+    /// Warning emitted if the public-headers directory is missing.
+    static func missingPublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath) -> Diagnostic.Message {
+        .warning("no include directory found for target '\(targetName)'; libraries cannot be imported without public headers")
+    }
+    
+    /// Error emitted if the public-headers directory is inaccessible.
+    static func inaccessiblePublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath, fileSystemError: Error) -> Diagnostic.Message {
+        .error("cannot access public-headers directory for target '\(targetName)': \(String(describing: fileSystemError))")
+    }
+    
+    /// Warning emitted if a misnamed umbrella header was found.
+    static func misnamedUmbrellaHeader(misnamedUmbrellaHeader: AbsolutePath, umbrellaHeader: AbsolutePath) -> Diagnostic.Message {
+        .warning("\(misnamedUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
+    }
+    
+    /// Error emitted if there are directories next to a top-level umbrella header.
+    static func umbrellaHeaderHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Diagnostic.Message {
+        .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but directories exist next to it: \(siblingDirs.map({ String(describing: $0) }).sorted().joined(separator: ", ")); consider removing them")
+    }
+    
+    /// Error emitted if there are other directories next to the parent directory of a nested umbrella header.
+    static func umbrellaHeaderParentDirHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Diagnostic.Message {
+        .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but more than one directory exists next to its parent directory: \(siblingDirs.map({ String(describing: $0) }).sorted().joined(separator: ", ")); consider reducing them to one")
+    }
+    
+    /// Error emitted if there are other headers next to the parent directory of a nested umbrella header.
+    static func umbrellaHeaderParentDirHasSiblingHeaders(targetName: String, umbrellaHeader: AbsolutePath, siblingHeaders: Set<AbsolutePath>) -> Diagnostic.Message {
+        .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but additional header files exist: \((siblingHeaders.map({ String(describing: $0) }).sorted().joined(separator: ", "))); consider reducing them to one")
     }
 }

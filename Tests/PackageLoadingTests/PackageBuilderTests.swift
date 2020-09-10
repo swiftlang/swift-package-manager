@@ -211,6 +211,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)
                 module.checkSources(root: "/Sources/clib", paths: "clib.c")
+                module.check(moduleMapType: .custom(AbsolutePath("/Sources/clib/include/module.modulemap")))
             }
         }
     }
@@ -242,6 +243,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)
                 module.checkSources(root: "/Sources", paths: "clib/clib.c", "clib/clib2.c", "clib/nested/nested.c")
+                module.check(moduleMapType: .umbrellaHeader(AbsolutePath("/Sources/clib/clib.h")))
             }
         }
     }
@@ -614,12 +616,14 @@ class PackageBuilderTests: XCTestCase {
                 module.check(c99name: "Foo", type: .library)
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.c")
                 module.check(includeDir: "/Sources/Foo/inc")
+                module.check(moduleMapType: .custom(AbsolutePath("/Sources/Foo/inc/module.modulemap")))
             }
 
             package.checkModule("Bar") { module in
                 module.check(c99name: "Bar", type: .library)
                 module.checkSources(root: "/Sources/Bar", paths: "Bar.c")
                 module.check(includeDir: "/Sources/Bar/include")
+                module.check(moduleMapType: .custom(AbsolutePath("/Sources/Bar/include/module.modulemap")))
             }
         }
     }
@@ -1712,6 +1716,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("lib") { module in
                 module.checkSources(root: "/Sources/lib", paths: "lib.c")
                 module.check(includeDir: "/Sources/lib/include")
+                module.check(moduleMapType: .umbrellaHeader(AbsolutePath("/Sources/lib/include/lib.h")))
             }
         }
     }
@@ -1736,6 +1741,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("lib") { module in
                 module.checkSources(root: "/Sources/lib", paths: "movie.mkv", "lib.c")
                 module.check(includeDir: "/Sources/lib/include")
+                module.check(moduleMapType: .umbrellaHeader(AbsolutePath("/Sources/lib/include/lib.h")))
             }
         }
     }
@@ -2179,6 +2185,13 @@ final class PackageBuilderTester {
                 return XCTFail("Include directory is being checked on a non clang target", file: file, line: line)
             }
             XCTAssertEqual(target.includeDir.pathString, includeDir, file: file, line: line)
+        }
+
+        func check(moduleMapType: ModuleMapType, file: StaticString = #file, line: UInt = #line) {
+            guard case let target as ClangTarget = target else {
+                return XCTFail("Module map type is being checked on a non-Clang target", file: file, line: line)
+            }
+            XCTAssertEqual(target.moduleMapType, moduleMapType, file: file, line: line)
         }
 
         func check(c99name: String? = nil, type: PackageModel.Target.Kind? = nil, file: StaticString = #file, line: UInt = #line) {
