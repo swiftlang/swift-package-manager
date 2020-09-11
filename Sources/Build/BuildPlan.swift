@@ -1091,11 +1091,11 @@ public final class ProductBuildDescription {
             }
         case .executable:
             // Link the Swift stdlib statically, if requested.
-            //
-            // FIXME: This does not work for linux yet (SR-648).
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 if buildParameters.triple.isDarwin() {
                     diagnostics.emit(.swiftBackDeployError)
+                } else if buildParameters.triple.isLinux() {
+                    args += ["-static-stdlib"]
                 }
             }
             args += ["-emit-executable"]
