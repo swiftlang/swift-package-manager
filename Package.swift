@@ -263,7 +263,12 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .exact("0.3.0")),
+        // The 'swift-argument-parser' version declared here must match that
+        // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
+        // dependency version changes here with those projects.
+        .package(
+            url: "https://github.com/apple/swift-argument-parser.git",
+            .upToNextMinor(from: "0.3.1")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch("master")),
     ]
 } else {
