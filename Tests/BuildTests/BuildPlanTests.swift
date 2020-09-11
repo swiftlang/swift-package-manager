@@ -144,7 +144,7 @@ final class BuildPlanTests: XCTestCase {
         let linkArguments = [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
-            "-emit-executable",
+            "-static-stdlib", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-target", defaultTargetTriple,
