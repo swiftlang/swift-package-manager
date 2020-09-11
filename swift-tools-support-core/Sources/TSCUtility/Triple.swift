@@ -199,7 +199,12 @@ extension Triple {
     
     /// The file extension for static libraries.
     public var staticLibraryExtension: String {
-        return ".a"
+        switch abi {
+        case .msvc:
+            return ".lib"
+        default:
+            return ".a"
+        }
     }
 
     /// The file extension for Foundation-style bundle.
