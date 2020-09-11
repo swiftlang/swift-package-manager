@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -16,6 +16,7 @@ public enum Platform: Equatable {
     case android
     case darwin
     case linux(LinuxFlavor)
+    case windows
 
     /// Recognized flavors of linux.
     public enum LinuxFlavor: Equatable {
@@ -26,8 +27,15 @@ public enum Platform: Equatable {
     /// Lazily checked current platform.
     public static var currentPlatform = Platform._findCurrentPlatform(localFileSystem)
     /// Attempt to match `uname` with recognized platforms.
+    /// Additionally, try `ver` to recognize Windows.
     public static func _findCurrentPlatform(_ fs: FileSystem) -> Platform? {
-        guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
+        guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else {
+            if let ver = try? Process.checkNonZeroExit(args: "ver"),
+                ver.hasPrefix("Microsoft Windows") {
+                return .windows
+            }
+            return nil
+        }
         switch uname {
         case "darwin":
             return .darwin

@@ -62,6 +62,7 @@ public struct Triple: Encodable, Equatable {
     public enum ABI: String, Encodable {
         case unknown
         case android
+        case msvc
     }
 
     public init(_ string: String) throws {
@@ -101,6 +102,9 @@ public struct Triple: Encodable, Equatable {
     fileprivate static func parseABI(_ string: String) -> ABI? {
         if string.hasPrefix(ABI.android.rawValue) {
             return ABI.android
+        }
+        if string == ABI.msvc.rawValue {
+            return ABI.msvc
         }
         return nil
     }
