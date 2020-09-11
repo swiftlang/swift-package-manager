@@ -540,11 +540,6 @@ extension SwiftPackageTool {
             @Option(help: "Path to xcconfig file", completion: .file())
             var xcconfigOverrides: AbsolutePath?
             
-            @Flag(name: .customLong("code-coverage"),
-                  inversion: .prefixedEnableDisable,
-                  help: "Enable code coverage in the generated project")
-            var isCodeCoverageEnabled: Bool = false
-            
             @Option(name: .customLong("output"),
                     help: "Path where the Xcode project should be generated")
             var outputPath: AbsolutePath?
@@ -559,16 +554,6 @@ extension SwiftPackageTool {
             
             @Flag(help: "Do not add file references for extra files to the generated Xcode project")
             var skipExtraFiles: Bool = false
-            
-            func xcodeprojOptions(with buildFlags: BuildFlags) -> XcodeprojOptions {
-                XcodeprojOptions(
-                    flags: buildFlags,
-                    xcconfigOverrides: xcconfigOverrides,
-                    isCodeCoverageEnabled: isCodeCoverageEnabled,
-                    useLegacySchemeGenerator: useLegacySchemeGenerator,
-                    enableAutogeneration: enableAutogeneration,
-                    addExtraFiles: !skipExtraFiles)
-            }
         }
 
         @OptionGroup()
@@ -577,6 +562,16 @@ extension SwiftPackageTool {
         @OptionGroup()
         var options: Options
         
+        func xcodeprojOptions() -> XcodeprojOptions {
+            XcodeprojOptions(
+                flags: swiftOptions.buildFlags,
+                xcconfigOverrides: options.xcconfigOverrides,
+                isCodeCoverageEnabled: swiftOptions.shouldEnableCodeCoverage,
+                useLegacySchemeGenerator: options.useLegacySchemeGenerator,
+                enableAutogeneration: options.enableAutogeneration,
+                addExtraFiles: !options.skipExtraFiles)
+        }
+
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
 
@@ -597,7 +592,7 @@ extension SwiftPackageTool {
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 
-            var genOptions = options.xcodeprojOptions(with: swiftOptions.buildFlags)
+            var genOptions = xcodeprojOptions()
             genOptions.manifestLoader = try swiftTool.getManifestLoader()
 
             try Xcodeproj.generate(
@@ -616,7 +611,7 @@ extension SwiftPackageTool {
                     diagnostics: swiftTool.diagnostics,
                     watchmanScriptsDir: swiftTool.buildPath.appending(component: "watchman"),
                     packageRoot: swiftTool.packageRoot!
-                ).runXcodeprojWatcher(options.xcodeprojOptions(with: swiftOptions.buildFlags))
+                ).runXcodeprojWatcher(xcodeprojOptions())
             }
         }
     }
