@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -160,7 +160,7 @@ public struct Triple: Encodable, Equatable {
 }
 
 extension Triple {
-    /// The file prefix for dynamcic libraries
+    /// The file prefix for dynamic libraries
     public var dynamicLibraryPrefix: String {
         switch os {
         case .windows:
