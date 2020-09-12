@@ -17,12 +17,15 @@ add_library(PackageLoading
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
   ToolsVersionLoader.swift
-  UserManifestResources.swift)
+  UserManifestResources.swift
+  ../Workspace/WindowsToolchainInfo.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   PackageModel
   TSCUtility
   SPMLLBuild)
+target_link_libraries(PackageLoading PUBLIC
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageLoading PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

@@ -698,15 +698,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                   "-resource-dir", root.appending(RelativePath("usr/lib/swift")).pathString,
                 ]
 
-                let SDKSettingsPList = root.appending(component: "SDKSettings.plist")
-                if let contents = FileManager.default.contents(atPath: SDKSettingsPList.pathString) {
-                    if let plist = try? PropertyListSerialization.propertyList(from: contents, format: nil) as? [String:AnyObject] {
-                        if let defaults: [String:AnyObject] = plist["DefaultProperties"] as? [String:AnyObject] {
-                            if let UseRuntime = defaults["DEFAULT_USE_RUNTIME"] as? String {
-                                cmd += [ "-libc", UseRuntime ]
-                            }
-                        }
-                    }
+                if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
+                                                     diagnostics: nil, filesystem: localFileSystem) {
+                    cmd += [ "-libc", settings.defaults.runtime.rawValue ]
                 }
             }
 #endif
