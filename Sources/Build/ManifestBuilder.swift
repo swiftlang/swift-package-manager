@@ -864,6 +864,9 @@ extension TypedVirtualPath {
 
         case .standardInput, .standardOutput:
             fatalError("Cannot handle standard input or output")
+
+        case .fileList:
+            fatalError("cannot handle fileList")
         }
     }
 }
