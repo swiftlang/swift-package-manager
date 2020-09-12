@@ -26,16 +26,16 @@ public enum Platform: Equatable {
 
     /// Lazily checked current platform.
     public static var currentPlatform = Platform._findCurrentPlatform(localFileSystem)
-    /// Attempt to match `uname` with recognized platforms.
-    /// Additionally, try `ver` to recognize Windows.
+
     public static func _findCurrentPlatform(_ fs: FileSystem) -> Platform? {
-        guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else {
-            if let ver = try? Process.checkNonZeroExit(args: "ver"),
-                ver.hasPrefix("Microsoft Windows") {
-                return .windows
-            }
-            return nil
-        }
+        /// Recognize Darwin and Windows at compile time.
+      #if os(Darwin)
+        return .darwin
+      #elseif os(Windows)
+        return .windows
+      #else
+        /// Attempt to match `uname` with other recognized platforms.
+        guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
             return .darwin
@@ -44,6 +44,7 @@ public enum Platform: Equatable {
         default:
             return nil
         }
+      #endif
     }
 
     public static func _findCurrentPlatformLinux(_ fs: FileSystem) -> Platform? {
