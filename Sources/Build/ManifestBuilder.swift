@@ -859,7 +859,7 @@ extension TypedVirtualPath {
         case .absolute(let path):
             return Node.file(path)
 
-        case .temporary(let path):
+        case .temporary(let path), .fileList(let path, _):
             return Node.virtual(path.pathString)
 
         case .standardInput, .standardOutput:
