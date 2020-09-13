@@ -2064,16 +2064,7 @@ extension Workspace {
             return bindings
 
         case .error(let error):
-            switch error {
-            // Emit proper error if we were not able to parse some manifest during dependency resolution.
-            case let error as RepositoryPackageContainer.GetDependenciesErrorWrapper:
-                let location = PackageLocation.Remote(url: error.containerIdentifier, reference: error.reference)
-                diagnostics.emit(error.underlyingError, location: location)
-
-            default:
-                diagnostics.emit(error)
-            }
-
+            diagnostics.emit(error)
             return []
         }
     }

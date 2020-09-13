@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -251,16 +251,28 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
-    public struct GetDependenciesErrorWrapper: Swift.Error {
+    public struct GetDependenciesError: Error, CustomStringConvertible {
 
-        /// The container which had this error.
+        /// The container (repository) that encountered the error.
         public let containerIdentifier: String
 
-        /// The source control reference i.e. version, branch, revsion etc.
+        /// The source control reference (version, branch, revision, etc) that was involved.
         public let reference: String
 
         /// The actual error that occurred.
-        public let underlyingError: Swift.Error
+        public let underlyingError: Error
+        
+        /// Optional suggestion for how to resolve the error.
+        public let suggestion: String?
+        
+        /// Description shown for errors of this kind.
+        public var description: String {
+            var desc = "\(underlyingError) in \(containerIdentifier)"
+            if let suggestion = suggestion {
+                desc += " (\(suggestion))"
+            }
+            return desc
+        }
     }
 
     /// This is used to remember if tools version of a particular version is
@@ -370,8 +382,8 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
                 return try getDependencies(at: revision, version: version, productFilter: productFilter)
             }.1
         } catch {
-            throw GetDependenciesErrorWrapper(
-                containerIdentifier: identifier.repository.url, reference: version.description, underlyingError: error)
+            throw GetDependenciesError(
+                containerIdentifier: identifier.repository.url, reference: version.description, underlyingError: error, suggestion: nil)
         }
     }
 
@@ -383,8 +395,28 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
                 return try getDependencies(at: revision, productFilter: productFilter)
             }.1
         } catch {
-            throw GetDependenciesErrorWrapper(
-                containerIdentifier: identifier.repository.url, reference: revision, underlyingError: error)
+            // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
+            if let gitInvocationError = error as? ProcessResult.Error, gitInvocationError.description.contains("Needed a single revision") {
+                // It was a Git process invocation error.  Take a look at the repository to see if we can come up with a reasonable diagnostic.
+                if let rev = try? repository.resolveRevision(identifier: revision), repository.exists(revision: rev) {
+                    // Revision does exist, so something else must be wrong.
+                    throw GetDependenciesError(
+                        containerIdentifier: identifier.repository.url, reference: revision, underlyingError: error, suggestion: nil)
+                }
+                else {
+                    // Revision does not exist, so we customize the error.
+                    let sha1RegEx = try! RegEx(pattern: #"\A[:xdigit:]{40}\Z"#)
+                    let isBranchRev = sha1RegEx.matchGroups(in: revision).compactMap{ $0 }.isEmpty
+                    let errorMessage = "could not find " + (isBranchRev ? "a branch named ‘\(revision)’" : "the commit \(revision)")
+                    let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
+                    let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil
+                    throw GetDependenciesError(
+                        containerIdentifier: identifier.repository.url, reference: revision,
+                        underlyingError: StringError(errorMessage), suggestion: suggestion)
+                }
+            }
+            // If we get this far without having thrown an error, we wrap and throw the underlying error.
+            throw GetDependenciesError(containerIdentifier: identifier.repository.url, reference: revision, underlyingError: error, suggestion: nil)
         }
     }
 
