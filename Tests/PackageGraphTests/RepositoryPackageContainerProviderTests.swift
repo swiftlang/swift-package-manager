@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,7 @@
 import XCTest
 
 import TSCBasic
+import TSCUtility
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -274,7 +275,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
                 _ = try container.getDependencies(at: revision.identifier, productFilter: .specific([]))
-            } catch let error as RepositoryPackageContainer.GetDependenciesErrorWrapper {
+            } catch let error as RepositoryPackageContainer.GetDependenciesError {
                 let error = error.underlyingError as! UnsupportedToolsVersion
                 XCTAssertMatch(error.description, .and(.prefix("package at '/' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version")))
             }
@@ -495,4 +496,62 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
         }
     }
+    
+    
+    func testMissingBranchDiagnostics() {
+        mktmpdir { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending(component: "SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            initGitRepo(packageDir)
+            let packageRepo = GitRepository(path: packageDir)
+            
+            // Create a package manifest in it (it only needs the `swift-tools-version` part, because we'll supply the manifest later).
+            let manifestFile = packageDir.appending(component: "Package.swift")
+            try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:4.2"))
+            
+            // Commit it and tag it.
+            try packageRepo.stage(file: "Package.swift")
+            try packageRepo.commit(message: "Initial")
+            try packageRepo.tag(name: "1.0.0")
+            
+            // Rename the `master` branch to `main`.
+            try systemQuietly([Git.tool, "-C", packageDir.pathString, "branch", "-m", "main"])
+
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(path: packageDir, provider: repoProvider, delegate: nil, fileSystem: localFileSystem)
+            
+            // Create a container provider, configured with a mock manifest loader that will return the package manifest.
+            let manifest = Manifest.createV4Manifest(
+                name: packageDir.basename,
+                path: packageDir.pathString,
+                url: packageDir.pathString,
+                packageKind: .root,
+                targets: [
+                    TargetDescription(name: packageDir.basename, path: packageDir.pathString)
+                ]
+            )
+            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil) : manifest]))
+            
+            // Get a hold of the container for the test package.
+            let packageRef = PackageReference(identity: "somepackage", path: packageDir.pathString)
+            let container = try await { containerProvider.getContainer(for: packageRef, completion: $0) } as! RepositoryPackageContainer
+            
+            // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
+            do { _ = try container.getDependencies(at: "master", productFilter: .everything) }
+            catch let error as RepositoryPackageContainer.GetDependenciesError {
+                // We expect to get an error message that mentions main.
+                XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
+            }
+            
+            // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
+            do { _ = try container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything) }
+            catch let error as RepositoryPackageContainer.GetDependenciesError {
+                // We expect to get an error message that mentions main.
+                XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
+            }
+        }
+    }
+
 }
