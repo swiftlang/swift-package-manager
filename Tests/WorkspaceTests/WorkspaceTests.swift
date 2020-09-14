@@ -2925,6 +2925,41 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testMissingLocalDependencyDiagnostic() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "Foo",
+                    targets: [
+                        TestTarget(name: "Foo", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: nil, path: "Bar", requirement: .localPackage),
+                    ]
+                ),
+            ],
+            packages: [
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Foo")
+                result.check(targets: "Foo")
+            }
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("the package at '/tmp/ws/pkgs/Bar' cannot be accessed (doesn't exist in file system"), behavior: .error)
+            }
+        }
+    }
+
     func testRevisionVersionSwitch() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

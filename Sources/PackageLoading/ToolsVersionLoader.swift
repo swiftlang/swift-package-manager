@@ -46,7 +46,10 @@ extension Manifest {
 
         // Otherwise, check if there is a version-specific manifest that has
         // a higher tools version than the main Package.swift file.
-        let contents = try fileSystem.getDirectoryContents(packagePath)
+        let contents: [String]
+        do { contents = try fileSystem.getDirectoryContents(packagePath) } catch {
+            throw ToolsVersionLoader.Error.inaccessiblePackage(path: packagePath, reason: String(describing: error))
+        }
         let regex = try! RegEx(pattern: "^Package@swift-(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?.swift$")
 
         // Collect all version-specific manifests at the given package path.
@@ -93,11 +96,20 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     }
 
     public enum Error: Swift.Error, CustomStringConvertible {
-        case malformed(specifier: String, currentToolsVersion: ToolsVersion)
+        /// Package directory is inaccessible (missing, unreadable, etc).
+        case inaccessiblePackage(path: AbsolutePath, reason: String)
+        /// Package manifest file is inaccessible (missing, unreadable, etc).
+        case inaccessibleManifest(path: AbsolutePath, reason: String)
+        /// Malformed tools version specifier
+        case malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)
 
         public var description: String {
             switch self {
-            case .malformed(let versionSpecifier, let currentToolsVersion):
+            case .inaccessiblePackage(let packageDir, let reason):
+                return "the package at '\(packageDir)' cannot be accessed (\(reason))"
+            case .inaccessibleManifest(let manifestFile, let reason):
+                return "the package manifest at '\(manifestFile)' cannot be accessed (\(reason))"
+            case .malformedToolsVersion(let versionSpecifier, let currentToolsVersion):
                 return "the tools version '\(versionSpecifier)' is not valid; consider using '// swift-tools-version:\(currentToolsVersion.major).\(currentToolsVersion.minor)' to specify the current tools version"
             }
         }
@@ -116,7 +128,10 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
     fileprivate func load(file: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // FIXME: We don't need the entire file, just the first line.
-        let contents = try fileSystem.readFileContents(file)
+        let contents: ByteString
+        do { contents = try fileSystem.readFileContents(file) } catch {
+            throw Error.inaccessibleManifest(path: file, reason: String(describing: error))
+        }
 
         // Get the version specifier string from tools version file.
         guard let versionSpecifier = ToolsVersionLoader.split(contents).versionSpecifier else {
@@ -128,7 +143,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             let misspellings = ["swift-tool", "tool-version"]
             if let firstLine = ByteString(splitted[0]).validDescription,
                misspellings.first(where: firstLine.lowercased().contains) != nil {
-                throw Error.malformed(specifier: firstLine, currentToolsVersion: currentToolsVersion)
+                throw Error.malformedToolsVersion(specifier: firstLine, currentToolsVersion: currentToolsVersion)
             }
             // Otherwise assume the default to be v3.
             return .v3
@@ -136,7 +151,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
         // Ensure we can construct the version from the specifier.
         guard let version = ToolsVersion(string: versionSpecifier) else {
-            throw Error.malformed(specifier: versionSpecifier, currentToolsVersion: currentToolsVersion)
+            throw Error.malformedToolsVersion(specifier: versionSpecifier, currentToolsVersion: currentToolsVersion)
         }
         return version
     }
