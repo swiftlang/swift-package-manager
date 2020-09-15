@@ -22,6 +22,7 @@ target_link_libraries(Workspace PUBLIC
   TSCUtility
   Build
   PackageGraph
+  PackageLoading
   PackageModel
   SourceControl
   Xcodeproj)
