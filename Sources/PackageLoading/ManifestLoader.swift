@@ -627,7 +627,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Compute the path to runtime we need to load.
             let runtimePath = self.runtimePath(for: toolsVersion)
-            let compilerFlags = self.interpreterFlags(for: toolsVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
@@ -705,7 +704,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 #endif
 
-            cmd += compilerFlags
+            cmd += self.interpreterFlags(for: toolsVersion)
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
             }
