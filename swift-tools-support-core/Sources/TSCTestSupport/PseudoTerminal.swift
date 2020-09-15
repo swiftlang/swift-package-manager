@@ -33,10 +33,17 @@ public final class PseudoTerminal {
     }
     
     public func readMaster(maxChars n: Int = 1000) -> String? {
-        var buf: [CChar] = [CChar](repeating: 0, count: n)
-        if read(master, &buf, n) <= 0 {
-            return nil
+        let buf: [CChar] = .init(unsafeUninitializedCapacity: n + 1 /* +1 for null terminator */ ) {
+            buf, initializedCapacity in
+            initializedCapacity = read(master, buf.baseAddress, n)
+            guard initializedCapacity > 0 else {
+                initializedCapacity = 0 // for case read returned -1
+                return
+            }
+            buf[initializedCapacity] = 0 // nul terminator
+            initializedCapacity += 1
         }
+        guard buf.count > 0 else { return nil }
         return String(cString: buf)
     }
     
