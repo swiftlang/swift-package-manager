@@ -69,8 +69,8 @@ public final class PinsStore {
         pinsMap = [:]
         do {
             _ = try self.persistence.restoreState(self)
-        } catch SimplePersistence.Error.restoreFailure {
-            throw StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue")
+        } catch SimplePersistence.Error.restoreFailure(_, let error) {
+            throw StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error)")
         }
     }
 
@@ -123,7 +123,7 @@ extension PinsStore: SimplePersistanceProtocol {
     }
 
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(uniqueKeysWithValues: json.get("pins").map({ ($0.packageRef.identity, $0) }))
+        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
     }
 
     /// Saves the current state of pins.
