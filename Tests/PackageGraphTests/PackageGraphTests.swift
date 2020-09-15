@@ -1165,4 +1165,35 @@ class PackageGraphTests: XCTestCase {
 
         XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
     }
+
+    func testPinsStoreIsResilientAgainstDupes() throws {
+        let json = try JSON(string: """
+              {
+                  "pins": [
+                    {
+                      "package": "Yams",
+                      "repositoryURL": "https://github.com/jpsim/yams",
+                      "state": {
+                        "branch": null,
+                        "revision": "b08dba4bcea978bf1ad37703a384097d3efce5af",
+                        "version": "1.0.2"
+                      }
+                    },
+                    {
+                      "package": "Yams",
+                      "repositoryURL": "https://github.com/jpsim/yams",
+                      "state": {
+                        "branch": null,
+                        "revision": "b08dba4bcea978bf1ad37703a384097d3efce5af",
+                        "version": "1.0.2"
+                      }
+                    }
+                  ]
+              }
+        """)
+
+        let fs = InMemoryFileSystem(emptyFiles: [])
+        let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs)
+        XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
+    }
 }
