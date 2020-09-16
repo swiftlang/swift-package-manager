@@ -17,8 +17,7 @@ add_library(PackageLoading
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
   ToolsVersionLoader.swift
-  UserManifestResources.swift
-  ../Workspace/WindowsToolchainInfo.swift)
+  UserManifestResources.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   PackageModel

@@ -213,6 +213,7 @@ public final class UserToolchain: Toolchain {
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
                 if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+
                     var runtime: [String] = []
                     var xctest: [String] = []
 
@@ -337,8 +338,10 @@ public final class UserToolchain: Toolchain {
                 fatalError("Couldn't find any SWIFTPM_PD_LIBS directory: \(pdLibDirEnvStr)")
             }
         }
+
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
+            swiftCompilerFlags: self.extraSwiftCFlags,
             libDir: pdLibDir,
             sdkRoot: self.destination.sdk,
             // Set the bin directory if we don't have a lib dir.

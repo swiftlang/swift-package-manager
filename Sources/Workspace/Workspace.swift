@@ -736,9 +736,10 @@ extension Workspace {
     public static func loadGraph(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
-        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
         let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
         return workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)

@@ -40,6 +40,9 @@ public protocol ManifestResourceProvider {
 
     /// The bin directory.
     var binDir: AbsolutePath? { get }
+
+    /// Extra flags to pass the Swift compiler.
+    var swiftCompilerFlags: [String] { get }
 }
 
 /// Default implemention for the resource provider.
@@ -187,9 +190,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     public static func loadManifest(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
         packageKind: PackageReference.Kind
     ) throws -> Manifest {
-        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
         let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: localFileSystem)
         return try loader.load(
@@ -676,33 +680,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
 
-#if os(Windows)
-            // Infer the default flags from the SDKROOT environment variable
-            //
-            // Windows uses a variable named SDKROOT to determine the root of
-            // the SDK.  This is not the same value as the SDKROOT parameter
-            // in Xcode, however, the value represents a similar concept.
-            if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
-                cmd += [ "-sdk", root.pathString ]
-
-                // FIXME: these should not be necessary with the `-sdk`
-                // parameter.  However, it seems that the layout on Windows is
-                // not entirely correct yet and the driver does not pick up the
-                // include search path, library search path, nor resource dir.
-                // Workaround that for the time being to enable use of
-                // swift-package-manager on Windows.
-                cmd += [
-                  "-I", root.appending(RelativePath("usr/lib/swift")).pathString,
-                  "-L", root.appending(RelativePath("usr/lib/swift/windows")).pathString,
-                  "-resource-dir", root.appending(RelativePath("usr/lib/swift")).pathString,
-                ]
-
-                if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
-                                                     diagnostics: nil, filesystem: localFileSystem) {
-                    cmd += [ "-libc", settings.defaults.runtime.rawValue ]
-                }
-            }
-#endif
+            // Add any extra flags required as indicated by the ManifestLoader.
+            cmd += resources.swiftCompilerFlags
 
             cmd += self.interpreterFlags(for: toolsVersion)
             if let moduleCachePath = moduleCachePath {
