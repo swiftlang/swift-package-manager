@@ -40,6 +40,9 @@ public protocol ManifestResourceProvider {
 
     /// The bin directory.
     var binDir: AbsolutePath? { get }
+
+    /// Extra flags to pass the Swift compiler.
+    var swiftCompilerFlags: [String] { get }
 }
 
 /// Default implemention for the resource provider.
@@ -187,9 +190,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     public static func loadManifest(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
         packageKind: PackageReference.Kind
     ) throws -> Manifest {
-        let resources = try UserManifestResources(swiftCompiler: swiftCompiler)
+        let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
         let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: localFileSystem)
         return try loader.load(
@@ -627,7 +631,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Compute the path to runtime we need to load.
             let runtimePath = self.runtimePath(for: toolsVersion)
-            let compilerFlags = self.interpreterFlags(for: toolsVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
@@ -677,7 +680,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
 
-            cmd += compilerFlags
+            // Add any extra flags required as indicated by the ManifestLoader.
+            cmd += resources.swiftCompilerFlags
+
+            cmd += self.interpreterFlags(for: toolsVersion)
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath]
             }

@@ -276,6 +276,7 @@ public final class PackageBuilder {
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
             = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         diagnostics: DiagnosticsEngine,
@@ -284,6 +285,7 @@ public final class PackageBuilder {
         let manifest = try ManifestLoader.loadManifest(
             packagePath: packagePath,
             swiftCompiler: swiftCompiler,
+            swiftCompilerFlags: swiftCompilerFlags,
             packageKind: kind)
         let builder = PackageBuilder(
             manifest: manifest,

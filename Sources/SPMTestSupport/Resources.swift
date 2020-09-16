@@ -38,6 +38,10 @@ public class Resources: ManifestResourceProvider {
         return toolchain.manifestResources.binDir
     }
 
+    public var swiftCompilerFlags: [String] {
+        return []
+    }
+
   #if os(macOS)
     public var sdkPlatformFrameworksPath: AbsolutePath {
         return Destination.sdkPlatformFrameworkPaths()!.fwk

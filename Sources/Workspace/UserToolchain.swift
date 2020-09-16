@@ -13,6 +13,7 @@ import TSCUtility
 import PackageLoading
 import SPMBuildCore
 import Build
+import Foundation
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
@@ -207,6 +208,53 @@ public final class UserToolchain: Toolchain {
 
     public static func deriveSwiftCFlags(triple: Triple, destination: Destination) -> [String] {
         guard let sdk = destination.sdk else {
+            if triple.isWindows() {
+                // Windows uses a variable named SDKROOT to determine the root of
+                // the SDK.  This is not the same value as the SDKROOT parameter
+                // in Xcode, however, the value represents a similar concept.
+                if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+
+                    var runtime: [String] = []
+                    var xctest: [String] = []
+
+                    if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
+                                                         diagnostics: nil, filesystem: localFileSystem) {
+                        runtime = [ "-libc", settings.defaults.runtime.rawValue ]
+                    }
+
+                    if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
+                            let root = try? AbsolutePath(validating: DEVELOPER_DIR)
+                                                .appending(component: "Platforms")
+                                                .appending(component: "Windows.platform") {
+                        if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
+                                                          diagnostics: nil, filesystem: localFileSystem) {
+                            let path: AbsolutePath =
+                                    root.appending(component: "Developer")
+                                        .appending(component: "Library")
+                                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+                            xctest = [
+                                "-I", path.appending(RelativePath("usr/lib/swift/windows/\(triple.arch)")).pathString,
+                                "-L", path.appending(RelativePath("usr/lib/swift/windows")).pathString,
+                            ]
+                        }
+                    }
+
+                    return [
+                        "-sdk", root.pathString,
+
+                        // FIXME: these should not be necessary with the `-sdk`
+                        // parameter.  However, it seems that the layout on Windows
+                        // is not entirely correct yet and the driver does not pick
+                        // up the include search path, library search path, nor
+                        // resource dir.  Workaround that for the time being to
+                        // enable use of swift-package-manager on Windows.
+                        "-I", root.appending(RelativePath("usr/lib/swift")).pathString,
+                        "-L", root.appending(RelativePath("usr/lib/swift/windows")).pathString,
+                        "-resource-dir", root.appending(RelativePath("usr/lib/swift")).pathString,
+                    ] + xctest + runtime
+                }
+            }
+
             return destination.extraSwiftCFlags
         }
 
@@ -290,8 +338,10 @@ public final class UserToolchain: Toolchain {
                 fatalError("Couldn't find any SWIFTPM_PD_LIBS directory: \(pdLibDirEnvStr)")
             }
         }
+
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
+            swiftCompilerFlags: self.extraSwiftCFlags,
             libDir: pdLibDir,
             sdkRoot: self.destination.sdk,
             // Set the bin directory if we don't have a lib dir.
