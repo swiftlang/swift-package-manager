@@ -187,7 +187,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 XCTFail("unexpected success - \($0)", file: file, line: line)
             }
             XCTFail("unexpected success", file: file, line: line)
-        } catch ToolsVersionLoader.Error.malformed(let specifier, _) {
+        } catch ToolsVersionLoader.Error.malformedToolsVersion(let specifier, _) {
             XCTAssertEqual(specifier, theSpecifier, file: file, line: line)
         } catch {
             XCTFail("Failed with error \(error)")
