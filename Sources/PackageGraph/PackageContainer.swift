@@ -8,7 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import PackageLoading
 import PackageModel
+import SourceControl
 import struct TSCUtility.Version
 
 /// A container of packages.
@@ -123,4 +125,68 @@ public protocol PackageContainerProvider {
         skipUpdate: Bool,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     )
+}
+
+/// Base class for the package container.
+public class BasePackageContainer: PackageContainer {
+    public typealias Identifier = PackageReference
+
+    public let identifier: Identifier
+
+    let config: SwiftPMConfig
+
+    /// The manifest loader.
+    let manifestLoader: ManifestLoaderProtocol
+
+    /// The tools version loader.
+    let toolsVersionLoader: ToolsVersionLoaderProtocol
+
+    /// The current tools version in use.
+    let currentToolsVersion: ToolsVersion
+
+    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+        fatalError("This should never be called")
+    }
+
+    public var reversedVersions: [Version] {
+        fatalError("This should never be called")
+    }
+
+    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        fatalError("This should never be called")
+    }
+
+    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        fatalError("This should never be called")
+    }
+
+    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        fatalError("This should never be called")
+    }
+
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
+        fatalError("This should never be called")
+    }
+
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        fatalError("This should never be called")
+    }
+
+    init(
+        _ identifier: Identifier,
+        config: SwiftPMConfig,
+        manifestLoader: ManifestLoaderProtocol,
+        toolsVersionLoader: ToolsVersionLoaderProtocol,
+        currentToolsVersion: ToolsVersion
+    ) {
+        self.identifier = identifier
+        self.config = config
+        self.manifestLoader = manifestLoader
+        self.toolsVersionLoader = toolsVersionLoader
+        self.currentToolsVersion = currentToolsVersion
+    }
+
+    public var _isRemoteContainer: Bool? {
+        return nil
+    }
 }
