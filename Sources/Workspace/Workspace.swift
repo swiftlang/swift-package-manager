@@ -59,10 +59,22 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has finished updating and all the dependencies are already up-to-date.
     func dependenciesUpToDate()
 
-    /// The workspace has started cloning this repository.
+    /// The workspace is about to clone a repository from the local cache to a working directory.
+    func willClone(repository url: String, to path: AbsolutePath)
+
+    /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
+    func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?)
+    
+    /// The workspace has started cloning this repository. This callback is marginally deprecated in favor of the willClone/didClone pair.
     func cloning(repository: String)
 
-    /// The workspace is checking out a repository.
+    /// The workspace is about to check out a particular revision of a working directory.
+    func willCheckOut(repository url: String, revision: String, at path: AbsolutePath)
+
+    /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
+    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?)
+
+    /// The workspace is checking out a repository. This callback is marginally deprecated in favor of the willCheckOut/didCheckOut pair.
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath)
 
     /// The workspace is removing this repository because it is no longer needed.
@@ -86,6 +98,15 @@ public protocol WorkspaceDelegate: class {
 public extension WorkspaceDelegate {
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
+    func willClone(repository url: String, to path: AbsolutePath) {
+        cloning(repository: url)
+    }
+    func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?) {}
+    func cloning(repository: String) {}
+    func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
+        checkingOut(repository: url, atReference: revision, to: path)
+    }
+    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
@@ -2233,8 +2254,9 @@ extension Workspace {
         try fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        delegate?.cloning(repository: handle.repository.url)
+        delegate?.willClone(repository: handle.repository.url, to: path)
         try handle.cloneCheckout(to: path, editable: false)
+        delegate?.didClone(repository: handle.repository.url, to: path, error: nil)
 
         return path
     }
@@ -2260,7 +2282,7 @@ extension Workspace {
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
 
         // Inform the delegate.
-        delegate?.checkingOut(repository: package.repository.url, atReference: checkoutState.description, to: path)
+        delegate?.willCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
@@ -2273,6 +2295,8 @@ extension Workspace {
             subpath: path.relative(to: checkoutsPath),
             checkoutState: checkoutState))
         try state.saveState()
+
+        delegate?.didCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path, error: nil)
 
         return path
     }
