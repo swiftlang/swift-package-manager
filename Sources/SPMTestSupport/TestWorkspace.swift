@@ -750,4 +750,12 @@ public final class TestWorkspaceDelegate: WorkspaceDelegate {
     public func willResolveDependencies(reason: WorkspaceResolveReason) {
         events.append("will resolve dependencies")
     }
+    
+    public func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
+        events.append("will load manifest for \(packageKind) package: \(url)")
+    }
+    
+    public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
+        events.append("did load manifest for \(packageKind) package: \(url)")
+    }
 }

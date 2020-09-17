@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -89,6 +89,18 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
+
+        // Check the load-package callbacks.
+        XCTAssertMatch(workspace.delegate.events, [
+            .equal("will load manifest for root package: /tmp/ws/roots/Foo"),
+            .equal("did load manifest for root package: /tmp/ws/roots/Foo"),
+        ])
+        XCTAssertMatch(workspace.delegate.events, [
+            .equal("will load manifest for remote package: /tmp/ws/pkgs/Quix"),
+            .equal("did load manifest for remote package: /tmp/ws/pkgs/Quix"),
+            .equal("will load manifest for remote package: /tmp/ws/pkgs/Baz"),
+            .equal("did load manifest for remote package: /tmp/ws/pkgs/Baz")
+        ])
 
         // Close and reopen workspace.
         workspace.closeWorkspace()
@@ -2720,7 +2732,7 @@ final class WorkspaceTests: XCTestCase {
         // Check we don't have updating Foo event.
         workspace.checkUpdate(roots: ["Root"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssertEqual(workspace.delegate.events, ["Everything is already up-to-date"])
+            XCTAssertMatch(workspace.delegate.events, ["Everything is already up-to-date"])
         }
     }
 
