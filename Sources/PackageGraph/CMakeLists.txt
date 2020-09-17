@@ -9,6 +9,7 @@
 add_library(PackageGraph
   CheckoutState.swift
   DependencyResolver.swift
+  PackageContainer.swift
   PackageGraph.swift
   PackageGraphLoader.swift
   PackageGraphRoot.swift
