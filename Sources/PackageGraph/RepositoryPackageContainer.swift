@@ -16,100 +16,9 @@ import PackageModel
 import SourceControl
 import TSCUtility
 
-/// Adaptor for exposing repositories as PackageContainerProvider instances.
-///
-/// This is the root class for bridging the manifest & SCM systems into the
-/// interfaces used by the `DependencyResolver` algorithm.
-public class RepositoryPackageContainerProvider: PackageContainerProvider {
-    let repositoryManager: RepositoryManager
-    let manifestLoader: ManifestLoaderProtocol
-    let config: SwiftPMConfig
-
-    /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
-    /// the container.
-    let currentToolsVersion: ToolsVersion
-
-    /// The tools version loader.
-    let toolsVersionLoader: ToolsVersionLoaderProtocol
-
-    /// Queue for callbacks.
-    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.container-provider")
-
-    /// Create a repository-based package provider.
-    ///
-    /// - Parameters:
-    ///   - repositoryManager: The repository manager responsible for providing repositories.
-    ///   - manifestLoader: The manifest loader instance.
-    ///   - currentToolsVersion: The current tools version in use.
-    ///   - toolsVersionLoader: The tools version loader.
-    public init(
-        repositoryManager: RepositoryManager,
-        config: SwiftPMConfig = SwiftPMConfig(),
-        manifestLoader: ManifestLoaderProtocol,
-        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
-    ) {
-        self.repositoryManager = repositoryManager
-        self.config = config
-        self.manifestLoader = manifestLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
-    }
-
-    public func getContainer(
-        for identifier: PackageReference,
-        skipUpdate: Bool,
-        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
-    ) {
-        // If the container is local, just create and return a local package container.
-        if identifier.kind != .remote {
-            callbacksQueue.async {
-                let container = LocalPackageContainer(identifier,
-                    config: self.config,
-                    manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion,
-                    fs: self.repositoryManager.fileSystem)
-                completion(.success(container))
-            }
-            return
-        }
-
-        // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
-            // Create the container wrapper.
-            let container = result.tryMap { handle -> PackageContainer in
-                // Open the repository.
-                //
-                // FIXME: Do we care about holding this open for the lifetime of the container.
-                let repository = try handle.open()
-                return RepositoryPackageContainer(
-                    identifier: identifier,
-                    config: self.config,
-                    repository: repository,
-                    manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion
-                )
-            }
-            completion(container)
-        }
-    }
-}
-
 enum RepositoryPackageResolutionError: Swift.Error {
     /// A requested repository could not be cloned.
     case unavailableRepository
-}
-
-extension PackageReference {
-    /// The repository of the package.
-    ///
-    /// This should only be accessed when the reference is not local.
-    public var repository: RepositorySpecifier {
-        precondition(kind == .remote)
-        return RepositorySpecifier(url: path)
-    }
 }
 
 public typealias RepositoryPackageConstraint = PackageContainerConstraint
@@ -374,5 +283,96 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             toolsVersion: toolsVersion,
             packageKind: identifier.kind,
             fileSystem: fs)
+    }
+}
+
+/// Adaptor for exposing repositories as PackageContainerProvider instances.
+///
+/// This is the root class for bridging the manifest & SCM systems into the
+/// interfaces used by the `DependencyResolver` algorithm.
+public class RepositoryPackageContainerProvider: PackageContainerProvider {
+    let repositoryManager: RepositoryManager
+    let manifestLoader: ManifestLoaderProtocol
+    let config: SwiftPMConfig
+
+    /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
+    /// the container.
+    let currentToolsVersion: ToolsVersion
+
+    /// The tools version loader.
+    let toolsVersionLoader: ToolsVersionLoaderProtocol
+
+    /// Queue for callbacks.
+    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.container-provider")
+
+    /// Create a repository-based package provider.
+    ///
+    /// - Parameters:
+    ///   - repositoryManager: The repository manager responsible for providing repositories.
+    ///   - manifestLoader: The manifest loader instance.
+    ///   - currentToolsVersion: The current tools version in use.
+    ///   - toolsVersionLoader: The tools version loader.
+    public init(
+        repositoryManager: RepositoryManager,
+        config: SwiftPMConfig = SwiftPMConfig(),
+        manifestLoader: ManifestLoaderProtocol,
+        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
+    ) {
+        self.repositoryManager = repositoryManager
+        self.config = config
+        self.manifestLoader = manifestLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.toolsVersionLoader = toolsVersionLoader
+    }
+
+    public func getContainer(
+        for identifier: PackageReference,
+        skipUpdate: Bool,
+        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
+    ) {
+        // If the container is local, just create and return a local package container.
+        if identifier.kind != .remote {
+            callbacksQueue.async {
+                let container = LocalPackageContainer(identifier,
+                    config: self.config,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion,
+                    fs: self.repositoryManager.fileSystem)
+                completion(.success(container))
+            }
+            return
+        }
+
+        // Resolve the container using the repository manager.
+        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
+            // Create the container wrapper.
+            let container = result.tryMap { handle -> PackageContainer in
+                // Open the repository.
+                //
+                // FIXME: Do we care about holding this open for the lifetime of the container.
+                let repository = try handle.open()
+                return RepositoryPackageContainer(
+                    identifier: identifier,
+                    config: self.config,
+                    repository: repository,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion
+                )
+            }
+            completion(container)
+        }
+    }
+}
+
+extension PackageReference {
+    /// The repository of the package.
+    ///
+    /// This should only be accessed when the reference is not local.
+    public var repository: RepositorySpecifier {
+        precondition(kind == .remote)
+        return RepositorySpecifier(url: path)
     }
 }
