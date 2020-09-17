@@ -9,6 +9,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
 import TSCBasic
+import TSCUtility
 import PackageModel
 import SPMBuildCore
 import Foundation

@@ -29,6 +29,7 @@ add_library(TSCUtility
   SimplePersistence.swift
   StringExtensions.swift
   StringMangling.swift
+  Triple.swift
   URL.swift
   Verbosity.swift
   Version.swift
