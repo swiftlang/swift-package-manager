@@ -339,11 +339,29 @@ public final class UserToolchain: Toolchain {
             }
         }
 
+        var xctestLocation: AbsolutePath?
+#if os(Windows)
+        if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
+                let root = try? AbsolutePath(validating: DEVELOPER_DIR)
+                                    .appending(component: "Platforms")
+                                    .appending(component: "Windows.platform") {
+            if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
+                                              diagnostics: nil, filesystem: localFileSystem) {
+                xctestLocation = root.appending(component: "Developer")
+                                     .appending(component: "Library")
+                                     .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+                                     .appending(component: "usr")
+                                     .appending(component: "bin")
+            }
+        }
+#endif
+
         manifestResources = UserManifestResources(
             swiftCompiler: swiftCompilers.manifest,
             swiftCompilerFlags: self.extraSwiftCFlags,
             libDir: pdLibDir,
             sdkRoot: self.destination.sdk,
+            xctestLocation: xctestLocation,
             // Set the bin directory if we don't have a lib dir.
             binDir: localFileSystem.exists(pdLibDir) ? nil : binDir
         )

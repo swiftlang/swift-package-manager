@@ -43,6 +43,9 @@ public protocol ManifestResourceProvider {
 
     /// Extra flags to pass the Swift compiler.
     var swiftCompilerFlags: [String] { get }
+
+    /// XCTest Location
+    var xctestLocation: AbsolutePath? { get }
 }
 
 /// Default implemention for the resource provider.
@@ -53,6 +56,10 @@ public extension ManifestResourceProvider {
     }
 
     var binDir: AbsolutePath? {
+        return nil
+    }
+
+    var xctestLocation: AbsolutePath? {
         return nil
     }
 }

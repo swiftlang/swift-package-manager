@@ -16,6 +16,7 @@ public struct UserManifestResources: ManifestResourceProvider {
     public let swiftCompilerFlags: [String]
     public let libDir: AbsolutePath
     public let sdkRoot: AbsolutePath?
+    public let xctestLocation: AbsolutePath?
     public let binDir: AbsolutePath?
 
     public init(
@@ -23,12 +24,14 @@ public struct UserManifestResources: ManifestResourceProvider {
         swiftCompilerFlags: [String],
         libDir: AbsolutePath,
         sdkRoot: AbsolutePath? = nil,
+        xctestLocation: AbsolutePath? = nil,
         binDir: AbsolutePath? = nil
     ) {
         self.swiftCompiler = swiftCompiler
         self.swiftCompilerFlags = swiftCompilerFlags
         self.libDir = libDir
         self.sdkRoot = sdkRoot
+        self.xctestLocation = xctestLocation
         self.binDir = binDir
     }
 
