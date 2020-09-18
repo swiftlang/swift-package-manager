@@ -702,7 +702,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         result.append("-c")
-        result.append(contentsOf: target.sources.paths.map { $0.pathString })
+        result.append(contentsOf: sources.map { $0.pathString })
 
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
@@ -831,7 +831,7 @@ public final class SwiftTargetBuildDescription {
         stream <<< "  },\n"
 
         // Write out the entries for each source file.
-        let sources = target.sources.paths
+        let sources = target.sources.paths + derivedSources.paths
         for (idx, source) in sources.enumerated() {
             let object = objects[idx]
             let objectDir = object.parentDirectory
