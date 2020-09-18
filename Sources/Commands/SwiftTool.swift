@@ -639,10 +639,6 @@ public class SwiftTool {
         } catch {
             return .failure(error)
         }
-        // Get the search paths from PATH.
-        let searchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
-
         // Apply any manual overrides.
         if let triple = self.options.customCompileTriple {
             destination.target = triple
@@ -656,7 +652,7 @@ public class SwiftTool {
             // Set default SDK path when target is WASI whose SDK is embeded
             // in Swift toolchain
             do {
-                let compilers = try UserToolchain.determineSwiftCompilers(binDir: destination.binDir, envSearchPaths: searchPaths)
+                let compilers = try UserToolchain.determineSwiftCompilers(binDir: destination.binDir)
                 destination.sdk = compilers.compile
                     .parentDirectory // bin
                     .parentDirectory // usr
@@ -672,17 +668,14 @@ public class SwiftTool {
             return self._hostToolchain
         }
 
-        return Result(catching: { try UserToolchain(destination: destination, searchPaths: searchPaths) })
+        return Result(catching: { try UserToolchain(destination: destination) })
     }()
 
     /// Lazily compute the host toolchain used to compile the package description.
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
-        // Get the search paths from PATH.
-        let searchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
         return Result(catching: {
             try UserToolchain(destination: Destination.hostDestination(
-                        originalWorkingDirectory: self.originalWorkingDirectory), searchPaths: searchPaths)
+                        originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()
 

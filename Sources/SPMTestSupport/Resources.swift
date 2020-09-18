@@ -59,9 +59,7 @@ public class Resources: ManifestResourceProvider {
       #else
         binDir = AbsolutePath(CommandLine.arguments[0], relativeTo: localFileSystem.currentWorkingDirectory!).parentDirectory
       #endif
-        let searchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.vars["PATH"], currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
-        toolchain = try! UserToolchain(destination: Destination.hostDestination(binDir), searchPaths: searchPaths)
+        toolchain = try! UserToolchain(destination: Destination.hostDestination(binDir))
     }
 
     /// True if SwiftPM has PackageDescription 4 runtime available.
