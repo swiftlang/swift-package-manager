@@ -174,11 +174,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         return (versionSpecifier, splitted.count == 1 ? [] : Array(splitted[1]))
     }
 
-    // The regex to match swift tools version specification:
-    // * It should start with `//` followed by any amount of whitespace.
-    // * Following that it should contain the case insensitive string `swift-tools-version:`.
-    // * The text between the above string and `;` or string end becomes the tools version specifier.
+    /// The regex to match swift tools version specification:
+    /// * It should start with `//` followed by any amount of _horizontal_ whitespace characters.
+    /// * Following that it should contain the case insensitive string `swift-tools-version:`.
+    /// * The text between the above string and `;` or string end becomes the tools version specifier.
     static let regex = try! NSRegularExpression(
-        pattern: "^// swift-tools-version:(.*?)(?:;.*|$)",
+        pattern: "^//\\h*?swift-tools-version:(.*?)(?:;.*|$)",
         options: [.caseInsensitive])
 }

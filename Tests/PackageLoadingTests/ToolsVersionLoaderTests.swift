@@ -33,6 +33,18 @@ class ToolsVersionLoaderTests: XCTestCase {
     func testBasics() throws {
 
         let validVersions = [
+            // No space between "//" and "swift-tools-version":
+            "//swift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
+            "//swift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
+            "//swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
+            "//swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "//swift-tools-version:3.1.2"              : (3, 1, 2, "3.1.2"),
+            "//swift-tools-version:3.1.2;"             : (3, 1, 2, "3.1.2"),
+            "//swift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
+            "//swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
+            "//swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
+            "//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
+            // 1 space character (" ") between "//" and "swift-tools-version":
             "// swift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
             "// swift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
             "// swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
@@ -43,6 +55,39 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
             "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
+            // 1 horizontal tab character ("    ") between "//" and "swift-tools-version":
+            "//\tswift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
+            "//\tswift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
+            "//\tswift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
+            "//\tswift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "//\tswift-tools-version:3.1.2"              : (3, 1, 2, "3.1.2"),
+            "//\tswift-tools-version:3.1.2;"             : (3, 1, 2, "3.1.2"),
+            "//\tswift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
+            "//\tswift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
+            "//\tswift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
+            "//\tsWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
+            // 1 horizontal tab character followed by 1 space character ("     ") between "//" and "swift-tools-version":
+            "// \tswift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
+            "// \tswift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
+            "// \tswift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
+            "// \tswift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "// \tswift-tools-version:3.1.2"              : (3, 1, 2, "3.1.2"),
+            "// \tswift-tools-version:3.1.2;"             : (3, 1, 2, "3.1.2"),
+            "// \tswift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
+            "// \tswift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
+            "// \tswift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
+            "// \tsWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
+            // An assortment of horizontal whitespace characters between "//" and "swift-tools-version":
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:3.1.2"              : (3, 1, 2, "3.1.2"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:3.1.2;"             : (3, 1, 2, "3.1.2"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
         ]
 
         for (version, result) in validVersions {
@@ -105,6 +150,29 @@ class ToolsVersionLoaderTests: XCTestCase {
         assertFailure("// swift-tools-version:6.1.2.0\n", "6.1.2.0")
         assertFailure("// swift-tools-version:-1.1.2\n", "-1.1.2")
         assertFailure("// swift-tools-version:3.1hello", "3.1hello")
+        
+        // FIXME: Newline and line feed characters following "//" cause test failures.
+        
+        // Verify no matching for vertical white space charaters between "//" and "swift-tools-version":
+        assertFailure("//\nswift-tools-version:5.3\n", "//\nswift-tools-version:5.3")
+        assertFailure("// \nswift-tools-version:5.3\n", "// \nswift-tools-version:5.3")
+        assertFailure("//\n swift-tools-version:5.3\n", "//\n swift-tools-version:5.3")
+        assertFailure("//\rswift-tools-version:5.3\n", "//\rswift-tools-version:5.3")
+        assertFailure("// \rswift-tools-version:5.3\n", "// \rswift-tools-version:5.3")
+        assertFailure("//\r swift-tools-version:5.3\n", "//\r swift-tools-version:5.3")
+        assertFailure("//\r\nswift-tools-version:5.3\n", "//\r\nswift-tools-version:5.3")
+        assertFailure("//\n\rswift-tools-version:5.3\n", "//\n\rswift-tools-version:5.3")
+        assertFailure("//\u{B}swift-tools-version:5.3\n", "//\u{B}swift-tools-version:5.3")
+        assertFailure("//\u{2028}swift-tools-version:5.3\n", "//\u{2028}swift-tools-version:5.3")
+        assertFailure("//\u{2029}swift-tools-version:5.3\n", "//\u{2029}swift-tools-version:5.3")
+        
+        // Verify no matching for related Unicode characters without `White_Space` property, between "//" and "swift-tools-version":
+        assertFailure("//\u{180E}swift-tools-version:5.3\n", "//\u{180E}swift-tools-version:5.3")
+        assertFailure("//\u{200B}swift-tools-version:5.3\n", "//\u{200B}swift-tools-version:5.3")
+        assertFailure("//\u{200C}swift-tools-version:5.3\n", "//\u{200C}swift-tools-version:5.3")
+        assertFailure("//\u{200D}swift-tools-version:5.3\n", "//\u{200D}swift-tools-version:5.3")
+        assertFailure("//\u{2060}swift-tools-version:5.3\n", "//\u{2060}swift-tools-version:5.3")
+        assertFailure("//\u{FEFF}swift-tools-version:5.3\n", "//\u{FEFF}swift-tools-version:5.3")
     }
 
     func testVersionSpecificManifest() throws {
