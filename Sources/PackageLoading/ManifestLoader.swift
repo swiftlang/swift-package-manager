@@ -59,6 +59,10 @@ public extension ManifestResourceProvider {
         return nil
     }
 
+    var swiftCompilerFlags: [String] {
+        return []
+    }
+
     var xctestLocation: AbsolutePath? {
         return nil
     }
