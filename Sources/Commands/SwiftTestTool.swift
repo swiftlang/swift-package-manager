@@ -1017,6 +1017,11 @@ fileprivate func constructTestEnvironment(
     }
 
   #if !os(macOS)
+#if os(Windows)
+    if let location = toolchain.manifestResources.xctestLocation {
+      env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
+    }
+#endif
     return env
   #else
     // Fast path when no sanitizers are enabled.
