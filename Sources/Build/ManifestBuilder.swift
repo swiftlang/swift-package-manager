@@ -432,9 +432,8 @@ extension LLBuildManifestBuilder {
         guard let dependencyGraph = targetDepGraphMap[target] else {
             fatalError("Expected dependency graph for target: \(target.description)")
         }
-        let moduleName = target.name
         let dependencyModulePath = dependencySwiftTargetDescription.moduleOutputPath
-        dependencyArtifactMap[ModuleDependencyId.swiftPlaceholder(moduleName)] =
+        dependencyArtifactMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
             (dependencyModulePath, dependencyGraph)
 
         collectTargetDependencyInfos(for: target,
