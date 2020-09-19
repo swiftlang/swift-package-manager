@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -16,6 +16,13 @@ public protocol DiagnosticDataConvertible {
 
     /// Diagnostic data representation of this instance.
     var diagnosticData: DiagnosticData { get }
+}
+
+
+/// Protocol for types that can provide a diagnostic location. A common use is
+/// for specializations of Swift.Error that can have diagnostic locations.
+public protocol DiagnosticLocationProviding {
+    var diagnosticLocation: DiagnosticLocation? { get }
 }
 
 /// DiagnosticData wrapper for Swift errors.
@@ -69,6 +76,7 @@ extension DiagnosticsEngine {
         _ error: Swift.Error,
         location: DiagnosticLocation? = nil
     ) {
+        let location = location ?? (error as? DiagnosticLocationProviding)?.diagnosticLocation
         if let diagnosticData = error as? DiagnosticData {
             emit(.error(diagnosticData), location: location)
         } else if case let convertible as DiagnosticDataConvertible = error {
