@@ -30,13 +30,11 @@ public final class UserToolchain: Toolchain {
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
 
-    public let extraCCFlags: [String]
+    public var extraCCFlags: [String]
 
     public let extraSwiftCFlags: [String]
 
-    public var extraCPPFlags: [String] {
-        return destination.extraCPPFlags
-    }
+    public var extraCPPFlags: [String]
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreter: AbsolutePath {
@@ -213,13 +211,21 @@ public final class UserToolchain: Toolchain {
                 // the SDK.  This is not the same value as the SDKROOT parameter
                 // in Xcode, however, the value represents a similar concept.
                 if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
-
                     var runtime: [String] = []
                     var xctest: [String] = []
 
                     if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
                                                          diagnostics: nil, filesystem: localFileSystem) {
-                        runtime = [ "-libc", settings.defaults.runtime.rawValue ]
+                        switch settings.defaults.runtime {
+                        case .multithreadedDebugDLL:
+                            runtime = [ "-libc", "MDd" ]
+                        case .multithreadedDLL:
+                            runtime = [ "-libc", "MD" ]
+                        case .multithreadedDebug:
+                            runtime = [ "-libc", "MTd" ]
+                        case .multithreaded:
+                            runtime = [ "-libc", "MT" ]
+                        }
                     }
 
                     if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
@@ -308,8 +314,40 @@ public final class UserToolchain: Toolchain {
             self.extraCCFlags = [
                 triple.isDarwin() ? "-isysroot" : "--sysroot", sdk.pathString
             ] + destination.extraCCFlags
+
+            self.extraCPPFlags = destination.extraCPPFlags
         } else {
             self.extraCCFlags = destination.extraCCFlags
+            self.extraCPPFlags = destination.extraCPPFlags
+        }
+
+        if triple.isWindows() {
+            if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
+                if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
+                                                     diagnostics: nil, filesystem: localFileSystem) {
+                    switch settings.defaults.runtime {
+                    case .multithreadedDebugDLL:
+                        // Defines _DEBUG, _MT, and _DLL
+                        // Linker uses MSVCRTD.lib
+                        self.extraCCFlags += ["-D_DEBUG", "-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrtd"]
+
+                    case .multithreadedDLL:
+                        // Defines _MT, and _DLL
+                        // Linker uses MSVCRT.lib
+                        self.extraCCFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"]
+
+                    case .multithreadedDebug:
+                        // Defines _DEBUG, and _MT
+                        // Linker uses LIBCMTD.lib
+                        self.extraCCFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"]
+
+                    case .multithreaded:
+                        // Defines _MT
+                        // Linker uses LIBCMT.lib
+                        self.extraCCFlags += ["-D_MT", "-Xclang", "--dependent-lib=libcmt"]
+                    }
+                }
+            }
         }
 
         // Compute the path of directory containing the PackageDescription libraries.
