@@ -265,8 +265,25 @@ public final class BuildExecutionContext {
     private var indexStoreAPICache = LazyCache(createIndexStoreAPI)
     private func createIndexStoreAPI() -> Result<IndexStoreAPI, Error> {
         Result {
+#if os(Windows)
+            // The library's runtime component is in the `bin` directory on
+            // Windows rather than the `lib` directory as on unicies.  The `lib`
+            // directory contains the import library (and possibly static
+            // archives) which are used for linking.  The runtime component is
+            // not (necessarily) part of the SDK distributions.
+            //
+            // NOTE: the library name here `libIndexStore.dll` is technically
+            // incorrect as per the Windows naming convention.  However, the
+            // library is currently installed as `libIndexStore.dll` rather than
+            // `IndexStore.dll`.  In the future, this may require a fallback
+            // search, preferring `IndexStore.dll` over `libIndexStore.dll`.
+            let indexStoreLib = buildParameters.toolchain.swiftCompiler
+                                    .parentDirectory
+                                    .appending(component: "libIndexStore.dll")
+#else
             let ext = buildParameters.hostTriple.dynamicLibraryExtension
             let indexStoreLib = buildParameters.toolchain.toolchainLibDir.appending(component: "libIndexStore" + ext)
+#endif
             return try IndexStoreAPI(dylib: indexStoreLib)
         }
     }
