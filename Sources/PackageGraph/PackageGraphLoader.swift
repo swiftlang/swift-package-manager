@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -189,23 +189,22 @@ public struct PackageGraphLoader {
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
 
-            // Create a package from the manifest and sources.
-            let builder = PackageBuilder(
-                manifest: manifest,
-                productFilter: node.productFilter,
-                path: packagePath,
-                additionalFileRules: additionalFileRules,
-                remoteArtifacts: remoteArtifacts,
-                xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                fileSystem: fileSystem,
-                diagnostics: diagnostics,
-                shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
-            )
-
             let packageLocation = PackageLocation.Local(name: manifest.name, packagePath: packagePath)
             diagnostics.with(location: packageLocation) { diagnostics in
                 diagnostics.wrap {
+                    // Create a package from the manifest and sources.
+                    let builder = PackageBuilder(
+                        manifest: manifest,
+                        productFilter: node.productFilter,
+                        path: packagePath,
+                        additionalFileRules: additionalFileRules,
+                        remoteArtifacts: remoteArtifacts,
+                        xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                        fileSystem: fileSystem,
+                        diagnostics: diagnostics,
+                        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+                        createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
+                    )
                     let package = try builder.construct()
                     manifestToPackage[manifest] = package
 

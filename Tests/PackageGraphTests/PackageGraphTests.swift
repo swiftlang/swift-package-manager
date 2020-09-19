@@ -529,7 +529,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar", behavior: .warning)
+            result.check(diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar", behavior: .warning, location: "'Bar' /Bar")
             result.check(diagnostic: "target 'Bar' referenced in product 'Bar' is empty", behavior: .error, location: "'Bar' /Bar")
         }
     }
