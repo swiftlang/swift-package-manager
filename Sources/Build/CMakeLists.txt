@@ -11,6 +11,7 @@ add_library(Build
   BuildOperation.swift
   BuildPlan.swift
   ManifestBuilder.swift
+  SPMSwiftDriverExecutor.swift
   SwiftCompilerOutputParser.swift
   XCFrameworkInfo.swift)
 target_link_libraries(Build PUBLIC
