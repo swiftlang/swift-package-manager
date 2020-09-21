@@ -610,6 +610,11 @@ def get_swiftpm_flags(args):
     elif cross_compile_hosts:
         error("cannot cross-compile for %s" % cross_compile_hosts)
 
+    # On ELF platforms, remove the host toolchain's stdlib absolute rpath from
+    # installed executables and shared libraries.
+    if platform.system() != "Darwin" and args.command == 'install':
+        build_flags.extend(["-Xswiftc", "-no-toolchain-stdlib-rpath"])
+
     return build_flags
 
 if __name__ == '__main__':

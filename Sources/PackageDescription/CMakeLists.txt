@@ -47,6 +47,8 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
       target_link_libraries(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
         Foundation)
+      target_link_options(PD${PACKAGE_DESCRIPTION_VERSION} PRIVATE
+        "SHELL:-no-toolchain-stdlib-rpath")
     endif()
 
     if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
