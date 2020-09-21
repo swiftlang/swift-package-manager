@@ -251,7 +251,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
-    public struct GetDependenciesError: Error, CustomStringConvertible {
+    public struct GetDependenciesError: Error, CustomStringConvertible, DiagnosticLocationProviding {
 
         /// The container (repository) that encountered the error.
         public let containerIdentifier: String
@@ -264,6 +264,10 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         
         /// Optional suggestion for how to resolve the error.
         public let suggestion: String?
+        
+        public var diagnosticLocation: DiagnosticLocation? {
+            return PackageLocation.Remote(url: containerIdentifier, reference: reference)
+        }
         
         /// Description shown for errors of this kind.
         public var description: String {
