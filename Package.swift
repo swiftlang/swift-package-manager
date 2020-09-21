@@ -247,7 +247,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("release/5.3")),
     ]
 } else {
     package.dependencies += [
