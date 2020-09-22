@@ -362,8 +362,6 @@ extension LLBuildManifestBuilder {
 
         // Commands.
         try addExplicitBuildSwiftCmds(description, inputs: inputs,
-                                      objectNodes: objectNodes,
-                                      moduleNode: moduleNode,
                                       targetDepGraphMap: &targetDepGraphMap)
 
         addTargetCmd(description, cmdOutputs: cmdOutputs)
@@ -372,8 +370,7 @@ extension LLBuildManifestBuilder {
 
     private func addExplicitBuildSwiftCmds(
         _ targetDescription: SwiftTargetBuildDescription,
-        inputs: [Node], objectNodes: [Node], moduleNode: Node,
-        targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
+        inputs: [Node], targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
         var targetDependencyMap: SwiftDriver.ExternalDependencyArtifactMap = [:]
