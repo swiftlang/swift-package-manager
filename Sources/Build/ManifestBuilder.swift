@@ -323,8 +323,20 @@ extension LLBuildManifestBuilder {
                 // product into its constituent targets.
                 continue
             }
+            guard target.underlyingTarget.type != .systemModule,
+                  target.underlyingTarget.type != .binary else {
+                // Much like non-Swift targets, system modules will consist of a modulemap
+                // somewhere in the filesystem, with the path to that module being either
+                // manually-specified or computed based on the system module type (apt, brew).
+                // Similarly, binary targets will bring in an .xcframework, the contents of
+                // which will be exposed via search paths.
+                //
+                // In both cases, the dependency scanning action in the driver will be automatically
+                // be able to detect such targets' modules.
+                continue
+            }
             guard let description = plan.targetMap[target] else {
-                fatalError("Expected description for target: \(target)")
+                fatalError("Expected description for target \(target)")
             }
             switch description {
                 case .swift(let desc):
