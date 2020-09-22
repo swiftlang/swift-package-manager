@@ -270,7 +270,7 @@ public final class UserToolchain: Toolchain {
             + destination.extraSwiftCFlags
     }
 
-    public init(destination: Destination) throws {
+    public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
 
         // Get the search paths from PATH.
@@ -302,7 +302,9 @@ public final class UserToolchain: Toolchain {
         if triple.isDarwin() {
             // FIXME: We should have some general utility to find tools.
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
-            self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: ProcessEnv.vars).spm_chomp())
+            self.xctest = try AbsolutePath(
+                validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment
+            ).spm_chomp())
         } else {
             self.xctest = nil
         }
