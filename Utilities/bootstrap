@@ -389,7 +389,7 @@ def install_swiftpm(prefix, args):
             files_to_install.append("PackageDescription.swiftinterface")
         else:
             files_to_install.append("PackageDescription.swiftmodule")
-            files_to_install.append("PackageDescription.swiftdoc")
+        files_to_install.append("PackageDescription.swiftdoc")
 
         for file in files_to_install:
             src = os.path.join(runtime_lib_src, runtime, file)
