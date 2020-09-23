@@ -220,24 +220,24 @@ extension LLBuildManifestBuilder {
         commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
-        let executor = try SwiftDriverExecutor(diagnosticsEngine: plan.diagnostics,
-                                               processSet: ProcessSet(),
-                                               fileSystem: target.fs,
-                                               env: ProcessEnv.vars)
+        let resolver = try ArgsResolver(fileSystem: target.fs)
+        let executor = SPMSwiftDriverExecutor(resolver: resolver,
+                                              fileSystem: target.fs,
+                                              env: ProcessEnv.vars)
         var driver = try Driver(args: commandLine,
                                 diagnosticsEngine: plan.diagnostics,
                                 fileSystem: target.fs,
                                 executor: executor)
         let jobs = try driver.planBuild()
-        try addSwiftDriverJobs(for: target, jobs: jobs, inputs: inputs,
+        try addSwiftDriverJobs(for: target, jobs: jobs, inputs: inputs, resolver: resolver,
                                isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
     }
 
     private func addSwiftDriverJobs(for targetDescription: SwiftTargetBuildDescription,
                                     jobs: [Job], inputs: [Node],
+                                    resolver: ArgsResolver,
                                     isMainModule: (Job) -> Bool) throws {
         // Add build jobs to the manifest
-        let resolver = try ArgsResolver(fileSystem: targetDescription.fs)
         for job in jobs {
             let tool = try resolver.resolve(.path(job.tool))
             let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
@@ -386,10 +386,10 @@ extension LLBuildManifestBuilder {
         commandLine.append("-experimental-explicit-module-build")
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
-        let executor = try SwiftDriverExecutor(diagnosticsEngine: plan.diagnostics,
-                                               processSet: ProcessSet(),
-                                               fileSystem: targetDescription.fs,
-                                               env: ProcessEnv.vars)
+        let resolver = try ArgsResolver(fileSystem: targetDescription.fs)
+        let executor = SPMSwiftDriverExecutor(resolver: resolver,
+                                              fileSystem: targetDescription.fs,
+                                              env: ProcessEnv.vars)
         var driver = try Driver(args: commandLine, fileSystem: targetDescription.fs,
                                 executor: executor,
                                 externalModuleDependencies: targetDependencyMap)
@@ -401,7 +401,7 @@ extension LLBuildManifestBuilder {
             fatalError("Expected module dependency graph for target: \(targetDescription)")
         }
         targetDepGraphMap[targetDescription.target] = dependencyGraph
-        try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs,
+        try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
                                isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
     }
 
