@@ -20,7 +20,7 @@ extension ArgumentParser {
     /// These aren't complete scripts, as some setup code is required. See
     /// `Sources/Commands/Completions+bash.swift` and
     /// `Sources/Commands/Completions+zsh.swift` for example usage.
-    public func generateCompletionScript(for shell: Shell, on stream: OutputByteStream) {
+    public func generateCompletionScript(for shell: Shell, on stream: WritableByteStream) {
         guard let commandName = commandName else { abort() }
         let name = "_\(commandName.replacingOccurrences(of: " ", with: "_"))"
 
@@ -56,7 +56,7 @@ extension ArgumentParser {
 
     // MARK: - BASH
 
-    fileprivate func generateBashSwiftTool(name: String, on stream: OutputByteStream) {
+    fileprivate func generateBashSwiftTool(name: String, on stream: WritableByteStream) {
         stream <<< """
             function \(name)
             {
@@ -123,7 +123,7 @@ extension ArgumentParser {
         }
     }
 
-    fileprivate func generateBashCasePrev(on stream: OutputByteStream) {
+    fileprivate func generateBashCasePrev(on stream: WritableByteStream) {
         stream <<< "    case $prev in\n"
         for argument in optionArguments {
             let flags = [argument.name] + (argument.shortName.map({ [$0] }) ?? [])
@@ -134,7 +134,7 @@ extension ArgumentParser {
         stream <<< "    esac\n"
     }
 
-    fileprivate func generateBashCompletion(_ argument: AnyArgument, on stream: OutputByteStream) {
+    fileprivate func generateBashCompletion(_ argument: AnyArgument, on stream: WritableByteStream) {
         switch argument.completion {
         case .none:
             // return; no value to complete
@@ -165,7 +165,7 @@ extension ArgumentParser {
 
     // MARK: - ZSH
 
-    private func generateZshSwiftTool(name: String, on stream: OutputByteStream) {
+    private func generateZshSwiftTool(name: String, on stream: WritableByteStream) {
         // Completions are provided by zsh's _arguments builtin.
         stream <<< """
             \(name)() {
@@ -242,7 +242,7 @@ extension ArgumentParser {
     }
 
     /// Generates an option argument for `_arguments`, complete with description and completion values.
-    fileprivate func generateZshArgument(_ argument: AnyArgument, on stream: OutputByteStream) {
+    fileprivate func generateZshArgument(_ argument: AnyArgument, on stream: WritableByteStream) {
         stream <<< "        \""
         switch argument.shortName {
         case .none: stream <<< "\(argument.name)"
@@ -261,7 +261,7 @@ extension ArgumentParser {
     }
 
     /// Generates completion values, as part of an item for `_arguments`.
-    fileprivate func generateZshCompletion(_ argument: AnyArgument, on stream: OutputByteStream) {
+    fileprivate func generateZshCompletion(_ argument: AnyArgument, on stream: WritableByteStream) {
         let message = removeDefaultRegex
             .replace(in: argument.usage ?? " ", with: "")
             .replacingOccurrences(of: "\"", with: "\\\"")

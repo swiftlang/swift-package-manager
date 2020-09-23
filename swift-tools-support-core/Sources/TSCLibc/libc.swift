@@ -20,12 +20,11 @@
 @_exported import TSCclibc
 
 #if os(Windows)
-// char *realpath(const char *path, char *resolved_path);
-public func realpath(
-    _ path: String,
-    _ resolvedPath: UnsafeMutablePointer<CChar>?
-) -> UnsafeMutablePointer<CChar>? {
-  fatalError("realpath is unimplemented")
+private func __randname(_ buffer: UnsafeMutablePointer<CChar>) {
+  let alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  _ = (0 ..< 6).map { index in
+      buffer[index] = CChar(alpha.shuffled().randomElement()!.utf8.first!)
+  }
 }
 
 // char *mkdtemp(char *template);
@@ -50,17 +49,10 @@ public func mkdtemp(
     return nil
   }
 
-  let stampSuffix = { (buffer: UnsafeMutablePointer<CChar>) in
-    let alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    _ = (0 ..< 6).map { index in
-        buffer[index] = CChar(alpha.shuffled().randomElement()!.utf8.first!)
-    }
-  }
-
   // Attempt to create the directory
   var retries: Int = 100
   repeat {
-    stampSuffix(template + length - 6)
+    __randname(template + length - 6)
     if _mkdir(template) == 0 {
       return template
     }
@@ -75,24 +67,35 @@ public func mkstemps(
     _ template: UnsafeMutablePointer<CChar>?,
     _ suffixlen: Int32
 ) -> Int32 {
-  guard let template = template else { return -EINVAL }
-  return String(cString: template).withCString(encodedAs: UTF16.self) {
-    let capacity: Int = wcslen($0) + 1
-    return $0.withMemoryRebound(to: wchar_t.self, capacity: capacity) {
-      guard _wmktemp_s(UnsafeMutablePointer(mutating: $0), capacity) == 0 else {
-        return -EINVAL
-      }
+  // Although the signature of the function is `char *(*)(char *)`, the C
+  // library treats it as `char *(*)(char * _Nonull)`.  Most implementations
+  // will simply use and trigger a segmentation fault on x86 (and similar faults
+  // on other architectures) when the memory is accessed.  This roughly emulates
+  // that by terminating in the case even though it is possible for us to return
+  // an error.
+  guard let template = template else { fatalError() }
 
-      var fd: Int32 = -1
-      _wsopen_s(&fd, $0, _O_RDWR | _O_CREAT | _O_BINARY | _O_NOINHERIT,
-                _SH_DENYNO, _S_IREAD | _S_IWRITE)
+  let length: Int = strlen(template)
 
-      String(decodingCString: $0, as: UTF16.self).utf8CString.withUnsafeBytes {
-        template.assign(from: $0.bindMemory(to: CChar.self).baseAddress!,
-                        count: $0.count)
-      }
+  // Validate the precondition: the template must terminate with 6 `X` which
+  // will be filled in to generate a unique directory.
+  guard length >= 6, memcmp(template + length - Int(suffixlen) - 6, "XXXXXX", 6) == 0 else {
+    _set_errno(EINVAL)
+    return -1
+  }
+
+  // Attempt to create file
+  var retries: Int = 100
+  repeat {
+    __randname(template + length - Int(suffixlen) - 6)
+    var fd: CInt = -1
+    if _sopen_s(&fd, template, _O_RDWR | _O_CREAT | _O_BINARY | _O_NOINHERIT,
+                _SH_DENYNO, _S_IREAD | _S_IWRITE) == 0 {
       return fd
     }
-  }
+    retries = retries - 1
+  } while retries > 0
+
+  return -1
 }
 #endif

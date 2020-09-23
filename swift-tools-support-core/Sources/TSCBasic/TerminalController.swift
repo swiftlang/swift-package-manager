@@ -58,7 +58,7 @@ public final class TerminalController {
     }
 
     /// Pointer to output stream to operate on.
-    private var stream: OutputByteStream
+    private var stream: WritableByteStream
 
     /// Width of the terminal.
     public let width: Int
@@ -73,7 +73,7 @@ public final class TerminalController {
     private let boldString = "\u{001B}[1m"
 
     /// Constructs the instance if the stream is a tty.
-    public init?(stream: OutputByteStream) {
+    public init?(stream: WritableByteStream) {
         let realStream = (stream as? ThreadSafeOutputByteStream)?.stream ?? stream
 
         // Make sure it is a file stream and it is tty.
@@ -188,7 +188,7 @@ public final class TerminalController {
         return stream.bytes.description
     }
 
-    private func writeWrapped(_ string: String, inColor color: Color, bold: Bool = false, stream: OutputByteStream) {
+    private func writeWrapped(_ string: String, inColor color: Color, bold: Bool = false, stream: WritableByteStream) {
         // Don't wrap if string is empty or color is no color.
         guard !string.isEmpty && color != .noColor else {
             stream <<< string

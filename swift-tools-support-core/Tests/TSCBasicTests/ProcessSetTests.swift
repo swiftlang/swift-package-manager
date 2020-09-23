@@ -15,6 +15,7 @@ import TSCUtility
 import TSCTestSupport
 
 class ProcessSetTests: XCTestCase {
+  #if !os(Windows) // Signals are not supported in Windows
     func script(_ name: String) -> String {
         return AbsolutePath(#file).parentDirectory.appending(components: "processInputs", name).pathString
     }
@@ -75,4 +76,5 @@ class ProcessSetTests: XCTestCase {
 
         t.join()
     }
+  #endif
 }

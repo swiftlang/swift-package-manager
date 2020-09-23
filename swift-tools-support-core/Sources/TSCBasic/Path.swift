@@ -133,7 +133,11 @@ public struct AbsolutePath: Hashable {
 
     /// True if the path is the root directory.
     public var isRoot: Bool {
+#if os(Windows)
+        return _impl.string.withCString(encodedAs: UTF16.self, PathIsRootW)
+#else
         return _impl == PathImpl.root
+#endif
     }
 
     /// Returns the absolute path with the relative path applied.
@@ -429,8 +433,15 @@ private struct UNIXPath: Path {
 
     var dirname: String {
 #if os(Windows)
-        let dir = string.deletingLastPathComponent
-        return dir == "" ? "." : dir
+        let fsr: UnsafePointer<Int8> = string.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        let path: String = String(cString: fsr)
+        return path.withCString(encodedAs: UTF16.self) {
+            let data = UnsafeMutablePointer(mutating: $0)
+            PathCchRemoveFileSpec(data, path.count)
+            return String(decodingCString: data, as: UTF16.self)
+        }
 #else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
@@ -459,6 +470,13 @@ private struct UNIXPath: Path {
     }
 
     var basename: String {
+#if os(Windows)
+        let path: String = self.string
+        return path.withCString(encodedAs: UTF16.self) {
+            PathStripPathW(UnsafeMutablePointer(mutating: $0))
+            return String(decodingCString: $0, as: UTF16.self)
+        }
+#else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Check for a special case of the root directory.
@@ -475,6 +493,7 @@ private struct UNIXPath: Path {
         // Otherwise, it's the string from (but not including) the last path
         // separator.
         return String(string.suffix(from: string.index(after: idx)))
+#endif
     }
 
     // FIXME: We should investigate if it would be more efficient to instead
@@ -482,6 +501,9 @@ private struct UNIXPath: Path {
     // from one path separator to the next on-demand.
     //
     var components: [String] {
+#if os(Windows)
+        return string.components(separatedBy: "\\").filter { !$0.isEmpty }
+#else
         // FIXME: This isn't particularly efficient; needs optimization, and
         // in fact, it might well be best to return a custom iterator so we
         // don't have to allocate everything up-front.  It would be backed by
@@ -493,6 +515,7 @@ private struct UNIXPath: Path {
         } else {
             return components
         }
+#endif
     }
 
     var parentDirectory: UNIXPath {
@@ -505,7 +528,11 @@ private struct UNIXPath: Path {
 
     init(normalizingAbsolutePath path: String) {
       #if os(Windows)
-        self.init(string: path.standardizingPath)
+        var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+        _ = path.withCString(encodedAs: UTF16.self) {
+            PathCanonicalizeW(&buffer, $0)
+        }
+        self.init(string: String(decodingCString: buffer, as: UTF16.self))
       #else
         precondition(path.first == "/", "Failure normalizing \(path), absolute paths should start with '/'")
 
@@ -571,7 +598,11 @@ private struct UNIXPath: Path {
 
     init(normalizingRelativePath path: String) {
       #if os(Windows)
-        self.init(string: path.standardizingPath)
+        var buffer: [WCHAR] = Array<WCHAR>(repeating: 0, count: Int(MAX_PATH + 1))
+        _ = path.replacingOccurrences(of: "/", with: "\\").withCString(encodedAs: UTF16.self) {
+            PathCanonicalizeW(&buffer, $0)
+        }
+        self.init(string: String(decodingCString: buffer, as: UTF16.self))
       #else
         precondition(path.first != "/")
 
@@ -679,6 +710,15 @@ private struct UNIXPath: Path {
     }
 
     func suffix(withDot: Bool) -> String? {
+#if os(Windows)
+        let ext = self.string.withCString(encodedAs: UTF16.self) {
+            PathFindExtensionW($0)
+        }
+        var result = String(decodingCString: ext!, as: UTF16.self)
+        guard result.length > 0 else { return nil }
+        if !withDot { result.removeFirst(1) }
+        return result
+#else
         // FIXME: This method seems too complicated; it should be simplified,
         //        if possible, and certainly optimized (using UTF8View).
         // Find the last path separator, if any.
@@ -700,9 +740,20 @@ private struct UNIXPath: Path {
         }
         // If we get this far, there is no suffix.
         return nil
+#endif
     }
 
     func appending(component name: String) -> UNIXPath {
+#if os(Windows)
+        var result: PWSTR?
+        _ = string.withCString(encodedAs: UTF16.self) { root in
+            name.withCString(encodedAs: UTF16.self) { path in
+                PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+            }
+        }
+        defer { LocalFree(result) }
+        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
+#else
         assert(!name.contains("/"), "\(name) is invalid path component")
 
         // Handle pseudo paths.
@@ -720,9 +771,20 @@ private struct UNIXPath: Path {
         } else {
             return PathImpl(string: string + "/" + name)
         }
+#endif
     }
 
     func appending(relativePath: UNIXPath) -> UNIXPath {
+#if os(Windows)
+        var result: PWSTR?
+        _ = string.withCString(encodedAs: UTF16.self) { root in
+            relativePath.string.withCString(encodedAs: UTF16.self) { path in
+                PathAllocCombine(root, path, ULONG(PATHCCH_ALLOW_LONG_PATHS.rawValue), &result)
+            }
+        }
+        defer { LocalFree(result) }
+        return PathImpl(string: String(decodingCString: result!, as: UTF16.self))
+#else
         // Both paths are already normalized.  The only case in which we have
         // to renormalize their concatenation is if the relative path starts
         // with a `..` path component.
@@ -748,6 +810,7 @@ private struct UNIXPath: Path {
         } else {
             return PathImpl(string: newPathString)
         }
+#endif
     }
 }
 
@@ -795,7 +858,11 @@ extension AbsolutePath {
             // Special case, which is a plain path without `..` components.  It
             // might be an empty path (when self and the base are equal).
             let relComps = pathComps.dropFirst(baseComps.count)
+#if os(Windows)
+            result = RelativePath(relComps.joined(separator: "\\"))
+#else
             result = RelativePath(relComps.joined(separator: "/"))
+#endif
         } else {
             // General case, in which we might well need `..` components to go
             // "up" before we can go "down" the directory tree.
@@ -810,7 +877,11 @@ extension AbsolutePath {
             // `newBaseComps` followed by what remains in `newPathComps`.
             var relComps = Array(repeating: "..", count: newBaseComps.count)
             relComps.append(contentsOf: newPathComps)
+#if os(Windows)
+            result = RelativePath(relComps.joined(separator: "\\"))
+#else
             result = RelativePath(relComps.joined(separator: "/"))
+#endif
         }
         assert(base.appending(result) == self)
         return result

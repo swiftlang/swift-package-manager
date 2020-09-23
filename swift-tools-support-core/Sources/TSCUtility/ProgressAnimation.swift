@@ -30,12 +30,12 @@ public protocol ProgressAnimationProtocol {
 
 /// A single line percent-based progress animation.
 public final class SingleLinePercentProgressAnimation: ProgressAnimationProtocol {
-    private let stream: OutputByteStream
+    private let stream: WritableByteStream
     private let header: String?
     private var displayedPercentages: Set<Int> = []
     private var hasDisplayedHeader = false
 
-    init(stream: OutputByteStream, header: String?) {
+    init(stream: WritableByteStream, header: String?) {
         self.stream = stream
         self.header = header
     }
@@ -77,10 +77,10 @@ public final class MultiLineNinjaProgressAnimation: ProgressAnimationProtocol {
         let text: String
     }
 
-    private let stream: OutputByteStream
+    private let stream: WritableByteStream
     private var lastDisplayedText: String? = nil
 
-    public init(stream: OutputByteStream) {
+    public init(stream: WritableByteStream) {
         self.stream = stream
     }
 
@@ -141,7 +141,7 @@ public final class RedrawingNinjaProgressAnimation: ProgressAnimationProtocol {
 
 /// A ninja-like progress animation that adapts to the provided output stream.
 public final class NinjaProgressAnimation: DynamicProgressAnimation {
-    public init(stream: OutputByteStream) {
+    public init(stream: WritableByteStream) {
         super.init(
             stream: stream,
             ttyTerminalAnimationFactory: { RedrawingNinjaProgressAnimation(terminal: $0) },
@@ -157,12 +157,12 @@ public final class MultiLinePercentProgressAnimation: ProgressAnimationProtocol 
         let text: String
     }
 
-    private let stream: OutputByteStream
+    private let stream: WritableByteStream
     private let header: String
     private var hasDisplayedHeader = false
     private var lastDisplayedText: String? = nil
 
-    public init(stream: OutputByteStream, header: String) {
+    public init(stream: WritableByteStream, header: String) {
         self.stream = stream
         self.header = header
     }
@@ -258,7 +258,7 @@ public final class RedrawingLitProgressAnimation: ProgressAnimationProtocol {
 
 /// A percent-based progress animation that adapts to the provided output stream.
 public final class PercentProgressAnimation: DynamicProgressAnimation {
-    public init(stream: OutputByteStream, header: String) {
+    public init(stream: WritableByteStream, header: String) {
         super.init(
             stream: stream,
             ttyTerminalAnimationFactory: { RedrawingLitProgressAnimation(terminal: $0, header: header) },
@@ -272,7 +272,7 @@ public class DynamicProgressAnimation: ProgressAnimationProtocol {
     private let animation: ProgressAnimationProtocol
 
     public init(
-        stream: OutputByteStream,
+        stream: WritableByteStream,
         ttyTerminalAnimationFactory: (TerminalController) -> ProgressAnimationProtocol,
         dumbTerminalAnimationFactory: () -> ProgressAnimationProtocol,
         defaultAnimationFactory: () -> ProgressAnimationProtocol

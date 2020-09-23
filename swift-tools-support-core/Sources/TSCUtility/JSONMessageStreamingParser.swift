@@ -101,6 +101,11 @@ private extension JSONMessageStreamingParser {
 
     /// Throwing implementation of the parse function.
     func parseImpl<C>(bytes: C) throws where C: Collection, C.Element == UInt8 {
+#if os(Windows)
+        let carriageReturn = UInt8(ascii: "\r")
+        let bytes = bytes.filter { $0 != carriageReturn }
+#endif
+
         switch state {
         case .parsingMessageSize:
             if let newlineIndex = bytes.firstIndex(of: newline) {

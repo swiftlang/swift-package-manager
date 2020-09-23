@@ -22,6 +22,13 @@ import Foundation
 
 /// Returns the "real path" corresponding to `path` by resolving any symbolic links.
 public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
+#if os(Windows)
+    do {
+        return try AbsolutePath(FileManager.default.destinationOfSymbolicLink(atPath: path.pathString).standardizingPath)
+    } catch {
+        return AbsolutePath(path.pathString.standardizingPath)
+    }
+#else
     let pathStr = path.pathString
 
     // FIXME: We can't use FileManager's destinationOfSymbolicLink because
@@ -40,6 +47,7 @@ public func resolveSymlinks(_ path: AbsolutePath) -> AbsolutePath {
     }
 
     return path
+#endif
 }
 
 /// Creates a new, empty directory at `path`.  If needed, any non-existent ancestor paths are also created.  If there is
