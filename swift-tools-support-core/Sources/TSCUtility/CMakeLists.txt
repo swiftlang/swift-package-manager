@@ -10,6 +10,8 @@ add_library(TSCUtility
   Archiver.swift
   ArgumentParser.swift
   ArgumentParserShellCompletion.swift
+  Bits.swift
+  Bitstream.swift
   BuildFlags.swift
   CollectionExtensions.swift
   Diagnostics.swift
@@ -28,6 +30,7 @@ add_library(TSCUtility
   Platform.swift
   PolymorphicCodable.swift
   ProgressAnimation.swift
+  SerializedDiagnostics.swift
   SQLite.swift
   SimplePersistence.swift
   StringExtensions.swift
@@ -52,7 +55,7 @@ endif()
 set_target_properties(TSCUtility PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-if(USE_CMAKE_INSTALL)
+if(CMAKE_SYSTEM_NAME STREQUAL Windows)
   install(TARGETS TSCUtility
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib

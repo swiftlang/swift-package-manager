@@ -18,7 +18,7 @@ private func hexdigit(_ value: UInt8) -> UInt8 {
 
 /// Describes a type which can be written to a byte stream.
 public protocol ByteStreamable {
-    func write(to stream: OutputByteStream)
+    func write(to stream: WritableByteStream)
 }
 
 /// An output byte stream.
@@ -43,7 +43,7 @@ public protocol ByteStreamable {
 ///
 /// would write each item in the list to the stream, separating them with a
 /// space.
-public protocol OutputByteStream: class, TextOutputStream {
+public protocol WritableByteStream: class, TextOutputStream {
     /// The current offset within the output stream.
     var position: Int { get }
 
@@ -55,9 +55,21 @@ public protocol OutputByteStream: class, TextOutputStream {
 
     /// Flush the stream's buffer.
     func flush()
+
+    /// Signal that the byte stream will not be used further and should be closed.
+    func close() throws
 }
 
-extension OutputByteStream {
+// Default noop implementation of close to avoid source-breaking downstream dependents with the addition of the close
+// API.
+public extension WritableByteStream {
+    func close() throws { }
+}
+
+// Public alias to the old name to not introduce API compatibility.
+public typealias OutputByteStream = WritableByteStream
+
+extension WritableByteStream {
     /// Write a sequence of bytes to the buffer.
     public func write<S: Sequence>(sequence: S) where S.Iterator.Element == UInt8 {
         // Iterate the sequence and append byte by byte since sequence's append
@@ -124,12 +136,12 @@ extension OutputByteStream {
     }
 }
 
-/// The `OutputByteStream` base class.
+/// The `WritableByteStream` base class.
 ///
-/// This class provides a base and efficient implementation of the `OutputByteStream`
+/// This class provides a base and efficient implementation of the `WritableByteStream`
 /// protocol. It can not be used as is-as subclasses as several functions need to be
 /// implemented in subclasses.
-public class _OutputByteStreamBase: OutputByteStream {
+public class _WritableByteStreamBase: WritableByteStream {
     /// If buffering is enabled
     @usableFromInline let _buffered : Bool
 
@@ -149,7 +161,7 @@ public class _OutputByteStreamBase: OutputByteStream {
 
         // When not buffered we still reserve 1 byte, as it is used by the
         // by the single byte write() variant.
-        self._buffer.reserveCapacity(buffered ? _OutputByteStreamBase.bufferSize : 1)
+        self._buffer.reserveCapacity(buffered ? _WritableByteStreamBase.bufferSize : 1)
     }
 
     // MARK: Data Access API
@@ -179,6 +191,14 @@ public class _OutputByteStreamBase: OutputByteStream {
 
     @usableFromInline func flushImpl() {
         // Do nothing.
+    }
+
+    public final func close() throws {
+        try closeImpl()
+    }
+
+    @usableFromInline func closeImpl() throws {
+        fatalError("Subclasses must implement this")
     }
 
     @usableFromInline func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
@@ -268,13 +288,13 @@ public class _OutputByteStreamBase: OutputByteStream {
 
 /// The thread-safe wrapper around output byte streams.
 ///
-/// This class wraps any `OutputByteStream` conforming type to provide a type-safe
-/// access to its operations. If the provided stream inherits from `_OutputByteStreamBase`,
+/// This class wraps any `WritableByteStream` conforming type to provide a type-safe
+/// access to its operations. If the provided stream inherits from `_WritableByteStreamBase`,
 /// it will also ensure it is type-safe will all other `ThreadSafeOutputByteStream` instances
 /// around the same stream.
-public final class ThreadSafeOutputByteStream: OutputByteStream {
+public final class ThreadSafeOutputByteStream: WritableByteStream {
     private static let defaultQueue = DispatchQueue(label: "org.swift.swiftpm.basic.thread-safe-output-byte-stream")
-    public let stream: OutputByteStream
+    public let stream: WritableByteStream
     private let queue: DispatchQueue
 
     public var position: Int {
@@ -283,9 +303,9 @@ public final class ThreadSafeOutputByteStream: OutputByteStream {
         }
     }
 
-    public init(_ stream: OutputByteStream) {
+    public init(_ stream: WritableByteStream) {
         self.stream = stream
-        self.queue = (stream as? _OutputByteStreamBase)?.queue ?? ThreadSafeOutputByteStream.defaultQueue
+        self.queue = (stream as? _WritableByteStreamBase)?.queue ?? ThreadSafeOutputByteStream.defaultQueue
     }
 
     public func write(_ byte: UInt8) {
@@ -317,6 +337,12 @@ public final class ThreadSafeOutputByteStream: OutputByteStream {
             stream.writeJSONEscaped(string)
         }
     }
+
+    public func close() throws {
+        try queue.sync {
+            try stream.close()
+        }
+    }
 }
 
 /// Define an output stream operator. We need it to be left associative, so we
@@ -331,73 +357,73 @@ precedencegroup StreamingPrecedence {
 // FIXME: This override shouldn't be necesary but removing it causes a 30% performance regression. This problem is
 // tracked by the following bug: https://bugs.swift.org/browse/SR-8535
 @discardableResult
-public func <<< (stream: OutputByteStream, value: ArraySlice<UInt8>) -> OutputByteStream {
+public func <<< (stream: WritableByteStream, value: ArraySlice<UInt8>) -> WritableByteStream {
     value.write(to: stream)
     return stream
 }
 
 @discardableResult
-public func <<< (stream: OutputByteStream, value: ByteStreamable) -> OutputByteStream {
+public func <<< (stream: WritableByteStream, value: ByteStreamable) -> WritableByteStream {
     value.write(to: stream)
     return stream
 }
 
 @discardableResult
-public func <<< (stream: OutputByteStream, value: CustomStringConvertible) -> OutputByteStream {
+public func <<< (stream: WritableByteStream, value: CustomStringConvertible) -> WritableByteStream {
     value.description.write(to: stream)
     return stream
 }
 
 @discardableResult
-public func <<< (stream: OutputByteStream, value: ByteStreamable & CustomStringConvertible) -> OutputByteStream {
+public func <<< (stream: WritableByteStream, value: ByteStreamable & CustomStringConvertible) -> WritableByteStream {
     value.write(to: stream)
     return stream
 }
 
 extension UInt8: ByteStreamable {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(self)
     }
 }
 
 extension Character: ByteStreamable {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(String(self))
     }
 }
 
 extension String: ByteStreamable {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(self.utf8)
     }
 }
 
 extension Substring: ByteStreamable {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(self.utf8)
     }
 }
 
 extension StaticString: ByteStreamable {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         withUTF8Buffer { stream.write($0) }
     }
 }
 
 extension Array: ByteStreamable where Element == UInt8 {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(self)
     }
 }
 
 extension ArraySlice: ByteStreamable where Element == UInt8 {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(self)
     }
 }
 
 extension ContiguousArray: ByteStreamable where Element == UInt8 {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(self)
     }
 }
@@ -413,7 +439,7 @@ public struct Format {
     private struct JSONEscapedBoolStreamable: ByteStreamable {
         let value: Bool
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             stream <<< (value ? "true" : "false")
         }
     }
@@ -425,7 +451,7 @@ public struct Format {
     private struct JSONEscapedIntStreamable: ByteStreamable {
         let value: Int
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             // FIXME: Diagnose integers which cannot be represented in JSON.
             stream <<< value.description
         }
@@ -438,7 +464,7 @@ public struct Format {
     private struct JSONEscapedDoubleStreamable: ByteStreamable {
         let value: Double
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             // FIXME: What should we do about NaN, etc.?
             //
             // FIXME: Is Double.debugDescription the best representation?
@@ -457,7 +483,7 @@ public struct Format {
     private struct JSONEscapedStringStreamable: ByteStreamable {
         let value: String
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             stream <<< UInt8(ascii: "\"")
             stream.writeJSONEscaped(value)
             stream <<< UInt8(ascii: "\"")
@@ -477,7 +503,7 @@ public struct Format {
     private struct JSONEscapedStringListStreamable: ByteStreamable {
         let items: [String]
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             stream <<< UInt8(ascii: "[")
             for (i, item) in items.enumerated() {
                 if i != 0 { stream <<< "," }
@@ -494,7 +520,7 @@ public struct Format {
     private struct JSONEscapedDictionaryStreamable: ByteStreamable {
         let items: [String: String]
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             stream <<< UInt8(ascii: "{")
             for (offset: i, element: (key: key, value: value)) in items.enumerated() {
                 if i != 0 { stream <<< "," }
@@ -514,7 +540,7 @@ public struct Format {
         let items: [T]
         let transform: (T) -> String
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             stream <<< UInt8(ascii: "[")
             for (i, item) in items.enumerated() {
                 if i != 0 { stream <<< "," }
@@ -532,7 +558,7 @@ public struct Format {
         let items: [T]
         let separator: String
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             for (i, item) in items.enumerated() {
                 // Add the separator, if necessary.
                 if i != 0 {
@@ -558,7 +584,7 @@ public struct Format {
         let transform: (T) -> ByteStreamable
         let separator: String
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             for (i, item) in items.enumerated() {
                 if i != 0 { stream <<< separator }
                 stream <<< transform(item)
@@ -579,7 +605,7 @@ public struct Format {
             self.count = count
         }
 
-        func write(to stream: OutputByteStream) {
+        func write(to stream: WritableByteStream) {
             for _ in 0..<count {
                 stream <<< string
             }
@@ -587,14 +613,14 @@ public struct Format {
     }
 }
 
-/// In memory implementation of OutputByteStream.
-public final class BufferedOutputByteStream: _OutputByteStreamBase {
+/// In memory implementation of WritableByteStream.
+public final class BufferedOutputByteStream: _WritableByteStreamBase {
 
     /// Contents of the stream.
     private var contents = [UInt8]()
 
     public init() {
-        // We disable the buffering of the underlying _OutputByteStreamBase as
+        // We disable the buffering of the underlying _WritableByteStreamBase as
         // we are explicitly buffering the whole stream in memory
         super.init(buffered: false)
     }
@@ -622,19 +648,24 @@ public final class BufferedOutputByteStream: _OutputByteStreamBase {
     override final func writeImpl(_ bytes: ArraySlice<UInt8>) {
         contents += bytes
     }
+
+    override final func closeImpl() throws {
+        // Do nothing. The protocol does not require to stop receiving writes, close only signals that resources could
+        // be released at this point should we need to.
+    }
 }
 
 /// Represents a stream which is backed to a file. Not for instantiating.
-public class FileOutputByteStream: _OutputByteStreamBase {
+public class FileOutputByteStream: _WritableByteStreamBase {
 
-    /// Closes the file flushing any buffered data.
-    public final func close() throws {
+    public override final func closeImpl() throws {
         flush()
-        try closeImpl()
+        try fileCloseImpl()
     }
 
-    func closeImpl() throws {
-        fatalError("closeImpl() should be implemented by a subclass")
+    /// Closes the file flushing any buffered data.
+    func fileCloseImpl() throws {
+        fatalError("fileCloseImpl() should be implemented by a subclass")
     }
 }
 
@@ -723,7 +754,7 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         fflush(filePointer)
     }
 
-    override final func closeImpl() throws {
+    override final func fileCloseImpl() throws {
         defer {
             fclose(filePointer)
             // If clients called close we shouldn't call fclose again in deinit.

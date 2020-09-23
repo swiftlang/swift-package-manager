@@ -1,0 +1,27 @@
+# This file is a list of the people responsible for ensuring that patches for a
+# particular part of Swift are reviewed, either by themselves or by someone else.
+# They are also the gatekeepers for their part of Swift, with the final word on
+# what goes in or not.
+# 
+# The list is sorted by surname and formatted to allow easy grepping and
+# beautification by scripts.  The fields are: name (N), email (E), web-address
+# (W), PGP key ID and fingerprint (P), description (D), and snail-mail address
+# (S).
+ 
+# N: Ankit Aggarwal
+# E: ankit_aggarwal@apple.com
+# D: Package Manager
+# 
+# N: Anders Bertelrud
+# E: anders@apple.com
+# D: Package Manager
+ 
+# N: Daniel Dunbar
+# E: daniel_dunbar@apple.com
+# D: Package Manager
+
+###
+
+# The following lines are used by GitHub to automatically recommend reviewers.
+
+* @aciidb0mb3r @abertelrud @neonichu @friedbunny

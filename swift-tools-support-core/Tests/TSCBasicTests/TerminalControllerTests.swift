@@ -14,6 +14,7 @@ import TSCLibc
 import TSCBasic
 
 final class TerminalControllerTests: XCTestCase {
+  #if !os(Windows) // PseudoTerminal is not supported in Windows
     func testBasic() {
         guard let pty = PseudoTerminal(), let term = TerminalController(stream: pty.outStream) else {
             XCTFail("Couldn't create pseudo terminal.")
@@ -44,4 +45,5 @@ final class TerminalControllerTests: XCTestCase {
         XCTAssertEqual(wrapped, "\u{001B}[32mgreen\u{001B}[0m")
         pty.close()
     }
+  #endif
 }

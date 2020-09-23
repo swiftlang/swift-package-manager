@@ -1,4 +1,4 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.2
 
 /*
  This source file is part of the Swift.org open source project
@@ -83,3 +83,16 @@ let package = Package(
             dependencies: ["TSCUtility", "TSCTestSupport", "TSCTestSupportExecutable"]),
     ]
 )
+
+// FIXME: conditionalise these flags since SwiftPM 5.3 and earlier will crash
+// for platforms they don't know about.
+#if os(Windows)
+  if let TSCBasic = package.targets.first(where: { $0.name == "TSCBasic" }) {
+    TSCBasic.cxxSettings = [
+      .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
+    ]
+    TSCBasic.linkerSettings = [
+      .linkedLibrary("Pathcch", .when(platforms: [.windows])),
+    ]
+  }
+#endif

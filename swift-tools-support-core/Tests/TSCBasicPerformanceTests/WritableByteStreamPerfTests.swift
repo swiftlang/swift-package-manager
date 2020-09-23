@@ -23,7 +23,7 @@ struct ByteSequence: Sequence {
 }
 
 extension ByteSequence: ByteStreamable {
-    func write(to stream: OutputByteStream) {
+    func write(to stream: WritableByteStream) {
         stream.write(sequence: self)
     }
 }

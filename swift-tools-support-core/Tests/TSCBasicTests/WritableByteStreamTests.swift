@@ -12,7 +12,7 @@ import XCTest
 
 import TSCBasic
 
-class OutputByteStreamTests: XCTestCase {
+class WritableByteStreamTests: XCTestCase {
     func testBasics() {
         var stream = BufferedOutputByteStream()
         

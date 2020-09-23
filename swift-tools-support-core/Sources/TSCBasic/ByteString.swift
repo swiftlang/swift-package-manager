@@ -21,7 +21,7 @@ import Foundation
 /// strings, we wish to retain the flexibility to micro-optimize the memory
 /// allocation of the storage (for example, by inlining the storage for small
 /// strings or and by eliminating wasted space in growable arrays). For
-/// construction of byte arrays, clients should use the `OutputByteStream` class
+/// construction of byte arrays, clients should use the `WritableByteStream` class
 /// and then convert to a `ByteString` when complete.
 public struct ByteString: ExpressibleByArrayLiteral, Hashable {
     /// The buffer contents.
@@ -142,7 +142,7 @@ extension ByteString: CustomStringConvertible {
 /// ByteStreamable conformance for a ByteString.
 extension ByteString: ByteStreamable {
     @inlinable
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         stream.write(_bytes)
     }
 }

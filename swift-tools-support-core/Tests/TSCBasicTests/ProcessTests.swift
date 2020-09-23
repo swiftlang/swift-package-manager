@@ -113,6 +113,7 @@ class ProcessTests: XCTestCase {
         }
     }
 
+  #if !os(Windows) // Signals are not supported in Windows
     func testSignals() throws {
 
         // Test sigint terminates the script.
@@ -161,6 +162,7 @@ class ProcessTests: XCTestCase {
             XCTAssertFalse(try Process.running(ProcessID(child), orDefunct: true))
         }
     }
+  #endif
 
     func testThreadSafetyOnWaitUntilExit() throws {
         let process = Process(args: "echo", "hello")

@@ -888,7 +888,7 @@ public final class ArgumentParser {
     }
 
     /// Prints usage text for this parser on the provided stream.
-    public func printUsage(on stream: OutputByteStream) {
+    public func printUsage(on stream: WritableByteStream) {
         /// Space settings.
         let maxWidthDefault = 24
         let padding = 2
@@ -905,7 +905,7 @@ public final class ArgumentParser {
         }
 
         /// Prints an argument on a stream if it has usage.
-        func print(formatted argument: String, usage: String, on stream: OutputByteStream) {
+        func print(formatted argument: String, usage: String, on stream: WritableByteStream) {
             // Start with a new line and add some padding.
             stream <<< "\n" <<< Format.asRepeating(string: " ", count: padding)
             let count = argument.count

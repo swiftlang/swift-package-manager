@@ -230,7 +230,7 @@ public extension FileSystem {
     }
 
     /// Write to a file from a stream producer.
-    func writeFileContents(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
+    func writeFileContents(_ path: AbsolutePath, body: (WritableByteStream) -> Void) throws {
         let contents = BufferedOutputByteStream()
         body(contents)
         try createDirectory(path.parentDirectory, recursive: true)
@@ -281,7 +281,19 @@ private class LocalFileSystem: FileSystem {
 
     var currentWorkingDirectory: AbsolutePath? {
         let cwdStr = FileManager.default.currentDirectoryPath
+
+#if _runtime(_ObjC)
+        // The ObjC runtime indicates that the underlying Foundation has ObjC
+        // interoperability in which case the return type of
+        // `fileSystemRepresentation` is different from the Swift implementation
+        // of Foundation.
         return try? AbsolutePath(validating: cwdStr)
+#else
+        let fsr: UnsafePointer<Int8> = cwdStr.fileSystemRepresentation
+        defer { fsr.deallocate() }
+
+        return try? AbsolutePath(validating: String(cString: fsr))
+#endif
     }
 
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {

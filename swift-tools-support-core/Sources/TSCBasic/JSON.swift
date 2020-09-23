@@ -115,11 +115,11 @@ extension JSON {
 
 /// Support writing to a byte stream.
 extension JSON: ByteStreamable {
-    public func write(to stream: OutputByteStream) {
+    public func write(to stream: WritableByteStream) {
         write(to: stream, indent: nil)
     }
 
-    public func write(to stream: OutputByteStream, indent: Int?) {
+    public func write(to stream: WritableByteStream, indent: Int?) {
         func indentStreamable(offset: Int? = nil) -> ByteStreamable {
             return Format.asRepeating(string: " ", count: indent.flatMap({ $0 + (offset ?? 0) }) ?? 0)
         }

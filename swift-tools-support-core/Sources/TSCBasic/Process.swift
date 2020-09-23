@@ -748,6 +748,7 @@ extension Process.Error: CustomStringConvertible {
         }
     }
 }
+#endif
 
 extension ProcessResult.Error: CustomStringConvertible {
     public var description: String {
@@ -787,4 +788,3 @@ extension ProcessResult.Error: CustomStringConvertible {
         }
     }
 }
-#endif

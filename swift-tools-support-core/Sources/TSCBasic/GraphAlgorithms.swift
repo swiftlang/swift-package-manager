@@ -58,45 +58,44 @@ public func transitiveClosure<T>(
 public func topologicalSort<T: Hashable>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) throws -> [T] {
-    // Stack represented as stackframes consisting from node-successors key-value pairs that
-    // are being traversed.
-    var stack: OrderedDictionary<T, ArraySlice<T>> = [:]
-    // A set of already visited.
-    var visited: Set<T> = []
-    var result: [T] = []
-    
-    // Implements a topological sort via iteration and reverse postorder DFS.
-    for node in nodes {
-        guard visited.insert(node).inserted else { continue }
-        stack[node] = try successors(node).dropFirst(0)
-        
-        // Peek the top of the stack
-        while let (node, children) = stack.last {
-            // Take the next successor for the given node.
-            if let succ = children.first {
-                // Drop the first successor from the children list and update the stack frame
-                stack[node] = children.dropFirst()
-                
-                if let _ = stack[succ] {
-                    // If the successor is already in this current stack, we have found a cycle.
-                    //
-                    // FIXME: We could easily include information on the cycle we found here.
-                    throw GraphError.unexpectedCycle
-                }
-                // Mark this node as visited -- we are done if it already was.
-                guard visited.insert(succ).inserted else { continue }
-                // Push it to the top of the stack
-                stack[succ] = try successors(succ).dropFirst(0)
-            } else {
-                // Pop the node from the stack if all successors traversed.
-                stack.removeValue(forKey: node)
-                // Add to the result.
-                result.append(node)
-            }
+    // Implements a topological sort via recursion and reverse postorder DFS.
+    func visit(_ node: T,
+               _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
+               _ successors: (T) throws -> [T]) throws {
+        // Mark this node as visited -- we are done if it already was.
+        if !visited.insert(node).inserted {
+            return
         }
+
+        // Otherwise, visit each adjacent node.
+        for succ in try successors(node) {
+            guard stack.append(succ) else {
+                // If the successor is already in this current stack, we have found a cycle.
+                //
+                // FIXME: We could easily include information on the cycle we found here.
+                throw GraphError.unexpectedCycle
+            }
+            try visit(succ, &stack, &visited, &result, successors)
+            let popped = stack.removeLast()
+            assert(popped == succ)
+        }
+
+        // Add to the result.
+        result.append(node)
     }
-    // Make sure we popped all of the stack frames.
-    assert(stack.isEmpty)
+
+    // FIXME: This should use a stack not recursion.
+    var visited = Set<T>()
+    var result = [T]()
+    var stack = OrderedSet<T>()
+    for node in nodes {
+        precondition(stack.isEmpty)
+        stack.append(node)
+        try visit(node, &stack, &visited, &result, successors)
+        let popped = stack.removeLast()
+        assert(popped == node)
+    }
+
     return result.reversed()
 }
 
@@ -114,41 +113,34 @@ public func findCycle<T: Hashable>(
     _ nodes: [T],
     successors: (T) throws -> [T]
 ) rethrows -> (path: [T], cycle: [T])? {
-    // Stack represented as stackframes consisting from node-successors key-value pairs that
-    // are being traversed.
-    var stack: OrderedDictionary<T, ArraySlice<T>> = [:]
-    // A set of already visited
-    var visited: Set<T> = []
-    
-    for node in nodes {
-        guard visited.insert(node).inserted else { continue }
-        stack[node] = try successors(node).dropFirst(0)
-        
-        // Peek the top of the stack
-        while let (node, children) = stack.last {
-            // Take the next successor for the given node.
-            if let succ = children.first {
-                // Drop the first successor from the children list and update the stack frame
-                stack[node] = children.dropFirst()
-                
-                if let _ = stack[succ] {
-                    let index = stack.firstIndex { $0.key == succ }!
-                    return (
-                        Array(stack[stack.startIndex..<index]).map { $0.key },
-                        Array(stack[index..<stack.endIndex]).map { $0.key })
-                }
-                // Mark this node as visited -- we are done if it already was.
-                guard visited.insert(succ).inserted else { continue }
-                // Push it to the top of the stack
-                stack[succ] = try successors(succ).dropFirst(0)
-            } else {
-                // Pop the node from the stack if all successors traversed.
-                stack.removeValue(forKey: node)
+    // Ordered set to hold the current traversed path.
+    var path = OrderedSet<T>()
+
+    // Function to visit nodes recursively.
+    // FIXME: Convert to stack.
+    func visit(_ node: T, _ successors: (T) throws -> [T]) rethrows -> (path: [T], cycle: [T])? {
+        // If this node is already in the current path then we have found a cycle.
+        if !path.append(node) {
+            let index = path.firstIndex(of: node)!
+            return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
+        }
+
+        for succ in try successors(node) {
+            if let cycle = try visit(succ, successors) {
+                return cycle
             }
         }
+        // No cycle found for this node, remove it from the path.
+        let item = path.removeLast()
+        assert(item == node)
+        return nil
     }
-    // Make sure we popped all of the stack frames.
-    assert(stack.isEmpty)
+
+    for node in nodes {
+        if let cycle = try visit(node, successors) {
+            return cycle
+        }
+    }
     // Couldn't find any cycle in the graph.
     return nil
 }

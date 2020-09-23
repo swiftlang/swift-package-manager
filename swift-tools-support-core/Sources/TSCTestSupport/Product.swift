@@ -89,6 +89,8 @@ extension Product {
       #if Xcode
          // Unset these variables which causes issues when running tests via Xcode.
         environment["XCTestConfigurationFilePath"] = nil
+        environment["XCTestSessionIdentifier"] = nil
+        environment["XCTestBundlePath"] = nil
         environment["NSUnbufferedIO"] = nil
       #endif
         // FIXME: We use this private environment variable hack to be able to
