@@ -23,19 +23,19 @@ final class TerminalControllerTests: XCTestCase {
 
         // Test red color.
         term.write("hello", inColor: .red)
-        XCTAssertEqual(pty.readMaster(), "\u{1B}[31mhello\u{1B}[0m")
+        XCTAssertEqual(pty.readPrimary(), "\u{1B}[31mhello\u{1B}[0m")
 
         // Test clearLine.
         term.clearLine()
-        XCTAssertEqual(pty.readMaster(), "\u{1B}[2K\r")
+        XCTAssertEqual(pty.readPrimary(), "\u{1B}[2K\r")
 
         // Test endline.
         term.endLine()
-        XCTAssertEqual(pty.readMaster(), "\r\n")
+        XCTAssertEqual(pty.readPrimary(), "\r\n")
 
         // Test move cursor.
         term.moveCursor(up: 3)
-        XCTAssertEqual(pty.readMaster(), "\u{1B}[3A")
+        XCTAssertEqual(pty.readPrimary(), "\u{1B}[3A")
 
         // Test color wrapping.
         var wrapped = term.wrap("hello", inColor: .noColor)

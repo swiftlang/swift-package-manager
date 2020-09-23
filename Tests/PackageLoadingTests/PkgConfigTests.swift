@@ -81,7 +81,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertFalse(result.couldNotFindConfigFile)
         }
 
-        // Pc file with non whitelisted flags.
+        // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics)!
             XCTAssertEqual(result.pkgConfigName, "Bar")
@@ -90,8 +90,8 @@ class PkgConfigTests: XCTestCase {
             XCTAssertNil(result.provider)
             XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
-            case PkgConfigError.nonWhitelistedFlags(let desc)?:
-                XCTAssertEqual(desc, "-DBlackListed")
+            case PkgConfigError.prohibitedFlags(let desc)?:
+                XCTAssertEqual(desc, "-DDenyListed")
             default:
                 XCTFail("unexpected error \(result.error.debugDescription)")
             }

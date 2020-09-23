@@ -14,43 +14,43 @@ import TSCLibc
 #if os(Windows)
 #else
 public final class PseudoTerminal {
-    let master: Int32
-    let slave: Int32
+    let primary: Int32
+    let secondary: Int32
     public var outStream: LocalFileOutputByteStream
     
     public init?(){
-        var master: Int32 = 0
-        var slave: Int32 = 0
-        if openpty(&master, &slave, nil, nil, nil) != 0 {
+        var primary: Int32 = 0
+        var secondary: Int32 = 0
+        if openpty(&primary, &secondary, nil, nil, nil) != 0 {
             return nil
         }
-        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(slave, "w"), closeOnDeinit: false) else {
+        guard let outStream = try? LocalFileOutputByteStream(filePointer: fdopen(secondary, "w"), closeOnDeinit: false) else {
             return nil
         }
         self.outStream = outStream
-        self.master = master
-        self.slave = slave
+        self.primary = primary
+        self.secondary = secondary
     }
     
-    public func readMaster(maxChars n: Int = 1000) -> String? {
+    public func readPrimary(maxChars n: Int = 1000) -> String? {
         var buf: [CChar] = [CChar](repeating: 0, count: n)
-        if read(master, &buf, n) <= 0 {
+        if read(primary, &buf, n) <= 0 {
             return nil
         }
         return String(cString: buf)
     }
     
-    public func closeSlave() {
-        _ = TSCLibc.close(slave)
+    public func closeSecondary() {
+        _ = TSCLibc.close(secondary)
     }
     
-    public func closeMaster() {
-        _ = TSCLibc.close(master)
+    public func closePrimary() {
+        _ = TSCLibc.close(primary)
     }
     
     public func close() {
-        closeSlave()
-        closeMaster()
+        closeSecondary()
+        closePrimary()
     }
 }
 #endif

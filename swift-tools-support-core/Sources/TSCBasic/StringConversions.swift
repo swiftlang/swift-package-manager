@@ -14,7 +14,7 @@
 ///     - codeUnit: The code unit to be checked.
 ///
 /// - Returns: True if shell escaping is not needed.
-private func inShellWhitelist(_ codeUnit: UInt8) -> Bool {
+private func inShellAllowlist(_ codeUnit: UInt8) -> Bool {
   #if os(Windows)
     if codeUnit == UInt8(ascii: "\\") {
         return true
@@ -49,8 +49,8 @@ extension String {
     /// - Returns: Shell escaped string.
     public func spm_shellEscaped() -> String {
 
-        // If all the characters in the string are in whitelist then no need to escape.
-        guard let pos = utf8.firstIndex(where: { !inShellWhitelist($0) }) else {
+        // If all the characters in the string are in the allow list then no need to escape.
+        guard let pos = utf8.firstIndex(where: { !inShellAllowlist($0) }) else {
             return self
         }
 

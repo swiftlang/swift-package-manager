@@ -7,5 +7,5 @@ Name: Foo
 URL: http://127.0.0.1/
 Description: The one and only SystemModule
 Version: 1.10.0
-Cflags: -I${includedir} -I/path/to/inc -DBlackListed
+Cflags: -I${includedir} -I/path/to/inc -DDenyListed
 Libs: -L${libdir} -L/usr/da/lib -lSystemModule -lok
