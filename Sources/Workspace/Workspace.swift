@@ -2007,7 +2007,8 @@ extension Workspace {
             // Emit proper error if we were not able to parse some manifest during dependency resolution.
             case let error as RepositoryPackageContainer.GetDependenciesErrorWrapper:
                 let location = PackageLocation.Remote(url: error.containerIdentifier, reference: error.reference)
-                diagnostics.emit(error.underlyingError, location: location)
+                let suggestion = error.suggestion.flatMap{ " (\($0))" }
+                diagnostics.emit(StringError("\(error.underlyingError)\(suggestion ?? "")"), location: location)
 
             default:
                 diagnostics.emit(error)

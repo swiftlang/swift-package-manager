@@ -11,6 +11,7 @@
 import XCTest
 
 import TSCBasic
+import TSCUtility
 import PackageLoading
 import PackageModel
 import PackageGraph
@@ -476,6 +477,64 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     constraints[1],
                 ]
             )
+        }
+    }
+    
+    func testMissingBranchDiagnostics() {
+        mktmpdir { tmpDir in
+            // Create a repository.
+            let packageDir = tmpDir.appending(component: "SomePackage")
+            try localFileSystem.createDirectory(packageDir)
+            initGitRepo(packageDir)
+            let packageRepo = GitRepository(path: packageDir)
+            
+            // Create a package manifest in it (it only needs the `swift-tools-version` part, because we'll supply the manifest later).
+            let manifestFile = packageDir.appending(component: "Package.swift")
+            try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:4.2"))
+            
+            // Commit it and tag it.
+            try packageRepo.stage(file: "Package.swift")
+            try packageRepo.commit(message: "Initial")
+            try packageRepo.tag(name: "1.0.0")
+            
+            // Rename the `master` branch to `main`.
+            try systemQuietly([Git.tool, "-C", packageDir.pathString, "branch", "-m", "main"])
+
+            // Create a repository manager for it.
+            let repoProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(path: packageDir, provider: repoProvider, delegate: nil, fileSystem: localFileSystem)
+            
+            // Create a container provider, configured with a mock manifest loader that will return the package manifest.
+            let manifest = Manifest.createV4Manifest(
+                name: packageDir.basename,
+                path: packageDir.pathString,
+                url: packageDir.pathString,
+                packageKind: .root,
+                targets: [
+                    TargetDescription(name: packageDir.basename, path: packageDir.pathString)
+                ]
+            )
+            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil) : manifest]))
+            
+            // Get a hold of the container for the test package.
+            let packageRef = PackageReference(identity: "somepackage", path: packageDir.pathString)
+            let container = try await { containerProvider.getContainer(for: packageRef, completion: $0) } as! RepositoryPackageContainer
+            
+            // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
+            do { _ = try container.getDependencies(at: "master") }
+            catch let error as RepositoryPackageContainer.GetDependenciesErrorWrapper {
+                // We expect to get an error message about `master` with a suggestion to use `main`.
+                XCTAssertEqual("\(error.underlyingError)", "could not find a branch named ‘master’")
+                XCTAssertEqual(error.suggestion, "did you mean ‘main’?")
+            }
+            
+            // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
+            do { _ = try container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00") }
+            catch let error as RepositoryPackageContainer.GetDependenciesErrorWrapper {
+                // We expect to get an error message about the commit SHA, but without a suggestion.
+                XCTAssertMatch("\(error.underlyingError)", "could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00")
+                XCTAssertEqual(error.suggestion, nil)
+            }
         }
     }
 }
