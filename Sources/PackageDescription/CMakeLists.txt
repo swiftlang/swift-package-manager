@@ -57,6 +57,7 @@ foreach(PACKAGE_DESCRIPTION_VERSION 4 4_2)
     if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
         install(FILES
             ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftinterface
+            ${CMAKE_BINARY_DIR}/pm/${PACKAGE_DESCRIPTION_VERSION}/PackageDescription.swiftdoc
             DESTINATION lib/swift/pm/${PACKAGE_DESCRIPTION_VERSION}
         )
     else()
