@@ -255,7 +255,7 @@ final class BuildPlanTests: XCTestCase {
                 // will not be able to parse the `-print-target-info` output. In which case,
                 // we cannot yet rely on the integrated swift driver.
                 // This effectively guards the test from running on unupported, older toolchains.
-                return
+                throw XCTSkip()
             }
         }
     }
