@@ -39,6 +39,8 @@ For additional documentation on developing the Swift Package Manager itself, see
 
 For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/package-manager/PackageDescription/index.html).
 
+For release notes with information about changes between versions, see [Release Notes](Documentation/ReleaseNotes).
+
 ---
 
 ## System Requirements
