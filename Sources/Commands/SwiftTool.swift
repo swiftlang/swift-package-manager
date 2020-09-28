@@ -648,6 +648,18 @@ public class SwiftTool {
         }
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
+        } else if let target = destination.target, target.isWASI() {
+            // Set default SDK path when target is WASI whose SDK is embeded
+            // in Swift toolchain
+            do {
+                let compilers = try UserToolchain.determineSwiftCompilers(binDir: destination.binDir)
+                destination.sdk = compilers.compile
+                    .parentDirectory // bin
+                    .parentDirectory // usr
+                    .appending(components: "share", "wasi-sysroot")
+            } catch {
+                return .failure(error)
+            }
         }
         destination.archs = options.archs
 

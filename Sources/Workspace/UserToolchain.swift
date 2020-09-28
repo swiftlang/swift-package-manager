@@ -100,8 +100,10 @@ public final class UserToolchain: Toolchain {
 #endif
     }
 
+    public typealias SwiftCompilers = (compile: AbsolutePath, manifest: AbsolutePath)
+
     /// Determines the Swift compiler paths for compilation and manifest parsing.
-    private static func determineSwiftCompilers(binDir: AbsolutePath, lookup: (String) -> AbsolutePath?, envSearchPaths: [AbsolutePath]) throws -> (compile: AbsolutePath, manifest: AbsolutePath) {
+    public static func determineSwiftCompilers(binDir: AbsolutePath) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path = path else { return }
             guard localFileSystem.isExecutableFile(path) else {
@@ -109,6 +111,13 @@ public final class UserToolchain: Toolchain {
             }
         }
 
+        // Get the search paths from PATH.
+        let envSearchPaths = getEnvSearchPaths(
+            pathString: ProcessEnv.path,
+            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+        )
+
+        let lookup = { UserToolchain.lookup(variable: $0, searchPaths: envSearchPaths) }
         // Get overrides.
         let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
         let SWIFT_EXEC = lookup("SWIFT_EXEC")
@@ -138,9 +147,6 @@ public final class UserToolchain: Toolchain {
     private static func lookup(variable: String, searchPaths: [AbsolutePath]) -> AbsolutePath? {
         return lookupExecutablePath(filename: ProcessEnv.vars[variable], searchPaths: searchPaths)
     }
-
-    /// Environment to use when looking up tools.
-    private let processEnvironment: [String: String]
 
     /// Returns the path to clang compiler tool.
     public func getClangCompiler() throws -> AbsolutePath {
@@ -272,21 +278,20 @@ public final class UserToolchain: Toolchain {
 
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
         self.destination = destination
-        self.processEnvironment = environment
 
         // Get the search paths from PATH.
-        let searchPaths = getEnvSearchPaths(
-            pathString: ProcessEnv.path, currentWorkingDirectory: localFileSystem.currentWorkingDirectory)
-
-        self.envSearchPaths = searchPaths
+        self.envSearchPaths = getEnvSearchPaths(
+            pathString: ProcessEnv.path,
+            currentWorkingDirectory: localFileSystem.currentWorkingDirectory
+        )
 
         // Get the binDir from destination.
         let binDir = destination.binDir
 
-        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir, lookup: { UserToolchain.lookup(variable: $0, searchPaths: searchPaths) }, envSearchPaths: searchPaths)
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(binDir: binDir)
         self.swiftCompiler = swiftCompilers.compile
         self.archs = destination.archs
-    
+
         // Use the triple from destination or compute the host triple using swiftc.
         var triple = destination.target ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
 
@@ -303,7 +308,9 @@ public final class UserToolchain: Toolchain {
         if triple.isDarwin() {
             // FIXME: We should have some general utility to find tools.
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
-            self.xctest = try AbsolutePath(validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp())
+            self.xctest = try AbsolutePath(
+                validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment
+            ).spm_chomp())
         } else {
             self.xctest = nil
         }
