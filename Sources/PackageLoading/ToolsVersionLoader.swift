@@ -102,6 +102,9 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         case inaccessibleManifest(path: AbsolutePath, reason: String)
         /// Malformed tools version specifier
         case malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)
+        // TODO: Make the case more general, to better adapt to future changes.
+        /// The spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift ≤ 5.3.
+        case invalidSpacingAfterSlashes(charactersUsed: String, specifiedVersion: ToolsVersion)
 
         public var description: String {
             switch self {
@@ -111,6 +114,17 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 return "the package manifest at '\(manifestFile)' cannot be accessed (\(reason))"
             case .malformedToolsVersion(let versionSpecifier, let currentToolsVersion):
                 return "the tools version '\(versionSpecifier)' is not valid; consider using '// swift-tools-version:\(currentToolsVersion.major).\(currentToolsVersion.minor)' to specify the current tools version"
+            case let .invalidSpacingAfterSlashes(charactersUsed, specifiedVersion):
+                // Tell the user what characters are currently used (invalidly) in the specification in place of U+0020.
+                let unicodeCodePointsOfCharactersUsed: [UInt32] = charactersUsed.flatMap(\.unicodeScalars).map(\.value)
+                let unicodeCodePointsOfCharactersUsedPrefixedByUPlus: [String] = unicodeCodePointsOfCharactersUsed.map { codePoint in
+                    var codePointString = String(codePoint, radix: 16).uppercased()
+                    if codePointString.count < 4 {
+                        codePointString = String(repeating: "0", count: 4 - codePointString.count) + codePointString
+                    }
+                    return "U+\(codePointString)"
+                }
+                return "\(charactersUsed.isEmpty ? "zero spacing" : "horizontal whitespace sequence [\(unicodeCodePointsOfCharactersUsedPrefixedByUPlus.joined(separator: ", "))]") between \"//\" and \"swift-tools-version\" is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(specifiedVersion)"
             }
         }
     }
@@ -132,9 +146,16 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         do { contents = try fileSystem.readFileContents(file) } catch {
             throw Error.inaccessibleManifest(path: file, reason: String(describing: error))
         }
-
+        
+        /// The constituent parts of the swift tools version specification found in the comment.
+        let deconstructedToolsVersionSpecification = ToolsVersionLoader.split(contents)
+        
         // Get the version specifier string from tools version file.
-        guard let versionSpecifier = ToolsVersionLoader.split(contents).versionSpecifier else {
+        guard
+            let spacingAfterSlashes = deconstructedToolsVersionSpecification.spacingAfterSlashes,
+            let versionSpecifier = deconstructedToolsVersionSpecification.versionSpecifier
+        else {
+            // TODO: Make the diagnsosis more granular by having the regex capture more groups.
             // Try to diagnose if there is a misspelling of the swift-tools-version comment.
             let splitted = contents.contents.split(
                 separator: UInt8(ascii: "\n"),
@@ -153,11 +174,23 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         guard let version = ToolsVersion(string: versionSpecifier) else {
             throw Error.malformedToolsVersion(specifier: versionSpecifier, currentToolsVersion: currentToolsVersion)
         }
+        
+        // Ensure that for Swift ≤ 5.3, a single U+0020 is used as spacing between "//" and "swift-tools-version".
+        // Use `ToolsVersion(version:)` instead of `ToolsVeresion(string:)` here to avoid forced unwrappiing.
+        guard spacingAfterSlashes == " " || version > ToolsVersion(version: "5.3.0") else {
+            throw Error.invalidSpacingAfterSlashes(charactersUsed: spacingAfterSlashes, specifiedVersion: version)
+        }
+        
         return version
     }
 
-    /// Splits the bytes to the version specifier (if present) and rest of the contents.
-    public static func split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8]) {
+    /// Splits the bytes to constituent parts of the swift tools version specification and rest of the contents.
+    ///
+    /// The constituent parts include the spacing between "//" and "swift-tools-version", and the version specifier, if either is present.
+    ///
+    /// - Parameter bytes: The raw bytes of the content of `Package.swift`.
+    /// - Returns: The spacing between "//" and "swift-tools-version" (if present, or `nil`), the version specifier (if present, or `nil`), and of raw bytes of the rest of the content of `Package.swift`.
+    public static func split(_ bytes: ByteString) -> (spacingAfterSlashes: String?, versionSpecifier: String?, rest: [UInt8]) {
         let splitted = bytes.contents.split(
             separator: UInt8(ascii: "\n"),
             maxSplits: 1,
@@ -166,19 +199,32 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         guard let firstLine = ByteString(splitted[0]).validDescription,
               let match = ToolsVersionLoader.regex.firstMatch(
                   in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.count)),
-              match.numberOfRanges >= 2 else {
-            return (nil, bytes.contents)
+              // The 3 ranges are:
+              //   1. The entire matched string.
+              //   2. Capture group 1: the comment spacing.
+              //   3. Capture group 2: The version specifier.
+              // Since the version specifier is in the last range, if the number of ranges is less than 3, then no version specifier is captured by the regex.
+              // FIXME: Should this be `== 3` instead?
+              match.numberOfRanges >= 3 else {
+            return (nil, nil, bytes.contents)
         }
-        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 1))
+        let spacingAfterSlashes = NSString(string: firstLine).substring(with: match.range(at: 1))
+        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 2))
         // FIXME: We can probably optimize here and return array slice.
-        return (versionSpecifier, splitted.count == 1 ? [] : Array(splitted[1]))
+        return (spacingAfterSlashes, versionSpecifier, splitted.count == 1 ? [] : Array(splitted[1]))
     }
 
     /// The regex to match swift tools version specification.
+    ///
+    /// The specification must have the following format:
     /// - It should start with `//` followed by any amount of _horizontal_ whitespace characters.
     /// - Following that it should contain the case insensitive string `swift-tools-version:`.
     /// - The text between the above string and `;` or string end becomes the tools version specifier.
+    ///
+    /// There are 2 capture groups in the regex pattern:
+    /// 1. The continuous sequence of whitespace characters between "//" and "swift-tools-version".
+    /// 2. The version specifier.
     static let regex = try! NSRegularExpression(
-        pattern: "^//\\h*?swift-tools-version:(.*?)(?:;.*|$)",
+        pattern: "^//(\\h*?)swift-tools-version:(.*?)(?:;.*|$)",
         options: [.caseInsensitive])
 }
