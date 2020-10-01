@@ -13,7 +13,7 @@ add_library(Workspace
   InitPackage.swift
   ManagedArtifact.swift
   ManagedDependency.swift
-  misc.swift
+  ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
   ToolsVersionWriter.swift
   UserToolchain.swift

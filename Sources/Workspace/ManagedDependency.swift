@@ -49,6 +49,23 @@ public final class ManagedDependency {
     /// The state of the managed dependency.
     public let state: State
 
+    /// Returns true if the dependency is edited.
+    public var isEdited: Bool {
+        switch state {
+        case .checkout, .local:
+            return false
+        case .edited:
+            return true
+        }
+    }
+
+    public var checkoutState: CheckoutState? {
+        if case .checkout(let checkoutState) = state {
+            return checkoutState
+        }
+        return nil
+    }
+
     /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
     public let subpath: RelativePath
 
@@ -115,16 +132,6 @@ public final class ManagedDependency {
     ///     - unmanagedPath: A custom absolute path instead of the subpath.
     public func editedDependency(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
         return ManagedDependency(basedOn: self, subpath: subpath, unmanagedPath: unmanagedPath)
-    }
-
-    /// Returns true if the dependency is edited.
-    public var isEdited: Bool {
-        switch state {
-        case .checkout, .local:
-            return false
-        case .edited:
-            return true
-        }
     }
 }
 

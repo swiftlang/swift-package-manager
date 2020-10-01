@@ -957,6 +957,27 @@ extension Workspace {
     }
 }
 
+fileprivate extension PinsStore {
+    /// Pin a managed dependency at its checkout state.
+    ///
+    /// This method does nothing if the dependency is in edited state.
+    func pin(_ dependency: ManagedDependency) {
+
+        // Get the checkout state.
+        let checkoutState: CheckoutState
+        switch dependency.state {
+        case .checkout(let state):
+            checkoutState = state
+        case .edited, .local:
+            return
+        }
+
+        self.pin(
+            packageRef: dependency.packageRef,
+            state: checkoutState)
+    }
+}
+
 // MARK: - TSCUtility Functions
 
 extension Workspace {
