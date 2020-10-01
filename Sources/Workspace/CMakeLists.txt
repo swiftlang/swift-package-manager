@@ -11,6 +11,7 @@ add_library(Workspace
   Diagnostics.swift
   Export.swift
   InitPackage.swift
+  ManagedArtifact.swift
   ManagedDependency.swift
   misc.swift
   ResolverPrecomputationProvider.swift
