@@ -142,3 +142,82 @@ extension ManagedArtifact.Source: JSONMappable, JSONSerializable, CustomStringCo
         }
     }
 }
+
+// MARK: -
+
+/// A collection of managed artifacts which have been downloaded.
+public final class ManagedArtifacts {
+
+    /// A mapping from package url, to target name, to ManagedArtifact.
+    private var artifactMap: [String: [String: ManagedArtifact]]
+
+    private var artifacts: AnyCollection<ManagedArtifact> {
+        AnyCollection(artifactMap.values.lazy.flatMap({ $0.values }))
+    }
+
+    init(artifactMap: [String: [String: ManagedArtifact]] = [:]) {
+        self.artifactMap = artifactMap
+    }
+
+    public subscript(packageURL packageURL: String, targetName targetName: String) -> ManagedArtifact? {
+        artifactMap[packageURL]?[targetName]
+    }
+
+    public subscript(packageName packageName: String, targetName targetName: String) -> ManagedArtifact? {
+        artifacts.first(where: { $0.packageRef.name == packageName && $0.targetName == targetName })
+    }
+
+    public func add(_ artifact: ManagedArtifact) {
+        artifactMap[artifact.packageRef.path, default: [:]][artifact.targetName] = artifact
+    }
+
+    public func remove(packageURL: String, targetName: String) {
+        artifactMap[packageURL]?[targetName] = nil
+    }
+}
+
+// MARK: - Collection
+
+extension ManagedArtifacts: Collection {
+    public var startIndex: AnyIndex {
+        artifacts.startIndex
+    }
+
+    public var endIndex: AnyIndex {
+        artifacts.endIndex
+    }
+
+    public subscript(index: AnyIndex) -> ManagedArtifact {
+        artifacts[index]
+    }
+
+    public func index(after index: AnyIndex) -> AnyIndex {
+        artifacts.index(after: index)
+    }
+}
+
+// MARK: - JSON
+
+extension ManagedArtifacts: JSONMappable, JSONSerializable {
+    public convenience init(json: JSON) throws {
+        let artifacts = try Array<ManagedArtifact>(json: json)
+        let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.packageRef.path })
+        let artifactMap = artifactsByPackagePath.mapValues({ artifacts in
+            Dictionary(uniqueKeysWithValues: artifacts.lazy.map({ ($0.targetName, $0) }))
+        })
+        self.init(artifactMap: artifactMap)
+    }
+
+    public func toJSON() -> JSON {
+        artifacts.toJSON()
+    }
+}
+
+// MARK: - CustomStringConvertible
+
+extension ManagedArtifacts: CustomStringConvertible {
+    public var description: String {
+        "<ManagedArtifacts: \(Array(artifacts))>"
+    }
+}
+

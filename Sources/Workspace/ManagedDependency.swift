@@ -161,7 +161,6 @@ extension ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvert
     }
 }
 
-
 extension ManagedDependency.State: JSONMappable, JSONSerializable {
     public func toJSON() -> JSON {
         switch self {
@@ -206,5 +205,80 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         case .local:
             return "local"
         }
+    }
+}
+
+// MARK: -
+
+/// A collection of managed dependencies.
+public final class ManagedDependencies {
+
+    /// The dependencies keyed by the package URL.
+    private var dependencyMap: [String: ManagedDependency]
+
+    init(dependencyMap: [String: ManagedDependency] = [:]) {
+        self.dependencyMap = dependencyMap
+    }
+
+    public subscript(forURL url: String) -> ManagedDependency? {
+        dependencyMap[url]
+    }
+
+    public subscript(forIdentity identity: String) -> ManagedDependency? {
+        dependencyMap.values.first(where: { $0.packageRef.identity == identity })
+    }
+
+    public subscript(forNameOrIdentity nameOrIdentity: String) -> ManagedDependency? {
+        let lowercasedNameOrIdentity = nameOrIdentity.lowercased()
+        return dependencyMap.values.first(where: {
+            $0.packageRef.name == nameOrIdentity || $0.packageRef.identity == lowercasedNameOrIdentity
+        })
+    }
+
+    public func add(_ dependency: ManagedDependency) {
+        dependencyMap[dependency.packageRef.path] = dependency
+    }
+
+    public func remove(forURL url: String) {
+        dependencyMap[url] = nil
+    }
+}
+
+extension ManagedDependencies: Collection {
+    public typealias Index = Dictionary<String, ManagedDependency>.Index
+    public typealias Element = ManagedDependency
+
+    public var startIndex: Index {
+        dependencyMap.startIndex
+    }
+
+    public var endIndex: Index {
+        dependencyMap.endIndex
+    }
+
+    public subscript(index: Index) -> Element {
+        dependencyMap[index].value
+    }
+
+    public func index(after index: Index) -> Index {
+        dependencyMap.index(after: index)
+    }
+}
+
+extension ManagedDependencies: JSONMappable, JSONSerializable {
+    public convenience init(json: JSON) throws {
+        let dependencies = try Array<ManagedDependency>(json: json)
+        let dependencyMap = Dictionary(uniqueKeysWithValues: dependencies.lazy.map({ ($0.packageRef.path, $0) }))
+        self.init(dependencyMap: dependencyMap)
+    }
+
+    public func toJSON() -> JSON {
+        dependencyMap.values.toJSON()
+    }
+}
+
+extension ManagedDependencies: CustomStringConvertible {
+    public var description: String {
+        "<ManagedDependencies: \(Array(dependencyMap.values))>"
     }
 }
