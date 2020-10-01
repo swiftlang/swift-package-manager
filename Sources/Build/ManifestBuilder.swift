@@ -312,8 +312,11 @@ extension LLBuildManifestBuilder {
         }
         let allPackageDependencies = try! topologicalSort(nodes, successors: { $0.dependencies })
 
-        // Collect all targets' dependency graphs
-        var targetDepGraphMap : [ResolvedTarget: InterModuleDependencyGraph] = [:]
+        // All modules discovered so far as a part of this package manifest.
+        // This includes modules that correspond to the package's own targets, package dependency
+        // targets, and modules that are discovered as dependencies of the above in individual
+        // dependency scanning actions
+        var discoveredModulesMap : SwiftDriver.ModuleInfoMap = [:]
 
         // Create commands for all target descriptions in the plan.
         for dependency in allPackageDependencies.reversed() {
@@ -341,7 +344,7 @@ extension LLBuildManifestBuilder {
             switch description {
                 case .swift(let desc):
                     try createExplicitSwiftTargetCompileCommand(description: desc,
-                                                                targetDepGraphMap: &targetDepGraphMap)
+                                                                discoveredModulesMap: &discoveredModulesMap)
                 case .clang(let desc):
                     createClangCompileCommand(desc)
             }
@@ -350,7 +353,7 @@ extension LLBuildManifestBuilder {
 
     private func createExplicitSwiftTargetCompileCommand(
         description: SwiftTargetBuildDescription,
-        targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
+        discoveredModulesMap: inout SwiftDriver.ModuleInfoMap
     ) throws {
         // Inputs.
         let inputs = computeSwiftCompileCmdInputs(description)
@@ -362,7 +365,7 @@ extension LLBuildManifestBuilder {
 
         // Commands.
         try addExplicitBuildSwiftCmds(description, inputs: inputs,
-                                      targetDepGraphMap: &targetDepGraphMap)
+                                      discoveredModulesMap: &discoveredModulesMap)
 
         addTargetCmd(description, cmdOutputs: cmdOutputs)
         addModuleWrapCmd(description)
@@ -370,13 +373,14 @@ extension LLBuildManifestBuilder {
 
     private func addExplicitBuildSwiftCmds(
         _ targetDescription: SwiftTargetBuildDescription,
-        inputs: [Node], targetDepGraphMap: inout [ResolvedTarget: InterModuleDependencyGraph]
+        inputs: [Node],
+        discoveredModulesMap: inout SwiftDriver.ModuleInfoMap
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
-        var targetDependencyMap: SwiftDriver.ExternalDependencyArtifactMap = [:]
-        collectTargetDependencyInfos(for: targetDescription.target,
-                                     targetDepGraphMap: targetDepGraphMap,
-                                     dependencyArtifactMap: &targetDependencyMap)
+        var dependencyModulePathMap: SwiftDriver.ExternalTargetModulePathMap = [:]
+        // Collect paths for target dependencies of this target (direct and transitive)
+        collectTargetDependencyModulePaths(for: targetDescription.target,
+                                           dependencyModulePathMap: &dependencyModulePathMap)
 
         // Compute the set of frontend
         // jobs needed to build this Swift target.
@@ -384,33 +388,59 @@ extension LLBuildManifestBuilder {
         commandLine.append("-driver-use-frontend-path")
         commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
         commandLine.append("-experimental-explicit-module-build")
-        // FIXME: At some point SwiftPM should provide its own executor for
-        // running jobs/launching processes during planning
         let resolver = try ArgsResolver(fileSystem: targetDescription.fs)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
                                               fileSystem: targetDescription.fs,
                                               env: ProcessEnv.vars)
         var driver = try Driver(args: commandLine, fileSystem: targetDescription.fs,
                                 executor: executor,
-                                externalModuleDependencies: targetDependencyMap)
+                                externalBuildArtifacts: (dependencyModulePathMap, discoveredModulesMap))
 
         let jobs = try driver.planBuild()
 
+        // Save the path to the target's module to be used by its dependents
         // Save the dependency graph of this target to be used by its dependents
         guard let dependencyGraph = driver.interModuleDependencyGraph else {
             fatalError("Expected module dependency graph for target: \(targetDescription)")
         }
-        targetDepGraphMap[targetDescription.target] = dependencyGraph
+        try accumulateDiscoveredModules(from: dependencyGraph,
+                                        discoveredModules: &discoveredModulesMap)
+
         try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
                                isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
     }
 
+    private func accumulateDiscoveredModules(
+        from dependencyGraph: InterModuleDependencyGraph,
+        discoveredModules: inout SwiftDriver.ModuleInfoMap
+    ) throws {
+        for (moduleId, moduleInfo) in dependencyGraph.modules {
+            switch moduleId {
+              case .swift:
+                discoveredModules[moduleId] = moduleInfo
+              case .clang:
+                guard let existingModuleInfo = discoveredModules[moduleId] else {
+                  discoveredModules[moduleId] = moduleInfo
+                  break
+                }
+                // If this module *has* been seen before, merge the module infos to capture
+                // the super-set of so-far discovered dependencies of this module at various
+                // PCMArg scanning actions.
+                let combinedDependenciesInfo =
+                  InterModuleDependencyGraph.mergeClangModuleInfoDependencies(moduleInfo,
+                                                                              existingModuleInfo)
+                discoveredModules[moduleId] = combinedDependenciesInfo
+              case .swiftPlaceholder:
+                fatalError("Unresolved placeholder dependencies at manifest build stage: \(moduleId)")
+            }
+        }
+    }
+
     /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
     /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
-    private func collectTargetDependencyInfos(for target: ResolvedTarget,
-                                              targetDepGraphMap: [ResolvedTarget: InterModuleDependencyGraph],
-                                              dependencyArtifactMap: inout SwiftDriver.ExternalDependencyArtifactMap
-    ) {
+    private func collectTargetDependencyModulePaths(
+        for target: ResolvedTarget,
+        dependencyModulePathMap: inout SwiftDriver.ExternalTargetModulePathMap) {
         for dependency in target.dependencies {
             switch dependency {
                 case .product:
@@ -418,36 +448,27 @@ extension LLBuildManifestBuilder {
                     let dependencyProduct = dependency.product!
                     for dependencyProductTarget in dependencyProduct.targets {
                         addTargetDependencyInfo(for: dependencyProductTarget,
-                                                targetDepGraphMap: targetDepGraphMap,
-                                                dependencyArtifactMap: &dependencyArtifactMap)
+                                                dependencyModulePathMap: &dependencyModulePathMap)
 
                     }
                 case .target:
                     // Product dependencies are broken down into the targets that make them up.
                     let dependencyTarget = dependency.target!
                     addTargetDependencyInfo(for: dependencyTarget,
-                                            targetDepGraphMap: targetDepGraphMap,
-                                            dependencyArtifactMap: &dependencyArtifactMap)
+                                            dependencyModulePathMap: &dependencyModulePathMap)
             }
         }
     }
 
     private func addTargetDependencyInfo(for target: ResolvedTarget,
-                                         targetDepGraphMap: [ResolvedTarget: InterModuleDependencyGraph],
-                                         dependencyArtifactMap: inout SwiftDriver.ExternalDependencyArtifactMap) {
+                                         dependencyModulePathMap: inout SwiftDriver.ExternalTargetModulePathMap) {
         guard case .swift(let dependencySwiftTargetDescription) = plan.targetMap[target] else {
             return
         }
-        guard let dependencyGraph = targetDepGraphMap[target] else {
-            fatalError("Expected dependency graph for target: \(target.description)")
-        }
-        let dependencyModulePath = dependencySwiftTargetDescription.moduleOutputPath
-        dependencyArtifactMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
-            (dependencyModulePath, dependencyGraph)
-
-        collectTargetDependencyInfos(for: target,
-                                     targetDepGraphMap: targetDepGraphMap,
-                                     dependencyArtifactMap: &dependencyArtifactMap)
+        dependencyModulePathMap[ModuleDependencyId.swiftPlaceholder(target.c99name)] =
+            dependencySwiftTargetDescription.moduleOutputPath
+        collectTargetDependencyModulePaths(for: target,
+                                           dependencyModulePathMap: &dependencyModulePathMap)
     }
 
     private func addSwiftCmdsEmitSwiftModuleSeparately(
