@@ -310,7 +310,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         
     }
     
-    /// Verifies that if the first line of `Package.swift` is invalid but doesn't contain any pre-defined misspelling, then the Swift tools version defaults to 3.1.
+    /// Verifies that if the first line of the manifest is invalid but doesn't contain any pre-defined misspelling, then the Swift tools version defaults to 3.1.
     func testDefault() throws {
         let invalidVersionSpecificationsDefaultedTo3_1 = [
             "//\nswift-tools-version:5.3\n": (3, 1, 0, "3.1.0"),

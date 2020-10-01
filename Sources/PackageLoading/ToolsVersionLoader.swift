@@ -188,8 +188,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     ///
     /// The constituent parts include the spacing between "//" and "swift-tools-version", and the version specifier, if either is present.
     ///
-    /// - Parameter bytes: The raw bytes of the content of `Package.swift`.
-    /// - Returns: The spacing between "//" and "swift-tools-version" (if present, or `nil`), the version specifier (if present, or `nil`), and of raw bytes of the rest of the content of `Package.swift`.
+    /// - Parameter bytes: The raw bytes of the content of the manifest.
+    /// - Returns: The spacing between "//" and "swift-tools-version" (if present, or `nil`), the version specifier (if present, or `nil`), and of raw bytes of the rest of the content of the manifest.
     public static func split(_ bytes: ByteString) -> (spacingAfterSlashes: String?, versionSpecifier: String?, rest: [UInt8]) {
         let splitted = bytes.contents.split(
             separator: UInt8(ascii: "\n"),
