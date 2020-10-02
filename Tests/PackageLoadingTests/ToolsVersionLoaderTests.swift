@@ -33,7 +33,7 @@ class ToolsVersionLoaderTests: XCTestCase {
     func testValidVersions() throws {
 
         let validVersions = [
-            // No space between "//" and "swift-tools-version" for Swift ≥ 5.3:
+            // No space between "//" and "swift-tools-version" for Swift > 5.3:
             "//swift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
             "//swift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
             "//swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
@@ -55,7 +55,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
             "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
-            // 1 horizontal tab character ("    ") between "//" and "swift-tools-version":
+            // 1 horizontal tab character ("    ") between "//" and "swift-tools-version" for Swift > 5.3:
             "//\tswift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
             "//\tswift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
             "//\tswift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
@@ -66,7 +66,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//\tswift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
             "//\tswift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
             "//\tsWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
-//            // 1 horizontal tab character followed by 1 space character ("     ") between "//" and "swift-tools-version":
+//            // 1 horizontal tab character followed by 1 space character ("     ") between "//" and "swift-tools-version" for Swift > 5.3:
             "// \tswift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
             "// \tswift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
             "// \tswift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
@@ -77,7 +77,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// \tswift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
             "// \tswift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
             "// \tsWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
-//            // An assortment of horizontal whitespace characters between "//" and "swift-tools-version":
+//            // An assortment of horizontal whitespace characters between "//" and "swift-tools-version" for Swift > 5.3:
             "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
             "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
             "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
