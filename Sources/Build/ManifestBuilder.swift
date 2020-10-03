@@ -855,18 +855,14 @@ extension TypedVirtualPath {
     /// Resolve a typed virtual path provided by the Swift driver to
     /// a node in the build graph.
     func resolveToNode() -> Node {
-        switch file {
-        case .relative(let path):
-            return Node.file(localFileSystem.currentWorkingDirectory!.appending(path))
-
-        case .absolute(let path):
-            return Node.file(path)
-
-        case .temporary(let path), .fileList(let path, _):
-            return Node.virtual(path.pathString)
-
-        case .standardInput, .standardOutput:
-            fatalError("Cannot handle standard input or output")
+        if let absolutePath = file.absolutePath {
+            return Node.file(absolutePath)
+        } else if let relativePath = file.relativePath {
+            return Node.file(localFileSystem.currentWorkingDirectory!.appending(relativePath))
+        } else if let temporaryFileName = file.temporaryFileName {
+            return Node.virtual(temporaryFileName.pathString)
+        } else {
+            fatalError("Cannot resolve VirtualPath: \(file)")
         }
     }
 }
