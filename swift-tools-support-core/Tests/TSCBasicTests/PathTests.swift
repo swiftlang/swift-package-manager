@@ -365,7 +365,5 @@ class PathTests: XCTestCase {
 
     // FIXME: We also need tests for join() operations.
 
-    // FIXME: We also need tests for dirname, suffix, etc.
-
     // FIXME: We also need test for stat() operations.
 }
