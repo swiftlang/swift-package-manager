@@ -243,6 +243,14 @@ public struct RelativePath: Hashable {
         return _impl.basename
     }
 
+    /// Returns the basename without the extension.
+    public var basenameWithoutExt: String {
+        if let ext = self.extension {
+            return String(basename.dropLast(ext.count + 1))
+        }
+        return basename
+    }
+
     /// Suffix (including leading `.` character) if any.  Note that a basename
     /// that starts with a `.` character is not considered a suffix, nor is a
     /// trailing `.` character.
