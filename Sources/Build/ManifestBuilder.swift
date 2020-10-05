@@ -403,37 +403,11 @@ extension LLBuildManifestBuilder {
         guard let dependencyGraph = driver.interModuleDependencyGraph else {
             fatalError("Expected module dependency graph for target: \(targetDescription)")
         }
-        try accumulateDiscoveredModules(from: dependencyGraph,
-                                        discoveredModules: &discoveredModulesMap)
+        try InterModuleDependencyGraph.mergeModules(from: dependencyGraph,
+                                                    into: &discoveredModulesMap)
 
         try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
                                isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
-    }
-
-    private func accumulateDiscoveredModules(
-        from dependencyGraph: InterModuleDependencyGraph,
-        discoveredModules: inout SwiftDriver.ModuleInfoMap
-    ) throws {
-        for (moduleId, moduleInfo) in dependencyGraph.modules {
-            switch moduleId {
-              case .swift:
-                discoveredModules[moduleId] = moduleInfo
-              case .clang:
-                guard let existingModuleInfo = discoveredModules[moduleId] else {
-                  discoveredModules[moduleId] = moduleInfo
-                  break
-                }
-                // If this module *has* been seen before, merge the module infos to capture
-                // the super-set of so-far discovered dependencies of this module at various
-                // PCMArg scanning actions.
-                let combinedDependenciesInfo =
-                  InterModuleDependencyGraph.mergeClangModuleInfoDependencies(moduleInfo,
-                                                                              existingModuleInfo)
-                discoveredModules[moduleId] = combinedDependenciesInfo
-              case .swiftPlaceholder:
-                fatalError("Unresolved placeholder dependencies at manifest build stage: \(moduleId)")
-            }
-        }
     }
 
     /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
