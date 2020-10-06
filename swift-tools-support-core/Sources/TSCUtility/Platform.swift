@@ -16,6 +16,7 @@ public enum Platform: Equatable {
     case android
     case darwin
     case linux(LinuxFlavor)
+    case windows
 
     /// Recognized flavors of linux.
     public enum LinuxFlavor: Equatable {
@@ -27,6 +28,9 @@ public enum Platform: Equatable {
     public static var currentPlatform = Platform._findCurrentPlatform(localFileSystem)
     /// Attempt to match `uname` with recognized platforms.
     public static func _findCurrentPlatform(_ fs: FileSystem) -> Platform? {
+#if os(Windows)
+        return .windows
+#else
         guard let uname = try? Process.checkNonZeroExit(args: "uname").spm_chomp().lowercased() else { return nil }
         switch uname {
         case "darwin":
@@ -36,6 +40,7 @@ public enum Platform: Equatable {
         default:
             return nil
         }
+#endif
     }
 
     public static func _findCurrentPlatformLinux(_ fs: FileSystem) -> Platform? {
