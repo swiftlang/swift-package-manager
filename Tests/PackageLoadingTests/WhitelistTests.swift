@@ -11,24 +11,24 @@
 import PackageLoading
 import XCTest
 
-final class PkgConfigWhitelistTests: XCTestCase {
+final class PkgConfigAllowlistTests: XCTestCase {
     func testSimpleFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0"]
         let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-w"]
-        XCTAssertTrue(whitelist(pcFile: "dummy", flags: (cFlags, libs)).unallowed.isEmpty)
+        XCTAssertTrue(allowlist(pcFile: "dummy", flags: (cFlags, libs)).unallowed.isEmpty)
     }
 
     func testFlagsWithInvalidFlags() {
         let cFlags = ["-I/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"]
         let libs = ["-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "name", "-werror"]
-        let unallowed = whitelist(pcFile: "dummy", flags: (cFlags, libs)).unallowed
+        let unallowed = allowlist(pcFile: "dummy", flags: (cFlags, libs)).unallowed
         XCTAssertEqual(unallowed, ["-L/hello", "-module-name", "name", "-werror"])
     }
 
     func testFlagsWithValueInNextFlag() {
         let cFlags = ["-I/usr/local", "-I", "/usr/local/Cellar/gtk+3/3.18.9/include/gtk-3.0", "-L/hello"]
         let libs = ["-L", "/usr/lib", "-L/usr/local/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"]
-        let unallowed = whitelist(pcFile: "dummy", flags: (cFlags, libs)).unallowed
+        let unallowed = allowlist(pcFile: "dummy", flags: (cFlags, libs)).unallowed
         XCTAssertEqual(unallowed, ["-L/hello", "-module-name", "ok", "name"])
     }
 

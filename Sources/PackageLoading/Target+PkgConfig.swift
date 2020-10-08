@@ -72,8 +72,8 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
             fileSystem: fileSystem,
             brewPrefix: brewPrefix)
 
-        // Run the whitelist checker.
-        let filtered = whitelist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+        // Run the allow list checker.
+        let filtered = allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
 
         // Remove any default flags which compiler adds automatically.
         let (cFlags, libs) = removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
@@ -81,7 +81,7 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
         // Set the error if there are any unallowed flags.
         var error: Swift.Error?
         if !filtered.unallowed.isEmpty {
-            error = PkgConfigError.nonWhitelistedFlags(filtered.unallowed.joined(separator: ", "))
+            error = PkgConfigError.prohibitedFlags(filtered.unallowed.joined(separator: ", "))
         }
 
         return PkgConfigResult(
@@ -170,7 +170,7 @@ extension SystemPackageProviderDescription {
 /// compiler/linker. List of allowed flags:
 /// cFlags: -I, -F
 /// libs: -L, -l, -F, -framework, -w
-public func whitelist(
+public func allowlist(
     pcFile: String,
     flags: (cFlags: [String], libs: [String])
 ) -> (cFlags: [String], libs: [String], unallowed: [String]) {

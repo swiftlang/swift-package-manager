@@ -14,7 +14,7 @@ import Foundation
 public enum PkgConfigError: Swift.Error, CustomStringConvertible {
     case couldNotFindConfigFile(name: String)
     case parsingError(String)
-    case nonWhitelistedFlags(String)
+    case prohibitedFlags(String)
 
     public var description: String {
         switch self {
@@ -22,8 +22,8 @@ public enum PkgConfigError: Swift.Error, CustomStringConvertible {
             return "couldn't find pc file for \(name)"
         case .parsingError(let error):
             return "parsing error(s): \(error)"
-        case .nonWhitelistedFlags(let flags):
-            return "non whitelisted flag(s): \(flags)"
+        case .prohibitedFlags(let flags):
+            return "prohibited flag(s): \(flags)"
         }
     }
 }
