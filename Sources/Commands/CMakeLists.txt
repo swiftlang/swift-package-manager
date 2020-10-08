@@ -32,8 +32,10 @@ target_link_libraries(Commands PUBLIC
   XCBuildSupport
   Xcodeproj)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  target_link_libraries(Commands PUBLIC
-    FoundationXML)
+  if(Foundation_FOUND)
+    target_link_libraries(Commands PUBLIC
+      FoundationXML)
+  endif()
 endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Commands PROPERTIES
