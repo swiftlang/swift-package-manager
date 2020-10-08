@@ -59,6 +59,11 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codab
         return _version.patch
     }
 
+    /// Returns the tools version with zeroed patch number.
+    public var zeroedPatch: ToolsVersion {
+        return ToolsVersion(version: Version(major, minor, 0))
+    }
+
     /// The underlying backing store.
     fileprivate let _version: Version
 
