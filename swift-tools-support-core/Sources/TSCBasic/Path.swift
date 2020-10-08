@@ -134,7 +134,7 @@ public struct AbsolutePath: Hashable {
     /// True if the path is the root directory.
     public var isRoot: Bool {
 #if os(Windows)
-        return _impl.string.withCString(encodedAs: UTF16.self, PathIsRootW)
+        return _impl.string.withCString(encodedAs: UTF16.self, PathCchIsRoot)
 #else
         return _impl == PathImpl.root
 #endif
@@ -241,14 +241,6 @@ public struct RelativePath: Hashable {
     /// Last path component (including the suffix, if any).  It is never empty.
     public var basename: String {
         return _impl.basename
-    }
-
-    /// Returns the basename without the extension.
-    public var basenameWithoutExt: String {
-        if let ext = self.extension {
-            return String(basename.dropLast(ext.count + 1))
-        }
-        return basename
     }
 
     /// Suffix (including leading `.` character) if any.  Note that a basename

@@ -188,6 +188,23 @@ class ProcessTests: XCTestCase {
         XCTAssertEqual(result2, "hello\n")
     }
 
+    func testStdin() throws {
+        var stdout = [UInt8]()
+        let process = Process(args: script("in-to-out"), outputRedirection: .stream(stdout: { stdoutBytes in
+            stdout += stdoutBytes
+        }, stderr: { _ in }))
+        let stdinStream = try process.launch()
+
+        stdinStream.write("hello\n")
+        stdinStream.flush()
+
+        try stdinStream.close()
+
+        try process.waitUntilExit()
+
+        XCTAssertEqual(String(decoding: stdout, as: UTF8.self), "hello\n")
+    }
+
     func testStdoutStdErr() throws {
         // A simple script to check that stdout and stderr are captured separatly.
         do {

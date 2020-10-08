@@ -133,7 +133,7 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath(".").dirname, ".")
     }
 
-    func testBasenameExtraction() {
+    func testBaseNameExtraction() {
         XCTAssertEqual(AbsolutePath("/").basename, "/")
         XCTAssertEqual(AbsolutePath("/a").basename, "a")
         XCTAssertEqual(AbsolutePath("/./a").basename, "a")
@@ -147,28 +147,6 @@ class PathTests: XCTestCase {
         XCTAssertEqual(RelativePath("abc").basename, "abc")
         XCTAssertEqual(RelativePath("").basename, ".")
         XCTAssertEqual(RelativePath(".").basename, ".")
-    }
-
-    func testBasenameWithoutExtExtraction() {
-        XCTAssertEqual(AbsolutePath("/").basenameWithoutExt, "/")
-        XCTAssertEqual(AbsolutePath("/a").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/./a").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/../..").basenameWithoutExt, "/")
-        XCTAssertEqual(AbsolutePath("/a.txt").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/b/c/../a.txt").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/b/c/../a.bcd.txt").basenameWithoutExt, "a.bcd")
-        XCTAssertEqual(RelativePath("../..").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("../a").basenameWithoutExt, "a")
-        XCTAssertEqual(RelativePath("../a/..").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("a/..").basenameWithoutExt, ".")
-        XCTAssertEqual(RelativePath("./..").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("a/../////../////./////").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("abc").basenameWithoutExt, "abc")
-        XCTAssertEqual(RelativePath("").basenameWithoutExt, ".")
-        XCTAssertEqual(RelativePath(".").basenameWithoutExt, ".")
-        XCTAssertEqual(RelativePath("a.txt").basenameWithoutExt, "a")
-        XCTAssertEqual(RelativePath("b/c/../a.txt").basenameWithoutExt, "a")
-        XCTAssertEqual(RelativePath("b/c/../a.bcd.txt").basenameWithoutExt, "a.bcd")
     }
 
     func testSuffixExtraction() {
@@ -364,6 +342,8 @@ class PathTests: XCTestCase {
     }
 
     // FIXME: We also need tests for join() operations.
+
+    // FIXME: We also need tests for dirname, basename, suffix, etc.
 
     // FIXME: We also need test for stat() operations.
 }
