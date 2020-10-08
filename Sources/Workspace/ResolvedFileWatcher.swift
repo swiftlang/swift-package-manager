@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -10,36 +10,6 @@
 
 import PackageModel
 import PackageGraph
-
-extension ManagedDependency {
-    public var checkoutState: CheckoutState? {
-        if case .checkout(let checkoutState) = state {
-            return checkoutState
-        }
-        return nil
-    }
-}
-
-extension PinsStore {
-    /// Pin a managed dependency at its checkout state.
-    ///
-    /// This method does nothing if the dependency is in edited state.
-    func pin(_ dependency: ManagedDependency) {
-
-        // Get the checkout state.
-        let checkoutState: CheckoutState
-        switch dependency.state {
-        case .checkout(let state):
-            checkoutState = state
-        case .edited, .local:
-            return
-        }
-
-        self.pin(
-            packageRef: dependency.packageRef,
-            state: checkoutState)
-    }
-}
 
 /// A file watcher utility for the Package.resolved file.
 ///

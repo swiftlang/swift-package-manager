@@ -162,172 +162,6 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 ///
 /// This class does *not* support concurrent operations.
 public class Workspace {
-    /// A struct representing all the current manifests (root + external) in a package graph.
-    public struct DependencyManifests {
-        /// The package graph root.
-        let root: PackageGraphRoot
-
-        /// The dependency manifests in the transitive closure of root manifest.
-        let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter)]
-
-        let workspace: Workspace
-
-        fileprivate init(
-            root: PackageGraphRoot,
-            dependencies: [(Manifest, ManagedDependency, ProductFilter)],
-            workspace: Workspace
-        ) {
-            self.root = root
-            self.dependencies = dependencies
-            self.workspace = workspace
-        }
-
-        /// Find a manifest given its name.
-        func lookup(manifest name: String) -> Manifest? {
-            return dependencies.first(where: { $0.manifest.name == name })?.manifest
-        }
-
-        /// Returns all manifests contained in DependencyManifests.
-        public func allDependencyManifests() -> [Manifest] {
-            return dependencies.map({ $0.manifest })
-        }
-
-        /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        public func missingPackageURLs() -> Set<PackageReference> {
-            return computePackageURLs().missing
-        }
-
-        /// Returns the list of packages which are allowed to vend products with unsafe flags.
-        func unsafeAllowedPackages() -> Set<PackageReference> {
-            var result = Set<PackageReference>()
-
-            for dependency in dependencies {
-                let dependency = dependency.dependency
-                switch dependency.state {
-                case .checkout(let checkout):
-                    if checkout.isBranchOrRevisionBased {
-                        result.insert(dependency.packageRef)
-                    }
-                case .edited:
-                    continue
-                case .local:
-                    result.insert(dependency.packageRef)
-                }
-            }
-
-            // Root packages are always allowed to use unsafe flags.
-            result.formUnion(root.packageRefs)
-
-            return result
-        }
-
-        func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [String: Manifest] = Dictionary(uniqueKeysWithValues:
-                root.manifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) }) +
-                dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
-
-            var inputIdentities: Set<PackageReference> = []
-            let inputNodes: [GraphLoadingNode] = root.manifests.map({ manifest in
-                let identity = PackageReference.computeIdentity(packageURL: manifest.url)
-                let package = PackageReference(identity: identity, path: manifest.url, kind: manifest.packageKind)
-                inputIdentities.insert(package)
-                let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
-                return node
-            }) + root.dependencies.compactMap({ dependency in
-                let url = workspace.config.mirroredURL(forURL: dependency.url)
-                let identity = PackageReference.computeIdentity(packageURL: url)
-                let package = PackageReference(identity: identity, path: url)
-                inputIdentities.insert(package)
-                guard let manifest = manifestsMap[identity] else { return nil }
-                let node = GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
-                return node
-            })
-
-            var requiredIdentities: Set<PackageReference> = []
-            _ = transitiveClosure(inputNodes) { node in
-                return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
-                    let url = workspace.config.mirroredURL(forURL: dependency.declaration.url)
-                    let identity = PackageReference.computeIdentity(packageURL: url)
-                    let package = PackageReference(identity: identity, path: url)
-                    requiredIdentities.insert(package)
-                    guard let manifest = manifestsMap[identity] else { return nil }
-                    return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
-                })
-            }
-            // FIXME: This should be an ordered set.
-            requiredIdentities = inputIdentities.union(requiredIdentities)
-
-            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
-                let url = workspace.config.mirroredURL(forURL: $0.1.url)
-                return PackageReference(identity: $0.key, path: url, kind: $0.1.packageKind)
-            }))
-            // We should never have loaded a manifest we don't need.
-            assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
-            // These are the missing package identities.
-            let missingIdentities = requiredIdentities.subtracting(availableIdentities)
-
-            return (requiredIdentities, missingIdentities)
-        }
-
-        /// Returns constraints of the dependencies, including edited package constraints.
-        func dependencyConstraints() -> [RepositoryPackageConstraint] {
-            var allConstraints = [RepositoryPackageConstraint]()
-
-            for (externalManifest, managedDependency, productFilter) in dependencies {
-                // For edited packages, add a constraint with unversioned requirement so the
-                // resolver doesn't try to resolve it.
-                switch managedDependency.state {
-                case .edited:
-                    // FIXME: We shouldn't need to construct a new package reference object here.
-                    // We should get the correct one from managed dependency object.
-                    let ref = PackageReference(
-                        identity: managedDependency.packageRef.identity,
-                        path: managedDependency.packageRef.path,
-                        kind: .local
-                    )
-                    let constraint = RepositoryPackageConstraint(
-                        container: ref,
-                        requirement: .unversioned,
-                        products: productFilter)
-                    allConstraints.append(constraint)
-                case .checkout, .local:
-                    break
-                }
-                allConstraints += externalManifest.dependencyConstraints(
-                    productFilter: productFilter,
-                    config: workspace.config
-                )
-            }
-            return allConstraints
-        }
-
-        // FIXME: @testable(internal)
-        /// Returns a list of constraints for all 'edited' package.
-        public func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
-            var constraints = [RepositoryPackageConstraint]()
-
-            for (_, managedDependency, productFilter) in dependencies {
-                switch managedDependency.state {
-                case .checkout, .local: continue
-                case .edited: break
-                }
-                // FIXME: We shouldn't need to construct a new package reference object here.
-                // We should get the correct one from managed dependency object.
-                let ref = PackageReference(
-                    identity: managedDependency.packageRef.identity,
-                    path: workspace.path(for: managedDependency).pathString,
-                    kind: .local
-                )
-                let constraint = RepositoryPackageConstraint(
-                    container: ref,
-                    requirement: .unversioned,
-                    products: productFilter)
-                constraints.append(constraint)
-            }
-            return constraints
-        }
-    }
-
     /// The delegate interface.
     public let delegate: WorkspaceDelegate?
 
@@ -1123,9 +957,195 @@ extension Workspace {
     }
 }
 
+fileprivate extension PinsStore {
+    /// Pin a managed dependency at its checkout state.
+    ///
+    /// This method does nothing if the dependency is in edited state.
+    func pin(_ dependency: ManagedDependency) {
+
+        // Get the checkout state.
+        let checkoutState: CheckoutState
+        switch dependency.state {
+        case .checkout(let state):
+            checkoutState = state
+        case .edited, .local:
+            return
+        }
+
+        self.pin(
+            packageRef: dependency.packageRef,
+            state: checkoutState)
+    }
+}
+
 // MARK: - TSCUtility Functions
 
 extension Workspace {
+    /// A struct representing all the current manifests (root + external) in a package graph.
+    public struct DependencyManifests {
+        /// The package graph root.
+        let root: PackageGraphRoot
+
+        /// The dependency manifests in the transitive closure of root manifest.
+        let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter)]
+
+        let workspace: Workspace
+
+        fileprivate init(
+            root: PackageGraphRoot,
+            dependencies: [(Manifest, ManagedDependency, ProductFilter)],
+            workspace: Workspace
+        ) {
+            self.root = root
+            self.dependencies = dependencies
+            self.workspace = workspace
+        }
+
+        /// Find a manifest given its name.
+        func lookup(manifest name: String) -> Manifest? {
+            return dependencies.first(where: { $0.manifest.name == name })?.manifest
+        }
+
+        /// Returns all manifests contained in DependencyManifests.
+        public func allDependencyManifests() -> [Manifest] {
+            return dependencies.map({ $0.manifest })
+        }
+
+        /// Computes the identities which are declared in the manifests but aren't present in dependencies.
+        public func missingPackageURLs() -> Set<PackageReference> {
+            return computePackageURLs().missing
+        }
+
+        /// Returns the list of packages which are allowed to vend products with unsafe flags.
+        func unsafeAllowedPackages() -> Set<PackageReference> {
+            var result = Set<PackageReference>()
+
+            for dependency in dependencies {
+                let dependency = dependency.dependency
+                switch dependency.state {
+                case .checkout(let checkout):
+                    if checkout.isBranchOrRevisionBased {
+                        result.insert(dependency.packageRef)
+                    }
+                case .edited:
+                    continue
+                case .local:
+                    result.insert(dependency.packageRef)
+                }
+            }
+
+            // Root packages are always allowed to use unsafe flags.
+            result.formUnion(root.packageRefs)
+
+            return result
+        }
+
+        func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
+            let manifestsMap: [String: Manifest] = Dictionary(uniqueKeysWithValues:
+                root.manifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) }) +
+                dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
+
+            var inputIdentities: Set<PackageReference> = []
+            let inputNodes: [GraphLoadingNode] = root.manifests.map({ manifest in
+                let identity = PackageReference.computeIdentity(packageURL: manifest.url)
+                let package = PackageReference(identity: identity, path: manifest.url, kind: manifest.packageKind)
+                inputIdentities.insert(package)
+                let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
+                return node
+            }) + root.dependencies.compactMap({ dependency in
+                let url = workspace.config.mirroredURL(forURL: dependency.url)
+                let identity = PackageReference.computeIdentity(packageURL: url)
+                let package = PackageReference(identity: identity, path: url)
+                inputIdentities.insert(package)
+                guard let manifest = manifestsMap[identity] else { return nil }
+                let node = GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                return node
+            })
+
+            var requiredIdentities: Set<PackageReference> = []
+            _ = transitiveClosure(inputNodes) { node in
+                return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
+                    let url = workspace.config.mirroredURL(forURL: dependency.declaration.url)
+                    let identity = PackageReference.computeIdentity(packageURL: url)
+                    let package = PackageReference(identity: identity, path: url)
+                    requiredIdentities.insert(package)
+                    guard let manifest = manifestsMap[identity] else { return nil }
+                    return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                })
+            }
+            // FIXME: This should be an ordered set.
+            requiredIdentities = inputIdentities.union(requiredIdentities)
+
+            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
+                let url = workspace.config.mirroredURL(forURL: $0.1.url)
+                return PackageReference(identity: $0.key, path: url, kind: $0.1.packageKind)
+            }))
+            // We should never have loaded a manifest we don't need.
+            assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
+            // These are the missing package identities.
+            let missingIdentities = requiredIdentities.subtracting(availableIdentities)
+
+            return (requiredIdentities, missingIdentities)
+        }
+
+        /// Returns constraints of the dependencies, including edited package constraints.
+        func dependencyConstraints() -> [RepositoryPackageConstraint] {
+            var allConstraints = [RepositoryPackageConstraint]()
+
+            for (externalManifest, managedDependency, productFilter) in dependencies {
+                // For edited packages, add a constraint with unversioned requirement so the
+                // resolver doesn't try to resolve it.
+                switch managedDependency.state {
+                case .edited:
+                    // FIXME: We shouldn't need to construct a new package reference object here.
+                    // We should get the correct one from managed dependency object.
+                    let ref = PackageReference(
+                        identity: managedDependency.packageRef.identity,
+                        path: managedDependency.packageRef.path,
+                        kind: .local
+                    )
+                    let constraint = RepositoryPackageConstraint(
+                        container: ref,
+                        requirement: .unversioned,
+                        products: productFilter)
+                    allConstraints.append(constraint)
+                case .checkout, .local:
+                    break
+                }
+                allConstraints += externalManifest.dependencyConstraints(
+                    productFilter: productFilter,
+                    config: workspace.config
+                )
+            }
+            return allConstraints
+        }
+
+        // FIXME: @testable(internal)
+        /// Returns a list of constraints for all 'edited' package.
+        public func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
+            var constraints = [RepositoryPackageConstraint]()
+
+            for (_, managedDependency, productFilter) in dependencies {
+                switch managedDependency.state {
+                case .checkout, .local: continue
+                case .edited: break
+                }
+                // FIXME: We shouldn't need to construct a new package reference object here.
+                // We should get the correct one from managed dependency object.
+                let ref = PackageReference(
+                    identity: managedDependency.packageRef.identity,
+                    path: workspace.path(for: managedDependency).pathString,
+                    kind: .local
+                )
+                let constraint = RepositoryPackageConstraint(
+                    container: ref,
+                    requirement: .unversioned,
+                    products: productFilter)
+                constraints.append(constraint)
+            }
+            return constraints
+        }
+    }
 
     /// Watch the Package.resolved for changes.
     ///
