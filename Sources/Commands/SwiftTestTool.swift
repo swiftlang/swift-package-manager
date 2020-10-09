@@ -488,8 +488,9 @@ public struct SwiftTestTool: SwiftCommand {
             return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
       #else
+        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParameters())
         let args = [path.description, "--dump-tests-json"]
-        let data = try Process.checkNonZeroExit(arguments: args)
+        let data = try Process.checkNonZeroExit(arguments: args, environment: env)
       #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
