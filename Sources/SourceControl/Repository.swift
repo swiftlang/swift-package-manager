@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -69,20 +69,15 @@ extension RepositorySpecifier: JSONMappable, JSONSerializable {
 public protocol RepositoryProvider {
     /// Fetch the complete repository at the given location to `path`.
     ///
-    /// - Parameters:
-    ///   - repository: The specifier of the repository to fetch.
-    ///
-    /// - Throws: If there is any error fetching the repository.
+    /// - Throws: If there is an error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
     /// Open the given repository.
     ///
     /// - Parameters:
-    ///   - repository: The specifier of the original repository from which the
-    ///     local clone repository was created.
+    ///   - repository: The specifier for the repository.
     ///   - path: The location of the repository on disk, at which the
     ///     repository has previously been created via `fetch`.
-    ///
     /// - Throws: If the repository is unable to be opened.
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository
 
@@ -94,15 +89,11 @@ public protocol RepositoryProvider {
     /// followed by checking out the cloned working copy at a particular ref.
     ///
     /// - Parameters:
-    ///   - repository: The specifier of the original repository from which the
-    ///     local clone repository was created.
     ///   - sourcePath: The location of the repository on disk, at which the
     ///     repository has previously been created via `fetch`.
     ///   - destinationPath: The path at which to create the working copy; it is
     ///     expected to be non-existent when called.
     ///   - editable: The checkout is expected to be edited by users.
-    ///
-    /// - Throws: If there is any error cloning the repository.
     func cloneCheckout(
         repository: RepositorySpecifier,
         at sourcePath: AbsolutePath,
@@ -115,8 +106,8 @@ public protocol RepositoryProvider {
     /// Open a working repository copy.
     ///
     /// - Parameters:
-    ///   - path: The location of the repository on disk, at which the repository
-    ///     has previously been created via `cloneCheckout`.
+    ///   - path: The location of the repository on disk, at which the
+    ///     repository has previously been created via `cloneCheckout`.
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
 }
 
