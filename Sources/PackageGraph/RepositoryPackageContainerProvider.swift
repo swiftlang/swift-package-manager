@@ -400,7 +400,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             }.1
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
-            if let error = error as? GitRepositoryError, error.description.contains("Needed a single revision") {
+            if let gitInvocationError = error as? ProcessResult.Error, gitInvocationError.description.contains("Needed a single revision") {
                 // It was a Git process invocation error.  Take a look at the repository to see if we can come up with a reasonable diagnostic.
                 if let rev = try? repository.resolveRevision(identifier: revision), repository.exists(revision: rev) {
                     // Revision does exist, so something else must be wrong.

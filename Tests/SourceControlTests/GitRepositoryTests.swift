@@ -383,15 +383,11 @@ class GitRepositoryTests: XCTestCase {
             // Change remote.
             try repo.setURL(remote: "origin", url: "../bar")
             XCTAssertEqual(Dictionary(uniqueKeysWithValues: try repo.remotes().map { ($0.0, $0.1) }), ["origin": "../bar"])
-            // Try changing remote of non-existent remote.
+            // Try changing remote of non-existant remote.
             do {
                 try repo.setURL(remote: "fake", url: "../bar")
-                XCTFail("unexpected success (shouldn’t have been able to set URL of missing remote)")
-            }
-            catch let error as GitRepositoryError {
-                XCTAssertEqual(error.path, testRepoPath)
-                XCTAssertNotNil(error.diagnosticLocation)
-            }
+                XCTFail("unexpected success")
+            } catch ProcessResult.Error.nonZeroExit {}
         }
     }
 
