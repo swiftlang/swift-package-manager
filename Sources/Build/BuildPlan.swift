@@ -16,6 +16,13 @@ import PackageLoading
 import Foundation
 import SPMBuildCore
 
+extension AbsolutePath {
+  fileprivate var asSwiftStringLiteralConstant: String {
+    return self.pathString.unicodeScalars
+              .reduce("", { $0 + $1.escaped(asASCII: false) })
+  }
+}
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -576,13 +583,17 @@ public final class SwiftTargetBuildDescription {
         guard let bundlePath = self.bundlePath else { return }
 
         let stream = BufferedOutputByteStream()
+
+        let mainPath: AbsolutePath =
+            AbsolutePath(Bundle.main.bundlePath).appending(component: bundlePath.basename)
+
         stream <<< """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let mainPath = Bundle.main.bundlePath + "/" + "\(bundlePath.basename)"
-                let buildPath = "\(bundlePath.pathString)"
+                let mainPath = "\(mainPath.asSwiftStringLiteralConstant)"
+                let buildPath = "\(bundlePath.asSwiftStringLiteralConstant)"
 
                 let preferredBundle = Bundle(path: mainPath)
 
