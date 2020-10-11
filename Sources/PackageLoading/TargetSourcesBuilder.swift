@@ -13,7 +13,7 @@ import TSCBasic
 import PackageModel
 import TSCUtility
 
-/// An utility to compute the source/resource files of a target.
+/// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {
     /// The target for which we're computing source/resource files.
     public let target: TargetDescription
