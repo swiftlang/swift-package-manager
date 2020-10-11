@@ -127,7 +127,7 @@ let package = Package(
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["SwiftToolsSupport-auto", "SPMBuildCore", "PackageGraph", "LLBuildManifest", "SwiftDriver"]),
+            dependencies: ["SwiftToolsSupport-auto", "SPMBuildCore", "PackageGraph", "LLBuildManifest", "SwiftDriver", "SPMLLBuild"]),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
