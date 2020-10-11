@@ -21,8 +21,7 @@ add_library(PackageLoading
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   PackageModel
-  TSCUtility
-  SPMLLBuild)
+  TSCUtility)
 if(Foundation_FOUND)
   target_link_libraries(PackageLoading PUBLIC
     $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
