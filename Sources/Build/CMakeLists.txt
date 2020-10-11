@@ -18,7 +18,8 @@ target_link_libraries(Build PUBLIC
   TSCBasic
   PackageGraph
   LLBuildManifest
-  SPMBuildCore)
+  SPMBuildCore
+  SPMLLBuild)
 target_link_libraries(Build PRIVATE
   SwiftDriver)
 
