@@ -109,7 +109,7 @@ let package = Package(
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["SwiftToolsSupport-auto", "PackageModel", "SPMLLBuild"]),
+            dependencies: ["SwiftToolsSupport-auto", "PackageModel"]),
 
         // MARK: Package Dependency Resolution
 
