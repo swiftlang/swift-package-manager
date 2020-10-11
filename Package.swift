@@ -140,7 +140,7 @@ let package = Package(
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["SwiftToolsSupport-auto", "Build", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: ["SwiftToolsSupport-auto", "SPMBuildCore", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
 
