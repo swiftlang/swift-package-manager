@@ -12,7 +12,6 @@ import TSCBasic
 import TSCUtility
 import PackageLoading
 import SPMBuildCore
-import Build
 import Foundation
 
 #if os(Windows)
