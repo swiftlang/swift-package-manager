@@ -848,6 +848,33 @@ public protocol PackageConditionProtocol: Codable {
     func satisfies(_ environment: BuildEnvironment) -> Bool
 }
 
+/// Wrapper for package condition so it can be conformed to Codable.
+struct PackageConditionWrapper: Codable {
+    var platform: PlatformsCondition?
+    var config: ConfigurationCondition?
+
+    var condition: PackageConditionProtocol {
+        if let platform = platform {
+            return platform
+        } else if let config = config {
+            return config
+        } else {
+            fatalError("unreachable")
+        }
+    }
+
+    init(_ condition: PackageConditionProtocol) {
+        switch condition {
+        case let platform as PlatformsCondition:
+            self.platform = platform
+        case let config as ConfigurationCondition:
+            self.config = config
+        default:
+            fatalError("unknown condition \(condition)")
+        }
+    }
+}
+
 /// Platforms condition implies that an assignment is valid on these platforms.
 public struct PlatformsCondition: PackageConditionProtocol {
     public let platforms: [Platform]
