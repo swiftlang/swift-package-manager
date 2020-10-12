@@ -156,33 +156,6 @@ extension TargetDescription.Dependency: Codable {
     }
 }
 
-/// Wrapper for package condition so it can be conformed to Codable.
-struct PackageConditionWrapper: Codable {
-    var platform: PlatformsCondition?
-    var config: ConfigurationCondition?
-
-    var condition: PackageConditionProtocol {
-        if let platform = platform {
-            return platform
-        } else if let config = config {
-            return config
-        } else {
-            fatalError("unreachable")
-        }
-    }
-
-    init(_ condition: PackageConditionProtocol) {
-        switch condition {
-        case let platform as PlatformsCondition:
-            self.platform = platform
-        case let config as ConfigurationCondition:
-            self.config = config
-        default:
-            fatalError("unknown condition \(condition)")
-        }
-    }
-}
-
 extension BinaryTarget.ArtifactSource: Codable {
     private enum CodingKeys: String, CodingKey {
         case remote, local
