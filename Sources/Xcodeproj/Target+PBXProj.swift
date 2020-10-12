@@ -26,7 +26,7 @@
 import Foundation
 
 import TSCBasic
-import PackageModel
+import PackageGraph
 import PackageLoading
 
 extension ResolvedTarget {

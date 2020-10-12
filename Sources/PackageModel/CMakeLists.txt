@@ -14,7 +14,6 @@ add_library(PackageModel
   PackageReference.swift
   Platform.swift
   Product.swift
-  ResolvedModels.swift
   Resource.swift
   Sources.swift
   Target.swift
