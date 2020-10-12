@@ -129,17 +129,6 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
         self._requiredDependencies = [:]
     }
 
-    public var description: String {
-        return "<Manifest: \(name)>"
-    }
-
-    /// Coding user info key for dump-package command.
-    ///
-    /// Presence of this key will hide some keys when encoding the Manifest object.
-    public static let dumpPackageKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "dumpPackage")!
-}
-
-extension Manifest {
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         // If we have already calcualted it, returned the cached value.
@@ -171,32 +160,6 @@ extension Manifest {
             _requiredDependencies[productFilter] = dependencies
             return dependencies
         }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
-
-        // Hide the keys that users shouldn't see when
-        // we're encoding for the dump-package command.
-        if encoder.userInfo[Manifest.dumpPackageKey] == nil {
-            try container.encode(path, forKey: .path)
-            try container.encode(url, forKey: .url)
-            try container.encode(version, forKey: .version)
-            try container.encode(targetMap, forKey: .targetMap)
-        }
-
-        try container.encode(toolsVersion, forKey: .toolsVersion)
-        try container.encode(pkgConfig, forKey: .pkgConfig)
-        try container.encode(providers, forKey: .providers)
-        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
-        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
-        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
-        try container.encode(dependencies, forKey: .dependencies)
-        try container.encode(products, forKey: .products)
-        try container.encode(targets, forKey: .targets)
-        try container.encode(platforms, forKey: .platforms)
-        try container.encode(packageKind, forKey: .packageKind)
     }
 
     /// Returns the targets required for building the provided products.
@@ -363,6 +326,45 @@ extension Manifest {
         } else {
             return false
         }
+    }
+
+    // MARK: - CustomStringConvertible
+
+    public var description: String {
+        return "<Manifest: \(name)>"
+    }
+
+    // MARK: - Codable
+
+    /// Coding user info key for dump-package command.
+    ///
+    /// Presence of this key will hide some keys when encoding the Manifest object.
+    public static let dumpPackageKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "dumpPackage")!
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+
+        // Hide the keys that users shouldn't see when
+        // we're encoding for the dump-package command.
+        if encoder.userInfo[Manifest.dumpPackageKey] == nil {
+            try container.encode(path, forKey: .path)
+            try container.encode(url, forKey: .url)
+            try container.encode(version, forKey: .version)
+            try container.encode(targetMap, forKey: .targetMap)
+        }
+
+        try container.encode(toolsVersion, forKey: .toolsVersion)
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
+        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
+        try container.encode(dependencies, forKey: .dependencies)
+        try container.encode(products, forKey: .products)
+        try container.encode(targets, forKey: .targets)
+        try container.encode(platforms, forKey: .platforms)
+        try container.encode(packageKind, forKey: .packageKind)
     }
 }
 
