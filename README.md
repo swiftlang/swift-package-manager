@@ -109,7 +109,7 @@ If you’re not comfortable sharing your question with the list, contact details
 
 ## Contributions
 
-To learn about the policies and best practices that govern contributions to the Swift project, please read the [Contributor Guide](https://swift.org/contributing/).
+To learn about the policies and best practices that govern contributions to the Swift project, please read the [Contributor Guide](Documentation/Contributing.md).
 
 If you are interested in contributing, please read the [Community Proposal](Documentation/Internals/PackageManagerCommunityProposal.md), which provides some context for decisions made in the current implementation and offers direction for the development of future features.
 
