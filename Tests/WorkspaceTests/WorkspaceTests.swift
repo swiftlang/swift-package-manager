@@ -4570,7 +4570,7 @@ final class WorkspaceTests: XCTestCase {
 
 extension PackageGraph {
     /// Finds the package matching the given name.
-    func lookup(_ name: String) -> PackageModel.ResolvedPackage {
+    func lookup(_ name: String) -> ResolvedPackage {
         return packages.first{ $0.name == name }!
     }
 }
