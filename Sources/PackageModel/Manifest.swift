@@ -139,34 +139,6 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
     public static let dumpPackageKey: CodingUserInfoKey = CodingUserInfoKey(rawValue: "dumpPackage")!
 }
 
-extension ToolsVersion {
-    /// The subpath to the PackageDescription runtime library.
-    public var runtimeSubpath: RelativePath {
-        if self < .v4_2 {
-            return RelativePath("4")
-        }
-        return RelativePath("4_2")
-    }
-
-    /// The swift language version based on this tools version.
-    public var swiftLanguageVersion: SwiftLanguageVersion {
-        switch major {
-        case 4:
-            // If the tools version is less than 4.2, use language version 4.
-            if minor < 2 {
-                return .v4
-            }
-
-            // Otherwise, use 4.2
-            return .v4_2
-
-        default:
-            // Anything above 4 major version uses version 5.
-            return .v5
-        }
-    }
-}
-
 extension Manifest {
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
