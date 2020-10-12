@@ -14,7 +14,7 @@ import Foundation
 import TSCUtility
 
 /// Represents a Swift language version.
-public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
+public struct SwiftLanguageVersion {
 
     /// Swift language version 3.
     public static let v3 = SwiftLanguageVersion(uncheckedString: "3")
@@ -80,25 +80,29 @@ public struct SwiftLanguageVersion: CustomStringConvertible, Comparable {
     private init(uncheckedString string: String) {
         self.init(string: string)!
     }
+}
 
-    // MARK: - CustomStringConvertible
-
+extension SwiftLanguageVersion: CustomStringConvertible {
     public var description: String {
         return rawValue
     }
+}
 
-    // MARK: - Comparable
-
+extension SwiftLanguageVersion: Equatable {
     public static func == (lhs: SwiftLanguageVersion, rhs: SwiftLanguageVersion) -> Bool {
         return lhs._version == rhs._version
     }
+}
 
+extension SwiftLanguageVersion: Comparable {
     public static func < (lhs: SwiftLanguageVersion, rhs: SwiftLanguageVersion) -> Bool {
         return lhs._version < rhs._version
     }
+}
 
-    // MARK: - Compare with ToolsVersion
+// MARK: - Compare with ToolsVersion
 
+extension SwiftLanguageVersion {
     public static func == (lhs: SwiftLanguageVersion, rhs: ToolsVersion) -> Bool {
         return (lhs.major, lhs.minor, lhs.patch) == (rhs.major, rhs.minor, rhs.patch)
     }

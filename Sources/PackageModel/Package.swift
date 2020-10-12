@@ -42,7 +42,7 @@ import TSCUtility
 /// 5. A loaded package, as in #4, for which the targets have also been
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
-public final class Package: Codable {
+public final class Package: ObjectIdentifierProtocol, Codable {
     /// The manifest describing the package.
     public let manifest: Manifest
 
@@ -91,6 +91,13 @@ public final class Package: Codable {
         case noManifest(baseURL: String, version: String?)
     }
 }
+
+extension Package: CustomStringConvertible {
+    public var description: String {
+        return name
+    }
+}
+
 extension Package.Error: CustomStringConvertible {
    public var description: String {
         switch self {
@@ -103,13 +110,3 @@ extension Package.Error: CustomStringConvertible {
         }
     }
 }
-
-extension Package: CustomStringConvertible {
-    public var description: String {
-        return name
-    }
-}
-
-extension Package: ObjectIdentifierProtocol {
-}
-

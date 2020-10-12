@@ -13,7 +13,9 @@ public enum SystemPackageProviderDescription: Equatable, Codable {
     case brew([String])
     case apt([String])
     case yum([String])
+}
 
+extension SystemPackageProviderDescription {
     private enum CodingKeys: String, CodingKey {
         case brew, apt, yum
     }

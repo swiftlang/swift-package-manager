@@ -20,14 +20,10 @@ public struct TargetDescription: Equatable, Codable {
     }
 
     /// Represents a target's dependency on another entity.
-    public enum Dependency: Equatable, ExpressibleByStringLiteral, Codable {
+    public enum Dependency: Equatable {
         case target(name: String, condition: PackageConditionDescription?)
         case product(name: String, package: String?, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
-
-        public init(stringLiteral value: String) {
-            self = .byName(name: value, condition: nil)
-        }
 
         public static func target(name: String) -> Dependency {
             return .target(name: name, condition: nil)
@@ -35,54 +31,6 @@ public struct TargetDescription: Equatable, Codable {
 
         public static func product(name: String, package: String? = nil) -> Dependency {
             return .product(name: name, package: package, condition: nil)
-        }
-
-        private enum CodingKeys: String, CodingKey {
-            case target, product, byName
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            switch self {
-            case let .target(a1, a2):
-                var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .target)
-                try unkeyedContainer.encode(a1)
-                try unkeyedContainer.encode(a2)
-            case let .product(a1, a2, a3):
-                var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .product)
-                try unkeyedContainer.encode(a1)
-                try unkeyedContainer.encode(a2)
-                try unkeyedContainer.encode(a3)
-            case let .byName(a1, a2):
-                var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .byName)
-                try unkeyedContainer.encode(a1)
-                try unkeyedContainer.encode(a2)
-            }
-        }
-
-        public init(from decoder: Decoder) throws {
-            let values = try decoder.container(keyedBy: CodingKeys.self)
-            guard let key = values.allKeys.first(where: values.contains) else {
-                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
-            }
-            switch key {
-            case .target:
-                var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-                let a1 = try unkeyedValues.decode(String.self)
-                let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
-                self = .target(name: a1, condition: a2)
-            case .product:
-                var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-                let a1 = try unkeyedValues.decode(String.self)
-                let a2 = try unkeyedValues.decodeIfPresent(String.self)
-                let a3 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
-                self = .product(name: a1, package: a2, condition: a3)
-            case .byName:
-                var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-                let a1 = try unkeyedValues.decode(String.self)
-                let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
-                self = .byName(name: a1, condition: a2)
-            }
         }
     }
 
@@ -220,5 +168,61 @@ public struct TargetDescription: Equatable, Codable {
         self.providers = providers
         self.settings = settings
         self.checksum = checksum
+    }
+}
+
+extension TargetDescription.Dependency: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case target, product, byName
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .target(a1, a2):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .target)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
+        case let .product(a1, a2, a3):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .product)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
+            try unkeyedContainer.encode(a3)
+        case let .byName(a1, a2):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .byName)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .target:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .target(name: a1, condition: a2)
+        case .product:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            let a2 = try unkeyedValues.decodeIfPresent(String.self)
+            let a3 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .product(name: a1, package: a2, condition: a3)
+        case .byName:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .byName(name: a1, condition: a2)
+        }
+    }
+}
+
+extension TargetDescription.Dependency: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self = .byName(name: value, condition: nil)
     }
 }

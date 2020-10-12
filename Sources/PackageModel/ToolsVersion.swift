@@ -14,7 +14,7 @@ import Foundation
 import TSCUtility
 
 /// Tools version represents version of the Swift toolchain.
-public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codable {
+public struct ToolsVersion: Equatable, Hashable, Codable {
 
     public static let v3 = ToolsVersion(version: "3.1.0")
     public static let v4 = ToolsVersion(version: "4.0.0")
@@ -91,18 +91,6 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codab
         _version = version
     }
 
-    // MARK: - CustomStringConvertible
-
-    public var description: String {
-        return _version.description
-    }
-
-    // MARK: - Comparable
-
-    public static func < (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
-        return lhs._version < rhs._version
-    }
-
     /// Returns true if the tools version is valid and can be used by this
     /// version of the package manager.
     public func validateToolsVersion(
@@ -160,5 +148,17 @@ public struct ToolsVersion: CustomStringConvertible, Comparable, Hashable, Codab
             // Anything above 4 major version uses version 5.
             return .v5
         }
+    }
+}
+
+extension ToolsVersion: CustomStringConvertible {
+    public var description: String {
+        return _version.description
+    }
+}
+
+extension ToolsVersion: Comparable {
+    public static func < (lhs: ToolsVersion, rhs: ToolsVersion) -> Bool {
+        return lhs._version < rhs._version
     }
 }

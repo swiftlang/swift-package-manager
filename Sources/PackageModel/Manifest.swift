@@ -14,7 +14,7 @@ import Foundation
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
-public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, Codable {
+public final class Manifest: ObjectIdentifierProtocol {
 
     /// The standard filename for the manifest.
     public static let filename = basename + ".swift"
@@ -327,15 +327,15 @@ public final class Manifest: ObjectIdentifierProtocol, CustomStringConvertible, 
             return false
         }
     }
+}
 
-    // MARK: - CustomStringConvertible
-
+extension Manifest: CustomStringConvertible {
     public var description: String {
         return "<Manifest: \(name)>"
     }
+}
 
-    // MARK: - Codable
-
+extension Manifest: Codable {
     /// Coding user info key for dump-package command.
     ///
     /// Presence of this key will hide some keys when encoding the Manifest object.
