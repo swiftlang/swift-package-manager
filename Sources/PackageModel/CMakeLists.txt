@@ -18,6 +18,7 @@ add_library(PackageModel
   Resource.swift
   Sources.swift
   Target.swift
+  SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   ToolsVersion.swift)
 target_link_libraries(PackageModel PUBLIC
