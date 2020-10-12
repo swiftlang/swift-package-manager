@@ -11,6 +11,7 @@ add_library(PackageModel
   Manifest.swift
   Package.swift
   PackageModel+Codable.swift
+  PackageReference.swift
   Platform.swift
   Product.swift
   ResolvedModels.swift
