@@ -102,6 +102,7 @@ public final class Target {
 
     /// The path to the directory containing public headers of a C-family target.
     ///
+    /// This path should be relative to the path specified in `path`.
     /// If this is `nil`, the directory is set to `include`.
     public var publicHeadersPath: String?
 
