@@ -36,8 +36,26 @@ public struct Platform: Equatable, Hashable, Codable {
 
 }
 
+/// Represents a platform supported by a target.
+public struct SupportedPlatform: Codable {
+    /// The platform.
+    public let platform: Platform
+
+    /// The minimum required version for this platform.
+    public let version: PlatformVersion
+
+    /// The options declared by the platform.
+    public let options: [String]
+
+    public init(platform: Platform, version: PlatformVersion, options: [String] = []) {
+        self.platform = platform
+        self.version = version
+        self.options = options
+    }
+}
+
 /// Represents a platform version.
-public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable, Codable {
+public struct PlatformVersion: Equatable, Hashable, Codable {
 
     /// The unknown platform version.
     public static let unknown: PlatformVersion = .init("0.0.0")
@@ -75,34 +93,16 @@ public struct PlatformVersion: ExpressibleByStringLiteral, Comparable, Hashable,
             fatalError("Unexpected number of components \(components)")
         }
     }
+}
 
-    // MARK:- ExpressibleByStringLiteral
-
-    public init(stringLiteral value: String) {
-        self.init(value)
-    }
-
-    // MARK:- Comparable
-
+extension PlatformVersion: Comparable {
     public static func < (lhs: PlatformVersion, rhs: PlatformVersion) -> Bool {
         return lhs.version < rhs.version
     }
 }
 
-/// Represents a platform supported by a target.
-public struct SupportedPlatform: Codable {
-    /// The platform.
-    public let platform: Platform
-
-    /// The minimum required version for this platform.
-    public let version: PlatformVersion
-
-    /// The options declared by the platform.
-    public let options: [String]
-
-    public init(platform: Platform, version: PlatformVersion, options: [String] = []) {
-        self.platform = platform
-        self.version = version
-        self.options = options
+extension PlatformVersion: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.init(value)
     }
 }

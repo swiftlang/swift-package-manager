@@ -14,7 +14,7 @@ import TSCUtility
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: JSONMappable, JSONSerializable, Codable, CustomStringConvertible, Equatable, Hashable {
+public struct PackageReference: Codable {
     public typealias PackageIdentity = String
 
     /// The kind of package reference.
@@ -87,14 +87,31 @@ public struct PackageReference: JSONMappable, JSONSerializable, Codable, CustomS
         self.kind = kind
     }
 
+    /// Create a new package reference object with the given name.
+    public func with(newName: String) -> PackageReference {
+        return PackageReference(identity: identity, path: path, name: newName, kind: kind)
+    }
+}
+
+extension PackageReference: Equatable {
     public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
         return lhs.identity == rhs.identity
     }
+}
 
+extension PackageReference: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(identity)
     }
+}
 
+extension PackageReference: CustomStringConvertible {
+    public var description: String {
+        return identity + (path.isEmpty ? "" : "[\(path)]")
+    }
+}
+
+extension PackageReference: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
         self._name = json.get("name")
         self.identity = try json.get("identity")
@@ -115,14 +132,5 @@ public struct PackageReference: JSONMappable, JSONSerializable, Codable, CustomS
             "path": path,
             "kind": kind.rawValue,
         ])
-    }
-
-    /// Create a new package reference object with the given name.
-    public func with(newName: String) -> PackageReference {
-        return PackageReference(identity: identity, path: path, name: newName, kind: kind)
-    }
-
-    public var description: String {
-        return identity + (path.isEmpty ? "" : "[\(path)]")
     }
 }
