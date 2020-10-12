@@ -17,6 +17,7 @@ add_library(PackageModel
   Resource.swift
   Sources.swift
   Target.swift
+  SwiftLanguageVersion.swift
   ToolsVersion.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic
