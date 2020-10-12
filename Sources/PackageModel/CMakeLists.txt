@@ -7,6 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageModel
+  BuildConfiguration.swift
+  BuildEnvironment.swift
   BuildSettings.swift
   Diagnostics.swift
   Manifest.swift

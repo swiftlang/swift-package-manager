@@ -958,30 +958,6 @@ public enum TargetBuildSettingDescription {
     }
 }
 
-/// The configuration of the build environment.
-public enum BuildConfiguration: String, CaseIterable, Codable {
-    case debug
-    case release
-
-    public var dirname: String {
-        switch self {
-            case .debug: return "debug"
-            case .release: return "release"
-        }
-    }
-}
-
-/// A build environment with which to evaluation conditions.
-public struct BuildEnvironment: Codable {
-    public let platform: Platform
-    public let configuration: BuildConfiguration
-
-    public init(platform: Platform, configuration: BuildConfiguration) {
-        self.platform = platform
-        self.configuration = configuration
-    }
-}
-
 /// A manifest condition.
 public protocol PackageConditionProtocol: Codable {
     func satisfies(_ environment: BuildEnvironment) -> Bool
