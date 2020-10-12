@@ -8,6 +8,7 @@
 
 add_library(PackageModel
   BuildSettings.swift
+  Diagnostics.swift
   Manifest.swift
   Package.swift
   PackageReference.swift
