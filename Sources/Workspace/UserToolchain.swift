@@ -251,19 +251,7 @@ public final class UserToolchain: Toolchain {
                         }
                     }
 
-                    return [
-                        "-sdk", root.pathString,
-
-                        // FIXME: these should not be necessary with the `-sdk`
-                        // parameter.  However, it seems that the layout on Windows
-                        // is not entirely correct yet and the driver does not pick
-                        // up the include search path, library search path, nor
-                        // resource dir.  Workaround that for the time being to
-                        // enable use of swift-package-manager on Windows.
-                        "-I", root.appending(RelativePath("usr/lib/swift")).pathString,
-                        "-L", root.appending(RelativePath("usr/lib/swift/windows")).pathString,
-                        "-resource-dir", root.appending(RelativePath("usr/lib/swift")).pathString,
-                    ] + xctest + runtime
+                    return [ "-sdk", root.pathString, ] + runtime + xctest
                 }
             }
 
