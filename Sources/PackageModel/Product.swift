@@ -74,6 +74,50 @@ public enum ProductType: Equatable {
     case test
 }
 
+/// The products requested of a package.
+///
+/// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ingored.
+///
+/// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fullfill the request; packages that do not know what it is will simply ignore it.
+public enum ProductFilter: Equatable, Hashable {
+
+    /// All products, targets, and tests are requested.
+    ///
+    /// This is used for root packages.
+    case everything
+
+    /// A set of specific products requested by one or more client packages.
+    case specific(Set<String>)
+
+    public func union(_ other: ProductFilter) -> ProductFilter {
+        switch self {
+        case .everything:
+            return .everything
+        case .specific(let set):
+            switch other {
+            case .everything:
+                return .everything
+            case .specific(let otherSet):
+                return .specific(set.union(otherSet))
+            }
+        }
+    }
+
+    public mutating func formUnion(_ other: ProductFilter) {
+        self = self.union(other)
+    }
+
+    public func contains(_ product: String) -> Bool {
+        switch self {
+        case .everything:
+            return true
+        case .specific(let set):
+            return set.contains(product)
+        }
+    }
+}
+
+
 // MARK: - CustomStringConvertible
 
 extension Product: CustomStringConvertible {
@@ -98,6 +142,17 @@ extension ProductType: CustomStringConvertible {
             case .static:
                 return "static"
             }
+        }
+    }
+}
+
+extension ProductFilter: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .everything:
+            return "[everything]"
+        case .specific(let set):
+            return "[\(set.sorted().joined(separator: ", "))]"
         }
     }
 }
@@ -136,6 +191,51 @@ extension ProductType: Codable {
             self = .test
         case .executable:
             self = .executable
+        }
+    }
+}
+
+extension ProductFilter: Codable {
+    public func encode(to encoder: Encoder) throws {
+        let optionalSet: Set<String>?
+        switch self {
+        case .everything:
+            optionalSet = nil
+        case .specific(let set):
+            optionalSet = set
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(optionalSet?.sorted())
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let optionalSet: Set<String>? = try container.decode([String]?.self).map { Set($0) }
+        if let set = optionalSet {
+            self = .specific(set)
+        } else {
+            self = .everything
+        }
+    }
+}
+
+// MARK: - JSON
+
+extension ProductFilter: JSONSerializable, JSONMappable {
+    public func toJSON() -> JSON {
+        switch self {
+        case .everything:
+            return "all".toJSON()
+        case .specific(let products):
+            return products.sorted().toJSON()
+        }
+    }
+
+    public init(json: JSON) throws {
+        if let products = try? [String](json: json) {
+            self = .specific(Set(products))
+        } else {
+            self = .everything
         }
     }
 }
