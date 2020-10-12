@@ -10,7 +10,6 @@ add_library(PackageModel
   BuildSettings.swift
   Manifest.swift
   Package.swift
-  PackageModel+Codable.swift
   PackageReference.swift
   Platform.swift
   Product.swift

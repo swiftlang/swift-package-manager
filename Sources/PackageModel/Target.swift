@@ -441,13 +441,43 @@ public class ClangTarget: Target {
 public class BinaryTarget: Target {
 
     /// The original source of the binary artifact.
-    public enum ArtifactSource: Equatable {
+    public enum ArtifactSource: Equatable, Codable {
 
         /// Represents an artifact that was downloaded from a remote URL.
         case remote(url: String)
 
         /// Represents an artifact that was available locally.
         case local
+
+        private enum CodingKeys: String, CodingKey {
+            case remote, local
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .remote(let a1):
+                var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remote)
+                try unkeyedContainer.encode(a1)
+            case .local:
+                try container.encodeNil(forKey: .local)
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            guard let key = values.allKeys.first(where: values.contains) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+            }
+            switch key {
+            case .remote:
+                var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+                let a1 = try unkeyedValues.decode(String.self)
+                self = .remote(url: a1)
+            case .local:
+                self = .local
+            }
+        }
     }
 
     /// The binary artifact's source.
