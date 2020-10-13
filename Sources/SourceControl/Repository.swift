@@ -34,7 +34,7 @@ public struct RepositorySpecifier: Hashable, Codable {
 
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
-        var basename = url.components(separatedBy: "/").last(where: { !$0.isEmpty })!
+        var basename = url.components(separatedBy: "/").last(where: { !$0.isEmpty }) ?? ""
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
