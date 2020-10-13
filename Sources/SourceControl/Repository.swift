@@ -34,7 +34,7 @@ public struct RepositorySpecifier: Hashable, Codable {
 
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
-        var basename = url.components(separatedBy: "/").last!
+        var basename = url.components(separatedBy: "/").last(where: { !$0.isEmpty })!
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
@@ -184,6 +184,8 @@ public protocol Repository {
     ///
     /// - Throws: If a error occurs accessing the revision.
     func openFileView(revision: Revision) throws -> FileSystem
+
+    func setURL(remote: String, url: String) throws
 }
 
 /// An editable checkout of a repository (i.e. a working copy) on the local file

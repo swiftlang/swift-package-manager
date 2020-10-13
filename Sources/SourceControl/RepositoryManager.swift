@@ -10,6 +10,7 @@
 
 import Dispatch
 import class Foundation.OperationQueue
+import class Foundation.NSFileManager.FileManager
 
 import TSCBasic
 import TSCUtility
@@ -53,6 +54,9 @@ public class RepositoryManager {
 
             /// The repository is available.
             case available
+
+            /// The repository is available in the cache
+            case cached
 
             /// The repository was unable to be fetched.
             case error
@@ -126,6 +130,20 @@ public class RepositoryManager {
     /// The path under which repositories are stored.
     public let path: AbsolutePath
 
+    /// The path to the directory where all cached git repositories are stored.
+    private let cachePath: AbsolutePath?
+
+    private lazy var cacheManager: RepositoryManager? = {
+        guard let cachePath = cachePath else { return nil }
+        return RepositoryManager(path: cachePath, provider: provider, fileSystem: fileSystem)
+    }()
+
+    /// The default location of the git repository cache
+    private static let defaultCachePath: AbsolutePath? = {
+        guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+        return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
+    }()
+
     /// The repository provider.
     public let provider: RepositoryProvider
 
@@ -175,12 +193,14 @@ public class RepositoryManager {
         path: AbsolutePath,
         provider: RepositoryProvider,
         delegate: RepositoryManagerDelegate? = nil,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem = localFileSystem,
+        cachePath: AbsolutePath? = nil
     ) {
         self.path = path
         self.provider = provider
         self.delegate = delegate
         self.fileSystem = fileSystem
+        self.cachePath = cachePath /*?? RepositoryManager.defaultCachePath*/
 
         self.operationQueue = OperationQueue()
         self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
@@ -227,6 +247,7 @@ public class RepositoryManager {
             // Dispatch the action we want to take on the serial queue of the handle.
             handle.serialQueue.sync {
                 let result: LookupResult
+                let repositoryPath = self.path.appending(handle.subpath)
 
                 switch handle.status {
                 case .available:
@@ -252,10 +273,41 @@ public class RepositoryManager {
                         return handle
                     })
 
+                case .cached:
+                    // Change the state to pending.
+                    handle.status = .pending
+                    // Make sure desination is free.
+                    try? self.fileSystem.removeFileTree(repositoryPath)
+
+                    // Fetch the repo.
+                    var fetchError: Swift.Error? = nil
+                    do {
+                        let cache = try await { self.cacheManager?.lookup(repository: handle.repository, completion: $0) }
+
+                        try self.provider.fetch(repository: cache.repository, to: repositoryPath)
+
+                        // Update status to available.
+                        handle.status = .available
+                        // Change remote from cache path to origingal url
+                        try handle.open().setURL(remote: "origin", url: handle.repository.url)
+
+                        result = .success(handle)
+
+                    } catch {
+                        // FIXME: try again without cache
+                        handle.status = .error
+                        fetchError = error
+                        result = .failure(error)
+                    }
+
+                    // Inform delegate.
+                    self.callbacksQueue.async {
+                        self.delegate?.fetchingDidFinish(handle: handle, error: fetchError)
+                    }
+
                 case .pending, .uninitialized, .error:
                     // Change the state to pending.
                     handle.status = .pending
-                    let repositoryPath = self.path.appending(handle.subpath)
                     // Make sure desination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
 
@@ -267,10 +319,26 @@ public class RepositoryManager {
                     // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
-                        // Start fetching.
-                        try self.provider.fetch(repository: handle.repository, to: repositoryPath)
-                        // Update status to available.
-                        handle.status = .available
+                        if let cachePath = self.cachePath {
+                            let cachedRepository = try self.setupCacheIfNeeded(for: handle.repository, cachePath: cachePath)
+                            // Fetch into cache
+                            let cachePath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
+
+                            try self.provider.fetch(repository: handle.repository, to: cachePath)
+
+                            // Fetch into repository path.
+                            try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
+                            // Update status to available.
+                            handle.status = .available
+                            // Change remote from cache path to origingal url
+                            try handle.open().setURL(remote: "origin", url: handle.repository.url)
+                        } else {
+                            // Fetch into repository path.
+                            try self.provider.fetch(repository: handle.repository, to: repositoryPath)
+                            // Update status to available.
+                            handle.status = .available
+                        }
+
                         result = .success(handle)
                     } catch {
                         handle.status = .error
@@ -306,7 +374,7 @@ public class RepositoryManager {
         }
     }
 
-    /// Returns the handle for repository if available, otherwise creates a new one.
+   /// Returns the handle for repository if available, otherwise creates a new one.
     ///
     /// Note: This method is thread safe.
     private func getHandle(repository: RepositorySpecifier) -> RepositoryHandle {
@@ -317,15 +385,21 @@ public class RepositoryManager {
                 self.unsafeReset()
             }
 
+            let subpath = RelativePath(repository.fileSystemIdentifier)
             let handle: RepositoryHandle
+            let repositoryPath = path.appending(RelativePath(repository.fileSystemIdentifier))
+
             if let oldHandle = self.repositories[repository.url] {
                 handle = oldHandle
+            } else if let cachePath = cachePath, fileSystem.exists(cachePath.appending(subpath)) {
+                handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
+                handle.status = .cached
+                self.repositories[repository.url] = handle
             } else {
-                let subpath = RelativePath(repository.fileSystemIdentifier)
-                let newHandle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
-                self.repositories[repository.url] = newHandle
-                handle = newHandle
+                handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
+                self.repositories[repository.url] = handle
             }
+
             return handle
         }
     }
@@ -379,6 +453,21 @@ public class RepositoryManager {
         self.serializedRepositories = [:]
         try? self.fileSystem.removeFileTree(path)
     }
+
+    private func setupCacheIfNeeded(for repository: RepositorySpecifier, cachePath: AbsolutePath) throws -> RepositoryHandle {
+        let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
+
+        if !fileSystem.exists(cachePath) {
+            try fileSystem.createDirectory(repositoryPath, recursive: true)
+        }
+
+//        let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
+//        try lock.withLock(process.checkNonZeroExit)
+
+        let specifier = RepositorySpecifier(url: repositoryPath.asURL.absoluteString)
+
+        return RepositoryHandle(manager: self, repository: specifier, subpath: repositoryPath.relative(to: path))
+    }
 }
 
 // MARK: Persistence
@@ -403,5 +492,37 @@ extension RepositoryManager: SimplePersistanceProtocol {
 extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
         return "<\(type(of: self)) subpath:\(subpath)>"
+    }
+}
+
+extension Process {
+    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
+    /// - Returns: The process output (stdout + stderr).
+    @discardableResult
+    public func checkNonZeroExit() throws -> String {
+        try launch()
+        let result = try waitUntilExit()
+        // Throw if there was a non zero termination.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw ProcessResult.Error.nonZeroExit(result)
+        }
+        return try result.utf8Output()
+    }
+    /// Execute a  git subprocess and get its (UTF-8) output if it has a non zero exit.
+    /// - Parameter repository: The repository the process operates on
+    /// - Throws: `GitCloneErrorGitCloneError`
+    /// - Returns: The process output (stdout + stderr).The process output (stdout + stderr).
+    @discardableResult
+    public func checkGitError(repository: RepositorySpecifier) throws -> String {
+        try launch()
+        let result = try waitUntilExit()
+        // Throw if cloning failed.
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw GitCloneError(
+                repository: repository.url,
+                result: result
+            )
+        }
+        return try result.utf8Output()
     }
 }

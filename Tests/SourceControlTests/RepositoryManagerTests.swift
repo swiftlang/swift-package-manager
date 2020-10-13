@@ -52,6 +52,10 @@ private class DummyRepository: Repository {
     func openFileView(revision: Revision) throws -> FileSystem {
         fatalError("unexpected API call")
     }
+
+    func setURL(remote: String, url: String) throws {
+        fatalError("unexpected API call")
+    }
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {

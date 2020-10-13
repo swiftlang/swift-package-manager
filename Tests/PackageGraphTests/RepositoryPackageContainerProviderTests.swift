@@ -72,6 +72,10 @@ private class MockRepository: Repository {
         // This is used for reading the tools version.
         return self.fs
     }
+
+    func setURL(remote: String, url: String) throws {
+        fatalError("Unexpected API call")
+    }
 }
 
 private class MockRepositories: RepositoryProvider {

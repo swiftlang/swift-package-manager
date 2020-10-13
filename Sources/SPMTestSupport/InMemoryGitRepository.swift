@@ -182,6 +182,10 @@ public final class InMemoryGitRepository {
     public func fetch() throws {
         // TODO.
     }
+
+    public func setURL(remote: String, url: String) throws {
+        // TODO
+    }
 }
 
 extension InMemoryGitRepository: FileSystem {
