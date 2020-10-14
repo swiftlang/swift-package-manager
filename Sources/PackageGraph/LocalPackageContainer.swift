@@ -22,7 +22,7 @@ import TSCUtility
 /// There is no need to perform any git operations on such packages and they
 /// should be used as-is. Infact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-public class LocalPackageContainer: BasePackageContainer, CustomStringConvertible  {
+public class LocalPackageContainer: BasePackageContainer  {
 
     /// The file system that shoud be used to load this package.
     let fs: FileSystem
@@ -78,7 +78,9 @@ public class LocalPackageContainer: BasePackageContainer, CustomStringConvertibl
             currentToolsVersion: currentToolsVersion
         )
     }
+}
 
+extension LocalPackageContainer: CustomStringConvertible  {
     public var description: String {
         return "LocalPackageContainer(\(identifier.path))"
     }

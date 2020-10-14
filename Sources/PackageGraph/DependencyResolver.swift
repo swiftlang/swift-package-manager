@@ -11,23 +11,9 @@
 import TSCBasic
 import PackageModel
 
-public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
+public enum DependencyResolverError: Error, Equatable {
      /// A revision-based dependency contains a local package dependency.
     case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
-
-    public static func == (lhs: DependencyResolverError, rhs: DependencyResolverError) -> Bool {
-        switch (lhs, rhs) {
-        case (.revisionDependencyContainsLocalPackage(let a1, let b1), .revisionDependencyContainsLocalPackage(let a2, let b2)):
-            return a1 == a2 && b1 == b2
-        }
-    }
-
-    public var description: String {
-        switch self {
-        case .revisionDependencyContainsLocalPackage(let dependency, let localPackage):
-            return "package '\(dependency)' is required using a revision-based requirement and it depends on local package '\(localPackage)', which is not supported"
-        }
-    }
 }
 
 /// Delegate interface for dependency resoler status.
@@ -44,5 +30,14 @@ public class DependencyResolver {
 
         /// The resolver encountered an error during resolution.
         case error(Swift.Error)
+    }
+}
+
+extension DependencyResolverError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .revisionDependencyContainsLocalPackage(let dependency, let localPackage):
+            return "package '\(dependency)' is required using a revision-based requirement and it depends on local package '\(localPackage)', which is not supported"
+        }
     }
 }

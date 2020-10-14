@@ -86,8 +86,10 @@ public protocol PackageContainer {
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
 }
 
+// MARK: -
+
 /// An individual constraint onto a container.
-public struct PackageContainerConstraint: CustomStringConvertible, Equatable, Hashable {
+public struct PackageContainerConstraint: Equatable, Hashable {
 
     /// The identifier for the container the constraint is on.
     public let identifier: PackageReference
@@ -111,11 +113,15 @@ public struct PackageContainerConstraint: CustomStringConvertible, Equatable, Ha
     public init(container identifier: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
         self.init(container: identifier, requirement: .versionSet(versionRequirement), products: products)
     }
+}
 
+extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
         return "Constraint(\(identifier), \(requirement), \(products)"
     }
 }
+
+// MARK: -
 
 /// An interface for resolving package containers.
 public protocol PackageContainerProvider {
@@ -126,6 +132,8 @@ public protocol PackageContainerProvider {
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     )
 }
+
+// MARK: -
 
 /// Base class for the package container.
 public class BasePackageContainer: PackageContainer {

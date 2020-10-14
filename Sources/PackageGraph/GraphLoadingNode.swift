@@ -18,7 +18,7 @@ import TSCUtility
 /// This node uses the product filter that was already finalized during resolution.
 ///
 /// - SeeAlso: DependencyResolutionNode
-public struct GraphLoadingNode: Equatable, Hashable, CustomStringConvertible {
+public struct GraphLoadingNode: Equatable, Hashable {
 
     /// The package manifest.
     public let manifest: Manifest
@@ -35,7 +35,9 @@ public struct GraphLoadingNode: Equatable, Hashable, CustomStringConvertible {
     internal func requiredDependencies() -> [FilteredDependencyDescription] {
         return manifest.dependenciesRequired(for: productFilter)
     }
+}
 
+extension GraphLoadingNode: CustomStringConvertible {
     public var description: String {
         switch productFilter {
         case .everything:

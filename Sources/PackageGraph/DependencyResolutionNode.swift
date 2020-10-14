@@ -17,7 +17,7 @@ import struct TSCUtility.Version
 /// See the documentation of each case for more detailed descriptions of each kind and how they interact.
 ///
 /// - SeeAlso: `GraphLoadingNode`
-public enum DependencyResolutionNode: Equatable, Hashable, CustomStringConvertible {
+public enum DependencyResolutionNode {
 
     /// An empty package node.
     ///
@@ -76,22 +76,6 @@ public enum DependencyResolutionNode: Equatable, Hashable, CustomStringConvertib
         }
     }
 
-    // To ensure cyclical dependencies are detected properly,
-    // hashing cannot include whether the node behaves as a root.
-    private struct Identity: Equatable, Hashable {
-        fileprivate let package: PackageReference
-        fileprivate let specificProduct: String?
-    }
-    private var identity: Identity {
-        return Identity(package: package, specificProduct: specificProduct)
-    }
-    public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
-        return lhs.identity == rhs.identity
-    }
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(identity)
-    }
-
     /// Assembles the product filter to use on the manifest for this node to determine it’s dependencies.
     internal func productFilter() -> ProductFilter {
         switch self {
@@ -130,15 +114,30 @@ public enum DependencyResolutionNode: Equatable, Hashable, CustomStringConvertib
         )
     }
 
-    public var description: String {
-        return "\(package.name)\(productFilter())"
-    }
-
     public func nameForDiagnostics() -> String {
         if let product = specificProduct {
             return "\(package.name)[\(product)]"
         } else {
             return "\(package.name)"
         }
+    }
+}
+
+extension DependencyResolutionNode: Equatable {
+    public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
+        return (lhs.package, lhs.specificProduct) == (rhs.package, rhs.specificProduct)
+    }
+}
+
+extension DependencyResolutionNode: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(package)
+        hasher.combine(specificProduct)
+    }
+}
+
+extension DependencyResolutionNode: CustomStringConvertible {
+    public var description: String {
+        return "\(package.name)\(productFilter())"
     }
 }

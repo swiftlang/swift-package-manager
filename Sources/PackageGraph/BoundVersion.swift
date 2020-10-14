@@ -11,7 +11,7 @@
 import struct TSCUtility.Version
 
 /// A bound version for a package within an assignment.
-public enum BoundVersion: Equatable, CustomStringConvertible {
+public enum BoundVersion: Equatable, Hashable {
     /// The assignment should not include the package.
     ///
     /// This is different from the absence of an assignment for a particular
@@ -27,7 +27,9 @@ public enum BoundVersion: Equatable, CustomStringConvertible {
 
     /// The package assignment is this revision.
     case revision(String)
+}
 
+extension BoundVersion: CustomStringConvertible {
     public var description: String {
         switch self {
         case .excluded:
