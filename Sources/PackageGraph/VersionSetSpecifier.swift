@@ -29,6 +29,17 @@ public enum VersionSetSpecifier: Hashable {
 }
 
 extension VersionSetSpecifier {
+    var isExact: Bool {
+        switch self {
+        case .any, .empty, .range, .ranges:
+            return false
+        case .exact:
+            return true
+        }
+    }
+}
+
+extension VersionSetSpecifier {
     public static func union(from range: Swift.Range<Version>) -> VersionSetSpecifier {
         return .union(from: [range])
     }

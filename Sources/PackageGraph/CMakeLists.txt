@@ -20,7 +20,11 @@ add_library(PackageGraph
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PinsStore.swift
-  Pubgrub.swift
+  Pubgrub/Assignment.swift
+  Pubgrub/Incompatibility.swift
+  Pubgrub/PartialSolution.swift
+  Pubgrub/PubgrubDependencyResolver.swift
+  Pubgrub/Term.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift
