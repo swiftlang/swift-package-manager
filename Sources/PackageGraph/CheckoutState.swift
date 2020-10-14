@@ -54,9 +54,6 @@ public struct CheckoutState: Equatable, CustomStringConvertible {
     public var isBranchOrRevisionBased: Bool {
         return version == nil
     }
-}
-
-extension CheckoutState {
 
     /// Returns requirement induced by this state.
     public func requirement() -> PackageRequirement {
