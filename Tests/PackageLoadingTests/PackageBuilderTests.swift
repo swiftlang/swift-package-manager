@@ -1909,7 +1909,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 TargetDescription(
@@ -1943,7 +1943,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(name: nil, url: "/Biz", requirement: .localPackage),
+                PackageDependencyDescription(url: "/Biz", requirement: .localPackage),
             ],
             targets: [
                 TargetDescription(

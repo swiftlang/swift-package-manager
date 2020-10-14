@@ -188,7 +188,7 @@ public final class TestWorkspace {
     }
 
     public struct PackageDependency {
-        public typealias Requirement = PackageGraphRoot.PackageDependency.Requirement
+        public typealias Requirement = PackageDependencyDescription.Requirement
 
         public let name: String
         public let requirement: Requirement
@@ -200,12 +200,11 @@ public final class TestWorkspace {
             self.products = products
         }
 
-        fileprivate func convert(_ packagesDir: AbsolutePath, url: String) -> PackageGraphRootInput.PackageDependency {
-            return PackageGraphRootInput.PackageDependency(
+        fileprivate func convert(_ packagesDir: AbsolutePath, url: String) -> PackageDependencyDescription {
+            return PackageDependencyDescription(
                 url: url,
                 requirement: requirement,
-                productFilter: products,
-                location: name
+                productFilter: products
             )
         }
     }
@@ -306,7 +305,7 @@ public final class TestWorkspace {
 
     public func checkPackageGraph(
         roots: [String] = [],
-        dependencies: [PackageGraphRootInput.PackageDependency] = [],
+        dependencies: [PackageDependencyDescription] = [],
         forceResolvedVersions: Bool = false,
         _ result: (PackageGraph, DiagnosticsEngine) -> ()
     ) {

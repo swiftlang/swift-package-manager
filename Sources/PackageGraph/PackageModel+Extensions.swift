@@ -14,9 +14,9 @@ import SourceControl
 extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
     public func createPackageRef(config: SwiftPMConfig) -> PackageReference {
-        let effectiveURL = config.mirroredURL(forURL: self.url)
+        let effectiveURL = config.mirroredURL(forURL: url)
         return PackageReference(
-            identity: PackageReference.computeIdentity(packageURL: effectiveURL),
+            identity: explicitName?.lowercased() ?? PackageReference.computeIdentity(packageURL: effectiveURL),
             path: effectiveURL,
             kind: requirement == .localPackage ? .local : .remote
         )
@@ -28,8 +28,8 @@ extension Manifest {
     public func dependencyConstraints(productFilter: ProductFilter, config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
         return dependenciesRequired(for: productFilter).map({
             return RepositoryPackageConstraint(
-                container: $0.declaration.createPackageRef(config: config),
-                requirement: $0.declaration.requirement.toConstraintRequirement(),
+                container: $0.createPackageRef(config: config),
+                requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter)
         })
     }

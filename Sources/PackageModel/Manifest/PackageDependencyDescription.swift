@@ -30,24 +30,53 @@ public struct PackageDependencyDescription: Equatable, Codable {
         }
     }
 
-    /// The name of the dependency explicitly defined in the manifest.
+    /// The name of the package dependency explicitly defined in the manifest, if any.
     public let explicitName: String?
 
-    /// The name of the dependency, either explicitly defined in the manifest, or deduced from the URL.
+    /// The name of the packagedependency,
+    /// either explicitly defined in the manifest,
+    /// or derived from the URL.
+    ///
+    /// - SeeAlso: `explicitName`
+    /// - SeeAlso: `url`
     public let name: String
 
-    /// The url of the dependency.
+    /// The url of the package dependency.
     public let url: String
 
     /// The dependency requirement.
     public let requirement: Requirement
 
-    /// Create a dependency.
-    public init(name: String?, url: String, requirement: Requirement) {
+    /// The products requested of the package dependency.
+    public let productFilter: ProductFilter
+
+    /// Create a package dependency.
+    public init(
+        name: String? = nil,
+        url: String,
+        requirement: Requirement,
+        productFilter: ProductFilter = .everything
+    ) {
+        // FIXME: SwiftPM can't handle file URLs with file:// scheme so we need to
+        // strip that. We need to design a URL data structure for SwiftPM.
+        let filePrefix = "file://"
+        let normalizedURL: String
+        if url.hasPrefix(filePrefix) {
+            normalizedURL = AbsolutePath(String(url.dropFirst(filePrefix.count))).pathString
+        } else {
+            normalizedURL = url
+        }
+
         self.explicitName = name
-        self.name = name ?? PackageReference.computeDefaultName(fromURL: url)
-        self.url = url
+        self.name = name ?? PackageReference.computeDefaultName(fromURL: normalizedURL)
+        self.url = normalizedURL
         self.requirement = requirement
+        self.productFilter = productFilter
+    }
+
+    /// Returns a new package dependency with the specified products.
+    public func filtered(by productFilter: ProductFilter) -> PackageDependencyDescription {
+        PackageDependencyDescription(name: explicitName, url: url, requirement: requirement, productFilter: productFilter)
     }
 }
 

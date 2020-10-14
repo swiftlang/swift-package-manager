@@ -86,7 +86,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     private var _requiredTargets: [ProductFilter: [TargetDescription]]
 
     /// Dependencies required for building particular product filters.
-    private var _requiredDependencies: [ProductFilter: [FilteredDependencyDescription]]
+    private var _requiredDependencies: [ProductFilter: [PackageDependencyDescription]]
 
     public init(
         name: String,
@@ -150,7 +150,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     }
 
     /// Returns the package dependencies required for a particular products filter.
-    public func dependenciesRequired(for productFilter: ProductFilter) -> [FilteredDependencyDescription] {
+    public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependencyDescription] {
         // If we have already calcualted it, returned the cached value.
         if let dependencies = _requiredDependencies[productFilter] {
             return dependencies
@@ -190,7 +190,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     public func dependenciesRequired(
         for targets: [TargetDescription],
         keepUnused: Bool = false
-    ) -> [FilteredDependencyDescription] {
+    ) -> [PackageDependencyDescription] {
 
         var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
         let availablePackages = Set(dependencies.lazy.map({ $0.name }))
@@ -207,16 +207,16 @@ public final class Manifest: ObjectIdentifierProtocol {
         let unknown = registry.unknown
         if !registry.unknown.isEmpty {
             for package in availablePackages {
-                associations[package, default: .specific([])].formUnion(.specific(unknown))
+                associations[package, default: .nothing].formUnion(.specific(unknown))
             }
         }
 
         return dependencies.compactMap { dependency in
             if let filter = associations[dependency.name] {
-                return FilteredDependencyDescription(declaration: dependency, productFilter: filter)
+                return dependency.filtered(by: filter)
             } else if keepUnused {
                 // Register that while the dependency was kept, no products are needed.
-                return FilteredDependencyDescription(declaration: dependency, productFilter: .specific([]))
+                return dependency.filtered(by: .nothing)
             } else {
                 // Dependencies known to not have any relevant products are discarded.
                 return nil
