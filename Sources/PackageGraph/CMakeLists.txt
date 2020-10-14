@@ -11,6 +11,7 @@ add_library(PackageGraph
   CheckoutState.swift
   DependencyResolutionNode.swift
   DependencyResolver.swift
+  GraphLoadingNode.swift
   LocalPackageContainer.swift
   PackageContainer.swift
   PackageGraph.swift
