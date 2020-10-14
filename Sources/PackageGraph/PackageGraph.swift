@@ -250,13 +250,3 @@ fileprivate extension PackageDependencyDescription {
         return swiftRepresentation
     }
 }
-
-extension Diagnostic.Message {
-    static func unusedDependency(_ name: String) -> Diagnostic.Message {
-        .warning("dependency '\(name)' is not used by any target")
-    }
-
-    static func productUsesUnsafeFlags(product: String, target: String) -> Diagnostic.Message {
-        .error("the target '\(target)' in product '\(product)' contains unsafe build flags")
-    }
-}
