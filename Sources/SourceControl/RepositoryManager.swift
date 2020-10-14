@@ -317,8 +317,16 @@ public class RepositoryManager {
                             let cachedRepository = try self.setupCacheIfNeeded(for: handle.repository, cachePath: cachePath)
                             // Fetch into cache
                             let cachePath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
-                            let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
-                            try lock.withLock {
+
+                            // FIXME: make fs aware of locks
+                            if type(of: self.fileSystem) == type(of: localFileSystem) {
+                                let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
+                                try lock.withLock {
+                                    try self.provider.fetch(repository: handle.repository, to: cachePath)
+                                    // Fetch into repository path.
+                                    try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
+                                }
+                            } else {
                                 try self.provider.fetch(repository: handle.repository, to: cachePath)
                                 // Fetch into repository path.
                                 try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
