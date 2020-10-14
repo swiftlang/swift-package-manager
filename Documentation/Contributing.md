@@ -1,16 +1,16 @@
 # Swift Package Manager: Quick Start
-Swift Package Manager (SwiftPM) is a tool for building, testing and managing Swift project dependencies.
-In order to use it you will need Swift 3.0 or greater.
-SwiftPM is also included in Xcode 8.0 and above.
-For usage getting started: [https://swift.org/getting-started/#using-the-package-manager](https://swift.org/getting-started/#using-the-package-manager)
+Swift Package Manager (SwiftPM) is a tool for building, testing and managing Swift project dependencies.  
+In order to use it you will need Swift 3.0 or greater.  
+SwiftPM is also included in Xcode 8.0 and above.  
+For usage getting started: [https://swift.org/getting-started/#using-the-package-manager](https://swift.org/getting-started/#using-the-package-manager)  
 For overview and examples: [https://swift.org/package-manager](https://swift.org/package-manager/)
 
 ## Code Contributions
-Everyone is welcome to contribute to SwiftPM, submitting fixes, enhancement etc.
+Everyone is welcome to contribute to SwiftPM, submitting fixes, enhancement etc.  
 Find out how previous coding decisions for SwiftPM evolution have been made: https://github.com/apple/swift-package-manager/blob/main/Documentation/Internals/PackageManagerCommunityProposal.md
 
 ### Requirements
-You have multiple ways to setup your development environment, here we will focus on 2:
+You have multiple ways to setup your development environment, here we will focus on 2:  
 A) *[Using Xcode](#using-xcode)* or B) [Using *the standalone Swift toolchain*](#using-standalone).
 
 <a id="using-xcode">*A) _Use Xcode to setup what you need_*.</a>
@@ -56,7 +56,7 @@ git clone https://github.com/apple/swift-package-manager.git
 $> cd swift-package-manager
 $> swift build
 ```
-If the build process ends with exit code 0, the build is successful (we have an Enhancement Radar to implement a message for successful build and a short output on where the generated binaries are: rdar://69970428).
+If the build process ends with exit code 0, the build is successful (we have an Enhancement Radar to implement a message for successful build and a short output on where the generated binaries are: rdar://69970428).  
 After a successful build (currently), you should see something like this:
 ```
 [476/476] Linking swift-package
@@ -72,7 +72,7 @@ debug.yaml
 manifest.db
 workspace-state.json 
 ```
-Binaries (in the example above) are in `x86_64-apple-macosx/`
+Binaries (in the example above) are in `x86_64-apple-macosx/`.  
 If you need to build the generated binaries, run `swift-build` in inside `.build/`:
 ```
 ./.build/x86_64-apple-macosx/debug/swift-build
@@ -96,8 +96,8 @@ If you are contributing using macOS, the best option is to use Xcode to build an
                                   ^
                                   (   )
 ```
-Do not worry, since those are known warnings that will be addressed at some point.
-Warnings differ depending on the platform and they can be seen from time to time due the amount of contributions.
+Do not worry, since those are known warnings that will be addressed at some point.  
+Warnings differ depending on the platform and they can be seen from time to time due the amount of contributions.  
 Our goal is to constantly monitor warnings and work on fix them (even if they are not affecting a successful implementation).
 * If during `swift build` you encounter this error:
 ```
@@ -110,9 +110,21 @@ Make sure you are using SwiftPM 5.3
 $> swift package --version
 Swift Package Manager - Swift 5.3.0
 ```
+* If during `swift build` you encounter this error:
+```
+/../swift-package-manager/Sources/PackageLoading/Target+PkgConfig.swift:84:36: error: type 'PkgConfigError' has no member 'prohibitedFlags'
+            error = PkgConfigError.prohibitedFlags(filtered.unallowed.joined(separator: ", "))
+                    ~~~~~~~~~~~~~~ ^~~~~~~~~~~~~~~
+```
+Make sure to update your TSC (Tools Support Core):
+```
+swift package update
+```
+Alternatively, if you are using Xcode, you can update to the latest version of all packages:  
+**Xcode App** > *File* > *Swift Packages* > *Update to Latest Package Versions*
 
 ### Find your way to contribute
-Report a bug guide: https://github.com/apple/swift-package-manager/blob/main/Documentation/Resources.md#reporting-a-good-swiftpm-bug.
+Report a bug guide: https://github.com/apple/swift-package-manager/blob/main/Documentation/Resources.md#reporting-a-good-swiftpm-bug.  
 JIRA Bug Tracker (a place where you can open bugs, enhancements to start to contribute): [https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22](https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22).
 
 ### Commits / PRs
