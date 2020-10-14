@@ -136,6 +136,9 @@ public struct SwiftToolOptions: ParsableArguments {
     @Option(help: "Specify build/cache directory")
     var buildPath: AbsolutePath?
 
+    @Option(help: "Specify the global repository cache directory")
+    var cachePath: AbsolutePath?
+
     /// The custom working directory that the tool should operate in (deprecated).
     @Option(name: [.long, .customShort("C")])
     var chdir: AbsolutePath?

@@ -32,6 +32,7 @@ public struct SwiftPackageTool: ParsableCommand {
         version: Versioning.currentVersion.completeDisplayString,
         subcommands: [
             Clean.self,
+            PurgeCache.self,
             Reset.self,
             Update.self,
             Describe.self,
@@ -80,6 +81,18 @@ extension SwiftPackageTool {
         
         func run(_ swiftTool: SwiftTool) throws {
             try swiftTool.getActiveWorkspace().clean(with: swiftTool.diagnostics)
+        }
+    }
+
+    struct PurgeCache: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Purge the global repository cache.")
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
+            try swiftTool.getActiveWorkspace().purgeCache(with: swiftTool.diagnostics)
         }
     }
     

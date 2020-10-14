@@ -138,12 +138,6 @@ public class RepositoryManager {
         return RepositoryManager(path: cachePath, provider: provider, fileSystem: fileSystem)
     }()
 
-    /// The default location of the git repository cache
-    private static let defaultCachePath: AbsolutePath? = {
-        guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
-    }()
-
     /// The repository provider.
     public let provider: RepositoryProvider
 
@@ -200,7 +194,7 @@ public class RepositoryManager {
         self.provider = provider
         self.delegate = delegate
         self.fileSystem = fileSystem
-        self.cachePath = cachePath /*?? RepositoryManager.defaultCachePath*/
+        self.cachePath = cachePath
 
         self.operationQueue = OperationQueue()
         self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
@@ -323,11 +317,13 @@ public class RepositoryManager {
                             let cachedRepository = try self.setupCacheIfNeeded(for: handle.repository, cachePath: cachePath)
                             // Fetch into cache
                             let cachePath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
+                            let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
+                            try lock.withLock {
+                                try self.provider.fetch(repository: handle.repository, to: cachePath)
+                                // Fetch into repository path.
+                                try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
+                            }
 
-                            try self.provider.fetch(repository: handle.repository, to: cachePath)
-
-                            // Fetch into repository path.
-                            try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
                             // Update status to available.
                             handle.status = .available
                             // Change remote from cache path to origingal url
@@ -387,7 +383,6 @@ public class RepositoryManager {
 
             let subpath = RelativePath(repository.fileSystemIdentifier)
             let handle: RepositoryHandle
-            let repositoryPath = path.appending(RelativePath(repository.fileSystemIdentifier))
 
             if let oldHandle = self.repositories[repository.url] {
                 handle = oldHandle
@@ -461,12 +456,20 @@ public class RepositoryManager {
             try fileSystem.createDirectory(repositoryPath, recursive: true)
         }
 
-//        let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
-//        try lock.withLock(process.checkNonZeroExit)
-
         let specifier = RepositorySpecifier(url: repositoryPath.asURL.absoluteString)
 
         return RepositoryHandle(manager: self, repository: specifier, subpath: repositoryPath.relative(to: path))
+    }
+
+    public func purgeCache() throws {
+        guard let cachePath = cachePath else { return }
+        let cachedRepositories = try fileSystem.getDirectoryContents(cachePath)
+        for repoPath in cachedRepositories {
+            let lock = FileLock(name: repoPath, cachePath: cachePath)
+            try lock.withLock {
+                try fileSystem.removeFileTree(cachePath.appending(component: repoPath))
+            }
+        }
     }
 }
 

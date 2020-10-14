@@ -144,6 +144,7 @@ final class WorkspaceTests: XCTestCase {
                     pinsFile: sandbox.appending(component: "Package.resolved"),
                     manifestLoader: manifestLoader,
                     delegate: MockWorkspaceDelegate()
+                    cachePath: path.appending(components: "tmp", "cache")
                 )
             }
 

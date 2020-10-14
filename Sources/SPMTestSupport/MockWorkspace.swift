@@ -171,7 +171,8 @@ public final class MockWorkspace {
             checksumAlgorithm: self.checksumAlgorithm,
             isResolverPrefetchingEnabled: true,
             enablePubgrubResolver: self.enablePubGrub,
-            skipUpdate: self.skipUpdate
+            skipUpdate: self.skipUpdate,
+            cachePath: self.sandbox.appending(component: ".cache")
         )
         return self._workspace!
     }
