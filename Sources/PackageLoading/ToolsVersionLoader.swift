@@ -176,8 +176,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         }
         
         // Ensure that for Swift ≤ 5.3, a single U+0020 is used as spacing between "//" and "swift-tools-version".
-        // Use `ToolsVersion(version:)` instead of `ToolsVeresion(string:)` here to avoid forced unwrappiing.
-        guard spacingAfterSlashes == " " || version > ToolsVersion(version: "5.3.0") else {
+		guard spacingAfterSlashes == " " || version > .v5_3 else {
             throw Error.invalidSpacingAfterSlashes(charactersUsed: spacingAfterSlashes, specifiedVersion: version)
         }
         
