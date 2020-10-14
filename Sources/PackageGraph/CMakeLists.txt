@@ -16,7 +16,7 @@ add_library(PackageGraph
   LocalPackageContainer.swift
   PackageContainer.swift
   PackageGraph.swift
-  PackageGraphLoader.swift
+  PackageGraph+Loading.swift
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
   PinsStore.swift

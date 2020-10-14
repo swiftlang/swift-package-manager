@@ -203,7 +203,7 @@ public func loadPackageGraph(
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
 
-    return PackageGraphLoader().load(
+    return PackageGraph.load(
         root: graphRoot,
         externalManifests: externalManifests,
         diagnostics: diagnostics,

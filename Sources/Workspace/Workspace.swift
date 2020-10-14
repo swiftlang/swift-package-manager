@@ -651,7 +651,7 @@ extension Workspace {
         })
 
         // Load the graph.
-        return PackageGraphLoader().load(
+        return PackageGraph.load(
             root: manifests.root,
             config: config,
             additionalFileRules: additionalFileRules,

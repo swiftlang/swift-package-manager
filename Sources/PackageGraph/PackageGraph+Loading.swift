@@ -14,14 +14,10 @@ import PackageLoading
 import PackageModel
 import TSCUtility
 
-/// A helper class for loading a package graph.
-public struct PackageGraphLoader {
-
-    /// Create a package loader.
-    public init() { }
+extension PackageGraph {
 
     /// Load the package graph for the given package path.
-    public func load(
+    public static func load(
         root: PackageGraphRoot,
         config: SwiftPMConfig = SwiftPMConfig(),
         additionalFileRules: [FileRuleDescription] = [],
