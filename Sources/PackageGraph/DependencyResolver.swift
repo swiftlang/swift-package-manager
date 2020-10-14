@@ -36,38 +36,6 @@ public enum DependencyResolverError: Error, Equatable, CustomStringConvertible {
 public protocol DependencyResolverDelegate {
 }
 
-/// A bound version for a package within an assignment.
-public enum BoundVersion: Equatable, CustomStringConvertible {
-    /// The assignment should not include the package.
-    ///
-    /// This is different from the absence of an assignment for a particular
-    /// package, which only indicates the assignment is agnostic to its
-    /// version. This value signifies the package *may not* be present.
-    case excluded
-
-    /// The version of the package to include.
-    case version(Version)
-
-    /// The package assignment is unversioned.
-    case unversioned
-
-    /// The package assignment is this revision.
-    case revision(String)
-
-    public var description: String {
-        switch self {
-        case .excluded:
-            return "excluded"
-        case .version(let version):
-            return version.description
-        case .unversioned:
-            return "unversioned"
-        case .revision(let identifier):
-            return identifier
-        }
-    }
-}
-
 public class DependencyResolver {
     public typealias Binding = (container: PackageReference, binding: BoundVersion, products: ProductFilter)
 
