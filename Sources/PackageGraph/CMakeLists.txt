@@ -18,9 +18,9 @@ add_library(PackageGraph
   PackageGraph.swift
   PackageGraphLoader.swift
   PackageGraphRoot.swift
+  PackageModel+Extensions.swift
   PinsStore.swift
   Pubgrub.swift
-  RawPackageConstraints.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift
