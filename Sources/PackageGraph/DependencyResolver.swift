@@ -22,15 +22,6 @@ public protocol DependencyResolverDelegate {
 
 public class DependencyResolver {
     public typealias Binding = (container: PackageReference, binding: BoundVersion, products: ProductFilter)
-
-    /// The dependency resolver result.
-    public enum Result {
-        /// A valid and complete assignment was found.
-        case success([Binding])
-
-        /// The resolver encountered an error during resolution.
-        case error(Swift.Error)
-    }
 }
 
 extension DependencyResolverError: CustomStringConvertible {

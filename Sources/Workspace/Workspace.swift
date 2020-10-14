@@ -1849,9 +1849,9 @@ extension Workspace {
         switch result {
         case .success:
             return .notRequired
-        case .error(ResolverPrecomputationError.missingPackage(let package)):
+        case .failure(ResolverPrecomputationError.missingPackage(let package)):
             return .required(reason: .newPackages(packages: [package]))
-        case .error(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
+        case .failure(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
             return .required(reason: .packageRequirementChange(
                 package: package,
                 state: state,
@@ -2117,8 +2117,7 @@ extension Workspace {
         switch result {
         case .success(let bindings):
             return bindings
-
-        case .error(let error):
+        case .failure(let error):
             diagnostics.emit(error)
             return []
         }

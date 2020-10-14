@@ -150,8 +150,6 @@ public final class PubgrubDependencyResolver {
         }
     }
 
-    public typealias Result = DependencyResolver.Result
-
     public enum PubgrubError: Swift.Error, Equatable, CustomStringConvertible {
         case _unresolvable(Incompatibility)
         case unresolvable(String)
@@ -176,7 +174,7 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pinsMap: PinsStore.PinsMap = [:]) -> Result {
+    public func solve(dependencies: [Constraint], pinsMap: PinsStore.PinsMap = [:]) -> Result<[DependencyResolver.Binding], Error> {
         do {
             return try .success(solve(constraints: dependencies, pinsMap: pinsMap))
         } catch {
@@ -194,7 +192,7 @@ public final class PubgrubDependencyResolver {
                 error = PubgrubError.unresolvable(diagnostic)
             }
 
-            return .error(error)
+            return .failure(error)
         }
     }
 

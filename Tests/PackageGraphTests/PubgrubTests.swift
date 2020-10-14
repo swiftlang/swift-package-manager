@@ -313,7 +313,7 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(dependencies: deps)
 
         switch result {
-        case .error(let error):
+        case .failure(let error):
             XCTFail("Unexpected error: \(error)")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
@@ -1863,7 +1863,7 @@ private func AssertBindings(
 
 /// Asserts that a result succeeded and contains the specified bindings.
 private func AssertResult(
-    _ result: PubgrubDependencyResolver.Result,
+    _ result: Result<[DependencyResolver.Binding], Error>,
     _ packages: [(identity: String, version: BoundVersion)],
     file: StaticString = #file,
     line: UInt = #line
@@ -1871,14 +1871,14 @@ private func AssertResult(
     switch result {
     case .success(let bindings):
         AssertBindings(bindings, packages, file: file, line: line)
-    case .error(let error):
+    case .failure(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
 }
 
 /// Asserts that a result failed with specified error.
 private func AssertError(
-    _ result: PubgrubDependencyResolver.Result,
+    _ result: Result<[DependencyResolver.Binding], Error>,
     _ expectedError: Error,
     file: StaticString = #file,
     line: UInt = #line
@@ -1887,7 +1887,7 @@ private func AssertError(
     case .success(let bindings):
         let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
         XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .error(let foundError):
+    case .failure(let foundError):
         XCTAssertEqual(String(describing: foundError), String(describing: expectedError), file: file, line: line)
     }
 }
@@ -2191,11 +2191,10 @@ extension PackageReference: ExpressibleByStringLiteral {
         self.init(identity: name, path: "")
     }
 }
-
-extension DependencyResolver.Result {
+extension Result where Success == [DependencyResolver.Binding] {
     var errorMsg: String? {
         switch self {
-        case .error(let error):
+        case .failure(let error):
             switch error {
             case let err as PubgrubDependencyResolver.PubgrubError:
                 guard case .unresolvable(let msg) = err else {

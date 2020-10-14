@@ -66,8 +66,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
                         return ($0.container.identity, version)
                     }
                     graph.checkResult(result)
-
-                case .error:
+                case .failure:
                     XCTFail("Unexpected result")
                     return
                 }
