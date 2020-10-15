@@ -224,6 +224,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// 1. The continuous sequence of whitespace characters between "//" and "swift-tools-version".
     /// 2. The version specifier.
     static let regex = try! NSRegularExpression(
-        pattern: "^//(\\h*?)swift-tools-version:(.*?)(?:;.*|$)",
+        // The pattern is a raw string, so backslashes should not be escaped.
+        pattern: #"^//(\h*?)swift-tools-version:(.*?)(?:;.*|$)"#,
         options: [.caseInsensitive])
 }
