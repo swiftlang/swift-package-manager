@@ -43,19 +43,22 @@ public final class SchemesGenerator {
     private let schemesDir: AbsolutePath
     private let isCodeCoverageEnabled: Bool
     private let fs: FileSystem
+    private let schemeName: String
 
     public init(
         graph: PackageGraph,
         container: String,
         schemesDir: AbsolutePath,
         isCodeCoverageEnabled: Bool,
-        fs: FileSystem
+        fs: FileSystem,
+        schemeName: String
     ) {
         self.graph = graph
         self.container = container
         self.schemesDir = schemesDir
         self.isCodeCoverageEnabled = isCodeCoverageEnabled
         self.fs = fs
+        self.schemeName = schemeName
     }
 
     public func buildSchemes() -> [Scheme] {
@@ -86,7 +89,7 @@ public final class SchemesGenerator {
             }
         })
         schemes.append(Scheme(
-            name: rootPackage.name + "-Package",
+            name: schemeName,
             regularTargets: regularTargets,
             testTargets: rootPackage.targets.filter({ $0.type == .test })
         ))

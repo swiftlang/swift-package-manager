@@ -373,7 +373,8 @@ class PackageGraphTests: XCTestCase {
             container: "Foo.xcodeproj",
             schemesDir: AbsolutePath("/Foo.xcodeproj/xcshareddata/xcschemes"),
             isCodeCoverageEnabled: true,
-            fs: fs).buildSchemes()
+            fs: fs,
+            schemeName: "Foo-Package").buildSchemes()
 
         let schemes = Dictionary(uniqueKeysWithValues: generatedSchemes.map({ ($0.name, $0) }))
 

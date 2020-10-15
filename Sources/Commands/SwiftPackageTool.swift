@@ -554,6 +554,9 @@ extension SwiftPackageTool {
             
             @Flag(help: "Do not add file references for extra files to the generated Xcode project")
             var skipExtraFiles: Bool = false
+
+            @Option(name: .customLong("scheme"), help: "Provide custom scheme name")
+            var schemeName: String?
         }
 
         @OptionGroup()
@@ -569,7 +572,8 @@ extension SwiftPackageTool {
                 isCodeCoverageEnabled: swiftOptions.shouldEnableCodeCoverage,
                 useLegacySchemeGenerator: options.useLegacySchemeGenerator,
                 enableAutogeneration: options.enableAutogeneration,
-                addExtraFiles: !options.skipExtraFiles)
+                addExtraFiles: !options.skipExtraFiles,
+                schemeName: options.schemeName)
         }
 
         func run(_ swiftTool: SwiftTool) throws {

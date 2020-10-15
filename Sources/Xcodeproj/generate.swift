@@ -39,13 +39,17 @@ public struct XcodeprojOptions {
     /// Reference to manifest loader, if present.
     public var manifestLoader: ManifestLoader?
 
+    /// Custom name for package scheme.
+    public var schemeName: String?
+
     public init(
         flags: BuildFlags = BuildFlags(),
         xcconfigOverrides: AbsolutePath? = nil,
         isCodeCoverageEnabled: Bool? = nil,
         useLegacySchemeGenerator: Bool? = nil,
         enableAutogeneration: Bool? = nil,
-        addExtraFiles: Bool? = nil
+        addExtraFiles: Bool? = nil,
+        schemeName: String? = nil
     ) {
         self.flags = flags
         self.xcconfigOverrides = xcconfigOverrides
@@ -53,6 +57,7 @@ public struct XcodeprojOptions {
         self.useLegacySchemeGenerator = useLegacySchemeGenerator ?? false
         self.enableAutogeneration = enableAutogeneration ?? false
         self.addExtraFiles = addExtraFiles ?? true
+        self.schemeName = schemeName
     }
 }
 
@@ -221,13 +226,14 @@ func generateSchemes(
     options: XcodeprojOptions,
     schemeContainer: String
 ) throws {
+    let schemeName = options.schemeName ?? "\(graph.rootPackages[0].name)-Package"
     if options.useLegacySchemeGenerator {
         // The scheme acts like an aggregate target for all our targets it has all
         // tests associated so testing works. We suffix the name of this scheme with
         // -Package so its name doesn't collide with any products or target with
         // same name.
-        let schemeName = "\(graph.rootPackages[0].name)-Package.xcscheme"
-        try open(schemesDir.appending(RelativePath(schemeName))) { stream in
+        let schemeFileName = "\(schemeName).xcscheme"
+        try open(schemesDir.appending(RelativePath(schemeFileName))) { stream in
             legacySchemeGenerator(
                 container: schemeContainer,
                 graph: graph,
@@ -259,7 +265,8 @@ func generateSchemes(
             container: schemeContainer,
             schemesDir: schemesDir,
             isCodeCoverageEnabled: options.isCodeCoverageEnabled,
-            fs: localFileSystem
+            fs: localFileSystem,
+            schemeName: schemeName
         ).generate()
     }
 }
