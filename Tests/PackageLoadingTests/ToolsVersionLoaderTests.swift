@@ -151,7 +151,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         assertFailure("// swift-tools-version:-1.1.2\n", "-1.1.2")
         assertFailure("// swift-tools-version:3.1hello", "3.1hello")
         
-        // Verify no matching for vertical whitespace charaters between "//" and "swift-tools-version":
+        // Verify no matching for vertical whitespace characters between "//" and "swift-tools-version":
         // Newline is excluded from these assertions, because `ToolsVersionLoader` assumes the default Swift version to be 3.1, if it sees a newline character before finding 1 of the 2 pre-defined misspellings in the specification.
         assertFailure("//\rswift-tools-version:5.3\n", "//\rswift-tools-version:5.3")
         assertFailure("// \rswift-tools-version:5.3\n", "// \rswift-tools-version:5.3")

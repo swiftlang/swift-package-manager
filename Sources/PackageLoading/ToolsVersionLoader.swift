@@ -30,7 +30,7 @@ extension Manifest {
     /// Returns the manifest at the given package path.
     ///
     /// Version specific manifest is chosen if present, otherwise path to regular
-    /// manfiest is returned.
+    /// manifest is returned.
     public static func path(
         atPackagePath packagePath: AbsolutePath,
         currentToolsVersion: ToolsVersion = .currentToolsVersion,
@@ -69,7 +69,7 @@ extension Manifest {
         let regularManifest = packagePath.appending(component: filename)
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
 
-        // Find the version-specific manifest that statisfies the current tools version.
+        // Find the version-specific manifest that satisfies the current tools version.
         if let versionSpecificCandidate = versionSpecificManifests.keys.sorted(by: >).first(where: { $0 <= currentToolsVersion }) {
             let versionSpecificManifest = packagePath.appending(component: versionSpecificManifests[versionSpecificCandidate]!)
 
@@ -155,7 +155,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             let spacingAfterSlashes = deconstructedToolsVersionSpecification.spacingAfterSlashes,
             let versionSpecifier = deconstructedToolsVersionSpecification.versionSpecifier
         else {
-            // TODO: Make the diagnsosis more granular by having the regex capture more groups.
+            // TODO: Make the diagnosis more granular by having the regex capture more groups.
             // Try to diagnose if there is a misspelling of the swift-tools-version comment.
             let splitted = contents.contents.split(
                 separator: UInt8(ascii: "\n"),
@@ -188,7 +188,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// The constituent parts include the spacing between "//" and "swift-tools-version", and the version specifier, if either is present.
     ///
     /// - Parameter bytes: The raw bytes of the content of the manifest.
-    /// - Returns: The spacing between "//" and "swift-tools-version" (if present, or `nil`), the version specifier (if present, or `nil`), and of raw bytes of the rest of the content of the manifest.
+    /// - Returns: The spacing between "//" and "swift-tools-version" (if present, or `nil`), the version specifier (if present, or `nil`), and the raw bytes of the rest of the content of the manifest.
     public static func split(_ bytes: ByteString) -> (spacingAfterSlashes: String?, versionSpecifier: String?, rest: [UInt8]) {
         let splitted = bytes.contents.split(
             separator: UInt8(ascii: "\n"),
