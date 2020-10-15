@@ -124,6 +124,10 @@ def add_build_args(parser):
         metavar='PATH',
         help="where to install libSwiftPM")
     parser.add_argument(
+        "--libswiftpmdatamodel-install-dir",
+        metavar='PATH',
+        help="where to install libSwiftPMDataModel")
+    parser.add_argument(
         "--prefix",
         dest="install_prefixes",
         nargs='*',
@@ -344,11 +348,6 @@ def install(args):
 
     # Install libSwiftPM if an install directory was provided.
     if args.libswiftpm_install_dir:
-        dest = args.libswiftpm_install_dir
-
-        # FIXME: Don't hardcode the suffix.
-        install_binary(args, "libSwiftPM.dylib", dest)
-
         libswiftpm_modules = [
             "TSCLibc", "TSCBasic",
             "TSCUtility", "SourceControl",
@@ -357,17 +356,18 @@ def install(args):
             "PackageGraph", "SPMBuildCore", "Build",
             "Xcodeproj", "Workspace"
         ]
+        install_libswiftpm_dylib(args, "SwiftPM", args.libswiftpm_install_dir, libswiftpm_modules)
 
-        # Install the swiftmodule and swiftdoc files.
-        for module in libswiftpm_modules:
-            install_binary(args, module + ".swiftmodule", dest)
-            if not args.cross_compile_hosts: # When compiling for multiple arches, swiftdoc is part of the swiftmodule directory
-                install_binary(args, module + ".swiftdoc", dest)
-
-        # Install the C headers.
-        tscclibc_include_dir = os.path.join(args.tsc_source_dir, "Sources/TSCclibc/include")
-        tscclibc_include_dir_dest = os.path.join(dest, "TSCclibc")
-        dir_util.copy_tree(tscclibc_include_dir, tscclibc_include_dir_dest)
+    # Install libSwiftPMDataModel if an install directory was provided.
+    if args.libswiftpmdatamodel_install_dir:
+        libswiftpmdatamodel_modules = [
+            "TSCLibc", "TSCBasic",
+            "TSCUtility", "SourceControl",
+            "PackageModel", "PackageLoading",
+            "PackageGraph", "SPMBuildCore",
+            "Xcodeproj", "Workspace"
+        ]
+        install_libswiftpm_dylib(args, "SwiftPMDataModel", args.libswiftpmdatamodel_install_dir, libswiftpmdatamodel_modules)
 
 def install_swiftpm(prefix, args):
     # Install swiftpm binaries.
@@ -399,6 +399,22 @@ def install_swiftpm(prefix, args):
             note("Installing %s to %s" % (src, dest))
 
             file_util.copy_file(src, dest, update=1)
+
+
+def install_libswiftpm_dylib(args, library_name, install_dir, module_names):
+    # FIXME: Don't hardcode the prefix and suffix.
+    install_binary(args, "lib" + library_name + ".dylib", install_dir)
+
+    # Install the swiftmodule and swiftdoc files.
+    for module in module_names:
+        install_binary(args, module + ".swiftmodule", install_dir)
+        if not args.cross_compile_hosts: # When compiling for multiple arches, swiftdoc is part of the swiftmodule directory
+            install_binary(args, module + ".swiftdoc", install_dir)
+
+    # Install the C headers.
+    tscclibc_include_dir = os.path.join(args.tsc_source_dir, "Sources/TSCclibc/include")
+    tscclibc_include_dir_dest = os.path.join(install_dir, "TSCclibc")
+    dir_util.copy_tree(tscclibc_include_dir, tscclibc_include_dir_dest)
 
 
 def install_binary(args, binary, dest_dir):
