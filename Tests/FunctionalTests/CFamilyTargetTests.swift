@@ -74,7 +74,10 @@ class CFamilyTargetTestCase: XCTestCase {
         }
     }
 
-    func testObjectiveCPackageWithTestTarget(){
+    func testObjectiveCPackageWithTestTarget() throws {
+        // <rdar://problem/70382477> Fix and re-enable tests which run `swift test` on newly created packages
+        try XCTSkipIf(true)
+
       #if os(macOS)
         fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in
             // Build the package.
