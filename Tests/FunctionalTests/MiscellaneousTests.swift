@@ -214,7 +214,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSwiftTestParallel() throws {
         // <rdar://problem/69448176> Fix and re-enable test related to "ParallelTestsPkg"
-        try XCTSkip()
+        try XCTSkipIf(true)
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
           // First try normal serial testing.
@@ -262,7 +262,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSwiftTestFilter() throws {
         // <rdar://problem/69448176> Fix and re-enable test related to "ParallelTestsPkg"
-        try XCTSkip()
+        try XCTSkipIf(true)
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l", "--enable-test-discovery"], packagePath: prefix)
@@ -281,7 +281,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSwiftTestSkip() throws {
         // <rdar://problem/69448176> Fix and re-enable test related to "ParallelTestsPkg"
-        try XCTSkip()
+        try XCTSkipIf(true)
         
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--skip", "ParallelTestsTests", "-l", "--enable-test-discovery"], packagePath: prefix)
@@ -424,7 +424,7 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSwiftTestLinuxMainGeneration() throws {
         // <rdar://problem/69448176> Fix and re-enable test related to "ParallelTestsPkg"
-        try XCTSkip()
+        try XCTSkipIf(true)
 
       #if os(macOS)
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in

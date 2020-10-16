@@ -220,6 +220,9 @@ class InitTests: XCTestCase {
     }
     
     func testNonC99NameExecutablePackage() throws {
+        // <rdar://problem/70382477> Fix and re-enable tests which run `swift test` on newly created packages
+        try XCTSkipIf(true)
+
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             
