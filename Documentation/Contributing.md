@@ -1,50 +1,37 @@
-# Swift Package Manager: Quick Start
-Swift Package Manager (SwiftPM) is a tool for building, testing and managing Swift project dependencies.  
-In order to use it you will need Swift 3.0 or greater.  
-SwiftPM is also included in Xcode 8.0 and above.  
-For usage getting started: [https://swift.org/getting-started/#using-the-package-manager](https://swift.org/getting-started/#using-the-package-manager)  
-For overview and examples: [https://swift.org/package-manager](https://swift.org/package-manager/)
-
 ## Code Contributions
-Everyone is welcome to contribute to SwiftPM, submitting fixes, enhancement etc.  
-Find out how previous coding decisions for SwiftPM evolution have been made: https://github.com/apple/swift-package-manager/blob/main/Documentation/Internals/PackageManagerCommunityProposal.md
+There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR. 
+
+Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/apple/swift-evolution/blob/master/process.md).
+To see how previous evolution decisions for SwiftPM have been made check out https://github.com/apple/swift-package-manager/blob/main/Documentation/Internals/PackageManagerCommunityProposal.md.  
+
+For more information about making contributions to the Swift project in general see [Swift Contribution Guide](https://swift.org/contributing/)  
+
+### Ways to contribute
+Report a bug guide: https://github.com/apple/swift-package-manager/blob/main/Documentation/Resources.md#reporting-a-good-swiftpm-bug.  
+JIRA Bug Tracker (a place where you can open bugs, enhancements to start to contribute): [https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22](https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22).
 
 ### Requirements
-You have multiple ways to setup your development environment, here we will focus on 2:  
-A) *[Using Xcode](#using-xcode)* or B) [Using *the standalone Swift toolchain*](#using-standalone).
+You have multiple ways to setup your development environment, here we will focus on two:  
+* [Using Xcode](#using-xcode)
+* [Using a standalone Swift toolchain](#using-standalone)
 
-<a id="using-xcode">*A) _Use Xcode to setup what you need_*.</a>
+<a id="using-xcode">*A) _Use Xcode to setup what you need_*.</a>  
 Xcode is only available for macOS.
 
-1. Install Xcode 12 - [https://developer.apple.com/xcode](https://developer.apple.com/xcode/)
-2. Make sure you have at least SwiftPM 5.3:
+1. Install latest Xcode - [https://developer.apple.com/xcode](https://developer.apple.com/xcode/)
+2. Confirm you have the latest SwiftPM:
 ```
 $> swift package --version
 Swift Package Manager - Swift 5.3.0
 ```
-3. Make sure you have at least Swift 5.3:
+3. Confirm you have the latest Swift version:
 ```
 $> swift --version
 Apple Swift version 5.3
 ```
-If you were able to do and verify the steps above, go to [**Getting Started**](#getting-started)
 
-<a id="using-standalone">*B) _Use standalone Swift toolchain</a>: 2a) [On macOS](#on-macos) or 2b) [On Linux](#on-linux)_*.
-
-Procedure valid for macOS and Linux.
-
-1. Pull the Swift repository:
-```
-git clone https://github.com/apple/swift.git
-```
-- 2 a. <a id="on-macos">On macOS</a>
-```
-PATH/TO/REPO/swift/utils/build-script --preset=buildbot_swiftpm_macos_platform,tools=RA,stdlib=RA
-```
-- 2b. <a id="on-linux">On Linux</a>
-```
-PATH/TO/REPO/swift/utils/build-script --preset=buildbot_swiftpm_linux_platform,tools=RA,stdlib=RA
-```
+<a id="using-standalone">*B) _Use standalone Swift toolchain_*</a>:  
+Download the toolchain from https://swift.org/download/ (or use tools like swiftenv) and confirm its installed correctly like step 2 and 3.
 
 ### <a name="getting-started">Getting Started</a>
 1. Pull the SwiftPM repository:
@@ -56,11 +43,8 @@ git clone https://github.com/apple/swift-package-manager.git
 $> cd swift-package-manager
 $> swift build
 ```
-If the build process ends with exit code 0, the build is successful (we have an Enhancement Radar to implement a message for successful build and a short output on where the generated binaries are: rdar://69970428).  
-After a successful build (currently), you should see something like this:
-```
-[476/476] Linking swift-package
-```
+Make sure the build did not fail.  
+
 A `.build/` folder will be generated and it should have inside a similar structure (including build binaries):
 ```
 artifacts/
@@ -82,23 +66,6 @@ If you need to build the generated binaries, run `swift-build` in inside `.build
 If you are contributing using macOS, the best option is to use Xcode to build and run test SwiftPM. 
 
 ### Troubleshooting
-* If during `swift build` you encounter these outputs:
-```
-/../swift-package-manager/Sources/SPMTestSupport/misc.swift:93:35: warning: parameter 'file' with default argument '#file' passed to parameter 'file', whose default argument is '#filePath'
-        XCTFail("\(error)", file: file, line: line)
-                                  ^
-/../swift-package-manager/Sources/SPMTestSupport/misc.swift:37:26: note: did you mean for parameter 'file' to default to '#filePath'?
-    file: StaticString = #file,
-                         ^~~~~
-                         #filePath
-/../swift-package-manager/Sources/SPMTestSupport/misc.swift:93:35: note: add parentheses to silence this warning
-        XCTFail("\(error)", file: file, line: line)
-                                  ^
-                                  (   )
-```
-Do not worry, since those are known warnings that will be addressed at some point.  
-Warnings differ depending on the platform and they can be seen from time to time due the amount of contributions.  
-Our goal is to constantly monitor warnings and work on fix them (even if they are not affecting a successful implementation).
 * If during `swift build` you encounter this error:
 ```
 /../apple-repos/swift-package-manager/.build/checkouts/swift-driver/Sources/SwiftDriver/Explicit Module Builds/InterModuleDependencyGraph.swift:102:3: error: unknown attribute '_spi'
@@ -123,10 +90,6 @@ swift package update
 Alternatively, if you are using Xcode, you can update to the latest version of all packages:  
 **Xcode App** > *File* > *Swift Packages* > *Update to Latest Package Versions*
 
-### Find your way to contribute
-Report a bug guide: https://github.com/apple/swift-package-manager/blob/main/Documentation/Resources.md#reporting-a-good-swiftpm-bug.  
-JIRA Bug Tracker (a place where you can open bugs, enhancements to start to contribute): [https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22](https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22).
-
 ### Commits / PRs
 1. Fork: https://github.com/apple/swift-package-manager
 2. Clone a working copy of your fork
@@ -141,17 +104,11 @@ JIRA Bug Tracker (a place where you can open bugs, enhancements to start to cont
 
 ### Community and Support
 If you want to connect with the Swift community you can:
-* Use Swift Forums: [https://forums.swift.org](https://forums.swift.org/)
+* Use Swift Forums: [https://forums.swift.org/c/development/SwiftPM](https://forums.swift.org/c/development/SwiftPM)
 * Contact the CODEOWNERS: https://github.com/apple/swift-package-manager/blob/main/CODEOWNERS
 (mailing lists are usually the best place to go for help: [code-owners@swift.org](mailto:code-owners@swift.org), [conduct@swift.org](mailto:conduct@swift.org), [swift-infrastructure@swift.org](mailto:swift-infrastructure@swift.org)
 
 ### Additional Links
-* Official Apple GitHub
-[https://github.com/apple](https://github.com/apple)
-* Swift Package Manager GitHub
-[https://github.com/apple/swift-package-manager](https://github.com/apple/swift-package-manager)
-* Setup Development
-[https://github.com/apple/swift-package-manager/blob/main/Documentation/Development.md](https://github.com/apple/swift-package-manager/blob/main/Documentation/Development.md)
 * `Swift.org` Contributing page
 [https://swift.org/contributing/](https://swift.org/contributing/)
 * License
