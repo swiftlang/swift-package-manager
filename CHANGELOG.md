@@ -4,8 +4,9 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 5.3.1
 -----------
 
-* [#2937](https://github.com/apple/swift-package-manager/pull/2937)
-  The Swift tools version specification at the top of each package manifest now accepts any combination of horizontal whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//	  swift-tools-version:5.4` are valid.
+* [#2937](https://github.com/apple/swift-package-manager/pull/2937) [SR-13566](https://bugs.swift.org/browse/SR-13566)
+  
+  The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//		 swift-tools-version:5.4` are valid.
 
 Swift 4.2
 ---------
