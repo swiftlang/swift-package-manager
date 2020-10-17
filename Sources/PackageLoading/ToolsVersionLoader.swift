@@ -100,7 +100,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         case inaccessiblePackage(path: AbsolutePath, reason: String)
         /// Package manifest file is inaccessible (missing, unreadable, etc).
         case inaccessibleManifest(path: AbsolutePath, reason: String)
-        /// Malformed tools version specifier
+        /// Malformed tools version specifier.
         case malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)
         // TODO: Make the case more general, to better adapt to future changes.
         /// The spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift ≤ 5.3.
