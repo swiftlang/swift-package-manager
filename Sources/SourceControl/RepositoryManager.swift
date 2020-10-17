@@ -273,6 +273,11 @@ public class RepositoryManager {
                     // Make sure desination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
 
+                    // Inform delegate.
+                    self.callbacksQueue.async {
+                        self.delegate?.fetchingWillBegin(handle: handle)
+                    }
+
                     // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
@@ -314,22 +319,28 @@ public class RepositoryManager {
                     var fetchError: Swift.Error? = nil
                     do {
                         if let cachePath = self.cachePath {
-                            let cachedRepository = try self.setupCacheIfNeeded(for: handle.repository, cachePath: cachePath)
-                            // Fetch into cache
-                            let cachePath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
+
+                            if !self.fileSystem.exists(cachePath) {
+                                try self.fileSystem.createDirectory(cachePath, recursive: true)
+                            }
+                            let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
+                            let cachedRepositorySpecifier = RepositorySpecifier(url: cachedRepositoryPath.asURL.absoluteString)
+                            let cachedRepositoryHandle = RepositoryHandle(manager: self, repository: cachedRepositorySpecifier, subpath: repositoryPath.relative(to: self.path))
+
 
                             // FIXME: make fs aware of locks
                             if type(of: self.fileSystem) == type(of: localFileSystem) {
                                 let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
                                 try lock.withLock {
-                                    try self.provider.fetch(repository: handle.repository, to: cachePath)
+                                    // Populate the cache
+                                    try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
                                     // Fetch into repository path.
-                                    try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
+                                    try self.provider.fetch(repository: cachedRepositoryHandle.repository, to: repositoryPath)
                                 }
                             } else {
-                                try self.provider.fetch(repository: handle.repository, to: cachePath)
+                                try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
                                 // Fetch into repository path.
-                                try self.provider.fetch(repository: cachedRepository.repository, to: repositoryPath)
+                                try self.provider.fetch(repository: cachedRepositoryHandle.repository, to: repositoryPath)
                             }
 
                             // Update status to available.
@@ -457,18 +468,7 @@ public class RepositoryManager {
         try? self.fileSystem.removeFileTree(path)
     }
 
-    private func setupCacheIfNeeded(for repository: RepositorySpecifier, cachePath: AbsolutePath) throws -> RepositoryHandle {
-        let repositoryPath = cachePath.appending(component: repository.fileSystemIdentifier)
-
-        if !fileSystem.exists(cachePath) {
-            try fileSystem.createDirectory(repositoryPath, recursive: true)
-        }
-
-        let specifier = RepositorySpecifier(url: repositoryPath.asURL.absoluteString)
-
-        return RepositoryHandle(manager: self, repository: specifier, subpath: repositoryPath.relative(to: path))
-    }
-
+    /// Purges the cached repositories from the cache.
     public func purgeCache() throws {
         guard let cachePath = cachePath else { return }
         let cachedRepositories = try fileSystem.getDirectoryContents(cachePath)

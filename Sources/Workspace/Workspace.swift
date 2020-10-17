@@ -190,7 +190,7 @@ public class Workspace {
     private let cachePath: AbsolutePath?
 
     /// The default location of the git repository cache
-    private static let defaultCachePath: AbsolutePath? = {
+    public static let defaultCachePath: AbsolutePath? = {
         guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
         return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
     }()
@@ -305,7 +305,7 @@ public class Workspace {
 
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
-        self.cachePath = cachePath ?? Workspace.defaultCachePath
+        self.cachePath = cachePath
 
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
