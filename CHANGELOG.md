@@ -4,9 +4,23 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 5.3.1
 -----------
 
-* [#2937](https://github.com/apple/swift-package-manager/pull/2937) [SR-13566](https://bugs.swift.org/browse/SR-13566)
+* [#2937](https://github.com/apple/swift-package-manager/pull/2937)
   
-  The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//		 swift-tools-version:5.4` are valid.
+  Manifest files can now have any combination of leading line terminators. All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are recognised. Gone are ye olde days when a shebang-like directive must be at the start of file.
+  
+  [SR-13566](https://bugs.swift.org/browse/SR-13566) The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//		 swift-tools-version:5.4` are valid.
+  
+  * Deprecations
+    
+    `ToolsVersionLoader.split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8])` is now deprecated, and replaced by `ToolsVersionLoader.split(_ manifestContents: String) -> ManifestComponents`.
+  
+    `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is not deprecated, and replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
+  
+  * Source Breakages
+    
+    SPM now throws an error if a manifest file contains invalid byte sequences such as `0x7F8F`.
+    
+    Swift tools version specifications that contain line terminators other than `U+000A` before either "swift-tool" or "tool-version" now silently falls back to using Swift 3.1 as the lowest supported version.
 
 Swift 4.2
 ---------

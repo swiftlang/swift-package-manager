@@ -35,6 +35,13 @@ public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: 
     stream <<< "\n"
     // Append the file contents except for version specifier line.
     stream <<< ToolsVersionLoader.split(contents).rest
+	// FIXME: `split(_:)` above has been deprecated.
+	// However, its replacement (commented out below) causes failures in `FunctionTests` and `WorkspaceTests`.
+//	guard let contentsDecodedWithUTF8 = contents.validDescription else {
+//		throw ToolsVersionLoader.Error.nonUTF8EncodedManifest(path: file)
+//	}
+//	// It's safe to force-unwrap, because `contentsDecodedWithUTF8` has been successfully decoded using UTF-8.
+//	stream <<< ToolsVersionLoader.split(contentsDecodedWithUTF8).contentsAfterToolsVersionSpecification.data(using: .utf8)!
 
     try fs.writeFileContents(file, bytes: stream.bytes)
 }
