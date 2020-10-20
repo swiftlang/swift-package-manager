@@ -6,7 +6,7 @@ Swift 5.3.1
 
 * [#2937](https://github.com/apple/swift-package-manager/pull/2937)
   
-  Manifest files can now have any combination of leading line terminators. All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are recognised. Gone are ye olde days when a shebang-like directive must be at the start of file.
+  Manifest files can now have any combination of leading line terminators. All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are recognised. This allows more flexibility in formatting the Package manifest.
   
   [SR-13566](https://bugs.swift.org/browse/SR-13566) The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//		 swift-tools-version:5.4` are valid.
   
