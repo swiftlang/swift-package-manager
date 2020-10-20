@@ -77,36 +77,3 @@ extension ResolvedProduct: CustomStringConvertible {
         return "<ResolvedProduct: \(name)>"
     }
 }
-
-fileprivate extension SwiftTarget {
-    /// Create an executable Swift target from linux main test manifest file.
-    convenience init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
-        // Look for the first swift test target and use the same swift version
-        // for linux main target. This will need to change if we move to a model
-        // where we allow per target swift language version build settings.
-        let swiftTestTarget = dependencies.first {
-            guard case .target(let target as SwiftTarget, _) = $0 else { return false }
-            return target.type == .test
-        }.flatMap { $0.target as? SwiftTarget }
-
-        // FIXME: This is not very correct but doesn't matter much in practice.
-        // We need to select the latest Swift language version that can
-        // satisfy the current tools version but there is not a good way to
-        // do that currently.
-        let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
-
-        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
-
-        let swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
-
-        self.init(
-            name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
-            sources: sources,
-            dependencies: dependencies,
-            swiftVersion: swiftVersion,
-            buildSettings: .init()
-        )
-    }
-}
