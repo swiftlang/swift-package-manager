@@ -12,11 +12,30 @@ import TSCBasic
 import TSCUtility
 
 /// Available runtime sanitizers.
-public enum Sanitizer: String, Encodable {
+public enum Sanitizer: String, Encodable, CaseIterable {
     case address
     case thread
     case undefined
     case scudo
+
+    public init(argument: String) throws {
+        if let sanitizer = Sanitizer(rawValue: argument) {
+            self = sanitizer
+            return
+        }
+
+        for sanitizer in Sanitizer.allCases where sanitizer.shortName == argument {
+            self = sanitizer
+            return
+        }
+
+        throw ArgumentConversionError.custom("valid sanitizers: \(Sanitizer.formattedValues)")
+    }
+
+    /// All sanitizer options in a comma separated string
+    public static var formattedValues: String {
+        return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
+    }
 
     /// Return an established short name for a sanitizer, e.g. "asan".
     public var shortName: String {

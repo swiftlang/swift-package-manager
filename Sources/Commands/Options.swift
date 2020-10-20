@@ -180,7 +180,7 @@ public struct SwiftToolOptions: ParsableArguments {
 
     /// Which compile-time sanitizers should be enabled.
     @Option(name: .customLong("sanitize"),
-            help: "Turn on runtime checks for erroneous behavior",
+            help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)",
             transform: { try Sanitizer(argument: $0) })
     var sanitizers: [Sanitizer] = []
 
