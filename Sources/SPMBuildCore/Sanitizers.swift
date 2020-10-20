@@ -12,7 +12,7 @@ import TSCBasic
 import TSCUtility
 
 /// Available runtime sanitizers.
-public enum Sanitizer: String, Encodable {
+public enum Sanitizer: String, Encodable, CaseIterable {
     case address
     case thread
     case undefined
