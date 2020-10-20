@@ -12,6 +12,14 @@ add_library(PackageModel
   BuildSettings.swift
   Diagnostics.swift
   Manifest.swift
+  Manifest/FilteredDependencyDescription.swift
+  Manifest/PackageConditionDescription.swift
+  Manifest/PackageDependencyDescription.swift
+  Manifest/PlatformDescription.swift
+  Manifest/ProductDescription.swift
+  Manifest/SystemPackageProviderDescription.swift
+  Manifest/TargetBuildSettingDescription.swift
+  Manifest/TargetDescription.swift
   ModuleMapType.swift
   Package.swift
   PackageReference.swift
@@ -23,7 +31,6 @@ add_library(PackageModel
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   ToolsVersion.swift)
-add_subdirectory(Manifest)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic
   TSCUtility)
