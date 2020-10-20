@@ -2464,6 +2464,22 @@ final class BuildPlanTests: XCTestCase {
         try testBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
+    func testCreatingSanitizers() throws {
+        for sanitizer in Sanitizer.allCases {
+            XCTAssertEqual(sanitizer, try Sanitizer(argument: sanitizer.shortName))
+        }
+    }
+
+    func testInvalidSanitizer() throws {
+        do {
+            _ = try Sanitizer(argument: "invalid")
+            XCTFail("Should have failed to create Sanitizer")
+        } catch let error as ArgumentConversionError {
+            XCTAssertEqual(
+                error.description, "valid sanitizers: address, thread, undefined, scudo")
+        }
+    }
+
     func testAddressSanitizer() throws {
         try sanitizerTest(.address, expectedName: "address")
     }
