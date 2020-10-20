@@ -277,7 +277,7 @@ you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspa
 /// while making sure you don't update to a version with breaking changes,
 /// and helps to prevent conflicts in your dependency graph.
 ///
-/// The following example allows the Swift package manager to select a version
+/// The following example allows the Swift Package Manager to select a version
 /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
 ///
 ///    .package(url: "https://example.com/example-package.git", from: "1.2.3"),
@@ -299,7 +299,7 @@ static func package(url: String, _ requirement: Package.Dependency.Requirement) 
 /// Add a package dependency starting with a specific minimum version, up to
 /// but not including a specified maximum version.
 ///
-/// The following example allows the Swift package manager to pick
+/// The following example allows the Swift Package Manager to pick
 /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
 ///
 ///     .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
@@ -313,7 +313,7 @@ static func package(url: String, _ range: Range<Version>) -> Package.Dependency
 /// Add a package dependency starting with a specific minimum version, going
 /// up to and including a specific maximum version.
 ///
-/// The following example allows the Swift package manager to pick
+/// The following example allows the Swift Package Manager to pick
 /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
 ///
 ///     .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
