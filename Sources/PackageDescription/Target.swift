@@ -684,7 +684,7 @@ extension Target.Dependency {
     /// - parameters:
     ///   - name: The name of the dependency, either a target or a product.
     ///
-    /// The Swift package manager creates the by-name dependency after it has loaded the package graph.
+    /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
       #if PACKAGE_DESCRIPTION_4

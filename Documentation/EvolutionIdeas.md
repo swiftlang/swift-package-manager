@@ -59,7 +59,7 @@ Bug: [SR-883](https://bugs.swift.org/browse/SR-883)
 
 ## Resource Support
 
-The Swift package manager needs a story for how packages should specify their
+The Swift Package Manager needs a story for how packages should specify their
 resources to include with products.
 
 Thread: N/A
