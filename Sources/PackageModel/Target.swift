@@ -192,7 +192,13 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
     }
 }
 
-public class SwiftTarget: Target {
+extension Target: CustomStringConvertible {
+    public var description: String {
+        return "<\(Swift.type(of: self)): \(name)>"
+    }
+}
+
+public final class SwiftTarget: Target {
 
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
@@ -258,7 +264,7 @@ public class SwiftTarget: Target {
     }
 }
 
-public class SystemLibraryTarget: Target {
+public final class SystemLibraryTarget: Target {
 
     /// The name of pkgConfig file, if any.
     public let pkgConfig: String?
@@ -319,7 +325,7 @@ public class SystemLibraryTarget: Target {
     }
 }
 
-public class ClangTarget: Target {
+public final class ClangTarget: Target {
 
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
@@ -408,7 +414,7 @@ public class ClangTarget: Target {
     }
 }
 
-public class BinaryTarget: Target {
+public final class BinaryTarget: Target {
 
     /// The original source of the binary artifact.
     public enum ArtifactSource: Equatable, Codable {
@@ -536,12 +542,6 @@ public enum ModuleMapType: Equatable, Codable {
         case .umbrellaDirectory(let path):
             try container.encode(path, forKey: .umbrellaDirectory)
         }
-    }
-}
-
-extension Target: CustomStringConvertible {
-    public var description: String {
-        return "<\(Swift.type(of: self)): \(name)>"
     }
 }
 
