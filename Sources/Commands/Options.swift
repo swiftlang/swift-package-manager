@@ -90,6 +90,27 @@ enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
     case xcode
 }
 
+public extension Sanitizer {
+    init(argument: String) throws {
+        if let sanitizer = Sanitizer(rawValue: argument) {
+            self = sanitizer
+            return
+        }
+
+        for sanitizer in Sanitizer.allCases where sanitizer.shortName == argument {
+            self = sanitizer
+            return
+        }
+
+        throw ArgumentConversionError.custom("valid sanitizers: \(Sanitizer.formattedValues)")
+    }
+
+    /// All sanitizer options in a comma separated string
+    fileprivate static var formattedValues: String {
+        return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
+    }
+}
+
 public struct SwiftToolOptions: ParsableArguments {
     @OptionGroup()
     var buildFlagsGroup: BuildFlagsGroup
