@@ -248,7 +248,7 @@ public final class SwiftTarget: Target {
     }
 
     /// Create an executable Swift target from linux main test manifest file.
-    public convenience init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
+    public init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -261,19 +261,18 @@ public final class SwiftTarget: Target {
         // We need to select the latest Swift language version that can
         // satisfy the current tools version but there is not a good way to
         // do that currently.
+        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
         let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
 
         let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
 
-        let swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
-
-        self.init(
+        super.init(
             name: name,
             defaultLocalization: nil,
             platforms: platforms,
+            type: .executable,
             sources: sources,
             dependencies: dependencies,
-            swiftVersion: swiftVersion,
             buildSettings: .init()
         )
     }
