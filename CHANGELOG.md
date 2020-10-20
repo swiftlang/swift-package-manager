@@ -18,7 +18,7 @@ Swift 5.3.1
   
   * Source Breakages
     
-    SPM now throws an error if a manifest file contains invalid byte sequences such as `0x7F8F`.
+    The package manager now throws an error if a manifest file contains invalid byte sequences such as `0x7F8F`.
     
     Swift tools version specifications that contain line terminators other than `U+000A` before either "swift-tool" or "tool-version" now silently falls back to using Swift 3.1 as the lowest supported version.
 
