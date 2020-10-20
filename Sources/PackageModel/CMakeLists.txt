@@ -20,6 +20,7 @@ add_library(PackageModel
   Manifest/SystemPackageProviderDescription.swift
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
+  ModuleMapType.swift
   Package.swift
   PackageReference.swift
   Platform.swift

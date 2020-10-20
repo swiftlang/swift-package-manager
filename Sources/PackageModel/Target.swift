@@ -499,52 +499,6 @@ public final class BinaryTarget: Target {
     }
 }
 
-/// A type of module map layout.  Contains all the information needed to generate or use a module map for a target that can have C-style headers.
-public enum ModuleMapType: Equatable, Codable {
-    /// No module map file.
-    case none
-    /// A custom module map file.
-    case custom(AbsolutePath)
-    /// An umbrella header included by a generated module map file.
-    case umbrellaHeader(AbsolutePath)
-    /// An umbrella directory included by a generated module map file.
-    case umbrellaDirectory(AbsolutePath)
-
-    private enum CodingKeys: String, CodingKey {
-        case none, custom, umbrellaHeader, umbrellaDirectory
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .custom) {
-            self = .custom(path)
-        }
-        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaHeader) {
-            self = .umbrellaHeader(path)
-        }
-        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaDirectory) {
-            self = .umbrellaDirectory(path)
-        }
-        else {
-            self = .none
-        }
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .none:
-            break
-        case .custom(let path):
-            try container.encode(path, forKey: .custom)
-        case .umbrellaHeader(let path):
-            try container.encode(path, forKey: .umbrellaHeader)
-        case .umbrellaDirectory(let path):
-            try container.encode(path, forKey: .umbrellaDirectory)
-        }
-    }
-}
-
 extension Sources {
     /// Determine target type based on the sources.
     fileprivate func computeTargetType() -> Target.Kind {
