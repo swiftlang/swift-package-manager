@@ -10,11 +10,9 @@ Swift 5.3.1
   
   [SR-13566](https://bugs.swift.org/browse/SR-13566) The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//		 swift-tools-version:5.4` are valid.
   
-  * Deprecations
-    
-    `ToolsVersionLoader.split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8])` is now deprecated, and replaced by `ToolsVersionLoader.split(_ manifestContents: String) -> ManifestComponents`.
+  * API Removal
   
-    `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is not deprecated, and replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
+    `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is now obsoleted, and replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
   
   * Source Breakages
     
