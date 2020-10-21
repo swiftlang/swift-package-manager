@@ -52,13 +52,14 @@ public struct CheckoutState: Equatable, Hashable {
     }
 
     /// Returns requirement induced by this state.
-    public func requirement() -> PackageRequirement {
+    public var requirement: PackageRequirement {
         if let version = version {
             return .versionSet(.exact(version))
         } else if let branch = branch {
             return .revision(branch)
+        } else {
+            return .revision(revision.identifier)
         }
-        return .revision(revision.identifier)
     }
 }
 

@@ -432,7 +432,7 @@ extension Workspace {
         } else if let revision = revision {
             requirement = .revision(revision)
         } else {
-            requirement = currentState.requirement()
+            requirement = currentState.requirement
         }
         let constraint = RepositoryPackageConstraint(
                 // If any products are required, the rest of the package graph will supply those constraints.
