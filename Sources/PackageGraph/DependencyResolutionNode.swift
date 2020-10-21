@@ -76,8 +76,8 @@ public enum DependencyResolutionNode {
         }
     }
 
-    /// Assembles the product filter to use on the manifest for this node to determine it’s dependencies.
-    internal func productFilter() -> ProductFilter {
+    /// Assembles the product filter to use on the manifest for this node to determine its dependencies.
+    public var productFilter: ProductFilter {
         switch self {
         case .empty:
             return .specific([])
@@ -130,6 +130,6 @@ extension DependencyResolutionNode: Hashable {
 
 extension DependencyResolutionNode: CustomStringConvertible {
     public var description: String {
-        return "\(package.name)\(productFilter())"
+        return "\(package.name)\(productFilter)"
     }
 }

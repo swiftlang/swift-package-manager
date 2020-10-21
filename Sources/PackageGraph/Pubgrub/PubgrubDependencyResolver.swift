@@ -264,7 +264,7 @@ public final class PubgrubDependencyResolver {
                 // based (unversioned/branch-based) constraint present in the graph.
                 let container = try provider.getContainer(for: node.package)
                 for dependency in try container.packageContainer.getUnversionedDependencies(
-                    productFilter: node.productFilter()
+                    productFilter: node.productFilter
                 ) {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -457,7 +457,7 @@ public final class PubgrubDependencyResolver {
                 fatalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
-            let products = assignment.term.node.productFilter()
+            let products = assignment.term.node.productFilter
 
             let container = try provider.getContainer(for: assignment.term.node.package)
             let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
@@ -1177,7 +1177,7 @@ private final class PubGrubPackageContainer {
             return [Incompatibility(Term(node, requirement), root: root, cause: .incompatibleToolsVersion)]
         }
 
-        var unprocessedDependencies = try packageContainer.getDependencies(at: version, productFilter: node.productFilter())
+        var unprocessedDependencies = try packageContainer.getDependencies(at: version, productFilter: node.productFilter)
         if let sharedVersion = node.versionLock(version: version) {
             unprocessedDependencies.append(sharedVersion)
         }
@@ -1224,7 +1224,7 @@ private final class PubGrubPackageContainer {
             }).joined())
         }
 
-        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version, products: node.productFilter())
+        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version, products: node.productFilter)
 
         return dependencies.map { dependency in
             var terms: OrderedSet<Term> = []
