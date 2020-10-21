@@ -48,9 +48,6 @@ public final class PubgrubDependencyResolver {
         ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
     }()
 
-    /// The resolver's delegate.
-    let delegate: DependencyResolverDelegate?
-
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
 
@@ -112,14 +109,12 @@ public final class PubgrubDependencyResolver {
 
     public init(
         _ provider: PackageContainerProvider,
-        _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
         traceFile: AbsolutePath? = nil,
         traceStream: OutputByteStream? = nil
     ) {
         self.packageContainerProvider = provider
-        self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
         self.traceFile = traceFile
@@ -128,12 +123,11 @@ public final class PubgrubDependencyResolver {
 
     public convenience init(
         _ provider: PackageContainerProvider,
-        _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
         traceFile: AbsolutePath? = nil
     ) {
-        self.init(provider, delegate, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
+        self.init(provider, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.

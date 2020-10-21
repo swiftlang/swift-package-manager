@@ -117,9 +117,6 @@ public extension WorkspaceDelegate {
     func didDownloadBinaryArtifacts() {}
 }
 
-private class WorkspaceResolverDelegate: DependencyResolverDelegate {
-}
-
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     unowned let workspaceDelegate: WorkspaceDelegate
 
@@ -2091,11 +2088,10 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver() -> PubgrubDependencyResolver {
-        let resolverDelegate = WorkspaceResolverDelegate()
         let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
 
         return PubgrubDependencyResolver(
-            containerProvider, resolverDelegate,
+            containerProvider,
             isPrefetchingEnabled: isResolverPrefetchingEnabled,
             skipUpdate: skipUpdate, traceFile: traceFile
         )

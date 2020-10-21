@@ -219,12 +219,6 @@ public struct MockPackagesProvider: PackageContainerProvider {
     }
 }
 
-public class MockResolverDelegate: DependencyResolverDelegate {
-    public typealias Identifier = MockPackageContainer.Identifier
-
-    public init() {}
-}
-
 extension DependencyResolver {
     /// Helper method which returns all the version binding out of resolver and assert failure for non version bindings.
     public func resolveToVersion(

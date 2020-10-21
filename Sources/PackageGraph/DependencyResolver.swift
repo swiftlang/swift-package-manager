@@ -16,10 +16,6 @@ public enum DependencyResolverError: Error, Equatable {
     case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
 }
 
-/// Delegate interface for dependency resoler status.
-public protocol DependencyResolverDelegate {
-}
-
 public class DependencyResolver {
     public typealias Binding = (container: PackageReference, binding: BoundVersion, products: ProductFilter)
 }
