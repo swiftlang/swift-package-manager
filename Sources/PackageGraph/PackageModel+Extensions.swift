@@ -24,7 +24,6 @@ extension PackageDependencyDescription {
 }
 
 extension Manifest {
-
     /// Constructs constraints of the dependencies in the raw package.
     public func dependencyConstraints(productFilter: ProductFilter, config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
         return dependenciesRequired(for: productFilter).map({
@@ -37,7 +36,6 @@ extension Manifest {
 }
 
 extension RepositoryPackageConstraint {
-
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
@@ -54,5 +52,15 @@ extension RepositoryPackageConstraint {
                 }
             }
         }
+    }
+}
+
+extension PackageReference {
+    /// The repository of the package.
+    ///
+    /// This should only be accessed when the reference is not local.
+    public var repository: RepositorySpecifier {
+        precondition(kind == .remote)
+        return RepositorySpecifier(url: path)
     }
 }

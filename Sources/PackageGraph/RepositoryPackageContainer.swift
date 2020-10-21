@@ -366,13 +366,3 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         }
     }
 }
-
-extension PackageReference {
-    /// The repository of the package.
-    ///
-    /// This should only be accessed when the reference is not local.
-    public var repository: RepositorySpecifier {
-        precondition(kind == .remote)
-        return RepositorySpecifier(url: path)
-    }
-}
