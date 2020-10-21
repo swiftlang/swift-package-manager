@@ -194,7 +194,7 @@ public class BasePackageContainer: PackageContainer {
         self.currentToolsVersion = currentToolsVersion
     }
 
-    public var _isRemoteContainer: Bool? {
+    public var isRemoteContainer: Bool? {
         return nil
     }
 }

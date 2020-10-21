@@ -129,7 +129,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
     }
 
-    public override var _isRemoteContainer: Bool? {
+    public override var isRemoteContainer: Bool? {
         return true
     }
 

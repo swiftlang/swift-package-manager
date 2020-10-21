@@ -159,7 +159,7 @@ public class MockPackageContainer: PackageContainer {
         self.dependencies = dependencies
     }
 
-    public var _isRemoteContainer: Bool? {
+    public var isRemoteContainer: Bool? {
         return true
     }
 }
