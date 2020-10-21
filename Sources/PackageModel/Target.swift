@@ -192,7 +192,13 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
     }
 }
 
-public class SwiftTarget: Target {
+extension Target: CustomStringConvertible {
+    public var description: String {
+        return "<\(Swift.type(of: self)): \(name)>"
+    }
+}
+
+public final class SwiftTarget: Target {
 
     /// The file name of linux main file.
     public static let linuxMainBasename = "LinuxMain.swift"
@@ -206,36 +212,6 @@ public class SwiftTarget: Target {
             platforms: [],
             type: .executable,
             sources: testDiscoverySrc,
-            dependencies: dependencies,
-            buildSettings: .init()
-        )
-    }
-
-    /// Create an executable Swift target from linux main test manifest file.
-    init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
-        // Look for the first swift test target and use the same swift version
-        // for linux main target. This will need to change if we move to a model
-        // where we allow per target swift language version build settings.
-        let swiftTestTarget = dependencies.first {
-            guard case .target(let target as SwiftTarget, _) = $0 else { return false }
-            return target.type == .test
-        }.flatMap { $0.target as? SwiftTarget }
-
-        // FIXME: This is not very correct but doesn't matter much in practice.
-        // We need to select the latest Swift language version that can
-        // satisfy the current tools version but there is not a good way to
-        // do that currently.
-        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
-        let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
-
-        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
-
-        super.init(
-            name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
-            type: .executable,
-            sources: sources,
             dependencies: dependencies,
             buildSettings: .init()
         )
@@ -271,6 +247,36 @@ public class SwiftTarget: Target {
         )
     }
 
+    /// Create an executable Swift target from linux main test manifest file.
+    public init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
+        // Look for the first swift test target and use the same swift version
+        // for linux main target. This will need to change if we move to a model
+        // where we allow per target swift language version build settings.
+        let swiftTestTarget = dependencies.first {
+            guard case .target(let target as SwiftTarget, _) = $0 else { return false }
+            return target.type == .test
+        }.flatMap { $0.target as? SwiftTarget }
+
+        // FIXME: This is not very correct but doesn't matter much in practice.
+        // We need to select the latest Swift language version that can
+        // satisfy the current tools version but there is not a good way to
+        // do that currently.
+        self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
+        let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
+
+        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
+
+        super.init(
+            name: name,
+            defaultLocalization: nil,
+            platforms: platforms,
+            type: .executable,
+            sources: sources,
+            dependencies: dependencies,
+            buildSettings: .init()
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case swiftVersion
     }
@@ -288,7 +294,7 @@ public class SwiftTarget: Target {
     }
 }
 
-public class SystemLibraryTarget: Target {
+public final class SystemLibraryTarget: Target {
 
     /// The name of pkgConfig file, if any.
     public let pkgConfig: String?
@@ -349,7 +355,7 @@ public class SystemLibraryTarget: Target {
     }
 }
 
-public class ClangTarget: Target {
+public final class ClangTarget: Target {
 
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
@@ -438,16 +444,46 @@ public class ClangTarget: Target {
     }
 }
 
-public class BinaryTarget: Target {
+public final class BinaryTarget: Target {
 
     /// The original source of the binary artifact.
-    public enum ArtifactSource: Equatable {
+    public enum ArtifactSource: Equatable, Codable {
 
         /// Represents an artifact that was downloaded from a remote URL.
         case remote(url: String)
 
         /// Represents an artifact that was available locally.
         case local
+
+        private enum CodingKeys: String, CodingKey {
+            case remote, local
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .remote(let a1):
+                var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remote)
+                try unkeyedContainer.encode(a1)
+            case .local:
+                try container.encodeNil(forKey: .local)
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            guard let key = values.allKeys.first(where: values.contains) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+            }
+            switch key {
+            case .remote:
+                var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+                let a1 = try unkeyedValues.decode(String.self)
+                self = .remote(url: a1)
+            case .local:
+                self = .local
+            }
+        }
     }
 
     /// The binary artifact's source.
@@ -490,58 +526,6 @@ public class BinaryTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
         try super.init(from: decoder)
-    }
-}
-
-/// A type of module map layout.  Contains all the information needed to generate or use a module map for a target that can have C-style headers.
-public enum ModuleMapType: Equatable, Codable {
-    /// No module map file.
-    case none
-    /// A custom module map file.
-    case custom(AbsolutePath)
-    /// An umbrella header included by a generated module map file.
-    case umbrellaHeader(AbsolutePath)
-    /// An umbrella directory included by a generated module map file.
-    case umbrellaDirectory(AbsolutePath)
-
-    private enum CodingKeys: String, CodingKey {
-        case none, custom, umbrellaHeader, umbrellaDirectory
-    }
-    
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .custom) {
-            self = .custom(path)
-        }
-        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaHeader) {
-            self = .umbrellaHeader(path)
-        }
-        else if let path = try container.decodeIfPresent(AbsolutePath.self, forKey: .umbrellaDirectory) {
-            self = .umbrellaDirectory(path)
-        }
-        else {
-            self = .none
-        }
-    }
-    
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .none:
-            break
-        case .custom(let path):
-            try container.encode(path, forKey: .custom)
-        case .umbrellaHeader(let path):
-            try container.encode(path, forKey: .umbrellaHeader)
-        case .umbrellaDirectory(let path):
-            try container.encode(path, forKey: .umbrellaDirectory)
-        }
-    }
-}
-
-extension Target: CustomStringConvertible {
-    public var description: String {
-        return "<\(Swift.type(of: self)): \(name)>"
     }
 }
 

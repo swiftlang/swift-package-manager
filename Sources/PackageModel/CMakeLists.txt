@@ -7,16 +7,29 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageModel
+  BuildConfiguration.swift
+  BuildEnvironment.swift
   BuildSettings.swift
+  Diagnostics.swift
   Manifest.swift
+  Manifest/FilteredDependencyDescription.swift
+  Manifest/PackageConditionDescription.swift
+  Manifest/PackageDependencyDescription.swift
+  Manifest/PlatformDescription.swift
+  Manifest/ProductDescription.swift
+  Manifest/SystemPackageProviderDescription.swift
+  Manifest/TargetBuildSettingDescription.swift
+  Manifest/TargetDescription.swift
+  ModuleMapType.swift
   Package.swift
-  PackageModel+Codable.swift
+  PackageReference.swift
   Platform.swift
   Product.swift
-  ResolvedModels.swift
   Resource.swift
   Sources.swift
   Target.swift
+  SupportedLanguageExtension.swift
+  SwiftLanguageVersion.swift
   ToolsVersion.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic

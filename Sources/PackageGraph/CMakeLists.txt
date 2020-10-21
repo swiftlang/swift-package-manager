@@ -15,6 +15,9 @@ add_library(PackageGraph
   PinsStore.swift
   Pubgrub.swift
   RawPackageConstraints.swift
+  ResolvedPackage.swift
+  ResolvedProduct.swift
+  ResolvedTarget.swift
   RepositoryPackageContainerProvider.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC

@@ -11,6 +11,7 @@
 import XCTest
 import TSCBasic
 
+import PackageGraph
 import PackageModel
 
 private extension ResolvedTarget {

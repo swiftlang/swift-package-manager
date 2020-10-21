@@ -10,6 +10,7 @@
 
 import TSCBasic
 import PackageModel
+import PackageGraph
 
 public func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream = stdoutStream) {
     let dumper: DependenciesDumper

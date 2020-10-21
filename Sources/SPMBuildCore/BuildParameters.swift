@@ -13,6 +13,7 @@ import class Foundation.ProcessInfo
 import TSCBasic
 import TSCUtility
 import PackageModel
+import PackageGraph
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.
