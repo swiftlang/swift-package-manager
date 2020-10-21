@@ -891,13 +891,13 @@ private final class DiagnosticReportBuilder {
             assert(incompatibility.terms.count == 1)
             let term = incompatibility.terms.first!
             assert(term.isPositive)
-            return "no versions of \(term.node.nameForDiagnostics()) match the requirement \(term.requirement)"
+            return "no versions of \(term.node.nameForDiagnostics) match the requirement \(term.requirement)"
         case .root:
             // FIXME: This will never happen I think.
             assert(incompatibility.terms.count == 1)
             let term = incompatibility.terms.first!
             assert(term.isPositive)
-            return "\(term.node.nameForDiagnostics()) is \(term.requirement)"
+            return "\(term.node.nameForDiagnostics) is \(term.requirement)"
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
@@ -914,16 +914,16 @@ private final class DiagnosticReportBuilder {
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            let prefix = hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics() : description(for: term, normalizeRange: true)
+            let prefix = hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics : description(for: term, normalizeRange: true)
             return "\(prefix) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
             if term1.isPositive == term2.isPositive {
                 if term1.isPositive {
-                    return "\(term1.node.nameForDiagnostics()) is incompatible with \(term2.node.nameForDiagnostics())";
+                    return "\(term1.node.nameForDiagnostics) is incompatible with \(term2.node.nameForDiagnostics)";
                 } else {
-                    return "either \(term1.node.nameForDiagnostics()) or \(term2)"
+                    return "either \(term1.node.nameForDiagnostics) or \(term2)"
                 }
             }
         }
@@ -989,7 +989,7 @@ private final class DiagnosticReportBuilder {
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) -> String {
-        let name = term.node.nameForDiagnostics()
+        let name = term.node.nameForDiagnostics
 
         switch term.requirement {
         case .any: return "every version of \(name)"
@@ -1410,6 +1410,16 @@ fileprivate extension PackageRequirement {
             return false
         case .revision:
             return true
+        }
+    }
+}
+
+fileprivate extension DependencyResolutionNode {
+    var nameForDiagnostics: String {
+        if let product = specificProduct {
+            return "\(package.name)[\(product)]"
+        } else {
+            return "\(package.name)"
         }
     }
 }

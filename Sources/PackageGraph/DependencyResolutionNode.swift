@@ -113,14 +113,6 @@ public enum DependencyResolutionNode {
             products: .specific([])
         )
     }
-
-    public func nameForDiagnostics() -> String {
-        if let product = specificProduct {
-            return "\(package.name)[\(product)]"
-        } else {
-            return "\(package.name)"
-        }
-    }
 }
 
 extension DependencyResolutionNode: Equatable {
