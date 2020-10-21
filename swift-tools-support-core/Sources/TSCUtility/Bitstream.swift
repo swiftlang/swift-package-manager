@@ -10,43 +10,43 @@
 
 import Foundation
 
-enum BitcodeElement {
-  struct Block {
-    var id: UInt64
-    var elements: [BitcodeElement]
+public enum BitcodeElement {
+  public struct Block {
+    public var id: UInt64
+    public var elements: [BitcodeElement]
   }
 
-  struct Record {
-    enum Payload {
+  public struct Record {
+    public enum Payload {
       case none
       case array([UInt64])
       case char6String(String)
       case blob(Data)
     }
 
-    var id: UInt64
-    var fields: [UInt64]
-    var payload: Payload
+    public var id: UInt64
+    public var fields: [UInt64]
+    public var payload: Payload
   }
 
   case block(Block)
   case record(Record)
 }
 
-struct BlockInfo {
-  var name: String = ""
-  var recordNames: [UInt64: String] = [:]
+public struct BlockInfo {
+  public var name: String = ""
+  public var recordNames: [UInt64: String] = [:]
 }
 
 extension Bitcode {
-  struct Signature: Equatable {
+  public struct Signature: Equatable {
     private var value: UInt32
 
-    init(value: UInt32) {
+    public init(value: UInt32) {
       self.value = value
     }
 
-    init(string: String) {
+    public init(string: String) {
       precondition(string.utf8.count == 4)
       var result: UInt32 = 0
       for byte in string.utf8.reversed() {
@@ -58,10 +58,12 @@ extension Bitcode {
   }
 }
 
-struct Bitcode {
-  let signature: Signature
-  let elements: [BitcodeElement]
-  let blockInfo: [UInt64: BlockInfo]
+/// Represents the contents of a file encoded using the
+/// [LLVM bitstream container format](https://llvm.org/docs/BitCodeFormat.html#bitstream-container-format)
+public struct Bitcode {
+  public let signature: Signature
+  public let elements: [BitcodeElement]
+  public let blockInfo: [UInt64: BlockInfo]
 }
 
 private extension Bits.Cursor {
@@ -297,22 +299,22 @@ private struct BitstreamReader {
     }
   }
 
-  mutating func readBlock(id: UInt64, abbrevWidth: Int, abbrevInfo: [Abbrev]) throws -> [BitcodeElement] {
+  mutating func readBlock<Visitor: BitstreamVisitor>(id: UInt64, abbrevWidth: Int, abbrevInfo: [Abbrev], visitor: inout Visitor) throws {
     var abbrevInfo = abbrevInfo
-    var elements = [BitcodeElement]()
 
     while !cursor.isAtEnd {
       switch try cursor.read(abbrevWidth) {
       case 0: // END_BLOCK
         try cursor.advance(toBitAlignment: 32)
         // FIXME: check expected length
-        return elements
+        try visitor.didExitBlock()
+        return
 
       case 1: // ENTER_SUBBLOCK
         let blockID = try cursor.readVBR(8)
         let newAbbrevWidth = Int(try cursor.readVBR(4))
         try cursor.advance(toBitAlignment: 32)
-        _ = try cursor.read(32) // FIXME: use expected length
+        let blockLength = try cursor.read(32) * 4
 
         switch blockID {
         case 0:
@@ -321,9 +323,13 @@ private struct BitstreamReader {
           // Metadata blocks we don't understand yet
           fallthrough
         default:
-          let innerElements = try readBlock(
-            id: blockID, abbrevWidth: newAbbrevWidth, abbrevInfo: globalAbbrevs[blockID] ?? [])
-          elements.append(.block(.init(id: blockID, elements: innerElements)))
+          guard try visitor.shouldEnterBlock(id: blockID) else {
+            try cursor.skip(bytes: Int(blockLength))
+            break
+          }
+          try readBlock(
+            id: blockID, abbrevWidth: newAbbrevWidth,
+            abbrevInfo: globalAbbrevs[blockID] ?? [], visitor: &visitor)
         }
 
       case 2: // DEFINE_ABBREV
@@ -337,33 +343,97 @@ private struct BitstreamReader {
         for _ in 0..<numOps {
           operands.append(try cursor.readVBR(6))
         }
-        elements.append(.record(.init(id: code, fields: operands, payload: .none)))
+        try visitor.visit(record: .init(id: code, fields: operands, payload: .none))
 
       case let abbrevID:
         guard Int(abbrevID) - 4 < abbrevInfo.count else {
           throw Error.noSuchAbbrev(blockID: id, abbrevID: Int(abbrevID))
         }
-        elements.append(.record(try readAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4])))
+        try visitor.visit(record: try readAbbreviatedRecord(abbrevInfo[Int(abbrevID) - 4]))
       }
     }
 
     guard id == Self.fakeTopLevelBlockID else {
       throw Error.missingEndBlock(blockID: id)
     }
-    return elements
   }
 
   static let fakeTopLevelBlockID: UInt64 = ~0
 }
 
+/// A visitor which receives callbacks while reading a bitstream.
+public protocol BitstreamVisitor {
+  /// Customization point to validate a bitstream's signature or "magic number".
+  func validate(signature: Bitcode.Signature) throws
+  /// Called when a new block is encountered. Return `true` to enter the block
+  /// and read its contents, or `false` to skip it.
+  mutating func shouldEnterBlock(id: UInt64) throws -> Bool
+  /// Called when a block is exited.
+  mutating func didExitBlock() throws
+  /// Called whenever a record is encountered.
+  mutating func visit(record: BitcodeElement.Record) throws
+}
+
+/// A basic visitor that collects all the blocks and records in a stream.
+private struct CollectingVisitor: BitstreamVisitor {
+  var stack: [(UInt64, [BitcodeElement])] = [(BitstreamReader.fakeTopLevelBlockID, [])]
+
+  func validate(signature: Bitcode.Signature) throws {}
+
+  mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
+    stack.append((id, []))
+    return true
+  }
+
+  mutating func didExitBlock() throws {
+    guard let (id, elements) = stack.popLast() else {
+      fatalError("Unbalanced calls to shouldEnterBlock/didExitBlock")
+    }
+
+    let block = BitcodeElement.Block(id: id, elements: elements)
+    stack[stack.endIndex-1].1.append(.block(block))
+  }
+
+  mutating func visit(record: BitcodeElement.Record) throws {
+    stack[stack.endIndex-1].1.append(.record(record))
+  }
+
+  func finalizeTopLevelElements() -> [BitcodeElement] {
+    assert(stack.count == 1)
+    return stack[0].1
+  }
+}
+
 extension Bitcode {
-  init(data: Data) throws {
+  /// Parse a bitstream from data.
+  public init(data: Data) throws {
     precondition(data.count > 4)
     let signatureValue = UInt32(Bits(buffer: data).readBits(atOffset: 0, count: 32))
     let bitstreamData = data[4..<data.count]
 
     var reader = BitstreamReader(buffer: bitstreamData)
-    let topLevelElements = try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID, abbrevWidth: 2, abbrevInfo: [])
-    self.init(signature: .init(value: signatureValue), elements: topLevelElements, blockInfo: reader.blockInfo)
+    var visitor = CollectingVisitor()
+    try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID,
+                         abbrevWidth: 2,
+                         abbrevInfo: [],
+                         visitor: &visitor)
+    self.init(signature: .init(value: signatureValue),
+              elements: visitor.finalizeTopLevelElements(),
+              blockInfo: reader.blockInfo)
+  }
+
+  /// Traverse a bitstream using the specified `visitor`, which will receive
+  /// callbacks when blocks and records are encountered.
+  public static func read<Visitor: BitstreamVisitor>(stream data: Data, using visitor: inout Visitor) throws {
+    precondition(data.count > 4)
+    let signatureValue = UInt32(Bits(buffer: data).readBits(atOffset: 0, count: 32))
+    try visitor.validate(signature: .init(value: signatureValue))
+
+    let bitstreamData = data[4..<data.count]
+    var reader = BitstreamReader(buffer: bitstreamData)
+    try reader.readBlock(id: BitstreamReader.fakeTopLevelBlockID,
+                         abbrevWidth: 2,
+                         abbrevInfo: [],
+                         visitor: &visitor)
   }
 }

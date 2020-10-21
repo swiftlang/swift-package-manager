@@ -59,6 +59,14 @@ class PersistentCacheTests: XCTestCase {
                 try decoder.decode(Value.self, from: $0)
             }
             XCTAssertEqual(retVal3, value1)
+            
+            try cache.delete(key: encoder.encode(key1))
+            
+            XCTAssertNil(try cache.get(key: encoder.encode(key1)))
+            let retVal4 = try cache.get(key: encoder.encode(key2)).map {
+                try decoder.decode(Value.self, from: $0)
+            }
+            XCTAssertEqual(retVal4, value2)
         }
     }
 }

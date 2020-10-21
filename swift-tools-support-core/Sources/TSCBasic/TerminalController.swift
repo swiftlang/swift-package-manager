@@ -10,7 +10,7 @@
 
 import TSCLibc
 #if os(Windows)
-import MSVCRT
+import CRT
 #endif
 
 /// A class to have better control on tty output streams: standard output and standard error.
