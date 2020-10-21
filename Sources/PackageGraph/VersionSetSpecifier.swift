@@ -449,9 +449,3 @@ extension VersionSetSpecifier: CustomStringConvertible {
         }
     }
 }
-
-extension Version {
-    func nextPatch() -> Version {
-        return Version(major, minor, patch + 1)
-    }
-}
