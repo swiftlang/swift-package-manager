@@ -19,16 +19,18 @@ add_library(PackageGraph
   PackageGraph+Loading.swift
   PackageGraphRoot.swift
   PackageModel+Extensions.swift
+  PackageRequirement.swift
   PinsStore.swift
   Pubgrub/Assignment.swift
   Pubgrub/Incompatibility.swift
   Pubgrub/PartialSolution.swift
   Pubgrub/PubgrubDependencyResolver.swift
   Pubgrub/Term.swift
+  RepositoryPackageContainer.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift
-  RepositoryPackageContainerProvider.swift
+  Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
   TSCBasic
