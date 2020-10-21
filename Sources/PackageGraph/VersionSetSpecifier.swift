@@ -195,16 +195,6 @@ extension VersionSetSpecifier {
     }
 }
 
-extension Range where Bound == Version {
-    func isLowerThan(_ other: Range<Bound>) -> Bool {
-        return self.lowerBound < other.lowerBound && self.upperBound < other.upperBound
-    }
-
-    func isHigherThan(_ other: Range<Bound>) -> Bool {
-        return other.isLowerThan(self)
-    }
-}
-
 extension VersionSetSpecifier {
     public func difference(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
         switch (self, rhs) {
@@ -447,5 +437,15 @@ extension VersionSetSpecifier: CustomStringConvertible {
         case .exact(let version):
             return version.description
         }
+    }
+}
+
+fileprivate extension Range where Bound == Version {
+    func isLowerThan(_ other: Range<Bound>) -> Bool {
+        return self.lowerBound < other.lowerBound && self.upperBound < other.upperBound
+    }
+
+    func isHigherThan(_ other: Range<Bound>) -> Bool {
+        return other.isLowerThan(self)
     }
 }
