@@ -124,10 +124,6 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         case inaccessibleManifest(path: AbsolutePath, reason: String)
         /// Package manifest file's content can not be decoded as a UTF-8 string.
         case nonUTF8EncodedManifest(path: AbsolutePath)
-        /// Malformed tools version specifier.
-        /// - Warning: This case has been deprecated since Swift 5.3.1, please use `case malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)` instead.
-        @available(swift, deprecated: 5.3.1, renamed: "malformedToolsVersion(_:)")
-        case malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)
         /// Malformed tools version specification.
         case malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)
         /// Backward-incompatible contents with Swift tools version ≤ 5.3.
