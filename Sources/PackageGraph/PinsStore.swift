@@ -16,7 +16,7 @@ import PackageModel
 public final class PinsStore {
     public typealias PinsMap = [PackageReference.PackageIdentity: PinsStore.Pin]
 
-    public struct Pin {
+    public struct Pin: Equatable {
         /// The package reference of the pinned dependency.
         public let packageRef: PackageReference
 
@@ -105,10 +105,6 @@ public final class PinsStore {
         // Reset the pins map.
         pinsMap = [:]
     }
-}
-
-/// Persistence.
-extension PinsStore: SimplePersistanceProtocol {
 
     public func saveState() throws {
         if pinsMap.isEmpty {
@@ -121,11 +117,11 @@ extension PinsStore: SimplePersistanceProtocol {
 
         try self.persistence.saveState(self)
     }
+}
 
-    public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
-    }
+// MARK: - JSON
 
+extension PinsStore: JSONSerializable {
     /// Saves the current state of pins.
     public func toJSON() -> JSON {
         return JSON([
@@ -134,8 +130,7 @@ extension PinsStore: SimplePersistanceProtocol {
     }
 }
 
-// JSON.
-extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
+extension PinsStore.Pin: JSONMappable, JSONSerializable {
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
         let name: String? = json.get("package")
@@ -153,5 +148,13 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable, Equatable {
             "repositoryURL": packageRef.path,
             "state": state
         ])
+    }
+}
+
+// MARK: - SimplePersistanceProtocol
+
+extension PinsStore: SimplePersistanceProtocol {
+    public func restore(from json: JSON) throws {
+        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
     }
 }
