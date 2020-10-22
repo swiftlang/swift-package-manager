@@ -292,7 +292,6 @@ public class RepositoryManager {
                         result = .success(handle)
 
                     } catch {
-                        // FIXME: try again without cache
                         handle.status = .error
                         fetchError = error
                         result = .failure(error)
@@ -326,17 +325,8 @@ public class RepositoryManager {
                             let cachedRepositorySpecifier = RepositorySpecifier(url: cachedRepositoryPath.asURL.absoluteString)
                             let cachedRepositoryHandle = RepositoryHandle(manager: self, repository: cachedRepositorySpecifier, subpath: repositoryPath.relative(to: self.path))
 
-
-                            // FIXME: make fs aware of locks
-                            if type(of: self.fileSystem) == type(of: localFileSystem) {
-                                let lock = FileLock(name: repository.fileSystemIdentifier, cachePath: cachePath)
-                                try lock.withLock {
-                                    // Populate the cache
-                                    try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
-                                    // Fetch into repository path.
-                                    try self.provider.fetch(repository: cachedRepositoryHandle.repository, to: repositoryPath)
-                                }
-                            } else {
+                            try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
+                                // Populate the cache
                                 try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
                                 // Fetch into repository path.
                                 try self.provider.fetch(repository: cachedRepositoryHandle.repository, to: repositoryPath)
@@ -472,8 +462,7 @@ public class RepositoryManager {
         guard let cachePath = cachePath else { return }
         let cachedRepositories = try fileSystem.getDirectoryContents(cachePath)
         for repoPath in cachedRepositories {
-            let lock = FileLock(name: repoPath, cachePath: cachePath)
-            try lock.withLock {
+            try fileSystem.withLock(on: cachePath.appending(component: repoPath), type: .exclusive) {
                 try fileSystem.removeFileTree(cachePath.appending(component: repoPath))
             }
         }
