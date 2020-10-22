@@ -505,35 +505,3 @@ extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
         return "<\(type(of: self)) subpath:\(subpath)>"
     }
 }
-
-extension Process {
-    /// Execute a subprocess and get its (UTF-8) output if it has a non zero exit.
-    /// - Returns: The process output (stdout + stderr).
-    @discardableResult
-    public func checkNonZeroExit() throws -> String {
-        try launch()
-        let result = try waitUntilExit()
-        // Throw if there was a non zero termination.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw ProcessResult.Error.nonZeroExit(result)
-        }
-        return try result.utf8Output()
-    }
-    /// Execute a  git subprocess and get its (UTF-8) output if it has a non zero exit.
-    /// - Parameter repository: The repository the process operates on
-    /// - Throws: `GitCloneErrorGitCloneError`
-    /// - Returns: The process output (stdout + stderr).The process output (stdout + stderr).
-    @discardableResult
-    public func checkGitError(repository: RepositorySpecifier) throws -> String {
-        try launch()
-        let result = try waitUntilExit()
-        // Throw if cloning failed.
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw GitCloneError(
-                repository: repository.url,
-                result: result
-            )
-        }
-        return try result.utf8Output()
-    }
-}
