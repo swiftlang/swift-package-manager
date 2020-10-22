@@ -35,7 +35,7 @@ For Quick Help use the ```swift package --help ``` command.
 
 For extensive documentation on using Swift Package Manager, creating packages, and more, see [Documentation](Documentation).
 
-For additional documentation on developing the Swift Package Manager itself, see [Documentation/Development](Documentation/Development.md).
+For additional documentation on developing the Swift Package Manager itself, see [Documentation/Contributing](Documentation/Contributing.md).
 
 For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/package-manager/PackageDescription/index.html).
 
