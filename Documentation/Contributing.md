@@ -1,8 +1,9 @@
 # Contributing to Swift Package Manager
-There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR. 
+There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR.  
 
-Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/apple/swift-evolution/blob/master/process.md).
-To see how previous evolution decisions for SwiftPM have been made check out https://github.com/apple/swift-package-manager/blob/main/Documentation/Internals/PackageManagerCommunityProposal.md.  
+Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/apple/swift-evolution/blob/master/process.md).  
+
+To see how previous evolution decisions for SwiftPM have been made and have some direction for the development of future features please check out the [Community Proposal](Documentation/Internals/PackageManagerCommunityProposal.md).  
 
 For more information about making contributions to the Swift project in general see [Swift Contribution Guide](https://swift.org/contributing/)  
 
