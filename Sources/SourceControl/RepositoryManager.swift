@@ -10,7 +10,6 @@
 
 import Dispatch
 import class Foundation.OperationQueue
-import class Foundation.NSFileManager.FileManager
 
 import TSCBasic
 import TSCUtility
