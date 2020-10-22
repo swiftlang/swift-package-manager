@@ -29,7 +29,7 @@ let package = Package(
     products: [
         // The `libSwiftPM` set of interfaces to programatically work with Swift
         // packages.  `libSwiftPM` includes all of the SwiftPM code except the
-        // command line tools, while `libSwiftPM` includes only the data model.
+        // command line tools, while `libSwiftPMDataModel` includes only the data model.
         //
         // NOTE: This API is *unstable* and may change at any time.
         .library(
