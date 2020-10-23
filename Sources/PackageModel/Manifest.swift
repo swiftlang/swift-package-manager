@@ -131,6 +131,7 @@ public final class Manifest: ObjectIdentifierProtocol {
 
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calcualted it, returned the cached value.
         if let targets = _requiredTargets[productFilter] {
             return targets
@@ -147,6 +148,9 @@ public final class Manifest: ObjectIdentifierProtocol {
             _requiredTargets[productFilter] = targets
             return targets
         }
+        #else
+        return self.targets
+        #endif
     }
 
     /// Returns the package dependencies required for a particular products filter.
@@ -212,6 +216,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         }
 
         return dependencies.compactMap { dependency in
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             if let filter = associations[dependency.name] {
                 return FilteredDependencyDescription(declaration: dependency, productFilter: filter)
             } else if keepUnused {
@@ -221,6 +226,9 @@ public final class Manifest: ObjectIdentifierProtocol {
                 // Dependencies known to not have any relevant products are discarded.
                 return nil
             }
+            #else
+            return FilteredDependencyDescription(declaration: dependency, productFilter: .everything)
+            #endif
         }
     }
 

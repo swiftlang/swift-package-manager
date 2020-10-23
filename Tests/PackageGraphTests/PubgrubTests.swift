@@ -1058,7 +1058,12 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testUnreachableProductsSkipped() {
+    func testUnreachableProductsSkipped() throws {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         builder.serve("root", at: .unversioned, with: [
             "root": ["immediate": (.versionSet(v1Range), .specific(["ImmediateUsed"]))]
         ])
