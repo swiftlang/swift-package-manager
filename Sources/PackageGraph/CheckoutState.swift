@@ -15,7 +15,7 @@ import TSCUtility
 /// A checkout state represents the current state of a repository.
 ///
 /// A state will always has a revision. It can also have a branch or a version but not both.
-public struct CheckoutState: Equatable, CustomStringConvertible {
+public struct CheckoutState: Equatable, Hashable {
 
     /// The revision of the checkout.
     public let revision: Revision
@@ -47,25 +47,27 @@ public struct CheckoutState: Equatable, CustomStringConvertible {
         self.init(revision: revision, version: version, branch: nil)
     }
 
-    public var description: String {
-        return version?.description ?? branch ?? revision.identifier
-    }
-
     public var isBranchOrRevisionBased: Bool {
         return version == nil
     }
-}
-
-extension CheckoutState {
 
     /// Returns requirement induced by this state.
-    public func requirement() -> PackageRequirement {
+    public var requirement: PackageRequirement {
         if let version = version {
             return .versionSet(.exact(version))
         } else if let branch = branch {
             return .revision(branch)
+        } else {
+            return .revision(revision.identifier)
         }
-        return .revision(revision.identifier)
+    }
+}
+
+// MARK: - CustomStringConvertible
+
+extension CheckoutState: CustomStringConvertible {
+    public var description: String {
+        return version?.description ?? branch ?? revision.identifier
     }
 }
 

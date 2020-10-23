@@ -7,18 +7,30 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageGraph
+  BoundVersion.swift
   CheckoutState.swift
+  DependencyResolutionNode.swift
   DependencyResolver.swift
+  Diagnostics.swift
+  GraphLoadingNode.swift
+  LocalPackageContainer.swift
+  PackageContainer.swift
   PackageGraph.swift
-  PackageGraphLoader.swift
+  PackageGraph+Loading.swift
   PackageGraphRoot.swift
+  PackageModel+Extensions.swift
+  PackageRequirement.swift
   PinsStore.swift
-  Pubgrub.swift
-  RawPackageConstraints.swift
+  Pubgrub/Assignment.swift
+  Pubgrub/Incompatibility.swift
+  Pubgrub/PartialSolution.swift
+  Pubgrub/PubgrubDependencyResolver.swift
+  Pubgrub/Term.swift
+  RepositoryPackageContainer.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift
-  RepositoryPackageContainerProvider.swift
+  Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
   TSCBasic

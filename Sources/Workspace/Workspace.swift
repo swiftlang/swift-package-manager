@@ -117,9 +117,6 @@ public extension WorkspaceDelegate {
     func didDownloadBinaryArtifacts() {}
 }
 
-private class WorkspaceResolverDelegate: DependencyResolverDelegate {
-}
-
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     unowned let workspaceDelegate: WorkspaceDelegate
 
@@ -432,7 +429,7 @@ extension Workspace {
         } else if let revision = revision {
             requirement = .revision(revision)
         } else {
-            requirement = currentState.requirement()
+            requirement = currentState.requirement
         }
         let constraint = RepositoryPackageConstraint(
                 // If any products are required, the rest of the package graph will supply those constraints.
@@ -651,7 +648,7 @@ extension Workspace {
         })
 
         // Load the graph.
-        return PackageGraphLoader().load(
+        return PackageGraph.load(
             root: manifests.root,
             config: config,
             additionalFileRules: additionalFileRules,
@@ -1849,9 +1846,9 @@ extension Workspace {
         switch result {
         case .success:
             return .notRequired
-        case .error(ResolverPrecomputationError.missingPackage(let package)):
+        case .failure(ResolverPrecomputationError.missingPackage(let package)):
             return .required(reason: .newPackages(packages: [package]))
-        case .error(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
+        case .failure(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
             return .required(reason: .packageRequirementChange(
                 package: package,
                 state: state,
@@ -2091,11 +2088,10 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver() -> PubgrubDependencyResolver {
-        let resolverDelegate = WorkspaceResolverDelegate()
         let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
 
         return PubgrubDependencyResolver(
-            containerProvider, resolverDelegate,
+            containerProvider,
             isPrefetchingEnabled: isResolverPrefetchingEnabled,
             skipUpdate: skipUpdate, traceFile: traceFile
         )
@@ -2117,8 +2113,7 @@ extension Workspace {
         switch result {
         case .success(let bindings):
             return bindings
-
-        case .error(let error):
+        case .failure(let error):
             diagnostics.emit(error)
             return []
         }

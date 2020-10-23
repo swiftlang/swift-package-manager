@@ -1,0 +1,149 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright (c) 2019 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
+
+import struct TSCUtility.Version
+import TSCBasic
+
+/// The partial solution is a constantly updated solution used throughout the
+/// dependency resolution process, tracking know assignments.
+public final class PartialSolution {
+    var root: DependencyResolutionNode?
+
+    /// All known assigments.
+    public private(set) var assignments: [Assignment]
+
+    /// All known decisions.
+    public private(set) var decisions: [DependencyResolutionNode: Version] = [:]
+
+    /// The intersection of all positive assignments for each package, minus any
+    /// negative assignments that refer to that package.
+    public private(set) var _positive: OrderedDictionary<DependencyResolutionNode, Term> = [:]
+
+    /// Union of all negative assignments for a package.
+    ///
+    /// Only present if a package has no postive assignment.
+    public private(set) var _negative: [DependencyResolutionNode: Term] = [:]
+
+    /// The current decision level.
+    public var decisionLevel: Int {
+        return decisions.count - 1
+    }
+
+    public init(assignments: [Assignment] = []) {
+        self.assignments = assignments
+        for assignment in assignments {
+            register(assignment)
+        }
+    }
+
+    /// A list of all packages that have been assigned, but are not yet satisfied.
+    public var undecided: [Term] {
+        return _positive.values.filter { !decisions.keys.contains($0.node) }
+    }
+
+    /// Create a new derivation assignment and add it to the partial solution's
+    /// list of known assignments.
+    public func derive(_ term: Term, cause: Incompatibility) {
+        let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
+        self.assignments.append(derivation)
+        register(derivation)
+    }
+
+    /// Create a new decision assignment and add it to the partial solution's
+    /// list of known assignments.
+    public func decide(_ node: DependencyResolutionNode, at version: Version) {
+        decisions[node] = version
+        let term = Term(node, .exact(version))
+        let decision = Assignment.decision(term, decisionLevel: decisionLevel)
+        self.assignments.append(decision)
+        register(decision)
+    }
+
+    /// Populates the _positive and _negative poperties with the assignment.
+    private func register(_ assignment: Assignment) {
+        let term = assignment.term
+        let pkg = term.node
+
+        if let positive = _positive[pkg] {
+            _positive[term.node] = positive.intersect(with: term)
+            return
+        }
+
+        let newTerm = _negative[pkg].flatMap{ term.intersect(with: $0) } ?? term
+
+        if newTerm.isPositive {
+            _negative[pkg] = nil
+            _positive[pkg] = newTerm
+        } else {
+            _negative[pkg] = newTerm
+        }
+    }
+
+    /// Returns the first Assignment in this solution such that the list of
+    /// assignments up to and including that entry satisfies term.
+    public func satisfier(for term: Term) -> Assignment {
+        var assignedTerm: Term?
+
+        for assignment in assignments {
+            guard assignment.term.node == term.node else {
+                continue
+            }
+            assignedTerm = assignedTerm.flatMap{ $0.intersect(with: assignment.term) } ?? assignment.term
+
+            if assignedTerm!.satisfies(term) {
+                return assignment
+            }
+        }
+
+        fatalError("term \(term) not satisfied")
+    }
+
+    /// Backtrack to a specific decision level by dropping all assignments with
+    /// a decision level which is greater.
+    public func backtrack(toDecisionLevel decisionLevel: Int) {
+        var toBeRemoved: [(Int, Assignment)] = []
+
+        for (idx, assignment) in zip(0..., assignments) {
+            if assignment.decisionLevel > decisionLevel {
+                toBeRemoved.append((idx, assignment))
+            }
+        }
+
+        for (idx, remove) in toBeRemoved.reversed() {
+            let assignment = assignments.remove(at: idx)
+            if assignment.isDecision {
+                decisions.removeValue(forKey: remove.term.node)
+            }
+        }
+
+        // FIXME: We can optimize this by recomputing only the removed things.
+        _negative.removeAll()
+        _positive.removeAll()
+        for assignment in assignments {
+            register(assignment)
+        }
+    }
+
+    /// Returns true if the given term satisfies the partial solution.
+    func satisfies(_ term: Term) -> Bool {
+        return self.relation(with: term) == .subset
+    }
+
+    /// Returns the set relation of the partial solution with the given term.
+    func relation(with term: Term) -> Term.SetRelation {
+        let pkg = term.node
+        if let positive = _positive[pkg] {
+            return positive.relation(with: term)
+        } else if let negative = _negative[pkg] {
+            return negative.relation(with: term)
+        }
+        return .overlap
+    }
+}

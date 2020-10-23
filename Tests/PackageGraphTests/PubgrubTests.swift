@@ -42,7 +42,6 @@ import PackageGraph
 let builder = DependencyGraphBuilder()
 
 private let emptyProvider = MockProvider(containers: [])
-private let delegate = _MockResolverDelegate()
 
 private let v1: Version = "1.0.0"
 private let v1_1: Version = "1.1.0"
@@ -286,7 +285,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverAddIncompatibility() {
-        let solver = PubgrubDependencyResolver(emptyProvider, delegate)
+        let solver = PubgrubDependencyResolver(emptyProvider)
 
         let a = Incompatibility(Term("a@1.0.0"), root: rootNode)
         solver.add(a, location: .topLevel)
@@ -306,14 +305,14 @@ final class PubgrubTests: XCTestCase {
 
         let provider = MockProvider(containers: [foo])
 
-        let resolver = PubgrubDependencyResolver(provider, delegate)
+        let resolver = PubgrubDependencyResolver(provider)
         let deps = builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
         let result = resolver.solve(dependencies: deps)
 
         switch result {
-        case .error(let error):
+        case .failure(let error):
             XCTFail("Unexpected error: \(error)")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
@@ -323,7 +322,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverConflictResolution() {
-        let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
+        let solver1 = PubgrubDependencyResolver(emptyProvider)
         solver1.set(rootNode)
 
         let notRoot = Incompatibility(Term(not: rootNode, .any),
@@ -334,7 +333,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverDecisionMaking() {
-        let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
+        let solver1 = PubgrubDependencyResolver(emptyProvider)
         solver1.set(rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
@@ -346,7 +345,7 @@ final class PubgrubTests: XCTestCase {
         ])
 
         let provider = MockProvider(containers: [a])
-        let solver2 = PubgrubDependencyResolver(provider, delegate)
+        let solver2 = PubgrubDependencyResolver(provider)
         let solution = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: rootCause, decisionLevel: 0)
         ])
@@ -370,7 +369,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverUnitPropagation() throws {
-        let solver1 = PubgrubDependencyResolver(emptyProvider, delegate)
+        let solver1 = PubgrubDependencyResolver(emptyProvider)
 
         // no known incompatibilities should result in no satisfaction checks
         try solver1.propagate(.root(package: "root"))
@@ -387,7 +386,7 @@ final class PubgrubTests: XCTestCase {
         // try solver1.propagate(aRef)
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
-        let solver2 = PubgrubDependencyResolver(emptyProvider, delegate)
+        let solver2 = PubgrubDependencyResolver(emptyProvider)
         solver2.add(Incompatibility(Term(.root(package: "root"), .any),
                                     Term("¬a@1.0.0"),
                                     root: rootNode), location: .topLevel)
@@ -1863,7 +1862,7 @@ private func AssertBindings(
 
 /// Asserts that a result succeeded and contains the specified bindings.
 private func AssertResult(
-    _ result: PubgrubDependencyResolver.Result,
+    _ result: Result<[DependencyResolver.Binding], Error>,
     _ packages: [(identity: String, version: BoundVersion)],
     file: StaticString = #file,
     line: UInt = #line
@@ -1871,14 +1870,14 @@ private func AssertResult(
     switch result {
     case .success(let bindings):
         AssertBindings(bindings, packages, file: file, line: line)
-    case .error(let error):
+    case .failure(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
 }
 
 /// Asserts that a result failed with specified error.
 private func AssertError(
-    _ result: PubgrubDependencyResolver.Result,
+    _ result: Result<[DependencyResolver.Binding], Error>,
     _ expectedError: Error,
     file: StaticString = #file,
     line: UInt = #line
@@ -1887,7 +1886,7 @@ private func AssertError(
     case .success(let bindings):
         let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
         XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
-    case .error(let foundError):
+    case .failure(let foundError):
         XCTAssertEqual(String(describing: foundError), String(describing: expectedError), file: file, line: line)
     }
 }
@@ -2043,8 +2042,6 @@ public struct MockProvider: PackageContainerProvider {
     }
 }
 
-struct _MockResolverDelegate: DependencyResolverDelegate {}
-
 class DependencyGraphBuilder {
     private var containers: [String: MockContainer] = [:]
     private var references: [String: PackageReference] = [:]
@@ -2133,7 +2130,7 @@ class DependencyGraphBuilder {
             self.references = [:]
         }
         let provider = MockProvider(containers: self.containers.values.map { $0 })
-        return PubgrubDependencyResolver(provider, delegate, traceStream: log ? stdoutStream : nil)
+        return PubgrubDependencyResolver(provider, traceStream: log ? stdoutStream : nil)
     }
 }
 
@@ -2191,11 +2188,10 @@ extension PackageReference: ExpressibleByStringLiteral {
         self.init(identity: name, path: "")
     }
 }
-
-extension DependencyResolver.Result {
+extension Result where Success == [DependencyResolver.Binding] {
     var errorMsg: String? {
         switch self {
-        case .error(let error):
+        case .failure(let error):
             switch error {
             case let err as PubgrubDependencyResolver.PubgrubError:
                 guard case .unresolvable(let msg) = err else {
