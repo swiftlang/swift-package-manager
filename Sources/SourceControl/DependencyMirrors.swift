@@ -84,7 +84,15 @@ public final class DependencyMirrors {
     }
 }
 
-// MARK: - Persistence.
+
+extension DependencyMirrors: JSONSerializable {
+    public func toJSON() -> JSON {
+        // FIXME: Find a way to avoid encode-decode dance here.
+        let jsonData = try! JSONEncoder().encode(mirrors.values.sorted(by: { $0.original < $1.mirror }))
+        return try! JSON(data: jsonData)
+    }
+}
+
 extension DependencyMirrors: SimplePersistanceProtocol {
 
     public func saveState() throws {
@@ -96,12 +104,6 @@ extension DependencyMirrors: SimplePersistanceProtocol {
         let data = Data(json.toBytes().contents)
         let mirrorsData = try JSONDecoder().decode([Mirror].self, from: data)
         self.mirrors = Dictionary(mirrorsData.map({ ($0.original, $0) }), uniquingKeysWith: { first, _ in first })
-    }
-
-    public func toJSON() -> JSON {
-        // FIXME: Find a way to avoid encode-decode dance here.
-        let jsonData = try! JSONEncoder().encode(mirrors.values.sorted(by: { $0.original < $1.mirror }))
-        return try! JSON(data: jsonData)
     }
 }
 
