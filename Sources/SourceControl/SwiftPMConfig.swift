@@ -109,14 +109,14 @@ extension SwiftPMConfig: SimplePersistanceProtocol {
 }
 
 /// An individual repository mirror.
-public struct Mirror: Codable {
+fileprivate struct Mirror: Codable {
     /// The original repository path.
-    public let original: String
+    let original: String
 
     /// The mirrored repository path.
-    public let mirror: String
+    let mirror: String
 
-    public init(original: String, mirror: String) {
+    init(original: String, mirror: String) {
         self.original = original
         self.mirror = mirror
     }
