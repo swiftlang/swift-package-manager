@@ -7,11 +7,11 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SourceControl
+  DependencyMirrors.swift
   GitRepository.swift
   InMemoryGitRepository.swift
   Repository.swift
-  RepositoryManager.swift
-  SwiftPMConfig.swift)
+  RepositoryManager.swift)
 
 target_link_libraries(SourceControl PUBLIC
   TSCBasic

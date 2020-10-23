@@ -166,7 +166,7 @@ public class Workspace {
     public let dataPath: AbsolutePath
 
     /// The swiftpm config.
-    fileprivate let config: SwiftPMConfig
+    fileprivate let config: DependencyMirrors
 
     /// The current persisted state of the workspace.
     public let state: WorkspaceState
@@ -254,7 +254,7 @@ public class Workspace {
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
         delegate: WorkspaceDelegate? = nil,
-        config: SwiftPMConfig = SwiftPMConfig(),
+        config: DependencyMirrors = DependencyMirrors(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         downloader: Downloader = FoundationDownloader(),

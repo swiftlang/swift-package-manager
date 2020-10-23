@@ -38,7 +38,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     let dependencyManifests: Workspace.DependencyManifests
 
     /// The SwiftPM config.
-    let config: SwiftPMConfig
+    let config: DependencyMirrors
 
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
@@ -46,7 +46,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
-        config: SwiftPMConfig,
+        config: DependencyMirrors,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
     ) {
         self.root = root
@@ -97,7 +97,7 @@ private struct LocalPackageContainer: PackageContainer {
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
     let dependency: ManagedDependency?
-    let config: SwiftPMConfig
+    let config: DependencyMirrors
     let currentToolsVersion: ToolsVersion
 
     // Gets the package reference from the managed dependency or computes it for root packages.

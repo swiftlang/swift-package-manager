@@ -141,7 +141,7 @@ public class BasePackageContainer: PackageContainer {
 
     public let identifier: Identifier
 
-    let config: SwiftPMConfig
+    let config: DependencyMirrors
 
     /// The manifest loader.
     let manifestLoader: ManifestLoaderProtocol
@@ -182,7 +182,7 @@ public class BasePackageContainer: PackageContainer {
 
     init(
         _ identifier: Identifier,
-        config: SwiftPMConfig,
+        config: DependencyMirrors,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion

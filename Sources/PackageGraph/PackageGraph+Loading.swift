@@ -19,7 +19,7 @@ extension PackageGraph {
     /// Load the package graph for the given package path.
     public static func load(
         root: PackageGraphRoot,
-        config: SwiftPMConfig = SwiftPMConfig(),
+        config: DependencyMirrors = DependencyMirrors(),
         additionalFileRules: [FileRuleDescription] = [],
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
@@ -187,7 +187,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
     allManifests: [GraphLoadingNode],
-    config: SwiftPMConfig,
+    config: DependencyMirrors,
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,

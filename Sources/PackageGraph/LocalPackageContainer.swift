@@ -62,7 +62,7 @@ public class LocalPackageContainer: BasePackageContainer  {
 
     public init(
         _ identifier: Identifier,
-        config: SwiftPMConfig,
+        config: DependencyMirrors,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,

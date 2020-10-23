@@ -59,7 +59,7 @@ public struct PackageGraphRoot {
         public let productFilter: ProductFilter
 
         /// Create the package reference object for the dependency.
-        public func createPackageRef(config: SwiftPMConfig) -> PackageReference {
+        public func createPackageRef(config: DependencyMirrors) -> PackageReference {
             let effectiveURL = config.mirroredURL(forURL: self.url)
             return PackageReference(
                 identity: PackageReference.computeIdentity(packageURL: effectiveURL),
@@ -128,7 +128,7 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints(config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
+    public func constraints(config: DependencyMirrors) -> [RepositoryPackageConstraint] {
         let constraints = packageRefs.map({
             RepositoryPackageConstraint(container: $0, requirement: .unversioned, products: .everything)
         })

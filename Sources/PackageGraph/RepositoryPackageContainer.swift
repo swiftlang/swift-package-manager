@@ -92,7 +92,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     init(
         identifier: PackageReference,
-        config: SwiftPMConfig,
+        config: DependencyMirrors,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
@@ -293,7 +293,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
-    let config: SwiftPMConfig
+    let config: DependencyMirrors
 
     /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
     /// the container.
@@ -314,7 +314,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     ///   - toolsVersionLoader: The tools version loader.
     public init(
         repositoryManager: RepositoryManager,
-        config: SwiftPMConfig = SwiftPMConfig(),
+        config: DependencyMirrors = DependencyMirrors(),
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()

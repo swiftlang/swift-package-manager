@@ -13,11 +13,8 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
-// FIXME: We may want to move this class to some other layer once we start
-// supporting more things than just mirrors.
-//
 /// Manages a package's configuration.
-public final class SwiftPMConfig {
+public final class DependencyMirrors {
 
     enum Error: Swift.Error, CustomStringConvertible {
         case mirrorNotFound
@@ -41,7 +38,7 @@ public final class SwiftPMConfig {
     public init(path: AbsolutePath, fs: FileSystem = localFileSystem) {
         self.mirrors = [:]
         self.persistence = SimplePersistence(
-            fileSystem: fs, schemaVersion: SwiftPMConfig.schemaVersion,
+            fileSystem: fs, schemaVersion: DependencyMirrors.schemaVersion,
             statePath: path, prettyPrint: true
         )
     }
@@ -88,7 +85,7 @@ public final class SwiftPMConfig {
 }
 
 // MARK: - Persistence.
-extension SwiftPMConfig: SimplePersistanceProtocol {
+extension DependencyMirrors: SimplePersistanceProtocol {
 
     public func saveState() throws {
         try self.persistence?.saveState(self)

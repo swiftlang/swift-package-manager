@@ -376,7 +376,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
         ]
 
-        let config = SwiftPMConfig()
+        let config = DependencyMirrors()
 
         let v5ProductMapping: [String: ProductFilter] = [
             "Bar1": .specific(["Bar1", "Bar3"]),
