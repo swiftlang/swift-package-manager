@@ -19,12 +19,8 @@ import TSCUtility
 /// Manages a package's configuration.
 public final class SwiftPMConfig {
 
-    enum Error: Swift.Error, CustomStringConvertible {
+    public enum Error: Swift.Error {
         case mirrorNotFound
-
-        var description: String {
-            return "mirror not found"
-        }
     }
 
     /// Persistence support.
@@ -119,5 +115,14 @@ fileprivate struct Mirror: Codable {
     init(original: String, mirror: String) {
         self.original = original
         self.mirror = mirror
+    }
+}
+
+extension SwiftPMConfig.Error: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .mirrorNotFound:
+            return "mirror not found"
+        }
     }
 }
