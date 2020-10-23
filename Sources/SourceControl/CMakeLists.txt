@@ -8,7 +8,6 @@
 
 add_library(SourceControl
   GitRepository.swift
-  InMemoryGitRepository.swift
   Repository.swift
   RepositoryManager.swift
   SwiftPMConfig.swift)

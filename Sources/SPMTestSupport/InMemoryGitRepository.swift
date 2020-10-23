@@ -9,8 +9,9 @@
 */
 
 import TSCBasic
-import Dispatch
 import TSCUtility
+import SourceControl
+import Dispatch
 import class Foundation.NSUUID
 
 /// The error encountered during in memory git repository operations.
