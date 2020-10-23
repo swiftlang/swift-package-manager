@@ -644,7 +644,6 @@ extension SwiftPackageTool.Config {
         
         func run(_ swiftTool: SwiftTool) throws {
             let mirrors = try swiftTool.getDependencyMirrors()
-            try mirrors.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -656,7 +655,8 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+            mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+            try mirrors.saveState()
         }
     }
 
@@ -678,7 +678,6 @@ extension SwiftPackageTool.Config {
         
         func run(_ swiftTool: SwiftTool) throws {
             let mirrors = try swiftTool.getDependencyMirrors()
-            try mirrors.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -691,6 +690,7 @@ extension SwiftPackageTool.Config {
             }
 
             try mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
+            try mirrors.saveState()
         }
     }
 
@@ -709,7 +709,6 @@ extension SwiftPackageTool.Config {
 
         func run(_ swiftTool: SwiftTool) throws {
             let mirrors = try swiftTool.getDependencyMirrors()
-            try mirrors.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(

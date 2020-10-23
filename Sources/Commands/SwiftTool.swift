@@ -412,10 +412,10 @@ public class SwiftTool {
     }
 
     func getDependencyMirrors() throws -> DependencyMirrors {
-        return try _swiftpmConfig.get()
+        return try _dependencyMirrors.get()
     }
-    private lazy var _swiftpmConfig: Result<DependencyMirrors, Swift.Error> = {
-        return Result(catching: { DependencyMirrors(path: try configFilePath()) })
+    private lazy var _dependencyMirrors: Result<DependencyMirrors, Swift.Error> = {
+        return Result(catching: { try DependencyMirrors(path: try configFilePath()) })
     }()
     
     func resolvedNetrcFilePath() -> AbsolutePath? {

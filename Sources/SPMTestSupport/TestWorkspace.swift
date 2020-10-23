@@ -51,7 +51,7 @@ public final class TestWorkspace {
         self.downloader = downloader ?? MockDownloader(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.mirrors = DependencyMirrors(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        self.mirrors = try DependencyMirrors(path: sandbox.appending(component: "swiftpm"), fs: fs)
         self.roots = roots
         self.packages = packages
 
