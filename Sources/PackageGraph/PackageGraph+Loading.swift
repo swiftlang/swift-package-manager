@@ -14,102 +14,10 @@ import PackageLoading
 import PackageModel
 import TSCUtility
 
-enum PackageGraphError: Swift.Error {
-    /// Indicates a non-root package with no targets.
-    case noModules(Package)
-
-    /// The package dependency declaration has cycle in it.
-    case cycleDetected((path: [Manifest], cycle: [Manifest]))
-
-    /// The product dependency not found.
-    case productDependencyNotFound(name: String, target: String)
-
-    /// The product dependency was found but the package name did not match.
-    case productDependencyIncorrectPackage(name: String, package: String)
-
-    /// The package dependency name does not match the package name.w
-    case incorrectPackageDependencyName(dependencyName: String, dependencyURL: String, packageName: String)
-
-    /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
-    case productDependencyMissingPackage(
-        productName: String,
-        targetName: String,
-        packageName: String,
-        packageDependency: PackageDependencyDescription
-    )
-
-    /// A product was found in multiple packages.
-    case duplicateProduct(product: String, packages: [String])
-}
-
-extension PackageGraphError: CustomStringConvertible {
-    public var description: String {
-        switch self {
-        case .noModules(let package):
-            return "package '\(package)' contains no products"
-
-        case .cycleDetected(let cycle):
-            return "cyclic dependency declaration found: " +
-                (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
-                " -> " + cycle.cycle[0].name
-
-        case .productDependencyNotFound(let name, let target):
-            return "product '\(name)' not found. It is required by target '\(target)'."
-
-        case .productDependencyIncorrectPackage(let name, let package):
-            return "product dependency '\(name)' in package '\(package)' not found"
-
-        case .incorrectPackageDependencyName(let dependencyName, let dependencyURL, let packageName):
-            return """
-                declared name '\(dependencyName)' for package dependency '\(dependencyURL)' does not match the actual \
-                package name '\(packageName)'
-                """
-
-        case .productDependencyMissingPackage(
-                let productName,
-                let targetName,
-                let packageName,
-                let packageDependency
-            ):
-
-            var solutionSteps: [String] = []
-
-            // If the package dependency name is the same as the package name, or if the product name and package name
-            // don't correspond, we need to rewrite the target dependency to explicit specify the package name.
-            if packageDependency.name == packageName || productName != packageName {
-                solutionSteps.append("""
-                    reference the package in the target dependency with '.product(name: "\(productName)", package: \
-                    "\(packageName)")'
-                    """)
-            }
-
-            // If the name of the product and the package are the same, or if the package dependency implicit name
-            // deduced from the URL is not correct, we need to rewrite the package dependency declaration to specify the
-            // package name.
-            if productName == packageName || packageDependency.name != packageName {
-                let dependencySwiftRepresentation = packageDependency.swiftRepresentation(overridingName: packageName)
-                solutionSteps.append("""
-                    provide the name of the package dependency with '\(dependencySwiftRepresentation)'
-                    """)
-            }
-
-            let solution = solutionSteps.joined(separator: " and ")
-            return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
-
-        case .duplicateProduct(let product, let packages):
-            return "multiple products named '\(product)' in: \(packages.joined(separator: ", "))"
-        }
-    }
-}
-
-/// A helper class for loading a package graph.
-public struct PackageGraphLoader {
-
-    /// Create a package loader.
-    public init() { }
+extension PackageGraph {
 
     /// Load the package graph for the given package path.
-    public func load(
+    public static func load(
         root: PackageGraphRoot,
         config: SwiftPMConfig = SwiftPMConfig(),
         additionalFileRules: [FileRuleDescription] = [],
@@ -635,91 +543,10 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     }
 }
 
-private extension PackageDependencyDescription {
-    func swiftRepresentation(overridingName: String? = nil) -> String {
-        var parameters: [String] = []
-
-        if let name = overridingName ?? explicitName {
-            parameters.append("name: \"\(name)\"")
-        }
-
-        if requirement == .localPackage {
-            parameters.append("path: \"\(url)\"")
-        } else {
-            parameters.append("url: \"\(url)\"")
-
-            switch requirement {
-            case .branch(let branch):
-                parameters.append(".branch(\"\(branch)\")")
-            case .exact(let version):
-                parameters.append(".exact(\"\(version)\")")
-            case .revision(let revision):
-                parameters.append(".revision(\"\(revision)\")")
-            case .range(let range):
-                if range.upperBound == Version(range.lowerBound.major + 1, 0, 0) {
-                    parameters.append("from: \"\(range.lowerBound)\"")
-                } else if range.upperBound == Version(range.lowerBound.major, range.lowerBound.minor + 1, 0) {
-                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\")")
-                } else {
-                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\"..<\"\(range.upperBound)\")")
-                }
-            case .localPackage:
-                fatalError("handled above")
-            }
-        }
-
-        let swiftRepresentation = ".package(\(parameters.joined(separator: ", ")))"
-        return swiftRepresentation
-    }
-}
-
-private extension Diagnostic.Message {
-    static func unusedDependency(_ name: String) -> Diagnostic.Message {
-        .warning("dependency '\(name)' is not used by any target")
-    }
-
-    static func productUsesUnsafeFlags(product: String, target: String) -> Diagnostic.Message {
-        .error("the target '\(target)' in product '\(product)' contains unsafe build flags")
-    }
-}
-
-/// A node used while loading the packages in a resolved graph.
-///
-/// This node uses the product filter that was already finalized during resolution.
-///
-/// - SeeAlso: DependencyResolutionNode
-public struct GraphLoadingNode: Equatable, Hashable, CustomStringConvertible {
-
-    /// The package manifest.
-    public let manifest: Manifest
-
-    /// The product filter applied to the package.
-    public let productFilter: ProductFilter
-
-    public init(manifest: Manifest, productFilter: ProductFilter) {
-        self.manifest = manifest
-        self.productFilter = productFilter
-    }
-
-    /// Returns the dependencies required by this node.
-    internal func requiredDependencies() -> [FilteredDependencyDescription] {
-        return manifest.dependenciesRequired(for: productFilter)
-    }
-
-    public var description: String {
-        switch productFilter {
-        case .everything:
-            return manifest.name
-        case .specific(let set):
-            return "\(manifest.name)[\(set.sorted().joined(separator: ", "))]"
-        }
-    }
-}
-
 /// Finds the first cycle encountered in a graph.
 ///
 /// This is different from the one in tools support core, in that it handles equality separately from node traversal. Nodes traverse product filters, but only the manifests must be equal for there to be a cycle.
-internal func findCycle(
+fileprivate func findCycle(
     _ nodes: [GraphLoadingNode],
     successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
 ) rethrows -> (path: [Manifest], cycle: [Manifest])? {

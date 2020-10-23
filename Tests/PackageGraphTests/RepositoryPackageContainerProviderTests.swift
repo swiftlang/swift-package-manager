@@ -118,7 +118,7 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: DependencyResolverDelegate, RepositoryManagerDelegate {
+private class MockResolverDelegate: RepositoryManagerDelegate {
     typealias Identifier = RepositoryPackageContainer.Identifier
 
     var fetched = [RepositorySpecifier]()

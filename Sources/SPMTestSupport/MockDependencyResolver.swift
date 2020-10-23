@@ -159,7 +159,7 @@ public class MockPackageContainer: PackageContainer {
         self.dependencies = dependencies
     }
 
-    public var _isRemoteContainer: Bool? {
+    public var isRemoteContainer: Bool? {
         return true
     }
 }
@@ -217,12 +217,6 @@ public struct MockPackagesProvider: PackageContainerProvider {
                 .failure(MockLoadingError.unknownModule))
         }
     }
-}
-
-public class MockResolverDelegate: DependencyResolverDelegate {
-    public typealias Identifier = MockPackageContainer.Identifier
-
-    public init() {}
 }
 
 extension DependencyResolver {

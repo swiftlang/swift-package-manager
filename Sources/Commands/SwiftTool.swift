@@ -123,8 +123,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
             switch state {
             case .checkout(let checkoutState)?:
-                let requirement = checkoutState.requirement()
-                switch requirement {
+                switch checkoutState.requirement {
                 case .versionSet(.exact(let version)):
                     stdoutStream <<< "resolved to '\(version)'"
                 case .versionSet(_):

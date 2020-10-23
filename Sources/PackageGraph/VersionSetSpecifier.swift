@@ -29,6 +29,17 @@ public enum VersionSetSpecifier: Hashable {
 }
 
 extension VersionSetSpecifier {
+    var isExact: Bool {
+        switch self {
+        case .any, .empty, .range, .ranges:
+            return false
+        case .exact:
+            return true
+        }
+    }
+}
+
+extension VersionSetSpecifier {
     public static func union(from range: Swift.Range<Version>) -> VersionSetSpecifier {
         return .union(from: [range])
     }
@@ -181,16 +192,6 @@ extension VersionSetSpecifier {
         }
 
         return .union(from: result)
-    }
-}
-
-extension Range where Bound == Version {
-    func isLowerThan(_ other: Range<Bound>) -> Bool {
-        return self.lowerBound < other.lowerBound && self.upperBound < other.upperBound
-    }
-
-    func isHigherThan(_ other: Range<Bound>) -> Bool {
-        return other.isLowerThan(self)
     }
 }
 
@@ -439,8 +440,12 @@ extension VersionSetSpecifier: CustomStringConvertible {
     }
 }
 
-extension Version {
-    func nextPatch() -> Version {
-        return Version(major, minor, patch + 1)
+fileprivate extension Range where Bound == Version {
+    func isLowerThan(_ other: Range<Bound>) -> Bool {
+        return self.lowerBound < other.lowerBound && self.upperBound < other.upperBound
+    }
+
+    func isHigherThan(_ other: Range<Bound>) -> Bool {
+        return other.isLowerThan(self)
     }
 }

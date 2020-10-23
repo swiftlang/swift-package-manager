@@ -13,525 +13,6 @@ import TSCBasic
 import PackageModel
 import Dispatch
 
-/// A term represents a statement about a package that may be true or false.
-public struct Term: Equatable, Hashable {
-    public let node: DependencyResolutionNode
-    public let requirement: VersionSetSpecifier
-    public let isPositive: Bool
-
-    public init(node: DependencyResolutionNode, requirement: VersionSetSpecifier, isPositive: Bool) {
-        self.node = node
-        self.requirement = requirement
-        self.isPositive = isPositive
-    }
-
-    public init(_ node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
-        self.init(node: node, requirement: requirement, isPositive: true)
-    }
-
-    /// Create a new negative term.
-    public init(not node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
-        self.init(node: node, requirement: requirement, isPositive: false)
-    }
-
-    /// The same term with an inversed `isPositive` value.
-    public var inverse: Term {
-        return Term(
-            node: node,
-            requirement: requirement,
-            isPositive: !isPositive)
-    }
-
-    /// Check if this term satisfies another term, e.g. if `self` is true,
-    /// `other` must also be true.
-    public func satisfies(_ other: Term) -> Bool {
-        // TODO: This probably makes more sense as isSatisfied(by:) instead.
-        guard self.node == other.node else { return false }
-        return self.relation(with: other) == .subset
-    }
-
-    /// Create an intersection with another term.
-    public func intersect(with other: Term) -> Term? {
-        guard self.node == other.node else { return nil }
-        return intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
-    }
-
-    /// Create an intersection with a requirement and polarity returning a new
-    /// term which represents the version constraints allowed by both the current
-    /// and given term.
-    ///
-    /// - returns: `nil` if an intersection is not possible.
-    public func intersect(
-        withRequirement requirement: VersionSetSpecifier,
-        andPolarity otherIsPositive: Bool
-    ) -> Term? {
-        let lhs = self.requirement
-        let rhs = requirement
-
-        let intersection: VersionSetSpecifier?
-        let isPositive: Bool
-        switch (self.isPositive, otherIsPositive) {
-        case (false, false):
-            intersection = lhs.union(rhs)
-            isPositive = false
-        case (true, true):
-            intersection = lhs.intersection(rhs)
-            isPositive = true
-        case (true, false):
-            intersection = lhs.difference(rhs)
-            isPositive = true
-        case (false, true):
-            intersection = rhs.difference(lhs)
-            isPositive = true
-        }
-
-        guard let versionIntersection = intersection, versionIntersection != .empty else {
-            return nil
-        }
-
-        return Term(node: node, requirement: versionIntersection, isPositive: isPositive)
-    }
-
-    public func difference(with other: Term) -> Term? {
-        return self.intersect(with: other.inverse)
-    }
-
-    /// Verify if the term fulfills all requirements to be a valid choice for
-    /// making a decision in the given partial solution.
-    /// - There has to exist a positive derivation for it.
-    /// - There has to be no decision for it.
-    /// - The package version has to match all assignments.
-    public func isValidDecision(for solution: PartialSolution) -> Bool {
-        for assignment in solution.assignments where assignment.term.node == node {
-            assert(!assignment.isDecision, "Expected assignment to be a derivation.")
-            guard satisfies(assignment.term) else { return false }
-        }
-        return true
-    }
-
-    public func relation(with other: Term) -> SetRelation {
-        // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
-
-        if self.node != other.node {
-            fatalError("attempting to compute relation between different packages \(self) \(other)")
-        }
-
-        if other.isPositive {
-            if self.isPositive {
-                // If the second requirement contains all the elements of
-                // the first requirement, then it is a subset relation.
-                if other.requirement.containsAll(self.requirement) {
-                    return .subset
-                }
-
-                // If second requirement contains any requirements of
-                // the first, then the relation is overlapping.
-                if other.requirement.containsAny(self.requirement) {
-                    return .overlap
-                }
-
-                // Otherwise it is disjoint.
-                return .disjoint
-            } else {
-                if self.requirement.containsAll(other.requirement) {
-                    return .disjoint
-                }
-                return .overlap
-            }
-        } else {
-            if self.isPositive {
-                if !other.requirement.containsAny(self.requirement) {
-                    return .subset
-                }
-                if other.requirement.containsAll(self.requirement) {
-                    return .disjoint
-                }
-                return .overlap
-            } else {
-                if self.requirement.containsAll(other.requirement) {
-                    return .subset
-                }
-                return .overlap
-            }
-        }
-    }
-
-    public enum SetRelation: Equatable {
-        /// The sets have nothing in common.
-        case disjoint
-        /// The sets have elements in common but first set is not a subset of second.
-        case overlap
-        /// The second set contains all elements of the first set.
-        case subset
-    }
-}
-
-extension VersionSetSpecifier {
-    fileprivate func containsAll(_ other: VersionSetSpecifier) -> Bool {
-        return self.intersection(other) == other
-    }
-
-    fileprivate func containsAny(_ other: VersionSetSpecifier) -> Bool {
-        return self.intersection(other) != .empty
-    }
-}
-
-extension Term: CustomStringConvertible {
-    public var description: String {
-        let pkg = "\(node)"
-        let req = requirement.description
-
-        if !isPositive {
-            return "¬\(pkg) \(req)"
-        }
-        return "\(pkg) \(req)"
-    }
-}
-
-/// A set of terms that are incompatible with each other and can therefore not
-/// all be true at the same time. In dependency resolution, these are derived
-/// from version requirements and when running into unresolvable situations.
-public struct Incompatibility: Equatable, Hashable {
-    public let terms: OrderedSet<Term>
-    public let cause: Cause
-
-    public init(terms: OrderedSet<Term>, cause: Cause) {
-        self.terms = terms
-        self.cause = cause
-    }
-
-    public init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) {
-        let termSet = OrderedSet(terms)
-        self.init(termSet, root: root, cause: cause)
-    }
-
-    public init(_ terms: OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) {
-        if terms.isEmpty {
-            self.init(terms: terms, cause: cause)
-            return
-        }
-
-        // Remove the root package from generated incompatibilities, since it will
-        // always be selected.
-        var terms = terms
-        if terms.count > 1, cause.isConflict,
-            terms.contains(where: { $0.isPositive && $0.node == root }) {
-            terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
-        }
-
-        let normalizedTerms = normalize(terms: terms.contents)
-        assert(normalizedTerms.count > 0,
-               "An incompatibility must contain at least one term after normalization.")
-        self.init(terms: OrderedSet(normalizedTerms), cause: cause)
-    }
-}
-
-extension Incompatibility: CustomStringConvertible {
-    public var description: String {
-        let terms = self.terms
-            .map(String.init)
-            .joined(separator: ", ")
-        return "{\(terms)}"
-    }
-}
-
-extension Incompatibility {
-    /// Every incompatibility has a cause to explain its presence in the
-    /// derivation graph. Only the root incompatibility uses `.root`. All other
-    /// incompatibilities are either obtained from dependency constraints,
-    /// decided upon in decision making or derived during unit propagation or
-    /// conflict resolution.
-    /// Using this information we can build up a derivation graph by following
-    /// the tree of causes. All leaf nodes are external dependencies and all
-    /// internal nodes are derived incompatibilities.
-    ///
-    /// An example graph could look like this:
-    /// ```
-    /// ┌────────────────────────────┐ ┌────────────────────────────┐
-    /// │{foo ^1.0.0, not bar ^2.0.0}│ │{bar ^2.0.0, not baz ^3.0.0}│
-    /// └─────────────┬──────────────┘ └──────────────┬─────────────┘
-    ///               │      ┌────────────────────────┘
-    ///               ▼      ▼
-    /// ┌─────────────┴──────┴───────┐ ┌────────────────────────────┐
-    /// │{foo ^1.0.0, not baz ^3.0.0}│ │{root 1.0.0, not foo ^1.0.0}│
-    /// └─────────────┬──────────────┘ └──────────────┬─────────────┘
-    ///               │   ┌───────────────────────────┘
-    ///               ▼   ▼
-    ///         ┌─────┴───┴──┐
-    ///         │{root 1.0.0}│
-    ///         └────────────┘
-    /// ```
-    public indirect enum Cause: Equatable, Hashable {
-        public struct ConflictCause: Hashable {
-            public let conflict: Incompatibility
-            public let other: Incompatibility
-        }
-
-        /// The root incompatibility.
-        case root
-
-        /// The incompatibility represents a package's dependency on another
-        /// package.
-        case dependency(node: DependencyResolutionNode)
-
-        /// The incompatibility was derived from two others during conflict
-        /// resolution.
-        case conflict(cause: ConflictCause)
-
-        /// There exists no version to fulfill the specified requirement.
-        case noAvailableVersion
-
-        /// A version-based dependency contains unversioned-based dependency.
-        case versionBasedDependencyContainsUnversionedDependency(versionedDependency: String, unversionedDependency: String)
-
-        /// The package's tools version is incompatible.
-        case incompatibleToolsVersion
-
-        public var isConflict: Bool {
-            if case .conflict = self { return true }
-            return false
-        }
-
-        /// Returns whether this cause can be represented in a single line of the
-        /// error output.
-        public var isSingleLine: Bool {
-            guard case .conflict(let cause) = self else {
-                assertionFailure("unreachable")
-                return false
-            }
-            return !cause.conflict.cause.isConflict && !cause.other.cause.isConflict
-        }
-    }
-}
-
-/// An assignment that is either decided upon during decision making or derived
-/// from previously known incompatibilities during unit propagation.
-///
-/// All assignments store a term (a package identifier and a version
-/// requirement) and a decision level, which represents the number of decisions
-/// at or before it in the partial solution that caused it to be derived. This
-/// is later used during conflict resolution to figure out how far back to jump
-/// when a conflict is found.
-public struct Assignment: Equatable {
-    public let term: Term
-    public let decisionLevel: Int
-    public let cause: Incompatibility?
-    public let isDecision: Bool
-
-    private init(
-        term: Term,
-        decisionLevel: Int,
-        cause: Incompatibility?,
-        isDecision: Bool
-    ) {
-        self.term = term
-        self.decisionLevel = decisionLevel
-        self.cause = cause
-        self.isDecision = isDecision
-    }
-
-    /// An assignment made during decision making.
-    public static func decision(_ term: Term, decisionLevel: Int) -> Assignment {
-        assert(term.requirement.isExact, "Cannot create a decision assignment with a non-exact version selection: \(term.requirement)")
-
-        return self.init(
-            term: term,
-            decisionLevel: decisionLevel,
-            cause: nil,
-            isDecision: true)
-    }
-
-    /// An assignment derived from previously known incompatibilities during
-    /// unit propagation.
-    public static func derivation(
-        _ term: Term,
-        cause: Incompatibility,
-        decisionLevel: Int
-    ) -> Assignment {
-        return self.init(
-            term: term,
-            decisionLevel: decisionLevel,
-            cause: cause,
-            isDecision: false)
-    }
-}
-
-extension Assignment: CustomStringConvertible {
-    public var description: String {
-        switch self.isDecision {
-        case true:
-            return "[Decision \(decisionLevel): \(term)]"
-        case false:
-            return "[Derivation: \(term) ← \(cause?.description ?? "-")]"
-        }
-    }
-}
-
-/// The partial solution is a constantly updated solution used throughout the
-/// dependency resolution process, tracking know assignments.
-public final class PartialSolution {
-    var root: DependencyResolutionNode?
-
-    /// All known assigments.
-    public private(set) var assignments: [Assignment]
-
-    /// All known decisions.
-    public private(set) var decisions: [DependencyResolutionNode: Version] = [:]
-
-    /// The intersection of all positive assignments for each package, minus any
-    /// negative assignments that refer to that package.
-    public private(set) var _positive: OrderedDictionary<DependencyResolutionNode, Term> = [:]
-
-    /// Union of all negative assignments for a package.
-    ///
-    /// Only present if a package has no postive assignment.
-    public private(set) var _negative: [DependencyResolutionNode: Term] = [:]
-
-    /// The current decision level.
-    public var decisionLevel: Int {
-        return decisions.count - 1
-    }
-
-    public init(assignments: [Assignment] = []) {
-        self.assignments = assignments
-        for assignment in assignments {
-            register(assignment)
-        }
-    }
-
-    /// A list of all packages that have been assigned, but are not yet satisfied.
-    public var undecided: [Term] {
-        return _positive.values.filter { !decisions.keys.contains($0.node) }
-    }
-
-    /// Create a new derivation assignment and add it to the partial solution's
-    /// list of known assignments.
-    public func derive(_ term: Term, cause: Incompatibility) {
-        let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
-        self.assignments.append(derivation)
-        register(derivation)
-    }
-
-    /// Create a new decision assignment and add it to the partial solution's
-    /// list of known assignments.
-    public func decide(_ node: DependencyResolutionNode, at version: Version) {
-        decisions[node] = version
-        let term = Term(node, .exact(version))
-        let decision = Assignment.decision(term, decisionLevel: decisionLevel)
-        self.assignments.append(decision)
-        register(decision)
-    }
-
-    /// Populates the _positive and _negative poperties with the assignment.
-    private func register(_ assignment: Assignment) {
-        let term = assignment.term
-        let pkg = term.node
-
-        if let positive = _positive[pkg] {
-            _positive[term.node] = positive.intersect(with: term)
-            return
-        }
-
-        let newTerm = _negative[pkg].flatMap{ term.intersect(with: $0) } ?? term
-
-        if newTerm.isPositive {
-            _negative[pkg] = nil
-            _positive[pkg] = newTerm
-        } else {
-            _negative[pkg] = newTerm
-        }
-    }
-
-    /// Returns the first Assignment in this solution such that the list of
-    /// assignments up to and including that entry satisfies term.
-    public func satisfier(for term: Term) -> Assignment {
-        var assignedTerm: Term?
-
-        for assignment in assignments {
-            guard assignment.term.node == term.node else {
-                continue
-            }
-            assignedTerm = assignedTerm.flatMap{ $0.intersect(with: assignment.term) } ?? assignment.term
-
-            if assignedTerm!.satisfies(term) {
-                return assignment
-            }
-        }
-
-        fatalError("term \(term) not satisfied")
-    }
-
-    /// Backtrack to a specific decision level by dropping all assignments with
-    /// a decision level which is greater.
-    public func backtrack(toDecisionLevel decisionLevel: Int) {
-        var toBeRemoved: [(Int, Assignment)] = []
-
-        for (idx, assignment) in zip(0..., assignments) {
-            if assignment.decisionLevel > decisionLevel {
-                toBeRemoved.append((idx, assignment))
-            }
-        }
-
-        for (idx, remove) in toBeRemoved.reversed() {
-            let assignment = assignments.remove(at: idx)
-            if assignment.isDecision {
-                decisions.removeValue(forKey: remove.term.node)
-            }
-        }
-
-        // FIXME: We can optimize this by recomputing only the removed things.
-        _negative.removeAll()
-        _positive.removeAll()
-        for assignment in assignments {
-            register(assignment)
-        }
-    }
-
-    /// Returns true if the given term satisfies the partial solution.
-    func satisfies(_ term: Term) -> Bool {
-        return self.relation(with: term) == .subset
-    }
-
-    /// Returns the set relation of the partial solution with the given term.
-    func relation(with term: Term) -> Term.SetRelation {
-        let pkg = term.node
-        if let positive = _positive[pkg] {
-            return positive.relation(with: term)
-        } else if let negative = _negative[pkg] {
-            return negative.relation(with: term)
-        }
-        return .overlap
-    }
-}
-
-/// Normalize terms so that at most one term refers to one package/polarity
-/// combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms in the
-/// same incompatibility, but have these combined by intersecting their version
-/// requirements to a^1.5.0.
-fileprivate func normalize(
-    terms: [Term]) -> [Term] {
-
-    let dict = terms.reduce(into: OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
-        res, term in
-        // Don't try to intersect if this is the first time we're seeing this package.
-        guard let previous = res[term.node] else {
-            res[term.node] = (term.requirement, term.isPositive)
-            return
-        }
-
-        guard let intersection = term.intersect(withRequirement: previous.req, andPolarity: previous.polarity) else {
-            fatalError("""
-                Attempting to create an incompatibility with terms for \(term.node) \
-                intersecting versions \(previous) and \(term.requirement). These are \
-                mutually exclusive and can't be intersected, making this incompatibility \
-                irrelevant.
-                """)
-        }
-        res[term.node] = (intersection.requirement, intersection.isPositive)
-    }
-    return dict.map { Term(node: $0, requirement: $1.req, isPositive: $1.polarity) }
-}
-
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
 public final class PubgrubDependencyResolver {
@@ -566,9 +47,6 @@ public final class PubgrubDependencyResolver {
     private lazy var provider: ContainerProvider = {
         ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
     }()
-
-    /// The resolver's delegate.
-    let delegate: DependencyResolverDelegate?
 
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
@@ -631,14 +109,12 @@ public final class PubgrubDependencyResolver {
 
     public init(
         _ provider: PackageContainerProvider,
-        _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
         traceFile: AbsolutePath? = nil,
         traceStream: OutputByteStream? = nil
     ) {
         self.packageContainerProvider = provider
-        self.delegate = delegate
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
         self.traceFile = traceFile
@@ -647,12 +123,11 @@ public final class PubgrubDependencyResolver {
 
     public convenience init(
         _ provider: PackageContainerProvider,
-        _ delegate: DependencyResolverDelegate? = nil,
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
         traceFile: AbsolutePath? = nil
     ) {
-        self.init(provider, delegate, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
+        self.init(provider, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
     }
 
     /// Add a new incompatibility to the list of known incompatibilities.
@@ -668,8 +143,6 @@ public final class PubgrubDependencyResolver {
             }
         }
     }
-
-    public typealias Result = DependencyResolver.Result
 
     public enum PubgrubError: Swift.Error, Equatable, CustomStringConvertible {
         case _unresolvable(Incompatibility)
@@ -695,7 +168,7 @@ public final class PubgrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pinsMap: PinsStore.PinsMap = [:]) -> Result {
+    public func solve(dependencies: [Constraint], pinsMap: PinsStore.PinsMap = [:]) -> Result<[DependencyResolver.Binding], Error> {
         do {
             return try .success(solve(constraints: dependencies, pinsMap: pinsMap))
         } catch {
@@ -713,7 +186,7 @@ public final class PubgrubDependencyResolver {
                 error = PubgrubError.unresolvable(diagnostic)
             }
 
-            return .error(error)
+            return .failure(error)
         }
     }
 
@@ -785,7 +258,7 @@ public final class PubgrubDependencyResolver {
                 // based (unversioned/branch-based) constraint present in the graph.
                 let container = try provider.getContainer(for: node.package)
                 for dependency in try container.packageContainer.getUnversionedDependencies(
-                    productFilter: node.productFilter()
+                    productFilter: node.productFilter
                 ) {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -820,7 +293,8 @@ public final class PubgrubDependencyResolver {
                     // If this branch-based package was encountered before, ensure the references match.
                     if existingRevision != revision {
                         // FIXME: Improve diagnostics here.
-                        throw PubgrubError.unresolvable("\(package.lastPathComponent) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
+                        let lastPathComponent = String(package.path.split(separator: "/").last!).spm_dropGitSuffix()
+                        throw PubgrubError.unresolvable("\(lastPathComponent) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
                     } else {
                         // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
                         continue
@@ -977,7 +451,7 @@ public final class PubgrubDependencyResolver {
                 fatalError("unexpected requirement value for assignment \(assignment.term)")
             }
 
-            let products = assignment.term.node.productFilter()
+            let products = assignment.term.node.productFilter
 
             let container = try provider.getContainer(for: assignment.term.node.package)
             let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
@@ -1411,13 +885,13 @@ private final class DiagnosticReportBuilder {
             assert(incompatibility.terms.count == 1)
             let term = incompatibility.terms.first!
             assert(term.isPositive)
-            return "no versions of \(term.node.nameForDiagnostics()) match the requirement \(term.requirement)"
+            return "no versions of \(term.node.nameForDiagnostics) match the requirement \(term.requirement)"
         case .root:
             // FIXME: This will never happen I think.
             assert(incompatibility.terms.count == 1)
             let term = incompatibility.terms.first!
             assert(term.isPositive)
-            return "\(term.node.nameForDiagnostics()) is \(term.requirement)"
+            return "\(term.node.nameForDiagnostics) is \(term.requirement)"
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
@@ -1434,16 +908,16 @@ private final class DiagnosticReportBuilder {
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            let prefix = hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics() : description(for: term, normalizeRange: true)
+            let prefix = hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics : description(for: term, normalizeRange: true)
             return "\(prefix) is " + (term.isPositive ? "forbidden" : "required")
         } else if terms.count == 2 {
             let term1 = terms.first!
             let term2 = terms.last!
             if term1.isPositive == term2.isPositive {
                 if term1.isPositive {
-                    return "\(term1.node.nameForDiagnostics()) is incompatible with \(term2.node.nameForDiagnostics())";
+                    return "\(term1.node.nameForDiagnostics) is incompatible with \(term2.node.nameForDiagnostics)";
                 } else {
-                    return "either \(term1.node.nameForDiagnostics()) or \(term2)"
+                    return "either \(term1.node.nameForDiagnostics) or \(term2)"
                 }
             }
         }
@@ -1509,7 +983,7 @@ private final class DiagnosticReportBuilder {
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) -> String {
-        let name = term.node.nameForDiagnostics()
+        let name = term.node.nameForDiagnostics
 
         switch term.requirement {
         case .any: return "every version of \(name)"
@@ -1697,7 +1171,7 @@ private final class PubGrubPackageContainer {
             return [Incompatibility(Term(node, requirement), root: root, cause: .incompatibleToolsVersion)]
         }
 
-        var unprocessedDependencies = try packageContainer.getDependencies(at: version, productFilter: node.productFilter())
+        var unprocessedDependencies = try packageContainer.getDependencies(at: version, productFilter: node.productFilter)
         if let sharedVersion = node.versionLock(version: version) {
             unprocessedDependencies.append(sharedVersion)
         }
@@ -1744,7 +1218,7 @@ private final class PubGrubPackageContainer {
             }).joined())
         }
 
-        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version, products: node.productFilter())
+        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version, products: node.productFilter)
 
         return dependencies.map { dependency in
             var terms: OrderedSet<Term> = []
@@ -1923,21 +1397,8 @@ private final class ContainerProvider {
     }
 }
 
-// MARK:- Misc Extensions
-
-extension VersionSetSpecifier {
-    fileprivate var isExact: Bool {
-        switch self {
-        case .any, .empty, .range, .ranges:
-            return false
-        case .exact:
-            return true
-        }
-    }
-}
-
-extension PackageRequirement {
-    fileprivate var isRevision: Bool {
+fileprivate extension PackageRequirement {
+    var isRevision: Bool {
         switch self {
         case .versionSet, .unversioned:
             return false
@@ -1947,9 +1408,12 @@ extension PackageRequirement {
     }
 }
 
-extension PackageReference {
-    /// Returns the last path component of the path (without .git suffix, if present).
-    fileprivate var lastPathComponent: String {
-        return String(path.split(separator: "/").last!).spm_dropGitSuffix()
+fileprivate extension DependencyResolutionNode {
+    var nameForDiagnostics: String {
+        if let product = specificProduct {
+            return "\(package.name)[\(product)]"
+        } else {
+            return "\(package.name)"
+        }
     }
 }
