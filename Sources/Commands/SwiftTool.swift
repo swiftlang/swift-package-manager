@@ -411,7 +411,7 @@ public class SwiftTool {
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
-    func getSwiftPMConfig() throws -> DependencyMirrors {
+    func getDependencyMirrors() throws -> DependencyMirrors {
         return try _swiftpmConfig.get()
     }
     private lazy var _swiftpmConfig: Result<DependencyMirrors, Swift.Error> = {
@@ -444,7 +444,7 @@ public class SwiftTool {
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
-            config: try getSwiftPMConfig(),
+            mirrors: try getDependencyMirrors(),
             repositoryProvider: provider,
             netrcFilePath: resolvedNetrcFilePath(),
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,

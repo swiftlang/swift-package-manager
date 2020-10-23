@@ -165,8 +165,8 @@ public class Workspace {
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
 
-    /// The swiftpm config.
-    fileprivate let config: DependencyMirrors
+    /// The dependency mirrors.
+    fileprivate let mirrors: DependencyMirrors
 
     /// The current persisted state of the workspace.
     public let state: WorkspaceState
@@ -254,7 +254,7 @@ public class Workspace {
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
         delegate: WorkspaceDelegate? = nil,
-        config: DependencyMirrors = DependencyMirrors(),
+        mirrors: DependencyMirrors = DependencyMirrors(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         downloader: Downloader = FoundationDownloader(),
@@ -269,7 +269,7 @@ public class Workspace {
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
-        self.config = config
+        self.mirrors = mirrors
         self.editablesPath = editablesPath
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
@@ -296,7 +296,7 @@ public class Workspace {
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            config: self.config,
+            mirrors: self.mirrors,
             manifestLoader: manifestLoader,
             currentToolsVersion: currentToolsVersion,
             toolsVersionLoader: toolsVersionLoader
@@ -513,8 +513,8 @@ extension Workspace {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
-        // Load the config.
-        diagnostics.wrap { try config.load() }
+        // Load the dependency mirrors.
+        diagnostics.wrap { try mirrors.load() }
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
@@ -533,7 +533,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints()
 
         // Create constraints based on root manifest and pins for the update resolution.
-        updateConstraints += graphRoot.constraints(config: config)
+        updateConstraints += graphRoot.constraints(mirrors: mirrors)
 
         // Resolve the dependencies.
         let resolver = createResolver()
@@ -650,7 +650,7 @@ extension Workspace {
         // Load the graph.
         return PackageGraph.load(
             root: manifests.root,
-            config: config,
+            mirrors: mirrors,
             additionalFileRules: additionalFileRules,
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackageURLs().required,
@@ -1050,7 +1050,7 @@ extension Workspace {
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
             }) + root.dependencies.compactMap({ dependency in
-                let url = workspace.config.mirroredURL(forURL: dependency.url)
+                let url = workspace.mirrors.mirroredURL(forURL: dependency.url)
                 let identity = PackageReference.computeIdentity(packageURL: url)
                 let package = PackageReference(identity: identity, path: url)
                 inputIdentities.insert(package)
@@ -1062,7 +1062,7 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
-                    let url = workspace.config.mirroredURL(forURL: dependency.declaration.url)
+                    let url = workspace.mirrors.mirroredURL(forURL: dependency.declaration.url)
                     let identity = PackageReference.computeIdentity(packageURL: url)
                     let package = PackageReference(identity: identity, path: url)
                     requiredIdentities.insert(package)
@@ -1074,7 +1074,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
-                let url = workspace.config.mirroredURL(forURL: $0.1.url)
+                let url = workspace.mirrors.mirroredURL(forURL: $0.1.url)
                 return PackageReference(identity: $0.key, path: url, kind: $0.1.packageKind)
             }))
             // We should never have loaded a manifest we don't need.
@@ -1111,7 +1111,7 @@ extension Workspace {
                 }
                 allConstraints += externalManifest.dependencyConstraints(
                     productFilter: productFilter,
-                    config: workspace.config
+                    mirrors: workspace.mirrors
                 )
             }
             return allConstraints
@@ -1234,7 +1234,7 @@ extension Workspace {
         }
 
         let rootDependencyManifests: [Manifest] = root.dependencies.compactMap({
-            let url = config.mirroredURL(forURL: $0.url)
+            let url = mirrors.mirroredURL(forURL: $0.url)
             return loadManifest(forURL: url, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
@@ -1245,7 +1245,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: $0.name)})) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                let url = mirrors.mirroredURL(forURL: dependency.declaration.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: $0.name) })
@@ -1568,8 +1568,8 @@ extension Workspace {
         // Ensure the cache path exists.
         createCacheDirectories(with: diagnostics)
 
-        // Load the config.
-        diagnostics.wrap { try config.load() }
+        // Load the mirrors.
+        diagnostics.wrap { try mirrors.load() }
 
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
@@ -1619,7 +1619,7 @@ extension Workspace {
         for rootManifest in rootManifests {
             let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
             for localPackage in dependencies {
-                let package = localPackage.createPackageRef(config: self.config)
+                let package = localPackage.createPackageRef(mirrors: self.mirrors)
                 state.dependencies.add(ManagedDependency.local(packageRef: package))
             }
         }
@@ -1661,8 +1661,8 @@ extension Workspace {
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
 
-        // Load the config.
-        diagnostics.wrap { try config.load() }
+        // Load the mirrors.
+        diagnostics.wrap { try mirrors.load() }
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
@@ -1714,7 +1714,7 @@ extension Workspace {
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
         constraints += currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints(config: config) + extraConstraints
+        constraints += graphRoot.constraints(mirrors: mirrors) + extraConstraints
 
         // Perform dependency resolution.
         let resolver = createResolver()
@@ -1828,16 +1828,16 @@ extension Workspace {
         extraConstraints: [RepositoryPackageConstraint] = []
     ) -> ResolutionPrecomputationResult {
         let constraints =
-            root.constraints(config: config) +
+            root.constraints(mirrors: mirrors) +
             // Include constraints from the manifests in the graph root.
-            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything, config: config) }) +
+            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything, mirrors: mirrors) }) +
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 
         let precomputationProvider = ResolverPrecomputationProvider(
              root: root,
              dependencyManifests: dependencyManifests,
-             config: config
+            mirrors: mirrors
         )
 
         let resolver = PubgrubDependencyResolver(precomputationProvider)

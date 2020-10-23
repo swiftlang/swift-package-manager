@@ -27,7 +27,7 @@ public final class DependencyMirrors {
     /// Persistence support.
     let persistence: SimplePersistence?
 
-    /// The schema version of the config file.
+    /// The schema version of the mirrors file.
     ///
     /// * 1: Initial version.
     static let schemaVersion: Int = 1

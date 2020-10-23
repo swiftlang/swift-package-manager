@@ -643,8 +643,8 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
+            let mirrors = try swiftTool.getDependencyMirrors()
+            try mirrors.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -656,7 +656,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.set(mirrorURL: mirrorURL, forURL: originalURL)
+            try mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
         }
     }
 
@@ -677,8 +677,8 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String?
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
+            let mirrors = try swiftTool.getDependencyMirrors()
+            try mirrors.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -690,7 +690,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.unset(originalOrMirrorURL: originalOrMirrorURL)
+            try mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
         }
     }
 
@@ -708,8 +708,8 @@ extension SwiftPackageTool.Config {
         var originalURL: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
+            let mirrors = try swiftTool.getDependencyMirrors()
+            try mirrors.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -721,7 +721,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            if let mirror = config.getMirror(forURL: originalURL) {
+            if let mirror = mirrors.getMirror(forURL: originalURL) {
                 print(mirror)
             } else {
                 stderrStream <<< "not found\n"

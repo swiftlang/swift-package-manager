@@ -376,7 +376,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
         ]
 
-        let config = DependencyMirrors()
+        let mirrors = DependencyMirrors()
 
         let v5ProductMapping: [String: ProductFilter] = [
             "Bar1": .specific(["Bar1", "Bar3"]),
@@ -385,7 +385,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
         let v5Constraints = dependencies.map({
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(config: config),
+                container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: v5ProductMapping[$0.name]!)
         })
@@ -396,7 +396,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
         let v5_2Constraints = dependencies.map({
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(config: config),
+                container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.name]!)
         })
@@ -415,7 +415,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .everything, config: config)
+                    .dependencyConstraints(productFilter: .everything, mirrors: mirrors)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
                     v5Constraints[0],
@@ -439,7 +439,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .everything, config: config)
+                    .dependencyConstraints(productFilter: .everything, mirrors: mirrors)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
                     v5Constraints[0],
@@ -463,7 +463,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .everything, config: config)
+                    .dependencyConstraints(productFilter: .everything, mirrors: mirrors)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
                     v5_2Constraints[0],
@@ -487,7 +487,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .specific(Set(products.map({ $0.name }))), config: config)
+                    .dependencyConstraints(productFilter: .specific(Set(products.map({ $0.name }))), mirrors: mirrors)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
                     v5_2Constraints[0],

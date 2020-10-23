@@ -92,7 +92,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     init(
         identifier: PackageReference,
-        config: DependencyMirrors,
+        mirrors: DependencyMirrors,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
@@ -118,7 +118,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         self._reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
             identifier,
-            config: config,
+            mirrors: mirrors,
             manifestLoader: manifestLoader,
             toolsVersionLoader: toolsVersionLoader,
             currentToolsVersion: currentToolsVersion
@@ -222,7 +222,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         productFilter: ProductFilter
     ) throws -> (Manifest, [RepositoryPackageConstraint]) {
         let manifest = try loadManifest(at: revision, version: version)
-        return (manifest, manifest.dependencyConstraints(productFilter: productFilter, config: config))
+        return (manifest, manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors))
     }
 
     public override func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
@@ -293,7 +293,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
-    let config: DependencyMirrors
+    let mirrors: DependencyMirrors
 
     /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
     /// the container.
@@ -314,13 +314,13 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     ///   - toolsVersionLoader: The tools version loader.
     public init(
         repositoryManager: RepositoryManager,
-        config: DependencyMirrors = DependencyMirrors(),
+        mirrors: DependencyMirrors = DependencyMirrors(),
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
     ) {
         self.repositoryManager = repositoryManager
-        self.config = config
+        self.mirrors = mirrors
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
@@ -334,12 +334,14 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         // If the container is local, just create and return a local package container.
         if identifier.kind != .remote {
             callbacksQueue.async {
-                let container = LocalPackageContainer(identifier,
-                    config: self.config,
+                let container = LocalPackageContainer(
+                    identifier,
+                    mirrors: self.mirrors,
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
-                    fs: self.repositoryManager.fileSystem)
+                    fs: self.repositoryManager.fileSystem
+                )
                 completion(.success(container))
             }
             return
@@ -355,7 +357,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                 let repository = try handle.open()
                 return RepositoryPackageContainer(
                     identifier: identifier,
-                    config: self.config,
+                    mirrors: self.mirrors,
                     repository: repository,
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,

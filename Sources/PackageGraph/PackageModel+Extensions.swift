@@ -13,8 +13,8 @@ import SourceControl
 
 extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
-    public func createPackageRef(config: DependencyMirrors) -> PackageReference {
-        let effectiveURL = config.mirroredURL(forURL: self.url)
+    public func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
+        let effectiveURL = mirrors.mirroredURL(forURL: self.url)
         return PackageReference(
             identity: PackageReference.computeIdentity(packageURL: effectiveURL),
             path: effectiveURL,
@@ -25,10 +25,10 @@ extension PackageDependencyDescription {
 
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter, config: DependencyMirrors) -> [RepositoryPackageConstraint] {
+    public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
         return dependenciesRequired(for: productFilter).map({
             return RepositoryPackageConstraint(
-                container: $0.declaration.createPackageRef(config: config),
+                container: $0.declaration.createPackageRef(mirrors: mirrors),
                 requirement: $0.declaration.requirement.toConstraintRequirement(),
                 products: $0.productFilter)
         })
