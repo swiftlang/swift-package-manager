@@ -285,7 +285,7 @@ public class RepositoryManager {
                     do {
                         let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
 
-                        try self.fileSystem.withLock(on: cachedRepositoryPath, type: .shared) {
+                        try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
                             try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: true)
                             // Copy into repository path.
                             try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
