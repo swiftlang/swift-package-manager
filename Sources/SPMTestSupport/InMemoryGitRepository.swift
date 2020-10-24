@@ -341,6 +341,11 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         add(specifier: RepositorySpecifier(url: path.asURL.absoluteString), repository: repo)
     }
 
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        let repo = fetchedMap[sourcePath]!
+        fetchedMap[destinationPath] = repo.copy()
+    }
+
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
         return fetchedMap[path]!
     }

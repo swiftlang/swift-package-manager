@@ -118,6 +118,13 @@ public protocol RepositoryProvider {
     ///   - path: The location of the repository on disk, at which the repository
     ///     has previously been created via `cloneCheckout`.
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
+
+
+    /// Copies the repository at path `from` to path `to`.
+    /// - Parameters:
+    ///   - sourcePath: the source path.
+    ///   - destinationPath: the destination  path.
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 }
 
 extension RepositoryProvider {

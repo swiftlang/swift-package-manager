@@ -102,6 +102,10 @@ private class MockRepositories: RepositoryProvider {
         assert(self.repositories.index(forKey: repository.url) != nil)
     }
 
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        // No-op.
+    }
+
     func checkoutExists(at path: AbsolutePath) throws -> Bool {
         return false
     }

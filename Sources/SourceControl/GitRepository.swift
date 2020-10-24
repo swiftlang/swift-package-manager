@@ -15,7 +15,6 @@ import TSCUtility
 
 /// A `git` repository provider.
 public class GitRepositoryProvider: RepositoryProvider {
-
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
 
@@ -61,6 +60,10 @@ public class GitRepositoryProvider: RepositoryProvider {
             try callGit("clone", "--mirror", repository.url, path.pathString,
                         failureMessage: "Failed to clone repository \(repository.url)", repository: repository)
         }
+    }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {

@@ -329,8 +329,8 @@ public class RepositoryManager {
                             try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
                                 // Populate the cache
                                 try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: false)
-                                // Copy into repository path.
-                                try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
+                                // Copy the repository from the cache into the repository path.
+                                try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
                             }
 
                             // Update status to available.

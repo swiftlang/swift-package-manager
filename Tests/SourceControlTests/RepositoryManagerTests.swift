@@ -86,6 +86,18 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
     }
 
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try localFileSystem.copy(from: sourcePath, to: destinationPath)
+
+        numClones += 1
+
+        // We only support one dummy URL.
+        let basename = sourcePath.basename
+        if basename != "dummy" {
+            throw DummyError.invalidRepository
+        }
+    }
+
     func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
         return DummyRepository(provider: self)
     }
