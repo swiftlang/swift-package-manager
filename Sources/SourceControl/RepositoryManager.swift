@@ -321,9 +321,7 @@ public class RepositoryManager {
                     var fetchError: Swift.Error? = nil
                     do {
                         if let cachePath = self.cachePath {
-                            if !self.fileSystem.exists(cachePath) {
-                                try self.fileSystem.createDirectory(cachePath, recursive: true)
-                            }
+                            try self.initalizeCacheIfNeeded(cachePath: cachePath)
                             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
 
                             try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
@@ -454,6 +452,13 @@ public class RepositoryManager {
         self.repositories = [:]
         self.serializedRepositories = [:]
         try? self.fileSystem.removeFileTree(path)
+    }
+
+    /// Sets up the cache directories if they don't already exist.
+    public func initalizeCacheIfNeeded(cachePath: AbsolutePath) throws {
+        if !fileSystem.exists(cachePath) {
+            try fileSystem.createDirectory(cachePath, recursive: true)
+        }
     }
 
     /// Purges the cached repositories from the cache.
