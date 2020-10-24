@@ -267,6 +267,9 @@ public class RepositoryManager {
                     })
 
                 case .cached:
+                    guard let cachePath = self.cachePath, let cacheManager = self.cacheManager else {
+                        fatalError("Cache path or cache manager does not exist.")
+                    }
                     // Change the state to pending.
                     handle.status = .pending
                     // Make sure desination is free.
@@ -280,15 +283,16 @@ public class RepositoryManager {
                     // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
-                        let cache = try await { self.cacheManager?.lookup(repository: handle.repository, completion: $0) }
+                        let cache = try await { cacheManager.lookup(repository: handle.repository, completion: $0) }
+                        let cachedRepositoryPath = cachePath.appending(component: cache.repository.fileSystemIdentifier)
 
-                        try self.provider.fetch(repository: cache.repository, to: repositoryPath)
+                        try self.fileSystem.withLock(on: cachedRepositoryPath, type: .shared) {
+                            // Copy into repository path.
+                            try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
+                        }
 
                         // Update status to available.
                         handle.status = .available
-                        // Change remote from cache path to origingal url
-                        try handle.open().setURL(remote: "origin", url: handle.repository.url)
-
                         result = .success(handle)
 
                     } catch {
@@ -322,20 +326,16 @@ public class RepositoryManager {
                                 try self.fileSystem.createDirectory(cachePath, recursive: true)
                             }
                             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
-                            let cachedRepositorySpecifier = RepositorySpecifier(url: cachedRepositoryPath.asURL.absoluteString)
-                            let cachedRepositoryHandle = RepositoryHandle(manager: self, repository: cachedRepositorySpecifier, subpath: repositoryPath.relative(to: self.path))
 
                             try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
                                 // Populate the cache
                                 try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
-                                // Fetch into repository path.
-                                try self.provider.fetch(repository: cachedRepositoryHandle.repository, to: repositoryPath)
+                                // Copy into repository path.
+                                try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
                             }
 
                             // Update status to available.
                             handle.status = .available
-                            // Change remote from cache path to origingal url
-                            try handle.open().setURL(remote: "origin", url: handle.repository.url)
                         } else {
                             // Fetch into repository path.
                             try self.provider.fetch(repository: handle.repository, to: repositoryPath)
@@ -394,7 +394,7 @@ public class RepositoryManager {
 
             if let oldHandle = self.repositories[repository.url] {
                 handle = oldHandle
-            } else if let cachePath = cachePath, fileSystem.exists(cachePath.appending(subpath)) {
+            } else if let cachePath = cachePath, cacheManager != nil, fileSystem.exists(cachePath.appending(subpath)) {
                 handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
                 handle.status = .cached
                 self.repositories[repository.url] = handle
