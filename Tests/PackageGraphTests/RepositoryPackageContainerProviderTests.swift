@@ -73,9 +73,6 @@ private class MockRepository: Repository {
         return self.fs
     }
 
-    func setURL(remote: String, url: String) throws {
-        fatalError("Unexpected API call")
-    }
 }
 
 private class MockRepositories: RepositoryProvider {

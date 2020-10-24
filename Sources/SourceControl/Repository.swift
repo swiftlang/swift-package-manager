@@ -184,8 +184,6 @@ public protocol Repository {
     ///
     /// - Throws: If a error occurs accessing the revision.
     func openFileView(revision: Revision) throws -> FileSystem
-
-    func setURL(remote: String, url: String) throws
 }
 
 /// An editable checkout of a repository (i.e. a working copy) on the local file

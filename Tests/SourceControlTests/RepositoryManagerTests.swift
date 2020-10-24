@@ -53,9 +53,6 @@ private class DummyRepository: Repository {
         fatalError("unexpected API call")
     }
 
-    func setURL(remote: String, url: String) throws {
-        fatalError("unexpected API call")
-    }
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
