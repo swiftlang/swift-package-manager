@@ -32,7 +32,6 @@ public func XCTAssertBuilds(
 ) {
     for conf in configurations {
         do {
-            print("    Building \(conf)")
             _ = try executeSwiftBuild(
                 path,
                 configuration: conf,
