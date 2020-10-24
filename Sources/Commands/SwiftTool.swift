@@ -469,7 +469,7 @@ public class SwiftTool {
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
-            cachePath: options.cachePath ?? Workspace.defaultCachePath
+            cachePath: !options.skipCache ? options.cachePath ?? Workspace.defaultCachePath : nil
         )
         _workspace = workspace
         return workspace
