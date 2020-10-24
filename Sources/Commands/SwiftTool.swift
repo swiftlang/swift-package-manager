@@ -59,13 +59,17 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.diagnostics = diagnostics
     }
 
-    func fetchingWillBegin(repository: String) {
+    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
         stdoutStream <<< "Fetching \(repository)"
+        switch fetchDetails {
+        case .fromCache: stdoutStream <<< " from cache"
+        case .none: break
+        }
         stdoutStream <<< "\n"
         stdoutStream.flush()
     }
 
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {

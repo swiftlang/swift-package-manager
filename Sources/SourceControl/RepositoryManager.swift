@@ -17,10 +17,10 @@ import TSCUtility
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: class {
     /// Called when a repository is about to be fetched.
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?)
 
     /// Called when a repository has finished fetching.
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?)
 
     /// Called when a repository has started updating from its remote.
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
@@ -30,8 +30,8 @@ public protocol RepositoryManagerDelegate: class {
 }
 
 public extension RepositoryManagerDelegate {
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {}
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {}
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {}
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
 }
@@ -124,6 +124,10 @@ public class RepositoryManager {
                 "subpath": subpath,
             ])
         }
+    }
+
+    public enum FetchDetails {
+        case fromCache
     }
 
     /// The path under which repositories are stored.
@@ -273,7 +277,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate?.fetchingWillBegin(handle: handle)
+                        self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: .fromCache)
                     }
 
                     // Fetch the repo.
@@ -299,7 +303,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, error: fetchError)
+                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: .fromCache, error: fetchError)
                     }
 
                 case .pending, .uninitialized, .error:
@@ -310,14 +314,13 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate?.fetchingWillBegin(handle: handle)
+                        self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: .none)
                     }
 
                     // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
                         if let cachePath = self.cachePath {
-
                             if !self.fileSystem.exists(cachePath) {
                                 try self.fileSystem.createDirectory(cachePath, recursive: true)
                             }
@@ -348,7 +351,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, error: fetchError)
+                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: .none, error: fetchError)
                     }
 
                     // Save the manager state.

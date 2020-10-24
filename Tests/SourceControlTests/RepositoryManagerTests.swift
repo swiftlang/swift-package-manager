@@ -132,13 +132,13 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
         return fetchedLock.withLock({ _didUpdate })
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
         fetchedLock.withLock {
             _willFetch += [handle.repository]
         }
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
         fetchedLock.withLock {
             _didFetch += [handle.repository]
         }

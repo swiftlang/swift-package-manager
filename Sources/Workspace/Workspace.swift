@@ -45,10 +45,10 @@ public protocol WorkspaceDelegate: class {
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic])
 
     /// The workspace has started fetching this repository.
-    func fetchingWillBegin(repository: String)
+    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
 
     /// The workspace has finished fetching this repository.
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?)
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
@@ -124,17 +124,17 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
-        workspaceDelegate.fetchingWillBegin(repository: handle.repository.url)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?) {
+        workspaceDelegate.fetchingWillBegin(repository: handle.repository.url, fetchDetails: details)
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?) {
         let diagnostic: Diagnostic? = error.flatMap({
             let engine = DiagnosticsEngine()
             engine.emit($0)
             return engine.diagnostics.first
         })
-        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, diagnostic: diagnostic)
+        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, fetchDetails: details, diagnostic: diagnostic)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
