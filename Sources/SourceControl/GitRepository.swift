@@ -15,6 +15,7 @@ import TSCUtility
 
 /// A `git` repository provider.
 public class GitRepositoryProvider: RepositoryProvider {
+
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
 

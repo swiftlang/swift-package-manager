@@ -119,7 +119,6 @@ public protocol RepositoryProvider {
     ///     has previously been created via `cloneCheckout`.
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
 
-
     /// Copies the repository at path `from` to path `to`.
     /// - Parameters:
     ///   - sourcePath: the source path.

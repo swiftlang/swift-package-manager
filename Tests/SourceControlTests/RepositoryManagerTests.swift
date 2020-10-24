@@ -52,7 +52,6 @@ private class DummyRepository: Repository {
     func openFileView(revision: Revision) throws -> FileSystem {
         fatalError("unexpected API call")
     }
-
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {

@@ -182,7 +182,6 @@ public final class InMemoryGitRepository {
     public func fetch() throws {
         // TODO.
     }
-
 }
 
 extension InMemoryGitRepository: FileSystem {

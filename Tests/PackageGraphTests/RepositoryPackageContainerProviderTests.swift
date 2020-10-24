@@ -72,7 +72,6 @@ private class MockRepository: Repository {
         // This is used for reading the tools version.
         return self.fs
     }
-
 }
 
 private class MockRepositories: RepositoryProvider {
