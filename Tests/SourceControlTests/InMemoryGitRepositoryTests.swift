@@ -91,7 +91,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         provider.add(specifier: specifier, repository: repo)
 
         let fooRepoPath = AbsolutePath("/fooRepo")
-        try provider.fetch(repository: specifier, to: fooRepoPath)
+        try provider.fetch(repository: specifier, to: fooRepoPath, update: false)
         let fooRepo = try provider.open(repository: specifier, at: fooRepoPath)
 
         // Adding a new tag in original repo shouldn't show up in fetched repo.

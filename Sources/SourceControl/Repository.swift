@@ -73,7 +73,7 @@ public protocol RepositoryProvider {
     ///   - repository: The specifier of the repository to fetch.
     ///
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws
 
     /// Open the given repository.
     ///

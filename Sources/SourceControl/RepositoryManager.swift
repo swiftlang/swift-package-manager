@@ -132,11 +132,6 @@ public class RepositoryManager {
     /// The path to the directory where all cached git repositories are stored.
     private let cachePath: AbsolutePath?
 
-    private lazy var cacheManager: RepositoryManager? = {
-        guard let cachePath = cachePath else { return nil }
-        return RepositoryManager(path: cachePath, provider: provider, fileSystem: fileSystem)
-    }()
-
     /// The repository provider.
     public let provider: RepositoryProvider
 
@@ -267,9 +262,10 @@ public class RepositoryManager {
                     })
 
                 case .cached:
-                    guard let cachePath = self.cachePath, let cacheManager = self.cacheManager else {
+                    guard let cachePath = self.cachePath else {
                         fatalError("Cache path or cache manager does not exist.")
                     }
+
                     // Change the state to pending.
                     handle.status = .pending
                     // Make sure desination is free.
@@ -283,10 +279,10 @@ public class RepositoryManager {
                     // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
-                        let cache = try await { cacheManager.lookup(repository: handle.repository, completion: $0) }
-                        let cachedRepositoryPath = cachePath.appending(component: cache.repository.fileSystemIdentifier)
+                        let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
 
                         try self.fileSystem.withLock(on: cachedRepositoryPath, type: .shared) {
+                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: true)
                             // Copy into repository path.
                             try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
                         }
@@ -329,7 +325,7 @@ public class RepositoryManager {
 
                             try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
                                 // Populate the cache
-                                try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
+                                try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: false)
                                 // Copy into repository path.
                                 try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
                             }
@@ -338,7 +334,7 @@ public class RepositoryManager {
                             handle.status = .available
                         } else {
                             // Fetch into repository path.
-                            try self.provider.fetch(repository: handle.repository, to: repositoryPath)
+                            try self.provider.fetch(repository: handle.repository, to: repositoryPath, update: false)
                             // Update status to available.
                             handle.status = .available
                         }
@@ -394,7 +390,7 @@ public class RepositoryManager {
 
             if let oldHandle = self.repositories[repository.url] {
                 handle = oldHandle
-            } else if let cachePath = cachePath, cacheManager != nil, fileSystem.exists(cachePath.appending(subpath)) {
+            } else if let cachePath = cachePath, fileSystem.exists(cachePath.appending(subpath)) {
                 handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
                 handle.status = .cached
                 self.repositories[repository.url] = handle
