@@ -267,7 +267,7 @@ public class RepositoryManager {
 
                 case .cached:
                     guard let cachePath = self.cachePath else {
-                        fatalError("Cache path or cache manager does not exist.")
+                        fatalError("Cache path does not exist.")
                     }
 
                     // Change the state to pending.
@@ -280,12 +280,12 @@ public class RepositoryManager {
                         self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: .fromCache)
                     }
 
-                    // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
                         let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
 
                         try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
+                            // Fetch the repo into the cache.
                             try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: true)
                             // Copy into repository path.
                             try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
@@ -317,7 +317,6 @@ public class RepositoryManager {
                         self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: .none)
                     }
 
-                    // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
                         if let cachePath = self.cachePath {
@@ -325,7 +324,7 @@ public class RepositoryManager {
                             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
 
                             try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
-                                // Populate the cache
+                                // Fetch the repo into the cache.
                                 try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: false)
                                 // Copy the repository from the cache into the repository path.
                                 try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
