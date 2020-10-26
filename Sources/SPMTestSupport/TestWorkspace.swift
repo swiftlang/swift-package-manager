@@ -51,7 +51,7 @@ public final class TestWorkspace {
         self.downloader = downloader ?? MockDownloader(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.config = SwiftPMConfig(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        self.config = try SwiftPMConfig(path: sandbox.appending(component: "swiftpm"), fs: fs)
         self.roots = roots
         self.packages = packages
 

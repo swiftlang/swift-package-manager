@@ -23,8 +23,14 @@ public final class SwiftPMConfig {
         case mirrorNotFound
     }
 
+    /// The path to the mirrors file.
+    private let configFile: AbsolutePath?
+
+    /// The filesystem to manage the mirrors file on.
+    private var fileSystem: FileSystem?
+
     /// Persistence support.
-    let persistence: SimplePersistence?
+    private let persistence: SimplePersistence?
 
     /// The schema version of the config file.
     ///
@@ -32,25 +38,35 @@ public final class SwiftPMConfig {
     static let schemaVersion: Int = 1
 
     /// The mirrors.
-    private var mirrors: [String: Mirror]
+    private var mirrors: [String: Mirror] = [:]
 
-    public init(path: AbsolutePath, fs: FileSystem = localFileSystem) {
-        self.mirrors = [:]
-        self.persistence = SimplePersistence(
-            fileSystem: fs, schemaVersion: SwiftPMConfig.schemaVersion,
-            statePath: path, prettyPrint: true
+    public init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+        self.configFile = path
+        self.fileSystem = fs
+        let persistence = SimplePersistence(
+            fileSystem: fs,
+            schemaVersion: Self.schemaVersion,
+            statePath: path,
+            prettyPrint: true
         )
+
+        do {
+            self.persistence = persistence
+            _ = try persistence.restoreState(self)
+        } catch SimplePersistence.Error.restoreFailure(_, let error) {
+            throw StringError("Configuration file is corrupted or malformed; fix or delete the file to continue: \(error)")
+        }
     }
 
     public init() {
-        self.mirrors = [:]
+        self.configFile = nil
+        self.fileSystem = nil
         self.persistence = nil
     }
 
     /// Set a mirror URL for the given URL.
-    public func set(mirrorURL: String, forURL url: String) throws {
+    public func set(mirrorURL: String, forURL url: String) {
         mirrors[url] = Mirror(original: url, mirror: mirrorURL)
-        try saveState()
     }
 
     /// Unset a mirror for the given URL.
@@ -64,7 +80,6 @@ public final class SwiftPMConfig {
         } else {
             throw Error.mirrorNotFound
         }
-        try saveState()
     }
 
     /// Returns the mirror for the given specificer.
@@ -81,40 +96,55 @@ public final class SwiftPMConfig {
     public func load() throws {
         _ = try self.persistence?.restoreState(self)
     }
+
+    public func saveState() throws {
+        guard let persistence = self.persistence else { return }
+        
+        // Remove the configuratoin file if there aren't any mirrors.
+        if mirrors.isEmpty,
+           let fileSystem = self.fileSystem,
+           let configFile = self.configFile
+        {
+            return try fileSystem.removeFileTree(configFile)
+        }
+
+        try persistence.saveState(self)
+    }
 }
 
 extension SwiftPMConfig: JSONSerializable {
     public func toJSON() -> JSON {
-        // FIXME: Find a way to avoid encode-decode dance here.
-        let jsonData = try! JSONEncoder().encode(mirrors.values.sorted(by: { $0.original < $1.mirror }))
-        return try! JSON(data: jsonData)
+        return mirrors.values.sorted(by: { $0.original < $1.mirror }).map { $0.toJSON() }.toJSON()
     }
 }
 
 extension SwiftPMConfig: SimplePersistanceProtocol {
-    public func saveState() throws {
-        try self.persistence?.saveState(self)
-    }
-
     public func restore(from json: JSON) throws {
-        // FIXME: Find a way to avoid encode-decode dance here.
-        let data = Data(json.toBytes().contents)
-        let mirrorsData = try JSONDecoder().decode([Mirror].self, from: data)
-        self.mirrors = Dictionary(mirrorsData.map({ ($0.original, $0) }), uniquingKeysWith: { first, _ in first })
+        let mirrors = try json.getArray().map(Mirror.init(json:))
+        self.mirrors = Dictionary(mirrors.map({ ($0.original, $0) }), uniquingKeysWith: { first, _ in first })
     }
 }
 
 /// An individual repository mirror.
-fileprivate struct Mirror: Codable {
+fileprivate struct Mirror {
     /// The original repository path.
     let original: String
 
     /// The mirrored repository path.
     let mirror: String
+}
 
-    init(original: String, mirror: String) {
-        self.original = original
-        self.mirror = mirror
+extension Mirror: JSONMappable, JSONSerializable {
+    init(json: JSON) throws {
+        self.original = try json.get("original")
+        self.mirror = try json.get("mirror")
+    }
+
+    func toJSON() -> JSON {
+        .init([
+            "original": original,
+            "mirror": mirror
+        ])
     }
 }
 

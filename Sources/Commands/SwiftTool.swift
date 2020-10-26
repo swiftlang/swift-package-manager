@@ -415,7 +415,7 @@ public class SwiftTool {
         return try _swiftpmConfig.get()
     }
     private lazy var _swiftpmConfig: Result<SwiftPMConfig, Swift.Error> = {
-        return Result(catching: { SwiftPMConfig(path: try configFilePath()) })
+        return Result(catching: { try SwiftPMConfig(path: try configFilePath()) })
     }()
     
     func resolvedNetrcFilePath() -> AbsolutePath? {
