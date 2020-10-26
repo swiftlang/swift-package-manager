@@ -264,12 +264,8 @@ public class RepositoryManager {
 
                         return handle
                     })
-
-                case .cached:
-                    guard let cachePath = self.cachePath else {
-                        fatalError("Cache path does not exist.")
-                    }
-
+                case .pending, .uninitialized, .cached, .error:
+                    let isCached = handle.status == .cached
                     // Change the state to pending.
                     handle.status = .pending
                     // Make sure desination is free.
@@ -277,19 +273,12 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: .fromCache)
+                        self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: isCached ? .fromCache : .none)
                     }
 
                     var fetchError: Swift.Error? = nil
                     do {
-                        let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
-
-                        try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
-                            // Fetch the repo into the cache.
-                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: true)
-                            // Copy into repository path.
-                            try self.fileSystem.copy(from: cachedRepositoryPath, to: repositoryPath)
-                        }
+                        try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath, update: isCached)
 
                         // Update status to available.
                         handle.status = .available
@@ -303,52 +292,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: .fromCache, error: fetchError)
-                    }
-
-                case .pending, .uninitialized, .error:
-                    // Change the state to pending.
-                    handle.status = .pending
-                    // Make sure desination is free.
-                    try? self.fileSystem.removeFileTree(repositoryPath)
-
-                    // Inform delegate.
-                    self.callbacksQueue.async {
-                        self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: .none)
-                    }
-
-                    var fetchError: Swift.Error? = nil
-                    do {
-                        if let cachePath = self.cachePath {
-                            try self.initalizeCacheIfNeeded(cachePath: cachePath)
-                            let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
-
-                            try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
-                                // Fetch the repo into the cache.
-                                try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: false)
-                                // Copy the repository from the cache into the repository path.
-                                try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
-                            }
-
-                            // Update status to available.
-                            handle.status = .available
-                        } else {
-                            // Fetch into repository path.
-                            try self.provider.fetch(repository: handle.repository, to: repositoryPath, update: false)
-                            // Update status to available.
-                            handle.status = .available
-                        }
-
-                        result = .success(handle)
-                    } catch {
-                        handle.status = .error
-                        fetchError = error
-                        result = .failure(error)
-                    }
-
-                    // Inform delegate.
-                    self.callbacksQueue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: .none, error: fetchError)
+                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: isCached ? .fromCache : .none, error: fetchError)
                     }
 
                     // Save the manager state.
@@ -371,6 +315,33 @@ public class RepositoryManager {
                     completion(result)
                 }
             }
+        }
+    }
+
+    /// Fetches the repository into the cache. If no `cachePath` is set or an error ouccured fall back to fetching the repository without populating the cache.
+    /// - Parameters:
+    ///   - handle: The specifier of the repository to fetch.
+    ///   - update: Update a repository that is already cached or fetch the repository into the cache.
+    ///   - repositoryPath: The path where the repository should be fetched to.
+    func fetchAndPopulateCache(handle: RepositoryHandle, repositoryPath: AbsolutePath, update: Bool) throws {
+        if let cachePath = cachePath {
+            let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
+            do {
+                try initalizeCacheIfNeeded(cachePath: cachePath)
+                try fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
+                    // Fetch the repository into the cache.
+                    try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, update: update)
+                    // Copy the repository from the cache into the repository path.
+                    try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
+                }
+            } catch {
+                // Fetch without populating the cache in the case of an error.
+                print("Skipping cache due to an error: \(error)")
+                try self.provider.fetch(repository: handle.repository, to: repositoryPath, update: false)
+            }
+        } else {
+            // Fetch without populating the cache in when no `cachePath` is set.
+            try self.provider.fetch(repository: handle.repository, to: repositoryPath, update: false)
         }
     }
 
