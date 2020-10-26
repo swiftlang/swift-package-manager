@@ -283,7 +283,6 @@ public class RepositoryManager {
                         // Update status to available.
                         handle.status = .available
                         result = .success(handle)
-
                     } catch {
                         handle.status = .error
                         fetchError = error
@@ -345,7 +344,7 @@ public class RepositoryManager {
         }
     }
 
-   /// Returns the handle for repository if available, otherwise creates a new one.
+    /// Returns the handle for repository if available, otherwise creates a new one.
     ///
     /// Note: This method is thread safe.
     private func getHandle(repository: RepositorySpecifier) -> RepositoryHandle {
