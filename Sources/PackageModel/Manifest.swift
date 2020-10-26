@@ -227,7 +227,7 @@ public final class Manifest: ObjectIdentifierProtocol {
                 return nil
             }
             #else
-            return FilteredDependencyDescription(declaration: dependency, productFilter: .everything)
+            return dependency.filtered(by: .everything)
             #endif
         }
     }
