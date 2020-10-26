@@ -48,7 +48,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", targets: ["Bar"])
@@ -61,7 +61,7 @@ class PackageGraphTests: XCTestCase {
                     path: "/Baz",
                     url: "/Baz",
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Baz", dependencies: ["Bar"]),
@@ -97,7 +97,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar", "CBar"]),
@@ -143,7 +143,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -154,7 +154,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", targets: ["Bar"])
@@ -168,7 +168,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Baz",
                     packageKind: .local,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Baz", targets: ["Baz"])
@@ -198,7 +198,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -228,7 +228,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -272,7 +272,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -341,9 +341,9 @@ class PackageGraphTests: XCTestCase {
                     url: "/First",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "First", dependencies: ["Second", "Third", "Fourth"]),
@@ -406,9 +406,9 @@ class PackageGraphTests: XCTestCase {
                     url: "/First",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Second", "Third", "Fourth"]),
@@ -450,7 +450,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Third",
                     packageKind: .local,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Third", targets: ["Third"])
@@ -464,7 +464,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Second",
                     packageKind: .local,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Second", targets: ["Second"])
@@ -478,7 +478,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/First",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "First", targets: ["First"])
@@ -509,7 +509,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -577,8 +577,8 @@ class PackageGraphTests: XCTestCase {
                     packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(name: "Bar", url: "/Bar", requirement: .branch("master")),
-                        PackageDependencyDescription(name: nil, url: "/BizPath", requirement: .exact("1.2.3")),
-                        PackageDependencyDescription(name: nil, url: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
+                        PackageDependencyDescription(url: "/BizPath", requirement: .exact("1.2.3")),
+                        PackageDependencyDescription(url: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"]),
@@ -694,9 +694,9 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Biz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BarLibrary"]),
@@ -760,7 +760,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -795,7 +795,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Start",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BazLibrary"]),
@@ -807,7 +807,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Dep1",
                     packageKind: .local,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "BazLibrary", targets: ["Baz"])
@@ -852,8 +852,8 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -906,7 +906,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -1018,7 +1018,7 @@ class PackageGraphTests: XCTestCase {
                     path: "/Foo",
                     url: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Biz", requirement: .localPackage),
+                        PackageDependencyDescription(url: "/Biz", requirement: .localPackage),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [

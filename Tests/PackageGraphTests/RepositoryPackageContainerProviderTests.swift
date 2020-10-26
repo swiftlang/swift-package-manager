@@ -274,7 +274,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let container = try await { provider.getContainer(for: ref, completion: $0) } as! RepositoryPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
-                _ = try container.getDependencies(at: revision.identifier, productFilter: .specific([]))
+                _ = try container.getDependencies(at: revision.identifier, productFilter: .nothing)
             } catch let error as RepositoryPackageContainer.GetDependenciesError {
                 let error = error.underlyingError as! UnsupportedToolsVersion
                 XCTAssertMatch(error.description, .and(.prefix("package at '/' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version")))

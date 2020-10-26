@@ -16,17 +16,14 @@ import SourceControl
 
 /// Represents the input to the package graph root.
 public struct PackageGraphRootInput {
-
-    public typealias PackageDependency = PackageGraphRoot.PackageDependency
-
     /// The list of root packages.
     public let packages: [AbsolutePath]
 
     /// Top level dependencies to the graph.
-    public let dependencies: [PackageDependency]
+    public let dependencies: [PackageDependencyDescription]
 
     /// Create a package graph root.
-    public init(packages: [AbsolutePath], dependencies: [PackageDependency] = []) {
+    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = []) {
         self.packages = packages
         self.dependencies = dependencies
     }
@@ -35,59 +32,6 @@ public struct PackageGraphRootInput {
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
-    // FIXME: We can kill this now.
-    //
-    /// Represents a top level package dependencies.
-    public struct PackageDependency {
-
-        public typealias Requirement = PackageModel.PackageDependencyDescription.Requirement
-
-        // Location of this dependency.
-        //
-        // Opaque location object which will be included in any diagnostics
-        // related to this dependency.  Clients can use this identify where this
-        // dependency is declared.
-        public let location: String
-
-        /// The URL of the package.
-        public let url: String
-
-        /// The requirement of the package.
-        public let requirement: Requirement
-
-        /// The product filter to apply to the package.
-        public let productFilter: ProductFilter
-
-        /// Create the package reference object for the dependency.
-        public func createPackageRef(config: SwiftPMConfig) -> PackageReference {
-            let effectiveURL = config.mirroredURL(forURL: self.url)
-            return PackageReference(
-                identity: PackageReference.computeIdentity(packageURL: effectiveURL),
-                path: effectiveURL,
-                kind: requirement == .localPackage ? .local : .remote
-            )
-        }
-
-        public init(
-            url: String,
-            requirement: Requirement,
-            productFilter: ProductFilter,
-            location: String
-        ) {
-            // FIXME: SwiftPM can't handle file URLs with file:// scheme so we need to
-            // strip that. We need to design a URL data structure for SwiftPM.
-            let filePrefix = "file://"
-            if url.hasPrefix(filePrefix) {
-                self.url = AbsolutePath(String(url.dropFirst(filePrefix.count))).pathString
-            } else {
-                self.url = url
-            }
-            self.requirement = requirement
-            self.productFilter = productFilter
-            self.location = location
-        }
-    }
-
     /// The list of root manifests.
     public let manifests: [Manifest]
 
@@ -95,7 +39,7 @@ public struct PackageGraphRoot {
     public let packageRefs: [PackageReference]
 
     /// The top level dependencies.
-    public let dependencies: [PackageDependency]
+    public let dependencies: [PackageDependencyDescription]
 
     /// Create a package graph root.
     public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
@@ -114,13 +58,8 @@ public struct PackageGraphRoot {
         // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies
         if let product = explicitProduct {
-            for dependency in manifests.lazy
-                .map({ $0.dependenciesRequired(for: .everything) }).joined() {
-                    adjustedDependencies.append(PackageDependency(
-                        url: dependency.declaration.url,
-                        requirement: dependency.declaration.requirement,
-                        productFilter: .specific([product]),
-                        location: ""))
+            for dependency in manifests.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
+                adjustedDependencies.append(dependency.filtered(by: .specific([product])))
             }
         }
 
