@@ -48,7 +48,7 @@ final class SwiftPMConfigTests: XCTestCase {
         let configFile = AbsolutePath("/.swiftpm/config")
         let config = try SwiftPMConfig(path: configFile, fs: fs)
 
-        XCTAssertThrows(SwiftPMConfig.Error.mirrorNotFound) {
+        XCTAssertThrows(DependencyMirrors.Error.mirrorNotFound) {
             try config.mirrors.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
         }
     }

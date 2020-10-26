@@ -296,7 +296,7 @@ public class Workspace {
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            config: self.config,
+            mirrors: self.config.mirrors,
             manifestLoader: manifestLoader,
             currentToolsVersion: currentToolsVersion,
             toolsVersionLoader: toolsVersionLoader
@@ -530,7 +530,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints()
 
         // Create constraints based on root manifest and pins for the update resolution.
-        updateConstraints += graphRoot.constraints(config: config)
+        updateConstraints += graphRoot.constraints(mirrors: config.mirrors)
 
         // Resolve the dependencies.
         let resolver = createResolver()
@@ -647,7 +647,7 @@ extension Workspace {
         // Load the graph.
         return PackageGraph.load(
             root: manifests.root,
-            config: config,
+            mirrors: config.mirrors,
             additionalFileRules: additionalFileRules,
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackageURLs().required,
@@ -668,7 +668,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
         return self.loadPackageGraph(
-            root: PackageGraphRootInput(packages: [root]),
+            root: PackageGraphRootInput(packages: [root], mirrors: config.mirrors),
             explicitProduct: explicitProduct,
             diagnostics: diagnostics
         )
@@ -1108,7 +1108,7 @@ extension Workspace {
                 }
                 allConstraints += externalManifest.dependencyConstraints(
                     productFilter: productFilter,
-                    config: workspace.config
+                    mirrors: workspace.config.mirrors
                 )
             }
             return allConstraints
@@ -1613,7 +1613,7 @@ extension Workspace {
         for rootManifest in rootManifests {
             let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
             for localPackage in dependencies {
-                let package = localPackage.createPackageRef(config: self.config)
+                let package = localPackage.createPackageRef(mirrors: self.config.mirrors)
                 state.dependencies.add(ManagedDependency.local(packageRef: package))
             }
         }
@@ -1705,7 +1705,7 @@ extension Workspace {
         // Create the constraints.
         var constraints = [RepositoryPackageConstraint]()
         constraints += currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints(config: config) + extraConstraints
+        constraints += graphRoot.constraints(mirrors: config.mirrors) + extraConstraints
 
         // Perform dependency resolution.
         let resolver = createResolver()
@@ -1819,16 +1819,16 @@ extension Workspace {
         extraConstraints: [RepositoryPackageConstraint] = []
     ) -> ResolutionPrecomputationResult {
         let constraints =
-            root.constraints(config: config) +
+            root.constraints(mirrors: config.mirrors) +
             // Include constraints from the manifests in the graph root.
-            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything, config: config) }) +
+            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything, mirrors: config.mirrors) }) +
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 
         let precomputationProvider = ResolverPrecomputationProvider(
-             root: root,
-             dependencyManifests: dependencyManifests,
-             config: config
+            root: root,
+            dependencyManifests: dependencyManifests,
+            mirrors: config.mirrors
         )
 
         let resolver = PubgrubDependencyResolver(precomputationProvider)

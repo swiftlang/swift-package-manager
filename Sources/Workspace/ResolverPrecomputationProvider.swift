@@ -37,8 +37,8 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The managed manifests to make available to the resolver.
     let dependencyManifests: Workspace.DependencyManifests
 
-    /// The SwiftPM config.
-    let config: SwiftPMConfig
+    /// The dependency mirrors.
+    let mirrors: DependencyMirrors
 
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
@@ -46,12 +46,12 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
-        config: SwiftPMConfig,
+        mirrors: DependencyMirrors,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests
-        self.config = config
+        self.mirrors = mirrors
         self.currentToolsVersion = currentToolsVersion
     }
 
@@ -66,7 +66,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                 package: identifier,
                 manifest: manifest.manifest,
                 dependency: manifest.dependency,
-                config: config,
+                mirrors: mirrors,
                 currentToolsVersion: currentToolsVersion
             )
 
@@ -80,7 +80,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                 package: identifier,
                 manifest: dependencyManifests.root.manifests[index],
                 dependency: nil,
-                config: config,
+                mirrors: mirrors,
                 currentToolsVersion: currentToolsVersion
             )
 
@@ -97,7 +97,7 @@ private struct LocalPackageContainer: PackageContainer {
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
     let dependency: ManagedDependency?
-    let config: SwiftPMConfig
+    let mirrors: DependencyMirrors
     let currentToolsVersion: ToolsVersion
 
     // Gets the package reference from the managed dependency or computes it for root packages.
@@ -138,7 +138,7 @@ private struct LocalPackageContainer: PackageContainer {
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         precondition(dependency?.checkoutState?.version == version)
-        return manifest.dependencyConstraints(productFilter: productFilter, config: config)
+        return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
     }
 
     func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
@@ -146,7 +146,7 @@ private struct LocalPackageContainer: PackageContainer {
         if let checkoutState = dependency?.checkoutState,
             checkoutState.version == nil,
             checkoutState.revision.identifier == revision {
-            return manifest.dependencyConstraints(productFilter: productFilter, config: config)
+            return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
         }
 
         throw ResolverPrecomputationError.differentRequirement(
@@ -166,7 +166,7 @@ private struct LocalPackageContainer: PackageContainer {
             )
         }
 
-        return manifest.dependencyConstraints(productFilter: productFilter, config: config)
+        return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
     }
 
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
