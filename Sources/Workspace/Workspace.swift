@@ -513,9 +513,6 @@ extension Workspace {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
-        // Load the config.
-        diagnostics.wrap { try config.load() }
-
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
 
@@ -1568,9 +1565,6 @@ extension Workspace {
         // Ensure the cache path exists.
         createCacheDirectories(with: diagnostics)
 
-        // Load the config.
-        diagnostics.wrap { try config.load() }
-
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
 
@@ -1660,9 +1654,6 @@ extension Workspace {
 
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
-
-        // Load the config.
-        diagnostics.wrap { try config.load() }
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)

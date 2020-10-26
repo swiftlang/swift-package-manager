@@ -110,7 +110,7 @@ public final class SwiftPMConfig {
     }
 
     /// Load the configuration from disk.
-    public func load() throws {
+    public func restoreState() throws {
         _ = try self.persistence?.restoreState(self)
     }
 

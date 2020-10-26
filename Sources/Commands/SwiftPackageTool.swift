@@ -644,7 +644,6 @@ extension SwiftPackageTool.Config {
         
         func run(_ swiftTool: SwiftTool) throws {
             let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
