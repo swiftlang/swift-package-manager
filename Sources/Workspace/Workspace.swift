@@ -40,10 +40,10 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
-    
+
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic])
-    
+
     /// The workspace has started fetching this repository.
     func fetchingWillBegin(repository: String)
 
@@ -64,7 +64,7 @@ public protocol WorkspaceDelegate: class {
 
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
     func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?)
-    
+
     /// The workspace has started cloning this repository. This callback is marginally deprecated in favor of the willClone/didClone pair.
     func cloning(repository: String)
 
@@ -206,7 +206,7 @@ public class Workspace {
 
     /// The downloader used for downloading binary artifacts.
     fileprivate let downloader: Downloader
-    
+
     fileprivate let netrcFilePath: AbsolutePath?
 
     /// The downloader used for unarchiving binary artifacts.
@@ -560,7 +560,7 @@ extension Workspace {
         activeResolver = nil
 
         guard !diagnostics.hasErrors else { return nil }
-        
+
         if dryRun {
             return diagnostics.wrap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true) }
         }
@@ -583,10 +583,10 @@ extension Workspace {
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             diagnostics: diagnostics)
-        
+
         return nil
     }
-    
+
     /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
@@ -1050,7 +1050,7 @@ extension Workspace {
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
             }) + root.dependencies.compactMap({ dependency in
-                let url = workspace.config.mirroredURL(forURL: dependency.url)
+                let url = workspace.config.effectiveURL(forURL: dependency.url)
                 let identity = PackageReference.computeIdentity(packageURL: url)
                 let package = PackageReference(identity: identity, path: url)
                 inputIdentities.insert(package)
@@ -1062,7 +1062,7 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
-                    let url = workspace.config.mirroredURL(forURL: dependency.url)
+                    let url = workspace.config.effectiveURL(forURL: dependency.url)
                     let identity = PackageReference.computeIdentity(packageURL: url)
                     let package = PackageReference(identity: identity, path: url)
                     requiredIdentities.insert(package)
@@ -1074,7 +1074,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
-                let url = workspace.config.mirroredURL(forURL: $0.1.url)
+                let url = workspace.config.effectiveURL(forURL: $0.1.url)
                 return PackageReference(identity: $0.key, path: url, kind: $0.1.packageKind)
             }))
             // We should never have loaded a manifest we don't need.
@@ -1234,7 +1234,7 @@ extension Workspace {
         }
 
         let rootDependencyManifests: [Manifest] = root.dependencies.compactMap({
-            let url = config.mirroredURL(forURL: $0.url)
+            let url = config.effectiveURL(forURL: $0.url)
             return loadManifest(forURL: url, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
@@ -1245,7 +1245,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: $0.name)})) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.url)
+                let url = config.effectiveURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: $0.name) })
@@ -1456,7 +1456,7 @@ extension Workspace {
     private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) {
         let group = DispatchGroup()
         let tempDiagnostics = DiagnosticsEngine()
-        
+
         var authProvider: AuthorizationProviding? = nil
         #if os(macOS)
         // Netrc feature currently only supported on macOS 10.13+ due to dependency
@@ -1483,8 +1483,8 @@ extension Workspace {
 
             let parsedURL = URL(string: url)!
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
-            
-            
+
+
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
@@ -1913,7 +1913,7 @@ extension Workspace {
                     return "requirement(unversioned)"
                 }
             }
-            
+
             public var prettyPrinted: String {
                 switch self {
                 case .version(let version):

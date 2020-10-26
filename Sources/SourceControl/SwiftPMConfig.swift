@@ -87,8 +87,10 @@ public final class SwiftPMConfig {
         return mirrors[url]?.mirror
     }
 
-    /// Returns the mirrored url if it exists, otherwise the original url.
-    public func mirroredURL(forURL url: String) -> String {
+    /// Returns the effective URL for a package dependency URL.
+    /// - Parameter url: The original URL
+    /// - Returns: The mirrored URL if it exists, otherwise the original URL.
+    public func effectiveURL(forURL url: String) -> String {
         return getMirror(forURL: url) ?? url
     }
 

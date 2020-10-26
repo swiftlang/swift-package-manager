@@ -42,7 +42,7 @@ extension PackageGraph {
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.url)
+                let url = config.effectiveURL(forURL: dependency.url)
                 return manifestMap[PackageReference.computeIdentity(packageURL: url)].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
@@ -228,7 +228,7 @@ private func createResolvedPackages(
                 }
 
                 // Otherwise, look it up by its identity.
-                let url = config.mirroredURL(forURL: dependency.url)
+                let url = config.effectiveURL(forURL: dependency.url)
                 let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
 
                 // We check that the explicit package dependency name matches the package name.
@@ -359,10 +359,10 @@ private func createResolvedPackages(
                     // explicitly reference the package containing the product, or for the product, package and
                     // dependency to share the same name. We don't check this in manifest loading for root-packages so
                     // we can provide a more detailed diagnostic here.
-                    let referencedPackageURL = config.mirroredURL(forURL: product.packageBuilder.package.manifest.url)
+                    let referencedPackageURL = config.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
                     let referencedPackageIdentity = PackageReference.computeIdentity(packageURL: referencedPackageURL)
                     let packageDependency = packageBuilder.package.manifest.dependencies.first { package in
-                        let packageURL = config.mirroredURL(forURL: package.url)
+                        let packageURL = config.effectiveURL(forURL: package.url)
                         let packageIdentity = PackageReference.computeIdentity(packageURL: packageURL)
                         return packageIdentity == referencedPackageIdentity
                     }!

@@ -14,7 +14,7 @@ import SourceControl
 extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
     public func createPackageRef(config: SwiftPMConfig) -> PackageReference {
-        let effectiveURL = config.mirroredURL(forURL: url)
+        let effectiveURL = config.effectiveURL(forURL: url)
 
         // FIXME: The identity of a package dependency is currently based on
         //        the explicit name provided in the package manifest, if provided,
@@ -22,7 +22,7 @@ extension PackageDependencyDescription {
         //        We should instead use the declared URL of a package dependency as its identity,
         //        as it will be necessary for supporting package registries.
         let identity = explicitName?.lowercased() ?? PackageReference.computeIdentity(packageURL: effectiveURL)
-        
+
         return PackageReference(
             identity: identity,
             path: effectiveURL,
