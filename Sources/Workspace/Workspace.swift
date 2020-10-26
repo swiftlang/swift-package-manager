@@ -1047,7 +1047,7 @@ extension Workspace {
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
             }) + root.dependencies.compactMap({ dependency in
-                let url = workspace.config.effectiveURL(forURL: dependency.url)
+                let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
                 let identity = PackageReference.computeIdentity(packageURL: url)
                 let package = PackageReference(identity: identity, path: url)
                 inputIdentities.insert(package)
@@ -1059,7 +1059,7 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
-                    let url = workspace.config.effectiveURL(forURL: dependency.url)
+                    let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
                     let identity = PackageReference.computeIdentity(packageURL: url)
                     let package = PackageReference(identity: identity, path: url)
                     requiredIdentities.insert(package)
@@ -1071,7 +1071,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map({
-                let url = workspace.config.effectiveURL(forURL: $0.1.url)
+                let url = workspace.config.mirrors.effectiveURL(forURL: $0.1.url)
                 return PackageReference(identity: $0.key, path: url, kind: $0.1.packageKind)
             }))
             // We should never have loaded a manifest we don't need.
@@ -1231,7 +1231,7 @@ extension Workspace {
         }
 
         let rootDependencyManifests: [Manifest] = root.dependencies.compactMap({
-            let url = config.effectiveURL(forURL: $0.url)
+            let url = config.mirrors.effectiveURL(forURL: $0.url)
             return loadManifest(forURL: url, diagnostics: diagnostics)
         })
         let inputManifests = root.manifests + rootDependencyManifests
@@ -1242,7 +1242,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: $0.name)})) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
-                let url = config.effectiveURL(forURL: dependency.url)
+                let url = config.mirrors.effectiveURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: $0.name) })

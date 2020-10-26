@@ -40,7 +40,7 @@ public final class SwiftPMConfig {
     static let schemaVersion: Int = 1
 
     /// The mirrors.
-    private var mirrors: [String: Mirror] = [:]
+    public private(set) var mirrors: DependencyMirrors = DependencyMirrors([])
 
     /// Creates a new, persisted package configuration with a configuration file.
     /// - Parameters:
@@ -72,43 +72,6 @@ public final class SwiftPMConfig {
         self.persistence = nil
     }
 
-    /// Sets a mirror URL for the given URL.
-    public func set(mirrorURL: String, forURL url: String) {
-        mirrors[url] = Mirror(original: url, mirror: mirrorURL)
-    }
-
-    /// Unsets a mirror for the given URL.
-    ///
-    /// This method will throw if there is no mirror for the given input.
-
-
-    /// Unsets a mirror for the given URL.
-    /// - Parameter originalOrMirrorURL: The original URL or the mirrored URL
-    /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided URL.
-    public func unset(originalOrMirrorURL: String) throws {
-        if mirrors.keys.contains(originalOrMirrorURL) {
-            mirrors[originalOrMirrorURL] = nil
-        } else if let mirror = mirrors.first(where: { $0.value.mirror == originalOrMirrorURL }) {
-            mirrors[mirror.key] = nil
-        } else {
-            throw Error.mirrorNotFound
-        }
-    }
-
-    /// Returns the mirrored URL for a package dependency URL.
-    /// - Parameter url: The original URL
-    /// - Returns: The mirrored URL, if one exists.
-    public func getMirror(forURL url: String) -> String? {
-        return mirrors[url]?.mirror
-    }
-
-    /// Returns the effective URL for a package dependency URL.
-    /// - Parameter url: The original URL
-    /// - Returns: The mirrored URL if it exists, otherwise the original URL.
-    public func effectiveURL(forURL url: String) -> String {
-        return getMirror(forURL: url) ?? url
-    }
-
     /// Load the configuration from disk.
     public func restoreState() throws {
         _ = try self.persistence?.restoreState(self)
@@ -136,37 +99,14 @@ public final class SwiftPMConfig {
 
 extension SwiftPMConfig: JSONSerializable {
     public func toJSON() -> JSON {
-        return mirrors.values.sorted(by: { $0.original < $1.mirror }).map { $0.toJSON() }.toJSON()
+        return mirrors.toJSON()
     }
 }
 
 extension SwiftPMConfig: SimplePersistanceProtocol {
     public func restore(from json: JSON) throws {
         let mirrors = try json.getArray().map(Mirror.init(json:))
-        self.mirrors = Dictionary(mirrors.map({ ($0.original, $0) }), uniquingKeysWith: { first, _ in first })
-    }
-}
-
-/// An individual repository mirror.
-fileprivate struct Mirror {
-    /// The original repository path.
-    let original: String
-
-    /// The mirrored repository path.
-    let mirror: String
-}
-
-extension Mirror: JSONMappable, JSONSerializable {
-    init(json: JSON) throws {
-        self.original = try json.get("original")
-        self.mirror = try json.get("mirror")
-    }
-
-    func toJSON() -> JSON {
-        .init([
-            "original": original,
-            "mirror": mirror
-        ])
+        self.mirrors = DependencyMirrors(mirrors)
     }
 }
 
@@ -176,5 +116,108 @@ extension SwiftPMConfig.Error: CustomStringConvertible {
         case .mirrorNotFound:
             return "mirror not found"
         }
+    }
+}
+
+// MARK: -
+
+/// An individual repository mirror.
+public struct Mirror {
+    /// The original repository path.
+    let original: String
+
+    /// The mirrored repository path.
+    let mirror: String
+}
+
+extension Mirror: JSONMappable, JSONSerializable {
+    public init(json: JSON) throws {
+        self.original = try json.get("original")
+        self.mirror = try json.get("mirror")
+    }
+
+    public func toJSON() -> JSON {
+        .init([
+            "original": original,
+            "mirror": mirror
+        ])
+    }
+}
+
+/// A collection of dependency mirrors.
+public final class DependencyMirrors {
+    private var mirrorMap: [String: Mirror]
+
+    init(_ mirrors: [Mirror]) {
+        self.mirrorMap = Dictionary(mirrors.map({ ($0.original, $0) }), uniquingKeysWith: { first, _ in first })
+    }
+
+    /// Sets a mirror URL for the given URL.
+    public func set(mirrorURL: String, forURL url: String) {
+        mirrorMap[url] = Mirror(original: url, mirror: mirrorURL)
+    }
+
+    /// Unsets a mirror for the given URL.
+    /// - Parameter originalOrMirrorURL: The original URL or the mirrored URL
+    /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided URL.
+    public func unset(originalOrMirrorURL: String) throws {
+        if mirrorMap.keys.contains(originalOrMirrorURL) {
+            mirrorMap[originalOrMirrorURL] = nil
+        } else if let mirror = mirrorMap.first(where: { $0.value.mirror == originalOrMirrorURL }) {
+            mirrorMap[mirror.key] = nil
+        } else {
+            throw SwiftPMConfig.Error.mirrorNotFound
+        }
+    }
+
+    /// Returns the mirrored URL for a package dependency URL.
+    /// - Parameter url: The original URL
+    /// - Returns: The mirrored URL, if one exists.
+    public func getMirror(forURL url: String) -> String? {
+        return mirrorMap[url]?.mirror
+    }
+
+    /// Returns the effective URL for a package dependency URL.
+    /// - Parameter url: The original URL
+    /// - Returns: The mirrored URL if it exists, otherwise the original URL.
+    public func effectiveURL(forURL url: String) -> String {
+        return getMirror(forURL: url) ?? url
+    }
+}
+
+extension DependencyMirrors: Collection {
+    public typealias Index = Dictionary<String, Mirror>.Index
+    public typealias Element = Mirror
+
+    public var startIndex: Index {
+        mirrorMap.startIndex
+    }
+
+    public var endIndex: Index {
+        mirrorMap.endIndex
+    }
+
+    public subscript(index: Index) -> Element {
+        mirrorMap[index].value
+    }
+
+    public func index(after index: Index) -> Index {
+        mirrorMap.index(after: index)
+    }
+}
+
+extension DependencyMirrors: JSONMappable, JSONSerializable {
+    public convenience init(json: JSON) throws {
+        self.init(try [Mirror](json: json))
+    }
+
+    public func toJSON() -> JSON {
+        .array(mirrorMap.values.sorted(by: { $0.original < $1.mirror }).map { $0.toJSON() })
+    }
+}
+
+extension DependencyMirrors: CustomStringConvertible {
+    public var description: String {
+        "<Mirrors: \(Array(mirrorMap.values))>"
     }
 }

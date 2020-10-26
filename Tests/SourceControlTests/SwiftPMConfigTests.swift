@@ -38,43 +38,43 @@ final class SwiftPMConfigTests: XCTestCase {
                 """
         }
 
-        let mirrors = try SwiftPMConfig(path: configFile, fs: fs)
+        let config = try SwiftPMConfig(path: configFile, fs: fs)
 
-        XCTAssertEqual(mirrors.getMirror(forURL: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
+        XCTAssertEqual(config.mirrors.getMirror(forURL: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
     }
 
     func testThrowsMirrorNotFound() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
-        let mirrors = try SwiftPMConfig(path: configFile, fs: fs)
+        let config = try SwiftPMConfig(path: configFile, fs: fs)
 
         XCTAssertThrows(SwiftPMConfig.Error.mirrorNotFound) {
-            try mirrors.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
+            try config.mirrors.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
         }
     }
 
     func testEmptyMirrors() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
-        let mirrors = try SwiftPMConfig(path: configFile, fs: fs)
+        let config = try SwiftPMConfig(path: configFile, fs: fs)
 
-        try mirrors.saveState()
+        try config.saveState()
         XCTAssertFalse(fs.exists(configFile))
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
-        mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+        config.mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
 
         XCTAssertFalse(fs.exists(configFile))
 
-        try mirrors.saveState()
+        try config.saveState()
         XCTAssertTrue(fs.exists(configFile))
 
-        try mirrors.unset(originalOrMirrorURL: originalURL)
+        try config.mirrors.unset(originalOrMirrorURL: originalURL)
 
         XCTAssertTrue(fs.exists(configFile))
 
-        try mirrors.saveState()
+        try config.saveState()
         XCTAssertFalse(fs.exists(configFile))
     }
 }
