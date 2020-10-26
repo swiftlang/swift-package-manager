@@ -9,8 +9,7 @@
 add_library(SourceControl
   GitRepository.swift
   Repository.swift
-  RepositoryManager.swift
-  SwiftPMConfig.swift)
+  RepositoryManager.swift)
 
 target_link_libraries(SourceControl PUBLIC
   TSCBasic
