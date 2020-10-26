@@ -1316,18 +1316,25 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         XCTAssertEqual(diagnostics.diagnostics.count, 1)
         let firstDiagnostic = diagnostics.diagnostics.first.map({ $0.message.text })
         XCTAssert(
             firstDiagnostic == "dependency 'C' is not used by any target",
             "Unexpected diagnostic: " + (firstDiagnostic ?? "[none]")
         )
+        #endif
 
         let graphResult = PackageGraphResult(graph)
         graphResult.check(reachableProducts: "aexec", "BLibrary")
         graphResult.check(reachableTargets: "ATarget", "BTarget1")
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         graphResult.check(products: "aexec", "BLibrary")
         graphResult.check(targets: "ATarget", "BTarget1")
+        #else
+        graphResult.check(products: "BLibrary", "bexec", "aexec", "cexec")
+        graphResult.check(targets: "ATarget", "BTarget1", "BTarget2", "CTarget")
+        #endif
 
         let planResult = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
@@ -1336,8 +1343,13 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fileSystem
         ))
 
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         planResult.checkProductsCount(2)
         planResult.checkTargetsCount(2)
+        #else
+        planResult.checkProductsCount(4)
+        planResult.checkTargetsCount(4)
+        #endif
     }
 
     func testReachableBuildProductsAndTargets() throws {

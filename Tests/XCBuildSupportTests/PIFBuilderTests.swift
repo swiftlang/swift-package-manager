@@ -86,11 +86,20 @@ class PIFBuilderTests: XCTestCase {
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(projectBTargetNames, ["blib", "B2"])
+            #else
+            XCTAssertEqual(projectBTargetNames, ["bexe", "blib", "B2"])
+            #endif
         }
     }
 
-    func testProject() {
+    func testProject() throws {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Tests/FooTests/tests.swift",
@@ -675,7 +684,12 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testTestProducts() {
+    func testTestProducts() throws {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTests/FooTests.swift",
             "/Foo/Sources/CFooTests/CFooTests.m",
