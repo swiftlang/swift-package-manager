@@ -264,10 +264,10 @@ public class RepositoryManager {
                         return handle
                     })
                 case .pending, .uninitialized, .cached, .error:
+                    let isCached = handle.status == .cached
+                    let repositoryPath = self.path.appending(handle.subpath)
                     // Change the state to pending.
                     handle.status = .pending
-                    let repositoryPath = self.path.appending(handle.subpath)
-                    let isCached = handle.status == .cached
                     // Make sure desination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
 
