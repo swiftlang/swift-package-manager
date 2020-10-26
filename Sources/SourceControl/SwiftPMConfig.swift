@@ -19,7 +19,9 @@ import TSCUtility
 /// Manages a package's configuration.
 public final class SwiftPMConfig {
 
+    /// A package configuration error.
     public enum Error: Swift.Error {
+        /// No mirror was found for the specified URL.
         case mirrorNotFound
     }
 
@@ -40,6 +42,11 @@ public final class SwiftPMConfig {
     /// The mirrors.
     private var mirrors: [String: Mirror] = [:]
 
+    /// Creates a new, persisted package configuration with a configuration file.
+    /// - Parameters:
+    ///   - path: A path to the configuration file.
+    ///   - fs: The filesystem on which the configuration file is located.
+    /// - Throws: `StringError` if the configuration file is corrupted or malformed.
     public init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
         self.configFile = path
         self.fileSystem = fs
@@ -58,20 +65,26 @@ public final class SwiftPMConfig {
         }
     }
 
+    /// Initializes a new, ephemeral package configuration.
     public init() {
         self.configFile = nil
         self.fileSystem = nil
         self.persistence = nil
     }
 
-    /// Set a mirror URL for the given URL.
+    /// Sets a mirror URL for the given URL.
     public func set(mirrorURL: String, forURL url: String) {
         mirrors[url] = Mirror(original: url, mirror: mirrorURL)
     }
 
-    /// Unset a mirror for the given URL.
+    /// Unsets a mirror for the given URL.
     ///
     /// This method will throw if there is no mirror for the given input.
+
+
+    /// Unsets a mirror for the given URL.
+    /// - Parameter originalOrMirrorURL: The original URL or the mirrored URL
+    /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided URL.
     public func unset(originalOrMirrorURL: String) throws {
         if mirrors.keys.contains(originalOrMirrorURL) {
             mirrors[originalOrMirrorURL] = nil
@@ -82,7 +95,9 @@ public final class SwiftPMConfig {
         }
     }
 
-    /// Returns the mirror for the given specificer.
+    /// Returns the mirrored URL for a package dependency URL.
+    /// - Parameter url: The original URL
+    /// - Returns: The mirrored URL, if one exists.
     public func getMirror(forURL url: String) -> String? {
         return mirrors[url]?.mirror
     }
@@ -99,6 +114,11 @@ public final class SwiftPMConfig {
         _ = try self.persistence?.restoreState(self)
     }
 
+    /// Persists the current configuration to disk.
+    ///
+    /// If the configuration is empty, any persisted configuration file is removed.
+    ///
+    /// - Throws: If the configuration couldn't be persisted.
     public func saveState() throws {
         guard let persistence = self.persistence else { return }
         
