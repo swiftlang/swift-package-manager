@@ -42,7 +42,7 @@ extension PackageGraph {
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                let url = config.mirroredURL(forURL: dependency.url)
                 return manifestMap[PackageReference.computeIdentity(packageURL: url)].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
@@ -55,7 +55,7 @@ extension PackageGraph {
             manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
         }))
         let rootManifestNodes = root.manifests.map { GraphLoadingNode(manifest: $0, productFilter: .everything) }
-        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageGraphRoot.PackageDependency) -> GraphLoadingNode? in
+        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
             guard let manifest = manifestMap[PackageReference.computeIdentity(packageURL: dependency.url)] else { return nil }
             return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
         }
@@ -223,22 +223,22 @@ private func createResolvedPackages(
         packageBuilder.dependencies = package.manifest.dependenciesRequired(for: packageBuilder.productFilter)
             .compactMap { dependency in
                 // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
-                if let dependencyName = dependency.declaration.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
+                if let dependencyName = dependency.explicitName, let resolvedPackage = packageMapByName[dependencyName] {
                     return resolvedPackage
                 }
 
                 // Otherwise, look it up by its identity.
-                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                let url = config.mirroredURL(forURL: dependency.url)
                 let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
 
                 // We check that the explicit package dependency name matches the package name.
                 if let resolvedPackage = resolvedPackage,
-                    let explicitDependencyName = dependency.declaration.explicitName,
-                    resolvedPackage.package.name != dependency.declaration.explicitName
+                    let explicitDependencyName = dependency.explicitName,
+                    resolvedPackage.package.name != dependency.explicitName
                 {
                     let error = PackageGraphError.incorrectPackageDependencyName(
                         dependencyName: explicitDependencyName,
-                        dependencyURL: dependency.declaration.url,
+                        dependencyURL: dependency.url,
                         packageName: resolvedPackage.package.name)
                     let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
                     diagnostics.emit(error, location: diagnosticLocation)

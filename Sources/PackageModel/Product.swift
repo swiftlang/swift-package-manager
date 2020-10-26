@@ -89,6 +89,9 @@ public enum ProductFilter: Equatable, Hashable {
     /// A set of specific products requested by one or more client packages.
     case specific(Set<String>)
 
+    /// No products, targets, or tests are requested.
+    public static var nothing: ProductFilter { .specific([]) }
+
     public func union(_ other: ProductFilter) -> ProductFilter {
         switch self {
         case .everything:

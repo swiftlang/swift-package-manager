@@ -12,7 +12,6 @@ add_library(PackageModel
   BuildSettings.swift
   Diagnostics.swift
   Manifest.swift
-  Manifest/FilteredDependencyDescription.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift
   Manifest/PlatformDescription.swift
@@ -27,9 +26,9 @@ add_library(PackageModel
   Product.swift
   Resource.swift
   Sources.swift
-  Target.swift
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
+  Target.swift
   ToolsVersion.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic

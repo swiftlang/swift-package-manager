@@ -275,7 +275,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/Pkg",
                     url: "/Pkg",
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -381,7 +381,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/A",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
@@ -488,7 +488,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/Pkg",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -600,7 +600,7 @@ final class BuildPlanTests: XCTestCase {
                     path: "/Pkg",
                     url: "/Pkg",
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -857,7 +857,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/Pkg",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["swiftlib"]),
@@ -968,7 +968,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/Pkg",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
+                        PackageDependencyDescription(url: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
@@ -1070,7 +1070,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar-Baz"]),
@@ -1280,8 +1280,8 @@ final class BuildPlanTests: XCTestCase {
                     url: "/A",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"])
@@ -1371,8 +1371,8 @@ final class BuildPlanTests: XCTestCase {
                     path: "/A",
                     url: "/A",
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(name: nil, url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"]),
@@ -1687,7 +1687,7 @@ final class BuildPlanTests: XCTestCase {
                     v: .v5,
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
@@ -1750,7 +1750,7 @@ final class BuildPlanTests: XCTestCase {
                     v: .v5,
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
@@ -1812,7 +1812,7 @@ final class BuildPlanTests: XCTestCase {
             v: .v5,
             packageKind: .root,
             dependencies: [
-                PackageDependencyDescription(name: nil, url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 TargetDescription(
@@ -1990,7 +1990,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/PkgB",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
@@ -2085,7 +2085,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/PkgA",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -2153,7 +2153,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/PkgA",
                     packageKind: .root,
                     dependencies: [
-                        PackageDependencyDescription(name: nil, url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                        PackageDependencyDescription(url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),

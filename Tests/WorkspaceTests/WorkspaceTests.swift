@@ -336,18 +336,18 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let dependencies: [PackageGraphRootInput.PackageDependency] = [
+        let dependencies: [PackageDependencyDescription] = [
             .init(
+                name: nil,
                 url: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
-                productFilter: .specific(["Foo"]),
-                location: ""
+                productFilter: .specific(["Foo"])
             ),
             .init(
+                name: nil,
                 url: workspace.packagesDir.appending(component: "Bar").pathString + ".git",
                 requirement: .upToNextMajor(from: "1.0.0"),
-                productFilter: .specific(["Bar"]),
-                location: ""
+                productFilter: .specific(["Bar"])
             ),
         ]
 
@@ -589,18 +589,16 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let dependencies: [PackageGraphRootInput.PackageDependency] = [
+        let dependencies: [PackageDependencyDescription] = [
             .init(
                 url: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
-                productFilter: .specific(["Bar"]),
-                location: ""
+                productFilter: .specific(["Bar"])
             ),
             .init(
                 url: "file://\(workspace.packagesDir.appending(component: "Foo").pathString)/",
                 requirement: .upToNextMajor(from: "1.0.0"),
-                productFilter: .specific(["Foo"]),
-                location: ""
+                productFilter: .specific(["Foo"])
             ),
         ]
 
@@ -2601,7 +2599,7 @@ final class WorkspaceTests: XCTestCase {
             version: manifest.version,
             toolsVersion: manifest.toolsVersion,
             packageKind: .root,
-            dependencies: [PackageDependencyDescription(name: nil, url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
+            dependencies: [PackageDependencyDescription(url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
             targets: manifest.targets
         )
 

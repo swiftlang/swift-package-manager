@@ -433,7 +433,7 @@ extension Workspace {
         }
         let constraint = RepositoryPackageConstraint(
                 // If any products are required, the rest of the package graph will supply those constraints.
-                container: dependency.packageRef, requirement: requirement, products: .specific([]))
+                container: dependency.packageRef, requirement: requirement, products: .nothing)
 
         // Run the resolution.
         _resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
@@ -1062,7 +1062,7 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
-                    let url = workspace.config.mirroredURL(forURL: dependency.declaration.url)
+                    let url = workspace.config.mirroredURL(forURL: dependency.url)
                     let identity = PackageReference.computeIdentity(packageURL: url)
                     let package = PackageReference(identity: identity, path: url)
                     requiredIdentities.insert(package)
@@ -1245,7 +1245,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: $0.name)})) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.declaration.url)
+                let url = config.mirroredURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: $0.name) })
