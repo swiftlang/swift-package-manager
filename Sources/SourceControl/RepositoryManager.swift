@@ -239,7 +239,6 @@ public class RepositoryManager {
             // Dispatch the action we want to take on the serial queue of the handle.
             handle.serialQueue.sync {
                 let result: LookupResult
-                let repositoryPath = self.path.appending(handle.subpath)
 
                 switch handle.status {
                 case .available:
@@ -265,9 +264,10 @@ public class RepositoryManager {
                         return handle
                     })
                 case .pending, .uninitialized, .cached, .error:
-                    let isCached = handle.status == .cached
                     // Change the state to pending.
                     handle.status = .pending
+                    let repositoryPath = self.path.appending(handle.subpath)
+                    let isCached = handle.status == .cached
                     // Make sure desination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
 
@@ -276,8 +276,10 @@ public class RepositoryManager {
                         self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: isCached ? .fromCache : .none)
                     }
 
+                    // Fetch the repo.
                     var fetchError: Swift.Error? = nil
                     do {
+                        // Start fetching.
                         try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath, update: isCached)
 
                         // Update status to available.
