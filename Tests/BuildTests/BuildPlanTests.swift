@@ -1689,7 +1689,7 @@ final class BuildPlanTests: XCTestCase {
             try result.buildProduct(for: "app").linkArguments(),
             [
                 "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
-                "-o", "/path/to/build/debug/app",
+                "-o", "/path/to/build/debug/app.wasm",
                  "-module-name", "app", "-static-stdlib", "-emit-executable",
                  "@/path/to/build/debug/app.product/Objects.LinkFileList",
                  "-target", "wasm32-unknown-wasi"
@@ -1697,7 +1697,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let executablePathExtension = try result.buildProduct(for: "app").binary.extension
-        XCTAssertEqual(executablePathExtension, nil)
+        XCTAssertEqual(executablePathExtension, "wasm")
     }
 
     func testIndexStore() throws {
