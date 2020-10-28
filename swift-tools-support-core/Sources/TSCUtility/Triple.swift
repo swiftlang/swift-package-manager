@@ -187,7 +187,7 @@ extension Triple {
       case .linux:
         return ""
       case .wasi:
-        return ""
+        return ".wasm"
       case .windows:
         return ".exe"
       }
