@@ -218,6 +218,7 @@ public final class UserToolchain: Toolchain {
                 if let SDKROOT = ProcessEnv.vars["SDKROOT"], let root = try? AbsolutePath(validating: SDKROOT) {
                     var runtime: [String] = []
                     var xctest: [String] = []
+                    var extraSwiftCFlags: [String] = []
 
                     if let settings = WindowsSDKSettings(reading: root.appending(component: "SDKSettings.plist"),
                                                          diagnostics: nil, filesystem: localFileSystem) {
@@ -247,10 +248,12 @@ public final class UserToolchain: Toolchain {
                                 "-I", path.appending(RelativePath("usr/lib/swift/windows/\(triple.arch)")).pathString,
                                 "-L", path.appending(RelativePath("usr/lib/swift/windows")).pathString,
                             ]
+
+                            extraSwiftCFlags = info.defaults.extraSwiftCFlags ??  []
                         }
                     }
 
-                    return [ "-sdk", root.pathString, ] + runtime + xctest
+                    return [ "-sdk", root.pathString, ] + runtime + xctest + extraSwiftCFlags
                 }
             }
 
