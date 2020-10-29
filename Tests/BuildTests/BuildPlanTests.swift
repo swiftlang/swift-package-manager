@@ -1577,8 +1577,8 @@ final class BuildPlanTests: XCTestCase {
     func testWindowsTarget() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
-                                    "/Pkg/Sources/lib/lib.c",
-                                    "/Pkg/Sources/lib/include/lib.h"
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
         )
 
         let diagnostics = DiagnosticsEngine()
@@ -1603,8 +1603,10 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
 
         let lib = try result.target(for: "lib").clangTarget()
-        var args = ["-target", "x86_64-unknown-windows-msvc", "-g", "-gcodeview", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
-        args += ["-fblocks", "-I", "/Pkg/Sources/lib/include"]
+        let args = [
+            "-target", "x86_64-unknown-windows-msvc", "-g", "-gcodeview", "-O0",
+            "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-I", "/Pkg/Sources/lib/include"
+        ]
         XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
@@ -1622,6 +1624,80 @@ final class BuildPlanTests: XCTestCase {
         
         let executablePathExtension = try result.buildProduct(for: "exe").binary.extension
         XCTAssertMatch(executablePathExtension, "exe")
+    }
+
+    func testWASITarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/app/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(
+            fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    packageKind: .root,
+                    targets: [
+                    TargetDescription(name: "app", dependencies: ["lib"]),
+                    TargetDescription(name: "lib", dependencies: []),
+                ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        var parameters = mockBuildParameters(destinationTriple: .wasi)
+        parameters.shouldLinkStaticSwiftStdlib = true
+        let result = BuildPlanResult(
+            plan: try BuildPlan(
+                buildParameters: parameters,
+                graph: graph,
+                diagnostics: diagnostics,
+                fileSystem: fs
+            )
+        )
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        let args = [
+            "-target", "wasm32-unknown-wasi", "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1",
+            "-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
+            "-fmodules-cache-path=/path/to/build/debug/ModuleCache"
+        ]
+        XCTAssertEqual(lib.basicArguments(), args)
+        XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
+        XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
+
+        let exe = try result.target(for: "app").swiftTarget().compileArguments()
+        XCTAssertMatch(
+            exe,
+            [
+                "-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g",
+                .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG","-Xcc",
+                "-fmodule-map-file=/path/to/build/debug/lib.build/module.modulemap",
+                "-I", "/Pkg/Sources/lib/include",
+                "-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence
+            ]
+        )
+
+        XCTAssertEqual(
+            try result.buildProduct(for: "app").linkArguments(),
+            [
+                "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
+                "-o", "/path/to/build/debug/app.wasm",
+                 "-module-name", "app", "-static-stdlib", "-emit-executable",
+                 "@/path/to/build/debug/app.product/Objects.LinkFileList",
+                 "-target", "wasm32-unknown-wasi"
+            ]
+        )
+
+        let executablePathExtension = try result.buildProduct(for: "app").binary.extension
+        XCTAssertEqual(executablePathExtension, "wasm")
     }
 
     func testIndexStore() throws {
@@ -2627,4 +2703,5 @@ fileprivate extension TSCUtility.Triple {
     static let arm64Linux = try! Triple("aarch64-unknown-linux-gnu")
     static let arm64Android = try! Triple("aarch64-unknown-linux-android")
     static let windows = try! Triple("x86_64-unknown-windows-msvc")
+    static let wasi = try! Triple("wasm32-unknown-wasi")
 }
