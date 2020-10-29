@@ -221,12 +221,6 @@ public final class Manifest: ObjectIdentifierProtocol {
                 // Dependencies known to not have any relevant products are discarded.
                 return nil
             }
-<<<<<<< HEAD
-            #else
-            return dependency.filtered(by: .everything)
-            #endif
-=======
->>>>>>> parent of 27f444f6... Temporarily disable target-based dependency resolution (#2998)
         }
     }
 
