@@ -1105,7 +1105,7 @@ public final class ProductBuildDescription {
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 if buildParameters.triple.isDarwin() {
                     diagnostics.emit(.swiftBackDeployError)
-                } else if buildParameters.triple.isLinux() {
+                } else if buildParameters.triple.isLinux() || buildParameters.triple.arch == .wasm32 {
                     args += ["-static-stdlib"]
                 }
             }
