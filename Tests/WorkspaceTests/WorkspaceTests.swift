@@ -413,6 +413,66 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
+    
+    /// Test that the explicit name given to a package is not used as its identity.
+    func testExplicitPackageNameIsNotUsedAsPackageIdentity() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try TestWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                TestPackage(
+                    name: "FooPackage",
+                    path: "foo-package",
+                    targets: [
+                        TestTarget(name: "FooTarget", dependencies: [.product(name: "BarProduct", package: "BarPackage")]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        TestDependency(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+                TestPackage(
+                    name: "BarPackage",
+                    path: "bar-package",
+                    targets: [
+                        TestTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        TestProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1"]
+                ),
+            ],
+            packages: [
+                TestPackage(
+                    name: "BarPackage",
+                    path: "bar-package",
+                    targets: [
+                        TestTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        TestProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.0.1"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["foo-package", "bar-package"], dependencies: [PackageDependencyDescription(url: "/tmp/ws/pkgs/bar-package", requirement: .upToNextMajor(from: "1.0.0"), productFilter: .everything)]) { (graph, diagnostics) in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "FooPackage", "BarPackage")
+                result.check(packages: "FooPackage", "BarPackage")
+                result.checkTarget("FooTarget") { result in result.check(dependencies: "BarProduct") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
+
 
     /// Test that the remote repository is not resolved when a root package with same name is already present.
     func testRootAsDependency1() throws {
