@@ -17,11 +17,13 @@ extension PackageDependencyDescription {
         let effectiveURL = config.mirroredURL(forURL: url)
 
         // FIXME: The identity of a package dependency is currently based on
-        //        the explicit name provided in the package manifest, if provided,
-        //        falling back on a name computed from its effective URL.
-        //        We should instead use the declared URL of a package dependency as its identity,
-        //        as it will be necessary for supporting package registries.
-        let identity = explicitName?.lowercased() ?? PackageReference.computeIdentity(packageURL: effectiveURL)
+        //        on a name computed from the package's effective URL.  This
+        //        is because the name of the package that's in the manifest
+        //        is not known until the manifest has been parsed.
+        //        We should instead use the declared URL of a package dependency
+        //        as its identity, as it will be needed for supporting package
+        //        registries.
+        let identity = PackageReference.computeIdentity(packageURL: effectiveURL)
         
         return PackageReference(
             identity: identity,
