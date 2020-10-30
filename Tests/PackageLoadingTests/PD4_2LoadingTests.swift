@@ -443,8 +443,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testCacheInvalidationOnEnv() {
-        mktmpdir { path in
+    func testCacheInvalidationOnEnv() throws {
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
@@ -499,8 +499,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testCaching() {
-        mktmpdir { path in
+    func testCaching() throws {
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
@@ -579,7 +579,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testContentBasedCaching() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let stream = BufferedOutputByteStream()
             stream <<< """
                 import PackageDescription
