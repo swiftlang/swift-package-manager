@@ -323,7 +323,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSerializedDiagnostics() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")

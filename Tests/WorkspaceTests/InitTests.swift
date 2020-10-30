@@ -20,7 +20,7 @@ class InitTests: XCTestCase {
     // MARK: TSCBasic package creation for each package type.
     
     func testInitPackageEmpty() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename
@@ -51,7 +51,7 @@ class InitTests: XCTestCase {
     }
     
     func testInitPackageExecutable() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename
@@ -96,7 +96,7 @@ class InitTests: XCTestCase {
     }
 
     func testInitPackageLibrary() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename
@@ -138,7 +138,7 @@ class InitTests: XCTestCase {
     }
     
     func testInitPackageSystemModule() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename
@@ -168,7 +168,7 @@ class InitTests: XCTestCase {
     }
 
     func testInitManifest() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             let name = path.basename

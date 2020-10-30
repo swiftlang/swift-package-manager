@@ -155,7 +155,7 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
 
 class RepositoryManagerTests: XCTestCase {
     func testBasics() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
             let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
@@ -236,7 +236,7 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testReset() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
@@ -257,8 +257,8 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     /// Check that the manager is persistent.
-    func testPersistence() {
-        mktmpdir { path in
+    func testPersistence() throws {
+        try testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider()
 
             // Do the initial fetch.
@@ -309,7 +309,7 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testParallelLookups() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
             let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
@@ -342,7 +342,7 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testSkipUpdate() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
@@ -373,7 +373,7 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testStateFileResilience() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Setup a dummy repository.
             let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()

@@ -127,7 +127,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testInterpreterFlags() throws {
         let fs = localFileSystem
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let foo = path.appending(component: "foo")
 
             func createWorkspace(withManifest manifest: (OutputByteStream) -> ()) throws -> Workspace {

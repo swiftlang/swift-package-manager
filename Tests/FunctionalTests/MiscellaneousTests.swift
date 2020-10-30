@@ -528,7 +528,7 @@ class MiscellaneousTestCase: XCTestCase {
             return
         }
 
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
             let package = path.appending(component: "foo")

@@ -503,8 +503,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
     }
     
     
-    func testMissingBranchDiagnostics() {
-        mktmpdir { tmpDir in
+    func testMissingBranchDiagnostics() throws {
+        try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
             let packageDir = tmpDir.appending(component: "SomePackage")
             try localFileSystem.createDirectory(packageDir)

@@ -30,7 +30,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the basic provider functions.
     func testProvider() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending(component: "test-repo")
             try! makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
@@ -94,7 +94,7 @@ class GitRepositoryTests: XCTestCase {
     /// `Inputs`, which has known commit hashes. See the `construct.sh` script
     /// contained within it for more information.
     func testRawRepository() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
             try systemQuietly(["tar", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString])
@@ -142,7 +142,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmoduleRead() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
@@ -163,7 +163,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the Git file system view.
     func testGitFileView() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
@@ -243,7 +243,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Test the handling of local checkouts.
     func testCheckouts() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a test repository.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -289,7 +289,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testFetch() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -329,7 +329,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testHasUnpushedCommits() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -365,8 +365,8 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
-    func testSetRemote() {
-        mktmpdir { path in
+    func testSetRemote() throws {
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -396,7 +396,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testUncommitedChanges() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -423,7 +423,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testBranchOperations() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -453,7 +453,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testCheckoutRevision() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -496,7 +496,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testSubmodules() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let provider = GitRepositoryProvider()
 
             // Create repos: foo and bar, foo will have bar as submodule and then later
@@ -577,7 +577,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAlternativeObjectStoreValidation() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)
@@ -608,7 +608,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnored() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test_repo")
             try makeDirectories(testRepoPath)
@@ -629,7 +629,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testAreIgnoredWithSpaceInRepoPath() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repo.
             let testRepoPath = path.appending(component: "test repo")
             try makeDirectories(testRepoPath)
@@ -645,7 +645,7 @@ class GitRepositoryTests: XCTestCase {
     }
 
     func testMissingDefaultBranch() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             // Create a repository.
             let testRepoPath = path.appending(component: "test-repo")
             try makeDirectories(testRepoPath)

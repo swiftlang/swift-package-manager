@@ -288,7 +288,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitEmpty() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
@@ -301,7 +301,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitExecutable() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
@@ -321,7 +321,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitLibrary() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
@@ -336,7 +336,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitCustomNameExecutable() throws {
-        mktmpdir { tmpPath in
+        try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
@@ -609,8 +609,8 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testSymlinkedDependency() {
-        mktmpdir { path in
+    func testSymlinkedDependency() throws {
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
             let root = path.appending(components: "root")
             let dep = path.appending(components: "dep")
@@ -659,8 +659,8 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testWatchmanXcodeprojgen() {
-        mktmpdir { path in
+    func testWatchmanXcodeprojgen() throws {
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
             let diagnostics = DiagnosticsEngine()
 
@@ -690,8 +690,8 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testMirrorConfig() {
-        mktmpdir { prefix in
+    func testMirrorConfig() throws {
+        try testWithTemporaryDirectory { prefix in
             let fs = localFileSystem
             let packageRoot = prefix.appending(component: "Foo")
             let configOverride = prefix.appending(component: "configoverride")
@@ -758,7 +758,7 @@ final class PackageToolTests: XCTestCase {
     func testPackageLoadingCommandPathResilience() throws {
       #if os(macOS)
         fixture(name: "ValidLayouts/SingleModule") { prefix in
-            mktmpdir { tmpdir in
+            try testWithTemporaryDirectory { tmpdir in
                 // Create fake `xcrun` and `sandbox-exec` commands.
                 let fakeBinDir = tmpdir
                 for fakeCmdName in ["xcrun", "sandbox-exec"] {
