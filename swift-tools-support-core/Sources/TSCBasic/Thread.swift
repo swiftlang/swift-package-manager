@@ -9,6 +9,9 @@
 */
 
 import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 /// This class bridges the gap between Darwin and Linux Foundation Threading API.
 /// It provides closure based execution and a join method to block the calling thread
@@ -63,6 +66,15 @@ final public class Thread {
                 finishedCondition.wait()
             }
         }
+    }
+
+    /// Causes the calling thread to yield execution to another thread.
+    public static func yield() {
+        #if os(Windows)
+          SwitchToThread()
+        #else
+          sched_yield()
+        #endif
     }
 }
 

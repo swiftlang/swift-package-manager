@@ -10,6 +10,7 @@
 
 import TSCLibc
 import Foundation
+import Dispatch
 
 public enum FileSystemError: Swift.Error {
     /// Access to the path is denied.
@@ -200,6 +201,9 @@ public protocol FileSystem: class {
 
     /// Move a file or directory.
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
+
+    /// Execute the given block while holding the lock.
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T
 }
 
 /// Convenience implementations (default arguments aren't permitted in protocol
@@ -238,6 +242,10 @@ public extension FileSystem {
     }
 
     func getFileInfo(_ path: AbsolutePath) throws -> FileInfo {
+        throw FileSystemError.unsupported
+    }
+
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
         throw FileSystemError.unsupported
     }
 }
@@ -450,6 +458,11 @@ private class LocalFileSystem: FileSystem {
         guard !exists(destinationPath) else { throw FileSystemError.alreadyExistsAtDestination }
         try FileManager.default.moveItem(at: sourcePath.asURL, to: destinationPath.asURL)
     }
+
+    func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
+        let lock = FileLock(name: path.basename, cachePath: path.parentDirectory)
+        return try lock.withLock(type: type, body)
+    }
 }
 
 // FIXME: This class does not yet support concurrent mutation safely.
@@ -499,9 +512,21 @@ public class InMemoryFileSystem: FileSystem {
             return contents
         }
     }
+    // Used to ensure that DispatchQueues are releassed when they are no longer in use.
+    private struct WeakReference<Value: AnyObject> {
+        weak var reference: Value?
+
+        init(_ value: Value?) {
+            self.reference = value
+        }
+    }
 
     /// The root filesytem.
     private var root: Node
+    /// A map that keeps weak references to all locked files.
+    private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
+    /// Used to access lockFiles in a thread safe manner.
+    private let lockFilesLock = Lock()
 
     public init() {
         root = Node(.directory(DirectoryContents()))
@@ -760,6 +785,21 @@ public class InMemoryFileSystem: FileSystem {
 
         contents.entries[sourcePath.basename] = nil
     }
+
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
+
+        let fileQueue: DispatchQueue = lockFilesLock.withLock {
+            if let queueReference = lockFiles[path], let queue = queueReference.reference {
+                return queue
+            } else {
+                let queue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
+                lockFiles[path] = WeakReference(queue)
+                return queue
+            }
+        }
+
+        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
+    }
 }
 
 /// A rerooted view on an existing FileSystem.
@@ -863,6 +903,10 @@ public class RerootedFileSystemView: FileSystem {
 
     public func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         try underlyingFileSystem.move(from: formUnderlyingPath(sourcePath), to: formUnderlyingPath(sourcePath))
+    }
+
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
+        return try underlyingFileSystem.withLock(on: formUnderlyingPath(path), type: type, body)
     }
 }
 

@@ -43,40 +43,11 @@ public struct SerializedDiagnostics {
   public var diagnostics: [Diagnostic]
 
   public init(data: Data) throws {
-    let bitcode = try Bitcode(data: data)
-
-    guard bitcode.signature == .init(string: "DIAG") else { throw Error.badMagic }
-
-    var diagnostics: [Diagnostic] = []
-    var versionNumber: Int? = nil
-    var filenameMap = [UInt64: String]()
-    var flagMap = [UInt64: String]()
-    var categoryMap = [UInt64: String]()
-
-    for element in bitcode.elements {
-      guard case let .block(block) = element else { throw Error.unexpectedTopLevelRecord }
-      switch BlockID(rawValue: block.id) {
-      case .metadata:
-        guard block.elements.count == 1,
-              case let .record(versionRecord) = block.elements[0],
-              versionRecord.id == RecordID.version.rawValue,
-              versionRecord.fields.count == 1 else {
-          throw Error.malformedRecord
-        }
-        versionNumber = Int(versionRecord.fields[0])
-      case .diagnostic:
-        diagnostics.append(try Diagnostic(block: block,
-                                          filenameMap: &filenameMap,
-                                          flagMap: &flagMap,
-                                          categoryMap: &categoryMap))
-      case nil:
-        throw Error.unknownBlock
-      }
-    }
-
-    guard let version = versionNumber else { throw Error.noMetadataBlock }
+    var reader = Reader()
+    try Bitcode.read(stream: data, using: &reader)
+    guard let version = reader.versionNumber else { throw Error.noMetadataBlock }
     self.versionNumber = version
-    self.diagnostics = diagnostics
+    self.diagnostics = reader.diagnostics
   }
 }
 
@@ -101,7 +72,7 @@ extension SerializedDiagnostics {
     /// Fix-its associated with the diagnostic.
     public var fixIts: [FixIt]
 
-    fileprivate init(block: BitcodeElement.Block,
+    fileprivate init(records: [BitcodeElement.Record],
                      filenameMap: inout [UInt64: String],
                      flagMap: inout [UInt64: String],
                      categoryMap: inout [UInt64: String]) throws {
@@ -113,11 +84,7 @@ extension SerializedDiagnostics {
       var ranges: [(SourceLocation, SourceLocation)] = []
       var fixIts: [FixIt] = []
 
-      for element in block.elements {
-        guard case let .record(record) = element else {
-          throw Error.unexpectedSubblock
-        }
-
+      for record in records {
         switch SerializedDiagnostics.RecordID(rawValue: record.id) {
         case .diagnosticInfo:
           guard record.fields.count == 8,
@@ -228,5 +195,56 @@ extension SerializedDiagnostics {
     public var end: SourceLocation
     /// Fix-it replacement text.
     public var text: String
+  }
+}
+
+extension SerializedDiagnostics {
+  private struct Reader: BitstreamVisitor {
+    var currentBlockID: BlockID? = nil
+
+    var diagnostics: [Diagnostic] = []
+    var versionNumber: Int? = nil
+    var filenameMap = [UInt64: String]()
+    var flagMap = [UInt64: String]()
+    var categoryMap = [UInt64: String]()
+
+    var currentDiagnosticRecords: [BitcodeElement.Record] = []
+
+    func validate(signature: Bitcode.Signature) throws {
+      guard signature == .init(string: "DIAG") else { throw Error.badMagic }
+    }
+
+    mutating func shouldEnterBlock(id: UInt64) throws -> Bool {
+      guard let blockID = BlockID(rawValue: id) else { throw Error.unknownBlock }
+      guard currentBlockID == nil else { throw Error.unexpectedSubblock }
+      currentBlockID = blockID
+      return true
+    }
+
+    mutating func didExitBlock() throws {
+      if currentBlockID == .diagnostic {
+        diagnostics.append(try Diagnostic(records: currentDiagnosticRecords,
+                                          filenameMap: &filenameMap,
+                                          flagMap: &flagMap,
+                                          categoryMap: &categoryMap))
+        currentDiagnosticRecords = []
+      }
+      currentBlockID = nil
+    }
+
+    mutating func visit(record: BitcodeElement.Record) throws {
+      switch currentBlockID {
+      case .metadata:
+        guard record.id == RecordID.version.rawValue,
+              record.fields.count == 1 else {
+          throw Error.malformedRecord
+        }
+        versionNumber = Int(record.fields[0])
+      case .diagnostic:
+        currentDiagnosticRecords.append(record)
+      case nil:
+        throw Error.unexpectedTopLevelRecord
+      }
+    }
   }
 }

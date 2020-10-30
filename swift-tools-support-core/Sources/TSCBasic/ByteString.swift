@@ -108,11 +108,7 @@ public struct ByteString: ExpressibleByArrayLiteral, Hashable {
 extension ByteString: CustomStringConvertible {
     /// Return the string decoded as a UTF8 sequence, or traps if not possible.
     public var description: String {
-        guard let description = validDescription else {
-            fatalError("invalid byte string: \(cString)")
-        }
-
-        return description
+        return cString
     }
 
     /// Return the string decoded as a UTF8 sequence, if possible.
