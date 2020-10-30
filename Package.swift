@@ -130,6 +130,13 @@ let package = Package(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
             dependencies: ["SwiftToolsSupport-auto", "PackageLoading", "PackageModel", "SourceControl"]),
+        
+        // MARK: Package Sets
+
+        .target(
+            /** Data structures and support for package sets */
+            name: "PackageSets",
+            dependencies: ["SwiftToolsSupport-auto", "PackageModel", "SourceControl"]),
 
         // MARK: Package Manager Functionality
 
@@ -228,6 +235,9 @@ let package = Package(
         .testTarget(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]),
+        .testTarget(
+            name: "PackageSetsTests",
+            dependencies: ["PackageSets", "SPMTestSupport"]),
         .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"]),
