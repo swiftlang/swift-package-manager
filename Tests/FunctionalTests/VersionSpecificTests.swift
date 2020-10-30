@@ -19,7 +19,7 @@ import SPMTestSupport
 class VersionSpecificTests: XCTestCase {
     /// Functional tests of end-to-end support for version specific dependency resolution.
     func testEndToEndResolution() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory{ path in
             let fs = localFileSystem
 
             // Create a repo for the dependency to test against.

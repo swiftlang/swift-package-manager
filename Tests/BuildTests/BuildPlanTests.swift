@@ -324,7 +324,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(linkedFileList.description, .contains("PkgLib"))
             XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
 
-            mktmpdir { path in
+            try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "release.yaml")
                 let llbuild = LLBuildManifestBuilder(plan)
                 try llbuild.generateManifest(at: yaml)
@@ -350,7 +350,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertNoMatch(linkedFileList.description, .contains("PkgLib"))
             XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
 
-            mktmpdir { path in
+            try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "debug.yaml")
                 let llbuild = LLBuildManifestBuilder(plan)
                 try llbuild.generateManifest(at: yaml)
@@ -722,7 +722,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
@@ -2078,7 +2078,7 @@ final class BuildPlanTests: XCTestCase {
 
         let plan = try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs)
 
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
@@ -2130,7 +2130,7 @@ final class BuildPlanTests: XCTestCase {
           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
         #endif
 
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
@@ -2198,7 +2198,7 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #endif
 
-         mktmpdir { path in
+        try testWithTemporaryDirectory { path in
              let yaml = path.appending(component: "debug.yaml")
              let llbuild = LLBuildManifestBuilder(plan)
              try llbuild.generateManifest(at: yaml)
@@ -2267,7 +2267,7 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #endif
 
-         mktmpdir { path in
+        try testWithTemporaryDirectory { path in
              let yaml = path.appending(component: "debug.yaml")
              let llbuild = LLBuildManifestBuilder(plan)
              try llbuild.generateManifest(at: yaml)
@@ -2314,7 +2314,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(objects.contains(AbsolutePath("/path/to/build/debug/exe.build/exe.swiftmodule.o")), objects.description)
         XCTAssertTrue(objects.contains(AbsolutePath("/path/to/build/debug/lib.build/lib.swiftmodule.o")), objects.description)
 
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(result.plan)
             try llbuild.generateManifest(at: yaml)

@@ -56,7 +56,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testBrokenSymlink() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
             let sources = path.appending(components: "Sources", "foo")
@@ -88,7 +88,7 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testSymlinkedSourcesDirectory() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
             let sources = path.appending(components: "Sources")
