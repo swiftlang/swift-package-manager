@@ -70,7 +70,7 @@ class ProcessTests: XCTestCase {
     }
 
     func testFindExecutable() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { tmpdir in
             // This process should always work.
             XCTAssertTrue(Process.findExecutable("ls") != nil)
 
@@ -78,30 +78,30 @@ class ProcessTests: XCTestCase {
             XCTAssertEqual(Process.findExecutable(""), nil)
 
             // Create a local nonexecutable file to test.
-            let tempExecutable = path.appending(component: "nonExecutableProgram")
+            let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
             try localFileSystem.writeFileContents(tempExecutable, bytes: """
                 #!/bin/sh
                 exit
 
                 """)
 
-            try withCustomEnv(["PATH": path.pathString]) {
+            try withCustomEnv(["PATH": tmpdir.pathString]) {
                 XCTAssertEqual(Process.findExecutable("nonExecutableProgram"), nil)
             }
         }
     }
 
     func testNonExecutableLaunch() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { tmpdir in
             // Create a local nonexecutable file to test.
-            let tempExecutable = path.appending(component: "nonExecutableProgram")
+            let tempExecutable = tmpdir.appending(component: "nonExecutableProgram")
             try localFileSystem.writeFileContents(tempExecutable, bytes: """
                 #!/bin/sh
                 exit
 
                 """)
 
-            try withCustomEnv(["PATH": path.pathString]) {
+            try withCustomEnv(["PATH": tmpdir.pathString]) {
                 do {
                     let process = Process(args: "nonExecutableProgram")
                     try process.launch()
@@ -117,9 +117,9 @@ class ProcessTests: XCTestCase {
     func testSignals() throws {
 
         // Test sigint terminates the script.
-        mktmpdir { path in
-            let file = path.appending(component: "pidfile")
-            let waitFile = path.appending(component: "waitFile")
+        try testWithTemporaryDirectory { tmpdir in
+            let file = tmpdir.appending(component: "pidfile")
+            let waitFile = tmpdir.appending(component: "waitFile")
             let process = Process(args: script("print-pid"), file.pathString, waitFile.pathString)
             try process.launch()
             guard waitForFile(waitFile) else {
@@ -136,9 +136,9 @@ class ProcessTests: XCTestCase {
         }
 
         // Test SIGKILL terminates the subprocess and any of its subprocess.
-        mktmpdir { path in
-            let file = path.appending(component: "pidfile")
-            let waitFile = path.appending(component: "waitFile")
+        try testWithTemporaryDirectory { tmpdir in
+            let file = tmpdir.appending(component: "pidfile")
+            let waitFile = tmpdir.appending(component: "waitFile")
             let process = Process(args: script("subprocess"), file.pathString, waitFile.pathString)
             try process.launch()
             guard waitForFile(waitFile) else {

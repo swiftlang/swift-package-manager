@@ -48,8 +48,10 @@ target_link_libraries(TSCUtility PUBLIC
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   target_link_libraries(TSCUtility PRIVATE
     SQLite::SQLite3)
-  target_link_libraries(TSCUtility PUBLIC
-    FoundationNetworking)
+  if(Foundation_FOUND)
+    target_link_libraries(TSCUtility PUBLIC
+      FoundationNetworking)
+  endif()
 endif()
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(TSCUtility PROPERTIES

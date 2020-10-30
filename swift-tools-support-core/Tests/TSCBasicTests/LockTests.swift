@@ -48,4 +48,64 @@ class LockTests: XCTestCase {
             }
         }
     }
+
+    func testReadWriteFileLock() throws {
+        try withTemporaryDirectory { tempDir in
+            let fileA = tempDir.appending(component: "fileA")
+            let fileB = tempDir.appending(component: "fileB")
+
+            let lock = FileLock(name: "lockfile", cachePath: tempDir)
+
+            let writerThreads = (0..<100).map { _ in
+                return Thread {
+                    let lock = FileLock(name: "foo", cachePath: tempDir)
+                    try! lock.withLock(type: .exclusive) {
+                        // Get thr current contents of the file if any.
+                        let valueA: Int
+                        if localFileSystem.exists(fileA) {
+                            valueA = Int(try localFileSystem.readFileContents(fileA).description) ?? 0
+                        } else {
+                            valueA = 0
+                        }
+                        // Sum and write back to file.
+                        try localFileSystem.writeFileContents(fileA, bytes: ByteString(encodingAsUTF8: String(valueA + 1)))
+
+                        Thread.yield()
+
+                        // Get thr current contents of the file if any.
+                        let valueB: Int
+                        if localFileSystem.exists(fileB) {
+                            valueB = Int(try localFileSystem.readFileContents(fileB).description) ?? 0
+                        } else {
+                            valueB = 0
+                        }
+                        // Sum and write back to file.
+                        try localFileSystem.writeFileContents(fileB, bytes: ByteString(encodingAsUTF8: String(valueB + 1)))
+                    }
+                }
+            }
+
+            let readerThreads = (0..<20).map { _ in
+                return Thread {
+                    let lock = FileLock(name: "foo", cachePath: tempDir)
+                    try! lock.withLock(type: .shared) {
+                        try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
+
+                        Thread.yield()
+
+                        try XCTAssertEqual(localFileSystem.readFileContents(fileA), localFileSystem.readFileContents(fileB))
+                    }
+                }
+            }
+
+            writerThreads.forEach { $0.start() }
+            readerThreads.forEach { $0.start() }
+            writerThreads.forEach { $0.join() }
+            readerThreads.forEach { $0.join() }
+
+            try XCTAssertEqual(localFileSystem.readFileContents(fileA), "100")
+            try XCTAssertEqual(localFileSystem.readFileContents(fileB), "100")
+        }
+    }
+
 }
