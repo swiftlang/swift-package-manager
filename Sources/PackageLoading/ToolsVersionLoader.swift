@@ -108,38 +108,23 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     // FIXME: Use generic associated type `T: StringProtocol` instead of concrete types `String` and `Substring`, when/if this feature comes to Swift.
     public enum Error: Swift.Error, CustomStringConvertible {
         
-        // FIXME: Separate the "missing"-prefixed cases into a different enum.
-        // Or, generalise the non-"missing"-prefixed cases. E.g.
-        //
-        //     public enum ToolsVersionSpecificationMalformation {
-        //         public enum Details {
-        //             case isMissing
-        //             case isMisspelt(_ misspelling: Substring) // Might need to repl
-        //         }
-        //         case commentMarker(_ malformationDetails: Details)
-        //         case label(_ malformationDetails: Details)
-        //         case versionSpecifier(_ malformationDetails: Details)
-        //     }
-        //
-        //     throw Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))
-        //     throw Error.malformedToolsVersionSpecification(.label(.isMisspelt(parsedLabel)))
-        //
-        /// Details of the tools version specification's malformation.
-        public enum ToolsVersionSpecificationMalformation {
-            /// The comment marker of the Swift tools version specification is missing.
-            ///
-            /// Sometimes the missing comment marker is an indication that the entire Swift tools version specification is missing.
-            case missingCommentMarker
-            /// The label part of the Swift tools version specification is missing.
-            case missingLabel
-            /// The version specifier is missing.
-            case missingVersionSpecifier
+        /// Location of the tools version specification's malformation.
+        public enum ToolsVersionSpecificationMalformationLocation {
+            /// The nature of malformation at the location in Swift tools version specification.
+            public enum MalformationDetails {
+                /// The Swift tools version specification component is missing.
+                case isMissing
+                /// The Swift tools version specification component is misspelt.
+                case isMisspelt(_ misspelling: String)
+            }
             /// The comment marker is malformed.
-            case commentMarker(_ commentMarker: String)
+            ///
+            /// If the comment marker is missing, it could be an indication that the entire Swift tools version specification is missing.
+            case commentMarker(_ malformationDetails: MalformationDetails)
             /// The label part of the Swift tools version specification is malformed.
-            case label(_ label: String)
+            case label(_ malformationDetails: MalformationDetails)
             /// The version specifier is malformed.
-            case versionSpecifier(_ versionSpecifier: String)
+            case versionSpecifier(_ malformationDetails: MalformationDetails)
         }
         
         /// Details of backward-incompatible contents with Swift tools version ≤ 5.3.
@@ -159,7 +144,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         /// Package manifest file's content can not be decoded as a UTF-8 string.
         case nonUTF8EncodedManifest(path: AbsolutePath)
         /// Malformed tools version specification.
-        case malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)
+        case malformedToolsVersionSpecification(_ malformationLocation: ToolsVersionSpecificationMalformationLocation)
         /// Backward-incompatible contents with Swift tools version ≤ 5.3.
         case backwardIncompatiblePre5_3_1(_ incompatibility: BackwardIncompatibilityPre5_3_1, specifiedVersion: ToolsVersion)
 
@@ -191,21 +176,30 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 return "the package manifest at '\(manifestFilePath)' cannot be accessed (\(reason))"
             case let .nonUTF8EncodedManifest(manifestFilePath):
                 return "the package manifest at '\(manifestFilePath)' cannot be decoded using UTF-8"
-            case let .malformedToolsVersionSpecification(malformation):
-                switch malformation {
-                case .missingCommentMarker:
-                    return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
-                case .missingLabel:
-                    return "the Swift tools version specification is missing a label; consider inserting 'swift-tools-version:' between the comment marker and the version specifier"
-                case .missingVersionSpecifier:
-                    // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
-                    return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest supported version by the project"
-                case let .commentMarker(commentMarker):
-                    return "the comment marker '\(commentMarker)' is malformed for the Swift tools version specification; consider replacing it with '//'"
-                case let .label(label):
-                    return "the Swift tools version specification's label '\(label)' is malformed; consider replacing it with 'swift-tools-version:'"
-                case let .versionSpecifier(versionSpecifier):
-                    return "the Swift tools version '\(versionSpecifier)' is not valid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
+            case let .malformedToolsVersionSpecification(malformationLocation):
+                switch malformationLocation {
+                case .commentMarker(let malformationDetails):
+                    switch malformationDetails {
+                    case .isMissing:
+                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                    case .isMisspelt(let misspeltCommentMarker):
+                        return "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
+                    }
+                case .label(let malformationDetails):
+                    switch malformationDetails {
+                    case .isMissing:
+                        return "the Swift tools version specification is missing a label; consider inserting 'swift-tools-version:' between the comment marker and the version specifier"
+                    case .isMisspelt(let misspeltLabel):
+                        return "the Swift tools version specification's label '\(misspeltLabel)' is misspelt; consider replacing it with 'swift-tools-version:'"
+                    }
+                case .versionSpecifier(let malformationDetails):
+                    switch malformationDetails {
+                    case .isMissing:
+                        // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
+                        return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest supported version by the project"
+                    case .isMisspelt(let misspeltVersionSpecifier):
+                        return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
+                    }
                 }
             // FIXME: The error messages probably can be more concise, while still hitting all the key points.
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
@@ -324,26 +318,26 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         
         let commentMarker = toolsVersionSpecificationComponents.commentMarker
         guard !commentMarker.isEmpty else {
-            throw Error.malformedToolsVersionSpecification(.missingCommentMarker)
+            throw Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))
         }
         
         let label = toolsVersionSpecificationComponents.label
         guard !label.isEmpty else {
-            throw Error.malformedToolsVersionSpecification(.missingLabel)
+            throw Error.malformedToolsVersionSpecification(.label(.isMissing))
         }
         
         let versionSpecifier = toolsVersionSpecificationComponents.versionSpecifier
         guard !versionSpecifier.isEmpty else {
-            throw Error.malformedToolsVersionSpecification(.missingVersionSpecifier)
+            throw Error.malformedToolsVersionSpecification(.versionSpecifier(.isMissing))
         }
         
         guard toolsVersionSpecificationComponents.everythingUpToVersionSpecifierIsWellFormed else {
             if commentMarker != "//" {
-                throw Error.malformedToolsVersionSpecification(.commentMarker(String(commentMarker)))
+                throw Error.malformedToolsVersionSpecification(.commentMarker(.isMisspelt(String(commentMarker))))
             }
             
             if label.lowercased() != "swift-tools-version:" {
-                throw Error.malformedToolsVersionSpecification(.label(String(label)))
+                throw Error.malformedToolsVersionSpecification(.label(.isMisspelt(String(label))))
             }
             
             // The above If-statements should have covered all possible malformations in Swift tools version specification up to the version specifier.
@@ -352,7 +346,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         }
         
         guard let version = ToolsVersion(string: String(versionSpecifier)) else {
-            throw Error.malformedToolsVersionSpecification(.versionSpecifier(String(versionSpecifier)))
+            throw Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(String(versionSpecifier))))
         }
         
         guard version > .v5_3 || manifestComponents.isCompatibleWithPreSwift5_3_1 else {

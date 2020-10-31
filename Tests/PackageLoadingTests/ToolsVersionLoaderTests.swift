@@ -192,8 +192,8 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the Swift tools version specification is missing from the manifest snippet"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.missingCommentMarker) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.missingCommentMarker)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
                 
@@ -233,8 +233,8 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the comment marker is missing from the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.missingCommentMarker) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.missingCommentMarker)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
@@ -268,8 +268,8 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the label is missing from the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.missingLabel) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.missingLabel)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.label(.isMissing)) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.label(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
@@ -300,8 +300,8 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the version specifier is missing from the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.missingVersionSpecifier) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.missingVersionSpecifier)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.versionSpecifier(.isMissing)) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMissing))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
@@ -332,13 +332,13 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the comment marker is misspelt in the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(let misspeltCommentMarker)) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMisspelt(let misspeltCommentMarker))) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMisspelt))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the comment marker '\(misspeltCommentMarker)' is malformed for the Swift tools version specification; consider replacing it with '//'"
+                    "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
                 )
             }
         }
@@ -360,13 +360,13 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the label is misspelt in the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.label(let misspeltLabel)) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.label)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.label(.isMisspelt(let misspeltLabel))) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.label(.isMisspelt))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version specification's label '\(misspeltLabel)' is malformed; consider replacing it with 'swift-tools-version:'"
+                    "the Swift tools version specification's label '\(misspeltLabel)' is misspelt; consider replacing it with 'swift-tools-version:'"
                 )
             }
         }
@@ -387,13 +387,13 @@ class ToolsVersionLoaderTests: XCTestCase {
                 try load(ByteString(encodingAsUTF8: manifestSnippet)),
                 "a 'ToolsVersionLoader.Error' should've been thrown, because the version specifier is misspelt in the Swift tools version specification"
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.versionSpecifier(let misspeltVersionSpecifier)) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier)' should've been thrown, but a different error is thrown")
+                guard let error = error as? ToolsVersionLoader.Error, case .malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(let misspeltVersionSpecifier))) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt))' should've been thrown, but a different error is thrown")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version '\(misspeltVersionSpecifier)' is not valid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
+                    "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
                 )
             }
         }
