@@ -50,7 +50,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         case .taskStarted(let info):
             queue.async {
                 self.didEmitProgressOutput = true
-                let text = self.isVerbose ? info.executionDescription + "\n" + info.commandLineDisplayString : info.executionDescription
+                let text = self.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
                 self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
             }
         case .taskOutput(let info):
