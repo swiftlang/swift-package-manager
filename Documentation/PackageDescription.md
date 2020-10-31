@@ -354,7 +354,7 @@ The version rule requires Swift packages to conform to semantic
 versioning. To learn more about the semantic versioning standard,
 visit [semver.org](https://semver.org).
 
-Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a ance between restricting changes and obtaining improvements and features.
+Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a balance between restricting changes and obtaining improvements and features.
 
 **A branch-based requirement**
 
