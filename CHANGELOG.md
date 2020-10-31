@@ -13,11 +13,11 @@ Swift 5.3.1
   
     `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is now obsoleted, and replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
   
-  * Source Breakages
+  * Source Breakages for Swift packages
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
     
-    Swift tools version specifications that contain line terminators other than `U+000A` before either "swift-tool" or "tool-version" now silently falls back to using Swift 3.1 as the lowest supported version.
+    The package manager no longer silently falls back to using Swift 3.1 as the lowest supported version. Instead, a descriptive error is thrown for each misspelling or malformation in the manifest file.
 
 Swift 4.2
 ---------

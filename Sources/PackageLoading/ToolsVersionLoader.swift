@@ -91,31 +91,65 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     
     // FIXME: Remove this property and the initializer?
     // Arbitrary tools versions are used only in `ToolsVersionLoaderTests.testVersionSpecificManifestFallbacks()`.
+    // Relevant discussion: https://github.com/apple/swift-package-manager/pull/2937#discussion_r512239726
+    /// The Swift toolchain version used by the instance of `ToolsVersionLoader`.
+    ///
+    /// If the value differs from `ToolsVersion.currentToolsVersion`, then the `ToolsVersionLoader` instance is simulating that it's run on a Swift version different from the version used by libSwiftPM.
     let currentToolsVersion: ToolsVersion
-
+    
+    /// Creates a manifest loader with the given Swift toolchain version.
+    /// - Parameter currentToolsVersion: The Swift toolchain version to simulate the manifest loading strategy for. By default, this parameter is the current version used by libSwiftPM. A non-default version is only used for providing testability.
     public init(currentToolsVersion: ToolsVersion = .currentToolsVersion) {
         self.currentToolsVersion = currentToolsVersion
     }
 
+    // Parameter names for associated values help the auto-complete provide hints at the call site, even when the argument label is suppressed.
+    
     // FIXME: Use generic associated type `T: StringProtocol` instead of concrete types `String` and `Substring`, when/if this feature comes to Swift.
     public enum Error: Swift.Error, CustomStringConvertible {
         
+        // FIXME: Separate the "missing"-prefixed cases into a different enum.
+        // Or, generalise the non-"missing"-prefixed cases. E.g.
+        //
+        //     public enum ToolsVersionSpecificationMalformation {
+        //         public enum Details {
+        //             case isMissing
+        //             case isMisspelt(_ misspelling: Substring) // Might need to repl
+        //         }
+        //         case commentMarker(_ malformationDetails: Details)
+        //         case label(_ malformationDetails: Details)
+        //         case versionSpecifier(_ malformationDetails: Details)
+        //     }
+        //
+        //     throw Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))
+        //     throw Error.malformedToolsVersionSpecification(.label(.isMisspelt(parsedLabel)))
+        //
         /// Details of the tools version specification's malformation.
         public enum ToolsVersionSpecificationMalformation {
-            /// The tools version specification from the first character up to the version specifier is malformed.
+            /// The comment marker of the Swift tools version specification is missing.
+            ///
+            /// Sometimes the missing comment marker is an indication that the entire Swift tools version specification is missing.
+            case missingCommentMarker
+            /// The label part of the Swift tools version specification is missing.
+            case missingLabel
+            /// The version specifier is missing.
+            case missingVersionSpecifier
+            /// The comment marker is malformed.
+            case commentMarker(_ commentMarker: Substring)
+            /// The label part of the Swift tools version specification is malformed.
             case label(_ label: Substring)
             /// The version specifier is malformed.
             case versionSpecifier(_ versionSpecifier: Substring)
-            /// The entire tools version specification is malformed.
-            case entireLine(_ line: Substring)
         }
         
         /// Details of backward-incompatible contents with Swift tools version ≤ 5.3.
+        ///
+        /// A backward-incompatibility is not necessarily a malformation.
         public enum BackwardIncompatibilityPre5_3_1 {
             /// The line terminators at the start of the manifest is not either empty or a single `U+000A`.
             case leadingLineTerminators(_ lineTerminators: Substring)
             /// The horizontal spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift ≤ 5.3.
-            case spacingAfterSlashes(_ spacing: Substring)
+            case spacingAfterCommentMarker(_ spacing: Substring)
         }
         
         /// Package directory is inaccessible (missing, unreadable, etc).
@@ -157,24 +191,29 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 return "the package manifest at '\(manifestFilePath)' cannot be accessed (\(reason))"
             case let .nonUTF8EncodedManifest(manifestFilePath):
                 return "the package manifest at '\(manifestFilePath)' cannot be decoded using UTF-8"
-            case let .malformedToolsVersion(versionSpecifier, currentToolsVersion):
-                return "the tools version '\(versionSpecifier)' is not valid; consider using '// swift-tools-version:\(currentToolsVersion.major).\(currentToolsVersion.minor)' to specify the current tools version"
             case let .malformedToolsVersionSpecification(malformation):
                 switch malformation {
+                case .missingCommentMarker:
+                    return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                case .missingLabel:
+                    return "the Swift tools version specification is missing a label; consider inserting 'swift-tools-version:' between the comment marker and the version specifier"
+                case .missingVersionSpecifier:
+                    // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
+                    return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest supported version by the project"
+                case let .commentMarker(commentMarker):
+                    return "the comment marker '\(commentMarker)' is malformed for the Swift tools version specification; consider replacing it with '//'"
                 case let .label(label):
-                    return "the tools version specification label '\(label)' is malformed; consider using '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current tools version"
+                    return "the Swift tools version specification's label '\(label)' is malformed; consider replacing it with 'swift-tools-version:'"
                 case let .versionSpecifier(versionSpecifier):
-                    return "the tools version '\(versionSpecifier)' is not valid; consider using '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current tools version"
-                case let .entireLine(line):
-                    return "the tools version specification '\(line)' is not valid; consider using '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current tools version"
+                    return "the Swift tools version '\(versionSpecifier)' is not valid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
                 }
             // FIXME: The error messages probably can be more concise, while still hitting all the key points.
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
                 switch incompatibility {
                 case let .leadingLineTerminators(lineTerminators):
-                    return "leading line terminator sequence \(unicodeCodePointsPrefixedByUPlus(of: lineTerminators)) in manifest is supported by only Swift > 5.3; for the specified version \(specifiedVersion), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the tools version specification to the first line of the manifest"
-                case let .spacingAfterSlashes(spacing):
-                    return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between \"//\" and \"swift-tools-version\" is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(specifiedVersion)"
+                    return "leading line terminator sequence \(unicodeCodePointsPrefixedByUPlus(of: lineTerminators)) in manifest is supported by only Swift > 5.3; for the specified version \(specifiedVersion), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                case let .spacingAfterCommentMarker(spacing):
+                    return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(specifiedVersion)"
                 }
             }
             
@@ -185,20 +224,62 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     public struct ManifestComponents {
         /// The line terminators at the start of the manifest.
         public let leadingLineTerminators: Substring
-        /// The tools version specification, excluding the ending line terminator.
-        public let toolsVersionSpecification: Substring
+        /// The Swift tools version specification represented in its constituent parts.
+        public let toolsVersionSpecificationComponents: ToolsVersionSpecificationComponents
         /// The remaining contents of the manifest that follows right after the tools version specification line.
         public let contentsAfterToolsVersionSpecification: Substring
-        /// The components of the tools version specification that are captured by the `regex`.
-        public let toolsVersionSpecificationCapturedComponents: ToolsVersionSpecificationCapturedComponents
+        /// A Boolean value indicating whether the manifest represented in its constituent parts is backward-compatible with Swift ≤ 5.3.
+        public var isCompatibleWithPreSwift5_3_1: Bool {
+            (leadingLineTerminators.isEmpty || leadingLineTerminators == "\n") && toolsVersionSpecificationComponents.isCompatibleWithPreSwift5_3_1
+        }
     }
     
-    /// Components of the tools version specification that are captured by the `regex`.
-    public struct ToolsVersionSpecificationCapturedComponents {
-        /// The horizontal spacing between "//" and  "swift-tools-version".
-        public let spacingAfterSlashes: Substring?
+    /// A representation of a Swift tools version specification in its constituent parts.
+    ///
+    /// A Swift tools version specification consists of the following parts:
+    ///
+    ///     //  swift-tools-version:5.3; everything after the semicolon is ignored
+    ///     ^~^~^~~~~~~~~~~~~~~~~~~~^~~^^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ///     │ │ └ label             │  │└ ignored comment contents (optional)
+    ///     │ └ spacing             │  └ version specifier terminator (optional)
+    ///     └ comment marker        └ version specifier
+    ///
+    public struct ToolsVersionSpecificationComponents {
+        /// The comment marker.
+        ///
+        /// In a well-formed Swift tools version specification, the comment marker is `"//"`.
+        public let commentMarker: Substring
+        
+        /// The spacing after the comment marker
+        ///
+        /// In a well-formed Swift tools version specification, the spacing after the comment marker is a continuous sequence of horizontal whitespace characters.
+        ///
+        /// For Swift ≤ 5.3, the spacing must be a single `U+0020`.
+        public let spacingAfterCommentMarker: Substring
+        
+        /// The label part of the Swift tools version specification.
+        ///
+        /// In a well-formed Swift tools version specification, the label is `"swift-tools-version:"`
+        public let label: Substring
+        
         /// The version specifier.
-        public let versionSpecifier: Substring?
+        public let versionSpecifier: Substring
+        
+        /// A Boolean value indicating whether everything up to the version specifier in the Swift tools version specification represented in its constituent parts is well-formed.
+        public var everythingUpToVersionSpecifierIsWellFormed: Bool {
+            // FIXME: Make `label` case sensitive?
+            // FIXME: Replace with `commentMarker == "//" && (label == "swift-tools-version:" || label.lowercased() == "swift-tools-version:")`?
+            // "swift-tools-version:" has more than 15 UTF-8 code units, so `label` is likely to have more than 15 UTF-8 code units too.
+            // Strings with more than 15 UTF-8 code units are heap-allocated on 64-bit platforms, 10 on 32-bit platforms.
+            // `lowercase()` returns a heap-allocated string here, and this is inefficient, although the inefficiency is perhaps insignificant.
+            // Short-circuiting the `lowercase()` can remove an allocation.
+            commentMarker == "//" && label.lowercased() == "swift-tools-version:"
+        }
+        
+        /// A Boolean value indicating whether the Swift tools version specification represented in its constituent parts is backward-compatible with Swift ≤ 5.3.
+        public var isCompatibleWithPreSwift5_3_1: Bool {
+            everythingUpToVersionSpecifierIsWellFormed && spacingAfterCommentMarker == "\u{20}"
+        }
     }
 
     public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
@@ -216,8 +297,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     // Maybe rename the function as `fileprivate func load(fileAt filePath: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion`?
     fileprivate func load(file: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // FIXME: We don't need the entire file, just the first line.
-        let contents: ByteString
-        do { contents = try fileSystem.readFileContents(file) } catch {
+        let manifestContents: ByteString
+        do { manifestContents = try fileSystem.readFileContents(file) } catch {
             throw Error.inaccessibleManifest(path: file, reason: String(describing: error))
         }
         
@@ -225,47 +306,69 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         // `contents`'s value comes from `FileSystem.readFileContents(_)`, which is [inefficient](https://github.com/apple/swift-tools-support-core/blob/8f9838e5d4fefa0e12267a1ff87d67c40c6d4214/Sources/TSCBasic/FileSystem.swift#L167). Calling `ByteString.validDescription` on `contents` is also [inefficient, and possibly incorrect](https://github.com/apple/swift-tools-support-core/blob/8f9838e5d4fefa0e12267a1ff87d67c40c6d4214/Sources/TSCBasic/ByteString.swift#L121). However, this is a one-time thing for each package manifest, and almost necessary in order to work with all Unicode line-terminators. We probably can improve its efficiency and correctness by using `URL` for the file's path, and get is content via `Foundation.String(contentsOf:encoding:)`. Swift System's [`FilePath`](https://github.com/apple/swift-system/blob/8ffa04c0a0592e6f4f9c30926dedd8fa1c5371f9/Sources/System/FilePath.swift) and friends might help as well.
         // FIXME: This is source-breaking.
         // A manifest that has an [invalid byte sequence](https://en.wikipedia.org/wiki/UTF-8#Invalid_sequences_and_error_handling) (such as `0x7F8F`) after the tools version specification line could work in Swift ≤ 5.3, but results in an error since Swift 5.3.1.
-        guard let contentsDecodedWithUTF8 = contents.validDescription else {
+        guard let manifestContentsDecodedWithUTF8 = manifestContents.validDescription else {
             throw Error.nonUTF8EncodedManifest(path: file)
         }
         
-        /// The constituent parts of the swift tools version specification found in the comment.
-        let manifestComponents = ToolsVersionLoader.split(contentsDecodedWithUTF8)
-        let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationCapturedComponents
+        /// The manifest represented in its constituent parts.
+        let manifestComponents = ToolsVersionLoader.split(manifestContentsDecodedWithUTF8)
+        /// The Swift tools version specification represented in its constituent parts.
+        let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationComponents
         
-        // Get the version specifier string from tools version file.
-        guard
-            let spacingAfterSlashes = toolsVersionSpecificationComponents.spacingAfterSlashes,
-            let versionSpecifier = toolsVersionSpecificationComponents.versionSpecifier
-        else {
-            // TODO: Make the diagnosis more granular by having the regex capture more groups.
-            // Try to diagnose if there is a misspelling of the swift-tools-version comment.
-            let toolsVersionSpecification = manifestComponents.toolsVersionSpecification
-            let misspellings = ["swift-tool", "tool-version"]
-            if misspellings.first(where: toolsVersionSpecification.lowercased().contains) != nil {
-                throw Error.malformedToolsVersionSpecification(.entireLine(toolsVersionSpecification))
-            }
-            // Otherwise assume the default to be v3.
-            return .v3
+        // FIXME: Check the version specifier first?
+        // The diagnosis of the Swift tools version specification's correctness goes in the following order:
+        // 1. Check that the comment marker, the label, and the version specifier are not missing (empty).
+        // 2. Check that the everything up to the version specifier is formatted correctly according to the relaxed rules since Swift 5.3.1. Backward-compatibility is not considered here, because the user-specified version is unknown yet.
+        // 3. Check that the version spicier is formatted correctly.
+        // 4. Check that the label is formatted backward-compatibly, now that the user-specified version is known.
+        
+        let commentMarker = toolsVersionSpecificationComponents.commentMarker
+        guard !commentMarker.isEmpty else {
+            throw Error.malformedToolsVersionSpecification(.missingCommentMarker)
         }
         
-        // Ensure we can construct the version from the specifier.
+        let label = toolsVersionSpecificationComponents.label
+        guard !label.isEmpty else {
+            throw Error.malformedToolsVersionSpecification(.missingLabel)
+        }
+        
+        let versionSpecifier = toolsVersionSpecificationComponents.versionSpecifier
+        guard !versionSpecifier.isEmpty else {
+            throw Error.malformedToolsVersionSpecification(.missingVersionSpecifier)
+        }
+        
+        guard toolsVersionSpecificationComponents.everythingUpToVersionSpecifierIsWellFormed else {
+            if commentMarker != "//" {
+                throw Error.malformedToolsVersionSpecification(.commentMarker(commentMarker))
+            }
+            
+            if label.lowercased() != "swift-tools-version:" {
+                throw Error.malformedToolsVersionSpecification(.label(label))
+            }
+            
+            // The above If-statements should have covered all possible malformations in Swift tools version specification up to the version specifier.
+            // If you changed the logic in this file, and this fatal error is triggered, then you need to re-check the logic, and make sure all possible error conditions are covered in the Else-block.
+            fatalError("unidentified malformation in the Swift tools version specification")
+        }
+        
         guard let version = ToolsVersion(string: String(versionSpecifier)) else {
             throw Error.malformedToolsVersionSpecification(.versionSpecifier(versionSpecifier))
         }
         
-        // The order of the following `guard` statements must be preserved.
-        // It translates to the precedence of the error to throw.
-        // If the order is changed, the test cases in `ToolsVersionLoaderTests.testBackwardCompatibilityError()` must also be changed accordingly.
-        
-        // Ensure that for Swift ≤ 5.3, only 0 or 1 U+000A and nothing else is before the tools version specification.
-        guard version > .v5_3 || manifestComponents.leadingLineTerminators.isEmpty || manifestComponents.leadingLineTerminators == "\n" else {
-            throw Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators(manifestComponents.leadingLineTerminators), specifiedVersion: version)
-        }
-        
-        // Ensure that for Swift ≤ 5.3, exactly a single U+0020 is used as spacing between "//" and "swift-tools-version".
-        guard version > .v5_3 || spacingAfterSlashes == " " else {
-            throw Error.backwardIncompatiblePre5_3_1(.spacingAfterSlashes(spacingAfterSlashes), specifiedVersion: version)
+        guard version > .v5_3 || manifestComponents.isCompatibleWithPreSwift5_3_1 else {
+            let manifestLeadingLineTerminators = manifestComponents.leadingLineTerminators
+            if !manifestLeadingLineTerminators.isEmpty && manifestLeadingLineTerminators != "\n" {
+                throw Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators(manifestLeadingLineTerminators), specifiedVersion: version)
+            }
+            
+            let spacingAfterCommentMarker = toolsVersionSpecificationComponents.spacingAfterCommentMarker
+            if spacingAfterCommentMarker != "\u{20}" {
+                throw Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker(spacingAfterCommentMarker), specifiedVersion: version)
+            }
+            
+            // The above If-statements should have covered all possible backward incompatibilities with Swift ≤ 5.3.
+            // If you changed the logic in this file, and this fatal error is triggered, then you need to re-check the logic, and make sure all possible error conditions are covered in the Else-block.
+            fatalError("unidentified backward-incompatibility with Swift ≤ 5.3 in the manifest")
         }
         
         return version
@@ -278,9 +381,13 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     ///
     /// - Warning: This function has been deprecated since Swift 5.3.1, please use `split(_ manifestContents: String) -> ManifestComponents` instead.
     ///
-    /// - Bug: This function treats only `U+000A` as a line terminator.
+    /// - Note: This function imposes the following limitations that are removed in its replacement:
+    ///   - Leading line terminators (other than at most 1 `U+000A`) are not accepted in the given manifest contents.
+    ///   - Only `U+000A` is recognised as a line terminator.
+    ///   - A Swift tools version specification must be prefixed with `// swift-tools-version:` verbatim, where the spacing between `//` and `swift-tools-version` is exactly 1 `U+0020`.
     ///
-    /// - Bug: If there is a single leading `U+000A` in the manifest file, this function treats the second line of the manifest as its first line.
+    /// - Bug: This function treats only `U+000A` as a line terminator.
+    /// - Bug: If there is a single leading `U+000A` in the manifest file, this function mistakes the second line of the manifest as its first line.
     ///
     /// - Parameter bytes: The raw bytes of the content of the manifest.
     /// - Returns: The version specifier (if present, or `nil`) and the raw bytes of the contents sans the first line of the manifest.
@@ -294,104 +401,141 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         guard let firstLine = ByteString(splitted[0]).validDescription,
               let match = ToolsVersionLoader.regex.firstMatch(
                   in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.count)),
-              // The 3 ranges are:
+              // The 2 ranges are:
               //   1. The entire matched string.
-              //   2. Capture group 1: the comment spacing.
-              //   3. Capture group 2: The version specifier.
-              // Since the version specifier is in the last range, if the number of ranges is less than 3, then no version specifier is captured by the regex.
-              // FIXME: Should this be `== 3` instead?
-              match.numberOfRanges >= 3 else {
+              //   2. Capture group 1: The version specifier.
+              // Since the version specifier is in the last range, if the number of ranges is less than 2, then no version specifier is captured by the regex.
+              // FIXME: Should this be `== 2` instead?
+              match.numberOfRanges >= 2 else {
             return (nil, bytes.contents)
         }
-        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 2))
+        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 1))
         // FIXME: We can probably optimize here and return array slice.
         return (versionSpecifier, splitted.count == 1 ? [] : Array(splitted[1]))
     }
     
     /// Splits the given manifest into its constituent components.
     ///
-    /// The components include the leading line terminators, the tools version specification, and the rest of the manifest. Spacing between "//" and "swift-tools-version" and the version specifier are included separately, if found in the tools version specification.
+    /// The manifest is split into the following parts:
     ///
-    /// - Parameter manifestContents: The UTF-8-encoded content of the manifest.
+    ///     ⎫
+    ///     ⎪
+    ///     ⎬ leading line terminators
+    ///     ⎪
+    ///     ⎭
+    ///     //  swift-tools-version:5.3; ignored segment  } the Swift tools version specification
+    ///     ^~^~^~~~~~~~~~~~~~~~~~~~^~~
+    ///     │ │ └ label             └ version specifier
+    ///     │ └ spacing
+    ///     └ comment marker
+    ///                                                   ⎫
+    ///                                                   ⎪
+    ///                                                   ⎬ the rest of the manifest's contents
+    ///                                                   ⎪
+    ///                                                   ⎭
+    ///
+    /// - Note: The splitting mostly assumes that the manifest is well-formed. A malformed component may lead to incorrect identification of other components.
+    ///
+    ///   For example, a malformed Swift tools version specification `"// swift-too1s-version:5.3"` misleads this function to identify `"swift-too"` as the label, and `"1s-version:5.3"` the version specifier.
+    ///
+    /// - Parameter manifest: The UTF-8-encoded content of the manifest.
     /// - Returns: The components of the given manifest.
-    public static func split(_ manifestContents: String) -> ManifestComponents {
+    public static func split(_ manifest: String) -> ManifestComponents {
         
-        // We split the string manually instead of using `split(maxSplits:omittingEmptySubsequences:whereSeparator:)`,
-        // because the latter method fails in the edge case where the manifest starts with a single line terminator.
+        // We split the string manually instead of using `split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter method fails in the edge case where the manifest starts with a single line terminator.
         
-        /// The position of the first character of the tools version specification line in the manifest.
+        /// The position of the first character of the Swift tools version specification line in the manifest.
         ///
-        /// Because the tools version specification is the first non-empty line in the manifest, the position of its first character is also the position of the first non-line-terminating character in the manifest.
-        let startIndexOfToolsVersionSpecification = manifestContents.firstIndex(where: { !$0.isNewline } ) ?? manifestContents.startIndex
+        /// Because the tools version specification is the first non-empty line in the manifest, the position of its first character is also the position of the first non-line-terminating character in the manifest. If there are only line terminators, then this position is the `endIndex` of the manifest.
+        let startIndexOfSpecification = manifest.firstIndex(where: { !$0.isNewline } ) ?? manifest.endIndex
         
         /// The line terminators at the start of the manifest.
         ///
         /// Because the tools version specification is the first non-empty line in the manifest, the manifest's leading line terminators are the only characters in front of the tools version specification.
-        let leadingLineTerminators = manifestContents[..<startIndexOfToolsVersionSpecification]
+        let leadingLineTerminators = manifest[..<startIndexOfSpecification]
         
-        /// The position right past the last character of the tools version specification line in the manifest.
+        /// The position right past the last character of the Swift tools version specification in the manifest.
         ///
-        /// Because the tools version specification is the first non-empty line in the manifest, the position right past its last character is the position of the first non-leading line terminator in the manifest. If no such line terminator exists, then the position is the `endIndex` of the manifest.
-        let endIndexOfToolsVersionSpecification = manifestContents[startIndexOfToolsVersionSpecification...].firstIndex(where: \.isNewline) ?? manifestContents.endIndex
+        /// Because the specification is ended by a line terminator, the position right past the specification's last character is the position of the terminator of the line. If no such line terminator exists, then this position is the `endIndex` of the manifest.
+        let endIndexOfSpecification = manifest[startIndexOfSpecification...].firstIndex(where: \.isNewline) ?? manifest.endIndex
         
         /// The Swift tools version specification.
         ///
         /// The specification is the first comment in the manifest that declares the version of the `PackageDescription` library, the minimum version of the Swift tools and Swift language compatibility version to process the manifest, and the minimum version of the Swift tools that are needed to use the Swift package.
-        let toolsVersionSpecification = manifestContents[startIndexOfToolsVersionSpecification..<endIndexOfToolsVersionSpecification]
+        let specification = manifest[startIndexOfSpecification..<endIndexOfSpecification]
+        
+        /// The position right past the last character of the Swift tools version specification's comment marker.
+        ///
+        /// This is the same as the position of the first character that is neither `"/"` nor `"*"` in the Swift tools version specification. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
+        let endIndexOfCommentMarker = specification.firstIndex(where: { $0 != "/" && $0 != "*" } ) ?? specification.endIndex
+        
+        /// The comment marker of the Swift tools version specification.
+        ///
+        /// Any continuous sequence of `"/"`s and `"*"`s is considered as a comment marker, regardless of its validity.
+        let commentMarker = specification[..<endIndexOfCommentMarker]
+        
+        /// The position right past the last character of the spacing that immediately follows the comment marker.
+        ///
+        /// Because the spacing consists of only horizontal whitespace characters, this position is the same as the first character that's not a horizontal whitespace after `commentMarker`. If no such character exists, then the position is the `endIndex` of the Swift tools version specification.
+        let endIndexOfSpacingAfterCommentMarker = specification[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace } ) ?? specification.endIndex
+        //                                                                                                         ☝️
+        // Technically, this is looking for the position of the first character that's not a whitespace, BOTH HORIZONTAL AND VERTICAL. However, since all vertical horizontal whitespace characters are also line terminators, and because the Swift tools version specification does not contain any line terminator, we can safely use `Character.isWhitespace` to check if a character is a horizontal whitespace.
+        
+        /// The spacing that immediately follows `commentMarker`.
+        ///
+        /// The spacing consists of only horizontal whitespace characters.
+        let spacingAfterCommentMarker = specification[endIndexOfCommentMarker..<endIndexOfSpacingAfterCommentMarker]
+        
+        // FIXME: Use `CharacterSet.decimalDigits` instead?
+        // `Character.isNumber` is true for more than just decimal characters (e.g. ㊅ and 𝟘), but `CharacterSet.contains(_:)` works only on Unicode scalars.
+        /// The position of the first character in the version specifier.
+        ///
+        /// Because a version specifier starts with a numeric character, and because only the version specifier is expected to have numeric characters, this position is the same as the position of the first numeric character in the Swift tools version specification. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
+        ///
+        /// - Note: For a malformed Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
+        let firstIndexOfVersionSpecifier = specification[endIndexOfSpacingAfterCommentMarker...].firstIndex(where: \.isNumber) ?? specification.endIndex
+        //                                              ☝️
+        // We know for sure that there is no numeric characters before `endIndexOfSpacingAfterCommentMarker`, so `specification[endIndexOfSpacingAfterCommentMarker...]` saves a bit of unnecessary searching.
+        
+        /// The label part of the Swift tools version specification.
+        /// - Note: For a malformed Swift tools version specification `"// swift-too1s-version:5.3"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label.
+        let label = specification[endIndexOfSpacingAfterCommentMarker..<firstIndexOfVersionSpecifier]
+        
+        /// The position of the version specifier's terminator.
+        ///
+        /// The terminator can be either a `";"` or a line terminator. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
+        let indexOfVersionSpecifierTerminator = specification[firstIndexOfVersionSpecifier...].firstIndex(where: { $0 == ";" } ) ?? specification.endIndex
+        //                                                                                                     ☝️
+        // Technically, this is looking for the position of the first ";", not the first line terminator. However, because the Swift tools version specification does not contain any line terminator, we can safely search just the first ";".
+        
+        // The version specifier and its terminator together are first found by locating the first numeric character in the specification, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the Swift tools version specification has no numeric characters, then the version specifier's terminator is empty too. Basically, if the version specifier is empty, then its terminator must be empty as well.
+        
+        /// The version specifier.
+        /// - Note: For a malformed Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
+        let versionSpecifier = specification[firstIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
         
         /// The position of the first character of the tools version specification line in the manifest.
         ///
         /// If no such character exists, then the position is the `endIndex` of the manifest.
-        let startIndexOfManifestContentsAfterToolsVersionSpecification = endIndexOfToolsVersionSpecification == manifestContents.endIndex ? manifestContents.endIndex : manifestContents.index(after: endIndexOfToolsVersionSpecification)
+        let startIndexOfManifestAfterSpecification = endIndexOfSpecification == manifest.endIndex ? manifest.endIndex : manifest.index(after: endIndexOfSpecification)
         
         /// The remaining contents of the manifest that follows right after the tools version specification line.
-        let manifestContentsAfterToolsVersionSpecification = manifestContents[startIndexOfManifestContentsAfterToolsVersionSpecification...]
-        
-        // `NSRegularExpression.firstMatch(in:options:range:)` accepts only a `String` instance as the first parameter.
-        /// The string of the Swift tools version specification.
-        let toolsVersionSpecificationString = String(toolsVersionSpecification)
-        
-        // Try to match our regex and see if the tools version specification is valid.
-        guard
-            let match = regex.firstMatch(in: toolsVersionSpecificationString, options: [], range: NSRange(toolsVersionSpecificationString.startIndex..<toolsVersionSpecificationString.endIndex, in: toolsVersionSpecificationString)),
-            // The 3 ranges are:
-            //   1. The entire matched string.
-            //   2. Capture group 1: the comment spacing.
-            //   3. Capture group 2: The version specifier.
-            // Since the version specifier is in the last range, if the number of ranges is less than 3, then no version specifier is captured by the regex.
-            // FIXME: Should this be `== 3` instead?
-            match.numberOfRanges >= 3
-        else {
-            return ManifestComponents(
-                leadingLineTerminators: leadingLineTerminators,
-                toolsVersionSpecification: toolsVersionSpecification,
-                contentsAfterToolsVersionSpecification: manifestContentsAfterToolsVersionSpecification,
-                toolsVersionSpecificationCapturedComponents: ToolsVersionSpecificationCapturedComponents(spacingAfterSlashes: nil, versionSpecifier: nil)
-            )
-        }
-        
-        // Try to match our regex and see if the tools version specification is valid.
-        guard let rangeOfSpacingAfterSlashes = Range(match.range(at: 1), in: toolsVersionSpecificationString),
-              let rangeOfVersionSpecifier = Range(match.range(at: 2), in: toolsVersionSpecificationString) else {
-            fatalError("failed to initialise instances of Range<String.Index> from valid regex match ranges")
-        }
-        
-        /// The horizontal spacing between "//" and  "swift-tools-version".
-        let spacingAfterSlashes = toolsVersionSpecificationString[rangeOfSpacingAfterSlashes]
-        /// The version number specifier.
-        let versionSpecifier = toolsVersionSpecificationString[rangeOfVersionSpecifier]
+        let manifestAfterSpecification = manifest[startIndexOfManifestAfterSpecification...]
         
         return ManifestComponents(
             leadingLineTerminators: leadingLineTerminators,
-            toolsVersionSpecification: toolsVersionSpecification,
-            contentsAfterToolsVersionSpecification: manifestContentsAfterToolsVersionSpecification,
-            toolsVersionSpecificationCapturedComponents: ToolsVersionSpecificationCapturedComponents(
-                spacingAfterSlashes: spacingAfterSlashes,
+            toolsVersionSpecificationComponents: ToolsVersionSpecificationComponents(
+                commentMarker: commentMarker,
+                spacingAfterCommentMarker: spacingAfterCommentMarker,
+                label: label,
                 versionSpecifier: versionSpecifier
-            )
+            ),
+            contentsAfterToolsVersionSpecification: manifestAfterSpecification
         )
     }
     
+    // This property is preserved only because of the old `split(_:)`.
+    // When the old `split(_:)` is removed, this should be removed too.
     /// The regex to match swift tools version specification.
     ///
     /// The specification must have the following format:
@@ -402,8 +546,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// There are 2 capture groups in the regex pattern:
     /// 1. The continuous sequence of whitespace characters between "//" and "swift-tools-version".
     /// 2. The version specifier.
+    @available(swift, deprecated: 5.3.1)
     static let regex = try! NSRegularExpression(
-        // The pattern is a raw string, so backslashes should not be escaped.
-        pattern: #"^//(\h*?)swift-tools-version:(.*?)(?:;.*|$)"#,
+        pattern: "^// swift-tools-version:(.*?)(?:;.*|$)",
         options: [.caseInsensitive])
 }
