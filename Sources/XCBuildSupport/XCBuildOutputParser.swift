@@ -62,25 +62,25 @@ public enum XCBuildMessage {
     }
 
     public struct TaskUpToDateInfo {
-        let targetID: Int
-        let targetSignature: String
+        let targetID: Int?
+        let taskSignature: String
         let parentTaskID: Int?
     }
 
     public struct TaskStartedInfo {
         let taskID: Int
-        let targetID: Int
-        let targetSignature: String
+        let targetID: Int?
+        let taskSignature: String
         let parentTaskID: Int?
         let ruleInfo: String
         let interestingPath: AbsolutePath?
-        let commandLineDisplayString: String
+        let commandLineDisplayString: String?
         let executionDescription: String
     }
 
     public struct TaskDiagnosticInfo {
         let taskID: Int
-        let targetID: Int
+        let targetID: Int?
         let message: String
     }
 
@@ -211,8 +211,8 @@ extension XCBuildMessage.DidUpdateProgressInfo: Decodable, Equatable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         message = try container.decode(String.self, forKey: .message)
-        percentComplete = try Double(container.decode(String.self, forKey: .percentComplete))!
-        showInLog = try Bool(container.decode(String.self, forKey: .showInLog))!
+        percentComplete = try container.decodeDoubleOrString(forKey: .percentComplete)
+        showInLog = try container.decodeBoolOrString(forKey: .showInLog)
     }
 }
 
@@ -227,7 +227,7 @@ extension XCBuildMessage.TargetStartedInfo: Decodable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        targetID = try Int(container.decode(String.self, forKey: .targetID))!
+        targetID = try container.decodeIntOrString(forKey: .targetID)
         targetGUID = try container.decode(PIF.GUID.self, forKey: .targetGUID)
         targetName = try container.decode(String.self, forKey: .targetName)
         type = try container.decode(Kind.self, forKey: .type)
@@ -241,23 +241,22 @@ extension XCBuildMessage.TargetCompleteInfo: Decodable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        targetID = try Int(container.decode(String.self, forKey: .targetID))!
+        targetID = try container.decodeIntOrString(forKey: .targetID)
     }
 }
 
 extension XCBuildMessage.TaskUpToDateInfo: Decodable, Equatable {
     enum CodingKeys: String, CodingKey {
         case targetID
-        case targetSignature = "signature"
+        case taskSignature = "signature"
         case parentTaskID = "parentID"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        targetID = try Int(container.decode(String.self, forKey: .targetID))!
-        targetSignature = try container.decode(String.self, forKey: .targetSignature)
-        let parentTaskIDString = try container.decode(String.self, forKey: .parentTaskID)
-        parentTaskID = !parentTaskIDString.isEmpty ? Int(parentTaskIDString)! : nil
+        targetID = try container.decodeIntOrStringIfPresent(forKey: .targetID)
+        taskSignature = try container.decode(String.self, forKey: .taskSignature)
+        parentTaskID = try container.decodeIntOrStringIfPresent(forKey: .parentTaskID)
     }
 }
 
@@ -265,7 +264,7 @@ extension XCBuildMessage.TaskStartedInfo: Decodable, Equatable {
     enum CodingKeys: String, CodingKey {
         case taskID = "id"
         case targetID
-        case targetSignature = "signature"
+        case taskSignature = "signature"
         case parentTaskID = "parentID"
         case ruleInfo
         case interestingPath
@@ -275,14 +274,12 @@ extension XCBuildMessage.TaskStartedInfo: Decodable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        taskID = try Int(container.decode(String.self, forKey: .taskID))!
-        targetID = try Int(container.decode(String.self, forKey: .targetID))!
-        targetSignature = try container.decode(String.self, forKey: .targetSignature)
-        let parentTaskIDString = try container.decode(String.self, forKey: .parentTaskID)
-        parentTaskID = !parentTaskIDString.isEmpty ? Int(parentTaskIDString)! : nil
+        taskID = try container.decodeIntOrString(forKey: .taskID)
+        targetID = try container.decodeIntOrStringIfPresent(forKey: .targetID)
+        taskSignature = try container.decode(String.self, forKey: .taskSignature)
+        parentTaskID = try container.decodeIntOrStringIfPresent(forKey: .parentTaskID)
         ruleInfo = try container.decode(String.self, forKey: .ruleInfo)
-        let interestingPathString = try container.decode(String.self, forKey: .interestingPath)
-        interestingPath = !interestingPathString.isEmpty ? AbsolutePath(interestingPathString) : nil
+        interestingPath = try container.decodeIfPresent(AbsolutePath.self, forKey: .interestingPath)
         commandLineDisplayString = try container.decode(String.self, forKey: .commandLineDisplayString)
         executionDescription = try container.decode(String.self, forKey: .executionDescription)
     }
@@ -296,7 +293,7 @@ extension XCBuildMessage.TaskOutputInfo: Decodable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        taskID = try Int(container.decode(String.self, forKey: .taskID))!
+        taskID = try container.decodeIntOrString(forKey: .taskID)
         data = try container.decode(String.self, forKey: .data)
     }
 }
@@ -311,7 +308,7 @@ extension XCBuildMessage.TaskCompleteInfo: Decodable, Equatable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        taskID = try Int(container.decode(String.self, forKey: .taskID))!
+        taskID = try container.decodeIntOrString(forKey: .taskID)
         result = try container.decode(Result.self, forKey: .result)
         signalled = try container.decode(Bool.self, forKey: .signalled)
     }
@@ -358,6 +355,58 @@ extension XCBuildMessage: Decodable, Equatable {
             self = try .targetDiagnostic(TargetDiagnosticInfo(from: decoder))
         default:
             throw DecodingError.dataCorruptedError(forKey: .kind, in: container, debugDescription: "invalid kind \(kind)")
+        }
+    }
+}
+
+fileprivate extension KeyedDecodingContainer {
+    func decodeBoolOrString(forKey key: Key) throws -> Bool {
+        do {
+            return try decode(Bool.self, forKey: key)
+        } catch {
+            let string = try decode(String.self, forKey: key)
+            guard let value = Bool(string) else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Could not parse '\(string)' as Bool for key \(key)")
+            }
+            return value
+        }
+    }
+
+    func decodeDoubleOrString(forKey key: Key) throws -> Double {
+        do {
+            return try decode(Double.self, forKey: key)
+        } catch {
+            let string = try decode(String.self, forKey: key)
+            guard let value = Double(string) else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Could not parse '\(string)' as Double for key \(key)")
+            }
+            return value
+        }
+    }
+
+    func decodeIntOrString(forKey key: Key) throws -> Int {
+        do {
+            return try decode(Int.self, forKey: key)
+        } catch {
+            let string = try decode(String.self, forKey: key)
+            guard let value = Int(string) else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Could not parse '\(string)' as Int for key \(key)")
+            }
+            return value
+        }
+    }
+
+    func decodeIntOrStringIfPresent(forKey key: Key) throws -> Int? {
+        do {
+            return try decodeIfPresent(Int.self, forKey: key)
+        } catch {
+            guard let string = try decodeIfPresent(String.self, forKey: key), !string.isEmpty else {
+                return nil
+            }
+            guard let value = Int(string) else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: self, debugDescription: "Could not parse '\(string)' as Int for key \(key)")
+            }
+            return value
         }
     }
 }
