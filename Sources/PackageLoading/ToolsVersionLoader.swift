@@ -135,11 +135,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             /// The version specifier is missing.
             case missingVersionSpecifier
             /// The comment marker is malformed.
-            case commentMarker(_ commentMarker: Substring)
+            case commentMarker(_ commentMarker: String)
             /// The label part of the Swift tools version specification is malformed.
-            case label(_ label: Substring)
+            case label(_ label: String)
             /// The version specifier is malformed.
-            case versionSpecifier(_ versionSpecifier: Substring)
+            case versionSpecifier(_ versionSpecifier: String)
         }
         
         /// Details of backward-incompatible contents with Swift tools version ≤ 5.3.
@@ -339,11 +339,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         
         guard toolsVersionSpecificationComponents.everythingUpToVersionSpecifierIsWellFormed else {
             if commentMarker != "//" {
-                throw Error.malformedToolsVersionSpecification(.commentMarker(commentMarker))
+                throw Error.malformedToolsVersionSpecification(.commentMarker(String(commentMarker)))
             }
             
             if label.lowercased() != "swift-tools-version:" {
-                throw Error.malformedToolsVersionSpecification(.label(label))
+                throw Error.malformedToolsVersionSpecification(.label(String(label)))
             }
             
             // The above If-statements should have covered all possible malformations in Swift tools version specification up to the version specifier.
@@ -352,7 +352,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         }
         
         guard let version = ToolsVersion(string: String(versionSpecifier)) else {
-            throw Error.malformedToolsVersionSpecification(.versionSpecifier(versionSpecifier))
+            throw Error.malformedToolsVersionSpecification(.versionSpecifier(String(versionSpecifier)))
         }
         
         guard version > .v5_3 || manifestComponents.isCompatibleWithPreSwift5_3_1 else {
