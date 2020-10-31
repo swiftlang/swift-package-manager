@@ -29,6 +29,29 @@ extension PackageSetsModel {
         public let versions: [Version]
 
         /// The latest published version of the package
+        ///
+        /// - Note:
+        ///     This would be the latest released version, unless no release versions are published
+        ///     in which case it will be the latest pre-release version.
+        ///
+        ///     E.g. given:
+        ///     3.0.0-beta.1
+        ///     2.1.1
+        ///     2.1.0
+        ///     2.0.0
+        ///     2.0.0-beta.2
+        ///     2.0.0-beta.1
+        ///     1.0.1
+        ///     1.0.0
+        ///
+        ///     Latest =  2.1.1
+        ///
+        ///     And given:
+        ///     1.0.0-beta.3
+        ///     1.0.0-beta.2
+        ///     1.0.0-beta.1
+        ///
+        ///     Latest = 1.0.0-beta.3
         public let latestVersion: Version?
 
         /// Number of watchers
