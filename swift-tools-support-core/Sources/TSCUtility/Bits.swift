@@ -84,6 +84,15 @@ struct Bits: RandomAccessCollection {
       return buffer.buffer.dropFirst(offset >> 3).prefix((newOffset - offset) >> 3)
     }
 
+    mutating func skip(bytes count: Int) throws {
+      precondition(count >= 0)
+      precondition(offset & 0b111 == 0)
+      let newOffset = offset &+ (count << 3)
+      precondition(newOffset >= offset)
+      if newOffset > buffer.count { throw Error.bufferOverflow }
+      offset = newOffset
+    }
+
     mutating func advance(toBitAlignment align: Int) throws {
       precondition(align > 0)
       precondition(offset &+ (align&-1) >= offset)

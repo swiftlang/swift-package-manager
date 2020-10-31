@@ -19,14 +19,14 @@ import FoundationNetworking
 
 class DownloaderTests: XCTestCase {
 
-    func testSuccess() {
+    func testSuccess() throws {
       // FIXME: Remove once https://github.com/apple/swift-corelibs-foundation/pull/2593 gets inside a toolchain.
       #if os(macOS)
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
 
-        mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let url = URL(string: "https://downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
 
@@ -78,7 +78,7 @@ class DownloaderTests: XCTestCase {
     @available(OSX 10.13, *)
     /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
     /// which is only available in macOS 10.13+ at this time.
-    func testAuthenticatedSuccess() {
+    func testAuthenticatedSuccess() throws {
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
             return XCTFail("Cannot load netrc content")
@@ -90,7 +90,7 @@ class DownloaderTests: XCTestCase {
         configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
 
-        mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
 
@@ -145,7 +145,7 @@ class DownloaderTests: XCTestCase {
     @available(OSX 10.13, *)
     /// Netrc feature depends upon `NSTextCheckingResult.range(withName name: String) -> NSRange`,
     /// which is only available in macOS 10.13+ at this time.
-    func testDefaultAuthenticationSuccess() {
+    func testDefaultAuthenticationSuccess() throws {
         let netrcContent = "default login default password default"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
             return XCTFail("Cannot load netrc content")
@@ -157,7 +157,7 @@ class DownloaderTests: XCTestCase {
         configuration.protocolClasses = [MockAuthenticatingURLProtocol.self]
         let downloader = FoundationDownloader(configuration: configuration)
 
-        mktmpdir { tmpdir in
+        try testWithTemporaryDirectory { tmpdir in
             let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
 

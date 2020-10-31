@@ -15,7 +15,7 @@ import TSCBasic
 class miscTests: XCTestCase {
 
     func testExecutableLookup() throws {
-        mktmpdir { path in
+        try testWithTemporaryDirectory { path in
             
             let pathEnv1 = path.appending(component: "pathEnv1")
             try localFileSystem.createDirectory(pathEnv1)

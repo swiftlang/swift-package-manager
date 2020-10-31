@@ -15,6 +15,7 @@ import Foundation
 public protocol PersistentCacheProtocol {
     func get(key: Data) throws -> Data?
     func put(key: Data, value: Data) throws
+    func delete(key: Data) throws
 }
 
 /// SQLite backed persistent cache.
@@ -40,7 +41,7 @@ public final class SQLiteBackedPersistentCache: PersistentCacheProtocol {
     }
 
     public convenience init(cacheFilePath: AbsolutePath) throws {
-        let db = try SQLite(dbPath: cacheFilePath)
+        let db = try SQLite(location: .path(cacheFilePath))
         try self.init(db: db)
     }
 
@@ -62,5 +63,15 @@ public final class SQLiteBackedPersistentCache: PersistentCacheProtocol {
         try writeStmt.bind(bindings)
         try writeStmt.step()
         try writeStmt.finalize()
+    }
+    
+    public func delete(key: Data) throws {
+        let deleteStmt = try self.db.prepare(query: "DELETE FROM TSCCACHE WHERE key == ?;")
+        let bindings: [SQLite.SQLiteValue] = [
+            .blob(key)
+        ]
+        try deleteStmt.bind(bindings)
+        try deleteStmt.step()
+        try deleteStmt.finalize()
     }
 }
