@@ -247,6 +247,10 @@ public struct BuildParameters: Encodable {
         case .library(.automatic):
             fatalError()
         case .test:
+            guard !triple.isWASI() else {
+                return RelativePath("\(product.name).wasm")
+            }
+
             let base = "\(product.name).xctest"
             if triple.isDarwin() {
                 return RelativePath("\(base)/Contents/MacOS/\(product.name)")

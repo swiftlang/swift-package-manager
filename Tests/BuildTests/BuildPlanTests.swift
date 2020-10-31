@@ -1630,7 +1630,8 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/app/main.swift",
             "/Pkg/Sources/lib/lib.c",
-            "/Pkg/Sources/lib/include/lib.h"
+            "/Pkg/Sources/lib/include/lib.h",
+            "/Pkg/Tests/test/TestCase.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
@@ -1643,15 +1644,18 @@ final class BuildPlanTests: XCTestCase {
                     url: "/Pkg",
                     packageKind: .root,
                     targets: [
-                    TargetDescription(name: "app", dependencies: ["lib"]),
-                    TargetDescription(name: "lib", dependencies: []),
-                ]),
+                        TargetDescription(name: "app", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "test", dependencies: ["lib"], type: .test)
+                    ]
+                ),
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
 
         var parameters = mockBuildParameters(destinationTriple: .wasi)
         parameters.shouldLinkStaticSwiftStdlib = true
+        parameters.enableTestDiscovery = true
         let result = BuildPlanResult(
             plan: try BuildPlan(
                 buildParameters: parameters,
@@ -1660,8 +1664,8 @@ final class BuildPlanTests: XCTestCase {
                 fileSystem: fs
             )
         )
-        result.checkProductsCount(1)
-        result.checkTargetsCount(2)
+        result.checkProductsCount(2)
+        result.checkTargetsCount(4)
 
         let lib = try result.target(for: "lib").clangTarget()
         let args = [
@@ -1685,8 +1689,9 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
+        let appBuildDescription = try result.buildProduct(for: "app")
         XCTAssertEqual(
-            try result.buildProduct(for: "app").linkArguments(),
+            appBuildDescription.linkArguments(),
             [
                 "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
                 "-o", "/path/to/build/debug/app.wasm",
@@ -1696,8 +1701,23 @@ final class BuildPlanTests: XCTestCase {
             ]
         )
 
-        let executablePathExtension = try result.buildProduct(for: "app").binary.extension
+        let executablePathExtension = appBuildDescription.binary.extension
         XCTAssertEqual(executablePathExtension, "wasm")
+
+        let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
+        XCTAssertEqual(
+            testBuildDescription.linkArguments(),
+            [
+                "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
+                "-o", "/path/to/build/debug/PkgPackageTests.wasm",
+                "-module-name", "PkgPackageTests", "-emit-executable",
+                "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
+                "-target", "wasm32-unknown-wasi"
+            ]
+        )
+
+        let testPathExtension = testBuildDescription.binary.extension
+        XCTAssertEqual(testPathExtension, "wasm")
     }
 
     func testIndexStore() throws {
