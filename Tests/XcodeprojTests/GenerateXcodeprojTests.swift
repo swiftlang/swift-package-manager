@@ -26,9 +26,9 @@ class GenerateXcodeprojTests: XCTestCase {
         XCTAssertEqual(xcodeprojPath, expectedPath)
     }
 
-    func testXcodebuildCanParseIt() throws {
+    func testXcodebuildCanParseIt() {
       #if os(macOS)
-      try testWithTemporaryDirectory { dstdir in
+        mktmpdir { dstdir in
             let packagePath = dstdir.appending(component: "foo")
             let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
             try makeDirectories(modulePath)
@@ -80,7 +80,7 @@ class GenerateXcodeprojTests: XCTestCase {
     }
 
     func testXcconfigOverrideValidatesPath() throws {
-        try testWithTemporaryDirectory { dstdir in
+        mktmpdir { dstdir in
             let packagePath = dstdir.appending(component: "Bar")
             let modulePath = packagePath.appending(components: "Sources", "Bar")
             try makeDirectories(modulePath)
@@ -115,7 +115,7 @@ class GenerateXcodeprojTests: XCTestCase {
     }
 
     func testGenerateXcodeprojWithInvalidModuleNames() throws {
-        try testWithTemporaryDirectory { dstdir in
+        mktmpdir { dstdir in
             let packagePath = dstdir.appending(component: "Bar")
             let modulePath = packagePath.appending(components: "Sources", "Modules")
             try makeDirectories(modulePath)
@@ -148,8 +148,9 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojWithoutGitRepo() throws {
-        try testWithTemporaryDirectory { dstdir in
+    func testGenerateXcodeprojWithoutGitRepo() {
+        mktmpdir { dstdir in
+
             let packagePath = dstdir.appending(component: "Foo")
             let modulePath = packagePath.appending(components: "Sources", "DummyModule")
             try makeDirectories(modulePath)
@@ -180,8 +181,8 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojWithDotFiles() throws {
-        try testWithTemporaryDirectory { dstdir in
+    func testGenerateXcodeprojWithDotFiles() {
+        mktmpdir { dstdir in
 
             let packagePath = dstdir.appending(component: "Foo")
             let modulePath = packagePath.appending(components: "Sources", "DummyModule")
@@ -215,8 +216,9 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojWithRootFiles() throws {
-        try testWithTemporaryDirectory { dstdir in
+    func testGenerateXcodeprojWithRootFiles() {
+        mktmpdir { dstdir in
+
             let packagePath = dstdir.appending(component: "Foo")
             let modulePath = packagePath.appending(components: "Sources", "DummyModule")
             try makeDirectories(modulePath)
@@ -252,10 +254,10 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojWithNonSourceFilesInSourceDirectories() throws {
-        try testWithTemporaryDirectory { tmpdir in
+    func testGenerateXcodeprojWithNonSourceFilesInSourceDirectories() {
+        mktmpdir { dstdir in
 
-            let packagePath = tmpdir.appending(component: "Foo")
+            let packagePath = dstdir.appending(component: "Foo")
             let modulePath = packagePath.appending(components: "Sources", "DummyModule")
             try makeDirectories(modulePath)
             try localFileSystem.writeFileContents(modulePath.appending(component: "dummy.swift"), bytes: "dummy_data")
@@ -280,7 +282,7 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: tmpdir, projectName: projectName)
+            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
             let project = try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
 
             let sources = project.mainGroup.subitems[1] as? Xcode.Group
@@ -291,8 +293,8 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojWithFilesIgnoredByGit() throws {
-        try testWithTemporaryDirectory { dstdir in
+    func testGenerateXcodeprojWithFilesIgnoredByGit() {
+        mktmpdir { dstdir in
 
             let packagePath = dstdir.appending(component: "Foo")
             let modulePath = packagePath.appending(components: "Sources", "DummyModule")
@@ -334,8 +336,8 @@ class GenerateXcodeprojTests: XCTestCase {
         }
     }
 
-    func testGenerateXcodeprojWarnsConditionalTargetDependencies() throws {
-        try testWithTemporaryDirectory { dstdir in
+    func testGenerateXcodeprojWarnsConditionalTargetDependencies() {
+        mktmpdir { dstdir in
             let fooPackagePath = dstdir.appending(component: "Foo")
             let fooTargetPath = fooPackagePath.appending(components: "Sources", "Foo")
             try makeDirectories(fooTargetPath)

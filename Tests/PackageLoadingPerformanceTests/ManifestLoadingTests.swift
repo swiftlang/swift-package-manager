@@ -17,22 +17,22 @@ import PackageLoading
 class ManifestLoadingPerfTests: XCTestCasePerf {
     let manifestLoader = ManifestLoader(manifestResources: Resources.default)
 
-    func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) throws {
-        try testWithTemporaryDirectory { tmpdir in
-            let manifestFile = tmpdir.appending(component: "Package.swift")
+    func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) {
+        mktmpdir { path in
+            let manifestFile = path.appending(component: "Package.swift")
             try localFileSystem.writeFileContents(manifestFile, bytes: bytes)
-            body(tmpdir)
+            body(path)
         }
     }
 
-    func testTrivialManifestLoading_X1() throws {
+    func testTrivialManifestLoading_X1() {
       #if os(macOS)
         let N = 1
         let trivialManifest = ByteString(encodingAsUTF8: ("""
             import PackageDescription
             let package = Package(name: "Trivial")
             """))
-        try write(trivialManifest) { path in
+        write(trivialManifest) { path in
             measure {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
@@ -47,7 +47,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
       #endif
     }
 
-    func testNonTrivialManifestLoading_X1() throws {
+    func testNonTrivialManifestLoading_X1() {
       #if os(macOS)
         let N = 1
         let manifest = ByteString(encodingAsUTF8: """
@@ -64,7 +64,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
             )
             """)
 
-        try write(manifest) { path in
+        write(manifest) { path in
             measure {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(

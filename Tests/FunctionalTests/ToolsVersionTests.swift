@@ -21,7 +21,7 @@ import Workspace
 class ToolsVersionTests: XCTestCase {
 
     func testToolsVersion() throws {
-        try testWithTemporaryDirectory{ path in
+        mktmpdir { path in
             let fs = localFileSystem
 
             // Create a repo for the dependency to test against.
