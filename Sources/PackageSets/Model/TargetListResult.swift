@@ -15,19 +15,18 @@ import TSCUtility
 
 extension PackageSetsModel {
     /// Target metadata
-    public struct Target {
-        /// Target name
-        public let name: String
-        
-        /// Target module name
-        public let moduleName: String?
+    public typealias TargetListResult = [TargetListItem]
 
-        /// Metadata of packages where the target is found
+    public struct TargetListItem {
+        /// Target
+        public let target: PackageSetsModel.PackageTarget
+
+        /// Packages where the target is found
         public let packages: [Package]
     }
 }
 
-extension PackageSetsModel.Target {
+extension PackageSetsModel.TargetListResult {
     /// Metadata of package that contains the target
     public struct Package {
         public typealias Version = PackageVersion
@@ -46,7 +45,7 @@ extension PackageSetsModel.Target {
     }
 }
 
-extension PackageSetsModel.Target {
+extension PackageSetsModel.TargetListResult {
     /// Represents a package version
     public struct PackageVersion {
         /// The version

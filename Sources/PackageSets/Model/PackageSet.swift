@@ -139,8 +139,8 @@ extension PackageSetsModel.PackageSet {
 extension PackageSetsModel.PackageSet {
     /// A representation of package version
     public struct PackageVersion {
-        public typealias Target = PackageTarget
-        public typealias Product = PackageProduct
+        public typealias Target = PackageSetsModel.PackageTarget
+        public typealias Product = PackageSetsModel.PackageProduct
 
         /// The version
         public let version: TSCUtility.Version
@@ -157,39 +157,15 @@ extension PackageSetsModel.PackageSet {
         public let products: [Product]
 
         /// The package version's Swift tools version
-        public let swiftToolsVersion: ToolsVersion
-        
-        /// The package version's supported platforms
-        public let supportedPlatforms: [PackageModel.Platform]?
+        public let toolsVersion: ToolsVersion
 
-        /// The package version's  Swift versions confirmed to work
-        public let confirmedSwiftVersions: [SwiftLanguageVersion]?
+        /// The package version's supported platforms verified to work
+        public let verifiedPlatforms: [PackageModel.Platform]?
+
+        /// The package version's Swift versions verified to work
+        public let verifiedSwiftVersions: [SwiftLanguageVersion]?
 
         /// The package version's license
         public let license: PackageSetsModel.License?
-    }
-}
-
-extension PackageSetsModel.PackageSet {
-    /// Represents a package target
-    public struct PackageTarget {
-        /// Target name
-        public let name: String
-        /// Target module name
-        public let moduleName: String?
-    }
-}
-
-extension PackageSetsModel.PackageSet {
-    /// Represents a package product
-    public struct PackageProduct {
-        /// Product name
-        let name: String
-
-        /// Product type
-        let type: ProductType
-
-        /// The product's targets
-        let targets: [Target]
     }
 }

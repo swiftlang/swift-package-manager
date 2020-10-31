@@ -117,7 +117,7 @@ public protocol PackageSetsProtocol {
     func getPackageMetadata(
         _ reference: PackageReference,
         profile: PackageSetsModel.Profile?,
-        callback: @escaping (Result<(PackageSetsModel.Package, [PackageSetsModel.PackageSetIdentifier]), Error>) -> Void
+        callback: @escaping (Result<PackageSetsModel.PackageMetadata, Error>) -> Void
     )
 
     // MARK: - Target (Module) APIs
@@ -135,7 +135,7 @@ public protocol PackageSetsProtocol {
     func listTargets(
         sets: Set<PackageSetsModel.PackageSetIdentifier>?,
         in profile: PackageSetsModel.Profile?,
-        callback: @escaping (Result<[PackageSetsModel.Target], Error>) -> Void
+        callback: @escaping (Result<PackageSetsModel.TargetListResult, Error>) -> Void
     )
 
     // MARK: - Search APIs
@@ -151,7 +151,7 @@ public protocol PackageSetsProtocol {
     ///   - profile: Optional. The `PackageSetProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke when result becomes available
     func findPackages(
-        _ query: PackageSetsModel.SearchQuery,
+        _ query: String,
         sets: Set<PackageSetsModel.PackageSetIdentifier>?,
         profile: PackageSetsModel.Profile?,
         callback: @escaping (Result<PackageSetsModel.PackageSearchResult, Error>) -> Void

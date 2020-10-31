@@ -65,6 +65,9 @@ extension PackageSetsModel {
 extension PackageSetsModel.Package {
     /// A representation of package version
     public struct Version {
+        public typealias Target = PackageSetsModel.PackageTarget
+        public typealias Product = PackageSetsModel.PackageProduct
+
         /// The version
         public let version: TSCUtility.Version
 
@@ -80,13 +83,13 @@ extension PackageSetsModel.Package {
         public let products: [Product]
 
         /// The package version's Swift tools version
-        public let swiftToolsVersion: ToolsVersion
-        
-        /// The package version's supported platforms
-        public let supportedPlatforms: [PackageModel.Platform]?
+        public let toolsVersion: ToolsVersion
 
-        /// The package version's supported Swift versions
-        public let confirmedSwiftVersions: [SwiftLanguageVersion]?
+        /// The package version's supported platforms verified to work
+        public let verifiedPlatforms: [PackageModel.Platform]?
+
+        /// The package version's Swift versions verified to work
+        public let verifiedSwiftVersions: [SwiftLanguageVersion]?
 
         /// The package version's CVEs
         public let cves: [PackageSetsModel.CVE]?
@@ -96,17 +99,20 @@ extension PackageSetsModel.Package {
     }
 }
 
-extension PackageSetsModel.Package {
+extension PackageSetsModel {
     /// A representation of package target
-    public struct Target {
+    public struct PackageTarget {
         /// The target name
         public let name: String
+
+        /// Target module name
+        public let moduleName: String?
     }
 }
 
-extension PackageSetsModel.Package {
+extension PackageSetsModel {
     /// A representation of package product
-    public struct Product {
+    public struct PackageProduct {
         /// The product name
         public let name: String
 
@@ -136,4 +142,8 @@ extension PackageSetsModel.Package {
             public let name: String
         }
     }
+}
+
+extension PackageSetsModel {
+    public typealias PackageMetadata = (package: PackageSetsModel.Package, sets: [PackageSetsModel.PackageSetIdentifier])
 }

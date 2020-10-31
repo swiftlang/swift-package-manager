@@ -236,9 +236,6 @@ let package = Package(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]),
         .testTarget(
-            name: "PackageSetsTests",
-            dependencies: ["PackageSets", "SPMTestSupport"]),
-        .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"]),
         .testTarget(

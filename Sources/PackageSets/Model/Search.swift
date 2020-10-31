@@ -9,14 +9,6 @@
  */
 
 extension PackageSetsModel {
-    /// Represents a search query
-    public enum SearchQuery {
-        /// String search
-        case string(String)
-
-        // Can support more advanced queries in the future
-    }
-
     /// A representation of package in search result
     public struct PackageSearchResult {
         /// Result items of the search
@@ -40,10 +32,5 @@ extension PackageSetsModel {
     }
 
     /// A representation of target in search result
-    public struct TargetSearchResult {
-        /// Result items of the search
-        public let items: [Item]
-
-        public typealias Item = Target
-    }
+    public typealias TargetSearchResult = TargetListResult
 }
