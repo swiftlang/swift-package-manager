@@ -61,9 +61,10 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
         stdoutStream <<< "Fetching \(repository)"
-        switch fetchDetails {
-        case .fromCache: stdoutStream <<< " from cache"
-        case .none: break
+        if let fetchDetails = fetchDetails {
+            if fetchDetails.fromCache {
+                stdoutStream <<< " from cache"
+            }
         }
         stdoutStream <<< "\n"
         stdoutStream.flush()
