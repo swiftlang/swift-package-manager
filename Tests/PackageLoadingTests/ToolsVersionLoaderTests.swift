@@ -68,15 +68,15 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
             // leading newline characters (U+000A) before the specification, and 1 space (U+0020) before, and no spacing after the label:
             "\n// swift-tools-version:3.1"                            : (3, 1, 0, "3.1.0"),
-            "\n\n// swift-tools-version:3.2-dev"                      : (3, 1, 0, "3.2.0"),
-            "\n\n\n// swift-tools-version:3.8.0"                      : (5, 8, 0, "3.8.0"),
-            "\n\n\n\n// swift-tools-version:4.8.0-dev.al+sha.x"       : (5, 8, 0, "4.8.0"),
+            "\n\n// swift-tools-version:3.2-dev"                      : (3, 2, 0, "3.2.0"),
+            "\n\n\n// swift-tools-version:3.8.0"                      : (3, 8, 0, "3.8.0"),
+            "\n\n\n\n// swift-tools-version:4.8.0-dev.al+sha.x"       : (4, 8, 0, "4.8.0"),
             "\n\n\n\n\n// swift-tools-version:3.1.2"                  : (3, 1, 2, "3.1.2"),
-            "\n\n\n\n\n\n// swift-tools-version:4.1.2;"               : (3, 1, 2, "4.1.2"),
-            "\n\n\n\n\n\n\n// swift-tools-vErsion:5.1.2;;;;;"         : (3, 1, 2, "5.1.2"),
-            "\n\n\n\n\n\n\n\n// swift-tools-version:6.1.2;x;x;x;x;x;" : (3, 1, 2, "6.1.2"),
+            "\n\n\n\n\n\n// swift-tools-version:4.1.2;"               : (4, 1, 2, "4.1.2"),
+            "\n\n\n\n\n\n\n// swift-tools-vErsion:5.1.2;;;;;"         : (5, 1, 2, "5.1.2"),
+            "\n\n\n\n\n\n\n\n// swift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
             "\n\n\n\n\n\n\n\n\n// swift-toolS-version:3.5.2;hello"    : (3, 5, 2, "3.5.2"),
-            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:4.5.2\nkkk\n" : (3, 5, 2, "4.5.2"),
+            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:4.5.2\nkkk\n" : (4, 5, 2, "4.5.2"),
             // An assortment of horizontal whitespace characters surrounding the label for Swift > 5.3:
             "//swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}5.4"                : (5, 4, 0, "5.4.0"),
             "//\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}5.4-dev"            : (5, 4, 0, "5.4.0"),
@@ -106,10 +106,10 @@ class ToolsVersionLoaderTests: XCTestCase {
             "\u{D}//\u{A0}\u{1680}\t\u{2005} \u{202F}\u{3000}swift-tools-version:\u{2001}5.8.0-dev.al+sha.x"          : (5, 8, 0, "5.8.0"),
             "\u{D}\u{A}//\u{A0}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:\u{1680}\t\u{2000}6.1.2"          : (6, 1, 2, "6.1.2"),
             "\u{85}//\u{2000}\u{2001} \u{2006}\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}//\u{2001} \u{2002}\u{2027}\u{3000}swift-tools-vErsion:\u{A0}\u{1680}\t\u{2000}6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
+            "\u{2028}//\u{2001} \u{2002}\u{2007}\u{3000}swift-tools-vErsion:\u{A0}\u{1680}\t\u{2000}6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
             "\u{2029}//\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{A}\u{2028}\u{2000}\u{2001}\u{9}swift-toolS-version:\u{A0}\u{1680}\t\u{2000}\u{2009} \u{2002}\u{202F}5.5.2;hello" : (5, 5, 2, "5.5.2"),
-            "\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2029}\u{2001}\u{2002}\u{202F}sWiFt-tOoLs-vErSiOn:\u{1680}\t\u{2000}\u{200A} \u{2002}\u{202F}5.5.2\nkkk\n"   : (5, 5, 2, "5.5.2"),
+            "\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{A}\u{2028}//\u{2000}\u{2001}\u{9}swift-toolS-version:\u{A0}\u{1680}\t\u{2000}\u{2009} \u{2002}\u{202F}5.5.2;hello" : (5, 5, 2, "5.5.2"),
+            "\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2029}//\u{2001}\u{2002}\u{202F}sWiFt-tOoLs-vErSiOn:\u{1680}\t\u{2000}\u{200A} \u{2002}\u{202F}5.5.2\nkkk\n"   : (5, 5, 2, "5.5.2"),
         ]
 
         for (version, result) in validVersions {
@@ -439,7 +439,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading whitespace sequence [U+000D, U+000A] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+0020] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -473,7 +473,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading whitespace sequence [U+000A, U+00A0, U+000B, U+1680, U+000C, U+2000, U+000D, U+000D, U+000A, U+0085, U+2001, U+2028, U+2002, U+202F, U+2029, U+3000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000A, U+00A0, U+000B, U+1680, U+000C, U+0009, U+2000, U+000D, U+000D, U+000A, U+0085, U+2001, U+2028, U+2002, U+202F, U+2029, U+3000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -543,7 +543,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "zero spacing between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(toolsVersionString)"
+                    "zero spacing between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider replacing the sequence with a single space (U+0020) for Swift \(toolsVersionString)"
                 )
             }
         }
@@ -577,7 +577,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "horizontal whitespace sequence [U+0009, U+0020, U+00A0, U+1680, U+2000, U+2001, U+2002, U+2003, U+2004, U+2005, U+2006, U+2007, U+2008, U+2009, U+200A, U+202F, U+205F, U+3000] between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(toolsVersionString)"
+                    "horizontal whitespace sequence [U+0009, U+0020, U+00A0, U+1680, U+2000, U+2001, U+2002, U+2003, U+2004, U+2005, U+2006, U+2007, U+2008, U+2009, U+200A, U+202F, U+205F, U+3000] between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider replacing the sequence with a single space (U+0020) for Swift \(toolsVersionString)"
                 )
             }
         }
