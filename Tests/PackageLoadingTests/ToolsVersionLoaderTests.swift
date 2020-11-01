@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -33,7 +33,7 @@ class ToolsVersionLoaderTests: XCTestCase {
     func testValidVersions() throws {
 
         let validVersions = [
-            // No spacing between "//" and "swift-tools-version" for Swift > 5.3:
+            // No spacing surrounding the label for Swift > 5.3:
             "//swift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
             "//swift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
             "//swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
@@ -44,7 +44,18 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//swift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
             "//swift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
             "//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
-            // 1 space (U+0020) between "//" and "swift-tools-version":
+            // No spacing before, and 1 space (U+0020) after the label for Swift > 5.3:
+            "//swift-tools-version: 5.4"                : (5, 4, 0, "5.4.0"),
+            "//swift-tools-version: 5.4-dev"            : (5, 4, 0, "5.4.0"),
+            "//swift-tools-version: 5.8.0"              : (5, 8, 0, "5.8.0"),
+            "//swift-tools-version: 5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "//swift-tools-version: 6.1.2"              : (6, 1, 2, "6.1.2"),
+            "//swift-tools-version: 6.1.2;"             : (6, 1, 2, "6.1.2"),
+            "//swift-tools-vErsion: 6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
+            "//swift-tools-version: 6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
+            "//swift-toolS-version: 5.5.2;hello"        : (5, 5, 2, "5.5.2"),
+            "//sWiFt-tOoLs-vErSiOn: 5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
+            // 1 space (U+0020) before, and no spacing after the label:
             "// swift-tools-version:3.1"                : (3, 1, 0, "3.1.0"),
             "// swift-tools-version:3.1-dev"            : (3, 1, 0, "3.1.0"),
             "// swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
@@ -55,105 +66,50 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
             "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
-            // leading newline characters (U+000A), and 1 space (U+0020) between "//" and "swift-tools-version":
+            // leading newline characters (U+000A) before the specification, and 1 space (U+0020) before, and no spacing after the label:
             "\n// swift-tools-version:3.1"                            : (3, 1, 0, "3.1.0"),
-            "\n\n// swift-tools-version:3.1-dev"                      : (3, 1, 0, "3.1.0"),
-            "\n\n\n// swift-tools-version:5.8.0"                      : (5, 8, 0, "5.8.0"),
-            "\n\n\n\n// swift-tools-version:5.8.0-dev.al+sha.x"       : (5, 8, 0, "5.8.0"),
+            "\n\n// swift-tools-version:3.2-dev"                      : (3, 1, 0, "3.2.0"),
+            "\n\n\n// swift-tools-version:3.8.0"                      : (5, 8, 0, "3.8.0"),
+            "\n\n\n\n// swift-tools-version:4.8.0-dev.al+sha.x"       : (5, 8, 0, "4.8.0"),
             "\n\n\n\n\n// swift-tools-version:3.1.2"                  : (3, 1, 2, "3.1.2"),
-            "\n\n\n\n\n\n// swift-tools-version:3.1.2;"               : (3, 1, 2, "3.1.2"),
-            "\n\n\n\n\n\n\n// swift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
-            "\n\n\n\n\n\n\n\n// swift-tools-version:3.1.2;x;x;x;x;x;" : (3, 1, 2, "3.1.2"),
+            "\n\n\n\n\n\n// swift-tools-version:4.1.2;"               : (3, 1, 2, "4.1.2"),
+            "\n\n\n\n\n\n\n// swift-tools-vErsion:5.1.2;;;;;"         : (3, 1, 2, "5.1.2"),
+            "\n\n\n\n\n\n\n\n// swift-tools-version:6.1.2;x;x;x;x;x;" : (3, 1, 2, "6.1.2"),
             "\n\n\n\n\n\n\n\n\n// swift-toolS-version:3.5.2;hello"    : (3, 5, 2, "3.5.2"),
-            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n" : (3, 5, 2, "3.5.2"),
-            // 1 character tabulation (U+0009) between "//" and "swift-tools-version" for Swift > 5.3:
-            "//\tswift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
-            "//\tswift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
-            "//\tswift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
-            "//\tswift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "//\tswift-tools-version:6.1.2"              : (6, 1, 2, "6.1.2"),
-            "//\tswift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "//\tswift-tools-vErsion:6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
-            "//\tswift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
-            "//\tswift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
-            "//\tsWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
-            // 1 character tabulation (U+0009) followed by 1 space (U+0020) between "//" and "swift-tools-version" for Swift > 5.3:
-            "// \tswift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
-            "// \tswift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
-            "// \tswift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
-            "// \tswift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "// \tswift-tools-version:6.1.2"              : (6, 1, 2, "6.1.2"),
-            "// \tswift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "// \tswift-tools-vErsion:6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
-            "// \tswift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
-            "// \tswift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
-            "// \tsWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
-            // An assortment of horizontal whitespace characters between "//" and "swift-tools-version" for Swift > 5.3:
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0"              : (5, 8, 0, "5.8.0"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:6.1.2"              : (6, 1, 2, "6.1.2"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-vErsion:6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-toolS-version:5.5.2;hello"        : (5, 5, 2, "5.5.2"),
-            "//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
-            // Some leading line terminators, and no spacing between "//" and "swift-tools-version" for Swift > 5.3:
-            "\u{A}//swift-tools-version:5.4"                 : (5, 4, 0, "5.4.0"),
-            "\u{B}//swift-tools-version:5.4-dev"             : (5, 4, 0, "5.4.0"),
-            "\u{C}//swift-tools-version:5.8.0"               : (5, 8, 0, "5.8.0"),
-            "\u{D}//swift-tools-version:5.8.0-dev.al+sha.x"  : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}//swift-tools-version:6.1.2"          : (6, 1, 2, "6.1.2"),
-            "\u{85}//swift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}//swift-tools-vErsion:6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
-            "\u{2029}//swift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-toolS-version:5.5.2;hello"  : (5, 5, 2, "5.5.2"),
-            "\u{A}\u{A}\u{B}\u{B}\u{C}\u{C}\u{D}\u{D}\u{D}\u{A}\u{D}\u{A}\u{85}\u{85}\u{2028}\u{2028}\u{2029}\u{2029}//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n" : (5, 5, 2, "5.5.2"),
-            // Some leading line terminators, and 1 space (U+0020) between "//" and "swift-tools-version" for Swift > 5.3:
-            "\u{A}// swift-tools-version:5.4"                 : (5, 4, 0, "5.4.0"),
-            "\u{B}// swift-tools-version:5.4-dev"             : (5, 4, 0, "5.4.0"),
-            "\u{C}// swift-tools-version:5.8.0"               : (5, 8, 0, "5.8.0"),
-            "\u{D}// swift-tools-version:5.8.0-dev.al+sha.x"  : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}// swift-tools-version:6.1.2"          : (6, 1, 2, "6.1.2"),
-            "\u{85}// swift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}// swift-tools-vErsion:6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
-            "\u{2029}// swift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}// swift-toolS-version:5.5.2;hello"  : (5, 5, 2, "5.5.2"),
-            "\u{A}\u{A}\u{B}\u{B}\u{C}\u{C}\u{D}\u{D}\u{D}\u{A}\u{D}\u{A}\u{85}\u{85}\u{2028}\u{2028}\u{2029}\u{2029}// sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n" : (5, 5, 2, "5.5.2"),
-            // Some leading line terminators, and 1 character tabulation (U+0009) between "//" and "swift-tools-version" for Swift > 5.3:
-            "\u{A}//\tswift-tools-version:5.4"                 : (5, 4, 0, "5.4.0"),
-            "\u{B}//\tswift-tools-version:5.4-dev"             : (5, 4, 0, "5.4.0"),
-            "\u{C}//\tswift-tools-version:5.8.0"               : (5, 8, 0, "5.8.0"),
-            "\u{D}//\tswift-tools-version:5.8.0-dev.al+sha.x"  : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}//\tswift-tools-version:6.1.2"          : (6, 1, 2, "6.1.2"),
-            "\u{85}//\tswift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}//\tswift-tools-vErsion:6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
-            "\u{2029}//\tswift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\tswift-toolS-version:5.5.2;hello"  : (5, 5, 2, "5.5.2"),
-            "\u{A}\u{A}\u{B}\u{B}\u{C}\u{C}\u{D}\u{D}\u{D}\u{A}\u{D}\u{A}\u{85}\u{85}\u{2028}\u{2028}\u{2029}\u{2029}//\tsWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n" : (5, 5, 2, "5.5.2"),
-            // Some leading line terminators, and 1 character tabulation (U+0009) followed by 1 space (U+0020) between "//" and "swift-tools-version" for Swift > 5.3:
-            "\u{A}// \tswift-tools-version:5.4"                 : (5, 4, 0, "5.4.0"),
-            "\u{B}// \tswift-tools-version:5.4-dev"             : (5, 4, 0, "5.4.0"),
-            "\u{C}// \tswift-tools-version:5.8.0"               : (5, 8, 0, "5.8.0"),
-            "\u{D}// \tswift-tools-version:5.8.0-dev.al+sha.x"  : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}// \tswift-tools-version:6.1.2"          : (6, 1, 2, "6.1.2"),
-            "\u{85}// \tswift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}// \tswift-tools-vErsion:6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
-            "\u{2029}// \tswift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}// \tswift-toolS-version:5.5.2;hello"  : (5, 5, 2, "5.5.2"),
-            "\u{A}\u{A}\u{B}\u{B}\u{C}\u{C}\u{D}\u{D}\u{D}\u{A}\u{D}\u{A}\u{85}\u{85}\u{2028}\u{2028}\u{2029}\u{2029}// \tsWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n" : (5, 5, 2, "5.5.2"),
-            // Some leading line terminators, and an assortment of horizontal whitespace characters between "//" and "swift-tools-version" for Swift > 5.3:
-            "\u{A}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.4"                 : (5, 4, 0, "5.4.0"),
-            "\u{B}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.4-dev"             : (5, 4, 0, "5.4.0"),
-            "\u{C}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0"               : (5, 8, 0, "5.8.0"),
-            "\u{D}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:5.8.0-dev.al+sha.x"  : (5, 8, 0, "5.8.0"),
-            "\u{D}\u{A}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:6.1.2"          : (6, 1, 2, "6.1.2"),
-            "\u{85}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:6.1.2;"             : (6, 1, 2, "6.1.2"),
-            "\u{2028}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-vErsion:6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
-            "\u{2029}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}swift-toolS-version:5.5.2;hello"  : (5, 5, 2, "5.5.2"),
-            "\u{A}\u{A}\u{B}\u{B}\u{C}\u{C}\u{D}\u{D}\u{D}\u{A}\u{D}\u{A}\u{85}\u{85}\u{2028}\u{2028}\u{2029}\u{2029}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}\u{202F}\u{3000}sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n" : (5, 5, 2, "5.5.2"),
+            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:4.5.2\nkkk\n" : (3, 5, 2, "4.5.2"),
+            // An assortment of horizontal whitespace characters surrounding the label for Swift > 5.3:
+            "//swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}5.4"                : (5, 4, 0, "5.4.0"),
+            "//\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}5.4-dev"            : (5, 4, 0, "5.4.0"),
+            "//\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}5.8.0"              : (5, 8, 0, "5.8.0"),
+            "//\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}\u{A0}5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "//\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}\u{3000}6.1.2"              : (6, 1, 2, "6.1.2"),
+            "//\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:\u{2002}\u{202F}6.1.2;"             : (6, 1, 2, "6.1.2"),
+            "//\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-vErsion:\u{2002}6.1.2;;;;;"         : (6, 1, 2, "6.1.2"),
+            "//\u{2002}\u{202F}\u{3000}\u{A0}\u{1680}\t\u{2000}\u{2001}swift-tools-version:6.1.2;x;x;x;x;x;"   : (6, 1, 2, "6.1.2"),
+            "//\u{2000}\u{2002}\u{202F}\u{3000}\t\u{2001}swift-toolS-version:\u{A0}\u{1680}5.5.2;hello"        : (5, 5, 2, "5.5.2"),
+            "//\u{2000}\u{2001}\u{2002}\u{202F}\u{3000}\tsWiFt-tOoLs-vErSiOn:\u{A0}\u{1680}5.5.2\nkkk\n"       : (5, 5, 2, "5.5.2"),
+            // Some leading whitespace characters, and no spacing surrounding the label for Swift > 5.3:
+            "\u{A} //swift-tools-version:5.4"                               : (5, 4, 0, "5.4.0"),
+            "\u{B}\t\u{A}//swift-tools-version:5.4-dev"                     : (5, 4, 0, "5.4.0"),
+            "\u{3000}\u{A0}\u{C}//swift-tools-version:5.8.0"                : (5, 8, 0, "5.8.0"),
+            "\u{2002}\u{D}\u{2001}//swift-tools-version:5.8.0-dev.al+sha.x" : (5, 8, 0, "5.8.0"),
+            "\u{D}\u{A}\u{A0}\u{1680}//swift-tools-version:6.1.2"           : (6, 1, 2, "6.1.2"),
+            "   \u{85}//swift-tools-version:6.1.2;"                         : (6, 1, 2, "6.1.2"),
+            "\u{2028}//swift-tools-vErsion:6.1.2;;;;;"                      : (6, 1, 2, "6.1.2"),
+            "\u{202F}\u{2029}//swift-tools-version:6.1.2;x;x;x;x;x;"        : (6, 1, 2, "6.1.2"),
+            "\u{A}\u{B}\u{C}\u{D}\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{2001}\u{2002}\u{205F}\u{85}\u{2028}//swift-toolS-version:5.5.2;hello" : (5, 5, 2, "5.5.2"),
+            "\u{B}  \u{200A}\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2009}\u{2001}\u{C}//sWiFt-tOoLs-vErSiOn:5.5.2\nkkk\n"                 : (5, 5, 2, "5.5.2"),
+            // Some leading whitespace characters, and an assortment of horizontal whitespace characters surrounding the label for Swift > 5.3:
+            "\u{2002}\u{202F}\u{A}//\u{A0}\u{1680}\t\u{2004}\u{2001} \u{2002}swift-tools-version:\u{3000}5.4"         : (5, 4, 0, "5.4.0"),
+            "\u{B}//\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}swift-tools-version:\u{202F}\u{3000}5.4-dev"             : (5, 4, 0, "5.4.0"),
+            "\u{C}//\u{A0}\u{1680}\t\u{2000}\u{2001} swift-tools-version:\u{2002}\u{202F}\u{3000}5.8.0"               : (5, 8, 0, "5.8.0"),
+            "\u{D}//\u{A0}\u{1680}\t\u{2005} \u{202F}\u{3000}swift-tools-version:\u{2001}5.8.0-dev.al+sha.x"          : (5, 8, 0, "5.8.0"),
+            "\u{D}\u{A}//\u{A0}\u{2001} \u{2002}\u{202F}\u{3000}swift-tools-version:\u{1680}\t\u{2000}6.1.2"          : (6, 1, 2, "6.1.2"),
+            "\u{85}//\u{2000}\u{2001} \u{2006}\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t6.1.2;"             : (6, 1, 2, "6.1.2"),
+            "\u{2028}//\u{2001} \u{2002}\u{2027}\u{3000}swift-tools-vErsion:\u{A0}\u{1680}\t\u{2000}6.1.2;;;;;"       : (6, 1, 2, "6.1.2"),
+            "\u{2029}//\u{202F}\u{3000}swift-tools-version:\u{A0}\u{1680}\t\u{2000}\u{2001} \u{2002}6.1.2;x;x;x;x;x;" : (6, 1, 2, "6.1.2"),
+            "\u{A}\u{D}\u{85}\u{202F}\u{2029}\u{A}\u{2028}\u{2000}\u{2001}\u{9}swift-toolS-version:\u{A0}\u{1680}\t\u{2000}\u{2009} \u{2002}\u{202F}5.5.2;hello" : (5, 5, 2, "5.5.2"),
+            "\u{D}\u{A}\t\u{85}\u{85}\u{A}\u{2028}\u{2029}\u{2001}\u{2002}\u{202F}sWiFt-tOoLs-vErSiOn:\u{1680}\t\u{2000}\u{200A} \u{2002}\u{202F}5.5.2\nkkk\n"   : (5, 5, 2, "5.5.2"),
         ]
 
         for (version, result) in validVersions {
@@ -414,9 +370,11 @@ class ToolsVersionLoaderTests: XCTestCase {
     func testBackwardIncompatibilityPre5_3_1() throws {
         
         // The order of tests in this function:
-        // 1. Test leading line terminators that are invalid for Swift ≤ 5.3.
-        // 2. Test that backward-incompatible leading line terminators are diagnosed before backward-incompatible spacings after the comment marker.
-        // 3. Test spacings after the comment marker.
+        // 1. Test backward-incompatible leading whitespace for Swift ≤ 5.3.
+        // 2. Test that backward-incompatible leading whitespace is diagnosed before backward-incompatible spacings.
+        // 3. Test spacings before the label.
+        // 4. Test that backward-incompatible spacings before the label are diagnosed before those after the label.
+        // 5. Test spacings after the label.
         
         // MARK: 1 leading u+000D
         
@@ -439,124 +397,124 @@ class ToolsVersionLoaderTests: XCTestCase {
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingCarriageReturn {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+000D, and the specified version \(toolsVersionString) (≤ 5.3) supports only 0 or 1 leading U+000A."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+000D, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingLineTerminators, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators, _)' should've been thrown, but a different error is thrown.")
+                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000D] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000D] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
         
-        // MARK: 1 leading U+000D followed by 1 U+000A
+        // MARK: 1 U+0020
         
-        let manifestSnippetWith1LeadingCarriageReturnFollowedBy1LineFeed = [
-            "\u{D}\u{A}//swift-tools-version:3.1"                : "3.1.0",
-            "\u{D}\u{A}//swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{D}\u{A}//swift-tools-version:5.3"                : "5.3.0",
-            "\u{D}\u{A}//swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{D}\u{A}//swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{D}\u{A}//swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{D}\u{A}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{D}\u{A}//swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{D}\u{A}//swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{D}\u{A}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{D}\u{A}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{D}\u{A}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{D}\u{A}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+        let manifestSnippetWith1LeadingSpace = [
+            "\u{20}//swift-tools-version:3.1"                : "3.1.0",
+            "\u{20}//swift-tools-version:3.1-dev"            : "3.1.0",
+            "\u{20}//swift-tools-version:5.3"                : "5.3.0",
+            "\u{20}//swift-tools-version:5.3.0"              : "5.3.0",
+            "\u{20}//swift-tools-version:5.3-dev"            : "5.3.0",
+            "\u{20}//swift-tools-version:4.8.0"              : "4.8.0",
+            "\u{20}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
+            "\u{20}//swift-tools-version:3.1.2"              : "3.1.2",
+            "\u{20}//swift-tools-version:3.1.2;"             : "3.1.2",
+            "\u{20}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
+            "\u{20}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
+            "\u{20}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
+            "\u{20}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
         
-        for (specification, toolsVersionString) in manifestSnippetWith1LeadingCarriageReturnFollowedBy1LineFeed {
+        for (specification, toolsVersionString) in manifestSnippetWith1LeadingSpace {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+000D followed by a U+000A, and the specified version \(toolsVersionString) (≤ 5.3) supports only 0 or 1 leading U+000A."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+0020, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingLineTerminators, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators, _)' should've been thrown, but a different error is thrown.")
+                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000D, U+000A] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000D, U+000A] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
         
-        // MARK: An assortment of leading line terminators
+        // MARK: An assortment of leading whitespace characters
         
-        let manifestSnippetWithAnAssortmentOfLeadingLineTerminators = [
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:3.1"                : "3.1.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:5.3"                : "5.3.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+        let manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters = [
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1"                : "3.1.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1-dev"            : "3.1.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3"                : "5.3.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3.0"              : "5.3.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:5.3-dev"            : "5.3.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:4.8.0"              : "4.8.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2"              : "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2;"             : "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
+            "\u{A}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}\u{D}\u{D}\u{A}\u{85}\u{2001}\u{2028}\u{2002}\u{202F}\u{2029}\u{3000}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
         
-        for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingLineTerminators {
+        for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of line terminators, and the specified version \(toolsVersionString) (≤ 5.3) supports only 0 or 1 leading U+000A."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingLineTerminators, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators, _)' should've been thrown, but a different error is thrown.")
+                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000A, U+000B, U+000C, U+000D, U+000D, U+000A, U+0085, U+2028, U+2029] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000A, U+00A0, U+000B, U+1680, U+000C, U+2000, U+000D, U+000D, U+000A, U+0085, U+2001, U+2028, U+2002, U+202F, U+2029, U+3000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
         
-        // MARK: An assortment of leading line terminators and an assortment of horizontal whitespace characters between "//" and "swift-tools-version"
+        // MARK: An assortment of leading whitespace characters and an assortment of horizontal whitespace characters surrounding the label
         
-        let manifestSnippetWithAnAssortmentOfLeadingLineTerminatorsAndAnAssortmentOfWhitespacesAfterSpecifcationCommentMarker = [
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1"                : "3.1.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3"                : "5.3.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{A}\u{B}\u{C}\u{D}\u{D}\u{A}\u{85}\u{2028}\u{2029}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
+        let manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharactersAndAnAssortmentOfWhitespacesSurroundingLabel = [
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1"                : "3.1.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1-dev"            : "3.1.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3"                : "5.3.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3.0"              : "5.3.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}5.3-dev"            : "5.3.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}4.8.0"              : "4.8.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}4.8.0-dev.al+sha.x" : "4.8.0",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2"              : "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;"             : "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-vErsion:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;;;;;"         : "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.1.2;x;x;x;x;x;"   : "3.1.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-toolS-version:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2;hello"        : "3.5.2",
+            "\u{D}\u{202F}\u{2029}\u{85}\u{2001}\u{2028}\u{3000}\u{A}\u{D}\u{A}\u{2002}\u{A0}\u{B}\u{1680}\u{C}\t\u{2000}//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}3.5.2\nkkk\n"       : "3.5.2",
         ]
         
-        // Backward-incompatible leading line terminators are diagnosed before backward-incompatible spacings after the comment marker.
-        // So the error thrown here should be about invalid leading line terminators, although both the line terminators and the spacing here are backward-incompatible.
-        for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingLineTerminatorsAndAnAssortmentOfWhitespacesAfterSpecifcationCommentMarker {
+        // Backward-incompatible leading whitespace is diagnosed before backward-incompatible spacings surrounding the label.
+        // So the errors thrown here should be about invalid leading whitespace, although both the leading whitespace and the spacings here are backward-incompatible.
+        for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharactersAndAnAssortmentOfWhitespacesSurroundingLabel {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of line terminators, and the specified version \(toolsVersionString) (≤ 5.3) supports only 0 or 1 leading U+000A."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
             ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingLineTerminators, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators, _)' should've been thrown, but a different error is thrown.")
+                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
                     return
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000A, U+000B, U+000C, U+000D, U+000D, U+000A, U+0085, U+2028, U+2029] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000D, U+202F, U+2029, U+0085, U+2001, U+2028, U+3000, U+000A, U+000D, U+000A, U+2002, U+00A0, U+000B, U+1680, U+000C, U+0009, U+2000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
         
-        // MARK: No spacing between "//" and "swift-tools-version" for Swift ≤ 5.3
+        // MARK: No spacing surrounding the label
         
         let specificationsWithZeroSpacing = [
             "//swift-tools-version:3.1"                : "3.1.0",
@@ -577,7 +535,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         for (specification, toolsVersionString) in specificationsWithZeroSpacing {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because there is no spacing between '//' and 'swift-tools-version', and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) between '//' and 'swift-tools-version'"
+                "a 'ToolsVersionLoader.Error' should've been thrown, because there is no spacing between '//' and 'swift-tools-version', and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) there"
             ) { error in
                 guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
@@ -590,77 +548,9 @@ class ToolsVersionLoaderTests: XCTestCase {
             }
         }
         
-        // MARK: 1 character tabulation (U+0009) between "//" and "swift-tools-version"
+        // MARK: An assortment of horizontal whitespace characters before the label
         
-        let specificationsWith1TabAfterCommentMarker = [
-            "//\tswift-tools-version:3.1"                : "3.1.0",
-            "//\tswift-tools-version:3.1-dev"            : "3.1.0",
-            "//\tswift-tools-version:5.3"                : "5.3.0",
-            "//\tswift-tools-version:5.3.0"              : "5.3.0",
-            "//\tswift-tools-version:5.3-dev"            : "5.3.0",
-            "//\tswift-tools-version:4.8.0"              : "4.8.0",
-            "//\tswift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "//\tswift-tools-version:3.1.2"              : "3.1.2",
-            "//\tswift-tools-version:3.1.2;"             : "3.1.2",
-            "//\tswift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "//\tswift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "//\tswift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "//\tsWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
-        ]
-        
-        for (specification, toolsVersionString) in specificationsWith1TabAfterCommentMarker {
-            XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between \"//\" and \"swift-tools-version\" is a character tabulation (U+0009), and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) between \"//\" and \"swift-tools-version\"."
-            ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
-                    return
-                }
-                XCTAssertEqual(
-                    error.description,
-                    "horizontal whitespace sequence [U+0009] between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(toolsVersionString)"
-                )
-            }
-        }
-        
-        // MARK: 1 space (U+0020) and 1 character tabulation (U+0009) between "//" and "swift-tools-version"
-        
-        let specificationsWith1SpaceAnd1TabAfterCommentMarker = [
-            "// \tswift-tools-version:3.1"                : "3.1.0",
-            "// \tswift-tools-version:3.1-dev"            : "3.1.0",
-            "// \tswift-tools-version:5.3"                : "5.3.0",
-            "// \tswift-tools-version:5.3.0"              : "5.3.0",
-            "// \tswift-tools-version:5.3-dev"            : "5.3.0",
-            "// \tswift-tools-version:4.8.0"              : "4.8.0",
-            "// \tswift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "// \tswift-tools-version:3.1.2"              : "3.1.2",
-            "// \tswift-tools-version:3.1.2;"             : "3.1.2",
-            "// \tswift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "// \tswift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "// \tswift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "// \tsWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
-        ]
-        
-        for (specification, toolsVersionString) in specificationsWith1SpaceAnd1TabAfterCommentMarker {
-            XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between \"//\" and \"swift-tools-version\" is a space (U+0020) and a character tabulation (U+0009), and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) between \"//\" and \"swift-tools-version\"."
-            ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
-                    return
-                }
-                XCTAssertEqual(
-                    error.description,
-                    "horizontal whitespace sequence [U+0020, U+0009] between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(toolsVersionString)"
-                )
-            }
-        }
-        
-        // MARK: An assortment of horizontal whitespace characters between "//" and "swift-tools-version"
-        
-        let specificationsWithAnAssortmentOfWhitespacesAfterCommentMarker = [
+        let specificationsWithAnAssortmentOfWhitespacesBeforeLabel = [
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1"                : "3.1.0",
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:3.1-dev"            : "3.1.0",
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}swift-tools-version:5.3"                : "5.3.0",
@@ -676,10 +566,10 @@ class ToolsVersionLoaderTests: XCTestCase {
             "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
         ]
         
-        for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesAfterCommentMarker {
+        for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesBeforeLabel {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between \"//\" and \"swift-tools-version\" is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) between \"//\" and \"swift-tools-version\"."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between '//' and 'swift-tools-version' is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) there."
             ) { error in
                 guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
@@ -688,6 +578,76 @@ class ToolsVersionLoaderTests: XCTestCase {
                 XCTAssertEqual(
                     error.description,
                     "horizontal whitespace sequence [U+0009, U+0020, U+00A0, U+1680, U+2000, U+2001, U+2002, U+2003, U+2004, U+2005, U+2006, U+2007, U+2008, U+2009, U+200A, U+202F, U+205F, U+3000] between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(toolsVersionString)"
+                )
+            }
+        }
+        
+        // MARK: An assortment of horizontal whitespace characters surrounding the label
+        
+        let specificationsWithAnAssortmentOfWhitespacesBeforeAndAfterLabel = [
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1"                : "3.1.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev"            : "3.1.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3"                : "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3.0"              : "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3-dev"            : "5.3.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0"              : "4.8.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0-dev.al+sha.x" : "4.8.0",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2"              : "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;"             : "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-vErsion:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;;;;;"         : "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-tools-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;x;x;x;x;x;"   : "3.1.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}swift-toolS-version:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello"        : "3.5.2",
+            "//\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}sWiFt-tOoLs-vErSiOn:\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n"       : "3.5.2",
+        ]
+        
+        // Backward-incompatible spacings after the comment marker is diagnosed before backward-incompatible spacings after the label.
+        // So the errors thrown here should be about invalid spacing after comment marker, although both the spacings here are backward-incompatible.
+        for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesBeforeAndAfterLabel {
+            XCTAssertThrowsError(
+                try load(ByteString(encodingAsUTF8: specification)),
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between '//' and 'swift-tools-version' is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports exactly 1 space (U+0020) there."
+            ) { error in
+                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker, _)' should've been thrown, but a different error is thrown.")
+                    return
+                }
+                XCTAssertEqual(
+                    error.description,
+                    "horizontal whitespace sequence [U+0009, U+0020, U+00A0, U+1680, U+2000, U+2001, U+2002, U+2003, U+2004] between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider replacing the sequence with a single space (U+0020) for Swift \(toolsVersionString)"
+                )
+            }
+        }
+        
+        // MARK: 1 U+0020 before the label and an assortment of horizontal whitespace characters after the label
+        
+        let specificationsWithAnAssortmentOfWhitespacesAfterLabel = [
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1"                : "3.1.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1-dev"            : "3.1.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3"                : "5.3.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3.0"              : "5.3.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}5.3-dev"            : "5.3.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0"              : "4.8.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}4.8.0-dev.al+sha.x" : "4.8.0",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2"              : "3.1.2",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;"             : "3.1.2",
+            "// swift-tools-vErsion:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;;;;;"         : "3.1.2",
+            "// swift-tools-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.1.2;x;x;x;x;x;"   : "3.1.2",
+            "// swift-toolS-version:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2;hello"        : "3.5.2",
+            "// sWiFt-tOoLs-vErSiOn:\u{9}\u{20}\u{A0}\u{1680}\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}3.5.2\nkkk\n"       : "3.5.2",
+        ]
+        
+        for (specification, toolsVersionString) in specificationsWithAnAssortmentOfWhitespacesAfterLabel {
+            XCTAssertThrowsError(
+                try load(ByteString(encodingAsUTF8: specification)),
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the spacing between 'swift-tools-version' and the version specifier is an assortment of horizontal whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports no spacing there."
+            ) { error in
+                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.spacingAfterLabel, _) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.spacingAfterLabel, _)' should've been thrown, but a different error is thrown.")
+                    return
+                }
+                XCTAssertEqual(
+                    error.description,
+                    "horizontal whitespace sequence [U+0009, U+0020, U+00A0, U+1680, U+2000, U+2001, U+2002, U+2003, U+2004, U+2005, U+2006, U+2007, U+2008, U+2009, U+200A, U+202F, U+205F, U+3000] immediately preceding the version specifier is supported by only Swift > 5.3; consider removing the sequence for Swift \(toolsVersionString)"
                 )
             }
         }

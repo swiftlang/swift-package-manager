@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -131,10 +131,12 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         ///
         /// A backward-incompatibility is not necessarily a malformation.
         public enum BackwardIncompatibilityPre5_3_1 {
-            /// The line terminators at the start of the manifest are not all `U+000A`.
-            case leadingLineTerminators(_ lineTerminators: String)
+            /// The whitespace at the start of the manifest is not all `U+000A`.
+            case leadingWhitespace(_ whitespace: String)
             /// The horizontal spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift ≤ 5.3.
             case spacingAfterCommentMarker(_ spacing: String)
+            /// There is a non-empty spacing between the label part of the Swift tools version specification and the version specifier.
+            case spacingAfterLabel(_ spacing: String)
         }
         
         /// Package directory is inaccessible (missing, unreadable, etc).
@@ -178,21 +180,21 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 return "the package manifest at '\(manifestFilePath)' cannot be decoded using UTF-8"
             case let .malformedToolsVersionSpecification(malformationLocation):
                 switch malformationLocation {
-                case .commentMarker(let malformationDetails):
+                case let .commentMarker(malformationDetails):
                     switch malformationDetails {
                     case .isMissing:
                         return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                     case .isMisspelt(let misspeltCommentMarker):
                         return "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
                     }
-                case .label(let malformationDetails):
+                case let .label(malformationDetails):
                     switch malformationDetails {
                     case .isMissing:
                         return "the Swift tools version specification is missing a label; consider inserting 'swift-tools-version:' between the comment marker and the version specifier"
                     case .isMisspelt(let misspeltLabel):
                         return "the Swift tools version specification's label '\(misspeltLabel)' is misspelt; consider replacing it with 'swift-tools-version:'"
                     }
-                case .versionSpecifier(let malformationDetails):
+                case let .versionSpecifier(malformationDetails):
                     switch malformationDetails {
                     case .isMissing:
                         // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
@@ -204,10 +206,12 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             // FIXME: The error messages probably can be more concise, while still hitting all the key points.
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
                 switch incompatibility {
-                case let .leadingLineTerminators(lineTerminators):
-                    return "leading line terminator sequence \(unicodeCodePointsPrefixedByUPlus(of: lineTerminators)) in manifest is supported by only Swift > 5.3; for the specified version \(specifiedVersion), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                case let .leadingWhitespace(whitespace):
+                    return "leading whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: whitespace)) in manifest is supported by only Swift > 5.3; the specified version \(specifiedVersion) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 case let .spacingAfterCommentMarker(spacing):
-                    return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(specifiedVersion)"
+                    return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider replacing the sequence with a single space (U+0020) for Swift \(specifiedVersion)"
+                case let .spacingAfterLabel(spacing):
+                    return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift > 5.3; consider removing the sequence for Swift \(specifiedVersion)"
                 }
             }
             
@@ -216,15 +220,15 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     
     /// A representation of a manifest in its constituent parts.
     public struct ManifestComponents {
-        /// The line terminators at the start of the manifest.
-        public let leadingLineTerminators: Substring
+        /// The largest contiguous sequence of whitespace characters at the very beginning of the manifest.
+        public let leadingWhitespace: Substring
         /// The Swift tools version specification represented in its constituent parts.
         public let toolsVersionSpecificationComponents: ToolsVersionSpecificationComponents
         /// The remaining contents of the manifest that follows right after the tools version specification line.
         public let contentsAfterToolsVersionSpecification: Substring
         /// A Boolean value indicating whether the manifest represented in its constituent parts is backward-compatible with Swift ≤ 5.3.
         public var isCompatibleWithPreSwift5_3_1: Bool {
-            leadingLineTerminators.allSatisfy { $0 == "\n" } && toolsVersionSpecificationComponents.isCompatibleWithPreSwift5_3_1
+            leadingWhitespace.allSatisfy { $0 == "\n" } && toolsVersionSpecificationComponents.isCompatibleWithPreSwift5_3_1
         }
     }
     
@@ -232,11 +236,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     ///
     /// A Swift tools version specification consists of the following parts:
     ///
-    ///     //  swift-tools-version:5.3; everything after the semicolon is ignored
-    ///     ^~^~^~~~~~~~~~~~~~~~~~~~^~~^^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ///     │ │ └ label             │  │└ ignored comment contents (optional)
-    ///     │ └ spacing             │  └ version specifier terminator (optional)
-    ///     └ comment marker        └ version specifier
+    ///     //  swift-tools-version:  5.3.1
+    ///     ⌃~⌃~⌃~~~~~~~~~~~~~~~~~~~⌃~⌃~~~~
+    ///     │ │ └ label             │ └ version specifier
+    ///     │ └ spacing             └ spacing
+    ///     └ comment marker
     ///
     public struct ToolsVersionSpecificationComponents {
         /// The comment marker.
@@ -248,13 +252,20 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         ///
         /// In a well-formed Swift tools version specification, the spacing after the comment marker is a continuous sequence of horizontal whitespace characters.
         ///
-        /// For Swift ≤ 5.3, the spacing must be a single `U+0020`.
+        /// For Swift ≤ 5.3, the spacing after the comment marker must be a single `U+0020`.
         public let spacingAfterCommentMarker: Substring
         
         /// The label part of the Swift tools version specification.
         ///
         /// In a well-formed Swift tools version specification, the label is `"swift-tools-version:"`
         public let label: Substring
+        
+        /// The spacing between the label part of the Swift tools version specification and the version specifier.
+        ///
+        /// In a well-formed Swift tools version specification, the spacing after the label is a continuous sequence of horizontal whitespace characters.
+        ///
+        /// For Swift ≤ 5.3, no spacing is allowed after the label.
+        public let spacingAfterLabel: Substring
         
         /// The version specifier.
         public let versionSpecifier: Substring
@@ -272,7 +283,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         
         /// A Boolean value indicating whether the Swift tools version specification represented in its constituent parts is backward-compatible with Swift ≤ 5.3.
         public var isCompatibleWithPreSwift5_3_1: Bool {
-            everythingUpToVersionSpecifierIsWellFormed && spacingAfterCommentMarker == "\u{20}"
+            everythingUpToVersionSpecifierIsWellFormed && spacingAfterCommentMarker == "\u{20}" && spacingAfterLabel.isEmpty
         }
     }
 
@@ -350,14 +361,19 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         }
         
         guard version > .v5_3 || manifestComponents.isCompatibleWithPreSwift5_3_1 else {
-            let manifestLeadingLineTerminators = manifestComponents.leadingLineTerminators
-            if !manifestLeadingLineTerminators.allSatisfy({ $0 == "\n" }) {
-                throw Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators(String(manifestLeadingLineTerminators)), specifiedVersion: version)
+            let manifestLeadingWhitespace = manifestComponents.leadingWhitespace
+            if !manifestLeadingWhitespace.allSatisfy({ $0 == "\n" }) {
+                throw Error.backwardIncompatiblePre5_3_1(.leadingWhitespace(String(manifestLeadingWhitespace)), specifiedVersion: version)
             }
             
             let spacingAfterCommentMarker = toolsVersionSpecificationComponents.spacingAfterCommentMarker
             if spacingAfterCommentMarker != "\u{20}" {
                 throw Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker(String(spacingAfterCommentMarker)), specifiedVersion: version)
+            }
+            
+            let spacingAfterLabel = toolsVersionSpecificationComponents.spacingAfterLabel
+            if !spacingAfterLabel.isEmpty {
+                throw Error.backwardIncompatiblePre5_3_1(.spacingAfterLabel(String(spacingAfterLabel)), specifiedVersion: version)
             }
             
             // The above If-statements should have covered all possible backward incompatibilities with Swift ≤ 5.3.
@@ -410,23 +426,28 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     
     /// Splits the given manifest into its constituent components.
     ///
-    /// The manifest is split into the following parts:
+    /// A manifest consists of the following parts:
     ///
-    ///     ⎫
-    ///     ⎪
-    ///     ⎬ leading line terminators
-    ///     ⎪
-    ///     ⎭
-    ///     //  swift-tools-version:5.3; ignored segment  } the Swift tools version specification
-    ///     ^~^~^~~~~~~~~~~~~~~~~~~~^~~
-    ///     │ │ └ label             └ version specifier
-    ///     │ └ spacing
-    ///     └ comment marker
-    ///                                                   ⎫
-    ///                                                   ⎪
-    ///                                                   ⎬ the rest of the manifest's contents
-    ///                                                   ⎪
-    ///                                                   ⎭
+    ///                                                      ⎫
+    ///                                                      ⎪
+    ///                                                      ⎬ leading whitespace-only lines
+    ///                                                      ⎪
+    ///                                                      ⎭
+    ///       ┌ Swift tools version specification
+    ///       │                              ┌ ignored trailing contents
+    ///       ⌄~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~⌄~~~~~~~~~~
+    ///       //  swift-tools-version:  5.3.1;2020-09-16     } the Swift tools version specification line
+    ///     ⌃~⌃~⌃~⌃~~~~~~~~~~~~~~~~~~~⌃~⌃~~~~⌃⌃~~~~~~~~~
+    ///     │ │ │ └ label             │ │    │└ trailing comment segment including a trailing line terminator, if any (not returned by this function)
+    ///     │ │ └ spacing             │ │    └ specification terminator (not returned by this function)
+    ///     │ └ comment marker        │ └ version specifier
+    ///     │                         └ spacing
+    ///     └ additional leading whitespace
+    ///                                                      ⎫
+    ///                                                      ┇
+    ///                                                      ⎬ the rest of the manifest's contents
+    ///                                                      ┇
+    ///                                                      ⎭
     ///
     /// - Note: The splitting mostly assumes that the manifest is well-formed. A malformed component may lead to incorrect identification of other components.
     ///
@@ -436,92 +457,110 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// - Returns: The components of the given manifest.
     public static func split(_ manifest: String) -> ManifestComponents {
         
-        // We split the string manually instead of using `split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter "strips" leading and trailing line terminators, and we need to record the leading line terminators to check for backward-compatibility later.
+        // We split the string manually instead of using `Collection.split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter "strips" leading and trailing whatespace, and we need to record the leading whitespace to check for backward-compatibility later.
         
         /// The position of the first character of the Swift tools version specification line in the manifest.
         ///
-        /// Because the tools version specification is the first non-empty line in the manifest, the position of its first character is also the position of the first non-line-terminating character in the manifest. If there are only line terminators, then this position is the `endIndex` of the manifest.
-        let startIndexOfSpecification = manifest.firstIndex(where: { !$0.isNewline } ) ?? manifest.endIndex
+        /// Because the tools version specification line is the first non-whitespace-only line in the manifest, the position of its first character is also the position of the first non-whitespace character in the manifest. If there is only whitespace in the manifest, then this position is the `endIndex` of the manifest.
+        let startIndexOfSpecification = manifest.firstIndex(where: { !$0.isWhitespace } ) ?? manifest.endIndex
         
-        /// The line terminators at the start of the manifest.
+        /// The whitespace at the start of the manifest.
         ///
-        /// Because the tools version specification is the first non-empty line in the manifest, the manifest's leading line terminators are the only characters in front of the tools version specification.
-        let leadingLineTerminators = manifest[..<startIndexOfSpecification]
+        /// Because the tools version specification is the first non-whitespace-only character sequence in the manifest, the manifest's leading whitespace are the only characters in front of the tools version specification.
+        let leadingWhitespace = manifest[..<startIndexOfSpecification]
         
-        /// The position right past the last character of the Swift tools version specification in the manifest.
+        /// The position right past the last character of the Swift tools version specification line in the manifest.
         ///
-        /// Because the specification is ended by a line terminator, the position right past the specification's last character is the position of the terminator of the line. If no such line terminator exists, then this position is the `endIndex` of the manifest.
-        let endIndexOfSpecification = manifest[startIndexOfSpecification...].firstIndex(where: \.isNewline) ?? manifest.endIndex
+        /// Because the specification line ends at a line terminator, the position right past the line's last character is the position of the terminator of the line. If no such line terminator exists, then this position is the `endIndex` of the manifest.
+        let endIndexOfSpecificationLine = manifest[startIndexOfSpecification...].firstIndex(where: \.isNewline) ?? manifest.endIndex
         
-        /// The Swift tools version specification.
+        /// The Swift tools version specification with ignored trailing contents.
         ///
-        /// The specification is the first comment in the manifest that declares the version of the `PackageDescription` library, the minimum version of the Swift tools and Swift language compatibility version to process the manifest, and the minimum version of the Swift tools that are needed to use the Swift package.
-        let specification = manifest[startIndexOfSpecification..<endIndexOfSpecification]
+        /// The specification is the first comment (until its terminator) in the manifest that declares the version of the `PackageDescription` library, the minimum version of the Swift tools and Swift language compatibility version to process the manifest, and the minimum version of the Swift tools that are needed to use the Swift package.
+        ///
+        /// The ignored trailing contents are everything starting from the first semicolon after the version specifier in the line.
+        let specificationWithIgnoredTrailingContents = manifest[startIndexOfSpecification..<endIndexOfSpecificationLine]
         
         /// The position right past the last character of the Swift tools version specification's comment marker.
         ///
         /// This is the same as the position of the first character that is neither `"/"` nor `"*"` in the Swift tools version specification. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
-        let endIndexOfCommentMarker = specification.firstIndex(where: { $0 != "/" && $0 != "*" } ) ?? specification.endIndex
+        let endIndexOfCommentMarker = specificationWithIgnoredTrailingContents.firstIndex(where: { $0 != "/" && $0 != "*" } ) ?? specificationWithIgnoredTrailingContents.endIndex
         
         /// The comment marker of the Swift tools version specification.
         ///
-        /// Any continuous sequence of `"/"`s and `"*"`s is considered as a comment marker, regardless of its validity.
-        let commentMarker = specification[..<endIndexOfCommentMarker]
+        /// The continuous sequence of `"/"`s and `"*"`s immediately following the leading whitespace is considered as the comment marker, regardless of its validity.
+        let commentMarker = specificationWithIgnoredTrailingContents[..<endIndexOfCommentMarker]
         
         /// The position right past the last character of the spacing that immediately follows the comment marker.
         ///
-        /// Because the spacing consists of only horizontal whitespace characters, this position is the same as the first character that's not a horizontal whitespace after `commentMarker`. If no such character exists, then the position is the `endIndex` of the Swift tools version specification.
-        let endIndexOfSpacingAfterCommentMarker = specification[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace } ) ?? specification.endIndex
-        //                                                                                                         ☝️
+        /// Because the spacing consists of only horizontal whitespace characters, this position is the same as the first character that's not a horizontal whitespace after `commentMarker`. If no such character exists, then the position is the `endIndex` of the Swift tools version specification line.
+        let endIndexOfSpacingAfterCommentMarker = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace } ) ?? specificationWithIgnoredTrailingContents.endIndex
+        //                                                                                                                                    ☝️
         // Technically, this is looking for the position of the first character that's not a whitespace, BOTH HORIZONTAL AND VERTICAL. However, since all vertical horizontal whitespace characters are also line terminators, and because the Swift tools version specification does not contain any line terminator, we can safely use `Character.isWhitespace` to check if a character is a horizontal whitespace.
         
         /// The spacing that immediately follows `commentMarker`.
         ///
         /// The spacing consists of only horizontal whitespace characters.
-        let spacingAfterCommentMarker = specification[endIndexOfCommentMarker..<endIndexOfSpacingAfterCommentMarker]
+        let spacingAfterCommentMarker = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker..<endIndexOfSpacingAfterCommentMarker]
         
         // FIXME: Use `CharacterSet.decimalDigits` instead?
         // `Character.isNumber` is true for more than just decimal characters (e.g. ㊅ and 𝟘), but `CharacterSet.contains(_:)` works only on Unicode scalars.
         /// The position of the first character in the version specifier.
         ///
-        /// Because a version specifier starts with a numeric character, and because only the version specifier is expected to have numeric characters, this position is the same as the position of the first numeric character in the Swift tools version specification. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
+        /// Because a version specifier starts with a numeric character, and because only the version specifier is expected to have numeric characters, this position is the same as the position of the first numeric character in the Swift tools version specification line. If no such character exists, then this position is the `endIndex` of the line.
         ///
-        /// - Note: For a malformed Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
-        let firstIndexOfVersionSpecifier = specification[endIndexOfSpacingAfterCommentMarker...].firstIndex(where: \.isNumber) ?? specification.endIndex
-        //                                              ☝️
-        // We know for sure that there is no numeric characters before `endIndexOfSpacingAfterCommentMarker`, so `specification[endIndexOfSpacingAfterCommentMarker...]` saves a bit of unnecessary searching.
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
+        let startIndexOfVersionSpecifier = specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker...].firstIndex(where: \.isNumber) ?? specificationWithIgnoredTrailingContents.endIndex
+        //                                                                         ☝️
+        // We know for sure that there is no numeric characters before `endIndexOfSpacingAfterCommentMarker`, so `specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker...]` saves a bit of unnecessary searching.
+        
+        /// The label part of the Swift tools version specification with the whitespace sequence between the label and the version specifier.
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label with no spacing following it.
+        let labelWithTrailingWhitespace = specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker..<startIndexOfVersionSpecifier]
+        
+        /// The position of the first character in the spacing after the label part of the Swift version specification.
+        ///
+        /// Because there is no whitespace within the label, and because the spacing consists of only horizontal whitespace characters, so this position is the same as the position of the first whitespace character between the beginning of the label and the beginning of the version specifier. If no such whitespace character exists, then there is no spacing, and so this position is the `endIndex` of these sequence of characters (i.e. the starting position of the version specifier).
+        let startIndexOfSpacingAfterLabel = labelWithTrailingWhitespace.firstIndex(where: \.isWhitespace) ?? startIndexOfVersionSpecifier
         
         /// The label part of the Swift tools version specification.
-        /// - Note: For a malformed Swift tools version specification `"// swift-too1s-version:5.3"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label.
-        let label = specification[endIndexOfSpacingAfterCommentMarker..<firstIndexOfVersionSpecifier]
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label.
+        let label = labelWithTrailingWhitespace[..<startIndexOfSpacingAfterLabel]
+        
+        /// The spacing between the label part of the Swift tools version specification and the version specifier.
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, and the version specifier starts from the first `"1"`, so no spacing is recognised.
+        let spacingAfterLabel = labelWithTrailingWhitespace[startIndexOfSpacingAfterLabel...]
         
         /// The position of the version specifier's terminator.
         ///
         /// The terminator can be either a `";"` or a line terminator. If no such character exists, then this position is the `endIndex` of the Swift tools version specification.
-        let indexOfVersionSpecifierTerminator = specification[firstIndexOfVersionSpecifier...].firstIndex(where: { $0 == ";" } ) ?? specification.endIndex
-        //                                                                                                     ☝️
-        // Technically, this is looking for the position of the first ";", not the first line terminator. However, because the Swift tools version specification does not contain any line terminator, we can safely search just the first ";".
+        let indexOfVersionSpecifierTerminator = specificationWithIgnoredTrailingContents[startIndexOfVersionSpecifier...].firstIndex(where: { $0 == ";" } ) ?? specificationWithIgnoredTrailingContents.endIndex
+        //                                                                                                                                          ☝️
+        // Technically, this is looking for the position of the first ";" only, not the first line terminator. However, because the Swift tools version specification does not contain any line terminator, we can safely search just the first ";".
         
-        // The version specifier and its terminator together are first found by locating the first numeric character in the specification, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the Swift tools version specification has no numeric characters, then the version specifier's terminator is empty too. Basically, if the version specifier is empty, then its terminator must be empty as well.
+        // The version specifier and its terminator together are first found by locating the first numeric character in the specification line, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the line has no numeric characters, then the specification's ignored trailing contents are empty too. Basically, if the version specifier is empty, then the specification has no ignored trailing contents.
         
         /// The version specifier.
-        /// - Note: For a malformed Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
-        let versionSpecifier = specification[firstIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
+        let versionSpecifier = specificationWithIgnoredTrailingContents[startIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
         
-        /// The position of the first character of the tools version specification line in the manifest.
+        // The tertiary condition checks if the specification line's end index is the same as the manifest's.
+        // If it is, then just use the index, because the rest of the manifest is empty, and because using `index(after:)` on it results in an index-out-of-bound error.
+        /// The position of the first character following the tools version specification line in the manifest.
         ///
         /// If no such character exists, then the position is the `endIndex` of the manifest.
-        let startIndexOfManifestAfterSpecification = endIndexOfSpecification == manifest.endIndex ? manifest.endIndex : manifest.index(after: endIndexOfSpecification)
+        let startIndexOfManifestAfterSpecification = endIndexOfSpecificationLine == manifest.endIndex ? manifest.endIndex : manifest.index(after: endIndexOfSpecificationLine)
         
         /// The remaining contents of the manifest that follows right after the tools version specification line.
         let manifestAfterSpecification = manifest[startIndexOfManifestAfterSpecification...]
         
         return ManifestComponents(
-            leadingLineTerminators: leadingLineTerminators,
+            leadingWhitespace: leadingWhitespace,
             toolsVersionSpecificationComponents: ToolsVersionSpecificationComponents(
                 commentMarker: commentMarker,
                 spacingAfterCommentMarker: spacingAfterCommentMarker,
                 label: label,
+                spacingAfterLabel: spacingAfterLabel,
                 versionSpecifier: versionSpecifier
             ),
             contentsAfterToolsVersionSpecification: manifestAfterSpecification

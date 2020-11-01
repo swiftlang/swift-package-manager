@@ -5,15 +5,19 @@ Swift 5.3.1
 -----------
 * [#2937]
   
-  Manifest files can now have any combination of leading line terminators. All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are recognised. This allows more flexibility in formatting the Package manifest.
+  * Improvements
+    
+    `Package` manifests can now have any combination of leading whitespace characters. This allows more flexibility in formatting the manifests.
+    
+    [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters surrounding `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:	5.3.1` and `//		 swift-tools-version: 5.4` are valid.
   
-  [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters between `//` and `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:5.3.1` and `//		 swift-tools-version:5.4` are valid.
+    All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are now recognised in `Package` manifests. This ensures correctness in parsing manifests that are edited and/or built on many non-Unix-like platforms that use ASCII or Unicode encodings. 
   
   * API Removal
   
     `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is now obsoleted, and replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
   
-  * Source Breakages for Swift packages
+  * Source Breakages for Swift Packages
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
     
