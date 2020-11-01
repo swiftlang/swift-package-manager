@@ -203,7 +203,6 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                         return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
                     }
                 }
-            // FIXME: The error messages probably can be more concise, while still hitting all the key points.
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
                 switch incompatibility {
                 case let .leadingWhitespace(whitespace):
