@@ -132,9 +132,9 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         /// A backward-incompatibility is not necessarily a malformation.
         public enum BackwardIncompatibilityPre5_3_1 {
             /// The line terminators at the start of the manifest are not all `U+000A`.
-            case leadingLineTerminators(_ lineTerminators: Substring)
+            case leadingLineTerminators(_ lineTerminators: String)
             /// The horizontal spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift ≤ 5.3.
-            case spacingAfterCommentMarker(_ spacing: Substring)
+            case spacingAfterCommentMarker(_ spacing: String)
         }
         
         /// Package directory is inaccessible (missing, unreadable, etc).
@@ -352,12 +352,12 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         guard version > .v5_3 || manifestComponents.isCompatibleWithPreSwift5_3_1 else {
             let manifestLeadingLineTerminators = manifestComponents.leadingLineTerminators
             if !manifestLeadingLineTerminators.allSatisfy({ $0 == "\n" }) {
-                throw Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators(manifestLeadingLineTerminators), specifiedVersion: version)
+                throw Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators(String(manifestLeadingLineTerminators)), specifiedVersion: version)
             }
             
             let spacingAfterCommentMarker = toolsVersionSpecificationComponents.spacingAfterCommentMarker
             if spacingAfterCommentMarker != "\u{20}" {
-                throw Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker(spacingAfterCommentMarker), specifiedVersion: version)
+                throw Error.backwardIncompatiblePre5_3_1(.spacingAfterCommentMarker(String(spacingAfterCommentMarker)), specifiedVersion: version)
             }
             
             // The above If-statements should have covered all possible backward incompatibilities with Swift ≤ 5.3.
