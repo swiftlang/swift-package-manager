@@ -376,12 +376,12 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// - Warning: This function has been deprecated since Swift 5.3.1, please use `split(_ manifestContents: String) -> ManifestComponents` instead.
     ///
     /// - Note: This function imposes the following limitations that are removed in its replacement:
-    ///   - Leading line terminators (other than at most 1 `U+000A`) are not accepted in the given manifest contents.
+    ///   - Leading whitespace, other than a sequence of newline characters (`U+000A`), is not accepted in the given manifest contents.
     ///   - Only `U+000A` is recognised as a line terminator.
     ///   - A Swift tools version specification must be prefixed with `// swift-tools-version:` verbatim, where the spacing between `//` and `swift-tools-version` is exactly 1 `U+0020`.
     ///
     /// - Bug: This function treats only `U+000A` as a line terminator.
-    /// - Bug: If there is a single leading `U+000A` in the manifest file, this function mistakes the second line of the manifest as its first line.
+    /// - Bug: If there is a contiguous sequence of `U+000A` at the very beginning of the manifest file, this function mistakes the first non-empty line of the manifest as its first line.
     ///
     /// - Parameter bytes: The raw bytes of the content of the manifest.
     /// - Returns: The version specifier (if present, or `nil`) and the raw bytes of the contents sans the first line of the manifest.
@@ -436,7 +436,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// - Returns: The components of the given manifest.
     public static func split(_ manifest: String) -> ManifestComponents {
         
-        // We split the string manually instead of using `split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter method fails in the edge case where the manifest starts with a single line terminator.
+        // We split the string manually instead of using `split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter "strips" leading and trailing line terminators, and we need to record the leading line terminators to check for backward-compatibility later.
         
         /// The position of the first character of the Swift tools version specification line in the manifest.
         ///
