@@ -131,7 +131,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         ///
         /// A backward-incompatibility is not necessarily a malformation.
         public enum BackwardIncompatibilityPre5_3_1 {
-            /// The line terminators at the start of the manifest is not either empty or a single `U+000A`.
+            /// The line terminators at the start of the manifest are not all `U+000A`.
             case leadingLineTerminators(_ lineTerminators: Substring)
             /// The horizontal spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift ≤ 5.3.
             case spacingAfterCommentMarker(_ spacing: Substring)
@@ -205,7 +205,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
                 switch incompatibility {
                 case let .leadingLineTerminators(lineTerminators):
-                    return "leading line terminator sequence \(unicodeCodePointsPrefixedByUPlus(of: lineTerminators)) in manifest is supported by only Swift > 5.3; for the specified version \(specifiedVersion), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    return "leading line terminator sequence \(unicodeCodePointsPrefixedByUPlus(of: lineTerminators)) in manifest is supported by only Swift > 5.3; for the specified version \(specifiedVersion), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
                 case let .spacingAfterCommentMarker(spacing):
                     return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider using a single space (U+0020) for Swift \(specifiedVersion)"
                 }
@@ -224,7 +224,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         public let contentsAfterToolsVersionSpecification: Substring
         /// A Boolean value indicating whether the manifest represented in its constituent parts is backward-compatible with Swift ≤ 5.3.
         public var isCompatibleWithPreSwift5_3_1: Bool {
-            (leadingLineTerminators.isEmpty || leadingLineTerminators == "\n") && toolsVersionSpecificationComponents.isCompatibleWithPreSwift5_3_1
+            leadingLineTerminators.allSatisfy { $0 == "\n" } && toolsVersionSpecificationComponents.isCompatibleWithPreSwift5_3_1
         }
     }
     
@@ -351,7 +351,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         
         guard version > .v5_3 || manifestComponents.isCompatibleWithPreSwift5_3_1 else {
             let manifestLeadingLineTerminators = manifestComponents.leadingLineTerminators
-            if !manifestLeadingLineTerminators.isEmpty && manifestLeadingLineTerminators != "\n" {
+            if !manifestLeadingLineTerminators.allSatisfy({ $0 == "\n" }) {
                 throw Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators(manifestLeadingLineTerminators), specifiedVersion: version)
             }
             

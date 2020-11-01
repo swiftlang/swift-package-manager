@@ -55,6 +55,17 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
             "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
+            // leading newline characters (U+000A), and 1 space (U+0020) between "//" and "swift-tools-version":
+            "\n// swift-tools-version:3.1"                            : (3, 1, 0, "3.1.0"),
+            "\n\n// swift-tools-version:3.1-dev"                      : (3, 1, 0, "3.1.0"),
+            "\n\n\n// swift-tools-version:5.8.0"                      : (5, 8, 0, "5.8.0"),
+            "\n\n\n\n// swift-tools-version:5.8.0-dev.al+sha.x"       : (5, 8, 0, "5.8.0"),
+            "\n\n\n\n\n// swift-tools-version:3.1.2"                  : (3, 1, 2, "3.1.2"),
+            "\n\n\n\n\n\n// swift-tools-version:3.1.2;"               : (3, 1, 2, "3.1.2"),
+            "\n\n\n\n\n\n\n// swift-tools-vErsion:3.1.2;;;;;"         : (3, 1, 2, "3.1.2"),
+            "\n\n\n\n\n\n\n\n// swift-tools-version:3.1.2;x;x;x;x;x;" : (3, 1, 2, "3.1.2"),
+            "\n\n\n\n\n\n\n\n\n// swift-toolS-version:3.5.2;hello"    : (3, 5, 2, "3.5.2"),
+            "\n\n\n\n\n\n\n\n\n\n// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n" : (3, 5, 2, "3.5.2"),
             // 1 character tabulation (U+0009) between "//" and "swift-tools-version" for Swift > 5.3:
             "//\tswift-tools-version:5.4"                : (5, 4, 0, "5.4.0"),
             "//\tswift-tools-version:5.4-dev"            : (5, 4, 0, "5.4.0"),
@@ -407,40 +418,6 @@ class ToolsVersionLoaderTests: XCTestCase {
         // 2. Test that backward-incompatible leading line terminators are diagnosed before backward-incompatible spacings after the comment marker.
         // 3. Test spacings after the comment marker.
         
-        // MARK: 2 leading line feed (U+000A)
-        
-        let manifestSnippetWith2LeadingLineFeeds = [
-            "\u{A}\u{A}//swift-tools-version:3.1"                : "3.1.0",
-            "\u{A}\u{A}//swift-tools-version:3.1-dev"            : "3.1.0",
-            "\u{A}\u{A}//swift-tools-version:5.3"                : "5.3.0",
-            "\u{A}\u{A}//swift-tools-version:5.3.0"              : "5.3.0",
-            "\u{A}\u{A}//swift-tools-version:5.3-dev"            : "5.3.0",
-            "\u{A}\u{A}//swift-tools-version:4.8.0"              : "4.8.0",
-            "\u{A}\u{A}//swift-tools-version:4.8.0-dev.al+sha.x" : "4.8.0",
-            "\u{A}\u{A}//swift-tools-version:3.1.2"              : "3.1.2",
-            "\u{A}\u{A}//swift-tools-version:3.1.2;"             : "3.1.2",
-            "\u{A}\u{A}//swift-tools-vErsion:3.1.2;;;;;"         : "3.1.2",
-            "\u{A}\u{A}//swift-tools-version:3.1.2;x;x;x;x;x;"   : "3.1.2",
-            "\u{A}\u{A}//swift-toolS-version:3.5.2;hello"        : "3.5.2",
-            "\u{A}\u{A}//sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : "3.5.2",
-        ]
-        
-        for (specification, toolsVersionString) in manifestSnippetWith2LeadingLineFeeds {
-            XCTAssertThrowsError(
-                try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with more than 1 line terminator, and the specified version \(toolsVersionString) (≤ 5.3) supports at most 1 leading U+000A."
-            ) { error in
-                guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingLineTerminators, _) = error else {
-                    XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingLineTerminators, _)' should've been thrown, but a different error is thrown.")
-                    return
-                }
-                XCTAssertEqual(
-                    error.description,
-                    "leading line terminator sequence [U+000A, U+000A] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
-                )
-            }
-        }
-        
         // MARK: 1 leading u+000D
         
         let manifestSnippetWith1LeadingCarriageReturn = [
@@ -470,7 +447,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000D] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading line terminator sequence [U+000D] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -504,7 +481,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000D, U+000A] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading line terminator sequence [U+000D, U+000A] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -538,7 +515,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000A, U+000B, U+000C, U+000D, U+000D, U+000A, U+0085, U+2028, U+2029] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading line terminator sequence [U+000A, U+000B, U+000C, U+000D, U+000D, U+000A, U+0085, U+2028, U+2029] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -574,7 +551,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading line terminator sequence [U+000A, U+000B, U+000C, U+000D, U+000D, U+000A, U+0085, U+2028, U+2029] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only zero or one newline (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading line terminator sequence [U+000A, U+000B, U+000C, U+000D, U+000D, U+000A, U+0085, U+2028, U+2029] in manifest is supported by only Swift > 5.3; for the specified version \(toolsVersionString), only newline characters (U+000A) at the beginning of the manifest is supported; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
