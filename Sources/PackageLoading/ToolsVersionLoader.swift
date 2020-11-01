@@ -384,9 +384,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         return version
     }
     
-    // FIXME: Remove this function?
-    // This function is currently preserved because it's declared as public.
-    // Removing it is probably source-breaking.
+    // FIXME: Remove this function.
+    // This function is currently preserved because it's used in `writeToolsVersion(at:version:fs:).
     /// Splits the bytes to find the Swift tools version specifier and the contents sans the first line of the manifest.
     ///
     /// - Warning: This function has been deprecated since Swift 5.3.1, please use `split(_ manifestContents: String) -> ManifestComponents` instead.
