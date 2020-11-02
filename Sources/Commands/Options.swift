@@ -36,7 +36,16 @@ public class ToolOptions {
     /// Enable prefetching in resolver which will kick off parallel git cloning.
     public var shouldEnableResolverPrefetching = true
     
+    /// Tells `Workspace` to attempt to locate .netrc file at HOME, or designated path.
+    public var netrc: Bool = false
+    
+    /// Similar to `--netrc`, but this option makes the .netrc usage optional and not mandatory as the `--netrc` option.
+    public var netrcOptional: Bool = false
+    
     /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.
+    /// Similar to `--netrc`, except that you also provide the path to the actual file to use.
+    /// This is useful when you want to provide the information in another directory or with another file name.
+    /// Respects `--netrcOptional` option.
     public var netrcFilePath: AbsolutePath?
 
     /// If print version option was passed.

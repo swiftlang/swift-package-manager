@@ -10,6 +10,7 @@
 
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
+import func Foundation.NSHomeDirectory
 import Dispatch
 
 import TSCLibc
@@ -462,6 +463,18 @@ public class SwiftTool<Options: ToolOptions> {
         
         binder.bind(
             option: parser.add(
+                option: "--netrc", kind: Bool.self, 
+                usage: "Makes SPM scan the .netrc file in the user's home directory for login name and password when downloading binary target artifacts."),
+            to: { $0.netrc = $1 })
+        
+        binder.bind(
+            option: parser.add(
+                option: "--netrc-optional", kind: Bool.self,
+                usage: "Makes the .netrc usage optional and not mandatory as with the --netrc option.  May modify --netrc or --netrc-file."),
+            to: { $0.netrcOptional = $1 })
+        
+        binder.bind(
+            option: parser.add(
                 option: "--netrc-file", kind: PathArgument.self,
                 usage: "The path to the netrc file which should be use for authentication when downloading binary target artifacts."),
             to: { $0.netrcFilePath = $1.path })
@@ -551,16 +564,18 @@ public class SwiftTool<Options: ToolOptions> {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
         
-        if result.exists(arg: "--netrc-file") {
-            // --netrc-file option only supported on macOS >=10.13
+        if result.exists(arg: "--netrc") ||
+            result.exists(arg: "--netrc-file") ||
+            result.exists(arg: "--netrc-optional") {
+            // .netrc feature only supported on macOS >=10.13
             #if os(macOS)
             if #available(macOS 10.13, *) {
                 // ok, check succeeds
             } else {
-                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
+                diagnostics.emit(error: ".netrc options are only supported on macOS >=10.13")
             }
             #else
-            diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
+            diagnostics.emit(error: ".netrc options are only supported on macOS >=10.13")
             #endif
         }
     }
@@ -604,7 +619,22 @@ public class SwiftTool<Options: ToolOptions> {
     }()
     
     func resolvedNetrcFilePath() -> AbsolutePath? {
-        return options.netrcFilePath 
+        guard options.netrc ||
+                options.netrcFilePath != nil ||
+                options.netrcOptional else { return nil }
+        
+        let resolvedPath: AbsolutePath = options.netrcFilePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
+        guard localFileSystem.exists(resolvedPath) else {
+            if !options.netrcOptional {
+                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(resolvedPath.pathString).  To make .netrc file optional, use --netrc-optional flag.")
+                SwiftTool.exit(with: .failure)
+            } else {
+                // FIXME: send warning
+                diagnostics.emit(warning: "Did not find optional .netrc file at \(resolvedPath.pathString).")
+                return nil
+            }
+        }
+        return resolvedPath
     }
 
     /// Holds the currently active workspace.
