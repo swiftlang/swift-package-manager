@@ -12,9 +12,9 @@ import PackageModel
 import SourceControl
 
 public protocol PackageCollectionsProtocol {
-    // MARK: - Package set profile APIs
+    // MARK: - Package collection profile APIs
 
-    /// Lists package set profiles.
+    /// Lists package collection profiles.
     ///
     /// The result of this API does not include `PackageCollection` data. All other APIs in this
     /// protocol require the context of a profile. Implementations should support a "default"
@@ -28,7 +28,7 @@ public protocol PackageCollectionsProtocol {
 
     /// Returns packages organized into collections.
     ///
-    /// Package collections are not mutually exclusive; a package may belong to more than one group. As such,
+    /// Package collections are not mutually exclusive; a package may belong to more than one collection. As such,
     /// the ordering of `PackageCollection`s should be preserved and respected during conflict resolution.
     ///
     /// - Parameters:
@@ -51,12 +51,12 @@ public protocol PackageCollectionsProtocol {
         callback: @escaping (Result<[PackageCollectionsModel.PackageCollectionSource], Error>) -> Void
     )
 
-    /// Adds a package set.
+    /// Adds a package collection.
     ///
     /// - Parameters:
-    ///   - source: The package set's source
+    ///   - source: The package collection's source
     ///   - order: Optional. The order that the `PackageCollection` should take after being added to the list.
-    ///            By default the new group is appended to the end (i.e., the least relevant order).
+    ///            By default the new collection is appended to the end (i.e., the least relevant order).
     ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke with the updated `PackageCollection`s
     func addPackageCollection(
@@ -66,10 +66,10 @@ public protocol PackageCollectionsProtocol {
         callback: @escaping (Result<PackageCollectionsModel.PackageCollection, Error>) -> Void
     )
 
-    /// Removes a package set.
+    /// Removes a package collection.
     ///
     /// - Parameters:
-    ///   - source: The package set's source
+    ///   - source: The package collection's source
     ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke with the updated `PackageCollection`s
     func removePackageCollection(
@@ -78,7 +78,7 @@ public protocol PackageCollectionsProtocol {
         callback: @escaping (Result<Void, Error>) -> Void
     )
 
-    /// Moves a package set to a different order.
+    /// Moves a package collection to a different order.
     ///
     /// - Parameters:
     ///   - id: The identifier of the `PackageCollection` to be moved
@@ -92,11 +92,11 @@ public protocol PackageCollectionsProtocol {
         callback: @escaping (Result<Void, Error>) -> Void
     )
 
-    /// Returns information about a package set. The set is not required to be in the configured list. If
-    /// not found locally, the group will be fetched from the source.
+    /// Returns information about a package collection. The collection is not required to be in the configured list. If
+    /// not found locally, the collection will be fetched from the source.
     ///
     /// - Parameters:
-    ///   - source: The package set's source
+    ///   - source: The package collection's source
     ///   - callback: The closure to invoke with the `PackageCollection`
     func getPackageCollection(
         _ source: PackageCollectionsModel.PackageCollectionSource,
