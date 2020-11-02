@@ -455,7 +455,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// - Returns: The components of the given manifest.
     public static func split(_ manifest: String) -> ManifestComponents {
         
-        // We split the string manually instead of using `Collection.split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter "strips" leading and trailing whatespace, and we need to record the leading whitespace to check for backward-compatibility later.
+        // We split the string manually instead of using `Collection.split(maxSplits:omittingEmptySubsequences:whereSeparator:)`, because the latter "strips" leading and trailing whitespace, and we need to record the leading whitespace to check for backward-compatibility later.
         
         /// The position of the first character of the Swift tools version specification line in the manifest.
         ///
