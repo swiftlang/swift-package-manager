@@ -10,7 +10,7 @@
 
 import struct Foundation.URL
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// A representation of a package license
     public struct License {
         /// License type

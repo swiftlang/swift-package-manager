@@ -15,13 +15,13 @@ import PackageModel
 import SourceControl
 import TSCUtility
 
-public enum PackageSetsModel {}
+public enum PackageCollectionsModel {}
 
-extension PackageSetsModel {
-    /// A `PackageSet` is a grouping of package metadata.
-    public struct PackageSet {
-        public typealias Identifier = PackageSetIdentifier
-        public typealias Source = PackageSetSource
+extension PackageCollectionsModel {
+    /// A `PackageCollection` is a grouping of package metadata.
+    public struct PackageCollection {
+        public typealias Identifier = PackageCollectionIdentifier
+        public typealias Source = PackageCollectionSource
 
         /// The identifier of the group
         public let identifier: Identifier
@@ -47,7 +47,7 @@ extension PackageSetsModel {
         /// When this group was last processed locally
         public let lastProcessedAt: Date
 
-        /// Initializes a `PackageSet`
+        /// Initializes a `PackageCollection`
         init(
             source: Source,
             name: String,
@@ -69,22 +69,22 @@ extension PackageSetsModel {
     }
 }
 
-extension PackageSetsModel {
-    /// Represents the source of a `PackageSet`
-    public enum PackageSetSource {
+extension PackageCollectionsModel {
+    /// Represents the source of a `PackageCollection`
+    public enum PackageCollectionSource {
         /// Package feed at URL
         case feed(URL)
     }
 }
 
-extension PackageSetsModel {
-    /// Represents the identifier of a `PackageSet`
-    public enum PackageSetIdentifier: Hashable, Comparable {
+extension PackageCollectionsModel {
+    /// Represents the identifier of a `PackageCollection`
+    public enum PackageCollectionIdentifier: Hashable, Comparable {
         /// Package feed at URL
         case feed(URL)
 
         /// Creates an `Identifier` from `Source`
-        init(source: PackageSetSource) {
+        init(source: PackageCollectionSource) {
             switch source {
             case .feed(let url):
                 self = .feed(url)
@@ -100,7 +100,7 @@ extension PackageSetsModel {
     }
 }
 
-extension PackageSetsModel.PackageSet {
+extension PackageCollectionsModel.PackageCollection {
     /// A representation of package metadata
     public struct Package {
         public typealias Version = PackageVersion
@@ -136,11 +136,11 @@ extension PackageSetsModel.PackageSet {
     }
 }
 
-extension PackageSetsModel.PackageSet {
+extension PackageCollectionsModel.PackageCollection {
     /// A representation of package version
     public struct PackageVersion {
-        public typealias Target = PackageSetsModel.PackageTarget
-        public typealias Product = PackageSetsModel.PackageProduct
+        public typealias Target = PackageCollectionsModel.PackageTarget
+        public typealias Product = PackageCollectionsModel.PackageProduct
 
         /// The version
         public let version: TSCUtility.Version
@@ -166,6 +166,6 @@ extension PackageSetsModel.PackageSet {
         public let verifiedSwiftVersions: [SwiftLanguageVersion]?
 
         /// The package version's license
-        public let license: PackageSetsModel.License?
+        public let license: PackageCollectionsModel.License?
     }
 }

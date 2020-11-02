@@ -13,20 +13,20 @@ import Foundation
 import SourceControl
 import TSCUtility
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// Target metadata
     public typealias TargetListResult = [TargetListItem]
 
     public struct TargetListItem {
         /// Target
-        public let target: PackageSetsModel.PackageTarget
+        public let target: PackageCollectionsModel.PackageTarget
 
         /// Packages where the target is found
         public let packages: [Package]
     }
 }
 
-extension PackageSetsModel.TargetListResult {
+extension PackageCollectionsModel.TargetListResult {
     /// Metadata of package that contains the target
     public struct Package {
         public typealias Version = PackageVersion
@@ -40,12 +40,12 @@ extension PackageSetsModel.TargetListResult {
         /// Package versions that contain the target
         public let versions: [Version]
 
-        /// Package sets that contain this package and at least one of the `versions`
-        public let sets: [PackageSetsModel.PackageSetIdentifier]
+        /// Package collections that contain this package and at least one of the `versions`
+        public let collections: [PackageCollectionsModel.PackageCollectionIdentifier]
     }
 }
 
-extension PackageSetsModel.TargetListResult {
+extension PackageCollectionsModel.TargetListResult {
     /// Represents a package version
     public struct PackageVersion {
         /// The version

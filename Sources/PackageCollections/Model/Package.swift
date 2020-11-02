@@ -13,7 +13,7 @@ import struct Foundation.URL
 import PackageModel
 import SourceControl
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// Package metadata
     public struct Package {
         /// Package reference
@@ -85,11 +85,11 @@ extension PackageSetsModel {
     }
 }
 
-extension PackageSetsModel.Package {
+extension PackageCollectionsModel.Package {
     /// A representation of package version
     public struct Version {
-        public typealias Target = PackageSetsModel.PackageTarget
-        public typealias Product = PackageSetsModel.PackageProduct
+        public typealias Target = PackageCollectionsModel.PackageTarget
+        public typealias Product = PackageCollectionsModel.PackageProduct
 
         /// The version
         public let version: TSCUtility.Version
@@ -115,14 +115,14 @@ extension PackageSetsModel.Package {
         public let verifiedSwiftVersions: [SwiftLanguageVersion]?
 
         /// The package version's CVEs
-        public let cves: [PackageSetsModel.CVE]?
+        public let cves: [PackageCollectionsModel.CVE]?
 
         /// The package version's license
-        public let license: PackageSetsModel.License?
+        public let license: PackageCollectionsModel.License?
     }
 }
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// A representation of package target
     public struct PackageTarget {
         /// The target name
@@ -133,7 +133,7 @@ extension PackageSetsModel {
     }
 }
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// A representation of package product
     public struct PackageProduct {
         /// The product name
@@ -147,7 +147,7 @@ extension PackageSetsModel {
     }
 }
 
-extension PackageSetsModel.Package {
+extension PackageCollectionsModel.Package {
     /// A representation of package author
     public struct Author {
         /// Author's username
@@ -167,6 +167,6 @@ extension PackageSetsModel.Package {
     }
 }
 
-extension PackageSetsModel {
-    public typealias PackageMetadata = (package: PackageSetsModel.Package, sets: [PackageSetsModel.PackageSetIdentifier])
+extension PackageCollectionsModel {
+    public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.PackageCollectionIdentifier])
 }

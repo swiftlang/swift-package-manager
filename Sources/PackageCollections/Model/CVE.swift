@@ -10,7 +10,7 @@
 
 import struct Foundation.URL
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// A representation of Common Vulnerabilities and Exposures (CVE)
     public struct CVE {
         /// CVE identifier

@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// A representation of package in search result
     public struct PackageSearchResult {
         /// Result items of the search
@@ -16,12 +16,12 @@ extension PackageSetsModel {
 
         /// Represents a search result item
         public struct Item {
-            // Merged package metadata from across groups
+            // Merged package metadata from across collections
             /// The matching package
-            public let package: PackageSetsModel.Package
+            public let package: PackageCollectionsModel.Package
 
-            /// Package sets that contain the package
-            public let sets: [PackageSetsModel.PackageSetIdentifier]
+            /// Package collections that contain the package
+            public let collections: [PackageCollectionsModel.PackageCollectionIdentifier]
         }
     }
 

@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-extension PackageSetsModel {
+extension PackageCollectionsModel {
     /// A `PackageGroupProfile` is a grouping of `PackageGroup`s.
     public struct Profile {
         /// The default profile; this should be used when a profile is required but not specified.

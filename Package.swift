@@ -131,11 +131,11 @@ let package = Package(
             name: "PackageGraph",
             dependencies: ["SwiftToolsSupport-auto", "PackageLoading", "PackageModel", "SourceControl"]),
         
-        // MARK: Package Sets
+        // MARK: Package Collections
 
         .target(
-            /** Data structures and support for package sets */
-            name: "PackageSets",
+            /** Data structures and support for package collections */
+            name: "PackageCollections",
             dependencies: ["SwiftToolsSupport-auto", "PackageModel", "SourceControl"]),
 
         // MARK: Package Manager Functionality
