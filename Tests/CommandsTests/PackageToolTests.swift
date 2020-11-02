@@ -105,11 +105,11 @@ final class PackageToolTests: XCTestCase {
                     } else {
                         // file does not exist, but is optional
                         let textOutput = try execute(["--netrc", "--netrc-optional", "resolve"], packagePath: packageRoot)
-                        XCTAssert(textOutput.stderr.contains("Did not find optional .netrc file at /Users/i826181/.netrc."))
+                        XCTAssert(textOutput.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
                         
                         // file does not exist, but is optional
                         let textOutput2 = try execute(["--netrc-optional", "resolve"], packagePath: packageRoot)
-                        XCTAssert(textOutput2.stderr.contains("Did not find optional .netrc file at /Users/i826181/.netrc."))
+                        XCTAssert(textOutput2.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
                         
                         // required file does not exist, will throw
                         try execute(["--netrc", "resolve"], packagePath: packageRoot)
