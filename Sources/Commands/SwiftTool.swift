@@ -629,7 +629,6 @@ public class SwiftTool<Options: ToolOptions> {
                 diagnostics.emit(error: "Cannot find mandatory .netrc file at \(resolvedPath.pathString).  To make .netrc file optional, use --netrc-optional flag.")
                 SwiftTool.exit(with: .failure)
             } else {
-                // FIXME: send warning
                 diagnostics.emit(warning: "Did not find optional .netrc file at \(resolvedPath.pathString).")
                 return nil
             }

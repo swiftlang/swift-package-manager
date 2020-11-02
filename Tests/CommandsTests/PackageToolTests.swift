@@ -55,7 +55,6 @@ final class PackageToolTests: XCTestCase {
         #if os(macOS)
         if #available(macOS 10.13, *) {
             // should succeed
-            print(try execute(["--netrc"]).stdout)
             XCTAssert(try execute(["--netrc"]).stdout.contains("USAGE: swift package"))
             XCTAssert(try execute(["--netrc-file", "/Users/me/.hidden/.netrc"]).stdout.contains("USAGE: swift package"))
             XCTAssert(try execute(["--netrc-optional"]).stdout.contains("USAGE: swift package"))
