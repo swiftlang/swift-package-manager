@@ -130,6 +130,13 @@ let package = Package(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
             dependencies: ["SwiftToolsSupport-auto", "PackageLoading", "PackageModel", "SourceControl"]),
+        
+        // MARK: Package Collections
+
+        .target(
+            /** Data structures and support for package collections */
+            name: "PackageCollections",
+            dependencies: ["SwiftToolsSupport-auto", "PackageModel", "SourceControl"]),
 
         // MARK: Package Manager Functionality
 
