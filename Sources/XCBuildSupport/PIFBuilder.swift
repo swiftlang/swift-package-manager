@@ -93,7 +93,9 @@ public final class PIFBuilder {
                 encoder.outputFormatting.insert(.sortedKeys)
             }
             if #available(macOS 10.15, *) {
+                #if os(macOS) // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
                 encoder.outputFormatting.insert(.withoutEscapingSlashes)
+                #endif
             }
           #endif
         }

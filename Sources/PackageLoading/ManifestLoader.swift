@@ -545,7 +545,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         let encoder = JSONEncoder()
         if #available(macOS 10.15, *) {
+            #if os(macOS)
             encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+            #else // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
+            encoder.outputFormatting = [.sortedKeys]
+            #endif
         }
 
         try keyHash.withData {
