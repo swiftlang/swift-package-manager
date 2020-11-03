@@ -739,7 +739,9 @@ class PackageGraphTests: XCTestCase {
 
         DiagnosticsEngineTester(diagnostics) { result in
             result.check(diagnostic: "dependency 'Baz' is not used by any target", behavior: .warning)
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             result.check(diagnostic: "dependency 'Biz' is not used by any target", behavior: .warning)
+            #endif
         }
     }
 
@@ -1077,7 +1079,12 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    func testUnreachableProductsSkipped() {
+    func testUnreachableProductsSkipped() throws {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let fs = InMemoryFileSystem(emptyFiles:
             "/Root/Sources/Root/Root.swift",
             "/Immediate/Sources/ImmediateUsed/ImmediateUsed.swift",
