@@ -319,12 +319,43 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         /// The Swift tools version specification represented in its constituent parts.
         let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationComponents
         
-        // FIXME: Check the version specifier first?
-        // The diagnosis of the Swift tools version specification's correctness goes in the following order:
-        // 1. Check that the comment marker, the label, and the version specifier are not missing (empty).
-        // 2. Check that the everything up to the version specifier is formatted correctly according to the relaxed rules since Swift 5.3.1. Backward-compatibility is not considered here, because the user-specified version is unknown yet.
+        // The diagnosis of the manifest's formatting's correctness goes in the following order:
+        //
+        // 1. Check that the comment marker, the label, and the version specifier in the Swift tools version specification are not missing (empty).
+        //
+        // 2. Check that everything in the Swift tools version specification up to the version specifier is formatted correctly according to the relaxed rules since Swift 5.3.1. Backward-compatibility is not considered here, because the user-specified version is unknown yet.
+        //
+        //    1. Check that the comment marker is formatted correctly.
+        //
+        //    2. Check that the label is formatted correctly
+        //
+        //    3. Check that there is no unforeseen formatting error in the Swift tools version specification up to the version specifier.
+        //
         // 3. Check that the version spicier is formatted correctly.
-        // 4. Check that the label is formatted backward-compatibly, now that the user-specified version is known.
+        //
+        // 4. Check that the manifest is formatted backward-compatibly, if the user-specified version is ≤ 5.3. Backward-compatibility checks are now possible, because the user-specified version has become known since the previous step.
+        //
+        //    1. Check that the manifest's leading whitespace is backward-compatible with Swift ≤ 5.3.
+        //
+        //    2. Check that the spacing after the comment marker in the Swift tools version specification is backward-compatible with Swift ≤ 5.3.
+        //
+        //    3. Check that the spacing after the label in the Swift tools version specification is backward-compatible with Swift ≤ 5.3.
+        //
+        // This order is based on the general idea that a manifest's readability should come before its validity when being diagnosed. The package manager must first understand what is written in the manifest before it can tell if anything is wrong. This idea is manifested (no pun intended) in 2 areas of the diagnosis process:
+        //
+        // 1. The version specifier contains the most important piece of information, but it's checked last in the Swift tools version specification. This happens twice: both in checking its existence and in checking its correctness.
+        //
+        //    This is because the package manager must be confident that the version specifier it sees is exactly what the user has provided, not polluted by anything that comes before it. With English written left-to-right, and the manifest parsed largely left-to-right, errors in the comment marker and the label could be mistaken by the package manager as the version specifier's. Consider the following Swift tools version specification, where an "l" is mistyped with "1":
+        //
+        //        // swift-too1s-version: 5.3
+        //
+        //    Were the version specifier checked before everything else, the package manager will mistake "1s-version: 5.3" as the version specifier, treating the typo in the label as an error in the version specifier. The user will likely be confused, when informed by the diagnostics message that the version specifier is misspelt.
+        //
+        //    With the label checked before the version specifier, the diagnosis can be more precise, and this kind of confusion to the user can be avoided.
+        //
+        // 2. Backward-compatibility checks of the manifest are after the formatting checks of the Swift tools version specification, not during them.
+        //
+        //    Although it makes more sense, form a human's perspective, if the backward-compatibility checks is integrated within the formatting checks, the package manager can not see things as holistically as a human does. It can not pinpoint all errors in the manifest simultaneously, or understand the user's intention when the manifest has formatting errors, let alone finding any backward-incompatibility. It is better to first ensure that the manifest is formatted correctly according to the latest rules, then compare it against old rules to find backward-incompatibilities.
         
         let commentMarker = toolsVersionSpecificationComponents.commentMarker
         guard !commentMarker.isEmpty else {
