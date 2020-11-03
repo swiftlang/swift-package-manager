@@ -125,6 +125,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             case label(_ malformationDetails: MalformationDetails)
             /// The version specifier is malformed.
             case versionSpecifier(_ malformationDetails: MalformationDetails)
+            /// An unidentifiable component of the Swift tools version specification is malformed.
+            case unidentified
         }
         
         /// Details of backward-incompatible contents with Swift tools version ≤ 5.3.
@@ -137,6 +139,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             case spacingAfterCommentMarker(_ spacing: String)
             /// There is a non-empty spacing between the label part of the Swift tools version specification and the version specifier.
             case spacingAfterLabel(_ spacing: String)
+            /// There is an unidentifiable backward-incompatibility with Swift tools version ≤ 5.3 within the manifest.
+            case unidentified
         }
         
         /// Package directory is inaccessible (missing, unreadable, etc).
@@ -180,37 +184,41 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 return "the package manifest at '\(manifestFilePath)' cannot be decoded using UTF-8"
             case let .malformedToolsVersionSpecification(malformationLocation):
                 switch malformationLocation {
-                case let .commentMarker(malformationDetails):
-                    switch malformationDetails {
+                case .commentMarker(let commentMarker):
+                    switch commentMarker {
                     case .isMissing:
                         return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                     case .isMisspelt(let misspeltCommentMarker):
                         return "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
                     }
-                case let .label(malformationDetails):
-                    switch malformationDetails {
+                case .label(let label):
+                    switch label {
                     case .isMissing:
                         return "the Swift tools version specification is missing a label; consider inserting 'swift-tools-version:' between the comment marker and the version specifier"
                     case .isMisspelt(let misspeltLabel):
                         return "the Swift tools version specification's label '\(misspeltLabel)' is misspelt; consider replacing it with 'swift-tools-version:'"
                     }
-                case let .versionSpecifier(malformationDetails):
-                    switch malformationDetails {
+                case .versionSpecifier(let versionSpecifier):
+                    switch versionSpecifier {
                     case .isMissing:
                         // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
                         return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest supported version by the project"
                     case .isMisspelt(let misspeltVersionSpecifier):
                         return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
                     }
+                case .unidentified:
+                    return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '// swift-tools-version:\(ToolsVersion.currentVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
                 switch incompatibility {
-                case let .leadingWhitespace(whitespace):
+                case .leadingWhitespace(let whitespace):
                     return "leading whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: whitespace)) in manifest is supported by only Swift > 5.3; the specified version \(specifiedVersion) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
-                case let .spacingAfterCommentMarker(spacing):
+                case .spacingAfterCommentMarker(let spacing):
                     return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider replacing the sequence with a single space (U+0020) for Swift \(specifiedVersion)"
-                case let .spacingAfterLabel(spacing):
+                case .spacingAfterLabel(let spacing):
                     return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift > 5.3; consider removing the sequence for Swift \(specifiedVersion)"
+                case .unidentified:
+                    return "the manifest is backward-incompatible with Swift ≤ 5.3, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '// swift-tools-version:\(ToolsVersion.currentVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             }
             
@@ -387,7 +395,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             
             // The above If-statements should have covered all possible malformations in Swift tools version specification up to the version specifier.
             // If you changed the logic in this file, and this fatal error is triggered, then you need to re-check the logic, and make sure all possible error conditions are covered in the Else-block.
-            fatalError("unidentified malformation in the Swift tools version specification")
+            throw Error.malformedToolsVersionSpecification(.unidentified)
         }
         
         guard let version = ToolsVersion(string: String(versionSpecifier)) else {
@@ -412,7 +420,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             
             // The above If-statements should have covered all possible backward incompatibilities with Swift ≤ 5.3.
             // If you changed the logic in this file, and this fatal error is triggered, then you need to re-check the logic, and make sure all possible error conditions are covered in the Else-block.
-            fatalError("unidentified backward-incompatibility with Swift ≤ 5.3 in the manifest")
+            throw Error.backwardIncompatiblePre5_3_1(.unidentified)
         }
         
         return version
