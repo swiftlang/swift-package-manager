@@ -22,10 +22,14 @@ public struct PackageGraphRootInput {
     /// Top level dependencies to the graph.
     public let dependencies: [PackageDependencyDescription]
 
+    /// Dependency mirrors for the graph.
+    public let mirrors: DependencyMirrors
+
     /// Create a package graph root.
-    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = []) {
+    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = [], mirrors: DependencyMirrors = [:]) {
         self.packages = packages
         self.dependencies = dependencies
+        self.mirrors = mirrors
     }
 }
 
@@ -67,13 +71,13 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints(config: SwiftPMConfig) -> [RepositoryPackageConstraint] {
+    public func constraints(mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
         let constraints = packageRefs.map({
             RepositoryPackageConstraint(container: $0, requirement: .unversioned, products: .everything)
         })
         return constraints + dependencies.map({
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(config: config),
+                container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter
             )

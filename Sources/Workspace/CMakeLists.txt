@@ -18,6 +18,7 @@ add_library(Workspace
   ToolsVersionWriter.swift
   UserToolchain.swift
   Workspace.swift
+  WorkspaceConfiguration.swift
   WorkspaceState.swift
   WindowsToolchainInfo.swift)
 target_link_libraries(Workspace PUBLIC

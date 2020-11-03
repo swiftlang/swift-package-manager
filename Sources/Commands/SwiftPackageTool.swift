@@ -644,7 +644,6 @@ extension SwiftPackageTool.Config {
         
         func run(_ swiftTool: SwiftTool) throws {
             let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -656,7 +655,8 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.set(mirrorURL: mirrorURL, forURL: originalURL)
+            config.mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+            try config.saveState()
         }
     }
 
@@ -678,7 +678,6 @@ extension SwiftPackageTool.Config {
         
         func run(_ swiftTool: SwiftTool) throws {
             let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -690,7 +689,8 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.unset(originalOrMirrorURL: originalOrMirrorURL)
+            try config.mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
+            try config.saveState()
         }
     }
 
@@ -709,7 +709,6 @@ extension SwiftPackageTool.Config {
 
         func run(_ swiftTool: SwiftTool) throws {
             let config = try swiftTool.getSwiftPMConfig()
-            try config.load()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -721,7 +720,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            if let mirror = config.getMirror(forURL: originalURL) {
+            if let mirror = config.mirrors.getMirror(forURL: originalURL) {
                 print(mirror)
             } else {
                 stderrStream <<< "not found\n"

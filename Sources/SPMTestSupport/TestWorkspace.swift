@@ -26,7 +26,7 @@ public final class TestWorkspace {
     public let checksumAlgorithm: MockHashAlgorithm
     let roots: [TestPackage]
     let packages: [TestPackage]
-    public let config: SwiftPMConfig
+    public let config: Workspace.Configuration
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
     public let delegate = TestWorkspaceDelegate()
@@ -51,7 +51,7 @@ public final class TestWorkspace {
         self.downloader = downloader ?? MockDownloader(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.config = SwiftPMConfig(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        self.config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
         self.roots = roots
         self.packages = packages
 

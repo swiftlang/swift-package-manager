@@ -19,7 +19,7 @@ extension PackageGraph {
     /// Load the package graph for the given package path.
     public static func load(
         root: PackageGraphRoot,
-        config: SwiftPMConfig = SwiftPMConfig(),
+        mirrors: DependencyMirrors = [:],
         additionalFileRules: [FileRuleDescription] = [],
         externalManifests: [Manifest],
         requiredDependencies: Set<PackageReference> = [],
@@ -42,7 +42,7 @@ extension PackageGraph {
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
-                let url = config.mirroredURL(forURL: dependency.url)
+                let url = mirrors.effectiveURL(forURL: dependency.url)
                 return manifestMap[PackageReference.computeIdentity(packageURL: url)].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
@@ -129,7 +129,7 @@ extension PackageGraph {
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = createResolvedPackages(
             allManifests: allManifests,
-            config: config,
+            mirrors: mirrors,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
             unsafeAllowedPackages: unsafeAllowedPackages,
@@ -187,7 +187,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
 /// Create resolved packages from the loaded packages.
 private func createResolvedPackages(
     allManifests: [GraphLoadingNode],
-    config: SwiftPMConfig,
+    mirrors: DependencyMirrors,
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
@@ -228,7 +228,7 @@ private func createResolvedPackages(
                 }
 
                 // Otherwise, look it up by its identity.
-                let url = config.mirroredURL(forURL: dependency.url)
+                let url = mirrors.effectiveURL(forURL: dependency.url)
                 let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
 
                 // We check that the explicit package dependency name matches the package name.
@@ -359,10 +359,10 @@ private func createResolvedPackages(
                     // explicitly reference the package containing the product, or for the product, package and
                     // dependency to share the same name. We don't check this in manifest loading for root-packages so
                     // we can provide a more detailed diagnostic here.
-                    let referencedPackageURL = config.mirroredURL(forURL: product.packageBuilder.package.manifest.url)
+                    let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
                     let referencedPackageIdentity = PackageReference.computeIdentity(packageURL: referencedPackageURL)
                     let packageDependency = packageBuilder.package.manifest.dependencies.first { package in
-                        let packageURL = config.mirroredURL(forURL: package.url)
+                        let packageURL = mirrors.effectiveURL(forURL: package.url)
                         let packageIdentity = PackageReference.computeIdentity(packageURL: packageURL)
                         return packageIdentity == referencedPackageIdentity
                     }!

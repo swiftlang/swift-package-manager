@@ -3463,8 +3463,9 @@ final class WorkspaceTests: XCTestCase {
             result.check(notPresent: "Baz")
         }
 
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bar").pathString)
-        try workspace.config.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
+        workspace.config.mirrors.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bar").pathString)
+        workspace.config.mirrors.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
+        try workspace.config.saveState()
 
         let deps: [TestWorkspace.PackageDependency] = [
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
