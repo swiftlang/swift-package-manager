@@ -75,8 +75,6 @@ $> ./swift/utils/build-script --preset=buildbot_swiftpm_linux_platform,tools=RA,
 
 ```bash
 $> git clone https://github.com/apple/swift-llbuild llbuild
-$> ls
-swiftpm llbuild
 ```
 
 Note: Make sure the directory for llbuild is called "llbuild" and not
@@ -94,10 +92,11 @@ $> git clone https://github.com/jpsim/yams
 $> git clone https://github.com/apple/swift-driver
 ```
 
-6. Clone [swift-argument-parser](https://github.com/apple/swift-argument-parser) beside the package manager directory and check out tag 0.3.0.
+6. Clone [swift-argument-parser](https://github.com/apple/swift-argument-parser) beside the package manager directory and check out tag with the [latest version](https://github.com/apple/swift-argument-parser/tags).
 
+For example, if the latest tag is 0.3.1:
 ```bash
-$> git clone https://github.com/apple/swift-argument-parser --branch 0.3.0
+$> git clone https://github.com/apple/swift-argument-parser --branch 0.3.1
 ```
 
 7. Build the Swift Package Manager.
@@ -113,7 +112,7 @@ This command builds the Package Manager inside the `.build/` directory.
     Run the bootstrap script to rebuild after making a change to the source
     code.
 
-<a id="self-hosting">*D) _Self Hosting_*</a>:  
+<a id="self-hosting">*_Self Hosting_*</a>:  
 
 It is possible to build SwiftPM with itself using SwiftPM present in latest
 release of Xcode or the latest trunk snapshot on Linux.
@@ -126,6 +125,7 @@ $> swift build
 $> swift test --parallel
 
 # Run a single test.
+For example, to only run the `PackageGraphTests.DependencyResolverTests/testBasics`
 $> swift test --filter PackageGraphTests.DependencyResolverTests/testBasics
 
 # Run tests for the test targets BuildTests and WorkspaceTests, but skip some test cases.
@@ -175,7 +175,7 @@ $> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
 $> Utilities/bootstrap test
 ```
 
-## Getting Started
+## Building
 1. Pull the SwiftPM repository:
 ```bash
 $> git clone https://github.com/apple/swift-package-manager.git
@@ -207,13 +207,13 @@ If you need to build the generated binaries, run `swift-build` in inside `.build
 ## Running Tests
 ### Run all tests.
 ```bash
-$> swift test --parallel
+$> swift test
 ```
 ### Run a single test.
 ```bash
 $> swift test --filter PackageGraphTests.DependencyResolverTests/testBasics
 ```
-### Run tests for the test targets BuildTests and WorkspaceTests, but skip some test cases.
+Or another example, to run tests for the test targets BuildTests and WorkspaceTests, but skip some test cases.
 ```bash
 $> swift test --filter BuildTests --skip BuildPlanTests --filter WorkspaceTests --skip InitTests
 ```
@@ -226,7 +226,7 @@ $> export TSC_ENABLE_PERF_TESTS=1
 $> swift test -c release --filter PerformanceTests
 ```
 
-For example, testing basic functionality using the newly created binaries 
+To test SwiftPM functionality using the newly created binaries, you can invoke them from the `.build` directory. For example:
 
 ```bash
 $> cd /tmp && mkdir hello && cd hello
@@ -252,12 +252,13 @@ $> Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 2. Clone a working copy of your fork
 3. Create a new branch
 4. Make your code changes
-5. Commit (include the Radar link or JIRA issue id in the commit message if possible and a description your changes)
-6. Push the commit / branch to your fork
-7. Make a PR from your fork / branch to `apple: main`
-8. Leave a new comment to trigger smoke tests: `@swift-ci please smoke test`
-9. Reviewers are going to be automatically added to your PR
-10. Merge pull request when you received approval from the reviewers (one or more)
+5. Try to keep your changes (when possible) below 200 lines of code.
+6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR.
+7. Commit (include the Radar link or JIRA issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
+8. Push the commit / branch to your fork
+9. Make a PR from your fork / branch to `apple: main`
+10. Reviewers are going to be automatically added to your PR
+11. Merge pull request when you received approval from the reviewers (one or more)
 
 ## Using Continuous Integration
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask
