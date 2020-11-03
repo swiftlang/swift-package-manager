@@ -279,7 +279,7 @@ extension XCBuildMessage.TaskStartedInfo: Decodable, Equatable {
         taskSignature = try container.decode(String.self, forKey: .taskSignature)
         parentTaskID = try container.decodeIntOrStringIfPresent(forKey: .parentTaskID)
         ruleInfo = try container.decode(String.self, forKey: .ruleInfo)
-        interestingPath = try container.decodeIfPresent(AbsolutePath.self, forKey: .interestingPath)
+        interestingPath = try AbsolutePath(validatingOrNilIfEmpty: container.decodeIfPresent(String.self, forKey: .interestingPath))
         commandLineDisplayString = try container.decode(String.self, forKey: .commandLineDisplayString)
         executionDescription = try container.decode(String.self, forKey: .executionDescription)
     }
@@ -408,5 +408,14 @@ fileprivate extension KeyedDecodingContainer {
             }
             return value
         }
+    }
+}
+
+fileprivate extension AbsolutePath {
+    init?(validatingOrNilIfEmpty path: String?) throws {
+        guard let path = path, !path.isEmpty else {
+            return nil
+        }
+        try self.init(validating: path)
     }
 }
