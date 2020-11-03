@@ -271,11 +271,15 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         
         /// A Boolean value indicating whether everything up to the version specifier in the Swift tools version specification represented in its constituent parts is well-formed.
         public var everythingUpToVersionSpecifierIsWellFormed: Bool {
-            // FIXME: Make `label` case sensitive?
-            // FIXME: Replace with `commentMarker == "//" && (label == "swift-tools-version:" || label.lowercased() == "swift-tools-version:")`?
+            // The label is case-insensitive.
+            // Making it case-sensitive is source breaking for all existing Swift versions.
+            //
+            // An argument for making it case-sensitive is that it can make the package manager slightly more efficient:
+            //
             // "swift-tools-version:" has more than 15 UTF-8 code units, so `label` is likely to have more than 15 UTF-8 code units too.
             // Strings with more than 15 UTF-8 code units are heap-allocated on 64-bit platforms, 10 on 32-bit platforms.
-            // `lowercase()` returns a heap-allocated string here, and this is inefficient, although the inefficiency is perhaps insignificant.
+            // `Substring.lowercase()` returns a heap-allocated string here, and this is inefficient.
+            // Although, the allocation happens only once per manifest (once per loading attempt), so the inefficiency is rather insignificant.
             // Short-circuiting the `lowercase()` can remove an allocation.
             commentMarker == "//" && label.lowercased() == "swift-tools-version:"
         }
