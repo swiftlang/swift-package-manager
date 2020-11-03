@@ -187,7 +187,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .commentMarker(let commentMarker):
                     switch commentMarker {
                     case .isMissing:
-                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                     case .isMisspelt(let misspeltCommentMarker):
                         return "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
                     }
@@ -202,9 +202,9 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                     switch versionSpecifier {
                     case .isMissing:
                         // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
-                        return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest supported version by the project"
+                        return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     case .isMisspelt(let misspeltVersionSpecifier):
-                        return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest supported version by the project"
+                        return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     }
                 case .unidentified:
                     return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '// swift-tools-version:\(ToolsVersion.currentVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
