@@ -10,7 +10,7 @@
 
 /// A platform that usually corresponds to an operating system such as
 /// iOS, macOS, or Linux.
-public struct Platform: Encodable {
+public struct Platform: Encodable, Equatable {
 
     /// The name of the platform.
     fileprivate let name: String
@@ -64,7 +64,7 @@ public struct Platform: Encodable {
 /// with the top-level package’s deployment version. The deployment
 /// target of a package's dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
-public struct SupportedPlatform: Encodable {
+public struct SupportedPlatform: Encodable, Equatable {
 
     /// The platform.
     let platform: Platform
