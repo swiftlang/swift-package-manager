@@ -11,7 +11,7 @@
 import TSCBasic
 
 /// Specifies a repository address.
-public struct RepositorySpecifier: Hashable {
+public struct RepositorySpecifier: Hashable, Codable {
     /// The URL of the repository.
     public let url: String
 

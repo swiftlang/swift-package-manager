@@ -10,7 +10,7 @@
 
 extension PackageCollectionsModel {
     /// A `PackageGroupProfile` is a grouping of `PackageGroup`s.
-    public struct Profile {
+    public struct Profile: Hashable {
         /// The default profile; this should be used when a profile is required but not specified.
         public static let `default` = Profile(name: "default")
 
