@@ -547,7 +547,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label with no spacing following it.
         let labelWithTrailingWhitespace = specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker..<startIndexOfVersionSpecifier]
         
-        /// The position of the first character in the spacing after the label part of the Swift version specification.
+        /// The position of the first character in the spacing after the label part of the Swift tools version specification.
         ///
         /// Because there is no whitespace within the label, and because the spacing consists of only horizontal whitespace characters, so this position is the same as the position of the first whitespace character between the beginning of the label and the beginning of the version specifier. If no such whitespace character exists, then there is no spacing, and so this position is the `endIndex` of these sequence of characters (i.e. the starting position of the version specifier).
         let startIndexOfSpacingAfterLabel = labelWithTrailingWhitespace.firstIndex(where: \.isWhitespace) ?? startIndexOfVersionSpecifier
