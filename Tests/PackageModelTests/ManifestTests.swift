@@ -150,7 +150,12 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
+<<<<<<< HEAD
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.name }).sorted(), [
+=======
+            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.declaration.name }).sorted(), [
+>>>>>>> parent of 27f444f6... Temporarily disable target-based dependency resolution (#2998)
                 "Bar1", // Foo → Foo1 → Bar1
                 "Bar2", // Foo → Foo1 → Foo2 → Bar2
                 // (Bar3 is unreachable.)
