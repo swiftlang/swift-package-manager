@@ -411,11 +411,11 @@ public class SwiftTool {
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
-    func getSwiftPMConfig() throws -> SwiftPMConfig {
+    func getSwiftPMConfig() throws -> Workspace.Configuration {
         return try _swiftpmConfig.get()
     }
-    private lazy var _swiftpmConfig: Result<SwiftPMConfig, Swift.Error> = {
-        return Result(catching: { SwiftPMConfig(path: try configFilePath()) })
+    private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
+        return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
     }()
     
     func resolvedNetrcFilePath() -> AbsolutePath? {

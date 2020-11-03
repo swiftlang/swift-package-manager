@@ -51,7 +51,7 @@ public class LocalPackageContainer: BasePackageContainer  {
     }
 
     public override func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(productFilter: productFilter, config: config)
+        return try loadManifest().dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
     }
 
     public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
@@ -62,7 +62,7 @@ public class LocalPackageContainer: BasePackageContainer  {
 
     public init(
         _ identifier: Identifier,
-        config: SwiftPMConfig,
+        mirrors: DependencyMirrors,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
@@ -72,7 +72,7 @@ public class LocalPackageContainer: BasePackageContainer  {
         self.fs = fs
         super.init(
             identifier,
-            config: config,
+            mirrors: mirrors,
             manifestLoader: manifestLoader,
             toolsVersionLoader: toolsVersionLoader,
             currentToolsVersion: currentToolsVersion
