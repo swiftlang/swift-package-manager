@@ -11,7 +11,7 @@
 import PackageModel
 import TSCBasic
 
-public struct TestDependency {
+public struct MockDependency {
     public typealias Requirement = PackageDependencyDescription.Requirement
 
     public let name: String?

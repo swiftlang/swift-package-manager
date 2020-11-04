@@ -6,15 +6,15 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 
-import TSCBasic
+import PackageGraph
 import PackageLoading
 import PackageModel
-import PackageGraph
 import SourceControl
+import TSCBasic
 import TSCUtility
 
 /// Represents a mock package.
@@ -32,25 +32,6 @@ public struct MockPackage {
         self.name = name
         self.version = version
         self.dependencies = dependencies
-    }
-}
-
-/// Represents a mock package dependency.
-public struct MockDependency {
-    /// The name of the dependency.
-    public let name: String
-
-    /// The allowed version range of this dependency.
-    public let version: Range<TSCUtility.Version>
-
-    public init(_ name: String, version: Range<TSCUtility.Version>) {
-        self.name = name
-        self.version = version
-    }
-
-    public init(_ name: String, version: TSCUtility.Version) {
-        self.name = name
-        self.version = version..<Version(version.major, version.minor, version.patch + 1)
     }
 }
 
@@ -75,12 +56,12 @@ public struct MockManifestGraph {
 
     /// Convinience accessor for repository specifiers.
     public func repo(_ package: String) -> RepositorySpecifier {
-        return repos[package]!
+        return self.repos[package]!
     }
 
     /// Convinience accessor for external manifests.
     public func manifest(_ package: String, version: TSCUtility.Version) -> Manifest {
-        return manifests[MockManifestLoader.Key(url: repo(package).url, version: version)]!
+        return self.manifests[MockManifestLoader.Key(url: self.repo(package).url, version: version)]!
     }
 
     /// Create instance with mocking on in memory file system.
@@ -89,7 +70,7 @@ public struct MockManifestGraph {
         rootDeps: [MockDependency],
         packages: [MockPackage],
         fs: InMemoryFileSystem
-        ) throws {
+    ) throws {
         try self.init(at: path, rootDeps: rootDeps, packages: packages, inMemory: (fs, InMemoryGitRepositoryProvider()))
     }
 
@@ -98,11 +79,11 @@ public struct MockManifestGraph {
         rootDeps: [MockDependency],
         packages: [MockPackage],
         inMemory: (fs: InMemoryFileSystem, provider: InMemoryGitRepositoryProvider)? = nil
-        ) throws {
-        repoProvider = inMemory?.provider
+    ) throws {
+        self.repoProvider = inMemory?.provider
         // Create the test repositories, we don't need them to have actual
         // contents (the manifests are mocked).
-        let repos = Dictionary(uniqueKeysWithValues: try packages.map({ package -> (String, RepositorySpecifier) in
+        let repos = Dictionary(uniqueKeysWithValues: try packages.map { package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
             let tag = package.version?.description ?? "initial"
             let specifier = RepositorySpecifier(url: repoPath.pathString)
@@ -126,7 +107,7 @@ public struct MockManifestGraph {
                 }
             }
             return (package.name, specifier)
-        }))
+        })
 
         let src = path.appending(component: "Sources")
         if let fs = inMemory?.fs {
@@ -139,7 +120,7 @@ public struct MockManifestGraph {
         }
 
         // Create the root manifest.
-        rootManifest = Manifest(
+        self.rootManifest = Manifest(
             name: "Root",
             platforms: [],
             path: path.appending(component: Manifest.filename),
@@ -151,7 +132,7 @@ public struct MockManifestGraph {
         )
 
         // Create the manifests from mock packages.
-        var manifests = Dictionary(uniqueKeysWithValues: packages.map({ package -> (MockManifestLoader.Key, Manifest) in
+        var manifests = Dictionary(uniqueKeysWithValues: packages.map { package -> (MockManifestLoader.Key, Manifest) in
             let url = repos[package.name]!.url
             let manifest = Manifest(
                 name: package.name,
@@ -164,11 +145,11 @@ public struct MockManifestGraph {
                 dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies)
             )
             return (MockManifestLoader.Key(url: url, version: package.version), manifest)
-        }))
+        })
         // Add the root manifest.
-        manifests[MockManifestLoader.Key(url: path.pathString, version: nil)] = rootManifest
+        manifests[MockManifestLoader.Key(url: path.pathString, version: nil)] = self.rootManifest
 
-        manifestLoader = MockManifestLoader(manifests: manifests)
+        self.manifestLoader = MockManifestLoader(manifests: manifests)
         self.manifests = manifests
         self.repos = repos
     }
@@ -178,11 +159,13 @@ public struct MockManifestGraph {
         repos: [String: RepositorySpecifier],
         dependencies: [MockDependency]
     ) -> [PackageDependencyDescription] {
-        return dependencies.map({ dependency in
+        return dependencies.map { dependency in
+            let name = dependency.name ?? "anonymous"
             return PackageDependencyDescription(
                 name: dependency.name,
-                url: repos[dependency.name]?.url ?? "//\(dependency.name)",
-                requirement: .range(dependency.version.lowerBound ..< dependency.version.upperBound))
-        })
+                url: repos[name]?.url ?? "//\(name)",
+                requirement: dependency.requirement
+            )
+        }
     }
 }
