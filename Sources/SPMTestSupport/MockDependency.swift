@@ -17,24 +17,28 @@ public struct MockDependency {
     public let name: String?
     public let path: String
     public let requirement: Requirement
+    public let products: ProductFilter
 
-    public init(name: String, requirement: Requirement) {
+    public init(name: String, requirement: Requirement, products: ProductFilter = .everything) {
         self.name = name
         self.path = name
         self.requirement = requirement
+        self.products = products
     }
 
-    public init(name: String?, path: String, requirement: Requirement) {
+    public init(name: String?, path: String, requirement: Requirement, products: ProductFilter = .everything) {
         self.name = name
         self.path = path
         self.requirement = requirement
+        self.products = products
     }
 
     public func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
         return PackageDependencyDescription(
             name: self.name,
             url: baseURL.appending(RelativePath(self.path)).pathString,
-            requirement: self.requirement
+            requirement: self.requirement,
+            productFilter: self.products
         )
     }
 }
