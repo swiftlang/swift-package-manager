@@ -10,6 +10,7 @@
 
 import TSCBasic
 import TSCUtility
+import SourceControl
 
 /// A package reference.
 ///
@@ -132,5 +133,16 @@ extension PackageReference: JSONMappable, JSONSerializable {
             "path": path,
             "kind": kind.rawValue,
         ])
+    }
+}
+
+extension PackageReference {
+    /// Initializes a `PackageReference` from `RepositorySpecifier`
+    public init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
+        self.init(
+            identity: PackageReference.computeIdentity(packageURL: repository.url),
+            path: repository.url,
+            kind: kind
+        )
     }
 }

@@ -56,7 +56,6 @@ protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - query: The search query expression
-    ///   - fields: Optional. Fields to search on
     ///   - callback: The closure to invoke when result becomes available
     func searchPackages(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
                         query: String,
@@ -107,9 +106,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     deinit {
-        // FIXME: diagnostics instead?
         guard case .disconnected = (self.stateLock.withLock { self.state }) else {
-            fatalError("db should be closed")
+            return assertionFailure("db should be closed")
         }
     }
 
@@ -127,7 +125,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.queue.async {
             do {
                 let query = "INSERT OR IGNORE INTO PACKAGES_COLLECTIONS VALUES (?, ?);"
-                try self.executeStatemnt(query) { statement -> Void in
+                try self.executeStatement(query) { statement -> Void in
                     let data = try self.jsonEncoder.encode(collection)
 
                     let bindings: [SQLite.SQLiteValue] = [
@@ -149,7 +147,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.queue.async {
             do {
                 let query = "DELETE FROM PACKAGES_COLLECTIONS WHERE key == ?;"
-                try self.executeStatemnt(query) { statement -> Void in
+                try self.executeStatement(query) { statement -> Void in
                     let bindings: [SQLite.SQLiteValue] = [
                         .string(identifier.databaseKey()),
                     ]
@@ -168,7 +166,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.queue.async {
             do {
                 let query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key == ? LIMIT 1;"
-                let collection = try self.executeStatemnt(query) { statement -> PackageCollectionsModel.PackageCollection in
+                let collection = try self.executeStatement(query) { statement -> PackageCollectionsModel.PackageCollection in
                     try statement.bind([.string(identifier.databaseKey())])
 
                     let row = try statement.step()
@@ -197,7 +195,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 } else {
                     query = "SELECT value FROM PACKAGES_COLLECTIONS;"
                 }
-                let collections = try self.executeStatemnt(query) { statement -> [PackageCollectionsModel.PackageCollection] in
+                let collections = try self.executeStatement(query) { statement -> [PackageCollectionsModel.PackageCollection] in
                     if let identifiers = identifiers {
                         try statement.bind(identifiers.compactMap { .string($0.databaseKey()) })
                     }
@@ -221,7 +219,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // FIXME: implement this
-    func searchPacakges(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]? = nil,
+    func searchPackages(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]? = nil,
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
         fatalError("not implemented")
@@ -254,7 +252,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         case error
     }
 
-    private func executeStatemnt<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
+    private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
         return try self.withDB { db in
             let result: Result<T, Error>
             let statement = try db.prepare(query: query)

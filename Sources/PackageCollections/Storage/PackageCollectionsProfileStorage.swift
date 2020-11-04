@@ -88,7 +88,6 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
 
-    private let lock: LockProtocol
     private let queue = DispatchQueue(label: "org.swift.swiftpm.FilePackageCollectionsProfileStorage")
 
     init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil) {
@@ -96,13 +95,6 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
 
         let name = "collections"
         self.path = path ?? Paths.dotSwiftPM(fileSystem: fileSystem).appending(component: "\(name).json")
-
-        // FileLock only works with real FS
-        if fileSystem.isLocalFileSystem {
-            self.lock = FileLock(name: name, cachePath: self.path.parentDirectory)
-        } else {
-            self.lock = Lock()
-        }
 
         self.jsonEncoder = JSONEncoder()
         self.jsonEncoder.outputFormatting = .prettyPrinted
@@ -116,7 +108,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void) {
         self.queue.async {
             do {
-                let profiles = try self.lock.withLock {
+                let profiles = try self.withLock {
                     try self.loadFromDisk()
                 }
                 callback(.success(Array(profiles.keys)))
@@ -129,7 +121,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     func listSources(in profile: PackageCollectionsModel.Profile, callback: @escaping (Result<[PackageCollectionsModel.PackageCollectionSource], Error>) -> Void) {
         self.queue.async {
             do {
-                let profiles = try self.lock.withLock {
+                let profiles = try self.withLock {
                     try self.loadFromDisk()
                 }
                 callback(.success(profiles[profile] ?? []))
@@ -145,7 +137,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
              callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
-                try self.lock.withLock {
+                try self.withLock {
                     var profiles = try self.loadFromDisk()
                     var sources = profiles[profile]?.filter { $0 != source } ?? []
                     let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
@@ -165,7 +157,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
-                try self.lock.withLock {
+                try self.withLock {
                     var profiles = try self.loadFromDisk()
                     guard let sources = profiles[profile] else {
                         throw Errors.invalidProfile(profile)
@@ -186,7 +178,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
               callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
-                try self.lock.withLock {
+                try self.withLock {
                     var profiles = try self.loadFromDisk()
                     guard var sources = profiles[profile] else {
                         throw Errors.invalidProfile(profile)
@@ -209,7 +201,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
                 callback: @escaping (Result<Bool, Error>) -> Void) {
         self.queue.async {
             do {
-                let profiles = try self.lock.withLock {
+                let profiles = try self.withLock {
                     try self.loadFromDisk()
                 }
                 let containers = profiles.filter { $0.value.contains(source) }
@@ -243,6 +235,10 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         let container = Model.Container(profiles)
         let buffer = try jsonEncoder.encode(container)
         try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer))
+    }
+
+    private func withLock<T>(_ body: () throws -> T) throws -> T {
+        try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive, body)
     }
 
     private enum Errors: Error {
@@ -322,18 +318,4 @@ private extension PackageCollectionsModel.PackageCollectionSource {
 private enum SerializationError: Error {
     case unknownType(String)
     case invalidURL(String)
-}
-
-// FIXME: move to TSC?
-
-protocol LockProtocol {
-    func withLock<T>(_ body: () throws -> T) throws -> T
-}
-
-extension Lock: LockProtocol {}
-
-extension FileLock: LockProtocol {
-    public func withLock<T>(_ body: () throws -> T) throws -> T {
-        try self.withLock(type: .exclusive, body)
-    }
 }

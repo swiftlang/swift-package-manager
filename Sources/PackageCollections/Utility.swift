@@ -59,16 +59,3 @@ struct NotFoundError: Error {
         self.item = item
     }
 }
-
-// MARK: - Model Extensions
-
-extension PackageReference {
-    /// Initializes a `PackageReference` from `RepositorySpecifier`
-    init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
-        self.init(
-            identity: PackageReference.computeIdentity(packageURL: repository.url),
-            path: repository.url,
-            kind: kind
-        )
-    }
-}
