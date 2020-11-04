@@ -6,19 +6,17 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 
-import TSCBasic
-import PackageModel
 import PackageLoading
-import Workspace
-import PackageGraph
+import PackageModel
 import SourceControl
+import TSCBasic
+import Workspace
 
 public final class TestWorkspace {
-
     let sandbox: AbsolutePath
     let fs: FileSystem
     public let downloader: MockDownloader
@@ -61,48 +59,48 @@ public final class TestWorkspace {
         self.skipUpdate = skipUpdate
         self.enablePubGrub = enablePubGrub
 
-        try create()
+        try self.create()
     }
 
     private var rootsDir: AbsolutePath {
-        return sandbox.appending(component: "roots")
+        return self.sandbox.appending(component: "roots")
     }
 
     public var packagesDir: AbsolutePath {
-        return sandbox.appending(component: "pkgs")
+        return self.sandbox.appending(component: "pkgs")
     }
 
     public var artifactsDir: AbsolutePath {
-        return sandbox.appending(components: ".build", "artifacts")
+        return self.sandbox.appending(components: ".build", "artifacts")
     }
 
     public func urlForPackage(withName name: String) -> String {
-        return packagesDir.appending(RelativePath(name)).pathString
+        return self.packagesDir.appending(RelativePath(name)).pathString
     }
 
     private func url(for package: TestPackage) -> String {
-        return packagesDir.appending(RelativePath(package.path ?? package.name)).pathString
+        return self.packagesDir.appending(RelativePath(package.path ?? package.name)).pathString
     }
 
     private func create() throws {
         // Remove the sandbox if present.
-        try fs.removeFileTree(sandbox)
+        try self.fs.removeFileTree(self.sandbox)
 
         // Create directories.
-        try fs.createDirectory(sandbox, recursive: true)
-        try fs.createDirectory(rootsDir)
-        try fs.createDirectory(packagesDir)
+        try self.fs.createDirectory(self.sandbox, recursive: true)
+        try self.fs.createDirectory(self.rootsDir)
+        try self.fs.createDirectory(self.packagesDir)
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: TestPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
-            let url = (packageKind == .root ? packagePath : packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
+            let url = (packageKind == .root ? packagePath : self.packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
             let specifier = RepositorySpecifier(url: url)
 
             // Create targets on disk.
-            let repo = repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: fs as! InMemoryFileSystem)
+            let repo = self.repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: self.fs as! InMemoryFileSystem)
             let repoSourcesDir = AbsolutePath("/Sources")
             for target in package.targets {
                 let repoTargetDir = repoSourcesDir.appending(component: target.name)
@@ -127,26 +125,26 @@ public final class TestWorkspace {
                     version: v,
                     toolsVersion: toolsVersion,
                     packageKind: packageKind,
-                    dependencies: package.dependencies.map({ $0.convert(baseURL: packagesDir) }),
-                    products: package.products.map({ ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) }),
-                    targets: package.targets.map({ $0.convert() })
+                    dependencies: package.dependencies.map { $0.convert(baseURL: packagesDir) },
+                    products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
+                    targets: package.targets.map { $0.convert() }
                 )
                 if let version = version {
                     try repo.tag(name: version)
                 }
             }
 
-            repoProvider.add(specifier: specifier, repository: repo)
+            self.repoProvider.add(specifier: specifier, repository: repo)
         }
 
         // Create root packages.
-        for package in roots {
-            try create(package: package, basePath: rootsDir, packageKind: .root)
+        for package in self.roots {
+            try create(package: package, basePath: self.rootsDir, packageKind: .root)
         }
 
         // Create dependency packages.
-        for package in packages {
-            try create(package: package, basePath: packagesDir, packageKind: .remote)
+        for package in self.packages {
+            try create(package: package, basePath: self.packagesDir, packageKind: .remote)
         }
 
         self.manifestLoader = MockManifestLoader(manifests: manifests)
@@ -157,34 +155,35 @@ public final class TestWorkspace {
             return workspace
         }
 
-        _workspace = Workspace(
-            dataPath: sandbox.appending(component: ".build"),
-            editablesPath: sandbox.appending(component: "edits"),
-            pinsFile: sandbox.appending(component: "Package.resolved"),
-            manifestLoader: manifestLoader,
-            currentToolsVersion: toolsVersion,
+        self._workspace = Workspace(
+            dataPath: self.sandbox.appending(component: ".build"),
+            editablesPath: self.sandbox.appending(component: "edits"),
+            pinsFile: self.sandbox.appending(component: "Package.resolved"),
+            manifestLoader: self.manifestLoader,
+            currentToolsVersion: self.toolsVersion,
             toolsVersionLoader: ToolsVersionLoader(),
-            delegate: delegate,
-            config: config,
-            fileSystem: fs,
-            repositoryProvider: repoProvider,
-            downloader: downloader,
-            archiver: archiver,
-            checksumAlgorithm: checksumAlgorithm,
+            delegate: self.delegate,
+            config: self.config,
+            fileSystem: self.fs,
+            repositoryProvider: self.repoProvider,
+            downloader: self.downloader,
+            archiver: self.archiver,
+            checksumAlgorithm: self.checksumAlgorithm,
             isResolverPrefetchingEnabled: true,
-            enablePubgrubResolver: enablePubGrub,
-            skipUpdate: skipUpdate
+            enablePubgrubResolver: self.enablePubGrub,
+            skipUpdate: self.skipUpdate
         )
-        return _workspace!
+        return self._workspace!
     }
-    private var _workspace: Workspace? = nil
+
+    private var _workspace: Workspace?
 
     public func closeWorkspace() {
-        _workspace = nil
+        self._workspace = nil
     }
 
     public func rootPaths(for packages: [String]) -> [AbsolutePath] {
-        return packages.map({ rootsDir.appending(RelativePath($0)) })
+        return packages.map { rootsDir.appending(RelativePath($0)) }
     }
 
     public struct PackageDependency {
@@ -203,8 +202,8 @@ public final class TestWorkspace {
         fileprivate func convert(_ packagesDir: AbsolutePath, url: String) -> PackageDependencyDescription {
             return PackageDependencyDescription(
                 url: url,
-                requirement: requirement,
-                productFilter: products
+                requirement: self.requirement,
+                productFilter: self.products
             )
         }
     }
@@ -214,9 +213,9 @@ public final class TestWorkspace {
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
-        _ result: (DiagnosticsEngine) -> ()
+        _ result: (DiagnosticsEngine) -> Void
     ) {
-        let ws = createWorkspace()
+        let ws = self.createWorkspace()
         let diagnostics = DiagnosticsEngine()
         ws.edit(
             packageName: packageName,
@@ -232,9 +231,9 @@ public final class TestWorkspace {
         packageName: String,
         roots: [String],
         forceRemove: Bool = false,
-        _ result: (DiagnosticsEngine) -> ()
+        _ result: (DiagnosticsEngine) -> Void
     ) {
-        let ws = createWorkspace()
+        let ws = self.createWorkspace()
         let diagnostics = DiagnosticsEngine()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         diagnostics.wrap {
@@ -243,24 +242,24 @@ public final class TestWorkspace {
         result(diagnostics)
     }
 
-    public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: (DiagnosticsEngine) -> ()) {
+    public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: (DiagnosticsEngine) -> Void) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
         result(diagnostics)
     }
 
-    public func checkClean(_ result: (DiagnosticsEngine) -> ()) {
+    public func checkClean(_ result: (DiagnosticsEngine) -> Void) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         workspace.clean(with: diagnostics)
         result(diagnostics)
     }
 
-    public func checkReset(_ result: (DiagnosticsEngine) -> ()) {
+    public func checkReset(_ result: (DiagnosticsEngine) -> Void) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         workspace.reset(with: diagnostics)
         result(diagnostics)
     }
@@ -269,27 +268,29 @@ public final class TestWorkspace {
         roots: [String] = [],
         deps: [TestWorkspace.PackageDependency] = [],
         packages: [String] = [],
-        _ result: (DiagnosticsEngine) -> ()
+        _ result: (DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
+        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies)
+            packages: rootPaths(for: roots), dependencies: dependencies
+        )
         workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
         result(diagnostics)
     }
-    
+
     public func checkUpdateDryRun(
         roots: [String] = [],
         deps: [TestWorkspace.PackageDependency] = [],
-        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> ()
+        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
+        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies)
+            packages: rootPaths(for: roots), dependencies: dependencies
+        )
         let changes = workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
         result(changes, diagnostics)
     }
@@ -297,24 +298,26 @@ public final class TestWorkspace {
     public func checkPackageGraph(
         roots: [String] = [],
         deps: [TestWorkspace.PackageDependency],
-        _ result: (PackageGraph, DiagnosticsEngine) -> ()
+        _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
-        checkPackageGraph(roots: roots, dependencies: dependencies, result)
+        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
+        self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
     public func checkPackageGraph(
         roots: [String] = [],
         dependencies: [PackageDependencyDescription] = [],
         forceResolvedVersions: Bool = false,
-        _ result: (PackageGraph, DiagnosticsEngine) -> ()
+        _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies)
+            packages: rootPaths(for: roots), dependencies: dependencies
+        )
         let graph = workspace.loadPackageGraph(
-            root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics)
+            root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
+        )
         result(graph, diagnostics)
     }
 
@@ -323,12 +326,12 @@ public final class TestWorkspace {
         public let diagnostics: DiagnosticsEngine
     }
 
-    public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> ()) throws {
+    public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) throws {
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
-        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map({ $0.name })), dependencies: [])
+        let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map { $0.name }), dependencies: [])
         let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
 
@@ -349,7 +352,7 @@ public final class TestWorkspace {
         managedDependencies: [ManagedDependency] = [],
         managedArtifacts: [ManagedArtifact] = []
     ) throws {
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
         for (ref, state) in pins {
@@ -357,13 +360,13 @@ public final class TestWorkspace {
         }
 
         for dependency in managedDependencies {
-            try fs.createDirectory(workspace.path(for: dependency), recursive: true)
+            try self.fs.createDirectory(workspace.path(for: dependency), recursive: true)
             workspace.state.dependencies.add(dependency)
         }
 
         for artifact in managedArtifacts {
             if let path = workspace.path(for: artifact) {
-                try fs.createDirectory(path, recursive: true)
+                try self.fs.createDirectory(path, recursive: true)
             }
 
             workspace.state.artifacts.add(artifact)
@@ -378,13 +381,13 @@ public final class TestWorkspace {
             case revision(String)
             case branch(String)
         }
+
         case checkout(CheckoutState)
         case edited(AbsolutePath?)
         case local
     }
 
     public struct ManagedDependencyResult {
-
         public let managedDependencies: ManagedDependencies
 
         public init(_ managedDependencies: ManagedDependencies) {
@@ -392,12 +395,12 @@ public final class TestWorkspace {
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            let dependency = managedDependencies[forNameOrIdentity: name]
+            let dependency = self.managedDependencies[forNameOrIdentity: name]
             XCTAssert(dependency == nil, "Unexpectedly found \(name) in managed dependencies", file: file, line: line)
         }
 
         public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(managedDependencies.count, 0, file: file, line: line)
+            XCTAssertEqual(self.managedDependencies.count, 0, file: file, line: line)
         }
 
         public func check(dependency name: String, at state: State, file: StaticString = #file, line: UInt = #line) {
@@ -428,7 +431,6 @@ public final class TestWorkspace {
     }
 
     public struct ManagedArtifactResult {
-
         public let managedArtifacts: ManagedArtifacts
 
         public init(_ managedArtifacts: ManagedArtifacts) {
@@ -441,12 +443,12 @@ public final class TestWorkspace {
             file: StaticString = #file,
             line: UInt = #line
         ) {
-            let artifact = managedArtifacts[packageName: packageName, targetName: targetName]
+            let artifact = self.managedArtifacts[packageName: packageName, targetName: targetName]
             XCTAssert(artifact == nil, "Unexpectedly found \(packageName).\(targetName) in managed artifacts", file: file, line: line)
         }
 
         public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(managedArtifacts.count, 0, file: file, line: line)
+            XCTAssertEqual(self.managedArtifacts.count, 0, file: file, line: line)
         }
 
         public func check(
@@ -476,31 +478,32 @@ public final class TestWorkspace {
     public func loadDependencyManifests(
         roots: [String] = [],
         deps: [TestWorkspace.PackageDependency] = [],
-        _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> ()
+        _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map({ $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) })
+        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
         let diagnostics = DiagnosticsEngine()
-        let workspace = createWorkspace()
+        let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies)
+            packages: rootPaths(for: roots), dependencies: dependencies
+        )
         let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
         let manifests = workspace.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         result(manifests, diagnostics)
     }
 
-    public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> ()) {
+    public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {
         do {
-            let workspace = createWorkspace()
+            let workspace = self.createWorkspace()
             try result(ManagedDependencyResult(workspace.state.dependencies))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
         }
     }
 
-    public func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> ()) {
+    public func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> Void) {
         do {
-            let workspace = createWorkspace()
+            let workspace = self.createWorkspace()
             try result(ManagedArtifactResult(workspace.state.artifacts))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
@@ -515,7 +518,7 @@ public final class TestWorkspace {
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            XCTAssert(store.pinsMap[name] == nil, "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
+            XCTAssert(self.store.pinsMap[name] == nil, "Unexpectedly found \(name) in Package.resolved", file: file, line: line)
         }
 
         public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
@@ -548,9 +551,9 @@ public final class TestWorkspace {
         }
     }
 
-    public func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> ()) {
+    public func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> Void) {
         do {
-            let workspace = createWorkspace()
+            let workspace = self.createWorkspace()
             try result(ResolvedResult(workspace.pinsStore.load()))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
@@ -559,48 +562,47 @@ public final class TestWorkspace {
 }
 
 public final class TestWorkspaceDelegate: WorkspaceDelegate {
-
     public var events = [String]()
 
     public init() {}
 
     public func repositoryWillUpdate(_ repository: String) {
-        events.append("updating repo: \(repository)")
+        self.events.append("updating repo: \(repository)")
     }
 
     public func dependenciesUpToDate() {
-        events.append("Everything is already up-to-date")
+        self.events.append("Everything is already up-to-date")
     }
 
     public func fetchingWillBegin(repository: String) {
-        events.append("fetching repo: \(repository)")
+        self.events.append("fetching repo: \(repository)")
     }
 
     public func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
-        events.append("finished fetching repo: \(repository)")
+        self.events.append("finished fetching repo: \(repository)")
     }
 
     public func cloning(repository: String) {
-        events.append("cloning repo: \(repository)")
+        self.events.append("cloning repo: \(repository)")
     }
 
     public func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
-        events.append("checking out repo: \(repository)")
+        self.events.append("checking out repo: \(repository)")
     }
 
     public func removing(repository: String) {
-        events.append("removing repo: \(repository)")
+        self.events.append("removing repo: \(repository)")
     }
 
     public func willResolveDependencies(reason: WorkspaceResolveReason) {
-        events.append("will resolve dependencies")
+        self.events.append("will resolve dependencies")
     }
-    
+
     public func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
-        events.append("will load manifest for \(packageKind) package: \(url)")
+        self.events.append("will load manifest for \(packageKind) package: \(url)")
     }
-    
+
     public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
-        events.append("did load manifest for \(packageKind) package: \(url)")
+        self.events.append("did load manifest for \(packageKind) package: \(url)")
     }
 }
