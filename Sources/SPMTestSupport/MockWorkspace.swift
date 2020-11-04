@@ -186,28 +186,6 @@ public final class MockWorkspace {
         return packages.map { rootsDir.appending(RelativePath($0)) }
     }
 
-    public struct PackageDependency {
-        public typealias Requirement = PackageDependencyDescription.Requirement
-
-        public let name: String
-        public let requirement: Requirement
-        public let products: ProductFilter
-
-        public init(name: String, requirement: Requirement, products: ProductFilter) {
-            self.name = name
-            self.requirement = requirement
-            self.products = products
-        }
-
-        fileprivate func convert(_ packagesDir: AbsolutePath, url: String) -> PackageDependencyDescription {
-            return PackageDependencyDescription(
-                url: url,
-                requirement: self.requirement,
-                productFilter: self.products
-            )
-        }
-    }
-
     public func checkEdit(
         packageName: String,
         path: AbsolutePath? = nil,
@@ -266,11 +244,11 @@ public final class MockWorkspace {
 
     public func checkUpdate(
         roots: [String] = [],
-        deps: [MockWorkspace.PackageDependency] = [],
+        deps: [MockDependency] = [],
         packages: [String] = [],
         _ result: (DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -282,10 +260,10 @@ public final class MockWorkspace {
 
     public func checkUpdateDryRun(
         roots: [String] = [],
-        deps: [MockWorkspace.PackageDependency] = [],
+        deps: [MockDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -297,10 +275,10 @@ public final class MockWorkspace {
 
     public func checkPackageGraph(
         roots: [String] = [],
-        deps: [MockWorkspace.PackageDependency],
+        deps: [MockDependency],
         _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
         self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
@@ -477,10 +455,10 @@ public final class MockWorkspace {
 
     public func loadDependencyManifests(
         roots: [String] = [],
-        deps: [MockWorkspace.PackageDependency] = [],
+        deps: [MockDependency] = [],
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(

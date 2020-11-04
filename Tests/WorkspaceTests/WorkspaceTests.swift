@@ -69,7 +69,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
             .init(name: "Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
@@ -724,7 +724,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Resolve when A = 1.0.0.
         do {
-            let deps: [MockWorkspace.PackageDependency] = [
+            let deps: [MockDependency] = [
                 .init(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
             ]
             workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
@@ -747,7 +747,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Resolve when A = 1.0.1.
         do {
-            let deps: [MockWorkspace.PackageDependency] = [
+            let deps: [MockDependency] = [
                 .init(name: "A", requirement: .exact("1.0.1"), products: .specific(["A"])),
             ]
             workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
@@ -818,7 +818,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
             .init(name: "B", requirement: .exact("1.0.0"), products: .specific(["B"])),
         ]
@@ -1422,7 +1422,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Do an intial run, capping at Foo at 1.0.0.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -1507,7 +1507,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Do an intial run, capping at Foo at 1.0.0.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
 
@@ -1615,7 +1615,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Do an intial run, capping at Foo at 1.0.0.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
@@ -1920,7 +1920,7 @@ final class WorkspaceTests: XCTestCase {
         let barRevision = workspace.repoProvider.specifierMap[bar]!.revisions[0]
 
         // We request Bar via revision.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -2346,7 +2346,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         let ws = workspace.createWorkspace()
@@ -2434,7 +2434,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         // Load the graph.
@@ -2579,7 +2579,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
         }
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -2738,7 +2738,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Try resolving a bad graph.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
@@ -2981,7 +2981,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Override with local package and run update.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Bar", requirement: .localPackage, products: .specific(["Bar"])),
         ]
         workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
@@ -3069,7 +3069,7 @@ final class WorkspaceTests: XCTestCase {
         // Test that switching between revision and version requirement works
         // without running swift package update.
 
-        var deps: [MockWorkspace.PackageDependency] = [
+        var deps: [MockDependency] = [
             .init(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -3138,7 +3138,7 @@ final class WorkspaceTests: XCTestCase {
         // Test that switching between local and version requirement works
         // without running swift package update.
 
-        var deps: [MockWorkspace.PackageDependency] = [
+        var deps: [MockDependency] = [
             .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -3218,7 +3218,7 @@ final class WorkspaceTests: XCTestCase {
         // Test that switching between two same local packages placed at
         // different locations works correctly.
 
-        var deps: [MockWorkspace.PackageDependency] = [
+        var deps: [MockDependency] = [
             .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -3288,7 +3288,7 @@ final class WorkspaceTests: XCTestCase {
         // Test that switching between two same local packages placed at
         // different locations works correctly.
 
-        var deps: [MockWorkspace.PackageDependency] = [
+        var deps: [MockDependency] = [
             .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -3352,7 +3352,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
@@ -3464,7 +3464,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.config.mirrors.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
         try workspace.config.saveState()
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
         ]
 
@@ -3568,7 +3568,7 @@ final class WorkspaceTests: XCTestCase {
         // have enough information to remove the invalid pins of transitive
         // dependencies.
 
-        var deps: [MockWorkspace.PackageDependency] = [
+        var deps: [MockDependency] = [
             .init(name: "Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -3658,7 +3658,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Load the initial graph.
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
@@ -3886,7 +3886,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let deps: [MockWorkspace.PackageDependency] = [
+        let deps: [MockDependency] = [
             .init(name: "bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
