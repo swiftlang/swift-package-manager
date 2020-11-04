@@ -135,8 +135,6 @@ public func initGitRepo(
     }
 }
 
-private var globalSymbolInMainBinary = 0
-
 @discardableResult
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath,
