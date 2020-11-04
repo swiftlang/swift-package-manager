@@ -15,7 +15,9 @@ Swift 5.3.1
   
   * API Removal
   
-    `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is now obsoleted, and replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
+    `ToolsVersionLoader.Error.malformedToolsVersion(specifier: String, currentToolsVersion: ToolsVersion)` is replaced by `ToolsVersionLoader.Error.malformedToolsVersionSpecification(_ malformation: ToolsVersionSpecificationMalformation)`.
+    
+    `ToolsVersionLoader.split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8])` and `ToolsVersionLoader.regex` are together replaced by `ToolsVersionLoader.split(_ manifest: String) -> ManifestComponents`.
   
   * Source Breakages for Swift Packages
     

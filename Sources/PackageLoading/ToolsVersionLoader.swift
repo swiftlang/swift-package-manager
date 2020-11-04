@@ -124,6 +124,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             /// The label part of the Swift tools version specification is malformed.
             case label(_ malformationDetails: MalformationDetails)
             /// The version specifier is malformed.
+            ///
+            /// If the version specifier is diagnosed as missing, it could be a misdiagnosis due to some misspellings in the label. This is because of a compromise made in `ToolsVersionLoader.split(_:)`.
             case versionSpecifier(_ malformationDetails: MalformationDetails)
             /// An unidentifiable component of the Swift tools version specification is malformed.
             case unidentified
@@ -201,8 +203,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .versionSpecifier(let versionSpecifier):
                     switch versionSpecifier {
                     case .isMissing:
-                        // If the version specifier is missing, then its terminator must be missing as well. So, there is nothing in between the version specifier and everything that should be in front the version specifier. So, appending a valid version specifier will fix this error.
-                        return "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                        return "the Swift tools version specification is possibly missing a version specifier; consider using 'swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     case .isMisspelt(let misspeltVersionSpecifier):
                         return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     }
@@ -426,45 +427,6 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         return version
     }
     
-    // FIXME: Remove this function.
-    // This function is currently preserved because it's used in `writeToolsVersion(at:version:fs:).
-    /// Splits the bytes to find the Swift tools version specifier and the contents sans the first line of the manifest.
-    ///
-    /// - Warning: This function has been deprecated since Swift 5.3.1, please use `split(_ manifestContents: String) -> ManifestComponents` instead.
-    ///
-    /// - Note: This function imposes the following limitations that are removed in its replacement:
-    ///   - Leading whitespace, other than a sequence of newline characters (`U+000A`), is not accepted in the given manifest contents.
-    ///   - Only `U+000A` is recognised as a line terminator.
-    ///   - A Swift tools version specification must be prefixed with `// swift-tools-version:` verbatim, where the spacing between `//` and `swift-tools-version` is exactly 1 `U+0020`.
-    ///
-    /// - Bug: This function treats only `U+000A` as a line terminator.
-    /// - Bug: If there is a contiguous sequence of `U+000A` at the very beginning of the manifest file, this function mistakes the first non-empty line of the manifest as its first line.
-    ///
-    /// - Parameter bytes: The raw bytes of the content of the manifest.
-    /// - Returns: The version specifier (if present, or `nil`) and the raw bytes of the contents sans the first line of the manifest.
-    @available(swift, deprecated: 5.3.1, renamed: "ToolsVersionLoader.split(_:)")
-    public static func split(_ bytes: ByteString) -> (versionSpecifier: String?, rest: [UInt8]) {
-        let splitted = bytes.contents.split(
-            separator: UInt8(ascii: "\n"),
-            maxSplits: 1,
-            omittingEmptySubsequences: false)
-        // Try to match our regex and see if the "first" line is a valid tools version specification line.
-        guard let firstLine = ByteString(splitted[0]).validDescription,
-              let match = ToolsVersionLoader.regex.firstMatch(
-                  in: firstLine, options: [], range: NSRange(location: 0, length: firstLine.count)),
-              // The 2 ranges are:
-              //   1. The entire matched string.
-              //   2. Capture group 1: The version specifier.
-              // Since the version specifier is in the last range, if the number of ranges is less than 2, then no version specifier is captured by the regex.
-              // FIXME: Should this be `== 2` instead?
-              match.numberOfRanges >= 2 else {
-            return (nil, bytes.contents)
-        }
-        let versionSpecifier = NSString(string: firstLine).substring(with: match.range(at: 1))
-        // FIXME: We can probably optimize here and return array slice.
-        return (versionSpecifier, splitted.count == 1 ? [] : Array(splitted[1]))
-    }
-    
     /// Splits the given manifest into its constituent components.
     ///
     /// A manifest consists of the following parts:
@@ -535,42 +497,95 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         /// The position right past the last character of the spacing that immediately follows the comment marker.
         ///
         /// Because the spacing consists of only horizontal whitespace characters, this position is the same as the first character that's not a horizontal whitespace after `commentMarker`. If no such character exists, then the position is the `endIndex` of the Swift tools version specification line.
-        let endIndexOfSpacingAfterCommentMarker = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace } ) ?? specificationWithIgnoredTrailingContents.endIndex
-        //                                                                                                                                    ☝️
+        let startIndexOfLabel = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker...].firstIndex(where: { !$0.isWhitespace } ) ?? specificationWithIgnoredTrailingContents.endIndex
+        //                                                                                                                  ☝️
         // Technically, this is looking for the position of the first character that's not a whitespace, BOTH HORIZONTAL AND VERTICAL. However, since all vertical horizontal whitespace characters are also line terminators, and because the Swift tools version specification does not contain any line terminator, we can safely use `Character.isWhitespace` to check if a character is a horizontal whitespace.
         
         /// The spacing that immediately follows `commentMarker`.
         ///
         /// The spacing consists of only horizontal whitespace characters.
-        let spacingAfterCommentMarker = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker..<endIndexOfSpacingAfterCommentMarker]
+        let spacingAfterCommentMarker = specificationWithIgnoredTrailingContents[endIndexOfCommentMarker..<startIndexOfLabel]
         
-        // FIXME: Use `CharacterSet.decimalDigits` instead?
-        // `Character.isNumber` is true for more than just decimal characters (e.g. ㊅ and 𝟘), but `CharacterSet.contains(_:)` works only on Unicode scalars.
+        // FIXME: Improve the logic for identifying the label and the version specifier.
+        //
+        // At this point, everything before the label has been parsed, and everything starting from the label until the end of the Swift tools version specification line hasn't.
+        //
+        // The task that remains is to identify and record the following well defined components: a label, a version specifier, and an optional spacing between the label and the version specifier. However, because of the countless misspellings there could be, it's virtually impossible to teach SwiftPM to perfectly tell where the label ends and where the version specifier begins, without making the logic too complex.
+        //
+        // Let's explore this problem starting from a well-formed Swift tools version specification, because it's the only invariable that we can rely on. The current `Substring`-based strategy depends on landmarks that sit on either the `startIndex` or the `endIndex` of a component. We already know where the label starts, and it's trivial to find where the version specifier ends (its terminator is well-defined), so all that we need look for now are the `endIndex` of the label and the `startIndex` of the version specifier. In a well-formatted Swift tools version specification, the label ends with a ":", and the version specifier starts with a digit. Let's see how these 2 landmarks fare with some examples:
+        //
+        // 1. A well-formatted Swift tools version specification
+        //
+        //        // swift-tools-version: 5.3.1
+        //
+        //    The `endIndex` of the label can be clearly identified with the first ":", and the `startIndex` of the version specifier can be clearly identified with the first digit "5".
+        //
+        // 2. A misspelt label with a digit within:
+        //
+        //        // swift-too1s-version: 5.3.1
+        //    The `endIndex` of the label can be identified with the first ":"; the `startIndex` of the version specifier can be identified with the digit "5", if and only if the search for the first ":" takes precedence.
+        //
+        // 3. A misspelt label with a colon and a digit within:
+        //
+        //        // sw:ft-too1s-version: 5.3.1
+        //
+        //    The `endIndex` of the label can be identified with the last ":";  the `startIndex` of the version specifier can be identified with the digit "5", if and only if the search for the last ":" takes precedence.
+        //
+        // Between example 2 and 3, the rules are already conflicting. Although the examples above are purposely constructed to illustrate the ineffectiveness of using ":" and digits to locate the label and the version specifier, it's undeniable a human can flawlessly point out where the labels and version specifiers are at a glance. There are more examples that shows it's even harder to find a one-size-fits-all landmark-based rule than illustrated above:
+        //
+        //     // swift-too1s-version:-5.3.1
+        //     // swift-too1s-version 5:3:1
+        //     // swift tools version 5-3-l
+        //     // swift-tools-version: s.3.1
+        //     // swift-tools-version::5.3.1
+        //     ...
+        //
+        // One useful information we can glean from these examples is that using both ":" and digits as landmarks doesn't work, so it's better to stick with just one of them and ignore the other. Because the version specifier is the more important component than the label is, the current implementation of this function searches for the first numerical character in the sequence to prioritize the identification of the version specifier. The ":"-first approach isn't completely abandoned, either: If the sequence is prefixed with "swift-tools-version:" (case-insensitive), then we can be mostly certain that the user has provided a well-formatted label, and use the position past that of the first ":" in the sequence as the `startIndex` of the label. There are still countless label misspellings that begin with "swift-tools-version:", but since for all of them, the misspelt part comes after the well-formed part, in the interest of keeping the logic relatively straightforward, the labels' misspellings in this sort of situation are carried over as the version specifiers'.
+        //
+        // Although it's possible to replace the landmark-based logic altogether with a fuzzy matching-based approach or some heuristics, it overly complicates this function. Even if a more advanced method is applied at the expense of high complexity, it's still unlikely to be perfect. Maybe someone can find better solution without incurring much additional cost.
+        
+        /// The position right past the last character in the label part of the Swift tool version specification.
+        ///
+        /// If the label begins with exactly `"swift-tools-version:"`, then this position is right after the `":"`'s. Otherwise, it's the position of the first horizontal whitespace character since the spacing after the comment marker (if there is a spacing between the label and the version specifier) or the `startIndex` of the version specifier (if there is no spacing between the label and the version specifier).
+        let endIndexOfLabel: Substring.Index
+        
         /// The position of the first character in the version specifier.
         ///
-        /// Because a version specifier starts with a numeric character, and because only the version specifier is expected to have numeric characters, this position is the same as the position of the first numeric character in the Swift tools version specification line. If no such character exists, then this position is the `endIndex` of the line.
+        /// If the label begins with exactly `"swift-tools-version:"`,  then this position is that of the first non-whitespace character after the label in the Swift tools version specification line. Otherwise, it's the same as the position of the first numeric character in the Swift tools version specification line. If no suitable character exists in either case, then this position is the `endIndex` of the line.
         ///
-        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
-        let startIndexOfVersionSpecifier = specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker...].firstIndex(where: \.isNumber) ?? specificationWithIgnoredTrailingContents.endIndex
-        //                                                                         ☝️
-        // We know for sure that there is no numeric characters before `endIndexOfSpacingAfterCommentMarker`, so `specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker...]` saves a bit of unnecessary searching.
-        
-        /// The label part of the Swift tools version specification with the whitespace sequence between the label and the version specifier.
-        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label with no spacing following it.
-        let labelWithTrailingWhitespace = specificationWithIgnoredTrailingContents[endIndexOfSpacingAfterCommentMarker..<startIndexOfVersionSpecifier]
-        
-        /// The position of the first character in the spacing after the label part of the Swift tools version specification.
+        /// - Note:
         ///
-        /// Because there is no whitespace within the label, and because the spacing consists of only horizontal whitespace characters, so this position is the same as the position of the first whitespace character between the beginning of the label and the beginning of the version specifier. If no such whitespace character exists, then there is no spacing, and so this position is the `endIndex` of these sequence of characters (i.e. the starting position of the version specifier).
-        let startIndexOfSpacingAfterLabel = labelWithTrailingWhitespace.firstIndex(where: \.isWhitespace) ?? startIndexOfVersionSpecifier
+        ///   For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
+        ///
+        ///   For a misspelt Swift tools version specification `"// swift-tools-version:-5.3"`, the label begins with `"swift-tools-version:"`, so all the misspelling is treated as the version specifiers, and so `"-5.3"` is taken as the version specifier.
+        let startIndexOfVersionSpecifier: Substring.Index
+        
+        /// The trailing slice of the Swift tools version specification line starting from the label.
+        let specificationSnippetFromLabelToLineTerminator = specificationWithIgnoredTrailingContents[startIndexOfLabel...]
+        
+        if specificationSnippetFromLabelToLineTerminator.lowercased().hasPrefix("swift-tools-version:") {
+            // The optional index can be safely unwrapped, because we know for sure there is a ":" in the substring.                                     👇
+            endIndexOfLabel = specificationSnippetFromLabelToLineTerminator.index(after: specificationSnippetFromLabelToLineTerminator.firstIndex(of: ":")!)
+            // Because there is potentially a spacing between the label and the version specifier, we need to skip the whitespace first.
+            startIndexOfVersionSpecifier = specificationSnippetFromLabelToLineTerminator[endIndexOfLabel...].firstIndex(where: { !$0.isWhitespace } ) ?? specificationSnippetFromLabelToLineTerminator.endIndex
+        } else {
+            // FIXME: Use `CharacterSet.decimalDigits` instead?
+            // `Character.isNumber` is true for more than just decimal characters (e.g. ㊅ and 𝟘), but `CharacterSet.contains(_:)` works only on Unicode scalars.
+            startIndexOfVersionSpecifier = specificationSnippetFromLabelToLineTerminator.firstIndex(where: \.isNumber) ?? specificationWithIgnoredTrailingContents.endIndex
+            /// The label part of the Swift tools version specification with the whitespace sequence between the label and the version specifier.
+            /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label with no spacing following it.
+            let labelWithTrailingWhitespace = specificationWithIgnoredTrailingContents[startIndexOfLabel..<startIndexOfVersionSpecifier]
+            // Because there is no whitespace within the label, and because the spacing consists of only horizontal whitespace characters, the end index of the label is the same as the position of the first whitespace character between the beginning of the label and the beginning of the version specifier. If no such whitespace character exists, then there is no spacing, and so this position is the `endIndex` of these sequence of characters (i.e. the starting position of the version specifier).
+            endIndexOfLabel = labelWithTrailingWhitespace.firstIndex(where: \.isWhitespace) ?? startIndexOfVersionSpecifier
+        }
         
         /// The label part of the Swift tools version specification.
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label.
-        let label = labelWithTrailingWhitespace[..<startIndexOfSpacingAfterLabel]
+        let label = specificationSnippetFromLabelToLineTerminator[startIndexOfLabel..<endIndexOfLabel]
         
         /// The spacing between the label part of the Swift tools version specification and the version specifier.
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.3.1"`, the label stops at the second `"o"`, and the version specifier starts from the first `"1"`, so no spacing is recognised.
-        let spacingAfterLabel = labelWithTrailingWhitespace[startIndexOfSpacingAfterLabel...]
+        let spacingAfterLabel = specificationSnippetFromLabelToLineTerminator[endIndexOfLabel..<startIndexOfVersionSpecifier]
         
         /// The position of the version specifier's terminator.
         ///
@@ -579,11 +594,11 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         //                                                                                                                                          ☝️
         // Technically, this is looking for the position of the first ";" only, not the first line terminator. However, because the Swift tools version specification does not contain any line terminator, we can safely search just the first ";".
         
-        // The version specifier and its terminator together are first found by locating the first numeric character in the specification line, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the line has no numeric characters, then the specification's ignored trailing contents are empty too. Basically, if the version specifier is empty, then the specification has no ignored trailing contents.
+        // If the label doesn't start with "// swift-too1s-version: 5.3.1", the version specifier and its terminator together are first found by locating the first numeric character in the specification line, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the line has no numeric characters, then the specification's ignored trailing contents are empty too. Basically, if the version specifier is empty, then the specification has no ignored trailing contents. This is only true for when the label doesn't start with "// swift-too1s-version: 5.3.1".
         
         /// The version specifier.
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
-        let versionSpecifier = specificationWithIgnoredTrailingContents[startIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
+        let versionSpecifier = specificationSnippetFromLabelToLineTerminator[startIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
         
         // The tertiary condition checks if the specification line's end index is the same as the manifest's.
         // If it is, then just use the index, because the rest of the manifest is empty, and because using `index(after:)` on it results in an index-out-of-bound error.
@@ -608,22 +623,4 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
         )
     }
     
-    // This property is preserved only because of the old `split(_:)`.
-    // When the old `split(_:)` is removed, this should be removed too.
-    /// The regex to match swift tools version specification.
-    ///
-    /// The specification must have the following format:
-    /// - It should start with `//` followed by any amount of _horizontal_ whitespace characters.
-    /// - Following that it should contain the case insensitive string `swift-tools-version:`.
-    /// - The text between the above string and `;` or string end becomes the tools version specifier.
-    ///
-    /// There are 2 capture groups in the regex pattern:
-    /// 1. The continuous sequence of whitespace characters between "//" and "swift-tools-version".
-    /// 2. The version specifier.
-    ///
-    /// - Bug: Although any combination of all _horizontal_ whitespace characters should be allowed between `//`and `swift-tools-version:`, currently only a single space (`U+0020`) is allowed.
-    @available(swift, deprecated: 5.3.1)
-    static let regex = try! NSRegularExpression(
-        pattern: "^// swift-tools-version:(.*?)(?:;.*|$)",
-        options: [.caseInsensitive])
 }

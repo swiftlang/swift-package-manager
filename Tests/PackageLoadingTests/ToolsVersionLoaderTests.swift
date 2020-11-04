@@ -273,7 +273,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "the Swift tools version specification is missing a version specifier; consider appending '\(ToolsVersion.currentToolsVersion)' to the line to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                    "the Swift tools version specification is possibly missing a version specifier; consider using 'swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                 )
             }
         }
@@ -345,6 +345,9 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:5²",
             "// swift-tools-version:5⃣️.2⃣️",
             "// swift-tools-version:5 ÷ 2 = 2.5",
+            // If the label starts with exactly "swift-tools-version:" (case-insensitive), then all its misspellings are treated as the version specifier's.
+            "// swift-tools-version::5.2",
+            "// Swift-tOOls-versIon:-2.5",
             // Misspelt version specifiers are diagnosed before backward-compatibility checks.
             "\u{A}\u{B}\u{C}\u{D}//\u{3000}swift-tools-version:五.二\u{2028}",
         ]
