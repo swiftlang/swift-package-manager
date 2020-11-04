@@ -16,7 +16,7 @@ public struct TestPackage {
     public let path: String?
     public let targets: [MockTarget]
     public let products: [MockProduct]
-    public let dependencies: [TestDependency]
+    public let dependencies: [MockDependency]
     public let versions: [String?]
     // FIXME: This should be per-version.
     public let toolsVersion: ToolsVersion?
@@ -27,7 +27,7 @@ public struct TestPackage {
         path: String? = nil,
         targets: [MockTarget],
         products: [MockProduct],
-        dependencies: [TestDependency] = [],
+        dependencies: [MockDependency] = [],
         versions: [String?] = [],
         toolsVersion: ToolsVersion? = nil
     ) {

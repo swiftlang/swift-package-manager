@@ -41,7 +41,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo", "Bar"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -194,7 +194,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 TestPackage(
@@ -204,7 +204,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .exact("1.0.1")),
+                        MockDependency(name: "Baz", requirement: .exact("1.0.1")),
                     ]
                 ),
             ],
@@ -251,7 +251,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -319,7 +319,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -431,7 +431,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -488,7 +488,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -549,7 +549,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 TestPackage(
@@ -630,7 +630,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -692,7 +692,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "AA", requirement: .exact("1.0.0")),
+                        MockDependency(name: "AA", requirement: .exact("1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -705,7 +705,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "AA", requirement: .exact("2.0.0")),
+                        MockDependency(name: "AA", requirement: .exact("2.0.0")),
                     ],
                     versions: ["1.0.1"]
                 ),
@@ -788,7 +788,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "AA", requirement: .exact("1.0.0")),
+                        MockDependency(name: "AA", requirement: .exact("1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -801,7 +801,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "B", targets: ["B"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "AA", requirement: .exact("2.0.0")),
+                        MockDependency(name: "AA", requirement: .exact("2.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -874,7 +874,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
 
         let workspace = try MockWorkspace(
@@ -886,8 +886,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: v1Requirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: v1Requirement),
                     ]
                 ),
             ],
@@ -930,8 +930,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let branchRequirement: TestDependency.Requirement = .branch("master")
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let branchRequirement: MockDependency.Requirement = .branch("master")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try MockWorkspace(
@@ -943,8 +943,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: branchRequirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: branchRequirement),
                     ]
                 ),
             ],
@@ -1002,7 +1002,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "C", requirement: .revision("hello")),
+                        MockDependency(name: "C", requirement: .revision("hello")),
                     ]
                 ),
             ],
@@ -1040,8 +1040,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let masterRequirement: TestDependency.Requirement = .branch("master")
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let masterRequirement: MockDependency.Requirement = .branch("master")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try MockWorkspace(
@@ -1053,8 +1053,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: masterRequirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: masterRequirement),
                     ]
                 ),
             ],
@@ -1102,8 +1102,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let localRequirement: TestDependency.Requirement = .localPackage
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let localRequirement: MockDependency.Requirement = .localPackage
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try MockWorkspace(
@@ -1115,8 +1115,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: localRequirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: localRequirement),
                     ]
                 ),
             ],
@@ -1164,8 +1164,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let localRequirement: TestDependency.Requirement = .localPackage
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let localRequirement: MockDependency.Requirement = .localPackage
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
 
@@ -1178,8 +1178,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: localRequirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: localRequirement),
                     ]
                 ),
             ],
@@ -1227,8 +1227,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v2Requirement: MockDependency.Requirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try MockWorkspace(
@@ -1240,8 +1240,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: v2Requirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: v2Requirement),
                     ]
                 ),
             ],
@@ -1285,8 +1285,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
-        let v1Requirement: TestDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let v2Requirement: TestDependency.Requirement = .range("2.0.0" ..< "3.0.0")
+        let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
+        let v2Requirement: MockDependency.Requirement = .range("2.0.0" ..< "3.0.0")
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
 
@@ -1299,8 +1299,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "B", requirement: v1Requirement),
-                        TestDependency(name: "C", requirement: v2Requirement),
+                        MockDependency(name: "B", requirement: v1Requirement),
+                        MockDependency(name: "C", requirement: v2Requirement),
                     ]
                 ),
             ],
@@ -1380,7 +1380,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1394,7 +1394,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1478,7 +1478,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1570,7 +1570,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1584,7 +1584,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.5.0"]
                 ),
@@ -1597,7 +1597,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMinor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMinor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1674,7 +1674,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1751,7 +1751,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 TestPackage(
@@ -1761,7 +1761,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1821,10 +1821,10 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1838,8 +1838,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1853,7 +1853,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1887,7 +1887,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .branch("develop")),
+                        MockDependency(name: "Foo", requirement: .branch("develop")),
                     ]
                 ),
             ],
@@ -1951,7 +1951,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2024,7 +2024,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2070,7 +2070,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2173,8 +2173,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2281,7 +2281,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2405,8 +2405,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2526,7 +2526,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2550,7 +2550,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: [nil]
                 ),
@@ -2613,7 +2613,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .exact("1.0.0")),
+                        MockDependency(name: "Bar", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -2683,7 +2683,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2765,7 +2765,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2813,8 +2813,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .localPackage),
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .localPackage),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2838,7 +2838,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -2891,7 +2891,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2905,7 +2905,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Baz", requirement: .localPackage),
+                        MockDependency(name: "Baz", requirement: .localPackage),
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
@@ -2951,7 +2951,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3015,7 +3015,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: nil, path: "Bar", requirement: .localPackage),
+                        MockDependency(name: nil, path: "Bar", requirement: .localPackage),
                     ]
                 ),
             ],
@@ -3393,7 +3393,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -3408,7 +3408,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Dep", targets: ["Dep"]),
                     ],
                     dependencies: [
-                        TestDependency(name: nil, path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: nil, path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"],
                     toolsVersion: .v5
@@ -3499,7 +3499,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3513,7 +3513,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -3526,7 +3526,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        TestDependency(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.1.0"],
                     toolsVersion: .v5
@@ -3628,8 +3628,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3744,7 +3744,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .localPackage),
+                        MockDependency(name: "Foo", requirement: .localPackage),
                     ]
                 ),
             ],
@@ -3814,7 +3814,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .branch("develop")),
+                        MockDependency(name: "Foo", requirement: .branch("develop")),
                     ]
                 ),
             ],
@@ -3828,7 +3828,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Local", requirement: .localPackage),
+                        MockDependency(name: "Local", requirement: .localPackage),
                     ],
                     versions: ["develop"]
                 ),
@@ -3922,8 +3922,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .localPackage),
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .localPackage),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3947,7 +3947,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -3978,8 +3978,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .branch("master")),
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .branch("master")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3993,7 +3993,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .branch("master")),
+                        MockDependency(name: "Bar", requirement: .branch("master")),
                     ],
                     versions: ["master", nil]
                 ),
@@ -4016,7 +4016,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -4085,9 +4085,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_2
                 ),
@@ -4104,8 +4104,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo1"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -4122,8 +4122,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarUnused", targets: ["BarUnused"]),
                     ],
                     dependencies: [
-                        TestDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
-                        TestDependency(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        MockDependency(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -4284,8 +4284,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "A", requirement: .exact("1.0.0")),
-                        TestDependency(name: "B", requirement: .exact("1.0.0")),
+                        MockDependency(name: "A", requirement: .exact("1.0.0")),
+                        MockDependency(name: "B", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4533,7 +4533,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "A", requirement: .exact("1.0.0")),
+                        MockDependency(name: "A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4595,7 +4595,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        TestDependency(name: "A", requirement: .exact("1.0.0")),
+                        MockDependency(name: "A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
