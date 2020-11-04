@@ -370,7 +370,7 @@ class GenerateXcodeprojTests: XCTestCase {
                         url: barPackagePath.pathString,
                         packageKind: .remote,
                         products: [
-                            ProductDescription(name: "Bar", targets: ["Bar1"])
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar1"])
                         ],
                         targets: [
                             TargetDescription(name: "Bar1", dependencies: [

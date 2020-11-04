@@ -298,7 +298,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/ExtPkg",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "ExtLib", targets: ["ExtLib"]),
+                        ProductDescription(name: "ExtLib", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
                     targets: [
                         TargetDescription(name: "ExtLib", dependencies: []),
@@ -393,7 +393,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/B",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
@@ -500,7 +500,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/ExtPkg",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "ExtPkg", targets: ["extlib"]),
+                        ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["extlib"]),
                     ],
                     targets: [
                         TargetDescription(name: "extlib", dependencies: []),
@@ -622,7 +622,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/ExtPkg",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "ExtPkg", targets: ["ExtLib"]),
+                        ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
                     targets: [
                         TargetDescription(name: "ExtLib", dependencies: []),
@@ -870,7 +870,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/Dep",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Dep", targets: ["Dep"]),
+                        ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"]),
                     ],
                     targets: [
                         TargetDescription(name: "Dep", dependencies: ["CDep"]),
@@ -1798,7 +1798,7 @@ final class BuildPlanTests: XCTestCase {
                     v: .v5,
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
@@ -1862,7 +1862,7 @@ final class BuildPlanTests: XCTestCase {
                     v: .v5,
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "BLibrary", targets: ["BTarget"]),
+                        ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
@@ -1953,7 +1953,7 @@ final class BuildPlanTests: XCTestCase {
             v: .v5,
             packageKind: .local,
             products: [
-                ProductDescription(name: "Dep", targets: ["t1", "t2"]),
+                ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
             ],
             targets: [
                 TargetDescription(
@@ -2073,7 +2073,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/PkgA",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "swiftlib", targets: ["swiftlib"]),
+                        ProductDescription(name: "swiftlib", type: .library(.automatic), targets: ["swiftlib"]),
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"])
                     ],
                     targets: [
@@ -2192,7 +2192,7 @@ final class BuildPlanTests: XCTestCase {
                     url: "/PkgB",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Foo", targets: ["Foo"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),

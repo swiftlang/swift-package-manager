@@ -87,12 +87,6 @@ extension Manifest {
     }
 }
 
-extension ProductDescription {
-    public init(name: String, targets: [String]) {
-        self.init(name: name, type: .library(.automatic), targets: targets)
-    }
-}
-
 extension Manifest {
     public func with(url: String) -> Manifest {
         return Manifest(

@@ -42,7 +42,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Foo", targets: ["Foo"])
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(
