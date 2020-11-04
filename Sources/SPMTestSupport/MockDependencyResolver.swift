@@ -212,7 +212,7 @@ public struct MockPackageContainerProvider: PackageContainerProvider {
     }
 }
 
-public struct MockGraph {
+public struct MockDependencyGraph {
     public let name: String
     public let constraints: [MockPackageConstraint]
     public let containers: [MockPackageContainer]
