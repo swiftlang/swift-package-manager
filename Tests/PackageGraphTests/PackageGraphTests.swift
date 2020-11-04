@@ -36,7 +36,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Foo", targets: ["Foo"])
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["FooDep"]),
@@ -51,7 +51,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar"])
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./")
@@ -108,8 +108,8 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar"]),
-                        ProductDescription(name: "CBar", targets: ["CBar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ProductDescription(name: "CBar", type: .library(.automatic), targets: ["CBar"]),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["CBar"]),
@@ -157,7 +157,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar"])
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Baz"]),
@@ -171,7 +171,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
-                        ProductDescription(name: "Baz", targets: ["Baz"])
+                        ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
                         TargetDescription(name: "Baz", dependencies: ["Bar"]),
@@ -240,7 +240,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Foo", targets: ["Foo"]),
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
@@ -308,7 +308,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Fourth",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Fourth", targets: ["First"])
+                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
@@ -319,7 +319,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Third",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Third", targets: ["First"])
+                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
@@ -330,7 +330,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Second",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Second", targets: ["First"])
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
@@ -373,7 +373,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Fourth",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Fourth", targets: ["Bar"])
+                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -384,7 +384,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Third",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Third", targets: ["Bar"])
+                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -395,7 +395,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Second",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Second", targets: ["Foo"])
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -439,7 +439,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Fourth",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Fourth", targets: ["First"])
+                        ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
@@ -453,7 +453,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "Third", targets: ["Third"])
+                        ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third"])
                     ],
                     targets: [
                         TargetDescription(name: "Third", dependencies: ["Fourth"]),
@@ -467,7 +467,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "Second", targets: ["Second"])
+                        ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second"])
                     ],
                     targets: [
                         TargetDescription(name: "Second", dependencies: ["Third"]),
@@ -481,7 +481,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "First", targets: ["First"])
+                        ProductDescription(name: "First", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First", dependencies: ["Second"]),
@@ -520,7 +520,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar"])
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -589,7 +589,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "BarLib", targets: ["BarLib"])
+                        ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"])
                     ],
                     targets: [
                         TargetDescription(name: "BarLib"),
@@ -601,7 +601,7 @@ class PackageGraphTests: XCTestCase {
                     version: "1.2.3",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "Biz", targets: ["Biz"])
+                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
                     targets: [
                         TargetDescription(name: "Biz"),
@@ -613,7 +613,7 @@ class PackageGraphTests: XCTestCase {
                     version: "1.2.3",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "FizLib", targets: ["FizLib"])
+                        ProductDescription(name: "FizLib", type: .library(.automatic), targets: ["FizLib"])
                     ],
                     targets: [
                         TargetDescription(name: "FizLib"),
@@ -665,7 +665,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "BarProduct", targets: ["Bar"])
+                        ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -718,7 +718,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "BarLibrary", targets: ["Bar"])
+                        ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -729,7 +729,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Baz",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "BazLibrary", targets: ["Baz"])
+                        ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
                         TargetDescription(name: "Baz"),
@@ -810,7 +810,7 @@ class PackageGraphTests: XCTestCase {
                         PackageDependencyDescription(url: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
-                        ProductDescription(name: "BazLibrary", targets: ["Baz"])
+                        ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
                         TargetDescription(name: "Baz", dependencies: ["FooLibrary"]),
@@ -821,8 +821,8 @@ class PackageGraphTests: XCTestCase {
                     url: "/Dep2",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "FooLibrary", targets: ["Foo"]),
-                        ProductDescription(name: "BamLibrary", targets: ["Bam"]),
+                        ProductDescription(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"]),
+                        ProductDescription(name: "BamLibrary", type: .library(.automatic), targets: ["Bam"]),
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -864,7 +864,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar"])
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -875,7 +875,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Baz",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Baz"])
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
                     ],
                     targets: [
                         TargetDescription(name: "Baz"),
@@ -918,8 +918,8 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Bar", targets: ["Bar", "Bar2", "Bar3"]),
-                        ProductDescription(name: "TransitiveBar", targets: ["TransitiveBar"]),
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
+                        ProductDescription(name: "TransitiveBar", type: .library(.automatic), targets: ["TransitiveBar"]),
                     ],
                     targets: [
                         TargetDescription(
@@ -981,7 +981,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Bar",
                     packageKind: .local,
                     products: [
-                        ProductDescription(name: "Baar", targets: ["Baar"])
+                        ProductDescription(name: "Baar", type: .library(.automatic), targets: ["Baar"])
                     ],
                     targets: [
                         TargetDescription(name: "Baar"),
@@ -1045,7 +1045,7 @@ class PackageGraphTests: XCTestCase {
                     url: "/Biz",
                     packageKind: .remote,
                     products: [
-                        ProductDescription(name: "Biz", targets: ["Biz"])
+                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
                     targets: [
                         TargetDescription(name: "Biz"),
@@ -1132,8 +1132,8 @@ class PackageGraphTests: XCTestCase {
                         )
                     ],
                     products: [
-                        ProductDescription(name: "ImmediateUsed", targets: ["ImmediateUsed"]),
-                        ProductDescription(name: "ImmediateUnused", targets: ["ImmediateUnused"])
+                        ProductDescription(name: "ImmediateUsed", type: .library(.automatic), targets: ["ImmediateUsed"]),
+                        ProductDescription(name: "ImmediateUnused", type: .library(.automatic), targets: ["ImmediateUnused"])
                     ],
                     targets: [
                         TargetDescription(name: "ImmediateUsed", dependencies: [
@@ -1159,7 +1159,7 @@ class PackageGraphTests: XCTestCase {
                         )
                     ],
                     products: [
-                        ProductDescription(name: "TransitiveUsed", targets: ["TransitiveUsed"])
+                        ProductDescription(name: "TransitiveUsed", type: .library(.automatic), targets: ["TransitiveUsed"])
                     ],
                     targets: [
                         TargetDescription(name: "TransitiveUsed"),

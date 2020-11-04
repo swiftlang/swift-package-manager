@@ -138,7 +138,7 @@ class PIFBuilderTests: XCTestCase {
                     v: .v5_2,
                     packageKind: .remote,
                     products: [
-                        .init(name: "BarLib", targets: ["BarLib"]),
+                        .init(name: "BarLib", type: .library(.automatic), targets: ["BarLib"]),
                     ],
                     targets: [
                         .init(name: "BarLib"),
