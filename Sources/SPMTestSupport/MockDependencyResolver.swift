@@ -6,26 +6,26 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
-import XCTest
+ */
 import Dispatch
+import XCTest
 
-import TSCBasic
-import PackageModel
 import PackageGraph
+import PackageModel
 import SourceControl
+import TSCBasic
 
 import struct TSCUtility.Version
 
 public typealias MockPackageConstraint = PackageContainerConstraint
 
-extension MockPackageConstraint {
-    public init(container identifier: String, requirement: PackageRequirement, products: ProductFilter) {
+public extension MockPackageConstraint {
+    init(container identifier: String, requirement: PackageRequirement, products: ProductFilter) {
         let ref = PackageReference(identity: identifier.lowercased(), path: "")
         self.init(container: ref, requirement: requirement, products: products)
     }
 
-    public init(container identifier: String, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
+    init(container identifier: String, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
         let ref = PackageReference(identity: identifier.lowercased(), path: "")
         self.init(container: ref, versionRequirement: versionRequirement, products: products)
     }
@@ -34,22 +34,22 @@ extension MockPackageConstraint {
 extension VersionSetSpecifier {
     init(_ json: JSON) {
         switch json {
-        case let .string(str):
+        case .string(let str):
             switch str {
             case "any": self = .any
             case "empty": self = .empty
             default: fatalError()
             }
-        case let .array(arr):
+        case .array(let arr):
             switch arr.count {
             case 1:
-                guard case let .string(str) = arr[0] else { fatalError() }
+                guard case .string(let str) = arr[0] else { fatalError() }
                 self = .exact(Version(string: str)!)
             case 2:
-                let versions = arr.map({ json -> Version in
-                    guard case let .string(str) = json else { fatalError() }
+                let versions = arr.map { json -> Version in
+                    guard case .string(let str) = json else { fatalError() }
                     return Version(string: str)!
-                })
+                }
                 self = .range(versions[0] ..< versions[1])
             default: fatalError()
             }
@@ -58,10 +58,10 @@ extension VersionSetSpecifier {
     }
 }
 
-extension PackageContainerConstraint {
-    public init(json: JSON) {
-        guard case let .dictionary(dict) = json else { fatalError() }
-        guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
+public extension PackageContainerConstraint {
+    init(json: JSON) {
+        guard case .dictionary(let dict) = json else { fatalError() }
+        guard case .string(let identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
         let products: ProductFilter = try! JSON(dict).get("products")
         let id = PackageReference(identity: identifier.lowercased(), path: "", kind: .remote)
@@ -69,8 +69,8 @@ extension PackageContainerConstraint {
     }
 }
 
-extension PackageContainerProvider {
-    public func getContainer(
+public extension PackageContainerProvider {
+    func getContainer(
         for identifier: PackageReference,
         completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
@@ -83,7 +83,6 @@ public enum MockLoadingError: Error {
 }
 
 public class MockPackageContainer: PackageContainer {
-
     public typealias Identifier = PackageReference
 
     public typealias Dependency = (container: Identifier, requirement: PackageRequirement)
@@ -116,10 +115,10 @@ public class MockPackageContainer: PackageContainer {
     }
 
     public func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageConstraint] {
-        return dependencies[revision]!.map({ value in
+        return dependencies[revision]!.map { value in
             let (name, requirement) = value
             return MockPackageConstraint(container: name, requirement: requirement, products: productFilter)
-        })
+        }
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) -> [MockPackageConstraint] {
@@ -140,10 +139,10 @@ public class MockPackageContainer: PackageContainer {
     ) {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
-            dependencies[version.description] = deps.map({
+            dependencies[version.description] = deps.map {
                 let ref = PackageReference(identity: $0.container.lowercased(), path: "/\($0.container)")
                 return (ref, .versionSet($0.versionRequirement))
-            })
+            }
         }
         let ref = PackageReference(identity: name.lowercased(), path: "/\(name)")
         self.init(name: ref, dependencies: dependencies)
@@ -165,23 +164,23 @@ public class MockPackageContainer: PackageContainer {
 }
 
 public class MockPackageContainer2: MockPackageContainer {
-    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    override public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         return name.with(newName: name.identity + "-name")
     }
 }
 
-extension MockPackageContainer {
-    public convenience init(json: JSON) {
-        guard case let .dictionary(dict) = json else { fatalError() }
-        guard case let .string(identifier)? = dict["identifier"] else { fatalError() }
-        guard case let .dictionary(versions)? = dict["versions"] else { fatalError() }
+public extension MockPackageContainer {
+    convenience init(json: JSON) {
+        guard case .dictionary(let dict) = json else { fatalError() }
+        guard case .string(let identifier)? = dict["identifier"] else { fatalError() }
+        guard case .dictionary(let versions)? = dict["versions"] else { fatalError() }
 
         var depByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]] = [:]
         for (version, deps) in versions {
-            guard case let .array(depArray) = deps else { fatalError() }
+            guard case .array(let depArray) = deps else { fatalError() }
             depByVersion[Version(string: version)!] = depArray
                 .map(PackageContainerConstraint.init(json:))
-                .map({ constraint in
+                .map { constraint in
                     switch constraint.requirement {
                     case .versionSet(let versionSet):
                         return (constraint.identifier.identity, versionSet)
@@ -190,7 +189,7 @@ extension MockPackageContainer {
                     case .revision:
                         fatalError()
                     }
-                })
+                }
         }
 
         self.init(name: identifier, dependenciesByVersion: depByVersion)
@@ -198,30 +197,30 @@ extension MockPackageContainer {
 }
 
 public struct MockPackagesProvider: PackageContainerProvider {
-
     public let containers: [MockPackageContainer]
     public let containersByIdentifier: [PackageReference: MockPackageContainer]
 
     public init(containers: [MockPackageContainer]) {
         self.containers = containers
-        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.identifier, $0) }))
+        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map { ($0.identifier, $0) })
     }
 
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
         completion: @escaping (Result<PackageContainer, Error>
-    ) -> Void) {
+        ) -> Void
+    ) {
         DispatchQueue.global().async {
-            completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
+            completion(self.containersByIdentifier[identifier].map { .success($0) } ??
                 .failure(MockLoadingError.unknownModule))
         }
     }
 }
 
-extension DependencyResolver {
+public extension DependencyResolver {
     /// Helper method which returns all the version binding out of resolver and assert failure for non version bindings.
-    public func resolveToVersion(
+    func resolveToVersion(
         constraints: [MockPackageConstraint],
         file: StaticString = #file,
         line: UInt = #line
@@ -231,24 +230,23 @@ extension DependencyResolver {
 }
 
 public struct MockGraph {
-
     public let name: String
     public let constraints: [MockPackageConstraint]
     public let containers: [MockPackageContainer]
     public let result: [String: Version]
 
     public init(_ json: JSON) {
-        guard case let .dictionary(dict) = json else { fatalError() }
-        guard case let .string(name)? = dict["name"] else { fatalError() }
-        guard case let .array(constraints)? = dict["constraints"] else { fatalError() }
-        guard case let .array(containers)? = dict["containers"] else { fatalError() }
-        guard case let .dictionary(result)? = dict["result"] else { fatalError() }
+        guard case .dictionary(let dict) = json else { fatalError() }
+        guard case .string(let name)? = dict["name"] else { fatalError() }
+        guard case .array(let constraints)? = dict["constraints"] else { fatalError() }
+        guard case .array(let containers)? = dict["containers"] else { fatalError() }
+        guard case .dictionary(let result)? = dict["result"] else { fatalError() }
 
-        self.result = Dictionary(uniqueKeysWithValues: result.map({ value in
+        self.result = Dictionary(uniqueKeysWithValues: result.map { value in
             let (container, version) = value
-            guard case let .string(str) = version else { fatalError() }
+            guard case .string(let str) = version else { fatalError() }
             return (container.lowercased(), Version(string: str)!)
-        }))
+        })
         self.name = name
         self.constraints = constraints.map(PackageContainerConstraint.init(json:))
         self.containers = containers.map(MockPackageContainer.init(json:))
@@ -271,16 +269,3 @@ public struct MockGraph {
 }
 
 import struct PackageModel.PackageReference
-
-public func XCTAssertEqual<T: CustomStringConvertible>(
-    _ assignment: [(container: T, version: Version)],
-    _ expected: [T: Version],
-    file: StaticString = #file, line: UInt = #line)
-    where T: Hashable
-{
-    var actual = [T: Version]()
-    for (identifier, binding) in assignment {
-        actual[identifier] = binding
-    }
-    XCTAssertEqual(actual, expected, file: file, line: line)
-}
