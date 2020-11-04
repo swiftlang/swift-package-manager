@@ -190,7 +190,7 @@ public extension MockPackageContainer {
     }
 }
 
-public struct MockPackagesProvider: PackageContainerProvider {
+public struct MockPackageContainerProvider: PackageContainerProvider {
     public let containers: [MockPackageContainer]
     public let containersByIdentifier: [PackageReference: MockPackageContainer]
 
