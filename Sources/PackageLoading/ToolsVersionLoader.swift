@@ -218,7 +218,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .spacingAfterLabel(let spacing):
                     return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift > 5.3; consider removing the sequence for Swift \(specifiedVersion)"
                 case .unidentified:
-                    return "the manifest is backward-incompatible with Swift ≤ 5.3, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
+                    return "the manifest is backward-incompatible with Swift ≤ 5.3, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '// swift-tools-version:\(specifiedVersion)' to specify Swift \(specifiedVersion) as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             }
             
@@ -420,7 +420,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             
             // The above If-statements should have covered all possible backward incompatibilities with Swift ≤ 5.3.
             // If you changed the logic in this file, and this fatal error is triggered, then you need to re-check the logic, and make sure all possible error conditions are covered in the Else-block.
-            throw Error.backwardIncompatiblePre5_3_1(.unidentified)
+            throw Error.backwardIncompatiblePre5_3_1(.unidentified, specifiedVersion: version)
         }
         
         return version
