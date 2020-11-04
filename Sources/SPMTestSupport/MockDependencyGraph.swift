@@ -17,24 +17,6 @@ import SourceControl
 import TSCBasic
 import TSCUtility
 
-/// Represents a mock package.
-public struct MockPackage {
-    /// The name of the package.
-    public let name: String
-
-    /// The current available version of the package.
-    public let version: TSCUtility.Version?
-
-    /// The dependencies of the package.
-    public let dependencies: [MockDependency]
-
-    public init(_ name: String, version: TSCUtility.Version?, dependencies: [MockDependency] = []) {
-        self.name = name
-        self.version = version
-        self.dependencies = dependencies
-    }
-}
-
 /// A mock manifest graph creator. It takes in a path where it creates empty repositories for mock packages.
 /// For each mock package, it creates a manifest and maps it to the url and that version in mock manifest loader.
 /// It provides basic functionality of getting the repo paths and manifests which can be later modified in tests.
@@ -85,7 +67,7 @@ public struct MockManifestGraph {
         // contents (the manifests are mocked).
         let repos = Dictionary(uniqueKeysWithValues: try packages.map { package -> (String, RepositorySpecifier) in
             let repoPath = path.appending(component: package.name)
-            let tag = package.version?.description ?? "initial"
+            let tag = package.versions.first??.description ?? "initial"
             let specifier = RepositorySpecifier(url: repoPath.pathString)
 
             // If this is in memory mocked graph.
@@ -103,7 +85,7 @@ public struct MockManifestGraph {
                 // Don't recreate repo if it is already there.
                 if !localFileSystem.exists(repoPath) {
                     try makeDirectories(repoPath)
-                    initGitRepo(repoPath, tag: package.version?.description ?? "initial")
+                    initGitRepo(repoPath, tag: tag)
                 }
             }
             return (package.name, specifier)
@@ -139,12 +121,12 @@ public struct MockManifestGraph {
                 platforms: [],
                 path: AbsolutePath(url).appending(component: Manifest.filename),
                 url: url,
-                version: package.version,
+                version: nil,
                 toolsVersion: .v4,
                 packageKind: .remote,
                 dependencies: MockManifestGraph.createDependencies(repos: repos, dependencies: package.dependencies)
             )
-            return (MockManifestLoader.Key(url: url, version: package.version), manifest)
+            return (MockManifestLoader.Key(url: url, version: nil), manifest)
         })
         // Add the root manifest.
         manifests[MockManifestLoader.Key(url: path.pathString, version: nil)] = self.rootManifest

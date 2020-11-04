@@ -30,7 +30,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -46,7 +46,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -56,7 +56,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Quix",
                     targets: [
                         MockTarget(name: "Quix"),
@@ -187,7 +187,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Baz"]),
@@ -197,7 +197,7 @@ final class WorkspaceTests: XCTestCase {
                         MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
@@ -209,7 +209,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -244,7 +244,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Baz"]),
@@ -255,14 +255,14 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     toolsVersion: .v5
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
                     ],
                     products: []
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     path: "Overridden/bazzz",
                     targets: [
@@ -274,7 +274,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     path: "bazzz",
                     targets: [
@@ -310,7 +310,7 @@ final class WorkspaceTests: XCTestCase {
             fs: fs,
             roots: [],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -323,7 +323,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -386,7 +386,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: []),
@@ -394,7 +394,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [],
                     dependencies: []
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
@@ -423,7 +423,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "FooPackage",
                     path: "foo-package",
                     targets: [
@@ -435,7 +435,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     toolsVersion: .v5
                 ),
-                TestPackage(
+                MockPackage(
                     name: "BarPackage",
                     path: "bar-package",
                     targets: [
@@ -448,7 +448,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "BarPackage",
                     path: "bar-package",
                     targets: [
@@ -481,7 +481,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["BazAB"]),
@@ -492,7 +492,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     toolsVersion: .v5
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "BazA"),
@@ -504,7 +504,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -542,7 +542,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Baz"]),
@@ -552,7 +552,7 @@ final class WorkspaceTests: XCTestCase {
                         MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "BazA"),
@@ -564,7 +564,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -621,7 +621,7 @@ final class WorkspaceTests: XCTestCase {
             fs: fs,
             roots: [],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -634,7 +634,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -683,7 +683,7 @@ final class WorkspaceTests: XCTestCase {
             fs: fs,
             roots: [],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [
                         MockTarget(name: "A", dependencies: ["AA"]),
@@ -696,7 +696,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [
                         MockTarget(name: "A", dependencies: ["AA"]),
@@ -709,7 +709,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.1"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "AA",
                     targets: [
                         MockTarget(name: "AA"),
@@ -779,7 +779,7 @@ final class WorkspaceTests: XCTestCase {
             fs: fs,
             roots: [],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [
                         MockTarget(name: "A", dependencies: ["AA"]),
@@ -792,7 +792,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [
                         MockTarget(name: "B", dependencies: ["AA"]),
@@ -805,7 +805,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "AA",
                     targets: [
                         MockTarget(name: "AA"),
@@ -842,7 +842,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: []
@@ -881,7 +881,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -892,13 +892,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -938,7 +938,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -949,13 +949,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -997,7 +997,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -1007,7 +1007,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -1048,7 +1048,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -1059,13 +1059,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -1110,7 +1110,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -1121,13 +1121,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -1173,7 +1173,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -1184,13 +1184,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -1235,7 +1235,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -1246,13 +1246,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -1294,7 +1294,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [MockTarget(name: "A")],
                     products: [],
@@ -1305,13 +1305,13 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [MockTarget(name: "B")],
                     products: [MockProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "C",
                     targets: [MockTarget(name: "C")],
                     products: [MockProduct(name: "C", targets: ["C"])],
@@ -1371,7 +1371,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -1385,7 +1385,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -1398,7 +1398,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -1408,7 +1408,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.5.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -1469,7 +1469,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -1483,7 +1483,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -1493,7 +1493,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -1561,7 +1561,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -1575,7 +1575,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -1588,7 +1588,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.5.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -1601,7 +1601,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -1665,7 +1665,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -1679,7 +1679,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -1744,7 +1744,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root1",
                     targets: [
                         MockTarget(name: "Root1", dependencies: ["Foo"]),
@@ -1754,7 +1754,7 @@ final class WorkspaceTests: XCTestCase {
                         MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Root2",
                     targets: [
                         MockTarget(name: "Root2", dependencies: ["Bar"]),
@@ -1814,7 +1814,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root1",
                     targets: [
                         MockTarget(name: "Root1", dependencies: ["Foo", "Bar", "Baz", "Bam"]),
@@ -1829,7 +1829,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
@@ -1844,7 +1844,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
                 .genericPackage1(named: "Bar"),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz", dependencies: ["Bam"]),
@@ -1880,7 +1880,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -1892,7 +1892,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -1902,7 +1902,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["develop"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -1944,7 +1944,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -1956,7 +1956,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2017,7 +2017,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -2063,7 +2063,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -2075,7 +2075,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2106,21 +2106,21 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
                     ],
                     products: []
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
                     ],
                     products: []
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -2166,7 +2166,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
@@ -2179,7 +2179,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2189,7 +2189,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -2274,7 +2274,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -2286,7 +2286,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2333,7 +2333,7 @@ final class WorkspaceTests: XCTestCase {
             fs: fs,
             roots: [],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2398,7 +2398,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
@@ -2411,7 +2411,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2421,7 +2421,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.2.0", "1.3.2"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -2519,7 +2519,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -2531,7 +2531,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2541,7 +2541,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -2554,7 +2554,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: [nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -2604,7 +2604,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -2618,7 +2618,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -2676,7 +2676,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -2688,7 +2688,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2698,7 +2698,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -2756,7 +2756,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -2770,7 +2770,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -2805,7 +2805,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
@@ -2819,7 +2819,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -2829,7 +2829,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz", dependencies: ["Bar"]),
@@ -2883,7 +2883,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -2896,7 +2896,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
@@ -2909,7 +2909,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -2944,7 +2944,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -2956,7 +2956,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -3008,7 +3008,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: []),
@@ -3043,7 +3043,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: []),
@@ -3053,7 +3053,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3112,7 +3112,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: []),
@@ -3122,7 +3122,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3181,7 +3181,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: []),
@@ -3191,7 +3191,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3201,7 +3201,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: [nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     path: "Foo2",
                     targets: [
@@ -3251,7 +3251,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: []),
@@ -3261,7 +3261,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3271,7 +3271,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: [nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
@@ -3329,7 +3329,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: []),
@@ -3339,7 +3339,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3384,7 +3384,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Dep"]),
@@ -3399,7 +3399,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Dep",
                     targets: [
                         MockTarget(name: "Dep", dependencies: ["Bar"]),
@@ -3413,7 +3413,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0", "1.5.0"],
                     toolsVersion: .v5
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -3423,7 +3423,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -3433,7 +3433,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.4.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bam",
                     targets: [
                         MockTarget(name: "Bam"),
@@ -3492,7 +3492,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Bar"]),
@@ -3504,7 +3504,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar", dependencies: ["Foo"]),
@@ -3517,7 +3517,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar", dependencies: ["Nested/Foo"]),
@@ -3531,7 +3531,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.1.0"],
                     toolsVersion: .v5
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3541,7 +3541,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
@@ -3621,7 +3621,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
@@ -3634,7 +3634,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3644,7 +3644,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.2.0", "1.3.2"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -3737,7 +3737,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -3749,7 +3749,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo"),
@@ -3807,7 +3807,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo"]),
@@ -3819,7 +3819,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Local"]),
@@ -3832,7 +3832,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["develop"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Local",
                     targets: [
                         MockTarget(name: "Local"),
@@ -3860,7 +3860,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     path: "Overridden/bazzz-master",
                     targets: [
@@ -3872,7 +3872,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     path: "bazzz",
                     targets: [
@@ -3905,7 +3905,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
@@ -3915,7 +3915,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
@@ -3928,7 +3928,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
@@ -3938,7 +3938,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz", dependencies: ["Bar"], settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
@@ -3971,7 +3971,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo", "Baz"]),
@@ -3984,7 +3984,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Bar"]),
@@ -3997,7 +3997,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["master", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -4007,7 +4007,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["master", "1.0.0", nil]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz", dependencies: ["Bar"]),
@@ -4077,7 +4077,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Root",
                     targets: [
                         MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
@@ -4093,7 +4093,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo1", dependencies: ["Foo2"]),
@@ -4110,7 +4110,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Bar",
                     targets: [
                         MockTarget(name: "Bar"),
@@ -4128,7 +4128,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
                 ),
-                TestPackage(
+                MockPackage(
                     name: "Baz",
                     targets: [
                         MockTarget(name: "Baz"),
@@ -4139,7 +4139,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
                 ),
-                TestPackage(
+                MockPackage(
                     name: "TestHelper1",
                     targets: [
                         MockTarget(name: "TestHelper1"),
@@ -4177,7 +4177,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["Foo"]),
@@ -4271,7 +4271,7 @@ final class WorkspaceTests: XCTestCase {
                 completion(.success(()))
             }),
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: [
@@ -4290,7 +4290,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [
                         MockTarget(
@@ -4325,7 +4325,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-                TestPackage(
+                MockPackage(
                     name: "B",
                     targets: [
                         MockTarget(
@@ -4523,7 +4523,7 @@ final class WorkspaceTests: XCTestCase {
                 completion(.failure(DummyError()))
             }),
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: [
@@ -4538,7 +4538,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [
                         MockTarget(
@@ -4588,7 +4588,7 @@ final class WorkspaceTests: XCTestCase {
             sandbox: sandbox,
             fs: fs,
             roots: [
-                TestPackage(
+                MockPackage(
                     name: "Foo",
                     targets: [
                         MockTarget(name: "Foo", dependencies: ["A"]),
@@ -4600,7 +4600,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: [
-                TestPackage(
+                MockPackage(
                     name: "A",
                     targets: [
                         MockTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "a"),

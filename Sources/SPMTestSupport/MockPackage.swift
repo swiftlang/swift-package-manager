@@ -10,7 +10,7 @@
 
 import PackageModel
 
-public struct TestPackage {
+public struct MockPackage {
     public let name: String
     public let platforms: [PlatformDescription]
     public let path: String?
@@ -41,8 +41,8 @@ public struct TestPackage {
         self.toolsVersion = toolsVersion
     }
 
-    public static func genericPackage1(named name: String) -> TestPackage {
-        return TestPackage(
+    public static func genericPackage1(named name: String) -> MockPackage {
+        return MockPackage(
             name: name,
             targets: [
                 MockTarget(name: name),

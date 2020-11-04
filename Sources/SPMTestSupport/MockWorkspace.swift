@@ -22,8 +22,8 @@ public final class MockWorkspace {
     public let downloader: MockDownloader
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
-    let roots: [TestPackage]
-    let packages: [TestPackage]
+    let roots: [MockPackage]
+    let packages: [MockPackage]
     public let config: Workspace.Configuration
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
@@ -38,8 +38,8 @@ public final class MockWorkspace {
         downloader: MockDownloader? = nil,
         archiver: MockArchiver = MockArchiver(),
         checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
-        roots: [TestPackage],
-        packages: [TestPackage],
+        roots: [MockPackage],
+        packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         skipUpdate: Bool = false,
         enablePubGrub: Bool = true
@@ -78,7 +78,7 @@ public final class MockWorkspace {
         return self.packagesDir.appending(RelativePath(name)).pathString
     }
 
-    private func url(for package: TestPackage) -> String {
+    private func url(for package: MockPackage) -> String {
         return self.packagesDir.appending(RelativePath(package.path ?? package.name)).pathString
     }
 
@@ -93,7 +93,7 @@ public final class MockWorkspace {
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
-        func create(package: TestPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
+        func create(package: MockPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
             let url = (packageKind == .root ? packagePath : self.packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
