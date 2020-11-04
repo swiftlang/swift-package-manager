@@ -77,7 +77,7 @@ class ToolsVersionWriterTests: XCTestCase {
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
-        // Contents with valid specifier string and some meta data.
+        // Contents with invalid specifier string and some meta data.
         stream = BufferedOutputByteStream()
         stream <<< "// swift-tools-version:-3.1.2;hello\n"
         stream <<< "..."
