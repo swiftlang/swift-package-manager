@@ -212,17 +212,6 @@ public struct MockPackageContainerProvider: PackageContainerProvider {
     }
 }
 
-public extension DependencyResolver {
-    /// Helper method which returns all the version binding out of resolver and assert failure for non version bindings.
-    func resolveToVersion(
-        constraints: [MockPackageConstraint],
-        file: StaticString = #file,
-        line: UInt = #line
-    ) throws -> [(container: String, version: Version)] {
-        fatalError()
-    }
-}
-
 public struct MockGraph {
     public let name: String
     public let constraints: [MockPackageConstraint]
