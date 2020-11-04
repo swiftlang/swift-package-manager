@@ -19,6 +19,7 @@ add_library(PackageModel
   Manifest/SystemPackageProviderDescription.swift
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
+  ManifestSourceGeneration.swift
   ModuleMapType.swift
   Package.swift
   PackageReference.swift
