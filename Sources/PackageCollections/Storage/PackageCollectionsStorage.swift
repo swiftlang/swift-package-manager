@@ -205,10 +205,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         blobs.append(row.blob(at: 0))
                     }
 
-                    // TODO: consider skipping bad values to construct a pratial list instead of erroring out
-                    return try blobs.map { data -> PackageCollectionsModel.PackageCollection in
-                        let collection = try self.jsonDecoder.decode(PackageCollectionsModel.PackageCollection.self, from: data)
-                        return collection
+                    // TODO: consider some diagnostics / warning for invalid data
+                    return blobs.compactMap { data -> PackageCollectionsModel.PackageCollection? in
+                        try? self.jsonDecoder.decode(PackageCollectionsModel.PackageCollection.self, from: data)
                     }
                 }
                 callback(.success(collections))
