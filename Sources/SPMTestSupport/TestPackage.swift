@@ -15,7 +15,7 @@ public struct TestPackage {
     public let platforms: [PlatformDescription]
     public let path: String?
     public let targets: [MockTarget]
-    public let products: [TestProduct]
+    public let products: [MockProduct]
     public let dependencies: [TestDependency]
     public let versions: [String?]
     // FIXME: This should be per-version.
@@ -26,7 +26,7 @@ public struct TestPackage {
         platforms: [PlatformDescription] = [],
         path: String? = nil,
         targets: [MockTarget],
-        products: [TestProduct],
+        products: [MockProduct],
         dependencies: [TestDependency] = [],
         versions: [String?] = [],
         toolsVersion: ToolsVersion? = nil
@@ -48,7 +48,7 @@ public struct TestPackage {
                 MockTarget(name: name),
             ],
             products: [
-                TestProduct(name: name, targets: [name]),
+                MockProduct(name: name, targets: [name]),
             ],
             versions: ["1.0.0"]
         )

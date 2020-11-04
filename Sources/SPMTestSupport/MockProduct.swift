@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-public struct TestProduct {
+public struct MockProduct {
     public let name: String
     public let targets: [String]
 
