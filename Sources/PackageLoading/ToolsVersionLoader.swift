@@ -620,6 +620,8 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     /// There are 2 capture groups in the regex pattern:
     /// 1. The continuous sequence of whitespace characters between "//" and "swift-tools-version".
     /// 2. The version specifier.
+    ///
+    /// - Bug: Although any combination of all _horizontal_ whitespace characters should be allowed between `//`and `swift-tools-version:`, currently only a single space (`U+0020`) is allowed.
     @available(swift, deprecated: 5.3.1)
     static let regex = try! NSRegularExpression(
         pattern: "^// swift-tools-version:(.*?)(?:;.*|$)",
