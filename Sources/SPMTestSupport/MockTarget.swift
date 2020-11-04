@@ -10,7 +10,7 @@
 
 import PackageModel
 
-public struct TestTarget {
+public struct MockTarget {
     public enum `Type` {
         case regular, test, binary
     }

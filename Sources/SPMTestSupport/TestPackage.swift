@@ -14,7 +14,7 @@ public struct TestPackage {
     public let name: String
     public let platforms: [PlatformDescription]
     public let path: String?
-    public let targets: [TestTarget]
+    public let targets: [MockTarget]
     public let products: [TestProduct]
     public let dependencies: [TestDependency]
     public let versions: [String?]
@@ -25,7 +25,7 @@ public struct TestPackage {
         name: String,
         platforms: [PlatformDescription] = [],
         path: String? = nil,
-        targets: [TestTarget],
+        targets: [MockTarget],
         products: [TestProduct],
         dependencies: [TestDependency] = [],
         versions: [String?] = [],
@@ -45,7 +45,7 @@ public struct TestPackage {
         return TestPackage(
             name: name,
             targets: [
-                TestTarget(name: name),
+                MockTarget(name: name),
             ],
             products: [
                 TestProduct(name: name, targets: [name]),
