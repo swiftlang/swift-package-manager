@@ -56,7 +56,7 @@ protocol PackageCollectionsProfileStorage {
                 from profile: PackageCollectionsModel.Profile,
                 callback: @escaping (Result<Void, Error>) -> Void)
 
-    /// Removes source from the given profile.
+    /// Moves source to a different order within the given profile.
     ///
     /// - Parameters:
     ///   - source: The `PackageCollectionSource` to move

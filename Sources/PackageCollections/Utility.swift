@@ -18,7 +18,7 @@ import SourceControl
 struct Paths {
     static func cache(fileSystem: FileSystem) -> AbsolutePath {
         // use the idiomatic cache directory defined by FileManager when using the local file system
-        // otherwise use ~/.swift/cache
+        // otherwise use ~/.swiftpm/cache
         if fileSystem.isLocalFileSystem, let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
             return AbsolutePath(cache.path).appending(components: "org.swift.swiftpm")
         }

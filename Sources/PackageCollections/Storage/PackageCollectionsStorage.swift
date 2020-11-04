@@ -43,7 +43,7 @@ protocol PackageCollectionsStorage {
     func get(identifier: PackageCollectionsModel.PackageCollectionIdentifier,
              callback: @escaping (Result<PackageCollectionsModel.PackageCollection, Error>) -> Void)
 
-    /// Returns `PackageCollections` for the given identifiers, or all if non specified.
+    /// Returns `PackageCollection`s for the given identifiers, or all if none specified.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
@@ -51,18 +51,18 @@ protocol PackageCollectionsStorage {
     func list(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
               callback: @escaping (Result<[PackageCollectionsModel.PackageCollection], Error>) -> Void)
 
-    /// Returns `PackageSearchResult` for the given search criteria, or all if non specified.
+    /// Returns `PackageSearchResult` for the given query.
     ///
     /// - Parameters:
-    ///   - identifiers: Optional. The identifiers of the `PackageCollection`
+    ///   - identifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - query: The search query expression
     ///   - fields: Optional. Fields to search on
     ///   - callback: The closure to invoke when result becomes available
-    func searchPacakges(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
+    func searchPackages(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
 
-    /// Returns `TargetSearchResult` for the given search criteria, or all if non specified.
+    /// Returns `TargetSearchResult` for the given query.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
