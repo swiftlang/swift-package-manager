@@ -163,12 +163,6 @@ public class MockPackageContainer: PackageContainer {
     }
 }
 
-public class MockPackageContainer2: MockPackageContainer {
-    override public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        return name.with(newName: name.identity + "-name")
-    }
-}
-
 public extension MockPackageContainer {
     convenience init(json: JSON) {
         guard case .dictionary(let dict) = json else { fatalError() }
