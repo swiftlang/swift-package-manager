@@ -6,16 +6,16 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 
-import TSCBasic
-import TSCUtility
+import PackageGraph
 import PackageLoading
 import PackageModel
-import PackageGraph
 import SourceControl
+import TSCBasic
+import TSCUtility
 
 import SPMTestSupport
 
@@ -35,19 +35,19 @@ private class MockRepository: Repository {
     }
 
     var specifier: RepositorySpecifier {
-        return RepositorySpecifier(url: url)
+        return RepositorySpecifier(url: self.url)
     }
 
     var packageRef: PackageReference {
-        return PackageReference(identity: url.lowercased(), path: url)
+        return PackageReference(identity: self.url.lowercased(), path: self.url)
     }
 
     var tags: [String] {
-        return versions.keys.map{ String(describing: $0) }
+        return self.versions.keys.map { String(describing: $0) }
     }
 
     func resolveRevision(tag: String) throws -> Revision {
-        assert(versions.index(forKey: Version(string: tag)!) != nil)
+        assert(self.versions.index(forKey: Version(string: tag)!) != nil)
         return Revision(identifier: tag)
     }
 
@@ -68,9 +68,9 @@ private class MockRepository: Repository {
     }
 
     func openFileView(revision: Revision) throws -> FileSystem {
-        assert(versions.index(forKey: Version(string: revision.identifier)!) != nil)
+        assert(self.versions.index(forKey: Version(string: revision.identifier)!) != nil)
         // This is used for reading the tools version.
-        return fs
+        return self.fs
     }
 }
 
@@ -98,7 +98,7 @@ private class MockRepositories: RepositoryProvider {
 
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         // No-op.
-        assert(repositories.index(forKey: repository.url) != nil)
+        assert(self.repositories.index(forKey: repository.url) != nil)
     }
 
     func checkoutExists(at path: AbsolutePath) throws -> Bool {
@@ -106,7 +106,7 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
-        return repositories[repository.url]!
+        return self.repositories[repository.url]!
     }
 
     func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws {
@@ -124,11 +124,10 @@ private class MockResolverDelegate: RepositoryManagerDelegate {
     var fetched = [RepositorySpecifier]()
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
-        fetched += [handle.repository]
+        self.fetched += [handle.repository]
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
-    }
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
 }
 
 // Some handy versions & ranges.
@@ -141,7 +140,6 @@ private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class RepositoryPackageContainerProviderTests: XCTestCase {
-
     func testPackageReference() {
         func assertIdentity(_ url: String, _ identity: String, file: StaticString = #file, line: UInt = #line) {
             let computedIdentity = PackageReference.computeIdentity(packageURL: url)
@@ -185,14 +183,16 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             path: p,
             provider: inMemRepoProvider,
             delegate: MockResolverDelegate(),
-            fileSystem: fs)
+            fileSystem: fs
+        )
 
         let provider = RepositoryPackageContainerProvider(
-                repositoryManager: repositoryManager,
-                manifestLoader: MockManifestLoader(manifests: [:]))
+            repositoryManager: repositoryManager,
+            manifestLoader: MockManifestLoader(manifests: [:])
+        )
         let ref = PackageReference(identity: "foo", path: repoPath.pathString)
-        let container = try await { provider.getContainer(for: ref, completion: $0) }
-        let v = container.versions(filter: { _ in true }).map{$0}
+        let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
+        let v = container.versions(filter: { _ in true }).map { $0 }
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
 
@@ -232,29 +232,31 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             path: p,
             provider: inMemRepoProvider,
             delegate: MockResolverDelegate(),
-            fileSystem: fs)
+            fileSystem: fs
+        )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) -> RepositoryPackageContainerProvider {
             return RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
                 manifestLoader: MockManifestLoader(manifests: [:]),
-                currentToolsVersion: currentToolsVersion)
+                currentToolsVersion: currentToolsVersion
+            )
         }
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
-            let container = try await { provider.getContainer(for: ref, completion: $0) }
-            let v = container.versions(filter: { _ in true }).map{$0}
+            let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
+            let v = container.versions(filter: { _ in true }).map { $0 }
             XCTAssertEqual(v, ["1.0.1"])
         }
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.2.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
-            let container = try await { provider.getContainer(for: ref, completion: $0) }
+            let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
             XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, [:])
-            let v = container.versions(filter: { _ in true }).map{$0}
+            let v = container.versions(filter: { _ in true }).map { $0 }
             XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, ["1.0.1": true, "1.0.0": false, "1.0.3": true, "1.0.2": true])
             XCTAssertEqual(v, ["1.0.3", "1.0.2", "1.0.1"])
         }
@@ -262,8 +264,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let provider = createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
-            let container = try await { provider.getContainer(for: ref, completion: $0) }
-            let v = container.versions(filter: { _ in true }).map{$0}
+            let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
+            let v = container.versions(filter: { _ in true }).map { $0 }
             XCTAssertEqual(v, [])
         }
 
@@ -271,7 +273,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference(identity: "foo", path: specifier.url)
-            let container = try await { provider.getContainer(for: ref, completion: $0) } as! RepositoryPackageContainer
+            let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) } as! RepositoryPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
                 _ = try container.getDependencies(at: revision.identifier, productFilter: .nothing)
@@ -310,14 +312,16 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             path: p,
             provider: inMemRepoProvider,
             delegate: MockResolverDelegate(),
-            fileSystem: fs)
+            fileSystem: fs
+        )
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            manifestLoader: MockManifestLoader(manifests: [:]))
+            manifestLoader: MockManifestLoader(manifests: [:])
+        )
         let ref = PackageReference(identity: "foo", path: repoPath.pathString)
-        let container = try await { provider.getContainer(for: ref, completion: $0) }
-        let v = container.versions(filter: { _ in true }).map{$0}
+        let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
+        let v = container.versions(filter: { _ in true }).map { $0 }
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
 
@@ -348,14 +352,16 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             path: p,
             provider: inMemRepoProvider,
             delegate: MockResolverDelegate(),
-            fileSystem: fs)
+            fileSystem: fs
+        )
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            manifestLoader: MockManifestLoader(manifests: [:]))
+            manifestLoader: MockManifestLoader(manifests: [:])
+        )
         let ref = PackageReference(identity: "foo", path: repoPath.pathString)
-        let container = try await { provider.getContainer(for: ref, completion: $0) }
-        let v = container.versions(filter: { _ in true }).map{$0}
+        let container = try await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
+        let v = container.versions(filter: { _ in true }).map { $0 }
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
 
@@ -372,7 +378,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
 
         let products = [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"]),
         ]
 
         let targets = [
@@ -386,25 +392,27 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let v5ProductMapping: [String: ProductFilter] = [
             "Bar1": .specific(["Bar1", "Bar3"]),
             "Bar2": .specific(["B2", "Bar1", "Bar3"]),
-            "Bar3": .specific(["Bar1", "Bar3"])
+            "Bar3": .specific(["Bar1", "Bar3"]),
         ]
-        let v5Constraints = dependencies.map({
+        let v5Constraints = dependencies.map {
             RepositoryPackageConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
-                products: v5ProductMapping[$0.name]!)
-        })
+                products: v5ProductMapping[$0.name]!
+            )
+        }
         let v5_2ProductMapping: [String: ProductFilter] = [
             "Bar1": .specific(["Bar1"]),
             "Bar2": .specific(["B2"]),
-            "Bar3": .specific(["Bar3"])
+            "Bar3": .specific(["Bar3"]),
         ]
-        let v5_2Constraints = dependencies.map({
+        let v5_2Constraints = dependencies.map {
             RepositoryPackageConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
-                products: v5_2ProductMapping[$0.name]!)
-        })
+                products: v5_2ProductMapping[$0.name]!
+            )
+        }
 
         do {
             let manifest = Manifest.createManifest(
@@ -492,7 +500,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .specific(Set(products.map({ $0.name }))), mirrors: mirrors)
+                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })), mirrors: mirrors)
                     .sorted(by: { $0.identifier.identity < $1.identifier.identity }),
                 [
                     v5_2Constraints[0],
@@ -501,8 +509,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
         }
     }
-    
-    
+
     func testMissingBranchDiagnostics() throws {
         try testWithTemporaryDirectory { tmpDir in
             // Create a repository.
@@ -510,23 +517,23 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             try localFileSystem.createDirectory(packageDir)
             initGitRepo(packageDir)
             let packageRepo = GitRepository(path: packageDir)
-            
+
             // Create a package manifest in it (it only needs the `swift-tools-version` part, because we'll supply the manifest later).
             let manifestFile = packageDir.appending(component: "Package.swift")
             try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:4.2"))
-            
+
             // Commit it and tag it.
             try packageRepo.stage(file: "Package.swift")
             try packageRepo.commit(message: "Initial")
             try packageRepo.tag(name: "1.0.0")
-            
+
             // Rename the `master` branch to `main`.
             try systemQuietly([Git.tool, "-C", packageDir.pathString, "branch", "-m", "main"])
 
             // Create a repository manager for it.
             let repoProvider = GitRepositoryProvider()
             let repositoryManager = RepositoryManager(path: packageDir, provider: repoProvider, delegate: nil, fileSystem: localFileSystem)
-            
+
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createV4Manifest(
                 name: packageDir.basename,
@@ -534,15 +541,15 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 url: packageDir.pathString,
                 packageKind: .root,
                 targets: [
-                    TargetDescription(name: packageDir.basename, path: packageDir.pathString)
+                    TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil) : manifest]))
-            
+            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
+
             // Get a hold of the container for the test package.
             let packageRef = PackageReference(identity: "somepackage", path: packageDir.pathString)
-            let container = try await { containerProvider.getContainer(for: packageRef, completion: $0) } as! RepositoryPackageContainer
-            
+            let container = try await { containerProvider.getContainer(for: packageRef, skipUpdate: false, completion: $0) } as! RepositoryPackageContainer
+
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
             do { _ = try container.getDependencies(at: "master", productFilter: .everything) }
             catch let error as RepositoryPackageContainer.GetDependenciesError {
@@ -550,7 +557,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
                 XCTAssertMatch(error.diagnosticLocation?.description, .suffix("/SomePackage @ master"))
             }
-            
+
             // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
             do { _ = try container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything) }
             catch let error as RepositoryPackageContainer.GetDependenciesError {
@@ -560,5 +567,4 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             }
         }
     }
-
 }

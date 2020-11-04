@@ -69,15 +69,6 @@ public extension PackageContainerConstraint {
     }
 }
 
-public extension PackageContainerProvider {
-    func getContainer(
-        for identifier: PackageReference,
-        completion: @escaping (Result<PackageContainer, Error>) -> Void
-    ) {
-        getContainer(for: identifier, skipUpdate: false, completion: completion)
-    }
-}
-
 public enum MockLoadingError: Error {
     case unknownModule
 }
