@@ -16,7 +16,7 @@ import SourceControl
 import TSCBasic
 import Workspace
 
-public final class TestWorkspace {
+public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fs: FileSystem
     public let downloader: MockDownloader
@@ -27,7 +27,7 @@ public final class TestWorkspace {
     public let config: Workspace.Configuration
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
-    public let delegate = TestWorkspaceDelegate()
+    public let delegate = MockWorkspaceDelegate()
     let toolsVersion: ToolsVersion
     let skipUpdate: Bool
     let enablePubGrub: Bool
@@ -266,7 +266,7 @@ public final class TestWorkspace {
 
     public func checkUpdate(
         roots: [String] = [],
-        deps: [TestWorkspace.PackageDependency] = [],
+        deps: [MockWorkspace.PackageDependency] = [],
         packages: [String] = [],
         _ result: (DiagnosticsEngine) -> Void
     ) {
@@ -282,7 +282,7 @@ public final class TestWorkspace {
 
     public func checkUpdateDryRun(
         roots: [String] = [],
-        deps: [TestWorkspace.PackageDependency] = [],
+        deps: [MockWorkspace.PackageDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> Void
     ) {
         let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
@@ -297,7 +297,7 @@ public final class TestWorkspace {
 
     public func checkPackageGraph(
         roots: [String] = [],
-        deps: [TestWorkspace.PackageDependency],
+        deps: [MockWorkspace.PackageDependency],
         _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
         let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
@@ -477,7 +477,7 @@ public final class TestWorkspace {
 
     public func loadDependencyManifests(
         roots: [String] = [],
-        deps: [TestWorkspace.PackageDependency] = [],
+        deps: [MockWorkspace.PackageDependency] = [],
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
     ) {
         let dependencies = deps.map { $0.convert(packagesDir, url: urlForPackage(withName: $0.name)) }
@@ -561,7 +561,7 @@ public final class TestWorkspace {
     }
 }
 
-public final class TestWorkspaceDelegate: WorkspaceDelegate {
+public final class MockWorkspaceDelegate: WorkspaceDelegate {
     public var events = [String]()
 
     public init() {}
