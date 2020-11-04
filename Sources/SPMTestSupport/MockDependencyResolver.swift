@@ -267,5 +267,3 @@ public struct MockGraph {
         }
     }
 }
-
-import struct PackageModel.PackageReference
