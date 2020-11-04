@@ -33,9 +33,9 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
-                        TestTarget(name: "Bar", dependencies: ["Baz"]),
-                        TestTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                        MockTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo", "Bar"]),
@@ -49,7 +49,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -59,7 +59,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Quix",
                     targets: [
-                        TestTarget(name: "Quix"),
+                        MockTarget(name: "Quix"),
                     ],
                     products: [
                         TestProduct(name: "Quix", targets: ["Quix"]),
@@ -190,7 +190,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Baz"]),
                     ],
                     products: [],
                     dependencies: [
@@ -200,7 +200,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar", dependencies: ["Baz"]),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [],
                     dependencies: [
@@ -212,7 +212,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -247,7 +247,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Baz"]),
                     ],
                     products: [],
                     dependencies: [
@@ -258,7 +258,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: []
                 ),
@@ -266,7 +266,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "Overridden/bazzz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -278,7 +278,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "bazzz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -313,7 +313,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -326,7 +326,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -389,7 +389,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: []),
+                        MockTarget(name: "Foo", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -398,7 +398,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: []),
+                        MockTarget(name: "Foo", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -427,7 +427,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "FooPackage",
                     path: "foo-package",
                     targets: [
-                        TestTarget(name: "FooTarget", dependencies: [.product(name: "BarProduct", package: "BarPackage")]),
+                        MockTarget(name: "FooTarget", dependencies: [.product(name: "BarProduct", package: "BarPackage")]),
                     ],
                     products: [],
                     dependencies: [
@@ -439,7 +439,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar-package",
                     targets: [
-                        TestTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget"),
                     ],
                     products: [
                         TestProduct(name: "BarProduct", targets: ["BarTarget"]),
@@ -452,7 +452,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "BarPackage",
                     path: "bar-package",
                     targets: [
-                        TestTarget(name: "BarTarget"),
+                        MockTarget(name: "BarTarget"),
                     ],
                     products: [
                         TestProduct(name: "BarProduct", targets: ["BarTarget"]),
@@ -484,7 +484,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["BazAB"]),
+                        MockTarget(name: "Foo", dependencies: ["BazAB"]),
                     ],
                     products: [],
                     dependencies: [
@@ -495,8 +495,8 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "BazA"),
-                        TestTarget(name: "BazB"),
+                        MockTarget(name: "BazA"),
+                        MockTarget(name: "BazB"),
                     ],
                     products: [
                         TestProduct(name: "BazAB", targets: ["BazA", "BazB"]),
@@ -507,7 +507,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -545,7 +545,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Baz"]),
                     ],
                     products: [],
                     dependencies: [
@@ -555,8 +555,8 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "BazA"),
-                        TestTarget(name: "BazB"),
+                        MockTarget(name: "BazA"),
+                        MockTarget(name: "BazB"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["BazA", "BazB"]),
@@ -567,7 +567,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -624,7 +624,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -637,7 +637,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -686,7 +686,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "A",
                     targets: [
-                        TestTarget(name: "A", dependencies: ["AA"]),
+                        MockTarget(name: "A", dependencies: ["AA"]),
                     ],
                     products: [
                         TestProduct(name: "A", targets: ["A"]),
@@ -699,7 +699,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "A",
                     targets: [
-                        TestTarget(name: "A", dependencies: ["AA"]),
+                        MockTarget(name: "A", dependencies: ["AA"]),
                     ],
                     products: [
                         TestProduct(name: "A", targets: ["A"]),
@@ -712,7 +712,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "AA",
                     targets: [
-                        TestTarget(name: "AA"),
+                        MockTarget(name: "AA"),
                     ],
                     products: [
                         TestProduct(name: "AA", targets: ["AA"]),
@@ -782,7 +782,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "A",
                     targets: [
-                        TestTarget(name: "A", dependencies: ["AA"]),
+                        MockTarget(name: "A", dependencies: ["AA"]),
                     ],
                     products: [
                         TestProduct(name: "A", targets: ["A"]),
@@ -795,7 +795,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "B",
                     targets: [
-                        TestTarget(name: "B", dependencies: ["AA"]),
+                        MockTarget(name: "B", dependencies: ["AA"]),
                     ],
                     products: [
                         TestProduct(name: "B", targets: ["B"]),
@@ -808,7 +808,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "AA",
                     targets: [
-                        TestTarget(name: "AA"),
+                        MockTarget(name: "AA"),
                     ],
                     products: [
                         TestProduct(name: "AA", targets: ["AA"]),
@@ -844,7 +844,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: []
                 ),
             ],
@@ -883,7 +883,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -894,13 +894,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: ["1.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: ["1.0.0"]
                 ),
@@ -940,7 +940,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -951,13 +951,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -999,7 +999,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "C", requirement: .revision("hello")),
@@ -1009,7 +1009,7 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -1050,7 +1050,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -1061,13 +1061,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -1112,7 +1112,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -1123,13 +1123,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -1175,7 +1175,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -1186,13 +1186,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -1237,7 +1237,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -1248,13 +1248,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -1296,7 +1296,7 @@ final class WorkspaceTests: XCTestCase {
             roots: [
                 TestPackage(
                     name: "A",
-                    targets: [TestTarget(name: "A")],
+                    targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
                         TestDependency(name: "B", requirement: v1Requirement),
@@ -1307,13 +1307,13 @@ final class WorkspaceTests: XCTestCase {
             packages: [
                 TestPackage(
                     name: "B",
-                    targets: [TestTarget(name: "B")],
+                    targets: [MockTarget(name: "B")],
                     products: [TestProduct(name: "B", targets: ["B"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
                 TestPackage(
                     name: "C",
-                    targets: [TestTarget(name: "C")],
+                    targets: [MockTarget(name: "C")],
                     products: [TestProduct(name: "C", targets: ["C"])],
                     versions: [nil, "1.0.0", "1.0.5", "2.0.0"]
                 ),
@@ -1374,7 +1374,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Root", targets: ["Root"]),
@@ -1388,7 +1388,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1401,7 +1401,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1411,7 +1411,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -1472,7 +1472,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Root", targets: ["Root"]),
@@ -1486,7 +1486,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1496,7 +1496,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1564,7 +1564,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Root", targets: ["Root"]),
@@ -1578,7 +1578,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1591,7 +1591,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1604,7 +1604,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -1668,7 +1668,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Root", targets: ["Root"]),
@@ -1682,7 +1682,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1747,7 +1747,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root1",
                     targets: [
-                        TestTarget(name: "Root1", dependencies: ["Foo"]),
+                        MockTarget(name: "Root1", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -1757,7 +1757,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root2",
                     targets: [
-                        TestTarget(name: "Root2", dependencies: ["Bar"]),
+                        MockTarget(name: "Root2", dependencies: ["Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -1817,7 +1817,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root1",
                     targets: [
-                        TestTarget(name: "Root1", dependencies: ["Foo", "Bar", "Baz", "Bam"]),
+                        MockTarget(name: "Root1", dependencies: ["Foo", "Bar", "Baz", "Bam"]),
                     ],
                     products: [],
                     dependencies: [
@@ -1832,7 +1832,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1847,7 +1847,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz", dependencies: ["Bam"]),
+                        MockTarget(name: "Baz", dependencies: ["Bam"]),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -1883,7 +1883,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -1895,7 +1895,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -1905,7 +1905,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -1947,7 +1947,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -1959,7 +1959,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2020,7 +2020,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2066,7 +2066,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2078,7 +2078,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2109,21 +2109,21 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: []
                 ),
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: []
                 ),
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: []
                 ),
@@ -2169,7 +2169,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2182,7 +2182,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2192,7 +2192,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2277,7 +2277,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2289,7 +2289,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2336,7 +2336,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2401,7 +2401,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2414,7 +2414,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2424,7 +2424,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2522,7 +2522,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2534,7 +2534,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2544,7 +2544,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2557,7 +2557,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2607,7 +2607,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2621,7 +2621,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2679,7 +2679,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2691,7 +2691,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2701,7 +2701,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2759,7 +2759,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Root", targets: ["Root"]),
@@ -2773,7 +2773,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -2808,8 +2808,8 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
-                        TestTarget(name: "FooTests", dependencies: ["Foo"], type: .test),
+                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                        MockTarget(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ],
                     products: [],
                     dependencies: [
@@ -2822,7 +2822,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2832,7 +2832,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz", dependencies: ["Bar"]),
+                        MockTarget(name: "Baz", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -2886,8 +2886,8 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
-                        TestTarget(name: "FooTests", dependencies: ["Foo"], type: .test),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ],
                     products: [],
                     dependencies: [
@@ -2899,7 +2899,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar", dependencies: ["Baz"]),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -2912,7 +2912,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -2947,7 +2947,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -2959,7 +2959,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3011,7 +3011,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: []),
+                        MockTarget(name: "Foo", dependencies: []),
                     ],
                     products: [],
                     dependencies: [
@@ -3046,7 +3046,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -3056,7 +3056,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3115,7 +3115,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -3125,7 +3125,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3184,7 +3184,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -3194,7 +3194,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3205,7 +3205,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Foo2",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3254,7 +3254,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -3264,7 +3264,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3275,7 +3275,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3332,7 +3332,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: []),
+                        MockTarget(name: "Root", dependencies: []),
                     ],
                     products: [],
                     dependencies: []
@@ -3342,7 +3342,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3387,7 +3387,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Dep"]),
+                        MockTarget(name: "Foo", dependencies: ["Dep"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3402,7 +3402,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Dep",
                     targets: [
-                        TestTarget(name: "Dep", dependencies: ["Bar"]),
+                        MockTarget(name: "Dep", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Dep", targets: ["Dep"]),
@@ -3416,7 +3416,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3426,7 +3426,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Baz"]),
@@ -3436,7 +3436,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bam",
                     targets: [
-                        TestTarget(name: "Bam"),
+                        MockTarget(name: "Bam"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bam"]),
@@ -3495,7 +3495,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -3507,7 +3507,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar", dependencies: ["Foo"]),
+                        MockTarget(name: "Bar", dependencies: ["Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3520,7 +3520,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar", dependencies: ["Nested/Foo"]),
+                        MockTarget(name: "Bar", dependencies: ["Nested/Foo"]),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3534,7 +3534,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3545,7 +3545,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Foo",
                     path: "Nested/Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Nested/Foo", targets: ["Foo"]),
@@ -3624,7 +3624,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
                     ],
                     products: [],
                     dependencies: [
@@ -3637,7 +3637,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3647,7 +3647,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3740,7 +3740,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -3752,7 +3752,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo"),
+                        MockTarget(name: "Foo"),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3810,7 +3810,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo"]),
+                        MockTarget(name: "Root", dependencies: ["Foo"]),
                     ],
                     products: [],
                     dependencies: [
@@ -3822,7 +3822,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Local"]),
+                        MockTarget(name: "Foo", dependencies: ["Local"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -3835,7 +3835,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Local",
                     targets: [
-                        TestTarget(name: "Local"),
+                        MockTarget(name: "Local"),
                     ],
                     products: [
                         TestProduct(name: "Local", targets: ["Local"]),
@@ -3864,7 +3864,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "Overridden/bazzz-master",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -3876,7 +3876,7 @@ final class WorkspaceTests: XCTestCase {
                     name: "Baz",
                     path: "bazzz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -3908,7 +3908,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                        MockTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3918,7 +3918,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar", "Baz"]),
                     ],
                     products: [],
                     dependencies: [
@@ -3931,7 +3931,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                        MockTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -3941,7 +3941,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz", dependencies: ["Bar"], settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                        MockTarget(name: "Baz", dependencies: ["Bar"], settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -3974,7 +3974,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo", "Baz"]),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Baz"]),
                     ],
                     products: [],
                     dependencies: [
@@ -3987,7 +3987,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo"]),
@@ -4000,7 +4000,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
+                        MockTarget(name: "Bar"),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -4010,7 +4010,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz", dependencies: ["Bar"]),
+                        MockTarget(name: "Baz", dependencies: ["Bar"]),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -4080,8 +4080,8 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Root",
                     targets: [
-                        TestTarget(name: "Root", dependencies: ["Foo", "Bar"]),
-                        TestTarget(name: "RootTests", dependencies: ["TestHelper1"], type: .test),
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                        MockTarget(name: "RootTests", dependencies: ["TestHelper1"], type: .test),
                     ],
                     products: [],
                     dependencies: [
@@ -4096,9 +4096,9 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo1", dependencies: ["Foo2"]),
-                        TestTarget(name: "Foo2", dependencies: ["Baz"]),
-                        TestTarget(name: "FooTests", dependencies: ["TestHelper2"], type: .test),
+                        MockTarget(name: "Foo1", dependencies: ["Foo2"]),
+                        MockTarget(name: "Foo2", dependencies: ["Baz"]),
+                        MockTarget(name: "FooTests", dependencies: ["TestHelper2"], type: .test),
                     ],
                     products: [
                         TestProduct(name: "Foo", targets: ["Foo1"]),
@@ -4113,9 +4113,9 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Bar",
                     targets: [
-                        TestTarget(name: "Bar"),
-                        TestTarget(name: "BarUnused", dependencies: ["Biz"]),
-                        TestTarget(name: "BarTests", dependencies: ["TestHelper2"], type: .test),
+                        MockTarget(name: "Bar"),
+                        MockTarget(name: "BarUnused", dependencies: ["Biz"]),
+                        MockTarget(name: "BarTests", dependencies: ["TestHelper2"], type: .test),
                     ],
                     products: [
                         TestProduct(name: "Bar", targets: ["Bar"]),
@@ -4131,7 +4131,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Baz",
                     targets: [
-                        TestTarget(name: "Baz"),
+                        MockTarget(name: "Baz"),
                     ],
                     products: [
                         TestProduct(name: "Baz", targets: ["Baz"]),
@@ -4142,7 +4142,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "TestHelper1",
                     targets: [
-                        TestTarget(name: "TestHelper1"),
+                        MockTarget(name: "TestHelper1"),
                     ],
                     products: [
                         TestProduct(name: "TestHelper1", targets: ["TestHelper1"]),
@@ -4180,7 +4180,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["Foo"]),
+                        MockTarget(name: "Foo", dependencies: ["Foo"]),
                     ],
                     products: []
                 ),
@@ -4274,7 +4274,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: [
+                        MockTarget(name: "Foo", dependencies: [
                             "B",
                             .product(name: "A1", package: "A"),
                             .product(name: "A2", package: "A"),
@@ -4293,25 +4293,25 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "A",
                     targets: [
-                        TestTarget(
+                        MockTarget(
                             name: "A1",
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                         ),
-                        TestTarget(
+                        MockTarget(
                             name: "A2",
                             type: .binary,
                             url: "https://a.com/a2.zip",
                             checksum: "a2"
                         ),
-                        TestTarget(
+                        MockTarget(
                             name: "A3",
                             type: .binary,
                             url: "https://a.com/a3.zip",
                             checksum: "a3"
                         ),
-                        TestTarget(
+                        MockTarget(
                             name: "A4",
                             type: .binary,
                             path: "A4.xcframework"
@@ -4328,7 +4328,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "B",
                     targets: [
-                        TestTarget(
+                        MockTarget(
                             name: "B",
                             type: .binary,
                             url: "https://b.com/b.zip",
@@ -4526,7 +4526,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: [
+                        MockTarget(name: "Foo", dependencies: [
                             .product(name: "A1", package: "A"),
                             .product(name: "A2", package: "A"),
                         ]),
@@ -4541,19 +4541,19 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "A",
                     targets: [
-                        TestTarget(
+                        MockTarget(
                             name: "A1",
                             type: .binary,
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                         ),
-                        TestTarget(
+                        MockTarget(
                             name: "A2",
                             type: .binary,
                             url: "https://a.com/a2.zip",
                             checksum: "a2"
                         ),
-                        TestTarget(
+                        MockTarget(
                             name: "A3",
                             type: .binary,
                             url: "https://a.com/a3.zip",
@@ -4591,7 +4591,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "Foo",
                     targets: [
-                        TestTarget(name: "Foo", dependencies: ["A"]),
+                        MockTarget(name: "Foo", dependencies: ["A"]),
                     ],
                     products: [],
                     dependencies: [
@@ -4603,7 +4603,7 @@ final class WorkspaceTests: XCTestCase {
                 TestPackage(
                     name: "A",
                     targets: [
-                        TestTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "a"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.zip", checksum: "a"),
                     ],
                     products: [
                         TestProduct(name: "A", targets: ["A"]),
