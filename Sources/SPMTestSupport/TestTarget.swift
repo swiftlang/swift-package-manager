@@ -6,19 +6,11 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
-import XCTest
-
-import TSCBasic
 import PackageModel
-import PackageLoading
-import Workspace
-import PackageGraph
-import SourceControl
 
 public struct TestTarget {
-
     public enum `Type` {
         case regular, test, binary
     }
@@ -50,39 +42,42 @@ public struct TestTarget {
     }
 
     func convert() -> TargetDescription {
-        switch type {
+        switch self.type {
         case .regular:
             return TargetDescription(
-                name: name,
-                dependencies: dependencies,
-                path: path,
+                name: self.name,
+                dependencies: self.dependencies,
+                path: self.path,
                 exclude: [],
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .regular,
-                settings: settings)
+                settings: self.settings
+            )
         case .test:
             return TargetDescription(
-                name: name,
-                dependencies: dependencies,
-                path: path,
+                name: self.name,
+                dependencies: self.dependencies,
+                path: self.path,
                 exclude: [],
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .test,
-                settings: settings)
+                settings: self.settings
+            )
         case .binary:
             return TargetDescription(
-                name: name,
-                dependencies: dependencies,
-                path: path,
-                url: url,
+                name: self.name,
+                dependencies: self.dependencies,
+                path: self.path,
+                url: self.url,
                 exclude: [],
                 sources: nil,
                 publicHeadersPath: nil,
                 type: .binary,
                 settings: [],
-                checksum: checksum)
+                checksum: self.checksum
+            )
         }
     }
 }

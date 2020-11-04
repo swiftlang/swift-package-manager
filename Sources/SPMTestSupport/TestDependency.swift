@@ -6,22 +6,17 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
-import XCTest
-
-import TSCBasic
 import PackageModel
-import PackageLoading
-import Workspace
-import PackageGraph
-import SourceControl
+import TSCBasic
 
 public struct TestDependency {
+    public typealias Requirement = PackageDependencyDescription.Requirement
+
     public let name: String?
     public let path: String
     public let requirement: Requirement
-    public typealias Requirement = PackageDependencyDescription.Requirement
 
     public init(name: String, requirement: Requirement) {
         self.name = name
@@ -37,9 +32,9 @@ public struct TestDependency {
 
     public func convert(baseURL: AbsolutePath) -> PackageDependencyDescription {
         return PackageDependencyDescription(
-            name: name,
-            url: baseURL.appending(RelativePath(path)).pathString,
-            requirement: requirement
+            name: self.name,
+            url: baseURL.appending(RelativePath(self.path)).pathString,
+            requirement: self.requirement
         )
     }
 }
