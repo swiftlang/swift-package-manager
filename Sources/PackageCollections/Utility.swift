@@ -43,7 +43,6 @@ protocol Closable {
     func close() throws
 }
 
-// FIXME: Need a better place to put these
 struct MultipleErrors: Error {
     let errors: [Error]
 

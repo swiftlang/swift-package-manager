@@ -13,7 +13,7 @@ import TSCBasic
 import TSCTestSupport
 import XCTest
 
-final class FilePackageCollectionProfileStorageTest: XCTestCase {
+final class PackageCollectionProfileStorageTest: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()
         let storage = FilePackageCollectionsProfileStorage(fileSystem: mockFileSystem)

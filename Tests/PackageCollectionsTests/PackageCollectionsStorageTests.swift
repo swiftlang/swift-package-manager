@@ -137,6 +137,20 @@ class PackageCollectionsStorageTests: XCTestCase {
         }
     }
 
+    func testListLessThanBatch() throws {
+        let storage = SQLitePackageCollectionsStorage(location: .memory)
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let count = SQLitePackageCollectionsStorage.batchSize / 2
+        let mockCollections = makeMockCollections(count: count)
+        try mockCollections.forEach { collection in
+            _ = try await { callback in storage.put(collection: collection, callback: callback) }
+        }
+
+        let list = try await { callback in storage.list(callback: callback) }
+        XCTAssertEqual(list.count, mockCollections.count)
+    }
+
     func testListNonBatching() throws {
         let storage = SQLitePackageCollectionsStorage(location: .memory)
         defer { XCTAssertNoThrow(try storage.close()) }
