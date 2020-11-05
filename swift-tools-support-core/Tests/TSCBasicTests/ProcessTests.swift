@@ -10,8 +10,9 @@
 
 import TSCTestSupport
 import XCTest
-import TSCLibc
 
+@_implementationOnly import TSCclibc
+import TSCLibc
 import TSCBasic
 
 typealias ProcessID = TSCBasic.Process.ProcessID

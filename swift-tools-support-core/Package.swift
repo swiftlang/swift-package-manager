@@ -3,7 +3,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2019 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -45,15 +45,15 @@ let package = Package(
         .target(
             /** Cross-platform access to bare `libc` functionality. */
             name: "TSCLibc",
-            dependencies: ["TSCclibc"]),
+            dependencies: []),
         .target(
             /** TSCBasic support library */
             name: "TSCBasic",
-            dependencies: ["TSCLibc"]),
+            dependencies: ["TSCLibc", "TSCclibc"]),
         .target(
             /** Abstractions for common operations, should migrate to TSCBasic */
             name: "TSCUtility",
-            dependencies: ["TSCBasic"]),
+            dependencies: ["TSCBasic", "TSCclibc"]),
         
         // MARK: Additional Test Dependencies
         
@@ -71,7 +71,7 @@ let package = Package(
         
         .testTarget(
             name: "TSCBasicTests",
-            dependencies: ["TSCTestSupport", "TSCTestSupportExecutable"]),
+            dependencies: ["TSCTestSupport", "TSCTestSupportExecutable", "TSCclibc"]),
         .testTarget(
             name: "TSCBasicPerformanceTests",
             dependencies: ["TSCBasic", "TSCTestSupport"]),

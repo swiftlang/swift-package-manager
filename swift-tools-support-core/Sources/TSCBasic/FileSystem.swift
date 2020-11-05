@@ -156,6 +156,9 @@ public protocol FileSystem: class {
 
     /// Get the home directory of current user
     var homeDirectory: AbsolutePath { get }
+    
+    /// Get the caches directory of current user
+    var cachesDirectory: AbsolutePath? { get }
 
     /// Create the given directory.
     func createDirectory(_ path: AbsolutePath) throws
@@ -316,6 +319,10 @@ private class LocalFileSystem: FileSystem {
 
     var homeDirectory: AbsolutePath {
         return AbsolutePath(NSHomeDirectory())
+    }
+    
+    var cachesDirectory: AbsolutePath? {
+        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.absoluteString) }
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -622,6 +629,10 @@ public class InMemoryFileSystem: FileSystem {
         // FIXME: Maybe we should allow setting this when creating the fs.
         return AbsolutePath("/home/user")
     }
+    
+    public var cachesDirectory: AbsolutePath? {
+        return self.homeDirectory.appending(component: "caches")
+    }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = try getNode(path) else {
@@ -869,6 +880,10 @@ public class RerootedFileSystemView: FileSystem {
 
     public var homeDirectory: AbsolutePath {
         fatalError("homeDirectory on RerootedFileSystemView is not supported.")
+    }
+    
+    public var cachesDirectory: AbsolutePath? {
+        fatalError("cachesDirectory on RerootedFileSystemView is not supported.")
     }
 
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {

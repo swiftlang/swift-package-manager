@@ -11,6 +11,7 @@ add_library(TSCBasic
   ByteString.swift
   CStringArray.swift
   CacheableSequence.swift
+  Closable.swift
   CodableResult.swift
   CollectionAlgorithms.swift
   CollectionExtensions.swift
@@ -57,6 +58,8 @@ target_compile_options(TSCBasic PUBLIC
   "$<$<PLATFORM_ID:Windows>:SHELL:-Xcc -D_CRT_SECURE_NO_WARNINGS>")
 target_link_libraries(TSCBasic PUBLIC
   TSCLibc)
+target_link_libraries(TSCBasic PRIVATE
+   TSCclibc)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
   if(Foundation_FOUND)
     target_link_libraries(TSCBasic PUBLIC

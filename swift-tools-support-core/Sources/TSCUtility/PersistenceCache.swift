@@ -19,7 +19,7 @@ public protocol PersistentCacheProtocol {
 }
 
 /// SQLite backed persistent cache.
-public final class SQLiteBackedPersistentCache: PersistentCacheProtocol {
+public final class SQLiteBackedPersistentCache: PersistentCacheProtocol, Closable {
     let db: SQLite
 
     init(db: SQLite) throws {
@@ -37,7 +37,11 @@ public final class SQLiteBackedPersistentCache: PersistentCacheProtocol {
     }
 
     deinit {
-        try? db.close()
+        try? self.close()
+    }
+    
+    public func close() throws {
+        try db.close()
     }
 
     public convenience init(cacheFilePath: AbsolutePath) throws {
