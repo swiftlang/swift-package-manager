@@ -77,6 +77,8 @@ protocol PackageCollectionsStorage {
 // MARK: - SQLitePackageCollectionsStorage
 
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
+    static let batchSize = 100
+
     let fileSystem: FileSystem
     let location: SQLite.Location
 
@@ -188,27 +190,33 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
               callback: @escaping (Result<[PackageCollectionsModel.PackageCollection], Error>) -> Void) {
         self.queue.async {
             do {
-                let query: String
+                var blobs = [Data]()
                 if let identifiers = identifiers {
-                    // FIXME: validate that the in clause is not getting too large
-                    query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key in (\(identifiers.map { _ in "?" }.joined(separator: ",")));"
+                    // TODO: consider running these in parallel
+                    var index = 0
+                    while index < identifiers.count {
+                        let slice = identifiers[index ..< min(index + Self.batchSize, identifiers.count)]
+                        let query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key in (\(slice.map { _ in "?" }.joined(separator: ",")));"
+                        try self.executeStatement(query) { statement in
+                            try statement.bind(slice.compactMap { .string($0.databaseKey()) })
+                            while let row = try statement.step() {
+                                blobs.append(row.blob(at: 0))
+                            }
+                        }
+                        index += Self.batchSize
+                    }
                 } else {
-                    query = "SELECT value FROM PACKAGES_COLLECTIONS;"
+                    let query = "SELECT value FROM PACKAGES_COLLECTIONS;"
+                    try self.executeStatement(query) { statement in
+                        while let row = try statement.step() {
+                            blobs.append(row.blob(at: 0))
+                        }
+                    }
                 }
-                let collections = try self.executeStatement(query) { statement -> [PackageCollectionsModel.PackageCollection] in
-                    if let identifiers = identifiers {
-                        try statement.bind(identifiers.compactMap { .string($0.databaseKey()) })
-                    }
 
-                    var blobs = [Data]()
-                    while let row = try statement.step() {
-                        blobs.append(row.blob(at: 0))
-                    }
-
-                    // TODO: consider some diagnostics / warning for invalid data
-                    return blobs.compactMap { data -> PackageCollectionsModel.PackageCollection? in
-                        try? self.jsonDecoder.decode(PackageCollectionsModel.PackageCollection.self, from: data)
-                    }
+                // TODO: consider some diagnostics / warning for invalid data
+                let collections = blobs.compactMap { data -> PackageCollectionsModel.PackageCollection? in
+                    try? self.jsonDecoder.decode(PackageCollectionsModel.PackageCollection.self, from: data)
                 }
                 callback(.success(collections))
             } catch {
