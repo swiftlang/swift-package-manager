@@ -116,7 +116,7 @@ public final class SchemesGenerator {
             """
 
         // Create buildable references for non-test targets.
-        for target in scheme.regularTargets {
+        for target in scheme.regularTargets.sorted(by: { $0.name < $1.name }) {
             stream <<< """
                       <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
                         <BuildableReference
@@ -148,7 +148,7 @@ public final class SchemesGenerator {
             """
 
         // Create testable references.
-        for target in scheme.testTargets {
+        for target in scheme.testTargets.sorted(by: { $0.name < $1.name }) {
             stream <<< """
                         <TestableReference
                           skipped = "NO">
