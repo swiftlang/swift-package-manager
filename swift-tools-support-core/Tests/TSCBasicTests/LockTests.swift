@@ -54,8 +54,6 @@ class LockTests: XCTestCase {
             let fileA = tempDir.appending(component: "fileA")
             let fileB = tempDir.appending(component: "fileB")
 
-            let lock = FileLock(name: "lockfile", cachePath: tempDir)
-
             let writerThreads = (0..<100).map { _ in
                 return Thread {
                     let lock = FileLock(name: "foo", cachePath: tempDir)

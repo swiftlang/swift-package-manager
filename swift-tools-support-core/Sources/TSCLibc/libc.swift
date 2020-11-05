@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -16,8 +16,6 @@
 #else
 @_exported import Darwin.C
 #endif
-
-@_exported import TSCclibc
 
 #if os(Windows)
 private func __randname(_ buffer: UnsafeMutablePointer<CChar>) {

@@ -43,7 +43,7 @@ public protocol ByteStreamable {
 ///
 /// would write each item in the list to the stream, separating them with a
 /// space.
-public protocol WritableByteStream: class, TextOutputStream {
+public protocol WritableByteStream: class, TextOutputStream, Closable {
     /// The current offset within the output stream.
     var position: Int { get }
 
@@ -55,9 +55,6 @@ public protocol WritableByteStream: class, TextOutputStream {
 
     /// Flush the stream's buffer.
     func flush()
-
-    /// Signal that the byte stream will not be used further and should be closed.
-    func close() throws
 }
 
 // Default noop implementation of close to avoid source-breaking downstream dependents with the addition of the close

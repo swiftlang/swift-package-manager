@@ -468,6 +468,10 @@ class FailingFileSystem: FileSystem {
     var homeDirectory: AbsolutePath {
         fatalError("unexpected call")
     }
+    
+    var cachesDirectory: AbsolutePath? {
+        fatalError("unexpected call")
+    }
 
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
         fatalError("unexpected call")
