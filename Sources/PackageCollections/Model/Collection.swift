@@ -19,9 +19,9 @@ public enum PackageCollectionsModel {}
 
 extension PackageCollectionsModel {
     /// A `PackageCollection` is a collection of packages.
-    public struct PackageCollection: Codable {
-        public typealias Identifier = PackageCollectionIdentifier
-        public typealias Source = PackageCollectionSource
+    public struct Collection: Equatable, Codable {
+        public typealias Identifier = CollectionIdentifier
+        public typealias Source = CollectionSource
 
         /// The identifier of the group
         public let identifier: Identifier
@@ -57,7 +57,7 @@ extension PackageCollectionsModel {
             createdAt: Date,
             lastProcessedAt: Date = Date()
         ) {
-            self.identifier = .init(source: source)
+            self.identifier = .init(from: source)
             self.source = source
             self.name = name
             self.description = description
@@ -71,52 +71,69 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel {
     /// Represents the source of a `PackageCollection`
-    public enum PackageCollectionSource: Equatable {
-        /// Package feed at URL
-        case feed(URL)
+    public struct CollectionSource: Equatable, Hashable, Codable {
+        /// Source type
+        public let type: CollectionSourceType
+
+        /// URL of the source file
+        public let url: URL
+
+        public init(type: CollectionSourceType, url: URL) {
+            self.type = type
+            self.url = url
+        }
+    }
+
+    /// Represents the source type of a `PackageCollection`
+    public enum CollectionSourceType: Equatable, CaseIterable {
+        case feed
     }
 }
 
-extension PackageCollectionsModel.PackageCollectionSource: Codable {
-    public enum DiscriminatorKeys: String, Codable {
-        case feed
-    }
-
+extension PackageCollectionsModel.CollectionSourceType: Codable {
     public enum CodingKeys: CodingKey {
         case _case
-        case url
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        switch try container.decode(DiscriminatorKeys.self, forKey: ._case) {
-        case .feed:
-            let url = try container.decode(URL.self, forKey: .url)
-            self = .feed(url)
+        let value = try container.decode(String.self, forKey: ._case)
+        switch value {
+        case "feed":
+            self = .feed
+        default:
+            throw UnknownType(value)
         }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .feed(let url):
-            try container.encode(DiscriminatorKeys.feed, forKey: ._case)
-            try container.encode(url, forKey: .url)
+        case .feed:
+            try container.encode("feed", forKey: ._case)
+        }
+    }
+
+    struct UnknownType: Error {
+        let type: String
+
+        init(_ type: String) {
+            self.type = type
         }
     }
 }
 
 extension PackageCollectionsModel {
     /// Represents the identifier of a `PackageCollection`
-    public enum PackageCollectionIdentifier: Hashable, Comparable {
+    public enum CollectionIdentifier: Hashable, Comparable {
         /// Package feed at URL
         case feed(URL)
 
         /// Creates an `Identifier` from `Source`
-        init(source: PackageCollectionSource) {
-            switch source {
-            case .feed(let url):
-                self = .feed(url)
+        init(from source: CollectionSource) {
+            switch source.type {
+            case .feed:
+                self = .feed(source.url)
             }
         }
 
@@ -129,7 +146,7 @@ extension PackageCollectionsModel {
     }
 }
 
-extension PackageCollectionsModel.PackageCollection.Identifier: Codable {
+extension PackageCollectionsModel.CollectionIdentifier: Codable {
     public enum DiscriminatorKeys: String, Codable {
         case feed
     }
@@ -158,9 +175,9 @@ extension PackageCollectionsModel.PackageCollection.Identifier: Codable {
     }
 }
 
-extension PackageCollectionsModel.PackageCollection {
+extension PackageCollectionsModel.Collection {
     /// A representation of package metadata
-    public struct Package: Codable {
+    public struct Package: Equatable, Codable {
         public typealias Version = PackageVersion
 
         /// Package reference
@@ -194,9 +211,9 @@ extension PackageCollectionsModel.PackageCollection {
     }
 }
 
-extension PackageCollectionsModel.PackageCollection {
+extension PackageCollectionsModel.Collection {
     /// A representation of package version
-    public struct PackageVersion: Codable {
+    public struct PackageVersion: Equatable, Codable {
         public typealias Target = PackageCollectionsModel.PackageTarget
         public typealias Product = PackageCollectionsModel.PackageProduct
 

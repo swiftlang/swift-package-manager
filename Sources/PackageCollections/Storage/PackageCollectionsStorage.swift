@@ -19,21 +19,21 @@ import TSCUtility
 
 // MARK: - PackageCollectionsStorage
 
-protocol PackageCollectionsStorage {
+public protocol PackageCollectionsStorage {
     /// Writes `PackageCollection` to storage.
     ///
     /// - Parameters:
     ///   - collection: The `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
-    func put(collection: PackageCollectionsModel.PackageCollection,
-             callback: @escaping (Result<PackageCollectionsModel.PackageCollection, Error>) -> Void)
+    func put(collection: PackageCollectionsModel.Collection,
+             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
 
     /// Removes `PackageCollection` from storage.
     ///
     /// - Parameters:
     ///   - identifier: The identifier of the `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
-    func remove(identifier: PackageCollectionsModel.PackageCollectionIdentifier,
+    func remove(identifier: PackageCollectionsModel.CollectionIdentifier,
                 callback: @escaping (Result<Void, Error>) -> Void)
 
     /// Returns `PackageCollection` for the given identifier.
@@ -41,35 +41,35 @@ protocol PackageCollectionsStorage {
     /// - Parameters:
     ///   - identifier: The identifier of the `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
-    func get(identifier: PackageCollectionsModel.PackageCollectionIdentifier,
-             callback: @escaping (Result<PackageCollectionsModel.PackageCollection, Error>) -> Void)
+    func get(identifier: PackageCollectionsModel.CollectionIdentifier,
+             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
 
     /// Returns `PackageCollection`s for the given identifiers, or all if none specified.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
     ///   - callback: The closure to invoke when result becomes available
-    func list(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
-              callback: @escaping (Result<[PackageCollectionsModel.PackageCollection], Error>) -> Void)
+    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
+              callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void)
 
-    /// Returns `PackageSearchResult` for the given query.
+    /// Returns `PackageSearchResult` for the given search criteria.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - query: The search query expression
     ///   - callback: The closure to invoke when result becomes available
-    func searchPackages(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
+    func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
 
-    /// Returns `TargetSearchResult` for the given query.
+    /// Returns `TargetSearchResult` for the given search criteria.
     ///
     /// - Parameters:
     ///   - identifiers: Optional. The identifiers of the `PackageCollection`
     ///   - query: The search query expression
     ///   - type: The search type
     ///   - callback: The closure to invoke when result becomes available
-    func searchTargets(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]?,
+    func searchTargets(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                        query: String,
                        type: PackageCollectionsModel.TargetSearchType,
                        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void)
@@ -123,8 +123,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func put(collection: PackageCollectionsModel.PackageCollection,
-             callback: @escaping (Result<PackageCollectionsModel.PackageCollection, Error>) -> Void) {
+    func put(collection: PackageCollectionsModel.Collection,
+             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
         self.queue.async {
             do {
                 let query = "INSERT OR IGNORE INTO PACKAGES_COLLECTIONS VALUES (?, ?);"
@@ -145,7 +145,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func remove(identifier: PackageCollectionsModel.PackageCollectionIdentifier,
+    func remove(identifier: PackageCollectionsModel.CollectionIdentifier,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
@@ -164,12 +164,12 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func get(identifier: PackageCollectionsModel.PackageCollectionIdentifier,
-             callback: @escaping (Result<PackageCollectionsModel.PackageCollection, Error>) -> Void) {
+    func get(identifier: PackageCollectionsModel.CollectionIdentifier,
+             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
         self.queue.async {
             do {
                 let query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key == ? LIMIT 1;"
-                let collection = try self.executeStatement(query) { statement -> PackageCollectionsModel.PackageCollection in
+                let collection = try self.executeStatement(query) { statement -> PackageCollectionsModel.Collection in
                     try statement.bind([.string(identifier.databaseKey())])
 
                     let row = try statement.step()
@@ -177,7 +177,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         throw NotFoundError("\(identifier)")
                     }
 
-                    let collection = try self.jsonDecoder.decode(PackageCollectionsModel.PackageCollection.self, from: data)
+                    let collection = try self.jsonDecoder.decode(PackageCollectionsModel.Collection.self, from: data)
                     return collection
                 }
                 callback(.success(collection))
@@ -187,8 +187,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func list(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]? = nil,
-              callback: @escaping (Result<[PackageCollectionsModel.PackageCollection], Error>) -> Void) {
+    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
+              callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
         self.queue.async {
             do {
                 var blobs = [Data]()
@@ -216,8 +216,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 }
 
                 // TODO: consider some diagnostics / warning for invalid data
-                let collections = blobs.compactMap { data -> PackageCollectionsModel.PackageCollection? in
-                    try? self.jsonDecoder.decode(PackageCollectionsModel.PackageCollection.self, from: data)
+                let collections = blobs.compactMap { data -> PackageCollectionsModel.Collection? in
+                    try? self.jsonDecoder.decode(PackageCollectionsModel.Collection.self, from: data)
                 }
                 callback(.success(collections))
             } catch {
@@ -227,14 +227,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // FIXME: implement this
-    func searchPackages(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]? = nil,
+    func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
         fatalError("not implemented")
     }
 
     // FIXME: implement this
-    func searchTargets(identifiers: [PackageCollectionsModel.PackageCollectionIdentifier]? = nil,
+    func searchTargets(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
                        query: String,
                        type: PackageCollectionsModel.TargetSearchType,
                        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void) {
@@ -261,7 +261,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
-        return try self.withDB { db in
+        try self.withDB { db in
             let result: Result<T, Error>
             let statement = try db.prepare(query: query)
             do {
@@ -317,7 +317,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
 // MARK: - Utility
 
-private extension PackageCollectionsModel.PackageCollection.Identifier {
+private extension PackageCollectionsModel.Collection.Identifier {
     func databaseKey() -> String {
         switch self {
         case .feed(let url):
