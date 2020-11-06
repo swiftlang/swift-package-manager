@@ -761,6 +761,10 @@ private class GitFileSystemView: FileSystem {
         fatalError("unsupported")
     }
 
+    public var cachesDirectory: AbsolutePath? {
+        fatalError("unsupported")
+    }
+
     func createDirectory(_ path: AbsolutePath) throws {
         throw FileSystemError.unsupported
     }
