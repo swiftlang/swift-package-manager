@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import struct Foundation.URL
 import TSCBasic
-import TSCUtility
 
 // MARK: - PackageCollectionsProfileStorage
 
@@ -94,7 +94,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         self.fileSystem = fileSystem
 
         let name = "collections"
-        self.path = path ?? Paths.dotSwiftPM(fileSystem: fileSystem).appending(component: "\(name).json")
+        self.path = path ?? fileSystem.dotSwiftPM.appending(component: "\(name).json")
 
         self.jsonEncoder = JSONEncoder()
         self.jsonEncoder.outputFormatting = .prettyPrinted

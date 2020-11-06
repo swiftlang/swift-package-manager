@@ -46,7 +46,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100)) -> [PackageCol
             return PackageCollectionsModel.PackageCollection.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),
                                                                      summary: "package \(packageIndex) description",
                                                                      versions: versions,
-                                                                     readmeURL: nil) // FIXME:
+                                                                     readmeURL: nil)
         }
 
         return PackageCollectionsModel.PackageCollection(source: .feed(URL(string: "https://feed-\(collectionIndex)")!),

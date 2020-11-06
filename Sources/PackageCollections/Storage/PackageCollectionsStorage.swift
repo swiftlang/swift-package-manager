@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import struct Foundation.Data
 import class Foundation.JSONDecoder
@@ -92,7 +93,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let stateLock = Lock()
 
     init(location: SQLite.Location? = nil) {
-        self.location = location ?? .path(Paths.cache(fileSystem: localFileSystem).appending(components: "package-collection.db"))
+        self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
         case .path, .temporary:
             self.fileSystem = localFileSystem
