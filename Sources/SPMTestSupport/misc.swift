@@ -18,7 +18,6 @@ import PackageModel
 import SourceControl
 import TSCUtility
 import Workspace
-import Commands
 
 @_exported import TSCTestSupport
 

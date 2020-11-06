@@ -9,9 +9,8 @@
 */
 
 import TSCBasic
-import Build
+import SPMBuildCore
 import Foundation
-import Commands
 import PackageLoading
 import Workspace
 

@@ -201,7 +201,7 @@ let package = Package(
         .target(
             /** SwiftPM test support library */
             name: "SPMTestSupport",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Commands", "XCBuildSupport"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Workspace", "Xcodeproj", "XCBuildSupport"]),
 
         // MARK: SwiftPM tests
 
