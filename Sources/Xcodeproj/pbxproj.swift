@@ -385,7 +385,7 @@ public func xcodeProject(
     // Go through all the targets, creating targets and adding file references
     // to the group tree (the specific top-level group under which they are
     // added depends on whether or not the target is a test target).
-    for target in targets {
+    for target in targets.sorted(by: { $0.name < $1.name }) {
         // Determine the appropriate product type based on the kind of target.
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
