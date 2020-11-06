@@ -128,11 +128,11 @@ class PackageCollectionsStorageTests: XCTestCase {
             try storage.fileSystem.writeFileContents(storagePath, bytes: ByteString("blah".utf8))
 
             XCTAssertThrowsError(try await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
-                XCTAssertEqual("\(error)", "file is not a database", "Expected file is not a database error")
+                XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
 
             XCTAssertThrowsError(try await { callback in storage.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
-                XCTAssertEqual("\(error)", "file is not a database", "Expected file is not a database error")
+                XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
         }
     }
