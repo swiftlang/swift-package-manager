@@ -308,6 +308,10 @@ class PathTests: XCTestCase {
             var path: RelativePath
         }
 
+        struct Baz: Codable, Equatable {
+            var path: String
+        }
+
         do {
             let foo = Foo(path: AbsolutePath("/path/to/foo"))
             let data = try JSONEncoder().encode(foo)
@@ -338,6 +342,22 @@ class PathTests: XCTestCase {
             XCTAssertEqual(bar, decodedBar)
             XCTAssertEqual(bar.path.pathString, "path/to/bar")
             XCTAssertEqual(decodedBar.path.pathString, "path/to/bar")
+        }
+
+        do {
+            let data = try JSONEncoder().encode(Baz(path: ""))
+            XCTAssertThrowsError(try JSONDecoder().decode(Foo.self, from: data))
+            XCTAssertNoThrow(try JSONDecoder().decode(Bar.self, from: data)) // empty string is a valid relative path
+        }
+
+        do {
+            let data = try JSONEncoder().encode(Baz(path: "foo"))
+            XCTAssertThrowsError(try JSONDecoder().decode(Foo.self, from: data))
+        }
+
+        do {
+            let data = try JSONEncoder().encode(Baz(path: "/foo"))
+            XCTAssertThrowsError(try JSONDecoder().decode(Bar.self, from: data))
         }
     }
 

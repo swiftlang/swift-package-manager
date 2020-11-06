@@ -33,6 +33,9 @@ public struct PCFileFinder {
     let diagnostics: DiagnosticsEngine
 
     /// Cached results of locations `pkg-config` will search for `.pc` files
+    /// FIXME: This shouldn't use a static variable, since the first lookup
+    /// will cache the result of whatever `brewPrefix` was passed in.  It is
+    /// also not threadsafe.
     public private(set) static var pkgConfigPaths: [AbsolutePath]? // FIXME: @testable(internal)
     private static var shouldEmitPkgConfigPathsDiagnostic = false
 
@@ -69,6 +72,14 @@ public struct PCFileFinder {
                 PCFileFinder.pkgConfigPaths = []
             }
         }
+    }
+    
+    /// Reset the cached `pkgConfigPaths` property, so that it will be evaluated
+    /// again when instantiating a `PCFileFinder()`.  This is intended only for
+    /// use by testing.  This is a temporary workaround for the use of a static
+    /// variable by this class.
+    internal static func resetCachedPkgConfigPaths() {
+        PCFileFinder.pkgConfigPaths = nil
     }
 
     public func locatePCFile(

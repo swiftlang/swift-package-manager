@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,7 @@ import XCTest
 import TSCBasic
 import TSCTestSupport
 
-import TSCUtility
+@testable import TSCUtility
 
 final class PkgConfigParserTests: XCTestCase {
 
@@ -91,6 +91,9 @@ final class PkgConfigParserTests: XCTestCase {
 
     /// Test custom search path get higher priority for locating pc files.
     func testCustomPcFileSearchPath() throws {
+        /// Temporary workaround for PCFileFinder's use of static variables.
+        PCFileFinder.resetCachedPkgConfigPaths()
+
         let diagnostics = DiagnosticsEngine()
 
         let fs = InMemoryFileSystem(emptyFiles:
@@ -109,6 +112,9 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testBrewPrefix() throws {
+        /// Temporary workaround for PCFileFinder's use of static variables.
+        PCFileFinder.resetCachedPkgConfigPaths()
+
         try testWithTemporaryDirectory { tmpdir in
             let fakePkgConfig = tmpdir.appending(components: "bin", "pkg-config")
             try localFileSystem.createDirectory(fakePkgConfig.parentDirectory)

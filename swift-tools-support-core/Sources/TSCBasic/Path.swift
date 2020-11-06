@@ -304,7 +304,7 @@ extension AbsolutePath: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        try self.init(container.decode(String.self))
+        try self.init(validating: container.decode(String.self))
     }
 }
 
@@ -316,7 +316,7 @@ extension RelativePath: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        try self.init(container.decode(String.self))
+        try self.init(validating: container.decode(String.self))
     }
 }
 

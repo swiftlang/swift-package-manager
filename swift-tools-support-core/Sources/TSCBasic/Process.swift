@@ -14,6 +14,7 @@ import class Foundation.ProcessInfo
 import Foundation
 #endif
 
+@_implementationOnly import TSCclibc
 import TSCLibc
 import Dispatch
 
