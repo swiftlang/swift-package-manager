@@ -12,7 +12,7 @@ import struct Foundation.URL
 
 extension PackageCollectionsModel {
     /// A representation of a package license
-    public struct License {
+    public struct License: Codable {
         /// License type
         public let type: LicenseType
 
@@ -97,6 +97,95 @@ extension PackageCollectionsModel {
         /// All except .other
         public static var allCases: [LicenseType] {
             [.Apache2_0, .BSD2Clause, .BSD3Clause, .GPL2_0, .GPL3_0, .LGPL2_0, .LGPL2_1, .LGPL3_0, .MIT, .MPL2_0, .CDDL1_0, .EPL2_0]
+        }
+    }
+}
+
+extension PackageCollectionsModel.LicenseType: Codable {
+    public enum DiscriminatorKeys: String, Codable {
+        case Apache2_0
+        case BSD2Clause
+        case BSD3Clause
+        case GPL2_0
+        case GPL3_0
+        case LGPL2_0
+        case LGPL2_1
+        case LGPL3_0
+        case MIT
+        case MPL2_0
+        case CDDL1_0
+        case EPL2_0
+        case other
+    }
+
+    public enum CodingKeys: CodingKey {
+        case _case
+        case name
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(DiscriminatorKeys.self, forKey: ._case) {
+        case .Apache2_0:
+            self = .Apache2_0
+        case .BSD2Clause:
+            self = .BSD2Clause
+        case .BSD3Clause:
+            self = .BSD3Clause
+        case .GPL2_0:
+            self = .GPL2_0
+        case .GPL3_0:
+            self = .GPL3_0
+        case .LGPL2_0:
+            self = .LGPL2_0
+        case .LGPL2_1:
+            self = .LGPL2_1
+        case .LGPL3_0:
+            self = .LGPL3_0
+        case .MIT:
+            self = .MIT
+        case .MPL2_0:
+            self = .MPL2_0
+        case .CDDL1_0:
+            self = .CDDL1_0
+        case .EPL2_0:
+            self = .EPL2_0
+        case .other:
+            let name = try container.decode(String.self, forKey: .name)
+            self = .other(name)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .Apache2_0:
+            try container.encode(DiscriminatorKeys.Apache2_0, forKey: ._case)
+        case .BSD2Clause:
+            try container.encode(DiscriminatorKeys.BSD2Clause, forKey: ._case)
+        case .BSD3Clause:
+            try container.encode(DiscriminatorKeys.BSD3Clause, forKey: ._case)
+        case .GPL2_0:
+            try container.encode(DiscriminatorKeys.GPL2_0, forKey: ._case)
+        case .GPL3_0:
+            try container.encode(DiscriminatorKeys.GPL3_0, forKey: ._case)
+        case .LGPL2_0:
+            try container.encode(DiscriminatorKeys.LGPL2_0, forKey: ._case)
+        case .LGPL2_1:
+            try container.encode(DiscriminatorKeys.LGPL2_1, forKey: ._case)
+        case .LGPL3_0:
+            try container.encode(DiscriminatorKeys.LGPL3_0, forKey: ._case)
+        case .MIT:
+            try container.encode(DiscriminatorKeys.MIT, forKey: ._case)
+        case .MPL2_0:
+            try container.encode(DiscriminatorKeys.MPL2_0, forKey: ._case)
+        case .CDDL1_0:
+            try container.encode(DiscriminatorKeys.CDDL1_0, forKey: ._case)
+        case .EPL2_0:
+            try container.encode(DiscriminatorKeys.EPL2_0, forKey: ._case)
+        case .other(let name):
+            try container.encode(DiscriminatorKeys.other, forKey: ._case)
+            try container.encode(name, forKey: .name)
         }
     }
 }

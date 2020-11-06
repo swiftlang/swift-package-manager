@@ -8,12 +8,33 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import class Foundation.FileManager
+import TSCBasic
+
 import PackageModel
 import SourceControl
 
+struct MultipleErrors: Error {
+    let errors: [Error]
+
+    init(_ errors: [Error]) {
+        self.errors = errors
+    }
+}
+
+struct NotFoundError: Error {
+    let item: String
+
+    init(_ item: String) {
+        self.item = item
+    }
+}
+
+// Model Extensions
+
 extension PackageReference {
     /// Initializes a `PackageReference` from `RepositorySpecifier`
-    init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
+    public init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
         self.init(
             identity: PackageReference.computeIdentity(packageURL: repository.url),
             path: repository.url,
