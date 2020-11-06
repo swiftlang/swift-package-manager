@@ -217,7 +217,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             case let .backwardIncompatiblePre5_3_1(incompatibility, specifiedVersion):
                 switch incompatibility {
                 case .leadingWhitespace(let whitespace):
-                    return "leading whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: whitespace)) in manifest is supported by only Swift > 5.3; the specified version \(specifiedVersion) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    return "leading whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: whitespace)) in manifest is supported by only Swift > 5.3; the specified version \(specifiedVersion) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 case .spacingAfterCommentMarker(let spacing):
                     return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift > 5.3; consider replacing the sequence with a single space (U+0020) for Swift \(specifiedVersion)"
                 case .spacingAfterLabel(let spacing):

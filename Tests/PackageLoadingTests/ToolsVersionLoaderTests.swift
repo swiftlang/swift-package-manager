@@ -66,7 +66,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
             "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
-            // leading newline characters (U+000A) before the specification, and 1 space (U+0020) before, and no spacing after the label:
+            // leading line feeds (U+000A) before the specification, and 1 space (U+0020) before, and no spacing after the label:
             "\n// swift-tools-version:3.1"                            : (3, 1, 0, "3.1.0"),
             "\n\n// swift-tools-version:3.2-dev"                      : (3, 2, 0, "3.2.0"),
             "\n\n\n// swift-tools-version:3.8.0"                      : (3, 8, 0, "3.8.0"),
@@ -400,7 +400,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingCarriageReturn {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+000D, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+000D, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading line feeds (U+000A)."
             ) { error in
                 guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
@@ -408,7 +408,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading whitespace sequence [U+000D] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000D] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -434,7 +434,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         for (specification, toolsVersionString) in manifestSnippetWith1LeadingSpace {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+0020, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with a U+0020, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading line feeds (U+000A)."
             ) { error in
                 guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
@@ -442,7 +442,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading whitespace sequence [U+0020] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+0020] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -468,7 +468,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharacters {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading line feeds (U+000A)."
             ) { error in
                 guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
@@ -476,7 +476,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading whitespace sequence [U+000A, U+00A0, U+000B, U+1680, U+000C, U+0009, U+2000, U+000D, U+000D, U+000A, U+0085, U+2001, U+2028, U+2002, U+202F, U+2029, U+3000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000A, U+00A0, U+000B, U+1680, U+000C, U+0009, U+2000, U+000D, U+000D, U+000A, U+0085, U+2001, U+2028, U+2002, U+202F, U+2029, U+3000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
@@ -504,7 +504,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         for (specification, toolsVersionString) in manifestSnippetWithAnAssortmentOfLeadingWhitespaceCharactersAndAnAssortmentOfWhitespacesSurroundingLabel {
             XCTAssertThrowsError(
                 try load(ByteString(encodingAsUTF8: specification)),
-                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading newline characters (U+000A)."
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the manifest starts with an assortment of whitespace characters, and the specified version \(toolsVersionString) (≤ 5.3) supports only leading line feeds (U+000A)."
             ) { error in
                 guard let error = error as? ToolsVersionLoader.Error, case .backwardIncompatiblePre5_3_1(.leadingWhitespace, _) = error else {
                     XCTFail("'ToolsVersionLoader.Error.backwardIncompatiblePre5_3_1(.leadingWhitespace, _)' should've been thrown, but a different error is thrown.")
@@ -512,7 +512,7 @@ class ToolsVersionLoaderTests: XCTestCase {
                 }
                 XCTAssertEqual(
                     error.description,
-                    "leading whitespace sequence [U+000D, U+202F, U+2029, U+0085, U+2001, U+2028, U+3000, U+000A, U+000D, U+000A, U+2002, U+00A0, U+000B, U+1680, U+000C, U+0009, U+2000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only newline characters (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    "leading whitespace sequence [U+000D, U+202F, U+2029, U+0085, U+2001, U+2028, U+3000, U+000A, U+000D, U+000A, U+2002, U+00A0, U+000B, U+1680, U+000C, U+0009, U+2000] in manifest is supported by only Swift > 5.3; the specified version \(toolsVersionString) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 )
             }
         }
