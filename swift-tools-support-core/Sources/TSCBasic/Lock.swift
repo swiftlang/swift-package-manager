@@ -96,12 +96,12 @@ public final class FileLock {
         switch type {
         case .exclusive:
             if !LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0,
-                           DWORD(INT_MAX), DWORD(INT_MAX), &overlapped) {
+                           UInt32.max, UInt32.max, &overlapped) {
                 throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
             }
         case .shared:
             if !LockFileEx(handle, 0, 0,
-                           DWORD(INT_MAX), DWORD(INT_MAX), &overlapped) {
+                           UInt32.max, UInt32.max, &overlapped) {
                 throw ProcessLockError.unableToAquireLock(errno: Int32(GetLastError()))
             }
         }
@@ -135,7 +135,7 @@ public final class FileLock {
         overlapped.Offset = 0
         overlapped.OffsetHigh = 0
         overlapped.hEvent = nil
-        UnlockFileEx(handle, 0, DWORD(INT_MAX), DWORD(INT_MAX), &overlapped)
+        UnlockFileEx(handle, 0, UInt32.max, UInt32.max, &overlapped)
       #else
         guard let fd = fileDescriptor else { return }
         flock(fd, LOCK_UN)
