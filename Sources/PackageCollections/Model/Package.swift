@@ -124,7 +124,7 @@ extension PackageCollectionsModel.Package {
 
 extension PackageCollectionsModel {
     /// A representation of package target
-    public struct PackageTarget {
+    public struct PackageTarget: Codable {
         /// The target name
         public let name: String
 
@@ -135,7 +135,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel {
     /// A representation of package product
-    public struct PackageProduct {
+    public struct PackageProduct: Codable {
         /// The product name
         public let name: String
 
@@ -143,7 +143,7 @@ extension PackageCollectionsModel {
         public let type: ProductType
 
         /// The product's targets
-        public let targets: [Target]
+        public let targets: [PackageTarget]
     }
 }
 

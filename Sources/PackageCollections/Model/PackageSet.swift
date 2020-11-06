@@ -18,8 +18,8 @@ import TSCUtility
 public enum PackageCollectionsModel {}
 
 extension PackageCollectionsModel {
-    /// A `PackageCollection` is a grouping of package metadata.
-    public struct PackageCollection {
+    /// A `PackageCollection` is a collection of packages.
+    public struct PackageCollection: Codable {
         public typealias Identifier = PackageCollectionIdentifier
         public typealias Source = PackageCollectionSource
 
@@ -71,9 +71,38 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel {
     /// Represents the source of a `PackageCollection`
-    public enum PackageCollectionSource {
+    public enum PackageCollectionSource: Equatable {
         /// Package feed at URL
         case feed(URL)
+    }
+}
+
+extension PackageCollectionsModel.PackageCollectionSource: Codable {
+    public enum DiscriminatorKeys: String, Codable {
+        case feed
+    }
+
+    public enum CodingKeys: CodingKey {
+        case _case
+        case url
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(DiscriminatorKeys.self, forKey: ._case) {
+        case .feed:
+            let url = try container.decode(URL.self, forKey: .url)
+            self = .feed(url)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .feed(let url):
+            try container.encode(DiscriminatorKeys.feed, forKey: ._case)
+            try container.encode(url, forKey: .url)
+        }
     }
 }
 
@@ -100,9 +129,38 @@ extension PackageCollectionsModel {
     }
 }
 
+extension PackageCollectionsModel.PackageCollection.Identifier: Codable {
+    public enum DiscriminatorKeys: String, Codable {
+        case feed
+    }
+
+    public enum CodingKeys: CodingKey {
+        case _case
+        case url
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(DiscriminatorKeys.self, forKey: ._case) {
+        case .feed:
+            let url = try container.decode(URL.self, forKey: .url)
+            self = .feed(url)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .feed(let url):
+            try container.encode(DiscriminatorKeys.feed, forKey: ._case)
+            try container.encode(url, forKey: .url)
+        }
+    }
+}
+
 extension PackageCollectionsModel.PackageCollection {
     /// A representation of package metadata
-    public struct Package {
+    public struct Package: Codable {
         public typealias Version = PackageVersion
 
         /// Package reference
@@ -138,7 +196,7 @@ extension PackageCollectionsModel.PackageCollection {
 
 extension PackageCollectionsModel.PackageCollection {
     /// A representation of package version
-    public struct PackageVersion {
+    public struct PackageVersion: Codable {
         public typealias Target = PackageCollectionsModel.PackageTarget
         public typealias Product = PackageCollectionsModel.PackageProduct
 
