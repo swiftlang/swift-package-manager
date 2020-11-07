@@ -125,7 +125,7 @@ public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
             case label(_ malformationDetails: MalformationDetails)
             /// The version specifier is malformed.
             ///
-            /// If the version specifier is diagnosed as missing, it could be a misdiagnosis due to some misspellings in the label due to a compromise made in `ToolsVersionLoader.split(_:)`. For example, the following Swift tools version specification will be misdiagnosed to be missing a version specifier:
+            /// If the version specifier is diagnosed as missing, it could be a misdiagnosis of some misspellings in the label due to a compromise made in `ToolsVersionLoader.split(_:)`. For example, the following Swift tools version specification will be misdiagnosed to be missing a version specifier:
             ///
             ///     // swift-tools-version:;5.3
             ///
