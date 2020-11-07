@@ -43,11 +43,11 @@ struct ProfileOptions: ParsableArguments {
     @Option(name: .long, help: "Profile to use for the given command")
     var profile: String?
 
-    var usedProfile: PackageCollectionsModel.Profile {
+    var usedProfile: PackageCollectionsModel.Profile? {
         if let profile = profile {
             return .init(name: profile)
         } else {
-            return .default
+            return nil
         }
     }
 }
@@ -287,8 +287,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             }
 
             let modules = version.targets.compactMap { $0.moduleName }.joined(separator: ", ")
-            let platforms = optionalRow("Supported Platforms", version.verifiedPlatforms?.map { $0.name }.joined(separator: ", "))
-            let swiftVersions = optionalRow("Supported Swift Versions", version.verifiedSwiftVersions?.map { $0.rawValue }.joined(separator: ", "))
+            let platforms = optionalRow("Verified Platforms", version.verifiedPlatforms?.map { $0.name }.joined(separator: ", "))
+            let swiftVersions = optionalRow("Verified Swift Versions", version.verifiedSwiftVersions?.map { $0.rawValue }.joined(separator: ", "))
             let license = optionalRow("License", version.license?.type.description)
             let cves = optionalRow("CVEs", version.cves?.map { $0.identifier }.joined(separator: ", "))
 
@@ -341,8 +341,8 @@ private func optionalRow(_ title: String, _ contents: String?) -> String {
 
 private extension JSONEncoder {
     func print<T>(_ value: T) throws where T : Encodable {
-        if #available(macOS 10.13, *) {
-            self.outputFormatting = [.prettyPrinted, .sortedKeys]
+        if #available(macOS 10.15, *) {
+            self.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         }
 
         let jsonData = try self.encode(value)
