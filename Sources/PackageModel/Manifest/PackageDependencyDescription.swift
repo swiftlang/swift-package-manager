@@ -6,13 +6,12 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import TSCBasic
 
 /// Represents a package dependency.
 public struct PackageDependencyDescription: Equatable, Codable {
-
     /// The dependency requirement.
     public enum Requirement: Equatable, Hashable {
         case exact(Version)
@@ -22,11 +21,11 @@ public struct PackageDependencyDescription: Equatable, Codable {
         case localPackage
 
         public static func upToNextMajor(from version: TSCUtility.Version) -> Requirement {
-            return .range(version..<Version(version.major + 1, 0, 0))
+            return .range(version ..< Version(version.major + 1, 0, 0))
         }
 
         public static func upToNextMinor(from version: TSCUtility.Version) -> Requirement {
-            return .range(version..<Version(version.major, version.minor + 1, 0))
+            return .range(version ..< Version(version.major, version.minor + 1, 0))
         }
     }
 
@@ -68,7 +67,7 @@ public struct PackageDependencyDescription: Equatable, Codable {
         }
 
         self.explicitName = name
-        self.name = name ?? PackageReference.computeDefaultName(fromURL: normalizedURL)
+        self.name = name ?? PackageIdentity(normalizedURL).computedName
         self.url = normalizedURL
         self.requirement = requirement
         self.productFilter = productFilter
@@ -76,7 +75,7 @@ public struct PackageDependencyDescription: Equatable, Codable {
 
     /// Returns a new package dependency with the specified products.
     public func filtered(by productFilter: ProductFilter) -> PackageDependencyDescription {
-        PackageDependencyDescription(name: explicitName, url: url, requirement: requirement, productFilter: productFilter)
+        PackageDependencyDescription(name: self.explicitName, url: self.url, requirement: self.requirement, productFilter: productFilter)
     }
 }
 
@@ -105,16 +104,16 @@ extension PackageDependencyDescription.Requirement: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .exact(a1):
+        case .exact(let a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .exact)
             try unkeyedContainer.encode(a1)
-        case let .range(a1):
+        case .range(let a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)
             try unkeyedContainer.encode(CodableRange(a1))
-        case let .revision(a1):
+        case .revision(let a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .revision)
             try unkeyedContainer.encode(a1)
-        case let .branch(a1):
+        case .branch(let a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .branch)
             try unkeyedContainer.encode(a1)
         case .localPackage:

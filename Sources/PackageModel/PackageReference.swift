@@ -32,11 +32,6 @@ public struct PackageReference: Codable {
         return PackageIdentity(packageURL).computedName
     }
 
-    /// Compute the default name of a package given its URL.
-    public static func computeDefaultName(fromURL url: String) -> String {
-        return PackageIdentity(url).computedName
-    }
-
     /// The identity of the package.
     public var identity: String {
         return self._identity.computedName.lowercased()
