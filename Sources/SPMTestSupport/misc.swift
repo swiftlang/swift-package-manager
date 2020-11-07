@@ -6,19 +6,19 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
-import func XCTest.XCTFail
 import class Foundation.NSDate
 import class Foundation.Thread
+import func XCTest.XCTFail
 
-import TSCBasic
+import Commands
 import PackageGraph
 import PackageModel
 import SourceControl
+import TSCBasic
 import TSCUtility
 import Workspace
-import Commands
 
 @_exported import TSCTestSupport
 
@@ -104,7 +104,7 @@ public func initGitRepo(
     file: StaticString = #file,
     line: UInt = #line
 ) {
-    initGitRepo(dir, tags: tag.flatMap({ [$0] }) ?? [], addFile: addFile, file: file, line: line)
+    initGitRepo(dir, tags: tag.flatMap { [$0] } ?? [], addFile: addFile, file: file, line: line)
 }
 
 public func initGitRepo(
@@ -119,7 +119,7 @@ public func initGitRepo(
             let file = dir.appending(component: "file.swift")
             try systemQuietly(["touch", file.pathString])
         }
-        
+
         try systemQuietly([Git.tool, "-C", dir.pathString, "init"])
         try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example"])
@@ -134,8 +134,6 @@ public func initGitRepo(
         XCTFail("\(error)", file: file, line: line)
     }
 }
-
-private var globalSymbolInMainBinary = 0
 
 @discardableResult
 public func executeSwiftBuild(
@@ -183,9 +181,9 @@ private func swiftArgs(
     }
 
     args += extraArgs
-    args += Xcc.flatMap({ ["-Xcc", $0] })
-    args += Xld.flatMap({ ["-Xlinker", $0] })
-    args += Xswiftc.flatMap({ ["-Xswiftc", $0] })
+    args += Xcc.flatMap { ["-Xcc", $0] }
+    args += Xld.flatMap { ["-Xlinker", $0] }
+    args += Xswiftc.flatMap { ["-Xswiftc", $0] }
     return args
 }
 
@@ -197,9 +195,9 @@ public func loadPackageGraph(
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false
 ) -> PackageGraph {
-    let rootManifests = manifests.filter({ $0.packageKind == .root })
-    let externalManifests = manifests.filter({ $0.packageKind != .root })
-    let packages = rootManifests.map({ $0.path })
+    let rootManifests = manifests.filter { $0.packageKind == .root }
+    let externalManifests = manifests.filter { $0.packageKind != .root }
+    let packages = rootManifests.map { $0.path }
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
 
@@ -211,8 +209,4 @@ public func loadPackageGraph(
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct
     )
-}
-
-extension Destination {
-    public static let host = try! hostDestination()
 }

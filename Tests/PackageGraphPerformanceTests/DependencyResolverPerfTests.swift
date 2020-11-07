@@ -6,15 +6,15 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 
-import TSCBasic
-import PackageModel
 import PackageGraph
 import PackageLoading
+import PackageModel
 import SourceControl
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -24,34 +24,33 @@ private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
-
     func testKituraPubGrub_X100() throws {
-      #if os(macOS)
+        #if os(macOS)
         try runPackageTestPubGrub(name: "kitura.json", N: 100)
-      #endif
+        #endif
     }
 
     func testZewoPubGrub_X100() throws {
-      #if os(macOS)
+        #if os(macOS)
         try runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
-      #endif
+        #endif
     }
 
     func testPerfectPubGrub_X100() throws {
-      #if os(macOS)
+        #if os(macOS)
         try runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
-      #endif
+        #endif
     }
 
     func testSourceKittenPubGrub_X100() throws {
-      #if os(macOS)
+        #if os(macOS)
         try runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
-      #endif
+        #endif
     }
 
     func runPackageTestPubGrub(name: String, N: Int = 1) throws {
         let graph = try mockGraph(for: name)
-        let provider = MockPackagesProvider(containers: graph.containers)
+        let provider = MockPackageContainerProvider(containers: graph.containers)
 
         measure {
             for _ in 0 ..< N {
@@ -74,10 +73,10 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
         }
     }
 
-    func mockGraph(for name: String) throws -> MockGraph {
+    func mockGraph(for name: String) throws -> MockDependencyGraph {
         let input = AbsolutePath(#file).parentDirectory.appending(component: "Inputs").appending(component: name)
         let jsonString = try localFileSystem.readFileContents(input)
         let json = try JSON(bytes: jsonString)
-        return MockGraph(json)
+        return MockDependencyGraph(json)
     }
 }

@@ -6,14 +6,14 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import PackageModel
 import TSCBasic
 import TSCUtility
 
-extension Manifest {
-    public static func createV4Manifest(
+public extension Manifest {
+    static func createV4Manifest(
         name: String,
         path: String = "/",
         url: String = "/",
@@ -48,7 +48,7 @@ extension Manifest {
         )
     }
 
-    public static func createManifest(
+    static func createManifest(
         name: String,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -85,16 +85,8 @@ extension Manifest {
             targets: targets
         )
     }
-}
 
-extension ProductDescription {
-    public init(name: String, targets: [String]) {
-        self.init(name: name, type: .library(.automatic), targets: targets)
-    }
-}
-
-extension Manifest {
-    public func with(url: String) -> Manifest {
+    func with(url: String) -> Manifest {
         return Manifest(
             name: name,
             platforms: platforms,

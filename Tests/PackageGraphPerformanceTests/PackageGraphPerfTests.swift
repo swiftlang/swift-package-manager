@@ -53,7 +53,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 packageKind: isRoot ? .root : .remote,
                 dependencies: dependencies,
                 products: [
-                    ProductDescription(name: name, targets: [name])
+                    ProductDescription(name: name, type: .library(.automatic), targets: [name])
                 ],
                 targets: targets
             )
