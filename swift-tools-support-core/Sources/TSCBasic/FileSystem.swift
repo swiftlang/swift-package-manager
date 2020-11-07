@@ -168,6 +168,13 @@ public protocol FileSystem: class {
     /// - recursive: If true, create missing parent directories if possible.
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws
 
+    /// Creates a symbolic link of the source path at the target path
+    /// - Parameters:
+    ///   - path: The path at which to create the link.
+    ///   - destination: The path to which the link points to.
+    ///   - relative: If `relative` is true, the symlink contents will be a relative path, otherwise it will be absolute.
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws
+
     // FIXME: This is obviously not a very efficient or flexible API.
     //
     /// Get the contents of a file.
@@ -350,6 +357,11 @@ private class LocalFileSystem: FileSystem {
         try FileManager.default.createDirectory(atPath: path.pathString, withIntermediateDirectories: recursive, attributes: [:])
     }
 
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        let destString = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
+        try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)
+    }
+
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         // Open the file.
         let fp = fopen(path.pathString, "rb")
@@ -492,6 +504,7 @@ public class InMemoryFileSystem: FileSystem {
     private enum NodeContents {
         case file(ByteString)
         case directory(DirectoryContents)
+        case symlink(String)
 
         /// Creates deep copy of the object.
         func copy() -> NodeContents {
@@ -500,6 +513,8 @@ public class InMemoryFileSystem: FileSystem {
                 return .file(bytes)
             case .directory(let contents):
                 return .directory(contents.copy())
+            case .symlink(let path):
+                return .symlink(path)
             }
         }
     }
@@ -519,19 +534,9 @@ public class InMemoryFileSystem: FileSystem {
             return contents
         }
     }
-    // Used to ensure that DispatchQueues are releassed when they are no longer in use.
-    private struct WeakReference<Value: AnyObject> {
-        weak var reference: Value?
-
-        init(_ value: Value?) {
-            self.reference = value
-        }
-    }
 
     /// The root filesytem.
     private var root: Node
-    /// A map that keeps weak references to all locked files.
-    private var lockFiles = Dictionary<AbsolutePath, WeakReference<DispatchQueue>>()
     /// Used to access lockFiles in a thread safe manner.
     private let lockFilesLock = Lock()
 
@@ -547,7 +552,7 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     /// Get the node corresponding to the given path.
-    private func getNode(_ path: AbsolutePath) throws -> Node? {
+    private func getNode(_ path: AbsolutePath, followSymlink: Bool = true) throws -> Node? {
         func getNodeInternal(_ path: AbsolutePath) throws -> Node? {
             // If this is the root node, return it.
             if path.isRoot {
@@ -565,7 +570,17 @@ public class InMemoryFileSystem: FileSystem {
             }
 
             // Return the directory entry.
-            return contents.entries[path.basename]
+            let node = contents.entries[path.basename]
+
+            switch node?.contents {
+            case .directory, .file:
+                return node
+            case .symlink(let destination):
+                let destination = AbsolutePath(destination, relativeTo: path.parentDirectory)
+                return followSymlink ? try getNodeInternal(destination) : node
+            case .none:
+                return nil
+            }
         }
 
         // Get the node that corresponds to the path.
@@ -576,7 +591,10 @@ public class InMemoryFileSystem: FileSystem {
 
     public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         do {
-            return try getNode(path) != nil
+            switch try getNode(path, followSymlink: followSymlink)?.contents {
+            case .file, .directory, .symlink: return true
+            case .none: return false
+            }
         } catch {
             return false
         }
@@ -605,9 +623,14 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func isSymlink(_ path: AbsolutePath) -> Bool {
-        // FIXME: Always return false until in-memory implementation
-        // gets symbolic link semantics.
-        return false
+        do {
+            if case .symlink? = try getNode(path, followSymlink: false)?.contents {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
     }
 
     public func isExecutableFile(_ path: AbsolutePath) -> Bool {
@@ -688,6 +711,26 @@ public class InMemoryFileSystem: FileSystem {
 
         // Otherwise, the node does not exist, create it.
         contents.entries[path.basename] = Node(.directory(DirectoryContents()))
+    }
+
+    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        // Create directory to destination parent.
+        guard let destinationParent = try getNode(path.parentDirectory) else {
+            throw FileSystemError.noEntry
+        }
+
+        // Check that the parent is a directory.
+        guard case .directory(let contents) = destinationParent.contents else {
+            throw FileSystemError.notDirectory
+        }
+
+        guard contents.entries[path.basename] == nil else {
+            throw FileSystemError.alreadyExistsAtDestination
+        }
+
+        let destination = relative ? destination.relative(to: path.parentDirectory).pathString : destination.pathString
+
+        contents.entries[path.basename] = Node(.symlink(destination))
     }
 
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
@@ -798,18 +841,8 @@ public class InMemoryFileSystem: FileSystem {
     }
 
     public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType = .exclusive, _ body: () throws -> T) throws -> T {
-
-        let fileQueue: DispatchQueue = lockFilesLock.withLock {
-            if let queueReference = lockFiles[path], let queue = queueReference.reference {
-                return queue
-            } else {
-                let queue = DispatchQueue(label: "org.swift.swiftpm.in-memory-file-system.file-queue", attributes: .concurrent)
-                lockFiles[path] = WeakReference(queue)
-                return queue
-            }
-        }
-
-        return try fileQueue.sync(flags: type == .exclusive ? .barrier : .init() , execute: body)
+        // FIXME: Lock individual files once resolving symlinks is thread-safe.
+        return try lockFilesLock.withLock(body)
     }
 }
 
@@ -895,6 +928,12 @@ public class RerootedFileSystemView: FileSystem {
         return try underlyingFileSystem.createDirectory(path, recursive: recursive)
     }
 
+    public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        let path = formUnderlyingPath(path)
+        let destination = formUnderlyingPath(destination)
+        return try underlyingFileSystem.createSymbolicLink(path, pointingAt: destination, relative: relative)
+    }
+
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         return try underlyingFileSystem.readFileContents(formUnderlyingPath(path))
     }
@@ -905,7 +944,7 @@ public class RerootedFileSystemView: FileSystem {
     }
 
     public func removeFileTree(_ path: AbsolutePath) throws {
-        try underlyingFileSystem.removeFileTree(path)
+        try underlyingFileSystem.removeFileTree(formUnderlyingPath(path))
     }
 
     public func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {

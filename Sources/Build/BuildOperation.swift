@@ -125,7 +125,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         if localFileSystem.exists(oldBuildPath) {
             try localFileSystem.removeFileTree(oldBuildPath)
         }
-        try createSymlink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
+        try localFileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
     }
 
     /// Compute the llbuild target name using the given subset.

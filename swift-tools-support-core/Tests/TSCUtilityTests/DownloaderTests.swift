@@ -521,6 +521,10 @@ class FailingFileSystem: FileSystem {
         fatalError("unexpected call")
     }
 
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        fatalError("unexpected call")
+    }
+
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         fatalError("unexpected call")
     }

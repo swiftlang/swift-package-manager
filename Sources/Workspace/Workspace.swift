@@ -841,7 +841,7 @@ extension Workspace {
                 // FIXME: We should probably just warn in case we fail to create
                 // this symlink, which could happen if there is some non-symlink
                 // entry at this location.
-                try createSymlink(symLinkPath, pointingAt: path, relative: false)
+                try fileSystem.createSymbolicLink(symLinkPath, pointingAt: path, relative: false)
             }
         }
 
