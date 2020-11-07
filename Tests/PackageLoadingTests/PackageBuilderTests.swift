@@ -67,7 +67,7 @@ class PackageBuilderTests: XCTestCase {
             let linkDestPath = path.appending(components: "link.swift")
             let linkPath = sources.appending(components: "link.swift")
             try fs.writeFileContents(linkDestPath, bytes: "")
-            try createSymlink(linkPath, pointingAt: linkDestPath)
+            try fs.createSymbolicLink(linkPath, pointingAt: linkDestPath, relative: false)
             try fs.removeFileTree(linkDestPath)
 
             let manifest = Manifest.createV4Manifest(
@@ -98,7 +98,7 @@ class PackageBuilderTests: XCTestCase {
             try fs.writeFileContents(foo.appending(components: "foo.swift"), bytes: "")
 
             // Create a symlink to foo.
-            try createSymlink(bar, pointingAt: foo)
+            try fs.createSymbolicLink(bar, pointingAt: foo, relative: false)
 
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
