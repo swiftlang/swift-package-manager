@@ -18,7 +18,7 @@ public struct PackageIdentity: LosslessStringConvertible {
     public let computedName: String
 
     public init(_ string: String) {
-        var string = string.precomposedStringWithCanonicalMapping.lowercased()
+        var string = string.precomposedStringWithCanonicalMapping
 
         var detectedScheme: Scheme?
         for scheme in Scheme.allCases {

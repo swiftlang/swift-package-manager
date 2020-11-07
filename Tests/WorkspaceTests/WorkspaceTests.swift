@@ -4353,7 +4353,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
         let aPath = workspace.urlForPackage(withName: "A")
-        let aRef = PackageReference(identity: "a", path: aPath)
+        let aRef = PackageReference(identity: "A", path: aPath)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState(revision: aRevision, version: "1.0.0")
