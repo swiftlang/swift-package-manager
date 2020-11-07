@@ -6,14 +6,14 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import PackageModel
 import SourceControl
 
-extension PackageDependencyDescription {
+public extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
-    public func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
+    func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
         let effectiveURL = mirrors.effectiveURL(forURL: url)
 
         // FIXME: The identity of a package dependency is currently based on
@@ -23,30 +23,29 @@ extension PackageDependencyDescription {
         //        We should instead use the declared URL of a package dependency
         //        as its identity, as it will be needed for supporting package
         //        registries.
-        let identity = PackageReference.computeIdentity(packageURL: effectiveURL)
-        
         return PackageReference(
-            identity: identity,
+            identity: effectiveURL,
             path: effectiveURL,
             kind: requirement == .localPackage ? .local : .remote
         )
     }
 }
 
-extension Manifest {
+public extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
-        return dependenciesRequired(for: productFilter).map({
-            return RepositoryPackageConstraint(
+    func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
+        return dependenciesRequired(for: productFilter).map {
+            RepositoryPackageConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
-                products: $0.productFilter)
-        })
+                products: $0.productFilter
+            )
+        }
     }
 }
 
 extension RepositoryPackageConstraint {
-    internal func nodes() -> [DependencyResolutionNode] {
+    func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
             return [.root(package: identifier)]
@@ -65,11 +64,11 @@ extension RepositoryPackageConstraint {
     }
 }
 
-extension PackageReference {
+public extension PackageReference {
     /// The repository of the package.
     ///
     /// This should only be accessed when the reference is not local.
-    public var repository: RepositorySpecifier {
+    var repository: RepositorySpecifier {
         precondition(kind == .remote)
         return RepositorySpecifier(url: path)
     }
