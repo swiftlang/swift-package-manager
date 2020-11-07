@@ -49,11 +49,11 @@ internal extension Result {
 
 // Model Extension
 
-extension PackageReference {
+public extension PackageReference {
     /// Initializes a `PackageReference` from `RepositorySpecifier`
     init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
         self.init(
-            identity: PackageReference.computeIdentity(packageURL: repository.url),
+            identity: repository.url,
             path: repository.url,
             kind: kind
         )

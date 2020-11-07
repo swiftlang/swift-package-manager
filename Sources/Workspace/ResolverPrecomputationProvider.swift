@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import PackageModel
 import PackageGraph
+import PackageModel
+import SourceControl
 import TSCBasic
 import TSCUtility
-import SourceControl
 
 /// Enumeration of the different errors that can arise from the `ResolverPrecomputationProvider` provider.
 enum ResolverPrecomputationError: Error {
@@ -66,8 +66,8 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                 package: identifier,
                 manifest: manifest.manifest,
                 dependency: manifest.dependency,
-                mirrors: mirrors,
-                currentToolsVersion: currentToolsVersion
+                mirrors: self.mirrors,
+                currentToolsVersion: self.currentToolsVersion
             )
 
             return completion(.success(container))
@@ -80,8 +80,8 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                 package: identifier,
                 manifest: dependencyManifests.root.manifests[index],
                 dependency: nil,
-                mirrors: mirrors,
-                currentToolsVersion: currentToolsVersion
+                mirrors: self.mirrors,
+                currentToolsVersion: self.currentToolsVersion
             )
 
             return completion(.success(container))
@@ -105,10 +105,9 @@ private struct LocalPackageContainer: PackageContainer {
         if let identifier = dependency?.packageRef {
             return identifier
         } else {
-            let identity = PackageReference.computeIdentity(packageURL: manifest.url)
             return PackageReference(
-                identity: identity,
-                path: manifest.path.pathString,
+                identity: self.manifest.url,
+                path: self.manifest.path.pathString,
                 kind: .root
             )
         }
@@ -124,7 +123,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func isToolsVersionCompatible(at version: Version) -> Bool {
         do {
-            try manifest.toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: "")
+            try self.manifest.toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: "")
             return true
         } catch {
             return false
@@ -132,21 +131,22 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        return AnySequence(reversedVersions)
+        return AnySequence(self.reversedVersions)
     }
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        precondition(dependency?.checkoutState?.version == version)
-        return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+        precondition(self.dependency?.checkoutState?.version == version)
+        return self.manifest.dependencyConstraints(productFilter: productFilter, mirrors: self.mirrors)
     }
 
     func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Return the dependencies if the checkout state matches the revision.
         if let checkoutState = dependency?.checkoutState,
-            checkoutState.version == nil,
-            checkoutState.revision.identifier == revision {
-            return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+           checkoutState.version == nil,
+           checkoutState.revision.identifier == revision
+        {
+            return self.manifest.dependencyConstraints(productFilter: productFilter, mirrors: self.mirrors)
         }
 
         throw ResolverPrecomputationError.differentRequirement(
@@ -158,19 +158,19 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
-        guard dependency?.state.isCheckout != true else {
+        guard self.dependency?.state.isCheckout != true else {
             throw ResolverPrecomputationError.differentRequirement(
-                package: package,
-                state: dependency?.state,
+                package: self.package,
+                state: self.dependency?.state,
                 requirement: .unversioned
             )
         }
 
-        return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+        return self.manifest.dependencyConstraints(productFilter: productFilter, mirrors: self.mirrors)
     }
 
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        return identifier
+        return self.identifier
     }
 }
 

@@ -35,7 +35,6 @@ public struct PackageGraphRootInput {
 
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
-
     /// The list of root manifests.
     public let manifests: [Manifest]
 
@@ -47,9 +46,8 @@ public struct PackageGraphRoot {
 
     /// Create a package graph root.
     public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
-        self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
-            let identity = PackageReference.computeIdentity(packageURL: manifest.url)
-            return PackageReference(identity: identity, path: path.pathString, kind: .root)
+        self.packageRefs = zip(input.packages, manifests).map { path, manifest in
+            PackageReference(identity: manifest.url, path: path.pathString, kind: .root)
         }
         self.manifests = manifests
 
@@ -72,23 +70,22 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
-        let constraints = packageRefs.map({
+        let constraints = self.packageRefs.map {
             RepositoryPackageConstraint(container: $0, requirement: .unversioned, products: .everything)
-        })
-        return constraints + dependencies.map({
+        }
+        return constraints + self.dependencies.map {
             RepositoryPackageConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter
             )
-        })
+        }
     }
 }
 
-extension PackageDependencyDescription.Requirement {
-
+public extension PackageDependencyDescription.Requirement {
     /// Returns the constraint requirement representation.
-    public func toConstraintRequirement() -> PackageRequirement {
+    func toConstraintRequirement() -> PackageRequirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
