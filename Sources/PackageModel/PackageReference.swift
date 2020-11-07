@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import TSCBasic
 import TSCUtility
@@ -15,8 +15,6 @@ import TSCUtility
 ///
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference: Codable {
-    public typealias PackageIdentity = String
-
     /// The kind of package reference.
     public enum Kind: String, Codable {
         /// A root package.
@@ -31,16 +29,16 @@ public struct PackageReference: Codable {
 
     /// Compute identity of a package given its URL.
     public static func computeIdentity(packageURL: String) -> String {
-        return computeDefaultName(fromURL: packageURL).lowercased()
+        return self.computeDefaultName(fromURL: packageURL).lowercased()
     }
 
     /// Compute the default name of a package given its URL.
     public static func computeDefaultName(fromURL url: String) -> String {
-      #if os(Windows)
-        let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
-      #else
-        let isSeparator : (Character) -> Bool = { $0 == "/" }
-      #endif
+        #if os(Windows)
+        let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+        #else
+        let isSeparator: (Character) -> Bool = { $0 == "/" }
+        #endif
 
         // Get the last path component of the URL.
         // Drop the last character in case it's a trailing slash.
@@ -51,7 +49,7 @@ public struct PackageReference: Codable {
 
         let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
         let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
-        var lastComponent = url[startIndex..<endIndex]
+        var lastComponent = url[startIndex ..< endIndex]
 
         // Strip `.git` suffix if present.
         if lastComponent.hasSuffix(".git") {
@@ -62,12 +60,13 @@ public struct PackageReference: Codable {
     }
 
     /// The identity of the package.
-    public let identity: PackageIdentity
+    public let identity: String
 
     /// The name of the package, if available.
     public var name: String {
-        _name ?? Self.computeDefaultName(fromURL: path)
+        self._name ?? Self.computeDefaultName(fromURL: self.path)
     }
+
     private let _name: String?
 
     /// The path of the package.
@@ -89,25 +88,25 @@ public struct PackageReference: Codable {
 
     /// Create a new package reference object with the given name.
     public func with(newName: String) -> PackageReference {
-        return PackageReference(identity: identity, path: path, name: newName, kind: kind)
+        return PackageReference(identity: self.identity, path: self.path, name: newName, kind: self.kind)
     }
 }
 
 extension PackageReference: Equatable {
-    public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
+    public static func == (lhs: PackageReference, rhs: PackageReference) -> Bool {
         return lhs.identity == rhs.identity
     }
 }
 
 extension PackageReference: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(identity)
+        hasher.combine(self.identity)
     }
 }
 
 extension PackageReference: CustomStringConvertible {
     public var description: String {
-        return identity + (path.isEmpty ? "" : "[\(path)]")
+        return self.identity + (self.path.isEmpty ? "" : "[\(self.path)]")
     }
 }
 
@@ -119,18 +118,18 @@ extension PackageReference: JSONMappable, JSONSerializable {
 
         // Support previous version of PackageReference that contained an `isLocal` property.
         if let isLocal: Bool = json.get("isLocal") {
-            kind = isLocal ? .local : .remote
+            self.kind = isLocal ? .local : .remote
         } else {
-            kind = try Kind(rawValue: json.get("kind"))!
+            self.kind = try Kind(rawValue: json.get("kind"))!
         }
     }
 
     public func toJSON() -> JSON {
         return .init([
-            "name": name.toJSON(),
-            "identity": identity,
-            "path": path,
-            "kind": kind.rawValue,
+            "name": self.name.toJSON(),
+            "identity": self.identity,
+            "path": self.path,
+            "kind": self.kind.rawValue,
         ])
     }
 }

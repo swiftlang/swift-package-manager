@@ -69,7 +69,7 @@ public protocol PackageCollectionsStorage {
     ///   - identifier: The package identifier
     ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - callback: The closure to invoke when result becomes available
-    func findPackage(identifier: PackageReference.PackageIdentity,
+    func findPackage(identifier: String,
                      collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
 
@@ -135,7 +135,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func put(collection: PackageCollectionsModel.Collection,
-             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    {
         self.queue.async {
             do {
                 let query = "INSERT OR IGNORE INTO PACKAGES_COLLECTIONS VALUES (?, ?);"
@@ -157,7 +158,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func remove(identifier: PackageCollectionsModel.CollectionIdentifier,
-                callback: @escaping (Result<Void, Error>) -> Void) {
+                callback: @escaping (Result<Void, Error>) -> Void)
+    {
         self.queue.async {
             do {
                 let query = "DELETE FROM PACKAGES_COLLECTIONS WHERE key == ?;"
@@ -176,7 +178,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func get(identifier: PackageCollectionsModel.CollectionIdentifier,
-             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    {
         self.queue.async {
             do {
                 let query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key == ? LIMIT 1;"
@@ -199,7 +202,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
-              callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+              callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void)
+    {
         self.queue.async {
             do {
                 var blobs = [Data]()
@@ -240,14 +244,16 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     // FIXME: implement this
     func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
                         query: String,
-                        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
+                        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
+    {
         fatalError("not implemented")
     }
 
     // FIXME: this is PoC for search, need a more performant version of this
-    func findPackage(identifier: PackageReference.PackageIdentity,
+    func findPackage(identifier: String,
                      collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
+                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
+    {
         self.list(identifiers: collectionIdentifiers) { result in
             switch result {
             case .failure(let error):
@@ -273,7 +279,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func searchTargets(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
                        query: String,
                        type: PackageCollectionsModel.TargetSearchType,
-                       callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void) {
+                       callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void)
+    {
         fatalError("not implemented")
     }
 

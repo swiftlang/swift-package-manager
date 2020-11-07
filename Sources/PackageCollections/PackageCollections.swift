@@ -21,7 +21,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     init(configuration: Configuration,
          storage: Storage,
          collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider],
-         metadataProvider: PackageMetadataProvider) {
+         metadataProvider: PackageMetadataProvider)
+    {
         self.configuration = configuration
         self.storage = storage
         self.collectionProviders = collectionProviders
@@ -38,7 +39,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
                                 in profile: PackageCollectionsModel.Profile? = nil,
-                                callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+                                callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void)
+    {
         let profile = profile ?? .default
 
         self.storage.collectionsProfiles.listSources(in: profile) { result in
@@ -70,7 +72,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     public func refreshCollections(in profile: PackageCollectionsModel.Profile? = nil,
-                                   callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
+                                   callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
+    {
         let profile = profile ?? .default
 
         self.storage.collectionsProfiles.listSources(in: profile) { result in
@@ -99,7 +102,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func addCollection(_ source: PackageCollectionsModel.CollectionSource,
                               order: Int? = nil,
                               to profile: PackageCollectionsModel.Profile? = nil,
-                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    {
         let profile = profile ?? .default
 
         if let errors = source.validate() {
@@ -120,7 +124,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func removeCollection(_ source: PackageCollectionsModel.CollectionSource,
                                  from profile: PackageCollectionsModel.Profile? = nil,
-                                 callback: @escaping (Result<Void, Error>) -> Void) {
+                                 callback: @escaping (Result<Void, Error>) -> Void)
+    {
         let profile = profile ?? .default
 
         self.storage.collectionsProfiles.remove(source: source, from: profile) { result in
@@ -148,7 +153,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func moveCollection(_ source: PackageCollectionsModel.CollectionSource,
                                to order: Int, in profile: PackageCollectionsModel.Profile? = nil,
-                               callback: @escaping (Result<Void, Error>) -> Void) {
+                               callback: @escaping (Result<Void, Error>) -> Void)
+    {
         let profile = profile ?? .default
 
         self.storage.collectionsProfiles.move(source: source, to: order, in: profile, callback: callback)
@@ -158,7 +164,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // The collection is not required to be in the configured list.
     // If not found locally (storage), the collection will be fetched from the source.
     public func getCollection(_ source: PackageCollectionsModel.CollectionSource,
-                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    {
         if let errors = source.validate() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -204,7 +211,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func getPackageMetadata(_ reference: PackageReference,
                                    profile: PackageCollectionsModel.Profile? = nil,
-                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void)
+    {
         let profile = profile ?? .default
 
         // first find in storage
@@ -280,7 +288,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
                                              order _: Int? = nil,
                                              profile _: PackageCollectionsModel.Profile? = nil,
-                                             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+                                             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void)
+    {
         if let errors = source.validate() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -298,7 +307,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     func findPackage(
-        identifier: PackageReference.PackageIdentity,
+        identifier: String,
         profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void
     ) {
@@ -356,7 +365,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     internal static func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
-                                               basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
+                                               basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package
+    {
         var versions = package.versions.map { packageVersion -> PackageCollectionsModel.Package.Version in
             .init(version: packageVersion.version,
                   packageName: packageVersion.packageName,

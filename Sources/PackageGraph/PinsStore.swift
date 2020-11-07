@@ -6,15 +6,15 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
+import PackageModel
+import SourceControl
 import TSCBasic
 import TSCUtility
-import SourceControl
-import PackageModel
 
 public final class PinsStore {
-    public typealias PinsMap = [PackageReference.PackageIdentity: PinsStore.Pin]
+    public typealias PinsMap = [String: PinsStore.Pin]
 
     public struct Pin: Equatable {
         /// The package reference of the pinned dependency.
@@ -38,20 +38,20 @@ public final class PinsStore {
     static let schemaVersion: Int = 1
 
     /// The path to the pins file.
-    fileprivate let pinsFile: AbsolutePath
+    private let pinsFile: AbsolutePath
 
     /// The filesystem to manage the pin file on.
-    fileprivate var fileSystem: FileSystem
+    private var fileSystem: FileSystem
 
     /// The pins map.
-    public fileprivate(set) var pinsMap: PinsMap
+    public private(set) var pinsMap: PinsMap
 
     /// The current pins.
     public var pins: AnySequence<Pin> {
-        return AnySequence<Pin>(pinsMap.values)
+        return AnySequence<Pin>(self.pinsMap.values)
     }
 
-    fileprivate let persistence: SimplePersistence
+    private let persistence: SimplePersistence
 
     /// Create a new pins store.
     ///
@@ -65,8 +65,9 @@ public final class PinsStore {
             fileSystem: fileSystem,
             schemaVersion: PinsStore.schemaVersion,
             statePath: pinsFile,
-            prettyPrint: true)
-        pinsMap = [:]
+            prettyPrint: true
+        )
+        self.pinsMap = [:]
         do {
             _ = try self.persistence.restoreState(self)
         } catch SimplePersistence.Error.restoreFailure(_, let error) {
@@ -85,7 +86,7 @@ public final class PinsStore {
         packageRef: PackageReference,
         state: CheckoutState
     ) {
-        pinsMap[packageRef.identity] = Pin(
+        self.pinsMap[packageRef.identity] = Pin(
             packageRef: packageRef,
             state: state
         )
@@ -95,7 +96,7 @@ public final class PinsStore {
     ///
     /// This will replace any previous pin with same package name.
     public func add(_ pin: Pin) {
-        pinsMap[pin.packageRef.identity] = pin
+        self.pinsMap[pin.packageRef.identity] = pin
     }
 
     /// Unpin all of the currently pinnned dependencies.
@@ -103,16 +104,16 @@ public final class PinsStore {
     /// This method does not automatically write to state file.
     public func unpinAll() {
         // Reset the pins map.
-        pinsMap = [:]
+        self.pinsMap = [:]
     }
 
     public func saveState() throws {
-        if pinsMap.isEmpty {
+        if self.pinsMap.isEmpty {
             // Remove the pins file if there are zero pins to save.
             //
             // This can happen if all dependencies are path-based or edited
             // dependencies.
-            return try fileSystem.removeFileTree(pinsFile)
+            return try self.fileSystem.removeFileTree(self.pinsFile)
         }
 
         try self.persistence.saveState(self)
@@ -125,7 +126,7 @@ extension PinsStore: JSONSerializable {
     /// Saves the current state of pins.
     public func toJSON() -> JSON {
         return JSON([
-            "pins": pins.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
+            "pins": self.pins.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
         ])
     }
 }
@@ -146,7 +147,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
         return .init([
             "package": packageRef.name.toJSON(),
             "repositoryURL": packageRef.path,
-            "state": state
+            "state": state,
         ])
     }
 }
@@ -155,6 +156,6 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
 
 extension PinsStore: SimplePersistanceProtocol {
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
+        self.pinsMap = try Dictionary(json.get("pins").map { ($0.packageRef.identity, $0) }, uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
     }
 }
