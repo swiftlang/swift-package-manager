@@ -772,6 +772,10 @@ private class GitFileSystemView: FileSystem {
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
         throw FileSystemError.unsupported
     }
+    
+    func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
+        throw FileSystemError.unsupported
+    }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
         throw FileSystemError.unsupported

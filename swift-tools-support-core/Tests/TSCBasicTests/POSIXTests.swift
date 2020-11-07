@@ -26,14 +26,14 @@ class POSIXTests : XCTestCase {
                 XCTAssertTrue(localFileSystem.isDirectory(dirPath))
 
                 let sym = dirPath.appending(component: "hello")
-                try createSymlink(sym, pointingAt: file.path)
+                try localFileSystem.createSymbolicLink(sym, pointingAt: file.path, relative: false)
                 XCTAssertTrue(localFileSystem.exists(sym))
                 XCTAssertTrue(localFileSystem.isFile(sym))
                 XCTAssertFalse(localFileSystem.isDirectory(sym))
 
                 try withTemporaryDirectory(removeTreeOnDeinit: true) { dir2Path in
                     let dirSym = dirPath.appending(component: "dir2")
-                    try createSymlink(dirSym, pointingAt: dir2Path)
+                    try localFileSystem.createSymbolicLink(dirSym, pointingAt: dir2Path, relative: false)
                     XCTAssertTrue(localFileSystem.exists(dirSym))
                     XCTAssertFalse(localFileSystem.isFile(dirSym))
                     XCTAssertTrue(localFileSystem.isDirectory(dirSym))

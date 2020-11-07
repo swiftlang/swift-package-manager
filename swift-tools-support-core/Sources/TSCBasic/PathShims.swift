@@ -61,6 +61,7 @@ public func makeDirectories(_ path: AbsolutePath) throws {
 
 /// Creates a symbolic link at `path` whose content points to `dest`.  If `relative` is true, the symlink contents will
 /// be a relative path, otherwise it will be absolute.
+@available(*, deprecated, renamed: "localFileSystem.createSymbolicLink")
 public func createSymlink(_ path: AbsolutePath, pointingAt dest: AbsolutePath, relative: Bool = true) throws {
     let destString = relative ? dest.relative(to: path.parentDirectory).pathString : dest.pathString
     try FileManager.default.createSymbolicLink(atPath: path.pathString, withDestinationPath: destString)

@@ -653,7 +653,7 @@ final class PackageToolTests: XCTestCase {
             }
 
             // Create symlink to the dependency.
-            try createSymlink(depSym, pointingAt: dep)
+            try fs.createSymbolicLink(depSym, pointingAt: dep, relative: false)
 
             _ = try execute(["resolve"], packagePath: root)
         }
