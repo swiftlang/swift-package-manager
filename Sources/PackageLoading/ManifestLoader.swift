@@ -388,16 +388,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine?
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            PackageReference.computeIdentity(packageURL: dependency.url)
+            PackageIdentity(dependency.url)
         })
 
-        let duplicateDependencyIdentities = dependenciesByIdentity
-            .lazy
+        let duplicateDependencyIdentities = dependenciesByIdentity.lazy
             .filter { $0.value.count > 1 }
             .map { $0.key }
 
         for identity in duplicateDependencyIdentities {
-            try diagnostics.emit(.duplicateDependency(dependencyIdentity: identity))
+            try diagnostics.emit(.duplicateDependency(dependencyIdentity: identity.description))
         }
 
         if toolsVersion >= .v5_2 {
