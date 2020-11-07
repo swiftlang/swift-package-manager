@@ -27,11 +27,6 @@ public struct PackageReference: Codable {
         case remote
     }
 
-    /// Compute identity of a package given its URL.
-    public static func computeIdentity(packageURL: String) -> String {
-        return PackageIdentity(packageURL).computedName
-    }
-
     /// The identity of the package.
     public var identity: String {
         return self._identity.computedName.lowercased()
