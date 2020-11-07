@@ -1802,19 +1802,23 @@ extension Workspace {
         _ dependencyManifests: DependencyManifests,
         _ diagnostics: DiagnosticsEngine
     ) -> Bool {
-        let rootManifests = dependencyManifests.root.manifests.spm_createDictionary { ($0.name, $0) }
+        let rootManifests: [String: Manifest] = Dictionary(uniqueKeysWithValues:
+            dependencyManifests.root.manifests.map { ($0.name, $0) }
+        )
 
         for missingURLs in dependencyManifests.computePackageURLs().missing {
             guard let manifest = loadManifest(forURL: missingURLs.path, diagnostics: diagnostics) else { continue }
+
             if let override = rootManifests[manifest.name] {
-                let overrideIdentity = PackageReference.computeIdentity(packageURL: override.url)
-                let manifestIdentity = PackageReference.computeIdentity(packageURL: manifest.url)
+                let overrideIdentity = PackageIdentity(override.url).computedName
+                let manifestIdentity = PackageIdentity(manifest.url).computedName
 
                 diagnostics.emit(error: "unable to override package '\(manifest.name)' because its basename '\(manifestIdentity)' doesn't match directory name '\(overrideIdentity)'")
 
                 return true
             }
         }
+
         return false
     }
 
