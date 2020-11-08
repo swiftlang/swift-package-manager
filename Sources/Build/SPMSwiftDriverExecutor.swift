@@ -57,7 +57,9 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
     return try process.waitUntilExit()
   }
 
-  func execute(jobs: [Job], delegate: JobExecutionDelegate,
+  func execute(jobs: [Job],
+               incrementalCompilationState: IncrementalCompilationState?,
+               delegate: JobExecutionDelegate,
                numParallelJobs: Int, forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
     fatalError("Multi-job build plans should be lifted into the SPM build graph.")
