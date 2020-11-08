@@ -316,5 +316,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
               dependencies: ["Workspace", "PackageModel", "PackageLoading",
                              "SourceControl", "SwiftSyntax", "SwiftToolsSupport-auto"]),
       .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport"]),
+      .target(name: "swiftpm-manifest-tool",
+              dependencies: ["SPMPackageEditor", "ArgumentParser"])
   ]
 }
