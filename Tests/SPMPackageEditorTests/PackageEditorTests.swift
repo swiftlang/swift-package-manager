@@ -50,16 +50,15 @@ final class PackageEditorTests: XCTestCase {
         try fs.writeFileContents(manifestPath) { $0 <<< manifest }
 
         let context = try PackageEditorContext(
+            manifestPath: AbsolutePath("/pkg/Package.swift"),
             buildDir: AbsolutePath("/pkg/foo"), toolchain: Resources.default.toolchain, fs: fs)
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("Already has a target named foo")) {
-            try editor.addTarget(options:
-                .init(manifestPath: manifestPath, targetName: "foo"))
+            try editor.addTarget(name: "foo", type: .regular)
         }
 
-        try editor.addTarget(options:
-            .init(manifestPath: manifestPath, targetName: "baz"))
+        try editor.addTarget(name: "baz", type: .regular)
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
