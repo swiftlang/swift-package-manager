@@ -26,8 +26,8 @@ public final class PackageEditor {
     let context: PackageEditorContext
 
     /// Create a package editor instance.
-    public convenience init(buildDir: AbsolutePath) throws {
-        self.init(context: try PackageEditorContext(buildDir: buildDir))
+    public convenience init(buildDir: AbsolutePath, toolchain: UserToolchain) throws {
+        self.init(context: try PackageEditorContext(buildDir: buildDir, toolchain: toolchain))
     }
 
     /// Create a package editor instance.
@@ -161,7 +161,9 @@ extension Array where Element == TargetDescription.Dependency {
     func containsDependency(_ other: String) -> Bool {
         return self.contains {
             switch $0 {
-            case .target(let name), .product(let name, _), .byName(let name):
+            case .target(name: let name, condition: _),
+                 .product(name: let name, package: _, condition: _),
+                 .byName(name: let name, condition: _):
                 return name == other
             }
         }
@@ -262,13 +264,12 @@ public final class PackageEditorContext {
     /// The file system in use.
     let fs: FileSystem
 
-    public init(buildDir: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+    public init(buildDir: AbsolutePath, toolchain: UserToolchain, fs: FileSystem = localFileSystem) throws {
         self.buildDir = buildDir
         self.fs = fs
 
         // Create toolchain.
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
-        self.manifestLoader = ManifestLoader(manifestResources: hostToolchain.manifestResources)
+        self.manifestLoader = ManifestLoader(manifestResources: toolchain.manifestResources)
 
         let repositoriesPath = buildDir.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(
@@ -289,9 +290,9 @@ public final class PackageEditorContext {
 
         return try manifestLoader.load(
             package: path,
-            baseURL: path.description,
-            version: nil,
+            baseURL: path.pathString,
             toolsVersion: toolsVersion,
+            packageKind: .local,
             fileSystem: fs
         )
     }

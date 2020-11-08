@@ -315,3 +315,16 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-driver"),
     ]
 }
+
+// Because SwiftSyntax is closely tied to the compiler, only attempt to build
+// the package editor library if we're in a build-script environment and can
+// assume we're using a just-built compiler and SwiftSyntax library.
+if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
+    package.dependencies += [.package(path: "../swift-syntax")]
+    package.targets += [
+      .target(name: "SPMPackageEditor",
+              dependencies: ["Workspace", "PackageModel", "PackageLoading",
+                             "SourceControl", "SwiftSyntax", "SwiftToolsSupport-auto"]),
+      .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport"]),
+  ]
+}

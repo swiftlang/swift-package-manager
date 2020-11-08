@@ -37,7 +37,7 @@ public final class ManifestRewriter {
     /// Create a new manfiest editor with the given contents.
     public init(_ manifest: String) throws {
         self.originalManifest = manifest
-        self.editedSource = try SyntaxParser.parse(source: manifest)
+        self.editedSource = Syntax(try SyntaxParser.parse(source: manifest))
     }
 
     /// Add a package dependency.
@@ -47,7 +47,7 @@ public final class ManifestRewriter {
     ) throws {
         // Find Package initializer.
         let packageFinder = PackageInitFinder()
-        editedSource.walk(packageFinder)
+        packageFinder.walk(editedSource)
 
         guard let initFnExpr = packageFinder.packageInit else {
             throw Error.error("Couldn't find Package initializer")
@@ -55,7 +55,7 @@ public final class ManifestRewriter {
 
         // Find dependencies section in the argument list of Package(...).
         let packageDependenciesFinder = DependenciesArrayFinder()
-        initFnExpr.argumentList.walk(packageDependenciesFinder)
+        packageDependenciesFinder.walk(initFnExpr.argumentList)
 
         let packageDependencies: ArrayExprSyntax
         if let existingPackageDependencies = packageDependenciesFinder.dependenciesArrayExpr {
@@ -66,7 +66,7 @@ public final class ManifestRewriter {
 
             // Find the inserted section.
             let packageDependenciesFinder = DependenciesArrayFinder()
-            argListWithDependencies.walk(packageDependenciesFinder)
+            packageDependenciesFinder.walk(argListWithDependencies)
             packageDependencies = packageDependenciesFinder.dependenciesArrayExpr!
         }
 
@@ -86,7 +86,7 @@ public final class ManifestRewriter {
     ) throws {
         // Find Package initializer.
         let packageFinder = PackageInitFinder()
-        editedSource.walk(packageFinder)
+        packageFinder.walk(editedSource)
 
         guard let initFnExpr = packageFinder.packageInit else {
             throw Error.error("Couldn't find Package initializer")
@@ -94,20 +94,20 @@ public final class ManifestRewriter {
 
         // Find the `targets: []` array.
         let targetsArrayFinder = TargetsArrayFinder()
-        initFnExpr.argumentList.walk(targetsArrayFinder)
+        targetsArrayFinder.walk(initFnExpr.argumentList)
         guard let targetsArrayExpr = targetsArrayFinder.targets else {
             throw Error.error("Couldn't find targets label")
         }
 
         // Find the target node.
         let targetFinder = TargetFinder(name: target)
-        targetsArrayExpr.walk(targetFinder)
+        targetFinder.walk(targetsArrayExpr)
         guard let targetNode = targetFinder.foundTarget else {
             throw Error.error("Couldn't find target \(target)")
         }
 
         let targetDependencyFinder = DependenciesArrayFinder()
-        targetNode.walk(targetDependencyFinder)
+        targetDependencyFinder.walk(targetNode)
 
         guard let targetDependencies = targetDependencyFinder.dependenciesArrayExpr else {
             throw Error.error("Couldn't find dependencies section")
@@ -128,14 +128,14 @@ public final class ManifestRewriter {
     ) throws {
         // Find Package initializer.
         let packageFinder = PackageInitFinder()
-        editedSource.walk(packageFinder)
+        packageFinder.walk(editedSource)
 
         guard let initFnExpr = packageFinder.packageInit else {
             throw Error.error("Couldn't find Package initializer")
         }
 
         let targetsFinder = TargetsArrayFinder()
-        initFnExpr.argumentList.walk(targetsFinder)
+        targetsFinder.walk(initFnExpr.argumentList)
 
         guard let targetsNode = targetsFinder.targets else {
             throw Error.error("Couldn't find targets section")
@@ -157,12 +157,8 @@ final class PackageInitFinder: SyntaxVisitor {
     /// Reference to the function call of the package initializer.
     private(set) var packageInit: FunctionCallExprSyntax?
 
-    override func shouldVisit(_ kind: SyntaxKind) -> Bool {
-        return kind == .initializerClause
-    }
-
     override func visit(_ node: InitializerClauseSyntax) -> SyntaxVisitorContinueKind {
-        if let fnCall = node.value as? FunctionCallExprSyntax,
+        if let fnCall = FunctionCallExprSyntax(Syntax(node.value)),
             let identifier = fnCall.calledExpression.firstToken,
             identifier.text == "Package" {
             assert(packageInit == nil, "Found two package initializers")
@@ -177,15 +173,15 @@ final class DependenciesArrayFinder: SyntaxVisitor {
 
     private(set) var dependenciesArrayExpr: ArrayExprSyntax?
 
-    override func visit(_ node: FunctionCallArgumentSyntax) -> SyntaxVisitorContinueKind {
+    override func visit(_ node: TupleExprElementSyntax) -> SyntaxVisitorContinueKind {
         guard node.label?.text == "dependencies" else {
             return .skipChildren
         }
 
         // We have custom code like foo + bar + [] (hopefully there is an array expr here).
-        if let seq = node.expression as? SequenceExprSyntax {
-            dependenciesArrayExpr = seq.elements.first(where: { $0 is ArrayExprSyntax }) as? ArrayExprSyntax
-        } else if let arrayExpr = node.expression as? ArrayExprSyntax {
+        if let seq = node.expression.as(SequenceExprSyntax.self) {
+            dependenciesArrayExpr = seq.elements.first(where: { $0.is(ArrayExprSyntax.self) })?.as(ArrayExprSyntax.self)
+        } else if let arrayExpr = node.expression.as(ArrayExprSyntax.self) {
             dependenciesArrayExpr = arrayExpr
         }
 
@@ -202,9 +198,9 @@ final class TargetsArrayFinder: SyntaxVisitor {
     /// The found targets array expr.
     private(set) var targets: ArrayExprSyntax?
 
-    override func visit(_ node: FunctionCallArgumentSyntax) -> SyntaxVisitorContinueKind {
+    override func visit(_ node: TupleExprElementSyntax) -> SyntaxVisitorContinueKind {
         if node.label?.text == "targets",
-            let expr = node.expression as? ArrayExprSyntax {
+           let expr = node.expression.as(ArrayExprSyntax.self) {
             assert(targets == nil, "Found two targets labels")
             targets = expr
         }
@@ -216,25 +212,27 @@ final class TargetsArrayFinder: SyntaxVisitor {
 final class TargetFinder: SyntaxVisitor {
 
     let targetToFind: String
-    private(set) var foundTarget: FunctionCallArgumentListSyntax?
+    private(set) var foundTarget: TupleExprElementListSyntax?
 
     init(name: String) {
         self.targetToFind = name
     }
 
-    override func visit(_ node: FunctionCallArgumentSyntax) -> SyntaxVisitorContinueKind {
+    override func visit(_ node: TupleExprElementSyntax) -> SyntaxVisitorContinueKind {
         guard case .identifier(let label)? = node.label?.tokenKind else {
             return .skipChildren
         }
-        guard label == "name", let targetNameExpr = node.expression as? StringLiteralExprSyntax else {
-            return .skipChildren
-        }
-        guard case .stringLiteral(let targetName) = targetNameExpr.stringLiteral.tokenKind else {
+        guard label == "name", let targetNameExpr = node.expression.as(StringLiteralExprSyntax.self),
+              targetNameExpr.segments.count == 1, let segment = targetNameExpr.segments.first?.as(StringSegmentSyntax.self) else {
             return .skipChildren
         }
 
-        if targetName == "\"" + self.targetToFind + "\"" {
-            self.foundTarget = node.parent as? FunctionCallArgumentListSyntax
+        guard case .stringSegment(let targetName) = segment.content.tokenKind else {
+            return .skipChildren
+        }
+
+        if targetName == self.targetToFind {
+            self.foundTarget = node.parent?.as(TupleExprElementListSyntax.self)
             return .skipChildren
         }
 
@@ -247,22 +245,22 @@ final class TargetFinder: SyntaxVisitor {
 /// Writer for "dependencies" array syntax.
 final class DependenciesArrayWriter: SyntaxRewriter {
 
-    override func visit(_ node: FunctionCallArgumentListSyntax) -> Syntax {
+    override func visit(_ node: TupleExprElementListSyntax) -> Syntax {
         let leadingTrivia = node.firstToken?.leadingTrivia ?? .zero
 
-        let dependenciesArg = SyntaxFactory.makeFunctionCallArgument(
+        let dependenciesArg = SyntaxFactory.makeTupleExprElement(
             label: SyntaxFactory.makeIdentifier("dependencies", leadingTrivia: leadingTrivia),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-            expression: SyntaxFactory.makeArrayExpr(
-                leftSquare: SyntaxFactory.makeLeftSquareBracketToken(),
-                elements: SyntaxFactory.makeBlankArrayElementList(),
-                rightSquare: SyntaxFactory.makeRightSquareBracketToken()),
+            expression: ExprSyntax(SyntaxFactory.makeArrayExpr(
+                                    leftSquare: SyntaxFactory.makeLeftSquareBracketToken(),
+                                    elements: SyntaxFactory.makeBlankArrayElementList(),
+                                    rightSquare: SyntaxFactory.makeRightSquareBracketToken())),
             trailingComma: SyntaxFactory.makeCommaToken()
         )
 
         // FIXME: This is not correct, we need to find the
         // proper position for inserting `dependencies: []`.
-        return node.inserting(dependenciesArg, at: 1)
+        return Syntax(node.inserting(dependenciesArg, at: 1))
     }
 }
 
@@ -276,9 +274,9 @@ final class ArrayTrailingCommaWriter: SyntaxRewriter {
 
     override func visit(_ node: ArrayElementSyntax) -> Syntax {
         guard lastElement == node else {
-            return node
+            return Syntax(node)
         }
-        return node.withTrailingComma(SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1)))
+        return Syntax(node.withTrailingComma(SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1))))
     }
 }
 
@@ -307,46 +305,47 @@ final class PackageDependencyWriter: SyntaxRewriter {
             declNameArguments: nil
         )
 
-        var args: [FunctionCallArgumentSyntax] = []
+        var args: [TupleExprElementSyntax] = []
 
         let firstArgLabel = requirement == .localPackage ? "path" : "url"
-        let url = SyntaxFactory.makeFunctionCallArgument(
+        let url = SyntaxFactory.makeTupleExprElement(
             label: SyntaxFactory.makeIdentifier(firstArgLabel),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-            expression: SyntaxFactory.makeStringLiteralExpr(self.url),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.url)),
             trailingComma: requirement == .localPackage ? nil : SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1))
         )
         args.append(url)
 
         // FIXME: Handle other types of requirements.
         if requirement != .localPackage {
-            let secondArg = SyntaxFactory.makeFunctionCallArgument(
+            let secondArg = SyntaxFactory.makeTupleExprElement(
                 label: SyntaxFactory.makeIdentifier("from"),
                 colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-                expression: SyntaxFactory.makeStringLiteralExpr(requirement.ref!),
+                expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(requirement.ref!)),
                 trailingComma: nil
             )
             args.append(secondArg)
         }
 
         let expr = SyntaxFactory.makeFunctionCallExpr(
-            calledExpression: dotPackageExpr,
+            calledExpression: ExprSyntax(dotPackageExpr),
             leftParen: SyntaxFactory.makeLeftParenToken(),
-            argumentList: SyntaxFactory.makeFunctionCallArgumentList(args),
+            argumentList: SyntaxFactory.makeTupleExprElementList(args),
             rightParen: SyntaxFactory.makeRightParenToken(),
-            trailingClosure: nil
+          trailingClosure: nil,
+          additionalTrailingClosures: nil
         )
 
         let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: expr,
+            expression: ExprSyntax(expr),
             trailingComma: SyntaxFactory.makeCommaToken()
         )
 
         let rightBrace = SyntaxFactory.makeRightSquareBracketToken(
             leadingTrivia: [.newlines(1), .spaces(4)])
 
-        return node.addArrayElement(newDependencyElement)
-            .withRightSquare(rightBrace)
+        return ExprSyntax(node.addElement(newDependencyElement)
+                            .withRightSquare(rightBrace))
     }
 }
 
@@ -368,15 +367,15 @@ final class TargetDependencyWriter: SyntaxRewriter {
             let lastElement = node.elements.map{$0}.last!
             let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement)
             let newElements = trailingTriviaWriter.visit(node.elements)
-            node = node.withElements((newElements as! ArrayElementListSyntax))
+            node = node.withElements((newElements.as(ArrayElementListSyntax.self)!))
         }
 
         let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: SyntaxFactory.makeStringLiteralExpr(self.dependencyName),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.dependencyName)),
             trailingComma: nil
         )
 
-        return node.addArrayElement(newDependencyElement)
+        return ExprSyntax(node.addElement(newDependencyElement))
     }
 }
 
@@ -403,36 +402,37 @@ final class NewTargetWriter: SyntaxRewriter {
             declNameArguments: nil
         )
 
-        let nameArg = SyntaxFactory.makeFunctionCallArgument(
+        let nameArg = SyntaxFactory.makeTupleExprElement(
             label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-            expression: SyntaxFactory.makeStringLiteralExpr(self.name),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.name)),
             trailingComma: SyntaxFactory.makeCommaToken()
         )
 
         let emptyArray = SyntaxFactory.makeArrayExpr(leftSquare: SyntaxFactory.makeLeftSquareBracketToken(), elements: SyntaxFactory.makeBlankArrayElementList(), rightSquare: SyntaxFactory.makeRightSquareBracketToken())
-        let depenenciesArg = SyntaxFactory.makeFunctionCallArgument(
+        let depenenciesArg = SyntaxFactory.makeTupleExprElement(
             label: SyntaxFactory.makeIdentifier("dependencies", leadingTrivia: leadingTriviaArgs),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-            expression: emptyArray,
+            expression: ExprSyntax(emptyArray),
             trailingComma: nil
         )
 
         let expr = SyntaxFactory.makeFunctionCallExpr(
-            calledExpression: dotPackageExpr,
+            calledExpression: ExprSyntax(dotPackageExpr),
             leftParen: SyntaxFactory.makeLeftParenToken(),
-            argumentList: SyntaxFactory.makeFunctionCallArgumentList([
+            argumentList: SyntaxFactory.makeTupleExprElementList([
                 nameArg, depenenciesArg,
-                ]),
+            ]),
             rightParen: SyntaxFactory.makeRightParenToken(),
-            trailingClosure: nil
+          trailingClosure: nil,
+          additionalTrailingClosures: nil
         )
 
         let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: expr,
+            expression: ExprSyntax(expr),
             trailingComma: SyntaxFactory.makeCommaToken()
         )
 
-        return node.addArrayElement(newDependencyElement)
+        return ExprSyntax(node.addElement(newDependencyElement))
     }
 }
