@@ -50,7 +50,7 @@ final class PackageEditorTests: XCTestCase {
         try fs.writeFileContents(manifestPath) { $0 <<< manifest }
 
         let context = try PackageEditorContext(
-            buildDir: AbsolutePath("/pkg/foo"), fs: fs)
+            buildDir: AbsolutePath("/pkg/foo"), toolchain: Resources.default.toolchain, fs: fs)
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("Already has a target named foo")) {
