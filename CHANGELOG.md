@@ -1,7 +1,6 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
-
-Swift 5.3.1
+Swift Next
 -----------
 * [#2937]
   
@@ -9,7 +8,7 @@ Swift 5.3.1
     
     `Package` manifests can now have any combination of leading whitespace characters. This allows more flexibility in formatting the manifests.
     
-    [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters surrounding `swift-tools-version`, if and only if the specified version > 5.3. For example, `//swift-tools-version:	5.3.1` and `//		 swift-tools-version: 5.4` are valid.
+    [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters surrounding `swift-tools-version`, if and only if the specified version ≥ `Next`. For example, `//swift-tools-version:	Next` and `//		 swift-tools-version: Next` are valid.
   
     All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are now recognised in `Package` manifests. This ensures correctness in parsing manifests that are edited and/or built on many non-Unix-like platforms that use ASCII or Unicode encodings. 
   
