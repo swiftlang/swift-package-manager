@@ -250,7 +250,7 @@ absolute search paths. SwiftPM will choose the first
 path which exists on disk. If none of the paths are present on disk, it will fall
 back to built-in computation.
 
-## Making changes in TSC targets
+### Making changes in TSC targets
 SwiftPM uses [Tools Support Core](https://github.com/apple/swift-tools-support-core) (aka TSC) for many of its general purpose utilities. Changes in SwiftPM often require changes in TSC first. To coordinate changes, open a PR against TSC first, then a second one against SwiftPM pulling the correct TSC version.
 
 ## Community and Support
