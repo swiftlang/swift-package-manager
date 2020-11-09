@@ -35,6 +35,9 @@ public struct PackageIdentity: LosslessStringConvertible {
             string.replaceFirstOccurenceIfPresent(of: ":", with: "/")
         }
 
+        string.removeFragmentComponentIfPresent()
+        string.removeQueryComponentIfPresent()
+
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
 
         var lastPathComponent = components.popLast() ?? ""
@@ -161,6 +164,24 @@ private extension String {
         {
             removeSubrange(startIndexOfPort ... endIndexOfPort)
             return true
+        }
+
+        return false
+    }
+
+    @discardableResult
+    mutating func removeFragmentComponentIfPresent() -> Bool {
+        if let index = firstIndex(of: "#") {
+            self.removeSubrange(index...)
+        }
+
+        return false
+    }
+
+    @discardableResult
+    mutating func removeQueryComponentIfPresent() -> Bool {
+        if let index = firstIndex(of: "?") {
+            self.removeSubrange(index...)
         }
 
         return false

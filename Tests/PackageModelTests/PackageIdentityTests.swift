@@ -71,6 +71,55 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testQuery() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList?utm_source=forums.swift.org"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testQueryWithTrailingSlash() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList/?utm_source=forums.swift.org"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testQueryWithGitSuffix() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList.git?utm_source=forums.swift.org"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testFragment() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList#installation"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testFragmentWithTrailingSlash() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList/#installation"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testFragmentWithGitSuffix() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList.git#installation"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testFragmentAndQuery() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/LinkedList.git#installation?utm_source=forums.swift.org"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
     func testSSHScheme() {
         XCTAssertEqual(
             PackageIdentity("ssh://git@example.com/mona/LinkedList.git"),
