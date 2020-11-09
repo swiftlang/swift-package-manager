@@ -32,11 +32,11 @@ class AwaitTests: XCTestCase {
     }
 
     func testBasics() throws {
-        let value = try await { async("Hi", $0) }
+        let value = try tsc_await { async("Hi", $0) }
         XCTAssertEqual("Hi", value)
 
         do {
-            let value = try await { throwingAsync("Hi", $0) }
+            let value = try tsc_await { throwingAsync("Hi", $0) }
             XCTFail("Unexpected success \(value)")
         } catch {
             XCTAssertEqual(error as? DummyError, DummyError.error)
