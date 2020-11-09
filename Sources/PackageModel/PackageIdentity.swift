@@ -25,15 +25,15 @@ public struct PackageIdentity: LosslessStringConvertible {
             if string.removePrefixIfPresent("\(scheme):") {
                 detectedScheme = scheme
                 string.removePrefixIfPresent("//")
-                string.removePortComponentIfPresent(scheme.defaultPort)
                 break
             }
         }
 
+        string.removePortComponentIfPresent()
+
         if string.removeUserComponentIfPresent() || detectedScheme != .ssh {
             string.replaceFirstOccurenceIfPresent(of: ":", with: "/")
         }
-        assert(!string.contains(":"))
 
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
 
@@ -104,17 +104,6 @@ private enum Scheme: String, CustomStringConvertible, CaseIterable {
     case https
     case git
 
-    var defaultPort: Int {
-        switch self {
-        case .ssh:
-            return 22
-        case .https:
-            return 443
-        case .git:
-            return 9418
-        }
-    }
-
     public var description: String {
         return self.rawValue
     }
@@ -132,6 +121,12 @@ private extension StringProtocol where Self == Self.SubSequence {
         guard hasSuffix(suffix) else { return false }
         removeLast(suffix.count)
         return true
+    }
+}
+
+private extension Character {
+    var isDigit: Bool {
+        isHexDigit && !isLetter
     }
 }
 
@@ -157,12 +152,14 @@ private extension String {
     }
 
     @discardableResult
-    mutating func removePortComponentIfPresent(_ port: Int) -> Bool {
+    mutating func removePortComponentIfPresent() -> Bool {
         if let indexOfFirstPathComponent = firstIndex(where: isSeparator),
-           let rangeOfPort = range(of: ":\(port)"),
-           rangeOfPort.upperBound < indexOfFirstPathComponent
+           let startIndexOfPort = firstIndex(of: ":"),
+           startIndexOfPort < endIndex,
+           let endIndexOfPort = self[index(after: startIndexOfPort)...].lastIndex(where: { $0.isDigit }),
+           endIndexOfPort <= indexOfFirstPathComponent
         {
-            removeSubrange(rangeOfPort)
+            removeSubrange(startIndexOfPort ... endIndexOfPort)
             return true
         }
 

@@ -36,6 +36,13 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testHTTPSSchemeWithPort() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com:443/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
     func testTrailingSlash() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList/"),
@@ -85,6 +92,13 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testSSHSchemeWithPort() {
+        XCTAssertEqual(
+            PackageIdentity("ssh://git@example.com:22/mona/LinkedList.git"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
     func testImplicitSSHScheme() {
         XCTAssertEqual(
             PackageIdentity("git@example.com/mona/LinkedList.git"),
@@ -109,6 +123,13 @@ final class PackageIdentityTests: XCTestCase {
     func testGitScheme() {
         XCTAssertEqual(
             PackageIdentity("git://example.com/mona/LinkedList.git"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testGitSchemeWithPort() {
+        XCTAssertEqual(
+            PackageIdentity("git://example.com:9418/mona/LinkedList.git"),
             "example.com/mona/LinkedList"
         )
     }
