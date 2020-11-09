@@ -43,43 +43,43 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         let sources = makeMockSources()
 
         try sources.forEach { source in
-            _ = try await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
         }
 
-        let profiles = try await { callback in storage.listProfiles(callback: callback) }
+        let profiles = try tsc_await { callback in storage.listProfiles(callback: callback) }
         XCTAssertEqual(profiles.count, 1, "profiles should match")
 
         do {
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, sources.count, "collections should match")
         }
 
         let remove = sources.enumerated().filter { index, _ in index % 2 == 0 }.map { $1 }
         try remove.forEach { source in
-            _ = try await { callback in storage.remove(source: source, from: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.remove(source: source, from: .default, callback: callback) }
         }
 
         do {
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, sources.count - remove.count, "collections should match")
         }
 
         let remaining = sources.filter { !remove.contains($0) }
         try sources.forEach { source in
-            XCTAssertEqual(try await { callback in storage.exists(source: source, in: .default, callback: callback) }, remaining.contains(source))
-            XCTAssertEqual(try await { callback in storage.exists(source: source, in: nil, callback: callback) }, remaining.contains(source))
+            XCTAssertEqual(try tsc_await { callback in storage.exists(source: source, in: .default, callback: callback) }, remaining.contains(source))
+            XCTAssertEqual(try tsc_await { callback in storage.exists(source: source, in: nil, callback: callback) }, remaining.contains(source))
         }
 
         do {
-            _ = try await { callback in storage.move(source: remaining.last!, to: 0, in: .default, callback: callback) }
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.move(source: remaining.last!, to: 0, in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, remaining.count, "collections should match")
             XCTAssertEqual(list.first, remaining.last, "item should match")
         }
 
         do {
-            _ = try await { callback in storage.move(source: remaining.last!, to: remaining.count - 1, in: .default, callback: callback) }
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.move(source: remaining.last!, to: remaining.count - 1, in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, remaining.count, "collections should match")
             XCTAssertEqual(list.last, remaining.last, "item should match")
         }
@@ -92,11 +92,11 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         let sources = makeMockSources()
 
         try sources.forEach { source in
-            _ = try await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
         }
 
         do {
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, sources.count, "collections should match")
         }
 
@@ -104,7 +104,7 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         XCTAssertFalse(mockFileSystem.exists(storage.path), "expected file to be deleted")
 
         do {
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, 0, "collections should match")
         }
     }
@@ -116,11 +116,11 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         let sources = makeMockSources()
 
         try sources.forEach { source in
-            _ = try await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
         }
 
         do {
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, sources.count, "collections should match")
         }
 
@@ -129,7 +129,7 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         XCTAssertEqual(buffer.count, 0, "expected file to be empty")
 
         do {
-            let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
             XCTAssertEqual(list.count, 0, "collections should match")
         }
     }
@@ -141,10 +141,10 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         let sources = makeMockSources()
 
         try sources.forEach { source in
-            _ = try await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.add(source: source, order: nil, to: .default, callback: callback) }
         }
 
-        let list = try await { callback in storage.listSources(in: .default, callback: callback) }
+        let list = try tsc_await { callback in storage.listSources(in: .default, callback: callback) }
         XCTAssertEqual(list.count, sources.count, "collections should match")
 
         try mockFileSystem.writeFileContents(storage.path, bytes: ByteString("{".utf8))
@@ -153,7 +153,7 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
         print(buffer)
 
-        XCTAssertThrowsError(try await { callback in storage.listSources(in: .default, callback: callback) }, "expected an error", { error in
+        XCTAssertThrowsError(try tsc_await { callback in storage.listSources(in: .default, callback: callback) }, "expected an error", { error in
             XCTAssert(error is DecodingError, "expected error to match")
         })
     }
@@ -166,30 +166,30 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         let sources = makeMockSources()
 
         try sources.forEach { source in
-            _ = try await { callback in storage.add(source: source, order: nil, to: profile, callback: callback) }
+            _ = try tsc_await { callback in storage.add(source: source, order: nil, to: profile, callback: callback) }
         }
 
-        let profiles = try await { callback in storage.listProfiles(callback: callback) }
+        let profiles = try tsc_await { callback in storage.listProfiles(callback: callback) }
         XCTAssertEqual(profiles.count, 1, "profiles should match")
 
         do {
-            let list = try await { callback in storage.listSources(in: profile, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: profile, callback: callback) }
             XCTAssertEqual(list.count, sources.count, "sources should match")
         }
 
         let remove = sources.enumerated().filter { index, _ in index % 2 == 0 }.map { $1 }
         try remove.forEach { source in
-            _ = try await { callback in storage.remove(source: source, from: profile, callback: callback) }
+            _ = try tsc_await { callback in storage.remove(source: source, from: profile, callback: callback) }
         }
 
         do {
-            let list = try await { callback in storage.listSources(in: profile, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: profile, callback: callback) }
             XCTAssertEqual(list.count, sources.count - remove.count, "sources should match")
         }
 
         try sources.forEach { source in
-            XCTAssertEqual(try await { callback in storage.exists(source: source, in: profile, callback: callback) }, !remove.contains(source))
-            XCTAssertEqual(try await { callback in storage.exists(source: source, in: nil, callback: callback) }, !remove.contains(source))
+            XCTAssertEqual(try tsc_await { callback in storage.exists(source: source, in: profile, callback: callback) }, !remove.contains(source))
+            XCTAssertEqual(try tsc_await { callback in storage.exists(source: source, in: nil, callback: callback) }, !remove.contains(source))
         }
 
         let buffer = try mockFileSystem.readFileContents(storage.path)
@@ -207,15 +207,15 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
 
         try sources.enumerated().forEach { index, source in
             let profile = index % 2 == 0 ? Array(profiles.keys)[0] : Array(profiles.keys)[1]
-            _ = try await { callback in storage.add(source: source, order: nil, to: profile, callback: callback) }
+            _ = try tsc_await { callback in storage.add(source: source, order: nil, to: profile, callback: callback) }
             profiles[profile]?.append(source)
         }
 
-        let list = try await { callback in storage.listProfiles(callback: callback) }
+        let list = try tsc_await { callback in storage.listProfiles(callback: callback) }
         XCTAssertEqual(list.count, profiles.count, "list count should match")
 
         try profiles.forEach { profile, profileCollections in
-            let list = try await { callback in storage.listSources(in: profile, callback: callback) }
+            let list = try tsc_await { callback in storage.listSources(in: profile, callback: callback) }
             XCTAssertEqual(list.count, profileCollections.count, "list count should match")
         }
 
