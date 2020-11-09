@@ -13,7 +13,7 @@ import TSCBasic
 import TSCUtility
 import PackageModel
 import PackageGraph
-import Build
+import SPMBuildCore
 import XCBuildSupport
 import SPMTestSupport
 

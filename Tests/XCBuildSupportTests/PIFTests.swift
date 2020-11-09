@@ -12,7 +12,7 @@ import XCTest
 import TSCBasic
 import TSCUtility
 import PackageModel
-import Build
+import SPMBuildCore
 import XCBuildSupport
 import SPMTestSupport
 

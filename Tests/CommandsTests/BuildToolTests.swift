@@ -12,6 +12,7 @@ import XCTest
 
 import SPMTestSupport
 import TSCBasic
+import SPMBuildCore
 import Commands
 import Workspace
 
@@ -49,6 +50,22 @@ final class BuildToolTests: XCTestCase {
 
     func testVersion() throws {
         XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
+    }
+
+    func testCreatingSanitizers() throws {
+        for sanitizer in Sanitizer.allCases {
+            XCTAssertEqual(sanitizer, try Sanitizer(argument: sanitizer.shortName))
+        }
+    }
+
+    func testInvalidSanitizer() throws {
+        do {
+            _ = try Sanitizer(argument: "invalid")
+            XCTFail("Should have failed to create Sanitizer")
+        } catch let error as ArgumentConversionError {
+            XCTAssertEqual(
+                error.description, "valid sanitizers: address, thread, undefined, scudo")
+        }
     }
 
     func testBinPathAndSymlink() throws {
