@@ -17,7 +17,7 @@ import SPMTestSupport
 
 extension RepositoryManager {
     fileprivate func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {
-        return try await { self.lookup(repository: repository, completion: $0) }
+        return try tsc_await { self.lookup(repository: repository, completion: $0) }
     }
 }
 
@@ -351,20 +351,20 @@ class RepositoryManagerTests: XCTestCase {
             let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
 
-            _ = try await { manager.lookup(repository: dummyRepo, completion: $0) }
+            _ = try tsc_await { manager.lookup(repository: dummyRepo, completion: $0) }
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 0)
             XCTAssertEqual(delegate.didUpdate.count, 0)
 
-            _ = try await { manager.lookup(repository: dummyRepo, completion: $0) }
-            _ = try await { manager.lookup(repository: dummyRepo, completion: $0) }
+            _ = try tsc_await { manager.lookup(repository: dummyRepo, completion: $0) }
+            _ = try tsc_await { manager.lookup(repository: dummyRepo, completion: $0) }
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
             XCTAssertEqual(delegate.didUpdate.count, 2)
 
-            _ = try await { manager.lookup(repository: dummyRepo, skipUpdate: true, completion: $0) }
+            _ = try tsc_await { manager.lookup(repository: dummyRepo, skipUpdate: true, completion: $0) }
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
