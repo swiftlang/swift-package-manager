@@ -1357,7 +1357,7 @@ private final class ContainerProvider {
             }
 
             // Otherwise, fetch the container synchronously.
-            let container = try await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
+            let container = try tsc_await { provider.getContainer(for: identifier, skipUpdate: skipUpdate, completion: $0) }
             let pubGrubContainer = PubGrubPackageContainer(container, pinsMap: pinsMap)
             self._fetchedContainers[identifier] = .success(pubGrubContainer)
             return pubGrubContainer
