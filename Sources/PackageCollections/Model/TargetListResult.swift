@@ -14,12 +14,14 @@ import SourceControl
 import TSCUtility
 
 extension PackageCollectionsModel {
-    /// Target metadata
     public typealias TargetListResult = [TargetListItem]
 
     public struct TargetListItem {
+        public typealias Target = PackageCollectionsModel.PackageTarget
+        public typealias Package = PackageCollectionsModel.TargetListResult.Package
+
         /// Target
-        public let target: PackageCollectionsModel.PackageTarget
+        public let target: Target
 
         /// Packages where the target is found
         public let packages: [Package]
@@ -28,8 +30,8 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel.TargetListResult {
     /// Metadata of package that contains the target
-    public struct Package {
-        public typealias Version = PackageVersion
+    public struct Package: Hashable {
+        public typealias Version = PackageCollectionsModel.TargetListResult.PackageVersion
 
         /// Package's repository address
         public let repository: RepositorySpecifier
@@ -41,13 +43,13 @@ extension PackageCollectionsModel.TargetListResult {
         public let versions: [Version]
 
         /// Package collections that contain this package and at least one of the `versions`
-        public let collections: [PackageCollectionsModel.PackageCollectionIdentifier]
+        public let collections: [PackageCollectionsModel.CollectionIdentifier]
     }
 }
 
 extension PackageCollectionsModel.TargetListResult {
     /// Represents a package version
-    public struct PackageVersion {
+    public struct PackageVersion: Hashable {
         /// The version
         public let version: TSCUtility.Version
 

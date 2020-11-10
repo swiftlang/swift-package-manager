@@ -22,7 +22,7 @@ class PackageCollectionsStorageTests: XCTestCase {
 
             let mockSources = makeMockSources()
             try mockSources.forEach { source in
-                XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: .init(source: source), callback: callback) }, "expected error", { error in
+                XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: .init(from: source), callback: callback) }, "expected error", { error in
                     XCTAssert(error is NotFoundError, "Expected NotFoundError")
                 })
             }

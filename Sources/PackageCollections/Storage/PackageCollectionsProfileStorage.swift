@@ -18,7 +18,7 @@ import TSCBasic
 
 // MARK: - PackageCollectionsProfileStorage
 
-protocol PackageCollectionsProfileStorage {
+public protocol PackageCollectionsProfileStorage {
     /// Lists all configured profiles.
     ///
     /// - Parameters:
@@ -31,7 +31,7 @@ protocol PackageCollectionsProfileStorage {
     ///   - profile: The `PackageCollectionsModel.Profile`
     ///   - callback: The closure to invoke when result becomes available
     func listSources(in profile: PackageCollectionsModel.Profile,
-                     callback: @escaping (Result<[PackageCollectionsModel.PackageCollectionSource], Error>) -> Void)
+                     callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
 
     /// Adds source to the given profile.
     ///
@@ -41,7 +41,7 @@ protocol PackageCollectionsProfileStorage {
     ///            By default the new source is appended to the end (i.e., the least relevant order).
     ///   - profile: The `Profile` to add source
     ///   - callback: The closure to invoke when result becomes available
-    func add(source: PackageCollectionsModel.PackageCollectionSource,
+    func add(source: PackageCollectionsModel.CollectionSource,
              order: Int?,
              to profile: PackageCollectionsModel.Profile,
              callback: @escaping (Result<Void, Error>) -> Void)
@@ -52,7 +52,7 @@ protocol PackageCollectionsProfileStorage {
     ///   - source: The `PackageCollectionSource` to remove
     ///   - profile: The `Profile` to remove source
     ///   - callback: The closure to invoke when result becomes available
-    func remove(source: PackageCollectionsModel.PackageCollectionSource,
+    func remove(source: PackageCollectionsModel.CollectionSource,
                 from profile: PackageCollectionsModel.Profile,
                 callback: @escaping (Result<Void, Error>) -> Void)
 
@@ -63,7 +63,7 @@ protocol PackageCollectionsProfileStorage {
     ///   - order: The order that the source should take in the profile.
     ///   - profile: The `Profile` to move source
     ///   - callback: The closure to invoke when result becomes available
-    func move(source: PackageCollectionsModel.PackageCollectionSource,
+    func move(source: PackageCollectionsModel.CollectionSource,
               to order: Int,
               in profile: PackageCollectionsModel.Profile,
               callback: @escaping (Result<Void, Error>) -> Void)
@@ -74,7 +74,7 @@ protocol PackageCollectionsProfileStorage {
     ///   - source: The `PackageCollectionSource`
     ///   - profile: Optional. The `Profile`, If not specified, checks across all profiles.
     ///   - callback: The closure to invoke when result becomes available
-    func exists(source: PackageCollectionsModel.PackageCollectionSource,
+    func exists(source: PackageCollectionsModel.CollectionSource,
                 in profile: PackageCollectionsModel.Profile?,
                 callback: @escaping (Result<Bool, Error>) -> Void)
 }
@@ -118,7 +118,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         }
     }
 
-    func listSources(in profile: PackageCollectionsModel.Profile, callback: @escaping (Result<[PackageCollectionsModel.PackageCollectionSource], Error>) -> Void) {
+    func listSources(in profile: PackageCollectionsModel.Profile, callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
         self.queue.async {
             do {
                 let profiles = try self.withLock {
@@ -131,7 +131,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         }
     }
 
-    func add(source: PackageCollectionsModel.PackageCollectionSource,
+    func add(source: PackageCollectionsModel.CollectionSource,
              order: Int?,
              to profile: PackageCollectionsModel.Profile,
              callback: @escaping (Result<Void, Error>) -> Void) {
@@ -152,7 +152,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         }
     }
 
-    func remove(source: PackageCollectionsModel.PackageCollectionSource,
+    func remove(source: PackageCollectionsModel.CollectionSource,
                 from profile: PackageCollectionsModel.Profile,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
@@ -172,7 +172,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         }
     }
 
-    func move(source: PackageCollectionsModel.PackageCollectionSource,
+    func move(source: PackageCollectionsModel.CollectionSource,
               to order: Int,
               in profile: PackageCollectionsModel.Profile,
               callback: @escaping (Result<Void, Error>) -> Void) {
@@ -196,7 +196,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         }
     }
 
-    func exists(source: PackageCollectionsModel.PackageCollectionSource,
+    func exists(source: PackageCollectionsModel.CollectionSource,
                 in profile: PackageCollectionsModel.Profile?,
                 callback: @escaping (Result<Bool, Error>) -> Void) {
         self.queue.async {
@@ -216,7 +216,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         }
     }
 
-    private func loadFromDisk() throws -> [PackageCollectionsModel.Profile: [PackageCollectionsModel.PackageCollectionSource]] {
+    private func loadFromDisk() throws -> [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]] {
         guard self.fileSystem.exists(self.path) else {
             return .init()
         }
@@ -228,7 +228,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         return try container.profiles()
     }
 
-    private func saveToDisk(_ profiles: [PackageCollectionsModel.Profile: [PackageCollectionsModel.PackageCollectionSource]]) throws {
+    private func saveToDisk(_ profiles: [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]]) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
         }
@@ -256,17 +256,17 @@ private enum Model {
             self.data = .init()
         }
 
-        init(_ profiles: [PackageCollectionsModel.Profile: [PackageCollectionsModel.PackageCollectionSource]]) {
+        init(_ profiles: [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]]) {
             self.data = .init()
             profiles.forEach { key, value in
                 self.data[key.profile()] = value.map { $0.source() }
             }
         }
 
-        func profiles() throws -> [PackageCollectionsModel.Profile: [PackageCollectionsModel.PackageCollectionSource]] {
-            var profiles = [PackageCollectionsModel.Profile: [PackageCollectionsModel.PackageCollectionSource]]()
+        func profiles() throws -> [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]] {
+            var profiles = [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]]()
             try self.data.forEach { key, value in
-                try profiles[PackageCollectionsModel.Profile(key)] = value.map { try PackageCollectionsModel.PackageCollectionSource($0) }
+                try profiles[PackageCollectionsModel.Profile(key)] = value.map { try PackageCollectionsModel.CollectionSource($0) }
             }
             return profiles
         }
@@ -294,23 +294,24 @@ private extension PackageCollectionsModel.Profile {
     }
 }
 
-private extension PackageCollectionsModel.PackageCollectionSource {
+private extension PackageCollectionsModel.CollectionSource {
     init(_ from: Model.Source) throws {
+        guard let url = URL(string: from.value) else {
+            throw SerializationError.invalidURL(from.value)
+        }
+        self.url = url
         switch from.type {
         case Model.SourceType.feed.rawValue:
-            guard let url = URL(string: from.value) else {
-                throw SerializationError.invalidURL(from.value)
-            }
-            self = .feed(url)
+            self.type = .feed
         default:
             throw SerializationError.unknownType(from.type)
         }
     }
 
     func source() -> Model.Source {
-        switch self {
-        case .feed(let url):
-            return .init(type: Model.SourceType.feed.rawValue, value: url.absoluteString)
+        switch self.type {
+        case .feed:
+            return .init(type: Model.SourceType.feed.rawValue, value: self.url.absoluteString)
         }
     }
 }

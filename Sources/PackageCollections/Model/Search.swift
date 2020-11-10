@@ -21,7 +21,7 @@ extension PackageCollectionsModel {
             public let package: PackageCollectionsModel.Package
 
             /// Package collections that contain the package
-            public let collections: [PackageCollectionsModel.PackageCollectionIdentifier]
+            public let collections: [PackageCollectionsModel.CollectionIdentifier]
         }
     }
 
@@ -32,5 +32,8 @@ extension PackageCollectionsModel {
     }
 
     /// A representation of target in search result
-    public typealias TargetSearchResult = TargetListResult
+    public struct TargetSearchResult {
+        /// Result items of the search
+        public let items: TargetListResult
+    }
 }

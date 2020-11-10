@@ -8,9 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import class Foundation.FileManager
-import TSCBasic
-
 import PackageModel
 import SourceControl
 
@@ -30,11 +27,31 @@ struct NotFoundError: Error {
     }
 }
 
-// Model Extensions
+internal extension Result {
+    var failure: Failure? {
+        switch self {
+        case .failure(let failure):
+            return failure
+        case .success:
+            return nil
+        }
+    }
+
+    var success: Success? {
+        switch self {
+        case .failure:
+            return nil
+        case .success(let value):
+            return value
+        }
+    }
+}
+
+// Model Extension
 
 extension PackageReference {
     /// Initializes a `PackageReference` from `RepositorySpecifier`
-    public init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
+    init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
         self.init(
             identity: PackageReference.computeIdentity(packageURL: repository.url),
             path: repository.url,

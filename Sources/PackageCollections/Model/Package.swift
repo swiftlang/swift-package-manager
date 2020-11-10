@@ -124,7 +124,7 @@ extension PackageCollectionsModel.Package {
 
 extension PackageCollectionsModel {
     /// A representation of package target
-    public struct PackageTarget: Codable {
+    public struct PackageTarget: Equatable, Codable {
         /// The target name
         public let name: String
 
@@ -135,7 +135,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel {
     /// A representation of package product
-    public struct PackageProduct: Codable {
+    public struct PackageProduct: Equatable, Codable {
         /// The product name
         public let name: String
 
@@ -168,5 +168,5 @@ extension PackageCollectionsModel.Package {
 }
 
 extension PackageCollectionsModel {
-    public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.PackageCollectionIdentifier])
+    public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.CollectionIdentifier])
 }

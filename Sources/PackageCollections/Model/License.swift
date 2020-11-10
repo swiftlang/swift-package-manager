@@ -12,7 +12,7 @@ import struct Foundation.URL
 
 extension PackageCollectionsModel {
     /// A representation of a package license
-    public struct License: Codable {
+    public struct License: Equatable, Codable {
         /// License type
         public let type: LicenseType
 
@@ -21,7 +21,7 @@ extension PackageCollectionsModel {
     }
 
     /// An enum of license types
-    public enum LicenseType: CaseIterable, CustomStringConvertible {
+    public enum LicenseType: Equatable, CaseIterable, CustomStringConvertible {
         // This list is taken from https://opensource.org/licenses
 
         /// Apache License 2.0
