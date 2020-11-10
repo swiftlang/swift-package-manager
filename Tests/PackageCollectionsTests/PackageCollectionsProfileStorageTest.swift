@@ -202,8 +202,8 @@ final class PackageCollectionProfileStorageTest: XCTestCase {
         let storage = FilePackageCollectionsProfileStorage(fileSystem: mockFileSystem)
 
         let sources = makeMockSources()
-        var profiles = [PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.PackageCollectionSource](),
-                        PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.PackageCollectionSource]()]
+        var profiles = [PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.CollectionSource](),
+                        PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.CollectionSource]()]
 
         try sources.enumerated().forEach { index, source in
             let profile = index % 2 == 0 ? Array(profiles.keys)[0] : Array(profiles.keys)[1]
