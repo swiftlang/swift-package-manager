@@ -15,7 +15,7 @@ import SourceControl
 
 extension PackageCollectionsModel {
     /// Package metadata
-    public struct Package {
+    public struct Package: Equatable {
         /// Package reference
         public let reference: PackageReference
 
@@ -87,7 +87,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel.Package {
     /// A representation of package version
-    public struct Version {
+    public struct Version: Equatable {
         public typealias Target = PackageCollectionsModel.PackageTarget
         public typealias Product = PackageCollectionsModel.PackageProduct
 
@@ -149,7 +149,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel.Package {
     /// A representation of package author
-    public struct Author {
+    public struct Author: Equatable, Codable {
         /// Author's username
         public let username: String
 
@@ -160,7 +160,7 @@ extension PackageCollectionsModel.Package {
         public let service: Service?
 
         /// A representation of user service
-        public struct Service {
+        public struct Service: Equatable, Codable {
             /// The service name
             public let name: String
         }
