@@ -18,7 +18,7 @@ extension FileSystem {
 }
 
 extension FileSystem {
-    /// SwiftPM cache directory under usre's caches directory (if exists)
+    /// SwiftPM cache directory under user's caches directory (if exists)
     public var swiftPMCacheDirectory: AbsolutePath {
         if let cachesDirectory = self.cachesDirectory {
             return cachesDirectory.appending(component: "org.swift.swiftpm")
