@@ -87,7 +87,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     let _reversedVersions: [Version]
 
     /// The cached dependency information.
-    private var dependenciesCache: [String: (Manifest, [RepositoryPackageConstraint])] = [:]
+    private var dependenciesCache: [String: [ProductFilter: (Manifest, [RepositoryPackageConstraint])]] = [:]
     private var dependenciesCacheLock = Lock()
 
     init(
@@ -157,7 +157,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     public override func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
         do {
-            return try cachedDependencies(forIdentifier: version.description) {
+            return try cachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 let tag = knownVersions[version]!
                 let revision = try repository.resolveRevision(tag: tag)
                 return try getDependencies(at: revision, version: version, productFilter: productFilter)
@@ -170,7 +170,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     public override func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
         do {
-            return try cachedDependencies(forIdentifier: revision) {
+            return try cachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
                 return try getDependencies(at: revision, productFilter: productFilter)
@@ -203,14 +203,15 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     private func cachedDependencies(
         forIdentifier identifier: String,
+        productFilter: ProductFilter,
         getDependencies: () throws -> (Manifest, [RepositoryPackageConstraint])
     ) throws -> (Manifest, [RepositoryPackageConstraint]) {
         return try dependenciesCacheLock.withLock {
-            if let result = dependenciesCache[identifier] {
+            if let result = dependenciesCache[identifier, default: [:]][productFilter] {
                 return result
             }
             let result = try getDependencies()
-            dependenciesCache[identifier] = result
+            dependenciesCache[identifier, default: [:]][productFilter] = result
             return result
         }
     }

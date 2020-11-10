@@ -1240,13 +1240,27 @@ extension Workspace {
         var loadedManifests = [String: Manifest]()
 
         // Compute the transitive closure of available dependencies.
-        let allManifests = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: $0.name)})) { node in
+        struct NameAndFilter: Hashable { // Just because a raw tuple cannot be hashable.
+            let name: String
+            let filter: ProductFilter
+        }
+        let allManifestsWithPossibleDuplicates = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) })) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
-                return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: $0.name) })
+                return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: NameAndFilter(name: $0.name, filter: dependency.productFilter)) })
             })
+        }
+        var deduplication: Set<String> = []
+        var allManifests: [KeyedPair<(Manifest, ProductFilter), NameAndFilter>] = []
+        for node in allManifestsWithPossibleDuplicates {
+            if deduplication.contains(node.item.0.name) {
+                continue // A duplicate.
+            } else {
+                allManifests.append(node)
+                deduplication.insert(node.item.0.name)
+            }
         }
 
         let allDependencyManifests = allManifests.map({ $0.item }).filter({ !root.manifests.contains($0.0) })
