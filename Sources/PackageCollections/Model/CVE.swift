@@ -12,7 +12,7 @@ import struct Foundation.URL
 
 extension PackageCollectionsModel {
     /// A representation of Common Vulnerabilities and Exposures (CVE)
-    public struct CVE {
+    public struct CVE: Equatable {
         /// CVE identifier
         public let identifier: String
 
