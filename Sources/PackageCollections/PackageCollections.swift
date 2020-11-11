@@ -345,10 +345,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 .compactMap { packageCollections[$0] }
                 .map { pair -> PackageCollectionsModel.TargetListResult.Package in
                     let versions = pair.package.versions.map { PackageCollectionsModel.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
-                    return PackageCollectionsModel.TargetListResult.Package(repository: pair.package.repository,
-                                                                            description: pair.package.summary,
-                                                                            versions: versions,
-                                                                            collections: Array(pair.collections))
+                    return .init(repository: pair.package.repository,
+                                 description: pair.package.summary,
+                                 versions: versions,
+                                 collections: Array(pair.collections))
                 }
 
             return PackageCollectionsModel.TargetListItem(target: pair.target, packages: targetPackages)
@@ -357,16 +357,17 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     internal static func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
                                                basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
-        var versions = package.versions.map { packageVersion in
-            PackageCollectionsModel.Package.Version(version: packageVersion.version,
-                                                    packageName: packageVersion.packageName,
-                                                    targets: packageVersion.targets,
-                                                    products: packageVersion.products,
-                                                    toolsVersion: packageVersion.toolsVersion,
-                                                    verifiedPlatforms: packageVersion.verifiedPlatforms,
-                                                    verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
-                                                    cves: nil, // TODO: where do we get this from?
-                                                    license: packageVersion.license)
+        var versions = package.versions.map { packageVersion -> PackageCollectionsModel.Package.Version in
+            let metadataVersion = basicMetadata?.versions.first(where: { $0.version == packageVersion.version })
+            return .init(version: packageVersion.version,
+                         packageName: packageVersion.packageName,
+                         targets: packageVersion.targets,
+                         products: packageVersion.products,
+                         toolsVersion: packageVersion.toolsVersion,
+                         verifiedPlatforms: packageVersion.verifiedPlatforms,
+                         verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
+                         cves: metadataVersion?.cves,
+                         license: packageVersion.license)
         }
 
         // uses TSCUtility.Version comparator

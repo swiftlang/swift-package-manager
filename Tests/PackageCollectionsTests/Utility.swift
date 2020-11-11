@@ -24,6 +24,8 @@ func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectio
 }
 
 func makeMockCollections(count: Int = Int.random(in: 50 ... 100)) -> [PackageCollectionsModel.Collection] {
+    let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi]
+
     return (0 ..< count).map { collectionIndex in
         let packages = (0 ..< Int.random(in: 1 ... 15)).map { packageIndex -> PackageCollectionsModel.Collection.Package in
             let versions = (0 ..< Int.random(in: 1 ... 10)).map { versionIndex -> PackageCollectionsModel.Collection.PackageVersion in
@@ -36,14 +38,19 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100)) -> [PackageCol
                                                            type: .executable,
                                                            targets: targets)
                 }
+                let verifiedPlatforms = (0 ..< Int.random(in: 1 ... 3)).map { _ in platforms.randomElement()! }
+                let verifiedSwiftVersions = (0 ..< Int.random(in: 1 ... 3)).map { _ in SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()! }
+                let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
+                let license = PackageCollectionsModel.License(type: licenseType, url: URL(string: "http://\(licenseType).license")!)
+
                 return PackageCollectionsModel.Collection.PackageVersion(version: TSCUtility.Version(versionIndex, 0, 0),
                                                                          packageName: "package-\(packageIndex)",
                                                                          targets: targets,
                                                                          products: products,
                                                                          toolsVersion: .currentToolsVersion,
-                                                                         verifiedPlatforms: nil,
-                                                                         verifiedSwiftVersions: nil,
-                                                                         license: nil)
+                                                                         verifiedPlatforms: verifiedPlatforms,
+                                                                         verifiedSwiftVersions: verifiedSwiftVersions,
+                                                                         license: license)
             }
 
             return PackageCollectionsModel.Collection.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),
@@ -62,8 +69,12 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100)) -> [PackageCol
 }
 
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
+    let versions = (0 ..< Int.random(in: 1 ... 10)).map {
+        PackageCollectionsModel.PackageBasicMetadata.Version(version: TSCUtility.Version($0, 0, 0),
+                                                             cves: nil)
+    }
     return .init(description: UUID().uuidString,
-                 versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
+                 versions: versions,
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: URL(string: "https://package-readme")!,
                  authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
