@@ -18,7 +18,7 @@ protocol PackageMetadataProvider {
     /// Retrieves metadata for a package at the given repository address.
     ///
     /// - Parameters:
-    ///   - reference: The package'reference
+    ///   - reference: The package's reference
     ///   - callback: The closure to invoke when result becomes available
     func get(reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata?, Error>) -> Void)
 }

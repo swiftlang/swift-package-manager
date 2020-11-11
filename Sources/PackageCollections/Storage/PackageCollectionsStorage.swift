@@ -66,11 +66,11 @@ public protocol PackageCollectionsStorage {
     /// Returns optional `PackageSearchResult.Item` for the given package identity.
     ///
     /// - Parameters:
-    ///   - identifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - identifier: The package identifier
+    ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - callback: The closure to invoke when result becomes available
-    func findPackageByIdentifier(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                                 packageIdentifier: PackageReference.PackageIdentity,
+    func findPackageByIdentifier(_ identifier: PackageReference.PackageIdentity,
+                                 collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                                  callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
 
     /// Returns `TargetSearchResult` for the given search criteria.
@@ -245,11 +245,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // FIXME: this is PoC for search, need a more performant version of this
-    // TODO: confirm this is the correct logic 👀
-    func findPackageByIdentifier(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                                 packageIdentifier: PackageReference.PackageIdentity,
+    func findPackageByIdentifier(_ identifier: PackageReference.PackageIdentity,
+                                 collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                                  callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
-        self.list(identifiers: identifiers) { result in
+        self.list(identifiers: collectionIdentifiers) { result in
             switch result {
             case .failure(let error):
                 return callback(.failure(error))
@@ -257,12 +256,12 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 // sorting by collection processing date so the latest metadata is first
                 let collectionPackages = collections.sorted(by: { lhs, rhs in lhs.lastProcessedAt > rhs.lastProcessedAt }).compactMap { collection in
                     collection.packages
-                        .first(where: { $0.reference.identity == packageIdentifier })
+                        .first(where: { $0.reference.identity == identifier })
                         .flatMap { (collection: collection.identifier, package: $0) }
                 }
                 // first package should have latest processing date
                 guard let package = collectionPackages.first?.package else {
-                    return callback(.failure(NotFoundError("\(packageIdentifier)")))
+                    return callback(.failure(NotFoundError("\(identifier)")))
                 }
                 let collections = collectionPackages.map { $0.collection }
                 callback(.success(.init(package: package, collections: collections)))

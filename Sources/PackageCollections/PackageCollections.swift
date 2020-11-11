@@ -207,20 +207,24 @@ public struct PackageCollections: PackageCollectionsProtocol {
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         let profile = profile ?? .default
 
+        // first find in storage
         self.findPackageByIdentifier(reference.identity, profile: profile) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let packageSearchResult):
+                // then try to get more metadata from provider (optional)
                 self.metadataProvider.get(reference: reference) { result in
                     switch result {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let basicMetadata):
-                        callback(.success(PackageCollectionsModel.PackageMetadata(
+                        // finally merge the results
+                        let metadata = PackageCollectionsModel.PackageMetadata(
                             package: self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
                             collections: packageSearchResult.collections
-                        )))
+                        )
+                        callback(.success(metadata))
                     }
                 }
             }
@@ -309,7 +313,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.failure(NotFoundError("\(identifier)")))
                 }
-                self.storage.collections.findPackageByIdentifier(identifiers: identifiers, packageIdentifier: identifier, callback: callback)
+                self.storage.collections.findPackageByIdentifier(identifier, collectionIdentifiers: identifiers, callback: callback)
             }
         }
     }
@@ -351,7 +355,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    // TODO: confirm this is the correct logic 👀
     internal func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
                                         basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
         var versions = package.versions.map { packageVersion in
