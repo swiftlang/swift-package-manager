@@ -69,9 +69,9 @@ public protocol PackageCollectionsStorage {
     ///   - identifier: The package identifier
     ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - callback: The closure to invoke when result becomes available
-    func findPackageByIdentifier(_ identifier: PackageReference.PackageIdentity,
-                                 collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                                 callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
+    func findPackage(identifier: PackageReference.PackageIdentity,
+                     collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
+                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
 
     /// Returns `TargetSearchResult` for the given search criteria.
     ///
@@ -245,9 +245,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // FIXME: this is PoC for search, need a more performant version of this
-    func findPackageByIdentifier(_ identifier: PackageReference.PackageIdentity,
-                                 collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                                 callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
+    func findPackage(identifier: PackageReference.PackageIdentity,
+                     collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
+                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.list(identifiers: collectionIdentifiers) { result in
             switch result {
             case .failure(let error):

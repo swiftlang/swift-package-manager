@@ -208,7 +208,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         let profile = profile ?? .default
 
         // first find in storage
-        self.findPackageByIdentifier(reference.identity, profile: profile) { result in
+        self.findPackage(identifier: reference.identity, profile: profile) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -297,8 +297,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    func findPackageByIdentifier(
-        _ identifier: PackageReference.PackageIdentity,
+    func findPackage(
+        identifier: PackageReference.PackageIdentity,
         profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void
     ) {
@@ -313,7 +313,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.failure(NotFoundError("\(identifier)")))
                 }
-                self.storage.collections.findPackageByIdentifier(identifier, collectionIdentifiers: identifiers, callback: callback)
+                self.storage.collections.findPackage(identifier: identifier, collectionIdentifiers: identifiers, callback: callback)
             }
         }
     }
