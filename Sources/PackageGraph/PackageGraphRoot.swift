@@ -75,7 +75,7 @@ public struct PackageGraphRoot {
         }
         return constraints + self.dependencies.map {
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
+                container: PackageReference(dependency: $0, mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter
             )

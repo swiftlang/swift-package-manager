@@ -1036,46 +1036,40 @@ public extension Workspace {
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
-                root.manifests.map { (PackageIdentity($0.url), $0) } +
-                    self.dependencies.map { (PackageIdentity($0.manifest.url), $0.manifest) }
-            )
+            let manifests = self.root.manifests + self.dependencies.map { $0.manifest }
+            let manifestsMap: [PackageReference: Manifest] = Dictionary(uniqueKeysWithValues: manifests.map {
+                (PackageReference(manifest: $0), $0)
+            })
 
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = self.root.manifests.map { manifest in
-                let identity = PackageIdentity(manifest.url)
-                let package = PackageReference(identity: identity.description, path: manifest.url, kind: manifest.packageKind)
+                let package = PackageReference(manifest: manifest)
                 inputIdentities.insert(package)
-                let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
-                return node
+
+                return GraphLoadingNode(manifest: manifest, productFilter: .everything)
             } + self.root.dependencies.compactMap { dependency in
-                let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
-                let identity = PackageIdentity(url)
-                let package = PackageReference(identity: identity.description, path: url)
+                let package = PackageReference(dependency: dependency, mirrors: workspace.config.mirrors)
                 inputIdentities.insert(package)
-                guard let manifest = manifestsMap[identity] else { return nil }
-                let node = GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
-                return node
+
+                guard let manifest = manifestsMap[package] else { return nil }
+                return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
             }
 
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 node.manifest.dependenciesRequired(for: node.productFilter).compactMap { dependency in
-                    let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
-                    let identity = PackageIdentity(url)
-                    let package = PackageReference(identity: identity.description, path: url)
+                    let package = PackageReference(dependency: dependency, mirrors: workspace.config.mirrors)
                     requiredIdentities.insert(package)
-                    guard let manifest = manifestsMap[identity] else { return nil }
+
+                    guard let manifest = manifestsMap[package] else { return nil }
                     return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
             }
             // FIXME: This should be an ordered set.
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
-            let availableIdentities: Set<PackageReference> = Set(manifestsMap.map {
-                let url = workspace.config.mirrors.effectiveURL(forURL: $0.1.url)
-                return PackageReference(identity: $0.key.description, path: url, kind: $0.1.packageKind)
-            })
+            let availableIdentities: Set<PackageReference> = Set(manifestsMap.keys)
+
             // We should never have loaded a manifest we don't need.
             assert(availableIdentities.isSubset(of: requiredIdentities), "\(availableIdentities) | \(requiredIdentities)")
             // These are the missing package identities.
@@ -1633,7 +1627,7 @@ extension Workspace {
         for rootManifest in rootManifests {
             let dependencies = rootManifest.dependencies.filter { $0.requirement == .localPackage }
             for localPackage in dependencies {
-                let package = localPackage.createPackageRef(mirrors: self.config.mirrors)
+                let package = PackageReference(dependency: localPackage, mirrors: self.config.mirrors)
                 self.state.dependencies.add(ManagedDependency.local(packageRef: package))
             }
         }

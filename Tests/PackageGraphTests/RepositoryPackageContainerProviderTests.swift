@@ -379,7 +379,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
         let v5Constraints = dependencies.map {
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
+                container: PackageReference(dependency: $0, mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: v5ProductMapping[$0.name]!
             )
@@ -391,7 +391,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
         let v5_2Constraints = dependencies.map {
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
+                container: PackageReference(dependency: $0, mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.name]!
             )

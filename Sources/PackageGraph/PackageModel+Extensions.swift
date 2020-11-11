@@ -11,10 +11,10 @@
 import PackageModel
 import SourceControl
 
-public extension PackageDependencyDescription {
+public extension PackageReference {
     /// Create the package reference object for the dependency.
-    func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
-        let effectiveURL = mirrors.effectiveURL(forURL: url)
+    init(dependency: PackageDependencyDescription, mirrors: DependencyMirrors) {
+        let effectiveURL = mirrors.effectiveURL(forURL: dependency.url)
 
         // FIXME: The identity of a package dependency is currently based on
         //        on a name computed from the package's effective URL.  This
@@ -23,11 +23,15 @@ public extension PackageDependencyDescription {
         //        We should instead use the declared URL of a package dependency
         //        as its identity, as it will be needed for supporting package
         //        registries.
-        return PackageReference(
+        self.init(
             identity: effectiveURL,
             path: effectiveURL,
-            kind: requirement == .localPackage ? .local : .remote
+            kind: dependency.requirement == .localPackage ? .local : .remote
         )
+    }
+
+    init(manifest: Manifest) {
+        self.init(identity: manifest.url, path: manifest.url, name: manifest.name, kind: manifest.packageKind)
     }
 }
 
@@ -36,7 +40,7 @@ public extension Manifest {
     func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
         return dependenciesRequired(for: productFilter).map {
             RepositoryPackageConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
+                container: PackageReference(dependency: $0, mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter
             )
