@@ -69,12 +69,8 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100)) -> [PackageCol
 }
 
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
-    let versions = (0 ..< Int.random(in: 1 ... 10)).map {
-        PackageCollectionsModel.PackageBasicMetadata.Version(version: TSCUtility.Version($0, 0, 0),
-                                                             cves: nil)
-    }
     return .init(description: UUID().uuidString,
-                 versions: versions,
+                 versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: URL(string: "https://package-readme")!,
                  authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },

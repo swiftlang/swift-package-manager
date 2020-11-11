@@ -26,15 +26,10 @@ protocol PackageMetadataProvider {
 extension PackageCollectionsModel {
     struct PackageBasicMetadata: Equatable {
         let description: String?
-        let versions: [Version]
+        let versions: [TSCUtility.Version]
         let watchersCount: Int?
         let readmeURL: Foundation.URL?
         let authors: [PackageCollectionsModel.Package.Author]?
         let processedAt: Date
-
-        struct Version: Equatable {
-            let version: TSCUtility.Version
-            let cves: [PackageCollectionsModel.CVE]?
-        }
     }
 }

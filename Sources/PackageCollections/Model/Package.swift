@@ -114,9 +114,6 @@ extension PackageCollectionsModel.Package {
         /// The package version's Swift versions verified to work
         public let verifiedSwiftVersions: [SwiftLanguageVersion]?
 
-        /// The package version's CVEs
-        public let cves: [PackageCollectionsModel.CVE]?
-
         /// The package version's license
         public let license: PackageCollectionsModel.License?
     }

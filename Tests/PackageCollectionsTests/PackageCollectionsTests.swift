@@ -856,12 +856,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                      readmeURL: URL(string: "https://package-\(packageId)-readme")!)
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(description: "\(mockPackage.summary!) 2",
-                                                                        versions: (0 ..< Int.random(in: 1 ... 10)).map {
-                                                                            .init(version: TSCUtility.Version($0, 0, 0),
-                                                                                  cves: (0 ..< Int.random(in: 1 ... 10)).map {
-                                                                                      .init(identifier: UUID().uuidString, url: URL(string: "http://cve-\($0)")!)
-                                                                                  })
-                                                                        },
+                                                                        versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
                                                                         watchersCount: Int.random(in: 0 ... 50),
                                                                         readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
                                                                         authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
@@ -873,7 +868,6 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(metadata.repository, mockPackage.repository, "repository should match")
         XCTAssertEqual(metadata.description, mockMetadata.description, "description should match")
         mockPackage.versions.forEach { version in
-            let mockMetadataVersion = mockMetadata.versions.first(where: { $0.version == version.version })
             let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
             XCTAssertNotNil(metadataVersion)
 
@@ -884,7 +878,6 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(version.verifiedPlatforms, metadataVersion?.verifiedPlatforms, "verifiedPlatforms should match")
             XCTAssertEqual(version.verifiedSwiftVersions, metadataVersion?.verifiedSwiftVersions, "verifiedSwiftVersions should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
-            XCTAssertEqual(mockMetadataVersion?.cves, metadataVersion?.cves, "cves should match")
         }
         XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")
         XCTAssertEqual(metadata.latestVersion?.version, versions.last?.version, "latestVersion should match")

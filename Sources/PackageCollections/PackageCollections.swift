@@ -358,16 +358,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
     internal static func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
                                                basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
         var versions = package.versions.map { packageVersion -> PackageCollectionsModel.Package.Version in
-            let metadataVersion = basicMetadata?.versions.first(where: { $0.version == packageVersion.version })
-            return .init(version: packageVersion.version,
-                         packageName: packageVersion.packageName,
-                         targets: packageVersion.targets,
-                         products: packageVersion.products,
-                         toolsVersion: packageVersion.toolsVersion,
-                         verifiedPlatforms: packageVersion.verifiedPlatforms,
-                         verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
-                         cves: metadataVersion?.cves,
-                         license: packageVersion.license)
+            .init(version: packageVersion.version,
+                  packageName: packageVersion.packageName,
+                  targets: packageVersion.targets,
+                  products: packageVersion.products,
+                  toolsVersion: packageVersion.toolsVersion,
+                  verifiedPlatforms: packageVersion.verifiedPlatforms,
+                  verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
+                  license: packageVersion.license)
         }
 
         // uses TSCUtility.Version comparator
