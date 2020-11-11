@@ -221,7 +221,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     case .success(let basicMetadata):
                         // finally merge the results
                         let metadata = PackageCollectionsModel.PackageMetadata(
-                            package: self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
+                            package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
                             collections: packageSearchResult.collections
                         )
                         callback(.success(metadata))
@@ -355,8 +355,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    internal func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
-                                        basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
+    internal static func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
+                                               basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
         var versions = package.versions.map { packageVersion in
             PackageCollectionsModel.Package.Version(version: packageVersion.version,
                                                     packageName: packageVersion.packageName,
@@ -365,11 +365,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
                                                     toolsVersion: packageVersion.toolsVersion,
                                                     verifiedPlatforms: packageVersion.verifiedPlatforms,
                                                     verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
-                                                    cves: nil, // FIXME: where do we get this from?
+                                                    cves: nil, // TODO: where do we get this from?
                                                     license: packageVersion.license)
         }
 
-        // FIXME: this is naive sorting, need to implement per spec
+        // uses TSCUtility.Version comparator
         versions.sort(by: { lhs, rhs in lhs.version > rhs.version })
         let latestVersion = versions.first
 

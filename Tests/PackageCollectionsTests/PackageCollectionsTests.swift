@@ -792,7 +792,7 @@ final class PackageCollectionsTests: XCTestCase {
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.reference }.contains(mockPackage.reference) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
 
-        let expectedMetadata = packageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
+        let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
@@ -825,8 +825,64 @@ final class PackageCollectionsTests: XCTestCase {
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.reference }.contains(mockPackage.reference) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
 
-        let expectedMetadata = packageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
+        let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+    }
+
+    func testMergedPackageMetadata() {
+        let packageId = UUID().uuidString
+
+        let targets = (0 ..< Int.random(in: 1 ... 5)).map {
+            PackageCollectionsModel.PackageTarget(name: "target-\($0)", moduleName: "target-\($0)")
+        }
+        let products = (0 ..< Int.random(in: 1 ... 3)).map {
+            PackageCollectionsModel.PackageProduct(name: "product-\($0)", type: .executable, targets: targets)
+        }
+
+        let versions = (0 ... 3).map {
+            PackageCollectionsModel.Collection.PackageVersion(version: TSCUtility.Version($0, 0, 0),
+                                                              packageName: "package-\(packageId)",
+                                                              targets: targets,
+                                                              products: products,
+                                                              toolsVersion: .currentToolsVersion,
+                                                              verifiedPlatforms: nil,
+                                                              verifiedSwiftVersions: nil,
+                                                              license: nil)
+        }
+
+        let mockPackage = PackageCollectionsModel.Collection.Package(repository: RepositorySpecifier(url: "https://package-\(packageId)"),
+                                                                     summary: "package \(packageId) description",
+                                                                     versions: versions,
+                                                                     readmeURL: URL(string: "https://package-\(packageId)-readme")!)
+
+        let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(description: "\(mockPackage.summary!) 2",
+                                                                        versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
+                                                                        watchersCount: Int.random(in: 0 ... 50),
+                                                                        readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
+                                                                        authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
+                                                                        processedAt: Date())
+
+        let metadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
+
+        XCTAssertEqual(metadata.reference, mockPackage.reference, "reference should match")
+        XCTAssertEqual(metadata.repository, mockPackage.repository, "repository should match")
+        XCTAssertEqual(metadata.description, mockMetadata.description, "description should match")
+        mockPackage.versions.forEach { version in
+            let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
+            XCTAssertNotNil(metadataVersion)
+            XCTAssertEqual(version.packageName, metadataVersion?.packageName, "packageName should match")
+            XCTAssertEqual(version.targets, metadataVersion?.targets, "targets should match")
+            XCTAssertEqual(version.products, metadataVersion?.products, "products should match")
+            XCTAssertEqual(version.toolsVersion, metadataVersion?.toolsVersion, "toolsVersion should match")
+            XCTAssertEqual(version.verifiedPlatforms, metadataVersion?.verifiedPlatforms, "verifiedPlatforms should match")
+            XCTAssertEqual(version.verifiedSwiftVersions, metadataVersion?.verifiedSwiftVersions, "verifiedSwiftVersions should match")
+            XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
+        }
+        XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")
+        XCTAssertEqual(metadata.latestVersion?.version, versions.last?.version, "latestVersion should match")
+        XCTAssertEqual(metadata.watchersCount, mockMetadata.watchersCount, "watchersCount should match")
+        XCTAssertEqual(metadata.readmeURL, mockMetadata.readmeURL, "readmeURL should match")
+        XCTAssertEqual(metadata.authors, mockMetadata.authors, "authors should match")
     }
 
     func testFetchMetadataNotFoundInCollections() throws {
@@ -879,7 +935,7 @@ final class PackageCollectionsTests: XCTestCase {
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.reference }.contains(mockPackage.reference) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
 
-        let expectedMetadata = packageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
+        let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
