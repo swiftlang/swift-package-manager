@@ -15,17 +15,26 @@ import TSCBasic
 public struct PackageCollections: PackageCollectionsProtocol {
     private let configuration: Configuration
     private let storage: Storage
-    private let providers: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider]
+    private let collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider]
+    private let metadataProvider: PackageMetadataProvider
 
-    init(configuration: Configuration, storage: Storage, providers: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider]) {
+    init(configuration: Configuration,
+         storage: Storage,
+         collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider],
+         metadataProvider: PackageMetadataProvider) {
         self.configuration = configuration
         self.storage = storage
-        self.providers = providers
+        self.collectionProviders = collectionProviders
+        self.metadataProvider = metadataProvider
     }
+
+    // MARK: - Profiles
 
     public func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void) {
         self.storage.collectionsProfiles.listProfiles(callback: callback)
     }
+
+    // MARK: - Collections
 
     public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
                                 in profile: PackageCollectionsModel.Profile? = nil,
@@ -56,28 +65,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
                         callback(.success(collections))
                     }
                 }
-            }
-        }
-    }
-
-    public func findPackages(
-        _ query: String,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        profile: PackageCollectionsModel.Profile? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.listSources(in: profile) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
-                if identifiers.isEmpty {
-                    return callback(.success(PackageCollectionsModel.PackageSearchResult(items: [])))
-                }
-                self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
             }
         }
     }
@@ -179,7 +166,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         self.storage.collections.get(identifier: .init(from: source)) { result in
             switch result {
             case .failure:
-                guard let provider = self.providers[source.type] else {
+                guard let provider = self.collectionProviders[source.type] else {
                     return callback(.failure(UnknownProvider(source.type)))
                 }
                 provider.get(source, callback: callback)
@@ -188,6 +175,63 @@ public struct PackageCollections: PackageCollectionsProtocol {
             }
         }
     }
+
+    // MARK: - Packages
+
+    public func findPackages(
+        _ query: String,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
+        profile: PackageCollectionsModel.Profile? = nil,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
+    ) {
+        let profile = profile ?? .default
+
+        self.storage.collectionsProfiles.listSources(in: profile) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let sources):
+                let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
+                if identifiers.isEmpty {
+                    return callback(.success(PackageCollectionsModel.PackageSearchResult(items: [])))
+                }
+                self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
+            }
+        }
+    }
+
+    // MARK: - Package Metadata
+
+    public func getPackageMetadata(_ reference: PackageReference,
+                                   profile: PackageCollectionsModel.Profile? = nil,
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        let profile = profile ?? .default
+
+        // first find in storage
+        self.findPackage(identifier: reference.identity, profile: profile) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let packageSearchResult):
+                // then try to get more metadata from provider (optional)
+                self.metadataProvider.get(reference: reference) { result in
+                    switch result {
+                    case .failure(let error):
+                        callback(.failure(error))
+                    case .success(let basicMetadata):
+                        // finally merge the results
+                        let metadata = PackageCollectionsModel.PackageMetadata(
+                            package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
+                            collections: packageSearchResult.collections
+                        )
+                        callback(.success(metadata))
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Targets
 
     public func listTargets(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
@@ -229,12 +273,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    // FIXME:
-    public func getPackageMetadata(_ reference: PackageReference,
-                                   profile: PackageCollectionsModel.Profile? = nil,
-                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        fatalError("not implemented")
-    }
+    // MARK: - Private
 
     // Fetch the collection from the network and store it in local storage
     // This helps avoid network access in normal operations
@@ -245,7 +284,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         if let errors = source.validate() {
             return callback(.failure(MultipleErrors(errors)))
         }
-        guard let provider = self.providers[source.type] else {
+        guard let provider = self.collectionProviders[source.type] else {
             return callback(.failure(UnknownProvider(source.type)))
         }
         provider.get(source) { result in
@@ -254,6 +293,27 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 callback(.failure(error))
             case .success(let collection):
                 self.storage.collections.put(collection: collection, callback: callback)
+            }
+        }
+    }
+
+    func findPackage(
+        identifier: PackageReference.PackageIdentity,
+        profile: PackageCollectionsModel.Profile? = nil,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void
+    ) {
+        let profile = profile ?? .default
+
+        self.storage.collectionsProfiles.listSources(in: profile) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let sources):
+                let identifiers = sources.map { PackageCollectionsModel.CollectionIdentifier(from: $0) }
+                if identifiers.isEmpty {
+                    return callback(.failure(NotFoundError("\(identifier)")))
+                }
+                self.storage.collections.findPackage(identifier: identifier, collectionIdentifiers: identifiers, callback: callback)
             }
         }
     }
@@ -285,14 +345,42 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 .compactMap { packageCollections[$0] }
                 .map { pair -> PackageCollectionsModel.TargetListResult.Package in
                     let versions = pair.package.versions.map { PackageCollectionsModel.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
-                    return PackageCollectionsModel.TargetListResult.Package(repository: pair.package.repository,
-                                                                            description: pair.package.summary,
-                                                                            versions: versions,
-                                                                            collections: Array(pair.collections))
+                    return .init(repository: pair.package.repository,
+                                 description: pair.package.summary,
+                                 versions: versions,
+                                 collections: Array(pair.collections))
                 }
 
             return PackageCollectionsModel.TargetListItem(target: pair.target, packages: targetPackages)
         }
+    }
+
+    internal static func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
+                                               basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
+        var versions = package.versions.map { packageVersion -> PackageCollectionsModel.Package.Version in
+            .init(version: packageVersion.version,
+                  packageName: packageVersion.packageName,
+                  targets: packageVersion.targets,
+                  products: packageVersion.products,
+                  toolsVersion: packageVersion.toolsVersion,
+                  verifiedPlatforms: packageVersion.verifiedPlatforms,
+                  verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
+                  license: packageVersion.license)
+        }
+
+        // uses TSCUtility.Version comparator
+        versions.sort(by: { lhs, rhs in lhs.version > rhs.version })
+        let latestVersion = versions.first
+
+        return .init(
+            repository: package.repository,
+            description: basicMetadata?.description ?? package.summary,
+            versions: versions,
+            latestVersion: latestVersion,
+            watchersCount: basicMetadata?.watchersCount,
+            readmeURL: basicMetadata?.readmeURL ?? package.readmeURL,
+            authors: basicMetadata?.authors
+        )
     }
 }
 

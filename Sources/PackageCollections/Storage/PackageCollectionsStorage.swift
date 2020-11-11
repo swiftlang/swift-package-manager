@@ -14,6 +14,7 @@ import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import struct Foundation.URL
+import PackageModel
 import TSCBasic
 import TSCUtility
 
@@ -61,6 +62,16 @@ public protocol PackageCollectionsStorage {
     func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
+
+    /// Returns optional `PackageSearchResult.Item` for the given package identity.
+    ///
+    /// - Parameters:
+    ///   - identifier: The package identifier
+    ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
+    ///   - callback: The closure to invoke when result becomes available
+    func findPackage(identifier: PackageReference.PackageIdentity,
+                     collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
+                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
 
     /// Returns `TargetSearchResult` for the given search criteria.
     ///
@@ -231,6 +242,31 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
         fatalError("not implemented")
+    }
+
+    // FIXME: this is PoC for search, need a more performant version of this
+    func findPackage(identifier: PackageReference.PackageIdentity,
+                     collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
+                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
+        self.list(identifiers: collectionIdentifiers) { result in
+            switch result {
+            case .failure(let error):
+                return callback(.failure(error))
+            case .success(let collections):
+                // sorting by collection processing date so the latest metadata is first
+                let collectionPackages = collections.sorted(by: { lhs, rhs in lhs.lastProcessedAt > rhs.lastProcessedAt }).compactMap { collection in
+                    collection.packages
+                        .first(where: { $0.reference.identity == identifier })
+                        .flatMap { (collection: collection.identifier, package: $0) }
+                }
+                // first package should have latest processing date
+                guard let package = collectionPackages.first?.package else {
+                    return callback(.failure(NotFoundError("\(identifier)")))
+                }
+                let collections = collectionPackages.map { $0.collection }
+                callback(.success(.init(package: package, collections: collections)))
+            }
+        }
     }
 
     // FIXME: implement this
