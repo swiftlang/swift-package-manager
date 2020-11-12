@@ -15,6 +15,40 @@ import TSCBasic
 import PackageModel
 
 final class PackageIdentityTests: XCTestCase {
+    // MARK: - Filesystem
+
+    func testFileScheme() {
+        XCTAssertEqual(
+            PackageIdentity("file:///Users/mona/LinkedList"),
+            "Users/mona/LinkedList"
+        )
+    }
+
+    func testImplicitFileSchemeWithAbsolutePath() {
+        XCTAssertEqual(
+            PackageIdentity("/Users/mona/LinkedList"),
+            "Users/mona/LinkedList"
+        )
+    }
+
+    // MARK: - FTP / FTPS
+
+    func testFTPScheme() {
+        XCTAssertEqual(
+            PackageIdentity("ftp://example.com/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testFTPSScheme() {
+        XCTAssertEqual(
+            PackageIdentity("ftps://example.com/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    // MARK: - HTTP / HTTPS
+
     func testHTTPScheme() {
         XCTAssertEqual(
             PackageIdentity("http://example.com/mona/LinkedList"),
@@ -50,98 +84,98 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
-    func testTrailingSlash() {
+    func testHTTPSSchemeWithTrailingSlash() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList/"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testGitSuffix() {
+    func testHTTPSSchemeWithGitSuffix() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList.git"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testGitSuffixWithTrailingSlash() {
+    func testHTTPSSchemeWithGitSuffixAndTrailingSlash() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList.git/"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testGitSuffixAndSwiftExtension() {
+    func testHTTPSSchemeWithGitSuffixAndSwiftExtension() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList.swift.git"),
             "example.com/mona/LinkedList.swift"
         )
     }
 
-    func testQuery() {
+    func testHTTPSSchemeWithQuery() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList?utm_source=forums.swift.org"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testQueryWithTrailingSlash() {
+    func testHTTPSSchemeWithQueryAndTrailingSlash() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList/?utm_source=forums.swift.org"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testQueryWithGitSuffix() {
+    func testHTTPSSchemeWithQueryAndGitSuffix() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList.git?utm_source=forums.swift.org"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testFragment() {
+    func testHTTPSSchemeWithFragment() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList#installation"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testFragmentWithTrailingSlash() {
+    func testHTTPSSchemeWithFragmentAndTrailingSlash() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList/#installation"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testFragmentWithGitSuffix() {
+    func testHTTPSSchemeWithFragmentAndGitSuffix() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList.git#installation"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testFragmentAndQuery() {
+    func testHTTPSSchemeWithFragmentAndQuery() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList.git#installation?utm_source=forums.swift.org"),
             "example.com/mona/LinkedList"
         )
     }
 
-    func testPercentEncoding() {
+    func testHTTPSSchemeWithPercentEncoding() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/%F0%9F%94%97List"),
             "example.com/mona/🔗List"
         )
     }
 
-    func testInvalidPercentEncoding() {
+    func testHTTPSSchemeWithInvalidPercentEncoding() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/100%"),
             "example.com/mona/100%"
         )
     }
 
-    func testInternationalizedDomainName() throws {
+    func testHTTPSSchemeWithInternationalizedDomainName() throws {
         // TODO: Implement Punycode conversion
         try XCTSkipIf(true, "internationalized domain names aren't yet supported")
 
@@ -150,6 +184,24 @@ final class PackageIdentityTests: XCTestCase {
             "schlüssel.tld/mona/LinkedList"
         )
     }
+
+    // MARK: - Git
+
+    func testGitScheme() {
+        XCTAssertEqual(
+            PackageIdentity("git://example.com/mona/LinkedList.git"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testGitSchemeWithPort() {
+        XCTAssertEqual(
+            PackageIdentity("git://example.com:9418/mona/LinkedList.git"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    // MARK: - SSH
 
     func testSSHScheme() {
         XCTAssertEqual(
@@ -232,48 +284,6 @@ final class PackageIdentityTests: XCTestCase {
         XCTAssertEqual(
             PackageIdentity("user:sw0rdf1sh!@example.com:/mona/Linked:List.git"),
             "example.com/mona/Linked:List"
-        )
-    }
-
-    func testGitScheme() {
-        XCTAssertEqual(
-            PackageIdentity("git://example.com/mona/LinkedList.git"),
-            "example.com/mona/LinkedList"
-        )
-    }
-
-    func testGitSchemeWithPort() {
-        XCTAssertEqual(
-            PackageIdentity("git://example.com:9418/mona/LinkedList.git"),
-            "example.com/mona/LinkedList"
-        )
-    }
-
-    func testFileScheme() {
-        XCTAssertEqual(
-            PackageIdentity("file:///Users/mona/LinkedList"),
-            "Users/mona/LinkedList"
-        )
-    }
-
-    func testImplicitFileSchemeWithAbsolutePath() {
-        XCTAssertEqual(
-            PackageIdentity("/Users/mona/LinkedList"),
-            "Users/mona/LinkedList"
-        )
-    }
-
-    func testFTPScheme() {
-        XCTAssertEqual(
-            PackageIdentity("ftp://example.com/mona/LinkedList"),
-            "example.com/mona/LinkedList"
-        )
-    }
-
-    func testFTPSScheme() {
-        XCTAssertEqual(
-            PackageIdentity("ftps://example.com/mona/LinkedList"),
-            "example.com/mona/LinkedList"
         )
     }
 }
