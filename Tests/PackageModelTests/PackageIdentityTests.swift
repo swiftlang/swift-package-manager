@@ -182,4 +182,18 @@ final class PackageIdentityTests: XCTestCase {
             "example.com/mona/LinkedList"
         )
     }
+
+    func testFileScheme() {
+        XCTAssertEqual(
+            PackageIdentity("file:///Users/mona/LinkedList"),
+            "Users/mona/LinkedList"
+        )
+    }
+
+    func testImplicitFileSchemeWithAbsolutePath() {
+        XCTAssertEqual(
+            PackageIdentity("/Users/mona/LinkedList"),
+            "Users/mona/LinkedList"
+        )
+    }
 }

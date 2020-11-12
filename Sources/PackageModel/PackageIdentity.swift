@@ -29,14 +29,20 @@ public struct PackageIdentity: LosslessStringConvertible {
             }
         }
 
-        string.removePortComponentIfPresent()
+        switch detectedScheme {
+        case nil, .file:
+            break
+        case .https:
+            string.removeFragmentComponentIfPresent()
+            string.removeQueryComponentIfPresent()
+            fallthrough
+        default:
+            string.removePortComponentIfPresent()
+        }
 
         if string.removeUserComponentIfPresent() || detectedScheme != .ssh {
             string.replaceFirstOccurenceIfPresent(of: ":", with: "/")
         }
-
-        string.removeFragmentComponentIfPresent()
-        string.removeQueryComponentIfPresent()
 
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
 
@@ -106,6 +112,7 @@ private enum Scheme: String, CustomStringConvertible, CaseIterable {
     case ssh
     case https
     case git
+    case file
 
     public var description: String {
         return self.rawValue
