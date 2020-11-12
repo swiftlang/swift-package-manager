@@ -29,19 +29,22 @@ public struct PackageIdentity: LosslessStringConvertible {
             }
         }
 
+        if case (let user, _)? = string.dropUserinfoSubcomponentPrefixIfPresent() {
+            string.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
+        }
+
         switch detectedScheme {
-        case nil, .file:
+        case .file:
             break
+        case .ftp, .ftps:
+            string.removePortComponentIfPresent()
         case .http, .https:
             string.removeFragmentComponentIfPresent()
             string.removeQueryComponentIfPresent()
-            fallthrough
-        default:
             string.removePortComponentIfPresent()
-        }
-
-        if string.removeUserComponentIfPresent() || detectedScheme != .ssh {
-            string.replaceFirstOccurenceIfPresent(of: ":", with: "/")
+        case nil, .git, .ssh:
+            string.removePortComponentIfPresent()
+            string.replaceFirstOccurenceIfPresent(of: ":", before: string.firstIndex(of: "/"), with: "/")
         }
 
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
@@ -152,16 +155,23 @@ private extension String {
     }
 
     @discardableResult
-    mutating func removeUserComponentIfPresent() -> Bool {
+    mutating func dropUserinfoSubcomponentPrefixIfPresent() -> (user: String, password: String?)? {
         if let indexOfAtSign = firstIndex(of: "@"),
            let indexOfFirstPathComponent = firstIndex(where: isSeparator),
            indexOfAtSign < indexOfFirstPathComponent
         {
-            removeSubrange(...indexOfAtSign)
-            return true
+            defer { self.removeSubrange(...indexOfAtSign) }
+
+            let userinfo = self[..<indexOfAtSign]
+            var components = userinfo.split(separator: ":", maxSplits: 2, omittingEmptySubsequences: false)
+            guard components.count > 0 else { return nil }
+            let user = String(components.removeFirst())
+            let password = components.last.map(String.init)
+
+            return (user, password)
         }
 
-        return false
+        return nil
     }
 
     @discardableResult
@@ -172,7 +182,7 @@ private extension String {
            let endIndexOfPort = self[index(after: startIndexOfPort)...].lastIndex(where: { $0.isDigit }),
            endIndexOfPort <= indexOfFirstPathComponent
         {
-            removeSubrange(startIndexOfPort ... endIndexOfPort)
+            self.removeSubrange(startIndexOfPort ... endIndexOfPort)
             return true
         }
 
@@ -198,9 +208,18 @@ private extension String {
     }
 
     @discardableResult
-    mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(of string: T, with replacement: U) -> Bool {
+    mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(
+        of string: T,
+        before index: Index? = nil,
+        with replacement: U
+    ) -> Bool {
         guard let range = range(of: string) else { return false }
-        replaceSubrange(range, with: replacement)
+
+        if let index = index, range.lowerBound >= index {
+            return false
+        }
+
+        self.replaceSubrange(range, with: replacement)
         return true
     }
 }

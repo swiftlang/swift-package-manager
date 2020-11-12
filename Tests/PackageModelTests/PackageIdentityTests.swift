@@ -155,6 +155,20 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testSSHSchemeWithTildeExpansion() {
+        XCTAssertEqual(
+            PackageIdentity("ssh://mona@example.com/~/LinkedList.git"),
+            "example.com/~mona/LinkedList"
+        )
+    }
+
+    func testSSHSchemeWithoutTildeExpansion() {
+        XCTAssertEqual(
+            PackageIdentity("ssh://git@example.com/~mona/LinkedList.git"),
+            "example.com/~mona/LinkedList"
+        )
+    }
+
     func testImplicitSSHScheme() {
         XCTAssertEqual(
             PackageIdentity("git@example.com/mona/LinkedList.git"),
@@ -173,6 +187,27 @@ final class PackageIdentityTests: XCTestCase {
         XCTAssertEqual(
             PackageIdentity("git@example.com:/mona/LinkedList.git"),
             "example.com/mona/LinkedList"
+        )
+    }
+
+    func testImplicitSSHSchemeWithTildeExpansion() {
+        XCTAssertEqual(
+            PackageIdentity("mona@example.com/~/LinkedList.git"),
+            "example.com/~mona/LinkedList"
+        )
+    }
+
+    func testImplicitSSHSchemeWithoutTildeExpansion() {
+        XCTAssertEqual(
+            PackageIdentity("git@example.com/~mona/LinkedList.git"),
+            "example.com/~mona/LinkedList"
+        )
+    }
+
+    func testImplicitSSHSchemeWithColonInPathComponent() {
+        XCTAssertEqual(
+            PackageIdentity("user:sw0rdf1sh!@example.com:/mona/Linked:List.git"),
+            "example.com/mona/Linked:List"
         )
     }
 
