@@ -110,6 +110,8 @@ extension PackageIdentity: ExpressibleByStringLiteral {
 
 private enum Scheme: String, CustomStringConvertible, CaseIterable {
     case file
+    case ftp
+    case ftps
     case git
     case http
     case https

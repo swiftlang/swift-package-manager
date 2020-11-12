@@ -203,4 +203,18 @@ final class PackageIdentityTests: XCTestCase {
             "Users/mona/LinkedList"
         )
     }
+
+    func testFTPScheme() {
+        XCTAssertEqual(
+            PackageIdentity("ftp://example.com/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
+    func testFTPSScheme() {
+        XCTAssertEqual(
+            PackageIdentity("ftps://example.com/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
 }
