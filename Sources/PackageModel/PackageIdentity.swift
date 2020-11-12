@@ -96,31 +96,22 @@ public struct PackageIdentity: LosslessStringConvertible {
     public init(_ string: String) {
         var string = string
 
-        var detectedScheme: Scheme?
-        for scheme in Scheme.allCases {
-            if string.removePrefixIfPresent("\(scheme):") {
-                detectedScheme = scheme
-                string.removePrefixIfPresent("//")
-                break
-            }
-        }
+        let detectedScheme = string.dropSchemeComponentPrefixIfPresent()
 
         if case (let user, _)? = string.dropUserinfoSubcomponentPrefixIfPresent() {
             string.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
         }
 
         switch detectedScheme {
-        case .file:
-            break
-        case .ftp, .ftps:
-            string.removePortComponentIfPresent()
-        case .http, .https:
+        case "http", "https":
             string.removeFragmentComponentIfPresent()
             string.removeQueryComponentIfPresent()
             string.removePortComponentIfPresent()
-        case nil, .git, .ssh:
+        case nil, "git", "ssh":
             string.removePortComponentIfPresent()
             string.replaceFirstOccurenceIfPresent(of: ":", before: string.firstIndex(of: "/"), with: "/")
+        default:
+            string.removePortComponentIfPresent()
         }
 
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
@@ -194,20 +185,6 @@ extension PackageIdentity: ExpressibleByStringLiteral {
 
 // MARK: -
 
-private enum Scheme: String, CustomStringConvertible, CaseIterable {
-    case file
-    case ftp
-    case ftps
-    case git
-    case http
-    case https
-    case ssh
-
-    public var description: String {
-        return self.rawValue
-    }
-}
-
 #if os(Windows)
 fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
 #else
@@ -216,7 +193,16 @@ fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" }
 
 private extension Character {
     var isDigit: Bool {
-        isHexDigit && !isLetter
+        switch self {
+        case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+            return true
+        default:
+            return false
+        }
+    }
+
+    var isAllowedInURLScheme: Bool {
+        return isLetter || self.isDigit || self == "+" || self == "-" || self == "."
     }
 }
 
@@ -233,6 +219,20 @@ private extension String {
         guard hasSuffix(suffix) else { return false }
         removeLast(suffix.count)
         return true
+    }
+
+    @discardableResult
+    mutating func dropSchemeComponentPrefixIfPresent() -> String? {
+        if let rangeOfDelimiter = range(of: "://"),
+           self[startIndex].isLetter,
+           self[..<rangeOfDelimiter.lowerBound].allSatisfy({ $0.isAllowedInURLScheme })
+        {
+            defer { self.removeSubrange(..<rangeOfDelimiter.upperBound) }
+
+            return String(self[..<rangeOfDelimiter.lowerBound])
+        }
+
+        return nil
     }
 
     @discardableResult

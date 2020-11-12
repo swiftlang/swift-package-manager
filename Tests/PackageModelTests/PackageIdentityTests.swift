@@ -222,6 +222,13 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testGitPlusHTTPSScheme() {
+        XCTAssertEqual(
+            PackageIdentity("git+https://example.com/mona/LinkedList.git"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
     // MARK: - SSH
 
     func testSSHScheme() {
