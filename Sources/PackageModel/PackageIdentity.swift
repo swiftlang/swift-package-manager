@@ -13,10 +13,86 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
+/// A canonical identifier for a package, based on its source location.
+///
+/// A package may declare external packages as dependencies in its manifest.
+/// Each external package is uniquely identified by the location of its source code.
+///
+/// An external package dependency may itself have one or more external package dependencies,
+/// known as _transitive dependencies_.
+/// When multiple packages have dependencies in common,
+/// Swift Package Manager determines which version of that package should be used
+/// (if any exist that satisfy all specified requirements)
+/// in a process called package resolution.
+///
+/// External package dependencies are located by a URL
+/// (which may be an implicit `file://` URL in the form of a file path).
+/// For the purposes of package resolution,
+/// package URLs are case-insensitive (mona ≍ MONA)
+/// and normalization-insensitive (n + ◌̃ ≍ ñ).
+/// Swift Package Manager takes additional steps to canonicalize URLs
+/// to resolve insignificant differences between URLs.
+/// For example,
+/// the URLs `https://example.com/Mona/LinkedList` and `git@example.com:mona/linkedlist`
+/// are equivalent, in that they both resolve to the same source code repository,
+/// despite having different scheme, authority, and path components.
+///
+/// The `PackageIdentity` type canonicalizes package locations by
+/// performing the following operations:
+///
+/// * Removing the scheme component, if present
+///   ```
+///   https://example.com/mona/LinkedList → example.com/mona/LinkedList
+///   ```
+/// * Removing the userinfo component (preceded by `@`), if present:
+///   ```
+///   git@example.com/mona/LinkedList → example.com/mona/LinkedList
+///   ```
+/// * Removing the port subcomponent, if present:
+///   ```
+///   example.com:443/mona/LinkedList → example.com/mona/LinkedList
+///   ```
+/// * Replacing the colon (`:`) preceding the path component in "`scp`-style" URLs:
+///   ```
+///   git@example.com:mona/LinkedList.git → example.com/mona/LinkedList
+///   ```
+/// * Expanding the tilde (`~`) to the provided user, if applicable:
+///   ```
+///   ssh://mona@example.com/~/LinkedList.git → example.com/~mona/LinkedList
+///   ```
+/// * Removing percent-encoding from the path component, if applicable:
+///   ```
+///   example.com/mona/%F0%9F%94%97List → example.com/mona/🔗List
+///   ```
+/// * Removing the `.git` file extension from the path component, if present:
+///   ```
+///   example.com/mona/LinkedList.git → example.com/mona/LinkedList
+///   ```
+/// * Removing the trailing slash (`/`) in the path component, if present:
+///   ```
+///   example.com/mona/LinkedList/ → example.com/mona/LinkedList
+///   ```
+/// * Removing the fragment component (preceded by `#`), if present:
+///   ```
+///   example.com/mona/LinkedList#installation → example.com/mona/LinkedList
+///   ```
+/// * Removing the query component (preceded by `?`), if present:
+///   ```
+///   example.com/mona/LinkedList?utm_source=forums.swift.org → example.com/mona/LinkedList
+///   ```
 public struct PackageIdentity: LosslessStringConvertible {
+    /// A textual representation of this instance.
     public let description: String
+
+    /// The computed name for the package.
+    ///
+    /// - Note: In Swift 5.3 and earlier,
+    ///         external package dependencies are identified by
+    ///         the last path component of their URL (removing any `.git` suffix, if present).
+    ///         This is equivalent to the value returned by the `computedName` property.
     public let computedName: String
 
+    /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {
         var string = string
 
