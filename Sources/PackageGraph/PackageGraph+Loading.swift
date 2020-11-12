@@ -348,9 +348,7 @@ private func createResolvedPackages(
                     // Find the declared package and check that it contains
                     // the product we found above.
                     guard let dependencyPackage = packageMapByName[packageName], dependencyPackage.products.contains(product) else {
-                        let error = PackageGraphError.productDependencyIncorrectPackage(
-                            name: productRef.name, package: packageName
-                        )
+                        let error = PackageGraphError.productDependencyIncorrectPackage(name: productRef.name, package: packageName)
                         diagnostics.emit(error, location: diagnosticLocation())
                         continue
                     }
