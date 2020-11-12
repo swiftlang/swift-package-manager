@@ -57,8 +57,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
     return try process.waitUntilExit()
   }
 
-  func execute(jobs: [Job],
-               incrementalCompilationState: IncrementalCompilationState?,
+  func execute(workload: DriverExecutorWorkload,
                delegate: JobExecutionDelegate,
                numParallelJobs: Int, forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
