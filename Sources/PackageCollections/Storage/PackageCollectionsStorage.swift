@@ -103,6 +103,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var state = State.idle
     private let stateLock = Lock()
 
+    private var cache = [PackageCollectionsModel.CollectionIdentifier: PackageCollectionsModel.Collection]()
+    private let cacheLock = Lock()
+
     init(location: SQLite.Location? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
@@ -138,6 +141,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
         self.queue.async {
             do {
+                // write to db
                 let query = "INSERT OR IGNORE INTO PACKAGES_COLLECTIONS VALUES (?, ?);"
                 try self.executeStatement(query) { statement -> Void in
                     let data = try self.encoder.encode(collection)
@@ -148,6 +152,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     ]
                     try statement.bind(bindings)
                     try statement.step()
+                }
+                // write to cache
+                self.cacheLock.withLock {
+                    self.cache[collection.identifier] = collection
                 }
                 callback(.success(collection))
             } catch {
@@ -160,6 +168,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
+                // write to db
                 let query = "DELETE FROM PACKAGES_COLLECTIONS WHERE key == ?;"
                 try self.executeStatement(query) { statement -> Void in
                     let bindings: [SQLite.SQLiteValue] = [
@@ -167,6 +176,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     ]
                     try statement.bind(bindings)
                     try statement.step()
+                }
+                // write to cache
+                self.cacheLock.withLock {
+                    self.cache[identifier] = nil
                 }
                 callback(.success(()))
             } catch {
@@ -177,6 +190,12 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func get(identifier: PackageCollectionsModel.CollectionIdentifier,
              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        // try read to cache
+        if let collection = (self.cacheLock.withLock { self.cache[identifier] }) {
+            return callback(.success(collection))
+        }
+
+        // go to db if not found
         self.queue.async {
             do {
                 let query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key == ? LIMIT 1;"
@@ -200,6 +219,17 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
               callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+        // try read to cache
+        let cached = self.cacheLock.withLock {
+            identifiers?.compactMap { identifier in
+                self.cache[identifier]
+            }
+        }
+        if let cached = cached, cached.count > 0, cached.count == identifiers?.count {
+            return callback(.success(cached))
+        }
+
+        // go to db if not found
         self.queue.async {
             do {
                 var blobs = [Data]()
@@ -225,7 +255,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                // FIXME: is there a better way?
                 // decoding is a performance bottleneck (10+s for 1000 collections)
                 // workaround is to decode in parallel if list is large enough to justify it
                 var collections: [PackageCollectionsModel.Collection]
@@ -403,6 +432,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             }
         }
     }
+
+    // for testing
+    internal func resetCache() {
+        self.cacheLock.withLock {
+            self.cache = [:]
+        }
+    }
+
+    // MARK: -  Private
 
     private func createSchemaIfNecessary(db: SQLite) throws {
         let table = """

@@ -360,7 +360,7 @@ final class PackageCollectionsTests: XCTestCase {
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        let mockCollections = makeMockCollections(count: 1000, maxPackages: 10)
+        let mockCollections = makeMockCollections(count: 1000)
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
@@ -492,7 +492,7 @@ final class PackageCollectionsTests: XCTestCase {
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        let mockCollections = makeMockCollections(count: 1000, maxPackages: 10)
+        let mockCollections = makeMockCollections(count: 1000)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
@@ -598,7 +598,7 @@ final class PackageCollectionsTests: XCTestCase {
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        let mockCollections = makeMockCollections(count: 1000, maxPackages: 10)
+        let mockCollections = makeMockCollections(count: 1000)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
@@ -1007,7 +1007,7 @@ final class PackageCollectionsTests: XCTestCase {
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        let mockCollections = makeMockCollections(count: 1000, maxPackages: 10)
+        let mockCollections = makeMockCollections(count: 1000)
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
