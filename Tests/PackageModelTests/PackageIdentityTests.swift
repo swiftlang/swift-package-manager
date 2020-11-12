@@ -141,6 +141,16 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testInternationalizedDomainName() throws {
+        // TODO: Implement Punycode conversion
+        try XCTSkipIf(true, "internationalized domain names aren't yet supported")
+
+        XCTAssertEqual(
+            PackageIdentity("https://xn--schlssel-95a.tld/mona/LinkedList"),
+            "schlüssel.tld/mona/LinkedList"
+        )
+    }
+
     func testSSHScheme() {
         XCTAssertEqual(
             PackageIdentity("ssh://git@example.com/mona/LinkedList.git"),
