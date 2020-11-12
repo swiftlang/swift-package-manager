@@ -85,8 +85,8 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     let fileSystem: FileSystem
     let path: AbsolutePath
 
-    private let jsonEncoder: JSONEncoder
-    private let jsonDecoder: JSONDecoder
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.FilePackageCollectionsProfileStorage")
 
@@ -96,13 +96,13 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         let name = "collections"
         self.path = path ?? fileSystem.dotSwiftPM.appending(component: "\(name).json")
 
-        self.jsonEncoder = JSONEncoder()
-        self.jsonEncoder.outputFormatting = .prettyPrinted
+        self.encoder = JSONEncoder()
+        self.encoder.outputFormatting = .prettyPrinted
         if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-            self.jsonEncoder.outputFormatting.insert(.sortedKeys)
-            self.jsonEncoder.outputFormatting.insert(.withoutEscapingSlashes)
+            self.encoder.outputFormatting.insert(.sortedKeys)
+            self.encoder.outputFormatting.insert(.withoutEscapingSlashes)
         }
-        self.jsonDecoder = JSONDecoder()
+        self.decoder = JSONDecoder()
     }
 
     func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void) {
@@ -224,7 +224,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         guard buffer.count > 0 else {
             return .init()
         }
-        let container = try jsonDecoder.decode(Model.Container.self, from: Data(buffer))
+        let container = try decoder.decode(Model.Container.self, from: Data(buffer))
         return try container.profiles()
     }
 
@@ -233,7 +233,7 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
             try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
         }
         let container = Model.Container(profiles)
-        let buffer = try jsonEncoder.encode(container)
+        let buffer = try encoder.encode(container)
         try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer))
     }
 
