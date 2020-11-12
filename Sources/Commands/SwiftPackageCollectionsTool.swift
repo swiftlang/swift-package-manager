@@ -16,18 +16,18 @@ import TSCBasic
 import TSCUtility
 
 private enum CollectionsError: Swift.Error {
+    case invalidArgument(String)
     case invalidVersionString(String)
-    case missingArgument(String)
     case noCollectionMatchingURL(String)
 }
 
 extension CollectionsError: CustomStringConvertible {
     var description: String {
         switch self {
+        case .invalidArgument(let argumentName):
+            return "invalid argument '\(argumentName)'"
         case .invalidVersionString(let versionString):
             return "invalid version string '\(versionString)'"
-        case .missingArgument(let argumentName):
-            return "missing argument '\(argumentName)'"
         case .noCollectionMatchingURL(let url):
             return "no collection matching URL '\(url)'"
         }
@@ -83,7 +83,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var jsonOptions: JSONOptions
 
         mutating func run() throws {
-            let profiles: [PackageCollectionsModel.Profile] = try await { self.collections.listProfiles(callback: $0) }
+            let profiles: [PackageCollectionsModel.Profile] = try tsc_await { self.collections.listProfiles(callback: $0) }
 
             if jsonOptions.json {
                 try JSONEncoder().print(profiles)
@@ -107,7 +107,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var profileOptions: ProfileOptions
 
         mutating func run() throws {
-            let collections = try await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
+            let collections = try tsc_await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
 
             if jsonOptions.json {
                 try JSONEncoder().print(collections)
@@ -126,7 +126,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var profileOptions: ProfileOptions
 
         mutating func run() throws {
-            let collections = try await { self.collections.refreshCollections(in: profileOptions.usedProfile, callback: $0) }
+            let collections = try tsc_await { self.collections.refreshCollections(in: profileOptions.usedProfile, callback: $0) }
             print("Refreshed \(collections.count) configured package collections.")
         }
     }
@@ -135,7 +135,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Add a new collection")
 
         @Argument(help: "URL of the collection to add")
-        var collectionUrl: String?
+        var collectionUrl: String
 
         @Option(name: .long, help: "Sort order for the added collection")
         var order: Int?
@@ -144,12 +144,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var profileOptions: ProfileOptions
 
         mutating func run() throws {
-            guard let collectionUrlString = collectionUrl, let collectionUrl = URL(string: collectionUrlString) else {
-                throw CollectionsError.missingArgument("collectionUrl")
+            guard let collectionUrl = URL(string: collectionUrl) else {
+                throw CollectionsError.invalidArgument("collectionUrl")
             }
 
-            let source = PackageCollectionsModel.CollectionSource(url: collectionUrl)
-            let collection = try await { self.collections.addCollection(source, order: order, to: profileOptions.usedProfile, callback: $0) }
+            let source = PackageCollectionsModel.CollectionSource(type: .feed, url: collectionUrl)
+            let collection = try tsc_await { self.collections.addCollection(source, order: order, to: profileOptions.usedProfile, callback: $0) }
 
             print("Added \"\(collection.name)\" to your package collections.")
         }
@@ -162,21 +162,21 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var profileOptions: ProfileOptions
 
         @Argument(help: "URL of the collection to remove")
-        var collectionUrl: String?
+        var collectionUrl: String
 
         mutating func run() throws {
-            guard let collectionUrlString = collectionUrl, let collectionUrl = URL(string: collectionUrlString) else {
-                throw CollectionsError.missingArgument("collectionUrl")
+            guard let collectionUrl = URL(string: collectionUrl) else {
+                throw CollectionsError.invalidArgument("collectionUrl")
             }
 
-            let collections = try await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
-            let source = PackageCollectionsModel.CollectionSource(url: collectionUrl)
+            let collections = try tsc_await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
+            let source = PackageCollectionsModel.CollectionSource(type: .feed, url: collectionUrl)
 
             guard let collection = collections.first(where: { $0.source == source }) else {
-                throw CollectionsError.noCollectionMatchingURL(collectionUrlString)
+                throw CollectionsError.noCollectionMatchingURL(collectionUrl.absoluteString)
             }
 
-            _ = try await { self.collections.removeCollection(source, from: profileOptions.usedProfile, callback: $0) }
+            _ = try tsc_await { self.collections.removeCollection(source, from: profileOptions.usedProfile, callback: $0) }
             print("Removed \"\(collection.name)\" from your package collections.")
         }
     }
@@ -185,21 +185,21 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Get metadata for a configured collection")
 
         @Argument(help: "URL of the collection to describe")
-        var collectionUrl: String?
+        var collectionUrl: String
 
         @OptionGroup
         var profileOptions: ProfileOptions
 
         mutating func run() throws {
-            guard let collectionUrlString = collectionUrl, let collectionUrl = URL(string: collectionUrlString) else {
-                throw CollectionsError.missingArgument("collectionUrl")
+            guard let collectionUrl = URL(string: collectionUrl) else {
+                throw CollectionsError.invalidArgument("collectionUrl")
             }
 
-            let collections = try await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
-            let source = PackageCollectionsModel.CollectionSource(url: collectionUrl)
+            let collections = try tsc_await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
+            let source = PackageCollectionsModel.CollectionSource(type: .feed, url: collectionUrl)
 
             guard let collection = collections.first(where: { $0.source == source }) else {
-                throw CollectionsError.noCollectionMatchingURL(collectionUrlString)
+                throw CollectionsError.noCollectionMatchingURL(collectionUrl.absoluteString)
             }
 
             let description = optionalRow("Description", collection.description)
@@ -237,23 +237,19 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var searchMethod: SearchMethod
 
         @Argument(help: "Search query")
-        var searchQuery: String?
+        var searchQuery: String
 
         mutating func run() throws {
-            guard let searchQuery = searchQuery else {
-                throw CollectionsError.missingArgument("searchQuery")
-            }
-
             switch searchMethod {
             case .keywords:
-                let results = try await { collections.findPackages(searchQuery, collections: nil, profile: profileOptions.usedProfile, callback: $0) }
+                let results = try tsc_await { collections.findPackages(searchQuery, collections: nil, profile: profileOptions.usedProfile, callback: $0) }
 
                 results.items.forEach {
-                    print("\($0.package.repository.url): \($0.package.description ?? "")")
+                    print("\($0.package.repository.url): \($0.package.summary ?? "")")
                 }
 
             case .module:
-                let results = try await { collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil, profile: profileOptions.usedProfile, callback: $0) }
+                let results = try tsc_await { collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil, profile: profileOptions.usedProfile, callback: $0) }
 
                 results.items.forEach {
                     $0.packages.forEach {
@@ -276,7 +272,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var profileOptions: ProfileOptions
 
         @Argument(help: "URL of the package to get information for")
-        var packageUrl: String?
+        var packageUrl: String
 
         @Option(name: .long, help: "Version of the package to get information for")
         var version: String?
@@ -290,24 +286,19 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             let platforms = optionalRow("Verified Platforms", version.verifiedPlatforms?.map { $0.name }.joined(separator: ", "))
             let swiftVersions = optionalRow("Verified Swift Versions", version.verifiedSwiftVersions?.map { $0.rawValue }.joined(separator: ", "))
             let license = optionalRow("License", version.license?.type.description)
-            let cves = optionalRow("CVEs", version.cves?.map { $0.identifier }.joined(separator: ", "))
 
             return """
                 \(version.version)
                 Package Name: \(version.packageName)
-                Modules: \(modules)\(platforms)\(swiftVersions)\(license)\(cves)
+                Modules: \(modules)\(platforms)\(swiftVersions)\(license)
             """
         }
 
         mutating func run() throws {
-            guard let packageUrl = packageUrl else {
-                throw CollectionsError.missingArgument("packageUrl")
-            }
-
             let identity = PackageReference.computeIdentity(packageURL: packageUrl)
             let reference = PackageReference(identity: identity, path: packageUrl)
 
-            let result = try await { self.collections.getPackageMetadata(reference, profile: profileOptions.usedProfile, callback: $0) }
+            let result = try tsc_await { self.collections.getPackageMetadata(reference, profile: profileOptions.usedProfile, callback: $0) }
 
             if let versionString = version {
                 guard let version = TSCUtility.Version(string: versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
