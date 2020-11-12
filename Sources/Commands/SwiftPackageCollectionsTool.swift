@@ -18,7 +18,6 @@ import TSCUtility
 private enum CollectionsError: Swift.Error {
     case invalidArgument(String)
     case invalidVersionString(String)
-    case noCollectionMatchingURL(String)
 }
 
 extension CollectionsError: CustomStringConvertible {
@@ -28,8 +27,6 @@ extension CollectionsError: CustomStringConvertible {
             return "invalid argument '\(argumentName)'"
         case .invalidVersionString(let versionString):
             return "invalid version string '\(versionString)'"
-        case .noCollectionMatchingURL(let url):
-            return "no collection matching URL '\(url)'"
         }
     }
 }
@@ -169,12 +166,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 throw CollectionsError.invalidArgument("collectionUrl")
             }
 
-            let collections = try tsc_await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
             let source = PackageCollectionsModel.CollectionSource(type: .feed, url: collectionUrl)
-
-            guard let collection = collections.first(where: { $0.source == source }) else {
-                throw CollectionsError.noCollectionMatchingURL(collectionUrl.absoluteString)
-            }
+            let collection = try tsc_await { self.collections.getCollection(source, callback: $0) }
 
             _ = try tsc_await { self.collections.removeCollection(source, from: profileOptions.usedProfile, callback: $0) }
             print("Removed \"\(collection.name)\" from your package collections.")
@@ -195,12 +188,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 throw CollectionsError.invalidArgument("collectionUrl")
             }
 
-            let collections = try tsc_await { self.collections.listCollections(identifiers: nil, in: profileOptions.usedProfile, callback: $0) }
             let source = PackageCollectionsModel.CollectionSource(type: .feed, url: collectionUrl)
-
-            guard let collection = collections.first(where: { $0.source == source }) else {
-                throw CollectionsError.noCollectionMatchingURL(collectionUrl.absoluteString)
-            }
+            let collection = try tsc_await { self.collections.getCollection(source, callback: $0) }
 
             let description = optionalRow("Description", collection.description)
             let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
@@ -251,10 +240,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             case .module:
                 let results = try tsc_await { collections.findTargets(searchQuery, searchType: .exactMatch, collections: nil, profile: profileOptions.usedProfile, callback: $0) }
 
-                results.items.forEach {
-                    $0.packages.forEach {
-                        print("\($0.repository.url): \($0.description ?? "")")
-                    }
+                let packages = Set(results.items.flatMap { $0.packages })
+                packages.forEach {
+                    print("\($0.repository.url): \($0.description ?? "")")
                 }
             }
         }
