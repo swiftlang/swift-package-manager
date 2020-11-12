@@ -15,6 +15,13 @@ import TSCBasic
 import PackageModel
 
 final class PackageIdentityTests: XCTestCase {
+    func testHTTPScheme() {
+        XCTAssertEqual(
+            PackageIdentity("http://example.com/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
     func testHTTPSScheme() {
         XCTAssertEqual(
             PackageIdentity("https://example.com/mona/LinkedList"),
@@ -120,10 +127,17 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
-    func testHTTPScheme() {
+    func testPercentEncoding() {
         XCTAssertEqual(
-            PackageIdentity("http://example.com/mona/LinkedList"),
-            "example.com/mona/LinkedList"
+            PackageIdentity("https://example.com/mona/%F0%9F%94%97List"),
+            "example.com/mona/🔗List"
+        )
+    }
+
+    func testInvalidPercentEncoding() {
+        XCTAssertEqual(
+            PackageIdentity("https://example.com/mona/100%"),
+            "example.com/mona/100%"
         )
     }
 

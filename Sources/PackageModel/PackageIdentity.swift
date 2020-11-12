@@ -48,6 +48,7 @@ public struct PackageIdentity: LosslessStringConvertible {
         }
 
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
+            .compactMap { $0.removingPercentEncoding ?? String($0) }
 
         var lastPathComponent = components.popLast() ?? ""
         lastPathComponent.removeSuffixIfPresent(".git")
@@ -131,15 +132,6 @@ fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
 fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" }
 #endif
 
-private extension StringProtocol where Self == Self.SubSequence {
-    @discardableResult
-    mutating func removeSuffixIfPresent<T: StringProtocol>(_ suffix: T) -> Bool {
-        guard hasSuffix(suffix) else { return false }
-        removeLast(suffix.count)
-        return true
-    }
-}
-
 private extension Character {
     var isDigit: Bool {
         isHexDigit && !isLetter
@@ -151,6 +143,13 @@ private extension String {
     mutating func removePrefixIfPresent<T: StringProtocol>(_ prefix: T) -> Bool {
         guard hasPrefix(prefix) else { return false }
         removeFirst(prefix.count)
+        return true
+    }
+
+    @discardableResult
+    mutating func removeSuffixIfPresent<T: StringProtocol>(_ suffix: T) -> Bool {
+        guard hasSuffix(suffix) else { return false }
+        removeLast(suffix.count)
         return true
     }
 
