@@ -287,11 +287,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 // compose result :p
 
                 var packageCollections = [PackageReference: (package: PackageCollectionsModel.Collection.Package, collections: Set<PackageCollectionsModel.CollectionIdentifier>)]()
-                collectionsPackages.forEach { groupIdentifier, packages in
+                collectionsPackages.forEach { collectionIdentifier, packages in
                     packages.forEach { package in
                         // Avoid copy-on-write: remove entry from dictionary before mutating
                         var entry = packageCollections.removeValue(forKey: package.reference) ?? (package, .init())
-                        entry.collections.insert(groupIdentifier)
+                        entry.collections.insert(collectionIdentifier)
                         packageCollections[package.reference] = entry
                     }
                 }
@@ -341,11 +341,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             switch result {
             case .failure(let error):
                 callback(.failure(error))
-            case .success(let groups):
-                let collectionsPackages = groups.reduce([PackageCollectionsModel.CollectionIdentifier: [(target: PackageCollectionsModel.PackageTarget, package: PackageCollectionsModel.Collection.Package)]]()) { partial, group in
+            case .success(let collections):
+                let collectionsPackages = collections.reduce([PackageCollectionsModel.CollectionIdentifier: [(target: PackageCollectionsModel.PackageTarget, package: PackageCollectionsModel.Collection.Package)]]()) { partial, collection in
                     var map = partial
-                    // var result = [(PackageGroup.Package.Target, PackageGroup.Package)]()
-                    group.packages.forEach { package in
+                    collection.packages.forEach { package in
                         package.versions.forEach { version in
                             version.targets.forEach { target in
                                 let match: Bool
@@ -357,9 +356,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                                 }
                                 if match {
                                     // Avoid copy-on-write: remove entry from dictionary before mutating
-                                    var entry = map.removeValue(forKey: group.identifier) ?? .init()
+                                    var entry = map.removeValue(forKey: collection.identifier) ?? .init()
                                     entry.append((target, package))
-                                    map[group.identifier] = entry
+                                    map[collection.identifier] = entry
                                 }
                             }
                         }
