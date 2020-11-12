@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -22,6 +22,8 @@ public final class Target {
     public enum TargetType: String, Encodable {
         /// A target that contains code for the Swift package’s functionality.
         case regular
+        /// A target that contains code for an executable's main module.
+        case executable
         /// A target that contains tests for the Swift package’s other targets.
         case test
         /// A target that adapts a library on the system to work with Swift packages.
@@ -196,7 +198,7 @@ public final class Target {
         self._checksum = checksum
 
         switch type {
-        case .regular, .test:
+        case .regular, .executable, .test:
             precondition(
                 url == nil &&
                 pkgConfig == nil &&
@@ -322,11 +324,11 @@ public final class Target {
         )
     }
 
-    /// Creates a library or executable target.
+    /// Creates a regular target.
     ///
-    /// A target can contain either Swift or C-family source files, but not both. The Swift Package Manager
-    /// considers a target to be an executable target if its directory contains a `main.swift`, `main.m`, `main.c`,
-    /// or `main.cpp` file. The Swift Package Manager considers all other targets to be library targets.
+    /// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
+    /// a regular module that can be included in a library or executable product, but that cannot itself be used as
+    /// the main target of an executable product.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
@@ -375,6 +377,60 @@ public final class Target {
         )
     }
 
+    /// Creates an executable target.
+    ///
+    /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
+    /// is built as an executable module that can be used as the main target of an executable product.  The target
+    /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
+    ///  file that contains the `@main` keyword.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the `sources` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func executableTarget(
+       name: String,
+       dependencies: [Dependency] = [],
+       path: String? = nil,
+       exclude: [String] = [],
+       sources: [String]? = nil,
+       resources: [Resource]? = nil,
+       publicHeadersPath: String? = nil,
+       cSettings: [CSetting]? = nil,
+       cxxSettings: [CXXSetting]? = nil,
+       swiftSettings: [SwiftSetting]? = nil,
+       linkerSettings: [LinkerSetting]? = nil
+    ) -> Target {
+       return Target(
+           name: name,
+           dependencies: dependencies,
+           path: path,
+           exclude: exclude,
+           sources: sources,
+           resources: resources,
+           publicHeadersPath: publicHeadersPath,
+           type: .executable,
+           cSettings: cSettings,
+           cxxSettings: cxxSettings,
+           swiftSettings: swiftSettings,
+           linkerSettings: linkerSettings
+       )
+    }
+    
     /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.

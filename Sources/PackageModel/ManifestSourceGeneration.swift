@@ -234,6 +234,8 @@ fileprivate extension SourceCodeFragment {
         switch target.type {
         case .regular:
             self.init(enum: "target", subnodes: params, multiline: true)
+        case .executable:
+            self.init(enum: "executableTarget", subnodes: params, multiline: true)
         case .test:
             self.init(enum: "testTarget", subnodes: params, multiline: true)
         case .system:

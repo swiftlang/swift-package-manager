@@ -728,7 +728,18 @@ public final class PackageBuilder {
             return nil
         }
         try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
-
+        
+        /// Determine the target's type, or leave nil to check the source directory.
+        let targetType: Target.Kind?
+        switch potentialModule.type {
+        case .test:
+            targetType = .test
+        case .executable:
+            targetType = .executable
+        default:
+            targetType = (manifest.toolsVersion >= .vNext) ? .library : nil
+        }
+        
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             return SwiftTarget(
@@ -736,7 +747,7 @@ public final class PackageBuilder {
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
                 platforms: self.platforms(isTest: potentialModule.isTest),
-                isTest: potentialModule.isTest,
+                type: targetType,
                 sources: sources,
                 resources: resources,
                 dependencies: dependencies,
@@ -767,7 +778,7 @@ public final class PackageBuilder {
                 includeDir: publicHeadersPath,
                 moduleMapType: moduleMapType,
                 headers: headers,
-                isTest: potentialModule.isTest,
+                type: targetType,
                 sources: sources,
                 resources: resources,
                 dependencies: dependencies,

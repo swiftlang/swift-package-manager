@@ -383,6 +383,71 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testExecutableTargets() {
+        // Check that executable targets are supported.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exec/exec.swift",
+            "/Sources/foo/main.swift"
+        )
+
+        var manifest = Manifest.createV4Manifest(
+            name: "pkg",
+            toolsVersion: .vNext,
+            products: [
+                ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
+            ],
+            targets: [
+                TargetDescription(name: "foo"),
+                TargetDescription(name: "exec", type: .executable),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("exec") { _ in }
+            package.checkProduct("exec") { product in
+                product.check(type: .executable, targets: ["exec", "foo"])
+            }
+        }
+
+        manifest = Manifest.createV4Manifest(
+            name: "pkg",
+            toolsVersion: .vNext,
+            products: [],
+            targets: [
+                TargetDescription(name: "foo"),
+                TargetDescription(name: "exec", type: .executable),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("exec") { _ in }
+            package.checkProduct("exec") { product in
+                product.check(type: .executable, targets: ["exec"])
+            }
+        }
+
+        // If we already have an explicit product, we shouldn't create an
+        // implicit one.
+        manifest = Manifest.createV4Manifest(
+            name: "pkg",
+            toolsVersion: .vNext,
+            products: [
+                ProductDescription(name: "exec", type: .executable, targets: ["exec"]),
+            ],
+            targets: [
+                TargetDescription(name: "foo"),
+                TargetDescription(name: "exec", type: .executable),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { _ in }
+            package.checkModule("exec") { _ in }
+            package.checkProduct("exec") { product in
+                product.check(type: .executable, targets: ["exec"])
+            }
+        }
+    }
     
     func testTestManifestFound() {
         SwiftTarget.testManifestNames.forEach { name in

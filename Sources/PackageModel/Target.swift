@@ -225,21 +225,20 @@ public final class SwiftTarget: Target {
         bundleName: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
-        isTest: Bool = false,
+        type: Kind? = nil,
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
-        let type: Kind = isTest ? .test : sources.computeTargetType()
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
             bundleName: bundleName,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
-            type: type,
+            type: type ?? sources.computeTargetType(),
             sources: sources,
             resources: resources,
             dependencies: dependencies,
@@ -390,14 +389,13 @@ public final class ClangTarget: Target {
         includeDir: AbsolutePath,
         moduleMapType: ModuleMapType,
         headers: [AbsolutePath] = [],
-        isTest: Bool = false,
+        type: Kind? = nil,
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
-        let type: Kind = isTest ? .test : sources.computeTargetType()
         self.isCXX = sources.containsCXXFiles
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
@@ -409,7 +407,7 @@ public final class ClangTarget: Target {
             bundleName: bundleName,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
-            type: type,
+            type: type ?? sources.computeTargetType(),
             sources: sources,
             resources: resources,
             dependencies: dependencies,
