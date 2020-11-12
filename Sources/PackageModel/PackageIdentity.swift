@@ -13,7 +13,7 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
-/// A canonical identifier for a package, based on its source location.
+/// The canonical identifier for a package, based on its source location.
 ///
 /// A package may declare external packages as dependencies in its manifest.
 /// Each external package is uniquely identified by the location of its source code.
@@ -96,27 +96,35 @@ public struct PackageIdentity: LosslessStringConvertible {
     public init(_ string: String) {
         var string = string
 
+        // Remove the scheme component, if present.
         let detectedScheme = string.dropSchemeComponentPrefixIfPresent()
 
+        // Remove the userinfo subcomponent (user / password), if present.
         if case (let user, _)? = string.dropUserinfoSubcomponentPrefixIfPresent() {
+            // If a user was provided, perform tilde expansion, if applicable.
             string.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
         }
 
-        switch detectedScheme {
-        case "http", "https":
-            string.removeFragmentComponentIfPresent()
-            string.removeQueryComponentIfPresent()
-            string.removePortComponentIfPresent()
-        case nil, "git", "ssh":
-            string.removePortComponentIfPresent()
+        // Remove the port subcomponent, if present.
+        string.removePortComponentIfPresent()
+
+        // Remove the fragment component, if present.
+        string.removeFragmentComponentIfPresent()
+
+        // Remove the query component, if present.
+        string.removeQueryComponentIfPresent()
+
+        // Accomodate "`scp`-style" SSH URLs
+        if detectedScheme == nil || detectedScheme == "ssh" {
             string.replaceFirstOccurenceIfPresent(of: ":", before: string.firstIndex(of: "/"), with: "/")
-        default:
-            string.removePortComponentIfPresent()
         }
 
+        // Split the remaining string into path components,
+        // filtering out empty path components and removing valid percent encodings.
         var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
             .compactMap { $0.removingPercentEncoding ?? String($0) }
 
+        // Remove the `.git` suffix from the last path component.
         var lastPathComponent = components.popLast() ?? ""
         lastPathComponent.removeSuffixIfPresent(".git")
         components.append(lastPathComponent)
