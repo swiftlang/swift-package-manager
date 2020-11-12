@@ -18,7 +18,7 @@ public struct PackageIdentity: LosslessStringConvertible {
     public let computedName: String
 
     public init(_ string: String) {
-        var string = string.precomposedStringWithCanonicalMapping
+        var string = string
 
         var detectedScheme: Scheme?
         for scheme in Scheme.allCases {
@@ -59,15 +59,21 @@ public struct PackageIdentity: LosslessStringConvertible {
     }
 }
 
-extension PackageIdentity: Equatable {
-    public static func == (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
-        return lhs.description == rhs.description
+extension PackageIdentity: Equatable, Comparable {
+    private func compare(to another: PackageIdentity) -> ComparisonResult {
+        return self.description.compare(another.description, options: [.caseInsensitive, .diacriticInsensitive])
     }
-}
 
-extension PackageIdentity: Comparable {
+    public static func == (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
+        return lhs.compare(to: rhs) == .orderedSame
+    }
+
     public static func < (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
-        return lhs.description < rhs.description
+        return lhs.compare(to: rhs) == .orderedAscending
+    }
+
+    public static func > (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
+        return lhs.compare(to: rhs) == .orderedDescending
     }
 }
 
