@@ -199,6 +199,7 @@ private func createResolvedPackages(
     }
 
     // Create a map of package builders keyed by the package identity.
+    // FIXME: Packages should be mapped by `PackageIdentity` once we change identity semantics.
     let packageMapByIdentity: [String: ResolvedPackageBuilder] = Dictionary(uniqueKeysWithValues:
         packageBuilders.map { (PackageIdentity($0.package.manifest.url).computedName, $0) }
     )
