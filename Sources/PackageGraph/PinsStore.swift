@@ -14,7 +14,7 @@ import TSCBasic
 import TSCUtility
 
 public final class PinsStore {
-    public typealias PinsMap = [String: PinsStore.Pin]
+    public typealias PinsMap = [PackageReference.Identity: PinsStore.Pin]
 
     public struct Pin: Equatable {
         /// The package reference of the pinned dependency.

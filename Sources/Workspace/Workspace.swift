@@ -1242,13 +1242,13 @@ public extension Workspace {
             let name: String
             let filter: ProductFilter
         }
-        let allManifestsWithPossibleDuplicates = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) })) { node in
-            return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
+        let allManifestsWithPossibleDuplicates = try! topologicalSort(inputManifests.map { KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) }) { node in
+            node.item.0.dependenciesRequired(for: node.item.1).compactMap { dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
-                return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: NameAndFilter(name: $0.name, filter: dependency.productFilter)) })
-            })
+                return manifest.flatMap { KeyedPair(($0, dependency.productFilter), key: NameAndFilter(name: $0.name, filter: dependency.productFilter)) }
+            }
         }
         var deduplication: Set<String> = []
         var allManifests: [KeyedPair<(Manifest, ProductFilter), NameAndFilter>] = []
@@ -1804,8 +1804,8 @@ extension Workspace {
             guard let manifest = loadManifest(forURL: missingURLs.path, diagnostics: diagnostics) else { continue }
 
             if let override = rootManifests[manifest.name] {
-                let overrideIdentity = PackageIdentity(override.url).computedName
-                let manifestIdentity = PackageIdentity(manifest.url).computedName
+                let overrideIdentity = PackageIdentity(override.url).legacyIdentity
+                let manifestIdentity = PackageIdentity(manifest.url).legacyIdentity
 
                 diagnostics.emit(error: "unable to override package '\(manifest.name)' because its basename '\(manifestIdentity)' doesn't match directory name '\(overrideIdentity)'")
 

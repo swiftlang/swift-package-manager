@@ -568,7 +568,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         func computeHash() throws -> ByteString {
             let stream = BufferedOutputByteStream()
-            stream <<< self.packageIdentity.computedName
+            stream <<< self.packageIdentity.legacyIdentity
 
             switch self.pathOrContents {
             case .path(let path):

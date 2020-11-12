@@ -85,12 +85,19 @@ public struct PackageIdentity: LosslessStringConvertible {
     public let description: String
 
     /// The computed name for the package.
+    public let computedName: String
+
+    /// The legacy identity for a package.
     ///
     /// - Note: In Swift 5.3 and earlier,
-    ///         external package dependencies are identified by
-    ///         the last path component of their URL (removing any `.git` suffix, if present).
-    ///         This is equivalent to the value returned by the `computedName` property.
-    public let computedName: String
+    ///         an external package dependency is identified by
+    ///         the last path component of its lowercased URL
+    ///         (removing any `.git` suffix, if present).
+    ///         This is equivalent to constructing a `PackageIdentity` value for the URL
+    ///         and lowercasing its `computedName` property value.
+    public var legacyIdentity: PackageReference.Identity {
+        return self.computedName.lowercased()
+    }
 
     /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {

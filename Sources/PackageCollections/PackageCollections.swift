@@ -307,7 +307,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     func findPackage(
-        identifier: String,
+        identifier: PackageReference.Identity,
         profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void
     ) {

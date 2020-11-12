@@ -69,7 +69,7 @@ public protocol PackageCollectionsStorage {
     ///   - identifier: The package identifier
     ///   - collectionIdentifiers: Optional. The identifiers of the `PackageCollection`s
     ///   - callback: The closure to invoke when result becomes available
-    func findPackage(identifier: String,
+    func findPackage(identifier: PackageReference.Identity,
                      collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
 
@@ -250,7 +250,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // FIXME: this is PoC for search, need a more performant version of this
-    func findPackage(identifier: String,
+    func findPackage(identifier: PackageReference.Identity,
                      collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
     {

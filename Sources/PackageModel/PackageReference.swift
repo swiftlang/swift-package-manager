@@ -15,6 +15,10 @@ import TSCUtility
 ///
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference: Codable {
+    // FIXME: Replace with `PackageIdentity` once we change identity semantics.
+    /// The identity of the package.
+    public typealias Identity = String
+
     /// The kind of package reference.
     public enum Kind: String, Codable {
         /// A root package.
@@ -28,8 +32,8 @@ public struct PackageReference: Codable {
     }
 
     /// The identity of the package.
-    public var identity: String {
-        return self._identity.computedName.lowercased()
+    public var identity: Identity {
+        return self._identity.legacyIdentity
     }
 
     private let _identity: PackageIdentity
@@ -50,7 +54,7 @@ public struct PackageReference: Codable {
     public let kind: Kind
 
     /// Create a package reference given its identity and repository.
-    public init(identity: String, path: String, name: String? = nil, kind: Kind = .remote) {
+    public init(identity: Identity, path: String, name: String? = nil, kind: Kind = .remote) {
         self._identity = PackageIdentity(identity)
         self._name = name
         self.path = path

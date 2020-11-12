@@ -200,8 +200,8 @@ private func createResolvedPackages(
 
     // Create a map of package builders keyed by the package identity.
     // FIXME: Packages should be mapped by `PackageIdentity` once we change identity semantics.
-    let packageMapByIdentity: [String: ResolvedPackageBuilder] = Dictionary(uniqueKeysWithValues:
-        packageBuilders.map { (PackageIdentity($0.package.manifest.url).computedName, $0) }
+    let packageMapByIdentity: [PackageReference.Identity: ResolvedPackageBuilder] = Dictionary(uniqueKeysWithValues:
+        packageBuilders.map { (PackageIdentity($0.package.manifest.url).legacyIdentity, $0) }
     )
     let packageMapByName: [String: ResolvedPackageBuilder] = Dictionary(uniqueKeysWithValues:
         packageBuilders.map { ($0.package.name, $0) }
@@ -224,7 +224,7 @@ private func createResolvedPackages(
 
                 // Otherwise, look it up by its identity.
                 let url = mirrors.effectiveURL(forURL: dependency.url)
-                let resolvedPackage = packageMapByIdentity[PackageIdentity(url).computedName]
+                let resolvedPackage = packageMapByIdentity[PackageIdentity(url).legacyIdentity]
 
                 // We check that the explicit package dependency name matches the package name.
                 if let resolvedPackage = resolvedPackage,
@@ -358,11 +358,11 @@ private func createResolvedPackages(
                     // dependency to share the same name. We don't check this in manifest loading for root-packages so
                     // we can provide a more detailed diagnostic here.
                     let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
-                    let referencedPackageIdentity = PackageIdentity(referencedPackageURL)
+                    let referencedPackageIdentity: PackageReference.Identity = PackageIdentity(referencedPackageURL).legacyIdentity
                     let packageDependency = packageBuilder.package.manifest.dependencies.first { package in
                         let packageURL = mirrors.effectiveURL(forURL: package.url)
-                        let packageIdentity = PackageIdentity(packageURL)
-                        return packageIdentity.computedName == referencedPackageIdentity.computedName
+                        let packageIdentity: PackageReference.Identity = PackageIdentity(packageURL).legacyIdentity
+                        return packageIdentity == referencedPackageIdentity
                     }!
 
                     let packageName = product.packageBuilder.package.name
