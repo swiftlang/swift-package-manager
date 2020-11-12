@@ -120,6 +120,13 @@ final class PackageIdentityTests: XCTestCase {
         )
     }
 
+    func testHTTPScheme() {
+        XCTAssertEqual(
+            PackageIdentity("http://example.com/mona/LinkedList"),
+            "example.com/mona/LinkedList"
+        )
+    }
+
     func testSSHScheme() {
         XCTAssertEqual(
             PackageIdentity("ssh://git@example.com/mona/LinkedList.git"),

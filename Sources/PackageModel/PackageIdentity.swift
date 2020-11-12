@@ -32,7 +32,7 @@ public struct PackageIdentity: LosslessStringConvertible {
         switch detectedScheme {
         case nil, .file:
             break
-        case .https:
+        case .http, .https:
             string.removeFragmentComponentIfPresent()
             string.removeQueryComponentIfPresent()
             fallthrough
@@ -109,10 +109,11 @@ extension PackageIdentity: ExpressibleByStringLiteral {
 // MARK: -
 
 private enum Scheme: String, CustomStringConvertible, CaseIterable {
-    case ssh
-    case https
-    case git
     case file
+    case git
+    case http
+    case https
+    case ssh
 
     public var description: String {
         return self.rawValue
