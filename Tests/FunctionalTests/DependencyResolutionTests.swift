@@ -65,19 +65,4 @@ class DependencyResolutionTests: XCTestCase {
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
-
-    func testRepositoryCacheDoesNotDerailResolution() throws {
-        // From rdar://problem/65284674
-        // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
-        // storing the result of the first product filter and then continually returning it for other filters too.
-        // This lead to corrupt graph states.
-        guard Resources.havePD4Runtime else {
-            throw XCTSkip("PackageDescription v4 is unavailable; this test requires the compiler script instead of a self‐hosted build.")
-        }
-
-        fixture(name: "DependencyResolution/Regressions/SRP") { prefix in
-            let (output, error) = try executeSwiftPackage(prefix, extraArgs: ["resolve"])
-            XCTAssert(error.isEmpty, output + error)
-        }
-    }
 }

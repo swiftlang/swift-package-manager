@@ -567,4 +567,78 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             }
         }
     }
+
+    func testRepositoryPackageContainerCache() throws {
+        // From rdar://problem/65284674
+        // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
+        // storing the result of the first product filter and then continually returning it for other filters too.
+        // This lead to corrupt graph states.
+
+        try testWithTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending(component: "Package")
+            try localFileSystem.createDirectory(packageDirectory)
+            initGitRepo(packageDirectory)
+            let packageRepository = GitRepository(path: packageDirectory)
+
+            let manifestFile = packageDirectory.appending(component: "Package.swift")
+            try localFileSystem.writeFileContents(manifestFile, bytes: ByteString("// swift-tools-version:5.2"))
+
+            try packageRepository.stage(file: "Package.swift")
+            try packageRepository.commit(message: "Initialized.")
+            try packageRepository.tag(name: "1.0.0")
+
+            let repositoryProvider = GitRepositoryProvider()
+            let repositoryManager = RepositoryManager(
+                path: packageDirectory,
+                provider: repositoryProvider,
+                delegate: nil,
+                fileSystem: localFileSystem
+            )
+
+            let version = Version(1, 0, 0)
+            let manifest = Manifest.createManifest(
+                name: packageDirectory.basename,
+                path: packageDirectory.pathString,
+                url: packageDirectory.pathString,
+                v: .v5_2,
+                packageKind: .root,
+                dependencies: [
+                    PackageDependencyDescription(
+                        url: "Somewhere/Dependency",
+                        requirement: .exact(version),
+                        productFilter: .specific([])
+                    )
+                ],
+                products: [ProductDescription(name: "Product", type: .library(.automatic), targets: ["Target"])],
+                targets: [
+                    TargetDescription(
+                        name: "Target",
+                        dependencies: [.product(name: "DependencyProduct", package: "Dependency")]
+                    ),
+                ]
+            )
+            let containerProvider = RepositoryPackageContainerProvider(
+                repositoryManager: repositoryManager,
+                manifestLoader: MockManifestLoader(
+                    manifests: [.init(url: packageDirectory.pathString, version: Version(1, 0, 0)): manifest]
+                )
+            )
+
+            let packageReference = PackageReference(identity: "package", path: packageDirectory.pathString)
+            let container = try tsc_await { completion in
+                containerProvider.getContainer(
+                    for: packageReference,
+                    skipUpdate: false,
+                    completion: completion
+                )
+            }
+
+            let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
+            let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+              // If the cache overlaps (incorrectly), these will be the same.
+              XCTAssertNotEqual(forNothing, forProduct)
+            #endif
+        }
+    }
 }
