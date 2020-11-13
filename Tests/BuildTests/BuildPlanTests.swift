@@ -2421,6 +2421,43 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
+    func testShouldLinkStaticSwiftStdlib() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    url: "/Pkg",
+                    packageKind: .root,
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+
+        let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
+        for triple in supportingTriples {
+            let result = BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
+                graph: graph, diagnostics: diagnostics, fileSystem: fs)
+            )
+
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertTrue(exe.contains("-static-stdlib"))
+            let lib = try result.target(for: "lib").swiftTarget().compileArguments()
+            XCTAssertTrue(lib.contains("-static-stdlib"))
+            let link = try result.buildProduct(for: "exe").linkArguments()
+            XCTAssertTrue(link.contains("-static-stdlib"))
+        }
+    }
+
     func testBinaryTargets(platform: String, arch: String, destinationTriple: TSCUtility.Triple)
     throws {
         let fs = InMemoryFileSystem(emptyFiles:
