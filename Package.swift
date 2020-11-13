@@ -38,6 +38,7 @@ let package = Package(
             targets: [
                 "SourceControl",
                 "SPMLLBuild",
+                "PackageCollections",
                 "LLBuildManifest",
                 "PackageModel",
                 "PackageLoading",
@@ -53,6 +54,7 @@ let package = Package(
                 "SourceControl",
                 "SPMLLBuild",
                 "LLBuildManifest",
+                "PackageCollections",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -66,6 +68,7 @@ let package = Package(
             type: .dynamic,
             targets: [
                 "SourceControl",
+                "PackageCollections",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
