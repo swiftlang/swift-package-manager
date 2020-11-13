@@ -38,7 +38,7 @@ let package = Package(
             targets: [
                 "SourceControl",
                 "SPMLLBuild",
-		"PackageCollections",
+                "PackageCollections",
                 "LLBuildManifest",
                 "PackageModel",
                 "PackageLoading",
