@@ -177,6 +177,38 @@ final class HTTPClientTest: XCTestCase {
         wait(for: [promise], timeout: 1)
     }
 
+    func testExtraHeaders() {
+        let url = URL(string: "http://test")!
+        let globalHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
+        let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
+
+        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+            var expectedHeaders = globalHeaders
+            expectedHeaders.merge(requestHeaders)
+            self.assertRequestHeaders(request.headers, expected: expectedHeaders)
+            callback(.success(HTTPClient.Response(statusCode: 200)))
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.requestHeaders = globalHeaders
+
+        var request = HTTPClient.Request(method: .get, url: url, headers: requestHeaders)
+        request.options.addUserAgent = true
+
+        let promise = XCTestExpectation(description: "completed")
+        httpClient.execute(request) { result in
+            switch result {
+            case .failure(let error):
+                XCTFail("unexpected error \(error)")
+            case .success(let response):
+                XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+            }
+            promise.fulfill()
+        }
+
+        wait(for: [promise], timeout: 1)
+    }
+
     func testUserAgent() {
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
@@ -233,6 +265,30 @@ final class HTTPClientTest: XCTestCase {
         wait(for: [promise], timeout: 1)
     }
 
+    func testValidResponseCodes() {
+        let statusCode = Int.random(in: 201 ..< 500)
+        let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+            callback(.success(HTTPClient.Response(statusCode: statusCode)))
+        }
+
+        let httpClient = HTTPClient(handler: brokenHandler)
+        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!)
+        request.options.validResponseCodes = [200]
+
+        let promise = XCTestExpectation(description: "completed")
+        httpClient.execute(request) { result in
+            switch result {
+            case .failure(let error):
+                XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode), "expected error to match")
+            case .success(let response):
+                XCTFail("unexpected success \(response)")
+            }
+            promise.fulfill()
+        }
+
+        wait(for: [promise], timeout: 1)
+    }
+
     func testExponentialBackoff() {
         var count = 0
         var lastCall: Date?
@@ -242,7 +298,7 @@ final class HTTPClientTest: XCTestCase {
 
         let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
             let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
-            let delta = lastCall?.distance(to: Date()) ?? 0
+            let delta = lastCall.flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
             count += 1
@@ -270,31 +326,7 @@ final class HTTPClientTest: XCTestCase {
         wait(for: [promise], timeout: timeout)
     }
 
-    func testValidResponseCodes() {
-        let statusCode = Int.random(in: 201 ..< 500)
-        let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
-            callback(.success(HTTPClient.Response(statusCode: statusCode)))
-        }
-
-        let httpClient = HTTPClient(handler: brokenHandler)
-        var request = HTTPClient.Request(method: .get, url: URL(string: "http://test")!)
-        request.options.validResponseCodes = [200]
-
-        let promise = XCTestExpectation(description: "completed")
-        httpClient.execute(request) { result in
-            switch result {
-            case .failure(let error):
-                XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode), "expected error to match")
-            case .success(let response):
-                XCTFail("unexpected success \(response)")
-            }
-            promise.fulfill()
-        }
-
-        wait(for: [promise], timeout: 1)
-    }
-
-    func testCircuitBreaker() {
+    func testHostCircuitBreaker() {
         var count = 0
         let errorCode = Int.random(in: 500 ..< 600)
         let maxErrors = 5
@@ -305,12 +337,13 @@ final class HTTPClientTest: XCTestCase {
             callback(.success(HTTPClient.Response(statusCode: errorCode)))
         }
 
+        let host = "http://tes-\(UUID().uuidString).com"
         let httpClient = HTTPClient(handler: brokenHandler)
 
         let sync = DispatchGroup()
         (0 ... maxErrors * 2).forEach { index in
             sync.enter()
-            var request = HTTPClient.Request(method: .get, url: URL(string: "http://test.com/\(index)/foo")!)
+            var request = HTTPClient.Request(method: .get, url: URL(string: "\(host)/\(index)/foo")!)
             request.options.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
             httpClient.execute(request) { result in
                 defer { sync.leave() }
@@ -335,14 +368,13 @@ final class HTTPClientTest: XCTestCase {
         XCTAssertEqual(sync.wait(timeout: timeout), .success, "should not timeout")
     }
 
-    func testCircuitBreakerAging() {
+    func testHostCircuitBreakerAging() {
         var count = 0
         let errorCode = Int.random(in: 500 ..< 600)
         let maxErrors = 5
         let age = DispatchTimeInterval.milliseconds(100)
 
         let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
-            count += 1
             if count < maxErrors / 2 {
                 // immediate
                 callback(.success(HTTPClient.Response(statusCode: errorCode)))
@@ -352,14 +384,16 @@ final class HTTPClientTest: XCTestCase {
                     callback(.success(HTTPClient.Response(statusCode: errorCode)))
                 }
             }
+            count += 1
         }
 
+        let host = "http://tes-\(UUID().uuidString).com"
         let httpClient = HTTPClient(handler: brokenHandler)
 
         let sync = DispatchGroup()
         (0 ... maxErrors * 2).forEach { index in
             sync.enter()
-            var request = HTTPClient.Request(method: .get, url: URL(string: "http://test.com/\(index)/foo")!)
+            var request = HTTPClient.Request(method: .get, url: URL(string: "\(host)/\(index)/foo")!)
             request.options.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
             httpClient.execute(request) { result in
                 defer { sync.leave() }

@@ -9,6 +9,12 @@
  */
 
 @testable import Basics
+import Foundation
+#if canImport(FoundationNetworking)
+// TODO: this brings OpenSSL dependency` on Linux
+// need to decide how to best deal with that
+import FoundationNetworking
+#endif
 import TSCBasic
 import TSCTestSupport
 import XCTest
@@ -190,18 +196,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
     }
 
     private func assertRequestHeaders(_ headers: [String: String]?, expected: HTTPClientHeaders) {
-        let filtered = headers?.filter { $0.key != "User-Agent" && $0.key != "Content-Length" }
-        XCTAssertEqual(filtered?.count, expected.count, "expected size to match")
-        expected.forEach { header in
-            XCTAssertEqual(header.value, headers?[header.name], "expected value to match")
-        }
+        let headers = (headers?.filter { $0.key != "User-Agent" && $0.key != "Content-Length" } ?? [])
+            .flatMap { HTTPClientHeaders($0.map { .init(name: $0.key, value: $0.value) }) } ?? .init()
+        XCTAssertEqual(headers, expected)
     }
 
     private func assertResponseHeaders(_ headers: HTTPClientHeaders, expected: [String: String]) {
-        XCTAssertEqual(headers.count, expected.count, "expected size to match")
-        headers.forEach { header in
-            XCTAssertEqual(header.value, expected[header.name], "expected value to match")
-        }
+        let expected = HTTPClientHeaders(expected.map { .init(name: $0.key, value: $0.value) })
+        XCTAssertEqual(headers, expected)
     }
 }
 

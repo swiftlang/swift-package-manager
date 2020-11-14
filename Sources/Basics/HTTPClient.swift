@@ -15,6 +15,10 @@ import struct Foundation.URL
 import TSCBasic
 import TSCUtility
 
+#if canImport(Glibc)
+import Glibc
+#endif
+
 // MARK: - HTTPClient
 
 public struct HTTPClient {
@@ -23,7 +27,7 @@ public struct HTTPClient {
     public typealias Response = HTTPClientResponse
     public typealias Handler = (Request, @escaping (Result<Response, Error>) -> Void) -> Void
 
-    private let configuration: HTTPClientConfiguration
+    public var configuration: HTTPClientConfiguration
     private let underlying: Handler
 
     // static to share across instances of the http client
@@ -81,9 +85,9 @@ public struct HTTPClient {
                 // record host errors for circuit breaker
                 self.recordErrorIfNecessary(response: response, request: request)
                 // handle retry strategy
-                if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber), #available(OSX 10.15, *) {
+                if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
                     // TODO: dedicated retry queue?
-                    return DispatchQueue.global().asyncAfter(deadline: DispatchTime.now().advanced(by: retryDelay)) {
+                    return DispatchQueue.global().asyncAfter(deadline: .now() + retryDelay) {
                         self._execute(request: request, requestNumber: requestNumber + 1, callback: callback)
                     }
                 }
@@ -114,28 +118,34 @@ public struct HTTPClient {
     }
 
     private func recordErrorIfNecessary(response: Response, request: Request) {
-        guard request.options.circuitBreakerStrategy != nil, let host = request.url.host, response.statusCode >= 500 else {
+        guard let strategy = request.options.circuitBreakerStrategy, response.statusCode >= 500 else {
             return
         }
 
-        Self.hostsErrorsLock.withLock {
-            // Avoid copy-on-write: remove entry from dictionary before mutating
-            var errors = Self.hostsErrors.removeValue(forKey: host) ?? []
-            errors.append(Date())
-            Self.hostsErrors[host] = errors
+        switch strategy {
+        case .hostErrors:
+            guard let host = request.url.host else {
+                return
+            }
+            Self.hostsErrorsLock.withLock {
+                // Avoid copy-on-write: remove entry from dictionary before mutating
+                var errors = Self.hostsErrors.removeValue(forKey: host) ?? []
+                errors.append(Date())
+                Self.hostsErrors[host] = errors
+            }
         }
     }
 
     private func shouldCircuitBreak(request: Request) -> Bool {
-        guard let strategy = request.options.circuitBreakerStrategy, let host = request.url.host else {
+        guard let strategy = request.options.circuitBreakerStrategy else {
             return false
         }
 
         switch strategy {
         case .hostErrors(let maxErrors, let age):
-            if let errors = (Self.hostsErrorsLock.withLock { Self.hostsErrors[host] }) {
-                if #available(OSX 10.15, *), errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval(), lastError.distance(to: Date()) < age {
-                    return true
+            if let host = request.url.host, let errors = (Self.hostsErrorsLock.withLock { Self.hostsErrors[host] }) {
+                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval() {
+                    return Date().timeIntervalSince(lastError) <= age
                 } else if errors.count >= maxErrors {
                     // reset aged errors
                     Self.hostsErrorsLock.withLock {
@@ -258,16 +268,23 @@ public struct HTTPClientResponse {
 }
 
 public struct HTTPClientHeaders: Sequence, Equatable {
-    // TODO: optimize
-    private var headers: [Item]
+    private var items: [Item]
+    private var headers: [String: [String]]
 
-    public init(_ headers: [Item] = []) {
-        self.headers = headers
+    public init(_ items: [Item] = []) {
+        self.items = items
+        self.headers = items.reduce([String: [String]]()) { partial, item in
+            var map = partial
+            // Avoid copy-on-write: remove entry from dictionary before mutating
+            var values = map.removeValue(forKey: item.name.lowercased()) ?? []
+            values.append(item.value)
+            map[item.name.lowercased()] = values
+            return map
+        }
     }
 
-    // TODO: optimize
     public func contains(_ name: String) -> Bool {
-        self.headers.contains(where: { $0.name.lowercased() == name.lowercased() })
+        self.headers[name.lowercased()] != nil
     }
 
     public var count: Int {
@@ -279,16 +296,25 @@ public struct HTTPClientHeaders: Sequence, Equatable {
     }
 
     public mutating func add(_ item: Item) {
-        self.headers.append(item)
+        // Avoid copy-on-write: remove entry from dictionary before mutating
+        var values = self.headers.removeValue(forKey: item.name.lowercased()) ?? []
+        values.append(item.value)
+        self.headers[item.name.lowercased()] = values
+        self.items.append(item)
     }
 
-    // TODO: optimize
-    public func get(name: String) -> [String] {
-        self.headers.filter { $0.name.lowercased() == name.lowercased() }.map { $0.value }
+    public mutating func merge(_ other: HTTPClientHeaders) {
+        other.forEach {
+            self.add($0)
+        }
+    }
+
+    public func get(_ name: String) -> [String] {
+        self.headers[name.lowercased()] ?? []
     }
 
     public func makeIterator() -> IndexingIterator<[Item]> {
-        self.headers.makeIterator()
+        return self.items.makeIterator()
     }
 
     public struct Item: Equatable {
@@ -297,7 +323,7 @@ public struct HTTPClientHeaders: Sequence, Equatable {
     }
 
     public static func == (lhs: HTTPClientHeaders, rhs: HTTPClientHeaders) -> Bool {
-        lhs.headers == rhs.headers
+        return lhs.headers == rhs.headers
     }
 }
 
