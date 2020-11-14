@@ -89,6 +89,7 @@ class PackageCollectionsStorageTests: XCTestCase {
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(storagePath)")
 
             try storage.fileSystem.removeFileTree(storagePath)
+            storage.resetCache()
 
             XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
                 XCTAssert(error is NotFoundError, "Expected NotFoundError")
@@ -123,6 +124,7 @@ class PackageCollectionsStorageTests: XCTestCase {
             }
 
             try storage.close()
+            storage.resetCache()
 
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(path)")
             try storage.fileSystem.writeFileContents(storagePath, bytes: ByteString("blah".utf8))

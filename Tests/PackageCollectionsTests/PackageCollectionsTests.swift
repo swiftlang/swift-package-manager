@@ -355,10 +355,35 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
-    func testPackageSearch() throws {
-        // FIXME: restore when search is implemented
-        throw XCTSkip()
+    func testListPerformance() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
 
+        let mockCollections = makeMockCollections(count: 1000)
+        let mockPackage = mockCollections.last!.packages.last!
+        let mockMetadata = makeMockPackageBasicMetadata()
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        let sync = DispatchGroup()
+        mockCollections.forEach { collection in
+            sync.enter()
+            packageCollections.addCollection(collection.source, order: nil) { _ in
+                sync.leave()
+            }
+        }
+        sync.wait()
+
+        let start = Date()
+        let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+        XCTAssertEqual(list.count, mockCollections.count, "list count should match")
+        let delta = start.distance(to: Date())
+        XCTAssert(delta < 1.0, "should list quickly, took \(delta)")
+    }
+
+    func testPackageSearch() throws {
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -463,36 +488,34 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testPackageSearchPerformance() throws {
-        // FIXME: restore when search is implemented
-        throw XCTSkip()
-
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        let mockCollections = makeMockCollections(count: 1000)
+        let mockCollections = makeMockCollections(count: 1000, maxPackages: 20)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
-        try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, callback: callback) }
+        let sync = DispatchGroup()
+        mockCollections.forEach { collection in
+            sync.enter()
+            packageCollections.addCollection(collection.source, order: nil) { _ in
+                sync.leave()
+            }
         }
+        sync.wait()
 
-        // search by pacakge name
+        // search by package name
         let start = Date()
         let repoName = mockCollections.last!.packages.last!.repository.basename
         let searchResult = try tsc_await { callback in packageCollections.findPackages(repoName, callback: callback) }
         XCTAssert(searchResult.items.count > 0, "should get results")
         let delta = start.distance(to: Date())
-        // FIXME: we need to get this under 1s
-        XCTAssert(delta < 1.5, "should search quickly, took \(delta)")
+        XCTAssert(delta < 1.0, "should search quickly, took \(delta)")
     }
 
     func testTargetsSearch() throws {
-        // FIXME: restore when search is implemented
-        throw XCTSkip()
-
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -571,9 +594,6 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testTargetsSearchPerformance() throws {
-        // FIXME: restore when search is implemented
-        throw XCTSkip()
-
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -583,11 +603,16 @@ final class PackageCollectionsTests: XCTestCase {
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
-        try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, callback: callback) }
+        let sync = DispatchGroup()
+        mockCollections.forEach { collection in
+            sync.enter()
+            packageCollections.addCollection(collection.source, order: nil) { _ in
+                sync.leave()
+            }
         }
+        sync.wait()
 
-        // search by pacakge name
+        // search by target name
         let start = Date()
         let targetName = mockCollections.last!.packages.last!.versions.last!.targets.last!.name
         let searchResult = try tsc_await { callback in packageCollections.findTargets(targetName, searchType: .exactMatch, callback: callback) }
@@ -978,9 +1003,6 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataPerformance() throws {
-        // FIXME: restore when performant search is implemented
-        throw XCTSkip()
-
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -992,23 +1014,20 @@ final class PackageCollectionsTests: XCTestCase {
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
-        do {
-            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
-            XCTAssertEqual(list.count, 0, "list should be empty")
-        }
-
-        do {
-            try mockCollections.forEach { collection in
-                _ = try tsc_await { callback in packageCollections.addCollection(collection.source, order: nil, callback: callback) }
+        let sync = DispatchGroup()
+        mockCollections.forEach { collection in
+            sync.enter()
+            packageCollections.addCollection(collection.source, order: nil) { _ in
+                sync.leave()
             }
-            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
-            XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
+        sync.wait()
 
         let start = Date()
-        _ = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        XCTAssertNotNil(metadata)
         let delta = start.distance(to: Date())
-        XCTAssert(delta < 1.0, "should search quickly, took \(delta)")
+        XCTAssert(delta < 1.0, "should fetch quickly, took \(delta)")
     }
 
     func testSourceValidation() throws {

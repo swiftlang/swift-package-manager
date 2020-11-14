@@ -121,7 +121,7 @@ extension PackageCollectionsModel.Package {
 
 extension PackageCollectionsModel {
     /// A representation of package target
-    public struct PackageTarget: Equatable, Codable {
+    public struct PackageTarget: Equatable, Hashable, Codable {
         /// The target name
         public let name: String
 

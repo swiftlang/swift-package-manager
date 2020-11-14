@@ -34,6 +34,6 @@ extension PackageCollectionsModel {
     /// A representation of target in search result
     public struct TargetSearchResult {
         /// Result items of the search
-        public let items: TargetListResult
+        public let items: [TargetListItem]
     }
 }
