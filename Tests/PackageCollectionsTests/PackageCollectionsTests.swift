@@ -356,6 +356,11 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testListPerformance() throws {
+        #if ENABLE_COLLECTION_PERF_TESTS
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -488,6 +493,11 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testPackageSearchPerformance() throws {
+        #if ENABLE_COLLECTION_PERF_TESTS
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -594,6 +604,11 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testTargetsSearchPerformance() throws {
+        #if ENABLE_COLLECTION_PERF_TESTS
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -1003,6 +1018,11 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataPerformance() throws {
+        #if ENABLE_COLLECTION_PERF_TESTS
+        #else
+        try XCTSkipIf(true)
+        #endif
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
