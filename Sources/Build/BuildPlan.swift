@@ -91,9 +91,8 @@ extension BuildParameters {
         case .auto:
             if configuration == .debug {
                 addIndexStoreArguments = true
-            } else if enableTestDiscovery && target.type == .test {
-                // Test discovery requires an index store for the test targets
-                // to discover the tests
+            } else if target.type == .test {
+                // Test discovery requires an index store for the test target to discover the tests
                 addIndexStoreArguments = true
             } else {
                 addIndexStoreArguments = false
@@ -963,15 +962,10 @@ public final class SwiftTargetBuildDescription {
 
     /// Testing arguments according to the build configuration.
     private var testingArguments: [String] {
-        switch buildParameters.configuration {
-        case .debug:
+        if buildParameters.enableTestability {
             return ["-enable-testing"]
-        case .release:
-            if self.buildParameters.enableTestDiscovery {
-                return ["-enable-testing"]
-            } else {
-                return []
-            }
+        } else {
+            return []
         }
     }
 
@@ -1100,8 +1094,8 @@ public final class ProductBuildDescription {
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle on macOS, executable on linux.
-            if buildParameters.triple.isDarwin() {
+            // Test products are bundle when not using test manifest, executable otherwise.
+            if !buildParameters.useTestManifest {
                 args += ["-Xlinker", "-bundle"]
             } else {
                 args += ["-emit-executable"]
@@ -1224,16 +1218,11 @@ public final class ProductBuildDescription {
 public class BuildPlan {
 
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
-        /// The linux main file is missing.
-        case missingLinuxMain
-
         /// There is no buildable target in the graph.
         case noBuildableTarget
 
         public var description: String {
             switch self {
-            case .missingLinuxMain:
-                return "missing LinuxMain.swift file in the Tests directory"
             case .noBuildableTarget:
                 return "the package does not contain a buildable target"
             }
@@ -1273,64 +1262,60 @@ public class BuildPlan {
     /// Diagnostics Engine for emitting diagnostics.
     let diagnostics: DiagnosticsEngine
 
-    private static func planLinuxMain(
+    private static func makeTestManifestTargets(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph
-    ) throws -> [(ResolvedProduct, SwiftTargetBuildDescription)] {
-        guard !buildParameters.triple.isDarwin() else {
-            return []
+    ) throws -> [(product: ResolvedProduct, targetBuildDescription: SwiftTargetBuildDescription)] {
+        guard buildParameters.useTestManifest else {
+            preconditionFailure("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
         }
 
         var result: [(ResolvedProduct, SwiftTargetBuildDescription)] = []
-
         for testProduct in graph.allProducts where testProduct.type == .test {
-            // Create the target description from the linux main if test discovery is off.
-            if !buildParameters.enableTestDiscovery {
-                guard let linuxMainTarget = testProduct.linuxMainTarget else {
-                    throw Error.missingLinuxMain
-                }
-
+            // if test manifest exists, prefer that over test detection,
+            // this is designed as an escape hatch when test discovery is not appropriate
+            // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
+            if let testManifestTarget = testProduct.testManifestTarget, !buildParameters.forceTestDiscovery {
                 let desc = try SwiftTargetBuildDescription(
-                    target: linuxMainTarget,
+                    target: testManifestTarget,
                     buildParameters: buildParameters,
                     isTestTarget: true
                 )
 
                 result.append((testProduct, desc))
-                continue
+            } else {
+                // We'll generate sources containing the test names as part of the build process.
+                let derivedTestListDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
+                let mainFile = derivedTestListDir.appending(component: "main.swift")
+
+                var paths: [AbsolutePath] = []
+                paths.append(mainFile)
+                for testTarget in testProduct.targets {
+                    let path = derivedTestListDir.appending(components: testTarget.name + ".swift")
+                    paths.append(path)
+                }
+
+                let src = Sources(paths: paths, root: derivedTestListDir)
+
+                let swiftTarget = SwiftTarget(
+                    testDiscoverySrc: src,
+                    name: testProduct.name,
+                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
+                )
+                let testManifestTarget = ResolvedTarget(
+                    target: swiftTarget,
+                    dependencies: testProduct.targets.map { .target($0, conditions: []) }
+                )
+
+                let target = try SwiftTargetBuildDescription(
+                    target: testManifestTarget,
+                    buildParameters: buildParameters,
+                    isTestTarget: true,
+                    testDiscoveryTarget: true
+                )
+
+                result.append((testProduct, target))
             }
-
-            // We'll generate sources containing the test names as part of the build process.
-            let derivedTestListDir = buildParameters.buildPath.appending(components: "\(testProduct.name)Testlist.derived")
-            let mainFile = derivedTestListDir.appending(component: "main.swift")
-
-            var paths: [AbsolutePath] = []
-            paths.append(mainFile)
-            for testTarget in testProduct.targets {
-                let path = derivedTestListDir.appending(components: testTarget.name + ".swift")
-                paths.append(path)
-            }
-
-            let src = Sources(paths: paths, root: derivedTestListDir)
-
-            let swiftTarget = SwiftTarget(
-                testDiscoverySrc: src,
-                name: testProduct.name,
-                dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
-            )
-            let linuxMainTarget = ResolvedTarget(
-                target: swiftTarget,
-                dependencies: testProduct.targets.map { .target($0, conditions: []) }
-            )
-
-            let target = try SwiftTargetBuildDescription(
-                target: linuxMainTarget,
-                buildParameters: buildParameters,
-                isTestTarget: true,
-                testDiscoveryTarget: true
-            )
-
-            result.append((testProduct, target))
         }
         return result
     }
@@ -1389,11 +1374,13 @@ public class BuildPlan {
             throw Diagnostics.fatalError
         }
 
-        // Plan the linux main target.
-        let results = try Self.planLinuxMain(buildParameters, graph)
-        for result in results {
-            targetMap[result.1.target] = .swift(result.1)
-            linuxMainMap[result.0] = result.1.target
+        // Plan the test manifest target.
+        if buildParameters.useTestManifest {
+            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph)
+            for item in testManifestTargets {
+                targetMap[item.targetBuildDescription.target] = .swift(item.targetBuildDescription)
+                testManifestTargetsMap[item.product] = item.targetBuildDescription.target
+            }
         }
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
@@ -1413,7 +1400,7 @@ public class BuildPlan {
         try plan()
     }
 
-    private var linuxMainMap: [ResolvedProduct: ResolvedTarget] = [:]
+    private var testManifestTargetsMap: [ResolvedProduct: ResolvedTarget] = [:]
 
     static func validateDeploymentVersionOfProductDependency(
         _ product: ResolvedProduct,
@@ -1603,9 +1590,10 @@ public class BuildPlan {
             }
         }
 
-        if !buildParameters.triple.isDarwin() {
-            if product.type == .test {
-                linuxMainMap[product].map{ staticTargets.append($0) }
+        // add test manifest targets
+        if buildParameters.useTestManifest {
+            if product.type == .test, let testManifestTarget = testManifestTargetsMap[product] {
+                staticTargets.append(testManifestTarget)
             }
         }
 

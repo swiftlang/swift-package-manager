@@ -26,25 +26,25 @@ public class Product: Codable {
     @PolymorphicCodableArray
     public var targets: [Target]
 
-    /// The path to linux main file.
-    public let linuxMain: AbsolutePath?
+    /// The path to test manifest file.
+    public let testManifest: AbsolutePath?
 
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(name: String, type: ProductType, targets: [Target], linuxMain: AbsolutePath? = nil) {
+    public init(name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) {
         precondition(!targets.isEmpty)
         if type == .executable {
             assert(targets.filter({ $0.type == .executable }).count == 1,
                    "Executable products should have exactly one executable target.")
         }
-        if linuxMain != nil {
-            assert(type == .test, "Linux main should only be set on test products")
+        if testManifest != nil {
+            assert(type == .test, "Test manifest should only be set on test products")
         }
         self.name = name
         self.type = type
         self._targets = .init(wrappedValue: targets)
-        self.linuxMain = linuxMain 
+        self.testManifest = testManifest
     }
 }
 

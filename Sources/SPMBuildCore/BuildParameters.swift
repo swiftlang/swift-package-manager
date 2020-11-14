@@ -80,9 +80,6 @@ public struct BuildParameters: Encodable {
     /// Whether to enable code coverage.
     public var enableCodeCoverage: Bool
 
-    /// Whether to enable test discovery on platforms without Objective-C runtime.
-    public var enableTestDiscovery: Bool
-
     /// Whether to enable generation of `.swiftinterface` files alongside
     /// `.swiftmodule`s.
     public var enableParseableModuleInterfaces: Bool
@@ -130,6 +127,16 @@ public struct BuildParameters: Encodable {
 
     /// Extra arguments to pass when using xcbuild.
     public var xcbuildFlags: [String]
+        
+    // Whether building for testability is enabled.
+    public var enableTestability: Bool
+    
+    // Whether test-manifest based testing is enabled
+    public var useTestManifest: Bool
+
+    // Whether test-discovery is forced
+    // For backwards compatibility, remove with --enable-test-discovery
+    public var forceTestDiscovery: Bool
 
     public init(
         dataPath: AbsolutePath,
@@ -149,18 +156,22 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        enableTestDiscovery: Bool = false,
         emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
-        printManifestGraphviz: Bool = false
+        printManifestGraphviz: Bool = false,
+        enableTestability: Bool? = nil,
+        useTestManifest: Bool? = nil,
+        forceTestDiscovery: Bool = false
     ) {
+        let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
-        self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        self.triple = triple
         self.archs = archs
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
@@ -173,12 +184,16 @@ public struct BuildParameters: Encodable {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.enableTestDiscovery = enableTestDiscovery
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.printManifestGraphviz = printManifestGraphviz
+        // decide on testability based on debug/release config
+        self.enableTestability = enableTestability ?? (.debug == configuration)
+        // decide if to enable the use of test manifests based on platform (this may change in the past)
+        self.useTestManifest = useTestManifest ?? !triple.isDarwin()
+        self.forceTestDiscovery = forceTestDiscovery
     }
 
     /// The path to the build directory (inside the data directory).

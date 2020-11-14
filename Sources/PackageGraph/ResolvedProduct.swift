@@ -29,8 +29,8 @@ public final class ResolvedProduct: ObjectIdentifierProtocol {
         return underlyingProduct.type
     }
 
-    /// Executable target for linux main test manifest file.
-    public let linuxMainTarget: ResolvedTarget?
+    /// Executable target for test manifest file.
+    public let testManifestTarget: ResolvedTarget?
 
     /// The main executable target of product.
     ///
@@ -45,12 +45,12 @@ public final class ResolvedProduct: ObjectIdentifierProtocol {
         self.underlyingProduct = product
         self.targets = targets
 
-        self.linuxMainTarget = underlyingProduct.linuxMain.map({ linuxMain in
+        self.testManifestTarget = underlyingProduct.testManifest.map{ testManifest in
             // Create an executable resolved target with the linux main, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(linuxMain: linuxMain, name: product.name, dependencies: dependencies)
+            let swiftTarget = SwiftTarget(testManifest: testManifest, name: product.name, dependencies: dependencies)
             return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
-        })
+        }
     }
 
     /// True if this product contains Swift targets.

@@ -219,7 +219,7 @@ class MiscellaneousTestCase: XCTestCase {
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
           // First try normal serial testing.
           do {
-            _ = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: prefix)
+            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
             #if os(macOS)
               XCTAssertTrue(stderr.contains("Executed 2 tests"))
@@ -230,7 +230,7 @@ class MiscellaneousTestCase: XCTestCase {
 
           do {
             // Run tests in parallel.
-            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel", "--enable-test-discovery"], packagePath: prefix)
+            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
             XCTAssert(output.contains("testExample2"))
@@ -243,7 +243,7 @@ class MiscellaneousTestCase: XCTestCase {
           do {
             // Run tests in parallel with verbose output.
             _ = try SwiftPMProduct.SwiftTest.execute(
-                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString, "--enable-test-discovery"],
+                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
                 packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
             XCTAssert(output.contains("testExample1"))
@@ -265,14 +265,14 @@ class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(true)
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l", "--enable-test-discovery"], packagePath: prefix)
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l"], packagePath: prefix)
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
         }
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*1", "--filter", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*1", "--filter", "testSureFailure", "-l"], packagePath: prefix)
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
@@ -284,21 +284,21 @@ class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(true)
         
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--skip", "ParallelTestsTests", "-l", "--enable-test-discovery"], packagePath: prefix)
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--skip", "ParallelTestsTests", "-l"], packagePath: prefix)
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
         }
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*2", "--filter", "TestsFailure", "--skip", "testSureFailure", "-l", "--enable-test-discovery"], packagePath: prefix)
+            let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*2", "--filter", "TestsFailure", "--skip", "testSureFailure", "-l"], packagePath: prefix)
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
         }
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["--skip", "Tests", "--enable-test-discovery"], packagePath: prefix)
+            let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["--skip", "Tests"], packagePath: prefix)
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
@@ -422,67 +422,6 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testSwiftTestLinuxMainGeneration() throws {
-        // <rdar://problem/69448176> Fix and re-enable test related to "ParallelTestsPkg"
-        try XCTSkipIf(true)
-
-      #if os(macOS)
-        fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-            let fs = localFileSystem
-            try SwiftPMProduct.SwiftTest.execute(["--generate-linuxmain"], packagePath: prefix)
-
-            // Check linux main.
-            let linuxMain = prefix.appending(components: "Tests", "LinuxMain.swift")
-            XCTAssertEqual(try fs.readFileContents(linuxMain), """
-                import XCTest
-
-                import ParallelTestsPkgTests
-
-                var tests = [XCTestCaseEntry]()
-                tests += ParallelTestsPkgTests.__allTests()
-
-                XCTMain(tests)
-
-                """)
-
-            // Check test manifest.
-            let testManifest = prefix.appending(components: "Tests", "ParallelTestsPkgTests", "XCTestManifests.swift")
-            XCTAssertEqual(try fs.readFileContents(testManifest), """
-                #if !canImport(ObjectiveC)
-                import XCTest
-
-                extension ParallelTestsFailureTests {
-                    // DO NOT MODIFY: This is autogenerated, use:
-                    //   `swift test --generate-linuxmain`
-                    // to regenerate.
-                    static let __allTests__ParallelTestsFailureTests = [
-                        ("testSureFailure", testSureFailure),
-                    ]
-                }
-
-                extension ParallelTestsTests {
-                    // DO NOT MODIFY: This is autogenerated, use:
-                    //   `swift test --generate-linuxmain`
-                    // to regenerate.
-                    static let __allTests__ParallelTestsTests = [
-                        ("testExample1", testExample1),
-                        ("testExample2", testExample2),
-                    ]
-                }
-
-                public func __allTests() -> [XCTestCaseEntry] {
-                    return [
-                        testCase(ParallelTestsFailureTests.__allTests__ParallelTestsFailureTests),
-                        testCase(ParallelTestsTests.__allTests__ParallelTestsTests),
-                    ]
-                }
-                #endif
-
-                """)
-        }
-      #endif
-    }
-
     func testUnicode() {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in
@@ -558,6 +497,20 @@ class MiscellaneousTestCase: XCTestCase {
             let (diff, _) = try SwiftPMProduct.SwiftPackage.execute(["experimental-api-diff", "1.0.0"], packagePath: package)
             XCTAssertMatch(diff, .contains("Func Foo.foo() has been renamed to Func foo(param:)"))
             XCTAssertMatch(diff, .contains("Func Foo.foo() has return type change from Swift.String to Swift.Int"))
+        }
+    }
+    
+    func testEnableTestDiscoveryDeprecation() {
+        fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: path)
+            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
+        }
+    }
+    
+    func testGenerateLinuxMainDeprecation() {
+        fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--generate-linuxmain"], packagePath: path)
+            XCTAssertMatch(stderr, .contains("warning: '--generate-linuxmain' option is deprecated"))
         }
     }
 }

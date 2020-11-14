@@ -90,7 +90,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         }
 
         let outputs = tool.outputs.compactMap{ try? AbsolutePath(validating: $0.name) }
-        let testsByModule = Dictionary(grouping: tests, by: { $0.module })
+        let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
             return path.basename == "main.swift"
@@ -109,7 +109,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
             // FIXME: This is relying on implementation detail of the output but passing the
             // the context all the way through is not worth it right now.
-            let module = file.basenameWithoutExt
+            let module = file.basenameWithoutExt.spm_mangledToC99ExtendedIdentifier()
 
             guard let tests = testsByModule[module] else {
                 // This module has no tests so just write an empty file for it.

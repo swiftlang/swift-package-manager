@@ -20,18 +20,18 @@ import PackageGraph
 /// The parameters required by `PIFBuilder`.
 public struct PIFBuilderParameters {
 
-    /// Whether or not test discovery is enabled.
-    public let enableTestDiscovery: Bool
+    /// Whether or not build for testability is enabled.
+    public let enableTestability: Bool
 
     /// Whether to create dylibs for dynamic library products.
     public let shouldCreateDylibForDynamicProducts: Bool
 
     /// Creates a `PIFBuilderParameters` instance.
     /// - Parameters:
-    ///   - enableTestDiscovery: Whether or not test discovery is enabled.
+    ///   - enableTestability: Whether or not build for testability is enabled.
     ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(enableTestDiscovery: Bool, shouldCreateDylibForDynamicProducts: Bool) {
-        self.enableTestDiscovery = enableTestDiscovery
+    public init(enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool) {
+        self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
     }
 }
@@ -323,7 +323,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
 
-        if parameters.enableTestDiscovery {
+        if parameters.enableTestability {
             releaseSettings[.ENABLE_TESTABILITY] = "YES"
         }
 
