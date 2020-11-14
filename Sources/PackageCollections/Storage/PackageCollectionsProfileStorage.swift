@@ -97,10 +97,12 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         self.path = path ?? fileSystem.dotSwiftPM.appending(component: "\(name).json")
 
         self.encoder = JSONEncoder()
-        self.encoder.outputFormatting = .prettyPrinted
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-            self.encoder.outputFormatting.insert(.sortedKeys)
-            self.encoder.outputFormatting.insert(.withoutEscapingSlashes)
+        if #available(macOS 10.15, *) {
+            #if os(macOS)
+            encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
+            #else // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
+            encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+            #endif
         }
         self.decoder = JSONDecoder()
     }
