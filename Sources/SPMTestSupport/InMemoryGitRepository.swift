@@ -211,7 +211,7 @@ extension InMemoryGitRepository: FileSystem {
     }
 
     public func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     public var homeDirectory: AbsolutePath {
@@ -231,7 +231,7 @@ extension InMemoryGitRepository: FileSystem {
     }
     
     public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     public func readFileContents(_ path: AbsolutePath) throws -> ByteString {

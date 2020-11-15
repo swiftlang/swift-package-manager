@@ -3030,7 +3030,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(targets: "Foo")
             }
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("the package at '/tmp/ws/pkgs/Bar' cannot be accessed (doesn't exist in file system"), behavior: .error)
+                result.check(diagnostic: .contains("the package at '/tmp/ws/pkgs/Bar' cannot be accessed (/tmp/ws/pkgs/Bar doesn't exist in file system"), behavior: .error)
             }
         }
     }
