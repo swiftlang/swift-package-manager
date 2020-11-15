@@ -638,13 +638,15 @@ private class GitFileSystemView: FileSystem {
         // Walk the components resolving the tree (starting with a synthetic
         // root entry).
         var current: Tree.Entry = Tree.Entry(hash: root, type: .tree, name: "/")
+        var currentPath = AbsolutePath.root
         for component in path.components.dropFirst(1) {
             // Skip the root pseudo-component.
             if component == "/" { continue }
 
+            currentPath = currentPath.appending(component: component)
             // We have a component to resolve, so the current entry must be a tree.
             guard current.type == .tree else {
-                throw FileSystemError.notDirectory
+                throw FileSystemError(.notDirectory, currentPath)
             }
 
             // Fetch the tree.
@@ -733,10 +735,10 @@ private class GitFileSystemView: FileSystem {
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let entry = try getEntry(path) else {
-            throw FileSystemError.noEntry
+            throw FileSystemError(.noEntry, path)
         }
         guard entry.type == .tree else {
-            throw FileSystemError.notDirectory
+            throw FileSystemError(.notDirectory, path)
         }
 
         return try getTree(entry.hash).contents.map({ $0.name })
@@ -744,10 +746,10 @@ private class GitFileSystemView: FileSystem {
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
         guard let entry = try getEntry(path) else {
-            throw FileSystemError.noEntry
+            throw FileSystemError(.noEntry, path)
         }
         guard entry.type != .tree else {
-            throw FileSystemError.isDirectory
+            throw FileSystemError(.isDirectory, path)
         }
         guard entry.type != .symlink else {
             fatalError("FIXME: not implemented")
@@ -766,27 +768,27 @@ private class GitFileSystemView: FileSystem {
     }
 
     func createDirectory(_ path: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     func createDirectory(_ path: AbsolutePath, recursive: Bool) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
     
     func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     func writeFileContents(_ path: AbsolutePath, bytes: ByteString) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     func removeFileTree(_ path: AbsolutePath) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     func chmod(_ mode: FileMode, path: AbsolutePath, options: Set<FileMode.Option>) throws {
-        throw FileSystemError.unsupported
+        throw FileSystemError(.unsupported, path)
     }
 
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
