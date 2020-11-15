@@ -245,42 +245,45 @@ class FileSystemTests: XCTestCase {
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
             // Check read/write of a directory.
-            XCTAssertThrows(FileSystemError.ioError) {
+            XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), filePath.parentDirectory)) {
                 _ = try fs.readFileContents(filePath.parentDirectory)
             }
-            XCTAssertThrows(FileSystemError.isDirectory) {
+            XCTAssertThrows(FileSystemError(.isDirectory, filePath.parentDirectory)) {
                 try fs.writeFileContents(filePath.parentDirectory, bytes: [])
             }
             XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
             // Check read/write against root.
-            XCTAssertThrows(FileSystemError.ioError) {
-              #if os(Android)
-                _ = try fs.readFileContents(AbsolutePath("/system/"))
-              #else
-                _ = try fs.readFileContents(AbsolutePath("/"))
-              #endif
+            #if os(Android)
+            let root = AbsolutePath("/system/")
+            #else
+            let root = AbsolutePath("/")
+            #endif
+            XCTAssertThrows(FileSystemError(.ioError(code: TSCLibc.EPERM), root)) {
+                _ = try fs.readFileContents(root)
+
             }
-            XCTAssertThrows(FileSystemError.isDirectory) {
-                try fs.writeFileContents(AbsolutePath("/"), bytes: [])
+            XCTAssertThrows(FileSystemError(.isDirectory, root)) {
+                try fs.writeFileContents(root, bytes: [])
             }
             XCTAssert(fs.exists(filePath))
 
             // Check read/write into a non-directory.
-            XCTAssertThrows(FileSystemError.notDirectory) {
-                _ = try fs.readFileContents(filePath.appending(component: "not-possible"))
+            let notDirectoryPath = filePath.appending(component: "not-possible")
+            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath)) {
+                _ = try fs.readFileContents(notDirectoryPath)
             }
-            XCTAssertThrows(FileSystemError.notDirectory) {
+            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath)) {
                 try fs.writeFileContents(filePath.appending(component: "not-possible"), bytes: [])
             }
             XCTAssert(fs.exists(filePath))
 
             // Check read/write into a missing directory.
             let missingDir = tmpDirPath.appending(components: "does", "not", "exist")
-            XCTAssertThrows(FileSystemError.noEntry) {
+            XCTAssertThrows(FileSystemError(.noEntry, missingDir)) {
                 _ = try fs.readFileContents(missingDir)
             }
-            XCTAssertThrows(FileSystemError.noEntry) {
+            XCTAssertThrows(FileSystemError(.noEntry, missingDir)) {
                 try fs.writeFileContents(missingDir, bytes: [])
             }
             XCTAssert(!fs.exists(missingDir))
@@ -302,10 +305,10 @@ class FileSystemTests: XCTestCase {
 
             // Copy with no source
 
-            XCTAssertThrows(FileSystemError.noEntry) {
+            XCTAssertThrows(FileSystemError(.noEntry, source)) {
                 try fs.copy(from: source, to: destination)
             }
-            XCTAssertThrows(FileSystemError.noEntry) {
+            XCTAssertThrows(FileSystemError(.noEntry, source)) {
                 try fs.move(from: source, to: destination)
             }
 
@@ -314,10 +317,10 @@ class FileSystemTests: XCTestCase {
             try fs.writeFileContents(source, bytes: "source1")
             try fs.writeFileContents(destination, bytes: "destination")
 
-            XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+            XCTAssertThrows(FileSystemError(.alreadyExistsAtDestination, destination)) {
                 try fs.copy(from: source, to: destination)
             }
-            XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+            XCTAssertThrows(FileSystemError(.alreadyExistsAtDestination, destination)) {
                 try fs.move(from: source, to: destination)
             }
 
@@ -373,22 +376,23 @@ class FileSystemTests: XCTestCase {
 
     func testInMemoryBasics() throws {
         let fs = InMemoryFileSystem()
+        let doesNotExist = AbsolutePath("/does-not-exist")
 
         // exists()
-        XCTAssert(!fs.exists(AbsolutePath("/does-not-exist")))
+        XCTAssert(!fs.exists(doesNotExist))
 
         // isDirectory()
-        XCTAssert(!fs.isDirectory(AbsolutePath("/does-not-exist")))
+        XCTAssert(!fs.isDirectory(doesNotExist))
 
         // isFile()
-        XCTAssert(!fs.isFile(AbsolutePath("/does-not-exist")))
+        XCTAssert(!fs.isFile(doesNotExist))
 
         // isSymlink()
-        XCTAssert(!fs.isSymlink(AbsolutePath("/does-not-exist")))
+        XCTAssert(!fs.isSymlink(doesNotExist))
 
         // getDirectoryContents()
-        XCTAssertThrows(FileSystemError.noEntry) {
-            _ = try fs.getDirectoryContents(AbsolutePath("/does-not-exist"))
+        XCTAssertThrows(FileSystemError(.noEntry, doesNotExist)) {
+            _ = try fs.getDirectoryContents(doesNotExist)
         }
 
         // createDirectory()
@@ -422,9 +426,10 @@ class FileSystemTests: XCTestCase {
         XCTAssert(fs.isDirectory(subsubdir))
 
         // Check non-recursive failing subdir case.
-        let newsubdir = AbsolutePath("/very-new-dir/subdir")
+        let veryNewDir = AbsolutePath("/very-new-dir")
+        let newsubdir = veryNewDir.appending(component: "subdir")
         XCTAssert(!fs.isDirectory(newsubdir))
-        XCTAssertThrows(FileSystemError.noEntry) {
+        XCTAssertThrows(FileSystemError(.noEntry, veryNewDir)) {
             try fs.createDirectory(newsubdir, recursive: false)
         }
         XCTAssert(!fs.isDirectory(newsubdir))
@@ -433,10 +438,10 @@ class FileSystemTests: XCTestCase {
         let filePath = AbsolutePath("/mach_kernel")
         try! fs.writeFileContents(filePath, bytes: [0xCD, 0x0D])
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
-        XCTAssertThrows(FileSystemError.notDirectory) {
+        XCTAssertThrows(FileSystemError(.notDirectory, filePath)) {
             try fs.createDirectory(filePath, recursive: true)
         }
-        XCTAssertThrows(FileSystemError.notDirectory) {
+        XCTAssertThrows(FileSystemError(.notDirectory, filePath)) {
             try fs.createDirectory(filePath.appending(component: "not-possible"), recursive: true)
         }
         XCTAssert(fs.exists(filePath) && !fs.isDirectory(filePath))
@@ -493,42 +498,45 @@ class FileSystemTests: XCTestCase {
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
         // Check read/write of a directory.
-        XCTAssertThrows(FileSystemError.isDirectory) {
+        XCTAssertThrows(FileSystemError(.isDirectory, filePath.parentDirectory)) {
             _ = try fs.readFileContents(filePath.parentDirectory)
         }
-        XCTAssertThrows(FileSystemError.isDirectory) {
+        XCTAssertThrows(FileSystemError(.isDirectory, filePath.parentDirectory)) {
             try fs.writeFileContents(filePath.parentDirectory, bytes: [])
         }
         XCTAssertEqual(try! fs.readFileContents(filePath), "Hello, new world!")
 
         // Check read/write against root.
-        XCTAssertThrows(FileSystemError.isDirectory) {
-            _ = try fs.readFileContents(AbsolutePath("/"))
+        let root = AbsolutePath("/")
+        XCTAssertThrows(FileSystemError(.isDirectory, root)) {
+            _ = try fs.readFileContents(root)
         }
-        XCTAssertThrows(FileSystemError.isDirectory) {
-            try fs.writeFileContents(AbsolutePath("/"), bytes: [])
+        XCTAssertThrows(FileSystemError(.isDirectory, root)) {
+            try fs.writeFileContents(root, bytes: [])
         }
         XCTAssert(fs.exists(filePath))
         XCTAssertTrue(fs.isFile(filePath))
 
         // Check read/write into a non-directory.
-        XCTAssertThrows(FileSystemError.notDirectory) {
-            _ = try fs.readFileContents(filePath.appending(component: "not-possible"))
+        let notDirectory = filePath.appending(component: "not-possible")
+        XCTAssertThrows(FileSystemError(.notDirectory, filePath)) {
+            _ = try fs.readFileContents(notDirectory)
         }
-        XCTAssertThrows(FileSystemError.notDirectory) {
-            try fs.writeFileContents(filePath.appending(component: "not-possible"), bytes: [])
+        XCTAssertThrows(FileSystemError(.notDirectory, filePath)) {
+            try fs.writeFileContents(notDirectory, bytes: [])
         }
         XCTAssert(fs.exists(filePath))
 
         // Check read/write into a missing directory.
-        let missingDir = AbsolutePath("/does/not/exist")
-        XCTAssertThrows(FileSystemError.noEntry) {
-            _ = try fs.readFileContents(missingDir)
+        let missingParent = AbsolutePath("/does/not")
+        let missingFile = missingParent.appending(component: "exist")
+        XCTAssertThrows(FileSystemError(.noEntry, missingFile)) {
+            _ = try fs.readFileContents(missingFile)
         }
-        XCTAssertThrows(FileSystemError.noEntry) {
-            try fs.writeFileContents(missingDir, bytes: [])
+        XCTAssertThrows(FileSystemError(.noEntry, missingParent)) {
+            try fs.writeFileContents(missingFile, bytes: [])
         }
-        XCTAssert(!fs.exists(missingDir))
+        XCTAssert(!fs.exists(missingFile))
     }
 
     func testInMemoryFsCopy() throws {
@@ -560,10 +568,10 @@ class FileSystemTests: XCTestCase {
 
         // Copy with no source
 
-        XCTAssertThrows(FileSystemError.noEntry) {
+        XCTAssertThrows(FileSystemError(.noEntry, source)) {
             try fs.copy(from: source, to: destination)
         }
-        XCTAssertThrows(FileSystemError.noEntry) {
+        XCTAssertThrows(FileSystemError(.noEntry, source)) {
             try fs.move(from: source, to: destination)
         }
 
@@ -572,10 +580,10 @@ class FileSystemTests: XCTestCase {
         try fs.writeFileContents(source, bytes: "source1")
         try fs.writeFileContents(destination, bytes: "destination")
 
-        XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+        XCTAssertThrows(FileSystemError(.alreadyExistsAtDestination, destination)) {
             try fs.copy(from: source, to: destination)
         }
-        XCTAssertThrows(FileSystemError.alreadyExistsAtDestination) {
+        XCTAssertThrows(FileSystemError(.alreadyExistsAtDestination, destination)) {
             try fs.move(from: source, to: destination)
         }
 
@@ -703,13 +711,13 @@ class FileSystemTests: XCTestCase {
 
             // Set foo to unwritable.
             try fs.chmod(.userUnWritable, path: foo)
-            XCTAssertThrows(FileSystemError.invalidAccess) {
+            XCTAssertThrows(FileSystemError(.invalidAccess, foo)) {
                 try fs.writeFileContents(foo, bytes: "test")
             }
 
             // Set the directory as unwritable.
             try fs.chmod(.userUnWritable, path: dir, options: [.recursive, .onlyFiles])
-            XCTAssertThrows(FileSystemError.invalidAccess) {
+            XCTAssertThrows(FileSystemError(.invalidAccess, bar)) {
                 try fs.writeFileContents(bar, bytes: "test")
             }
 
@@ -721,8 +729,9 @@ class FileSystemTests: XCTestCase {
 
             // But not anymore.
             try fs.chmod(.userUnWritable, path: dir, options: [.recursive])
-            XCTAssertThrows(FileSystemError.invalidAccess) {
-                try fs.writeFileContents(dir.appending(component: "new2"), bytes: "")
+            let newFile = dir.appending(component: "new2")
+            XCTAssertThrows(FileSystemError(.invalidAccess, newFile)) {
+                try fs.writeFileContents(newFile, bytes: "")
             }
 
             try? fs.removeFileTree(bar)

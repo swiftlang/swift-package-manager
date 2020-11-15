@@ -672,16 +672,20 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     /// The pointer to the file.
     let filePointer: UnsafeMutablePointer<FILE>
 
-    /// True if there were any IO error during writing.
-    private var error: Bool = false
+    /// Set to an error value if there were any IO error during writing.
+    private var error: FileSystemError?
 
     /// Closes the file on deinit if true.
     private var closeOnDeinit: Bool
+
+    /// Path to the file this stream should operate on.
+    private let path: AbsolutePath?
 
     /// Instantiate using the file pointer.
     public init(filePointer: UnsafeMutablePointer<FILE>, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
+        self.path = nil
         super.init(buffered: buffered)
     }
 
@@ -700,8 +704,9 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
     /// - Throws: FileSystemError
     public init(_ path: AbsolutePath, closeOnDeinit: Bool = true, buffered: Bool = true) throws {
         guard let filePointer = fopen(path.pathString, "wb") else {
-            throw FileSystemError(errno: errno)
+            throw FileSystemError(errno: errno, path)
         }
+        self.path = path
         self.filePointer = filePointer
         self.closeOnDeinit = closeOnDeinit
         super.init(buffered: buffered)
@@ -713,8 +718,12 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
         }
     }
 
-    func errorDetected() {
-        error = true
+    func errorDetected(code: Int32?) {
+        if let code = code {
+            error = .init(.ioError(code: code), path)
+        } else {
+            error = .init(.unknownOSError, path)
+        }
     }
 
     override final func writeImpl<C: Collection>(_ bytes: C) where C.Iterator.Element == UInt8 {
@@ -724,9 +733,9 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
             let n = fwrite(&contents, 1, contents.count, filePointer)
             if n < 0 {
                 if errno == EINTR { continue }
-                errorDetected()
+                errorDetected(code: errno)
             } else if n != contents.count {
-                errorDetected()
+                errorDetected(code: nil)
             }
             break
         }
@@ -738,9 +747,9 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
                 let n = fwrite(bytesPtr.baseAddress, 1, bytesPtr.count, filePointer)
                 if n < 0 {
                     if errno == EINTR { continue }
-                    errorDetected()
+                    errorDetected(code: errno)
                 } else if n != bytesPtr.count {
-                    errorDetected()
+                    errorDetected(code: nil)
                 }
                 break
             }
@@ -758,8 +767,8 @@ public final class LocalFileOutputByteStream: FileOutputByteStream {
             closeOnDeinit = false
         }
         // Throw if errors were found during writing.
-        if error {
-            throw FileSystemError.ioError
+        if let error = error {
+            throw error
         }
     }
 }
