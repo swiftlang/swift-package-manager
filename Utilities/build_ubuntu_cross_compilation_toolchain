@@ -99,7 +99,7 @@ test -f "$macos_swift_pkg"
 test -f "$linux_swift_pkg"
 
 # config
-blocks_h_url="https://raw.githubusercontent.com/apple/swift-corelibs-libdispatch/master/src/BlocksRuntime/Block.h"
+blocks_h_url="https://raw.githubusercontent.com/apple/swift-corelibs-libdispatch/main/src/BlocksRuntime/Block.h"
 xc_tc_name="swift.xctoolchain"
 linux_sdk_name="ubuntu-xenial.sdk"
 cross_tc_basename="cross-toolchain"
