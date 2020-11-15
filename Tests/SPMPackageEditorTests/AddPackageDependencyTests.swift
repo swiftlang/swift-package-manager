@@ -233,4 +233,38 @@ final class AddPackageDependencyTests: XCTestCase {
             )
             """)
     }
+
+    func testAddPackageDependency7() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                dependencies: [
+                    .package(url: "https://github.com/foo/bar", from: "1.0.3")
+                ],
+                targets: [
+                    .target(name: "exec")
+                ]
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            url: "https://github.com/foo/goo",
+            requirement: .upToNextMajor("1.0.1")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                dependencies: [
+                    .package(url: "https://github.com/foo/bar", from: "1.0.3"),
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                targets: [
+                    .target(name: "exec")
+                ]
+            )
+            """)
+    }
 }

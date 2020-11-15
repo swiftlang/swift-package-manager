@@ -344,7 +344,12 @@ final class PackageDependencyWriter: SyntaxRewriter {
         let rightBrace = SyntaxFactory.makeRightSquareBracketToken(
             leadingTrivia: [.newlines(1), .spaces(4)])
 
-        return ExprSyntax(node.addElement(newDependencyElement)
+        let newElements = SyntaxFactory.makeArrayElementList(
+            node.elements.dropLast() +
+                [node.elements.last?.withTrailingComma(SyntaxFactory.makeCommaToken()),
+                 newDependencyElement].compactMap {$0})
+
+        return ExprSyntax(node.withElements(newElements)
                             .withRightSquare(rightBrace))
     }
 }
