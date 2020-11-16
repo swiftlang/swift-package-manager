@@ -105,7 +105,7 @@ extension Incompatibility {
         case noAvailableVersion
 
         /// A version-based dependency contains unversioned-based dependency.
-        case versionBasedDependencyContainsUnversionedDependency(versionedDependency: String, unversionedDependency: String)
+        case versionBasedDependencyContainsUnversionedDependency(versionedDependency: PackageReference, unversionedDependency: PackageReference)
 
         /// The package's tools version is incompatible.
         case incompatibleToolsVersion

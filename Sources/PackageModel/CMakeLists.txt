@@ -22,6 +22,7 @@ add_library(PackageModel
   ManifestSourceGeneration.swift
   ModuleMapType.swift
   Package.swift
+  PackageIdentity.swift
   PackageReference.swift
   Platform.swift
   Product.swift
