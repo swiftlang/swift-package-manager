@@ -53,7 +53,7 @@ public extension PackageReference {
     /// Initializes a `PackageReference` from `RepositorySpecifier`
     init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
         self.init(
-            identity: repository.url,
+            identity: PackageIdentity(repository.url).legacyIdentity,
             path: repository.url,
             kind: kind
         )

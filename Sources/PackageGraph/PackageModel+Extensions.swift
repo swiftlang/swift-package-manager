@@ -24,14 +24,19 @@ public extension PackageReference {
         //        as its identity, as it will be needed for supporting package
         //        registries.
         self.init(
-            identity: effectiveURL,
+            identity: PackageIdentity(effectiveURL).legacyIdentity,
             path: effectiveURL,
             kind: dependency.requirement == .localPackage ? .local : .remote
         )
     }
 
     init(manifest: Manifest) {
-        self.init(identity: manifest.url, path: manifest.url, name: manifest.name, kind: manifest.packageKind)
+        self.init(
+            identity: PackageIdentity(manifest.url).legacyIdentity,
+            path: manifest.url,
+            name: manifest.name,
+            kind: manifest.packageKind
+        )
     }
 }
 

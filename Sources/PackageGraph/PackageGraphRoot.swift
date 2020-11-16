@@ -47,7 +47,8 @@ public struct PackageGraphRoot {
     /// Create a package graph root.
     public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
         self.packageRefs = zip(input.packages, manifests).map { path, manifest in
-            PackageReference(identity: manifest.url, path: path.pathString, kind: .root)
+            let identity = PackageIdentity(manifest.url).legacyIdentity
+            return PackageReference(identity: identity, path: path.pathString, kind: .root)
         }
         self.manifests = manifests
 
