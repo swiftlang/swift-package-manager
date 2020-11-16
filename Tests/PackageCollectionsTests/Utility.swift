@@ -23,12 +23,12 @@ func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectio
     }
 }
 
-func makeMockCollections(count: Int = Int.random(in: 50 ... 100)) -> [PackageCollectionsModel.Collection] {
+func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: Int = 50) -> [PackageCollectionsModel.Collection] {
     let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi]
 
     return (0 ..< count).map { collectionIndex in
-        let packages = (0 ..< Int.random(in: 1 ... 15)).map { packageIndex -> PackageCollectionsModel.Collection.Package in
-            let versions = (0 ..< Int.random(in: 1 ... 10)).map { versionIndex -> PackageCollectionsModel.Collection.PackageVersion in
+        let packages = (0 ..< Int.random(in: min(5, maxPackages) ... maxPackages)).map { packageIndex -> PackageCollectionsModel.Collection.Package in
+            let versions = (0 ..< Int.random(in: 1 ... 3)).map { versionIndex -> PackageCollectionsModel.Collection.PackageVersion in
                 let targets = (0 ..< Int.random(in: 1 ... 5)).map {
                     PackageCollectionsModel.PackageTarget(name: "package-\(packageIndex)-target-\($0)",
                                                           moduleName: "module-package-\(packageIndex)-target-\($0)")
