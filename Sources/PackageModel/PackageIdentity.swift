@@ -192,12 +192,6 @@ extension PackageIdentity: JSONMappable, JSONSerializable {
     }
 }
 
-extension PackageIdentity: ExpressibleByStringLiteral {
-    public init(stringLiteral value: String) {
-        self.init(value)
-    }
-}
-
 // MARK: -
 
 #if os(Windows)
