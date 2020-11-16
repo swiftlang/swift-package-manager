@@ -189,12 +189,6 @@ public class Workspace {
     /// The path where repositories are globally cached by the `RepositoryManager`
     private let cachePath: AbsolutePath?
 
-    /// The default location of the git repository cache
-    public static let defaultCachePath: AbsolutePath? = {
-        guard let cacheURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        return AbsolutePath(cacheURL.path).appending(components: "org.swift.swiftpm", "repositories")
-    }()
-
     /// The file system on which the workspace will operate.
     fileprivate var fileSystem: FileSystem
 

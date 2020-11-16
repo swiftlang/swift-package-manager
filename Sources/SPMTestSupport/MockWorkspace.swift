@@ -15,6 +15,7 @@ import PackageModel
 import SourceControl
 import TSCBasic
 import Workspace
+import Basics
 
 public final class MockWorkspace {
     let sandbox: AbsolutePath
@@ -172,7 +173,7 @@ public final class MockWorkspace {
             isResolverPrefetchingEnabled: true,
             enablePubgrubResolver: self.enablePubGrub,
             skipUpdate: self.skipUpdate,
-            cachePath: self.sandbox.appending(component: ".cache")
+            cachePath: localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
         )
         return self._workspace!
     }

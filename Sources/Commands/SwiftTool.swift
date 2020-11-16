@@ -25,6 +25,7 @@ import SPMBuildCore
 import Build
 import XCBuildSupport
 import Workspace
+import Basics
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -461,6 +462,8 @@ public class SwiftTool {
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
+        let defaultCachePath = localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
+        let cachePath = !options.skipCache ? options.cachePath ?? defaultCachePath : nil
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: try editablesPath(),
@@ -474,7 +477,7 @@ public class SwiftTool {
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
-            cachePath: !options.skipCache ? options.cachePath ?? Workspace.defaultCachePath : nil
+            cachePath: cachePath
         )
         _workspace = workspace
         return workspace
