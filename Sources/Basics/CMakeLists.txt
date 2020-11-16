@@ -7,7 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Basics
-  FileSystem+Extensions.swift)
+  DispatchTimeInterval+Extensions.swift
+  FileSystem+Extensions.swift
+  HTPClient+URLSession.swift
+  HTTPClient.swift)
 target_link_libraries(Basics PUBLIC
   TSCBasic
   TSCUtility)

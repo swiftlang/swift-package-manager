@@ -209,6 +209,9 @@ let package = Package(
         // MARK: SwiftPM tests
 
         .testTarget(
+            name: "BasicsTests",
+            dependencies: ["Basics", "SPMTestSupport"]),
+        .testTarget(
             name: "BuildTests",
             dependencies: ["Build", "SPMTestSupport"]),
         .testTarget(
