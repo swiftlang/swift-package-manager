@@ -13,6 +13,7 @@ import class Foundation.OperationQueue
 
 import TSCBasic
 import TSCUtility
+import Basics
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: class {
@@ -446,6 +447,14 @@ public class RepositoryManager {
     public func initalizeCacheIfNeeded(cachePath: AbsolutePath) throws {
         if !fileSystem.exists(cachePath) {
             try fileSystem.createDirectory(cachePath, recursive: true)
+        }
+        let defaultCachePath = fileSystem.swiftPMCacheDirectory.appending(component: "repositories")
+        if !fileSystem.exists(defaultCachePath) {
+            try fileSystem.createDirectory(defaultCachePath, recursive: true)
+        }
+        let symlinkPath = fileSystem.dotSwiftPM.appending(component: "cache")
+        if !fileSystem.exists(symlinkPath, followSymlink: false) {
+            try fileSystem.createSymbolicLink(symlinkPath, pointingAt: defaultCachePath, relative: false)
         }
     }
 
