@@ -489,7 +489,7 @@ extension SwiftPackageTool {
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
                     // FIXME: Probably lift this error defination to ToolsVersion.
-                    throw ToolsVersionLoader.Error.malformedToolsVersion(specifier: value, currentToolsVersion: .currentToolsVersion)
+                    throw ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
                 try writeToolsVersion(at: pkg, version: toolsVersion, fs: localFileSystem)
 
