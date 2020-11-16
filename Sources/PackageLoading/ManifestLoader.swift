@@ -270,7 +270,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let jsonString = try loadJSONString(
             path: inputPath,
             toolsVersion: toolsVersion,
-            packageIdentity: PackageIdentity(baseURL),
+            packageIdentity: PackageIdentity(baseURL).legacyIdentity,
             fs: fileSystem,
             diagnostics: diagnostics
         )
@@ -475,7 +475,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func loadJSONString(
         path inputPath: AbsolutePath,
         toolsVersion: ToolsVersion,
-        packageIdentity: PackageIdentity,
+        packageIdentity: PackageReference.Identity,
         fs: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
@@ -560,7 +560,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     fileprivate struct ManifestCacheKey {
-        let packageIdentity: PackageIdentity
+        let packageIdentity: PackageReference.Identity
         let pathOrContents: ManifestPathOrContents
         let toolsVersion: ToolsVersion
         let env: [String: String]
@@ -568,7 +568,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         func computeHash() throws -> ByteString {
             let stream = BufferedOutputByteStream()
-            stream <<< self.packageIdentity.legacyIdentity
+            stream <<< self.packageIdentity
 
             switch self.pathOrContents {
             case .path(let path):
@@ -621,7 +621,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Parse the manifest at the given path to JSON.
     fileprivate func parse(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PackageReference.Identity,
         pathOrContents: ManifestPathOrContents,
         toolsVersion: ToolsVersion
     ) -> ManifestParseResult {
@@ -705,7 +705,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Add the arguments for emitting serialized diagnostics, if requested.
             if self.serializedDiagnostics, self.cacheDir != nil {
                 let diaDir = self.cacheDir.appending(component: "ManifestLoading")
-                let diagnosticFile = diaDir.appending(component: packageIdentity.computedName + ".dia")
+                let diagnosticFile = diaDir.appending(component: packageIdentity + ".dia")
                 try localFileSystem.createDirectory(diaDir, recursive: true)
                 cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
                 manifestParseResult.diagnosticFile = diagnosticFile
@@ -722,7 +722,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 #else
                 let executableSuffix = ""
                 #endif
-                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity.computedName)-manifest\(executableSuffix)")
+                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
                 cmd += ["-o", compiledManifestFile.pathString]
 
                 // Compile the manifest.
@@ -736,7 +736,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
 
                 // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
-                let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity.computedName)-output.json")
+                let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
                 guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
                     throw StringError("couldn't create the manifest's JSON output file")
                 }
