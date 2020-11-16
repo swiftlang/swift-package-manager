@@ -388,7 +388,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine?
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            PackageIdentity(dependency.url)
+            PackageIdentity(dependency.url).legacyIdentity
         })
 
         let duplicateDependencyIdentities = dependenciesByIdentity.lazy
@@ -396,7 +396,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             .map { $0.key }
 
         for identity in duplicateDependencyIdentities {
-            try diagnostics.emit(.duplicateDependency(dependencyIdentity: identity.description))
+            try diagnostics.emit(.duplicateDependency(dependencyIdentity: identity))
         }
 
         if toolsVersion >= .v5_2 {
@@ -940,7 +940,7 @@ extension TSCBasic.Diagnostic.Message {
         .error("invalid type for binary product '\(productName)'; products referencing only binary targets must have a type of 'library'")
     }
 
-    static func duplicateDependency(dependencyIdentity: String) -> Self {
+    static func duplicateDependency(dependencyIdentity: PackageReference.Identity) -> Self {
         .error("duplicate dependency '\(dependencyIdentity)'")
     }
 

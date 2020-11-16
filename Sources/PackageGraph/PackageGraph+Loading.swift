@@ -31,13 +31,13 @@ public extension PackageGraph {
         createREPLProduct: Bool = false
     ) -> PackageGraph {
         // Create a map of the manifests, keyed by their identity.
-        let manifestMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
-            (root.manifests + externalManifests).map { (PackageIdentity($0.url), $0) }
+        let manifestMap: [PackageReference.Identity: Manifest] = Dictionary(uniqueKeysWithValues:
+            (root.manifests + externalManifests).map { (PackageIdentity($0.url).legacyIdentity, $0) }
         )
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap { dependency in
                 let url = mirrors.effectiveURL(forURL: dependency.url)
-                return manifestMap[PackageIdentity(url)].map { manifest in
+                return manifestMap[PackageIdentity(url).legacyIdentity].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
             }
@@ -46,11 +46,11 @@ public extension PackageGraph {
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
         let rootDependencies = Set(root.dependencies.compactMap {
-            manifestMap[PackageIdentity($0.url)]
+            manifestMap[PackageIdentity($0.url).legacyIdentity]
         })
         let rootManifestNodes = root.manifests.map { GraphLoadingNode(manifest: $0, productFilter: .everything) }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
-            guard let manifest = manifestMap[PackageIdentity(dependency.url)] else { return nil }
+            guard let manifest = manifestMap[PackageIdentity(dependency.url).legacyIdentity] else { return nil }
             return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
