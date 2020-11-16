@@ -140,23 +140,6 @@ private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class RepositoryPackageContainerProviderTests: XCTestCase {
-    func testPackageReference() {
-        func assertIdentity(_ url: String, _ identity: PackageIdentity, file: StaticString = #file, line: UInt = #line) {
-            let computedIdentity = PackageIdentity(url)
-            XCTAssertEqual(computedIdentity, identity, file: file, line: line)
-        }
-        assertIdentity("foo", PackageIdentity("foo"))
-        assertIdentity("/foo", PackageIdentity("foo"))
-        assertIdentity("/foo/bar", PackageIdentity("bar"))
-        assertIdentity("foo/bar", PackageIdentity("bar"))
-        assertIdentity("https://foo/bar/baz", PackageIdentity("baz"))
-        assertIdentity("git@github.com/foo/bar/baz", PackageIdentity("baz"))
-        assertIdentity("/path/to/foo/bar/baz/", PackageIdentity("baz"))
-        assertIdentity("https://foo/bar/baz.git", PackageIdentity("baz"))
-        assertIdentity("git@github.com/foo/bar/baz.git", PackageIdentity("baz"))
-        assertIdentity("/path/to/foo/bar/baz.git", PackageIdentity("baz"))
-    }
-
     func testVprefixVersions() throws {
         let fs = InMemoryFileSystem()
 
