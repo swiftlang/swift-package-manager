@@ -296,17 +296,24 @@ public struct HTTPClientHeaders: Sequence, Equatable {
     }
 
     public mutating func add(_ item: Item) {
-        // Avoid copy-on-write: remove entry from dictionary before mutating
-        var values = self.headers.removeValue(forKey: item.name.lowercased()) ?? []
-        values.append(item.value)
-        self.headers[item.name.lowercased()] = values
-        self.items.append(item)
+        self.add([item])
+    }
+
+    public mutating func add(_ items: [Item]) {
+        for item in items {
+            if self.items.contains(item) {
+                continue
+            }
+            // Avoid copy-on-write: remove entry from dictionary before mutating
+            var values = self.headers.removeValue(forKey: item.name.lowercased()) ?? []
+            values.append(item.value)
+            self.headers[item.name.lowercased()] = values
+            self.items.append(item)
+        }
     }
 
     public mutating func merge(_ other: HTTPClientHeaders) {
-        other.forEach {
-            self.add($0)
-        }
+        self.add(other.items)
     }
 
     public func get(_ name: String) -> [String] {

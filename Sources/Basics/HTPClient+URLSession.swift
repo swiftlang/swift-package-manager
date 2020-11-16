@@ -3,7 +3,7 @@
 import Foundation
 import struct TSCUtility.Versioning
 #if canImport(FoundationNetworking)
-// TODO: this brings OpenSSL dependency` on Linux
+// FIXME: this brings OpenSSL dependency on Linux
 // need to decide how to best deal with that
 import FoundationNetworking
 #endif

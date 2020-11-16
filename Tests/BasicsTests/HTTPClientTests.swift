@@ -410,12 +410,35 @@ final class HTTPClientTest: XCTestCase {
         XCTAssertEqual(sync.wait(timeout: timeout), .success, "should not timeout")
     }
 
-    func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
+    func testHTTPClientHeaders() {
+        var headers = HTTPClientHeaders()
+
+        let items = (1 ... Int.random(in: 10 ... 20)).map { index in HTTPClientHeaders.Item(name: "header-\(index)", value: UUID().uuidString) }
+        headers.add(items)
+
+        XCTAssertEqual(headers.count, items.count, "headers count should match")
+        items.forEach { item in
+            XCTAssertEqual(headers.get(item.name).first, item.value, "headers value should match")
+        }
+
+        headers.add(items.first!)
+        XCTAssertEqual(headers.count, items.count, "headers count should match (no duplicates)")
+
+        let name = UUID().uuidString
+        let values = (1 ... Int.random(in: 10 ... 20)).map { "value-\($0)" }
+        values.forEach { value in
+            headers.add(name: name, value: value)
+        }
+        XCTAssertEqual(headers.count, items.count + 1, "headers count should match (no duplicates)")
+        XCTAssertEqual(values, headers.get(name), "multiple headers value should match")
+    }
+
+    private func assertRequestHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
         let noAgent = HTTPClientHeaders(headers.filter { $0.name != "User-Agent" })
         XCTAssertEqual(noAgent, expected, "expected headers to match")
     }
 
-    func assertResponseHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
+    private func assertResponseHeaders(_ headers: HTTPClientHeaders, expected: HTTPClientHeaders) {
         XCTAssertEqual(headers, expected, "expected headers to match")
     }
 }
