@@ -17,22 +17,22 @@ import PackageModel
 final class PackageIdentityTests: XCTestCase {
     func testCaseInsensitivity() {
         XCTAssertEqual(
-            PackageIdentity("MONA/LINKEDLIST"),
-            PackageIdentity("mona/LinkedList")
+            PackageIdentity("/MONA/LINKEDLIST"),
+            PackageIdentity("/mona/LinkedList")
         )
     }
 
     func testNormalizationInsensitivity() {
         XCTAssertEqual(
-            PackageIdentity("mona/E\u{0301}clair"), // ◌́ COMBINING ACUTE ACCENT (U+0301)
-            PackageIdentity("mona/\u{00C9}clair") // LATIN CAPITAL LETTER E WITH ACUTE (U+00C9)
+            PackageIdentity("/mona/E\u{0301}clair"), // ◌́ COMBINING ACUTE ACCENT (U+0301)
+            PackageIdentity("/mona/\u{00C9}clair") // LATIN CAPITAL LETTER E WITH ACUTE (U+00C9)
         )
     }
 
     func testCaseAndNormalizationInsensitivity() {
         XCTAssertEqual(
-            PackageIdentity("mona/e\u{0301}clair"), // ◌́ COMBINING ACUTE ACCENT (U+0301)
-            PackageIdentity("MONA/\u{00C9}CLAIR") // LATIN CAPITAL LETTER E WITH ACUTE (U+00C9)
+            PackageIdentity("/mona/e\u{0301}clair"), // ◌́ COMBINING ACUTE ACCENT (U+0301)
+            PackageIdentity("/MONA/\u{00C9}CLAIR") // LATIN CAPITAL LETTER E WITH ACUTE (U+00C9)
         )
     }
 
@@ -41,14 +41,28 @@ final class PackageIdentityTests: XCTestCase {
     func testFileScheme() {
         XCTAssertEqual(
             PackageIdentity("file:///Users/mona/LinkedList"),
-            PackageIdentity("Users/mona/LinkedList")
+            PackageIdentity("/Users/mona/LinkedList")
         )
     }
 
     func testImplicitFileSchemeWithAbsolutePath() {
         XCTAssertEqual(
             PackageIdentity("/Users/mona/LinkedList"),
-            PackageIdentity("Users/mona/LinkedList")
+            PackageIdentity("/Users/mona/LinkedList")
+        )
+    }
+
+    func testFileSchemeNotEqualToHTTPSScheme() {
+        XCTAssertNotEqual(
+            PackageIdentity("file:///github.com/mona/LinkedList"),
+            PackageIdentity("https:///github.com/mona/LinkedList")
+        )
+    }
+
+    func testImplicitFileSchemeNotEqualToHTTPSScheme() {
+        XCTAssertNotEqual(
+            PackageIdentity("/github.com/mona/LinkedList"),
+            PackageIdentity("https:///github.com/mona/LinkedList")
         )
     }
 

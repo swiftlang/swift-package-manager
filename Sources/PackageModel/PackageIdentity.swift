@@ -80,6 +80,10 @@ import TSCUtility
 ///   ```
 ///   example.com/mona/LinkedList?utm_source=forums.swift.org → example.com/mona/LinkedList
 ///   ```
+/// * Adding a leading slash (`/`) for `file://` URLs and absolute file paths:
+///   ```
+///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
+///   ```
 public struct PackageIdentity: LosslessStringConvertible {
     /// A textual representation of this instance.
     public let description: String
@@ -101,34 +105,34 @@ public struct PackageIdentity: LosslessStringConvertible {
 
     /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {
-        var string = string
+        var description = string
 
         // Remove the scheme component, if present.
-        let detectedScheme = string.dropSchemeComponentPrefixIfPresent()
+        let detectedScheme = description.dropSchemeComponentPrefixIfPresent()
 
         // Remove the userinfo subcomponent (user / password), if present.
-        if case (let user, _)? = string.dropUserinfoSubcomponentPrefixIfPresent() {
+        if case (let user, _)? = description.dropUserinfoSubcomponentPrefixIfPresent() {
             // If a user was provided, perform tilde expansion, if applicable.
-            string.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
+            description.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
         }
 
         // Remove the port subcomponent, if present.
-        string.removePortComponentIfPresent()
+        description.removePortComponentIfPresent()
 
         // Remove the fragment component, if present.
-        string.removeFragmentComponentIfPresent()
+        description.removeFragmentComponentIfPresent()
 
         // Remove the query component, if present.
-        string.removeQueryComponentIfPresent()
+        description.removeQueryComponentIfPresent()
 
         // Accomodate "`scp`-style" SSH URLs
         if detectedScheme == nil || detectedScheme == "ssh" {
-            string.replaceFirstOccurenceIfPresent(of: ":", before: string.firstIndex(of: "/"), with: "/")
+            description.replaceFirstOccurenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
         }
 
         // Split the remaining string into path components,
         // filtering out empty path components and removing valid percent encodings.
-        var components = string.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
+        var components = description.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
             .compactMap { $0.removingPercentEncoding ?? String($0) }
 
         // Remove the `.git` suffix from the last path component.
@@ -136,7 +140,14 @@ public struct PackageIdentity: LosslessStringConvertible {
         lastPathComponent.removeSuffixIfPresent(".git")
         components.append(lastPathComponent)
 
-        self.description = components.joined(separator: "/")
+        description = components.joined(separator: "/")
+
+        // Prepend a leading slash for file URLs and paths
+        if detectedScheme == "file" || string.first.flatMap(isSeparator) ?? false {
+            description.insert("/", at: description.startIndex)
+        }
+
+        self.description = description
         self.computedName = String(lastPathComponent)
     }
 }
