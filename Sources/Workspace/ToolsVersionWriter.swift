@@ -22,7 +22,7 @@ public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: 
     let file = path.appending(component: Manifest.filename)
     assert(fs.isFile(file), "Tools version file not present")
 
-    // Get the current contents of the file.
+    /// The current contents of the file.
     let contents = try fs.readFileContents(file)
 
     let stream = BufferedOutputByteStream()
@@ -33,8 +33,24 @@ public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: 
         stream <<< "." <<< Format.asJSON(version.patch)
     }
     stream <<< "\n"
-    // Append the file contents except for version specifier line.
-    stream <<< ToolsVersionLoader.split(contents).rest
+    
+    // The following lines up to line 54 append the file contents except for the Swift tools version specification line.
+    
+    guard let contentsDecodedWithUTF8 = contents.validDescription else {
+        throw ToolsVersionLoader.Error.nonUTF8EncodedManifest(path: file)
+    }
+    
+    let manifestComponents = ToolsVersionLoader.split(contentsDecodedWithUTF8)
+    
+    let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationComponents
+    
+    // Replace the Swift tools version specification line if and only if it's well-formed up to the version specifier.
+    // This matches the behaviour of the old (now removed) [`ToolsVersionLoader.split(:_)`](https://github.com/WowbaggersLiquidLunch/swift-package-manager/blob/49cfc46bc5defd3ce8e0c0261e3e2cb475bcdb91/Sources/PackageLoading/ToolsVersionLoader.swift#L160).
+    if toolsVersionSpecificationComponents.everythingUpToVersionSpecifierIsWellFormed {
+        stream <<< ByteString(encodingAsUTF8: String(manifestComponents.contentsAfterToolsVersionSpecification))
+    } else {
+        stream <<< contents
+    }
 
     try fs.writeFileContents(file, bytes: stream.bytes)
 }
