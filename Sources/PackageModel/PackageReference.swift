@@ -28,7 +28,7 @@ public struct PackageReference: Codable {
     }
 
     /// Compute the default name of a package given its URL.
-    public static func computeDefaultName(fromURL url: String) -> String {
+    internal static func computeDefaultName(fromURL url: String) -> String {
       #if os(Windows)
         let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
       #else
