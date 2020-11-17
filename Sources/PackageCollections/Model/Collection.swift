@@ -23,28 +23,28 @@ extension PackageCollectionsModel {
         public typealias Identifier = CollectionIdentifier
         public typealias Source = CollectionSource
 
-        /// The identifier of the group
+        /// The identifier of the collection
         public let identifier: Identifier
 
-        /// Where the group and its contents are obtained
+        /// Where the collection and its contents are obtained
         public let source: Source
 
-        /// The name of the group
+        /// The name of the collection
         public let name: String
 
-        /// The description of the group
+        /// The description of the collection
         public let description: String?
 
-        /// Keywords for the group
+        /// Keywords for the collection
         public let keywords: [String]?
 
-        /// Metadata of packages belonging to the group
+        /// Metadata of packages belonging to the collection
         public let packages: [Package]
 
-        /// When this group was created/published by the source
+        /// When this collection was created/published by the source
         public let createdAt: Date
 
-        /// When this group was last processed locally
+        /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
         /// Initializes a `PackageCollection`
@@ -93,7 +93,7 @@ extension PackageCollectionsModel {
 extension PackageCollectionsModel {
     /// Represents the identifier of a `PackageCollection`
     public enum CollectionIdentifier: Hashable, Comparable {
-        /// Package feed at URL
+        /// JSON based package collection at URL
         case json(URL)
 
         /// Creates an `Identifier` from `Source`

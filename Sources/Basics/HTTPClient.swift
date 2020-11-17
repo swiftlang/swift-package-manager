@@ -183,7 +183,7 @@ extension HTTPClient {
 }
 
 extension HTTPClientResponse {
-    public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = JSONDecoder()) throws -> T? {
+    public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = .init()) throws -> T? {
         try self.body.flatMap { try decoder.decode(type, from: $0) }
     }
 }

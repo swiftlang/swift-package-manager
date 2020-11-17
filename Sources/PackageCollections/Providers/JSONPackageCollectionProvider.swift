@@ -21,7 +21,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     let httpClient: HTTPClient
     let decoder: JSONDecoder
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient = HTTPClient()) {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient = .init()) {
         self.configuration = configuration
         self.httpClient = httpClient
         self.decoder = JSONDecoder()
@@ -38,7 +38,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
         guard case .json = source.type else {
-            preconditionFailure("JSONPackageCollectionProvider can only be used for fetching json package collections")
+            preconditionFailure("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")
         }
 
         if let errors = source.validate() {
@@ -93,7 +93,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
             let packages = collection.packages.map { package -> PackageCollectionsModel.Collection.Package in
                 let versions = package.versions.compactMap { version -> PackageCollectionsModel.Collection.Package.Version? in
-                    // TODO: do we really want to ignore mapping errors, or should we return an error in these cases?
+                    // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
                     guard let parsedVersion = TSCUtility.Version(string: version.version) else {
                         return nil
                     }
@@ -124,7 +124,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                   description: collection.description,
                                   keywords: collection.keywords,
                                   packages: packages,
-                                  createdAt: Date(), // TODO: is this correct?
+                                  createdAt: collection.generatedAt,
                                   lastProcessedAt: Date()))
         }
     }
@@ -159,7 +159,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 }
 
-// MARK: - Package feed models
+// MARK: - JSON Models
 
 extension JSONPackageCollectionProvider {
     fileprivate struct CollectionV1: Decodable {
@@ -243,54 +243,8 @@ extension JSONPackageCollectionProvider.CollectionV1 {
         }
     }
 
-    fileprivate enum ProductType: Decodable {
-        case library(LibraryType)
-        case executable
-        case test
-
-        enum LibraryType: String, Decodable {
-            case `static`
-            case dynamic
-            case automatic
-        }
-
-        public enum CodingKeys: CodingKey {
-            case library
-            case executable
-            case test
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            if container.contains(.library) {
-                let types = try container.decode([LibraryType].self, forKey: .library)
-                // FIXME: format defines as array, but model does not
-                guard let type = types.first else {
-                    throw Errors.invalidLibraryType
-                }
-                self = .library(type)
-            } else if container.contains(.executable) {
-                self = .executable
-            } else if container.contains(.test) {
-                self = .test
-            } else {
-                throw Errors.unknownProductType
-            }
-        }
-
-        enum Errors: Error {
-            case invalidLibraryType
-            case unknownProductType
-        }
-    }
-
     fileprivate struct Platform: Decodable {
         let name: String
-    }
-
-    fileprivate struct PlatformVersion: Decodable {
-        let name: Platform
-        let version: String
     }
 
     fileprivate struct License: Decodable {
@@ -307,24 +261,8 @@ extension JSONPackageCollectionProvider.CollectionV1 {
 
 extension PackageCollectionsModel.PackageProduct {
     fileprivate init?(from: JSONPackageCollectionProvider.CollectionV1.Product, packageTargets: [PackageCollectionsModel.PackageTarget]) {
-        let productType: PackageModel.ProductType
-        switch from.type {
-        case .library(let libraryType):
-            switch libraryType {
-            case .automatic:
-                productType = .library(.automatic)
-            case .static:
-                productType = .library(.static)
-            case .dynamic:
-                productType = .library(.dynamic)
-            }
-        case .executable:
-            productType = .executable
-        case .test:
-            productType = .test
-        }
         let targets = packageTargets.filter { from.targets.map { $0.lowercased() }.contains($0.name.lowercased()) }
-        self = .init(name: from.name, type: productType, targets: targets)
+        self = .init(name: from.name, type: from.type, targets: targets)
     }
 }
 
