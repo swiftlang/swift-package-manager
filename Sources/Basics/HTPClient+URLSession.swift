@@ -11,7 +11,7 @@ import FoundationNetworking
 public struct URLSessionHTTPClient {
     private let configuration: URLSessionConfiguration
 
-    public init(configuration: URLSessionConfiguration) {
+    public init(configuration: URLSessionConfiguration = .default) {
         self.configuration = configuration
     }
 

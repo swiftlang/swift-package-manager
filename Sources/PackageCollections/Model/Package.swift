@@ -85,6 +85,7 @@ extension PackageCollectionsModel {
     }
 }
 
+// FIXME: add minimumPlatformVersions
 extension PackageCollectionsModel.Package {
     /// A representation of package version
     public struct Version: Equatable {

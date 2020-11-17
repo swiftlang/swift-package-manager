@@ -1,0 +1,94 @@
+{
+  "name": "Sample Package Collection",
+  "description": "This is a sample package collection listing made-up packages.",
+  "keywords": ["sample package collection"],
+  "formatVersion": "1.0",
+  "revision": 3,
+  "generatedAt": "2020-10-22T06:03:52Z",
+  "packages": [
+    {
+      "url": "https://www.example.com/repos/RepoOne.git",
+      "description": "Package One",
+      "readmeURL": "https://www.example.com/repos/RepoOne/README",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "packageName": "PackageOne",
+          "targets": [
+            {
+              "name": "Foo",
+              "moduleName": "Foo"
+            }
+          ],
+          "products": [
+            {
+              "name": "Foo",
+              "type": {
+                "library": ["automatic"]
+              },
+              "targets": ["Foo"]
+            }
+          ],
+          "toolsVersion": "5.1",
+          "verifiedPlatforms": [
+            { "name": "macOS" },
+            { "name": "iOS" },
+            { "name": "Linux" }
+          ],
+          "verifiedSwiftVersions": ["5.1"],
+          "license": {
+            "name": "Apache-2.0",
+            "url": "https://www.example.com/repos/RepoOne/LICENSE"
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://www.example.com/repos/RepoTwo.git",
+      "description": "Package Two",
+      "readmeURL": "https://www.example.com/repos/RepoTwo/README",
+      "versions": [
+        {
+          "version": "2.1.0",
+          "packageName": "PackageTwo",
+          "targets": [
+            {
+              "name": "Bar",
+              "moduleName": "Bar"
+            }
+          ],
+          "products": [
+            {
+              "name": "Bar",
+              "type": {
+                "library": ["automatic"]
+              },
+              "targets": ["Bar"]
+            }
+          ],
+          "toolsVersion": "5.2"
+        },
+        {
+          "version": "1.8.3",
+          "packageName": "PackageTwo",
+          "targets": [
+            {
+              "name": "Bar",
+              "moduleName": "Bar"
+            }
+          ],
+          "products": [
+            {
+              "name": "Bar",
+              "type": {
+                "library": ["automatic"]
+              },
+              "targets": ["Bar"]
+            }
+          ],
+          "toolsVersion": "5.0"
+        }
+      ]
+    }
+  ]
+}

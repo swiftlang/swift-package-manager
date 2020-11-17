@@ -19,7 +19,7 @@ import TSCUtility
 
 func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {
     return (0 ..< count).map { index in
-        .init(type: .feed, url: URL(string: "https://source-\(index)")!)
+        .init(type: .json, url: URL(string: "https://source-\(index)")!)
     }
 }
 
@@ -59,7 +59,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                               readmeURL: URL(string: "https://package-\(packageIndex)-readme")!)
         }
 
-        return PackageCollectionsModel.Collection(source: .init(type: .feed, url: URL(string: "https://feed-\(collectionIndex)")!),
+        return PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed-\(collectionIndex)")!),
                                                   name: "collection \(collectionIndex)",
                                                   description: "collection \(collectionIndex) description",
                                                   keywords: nil,

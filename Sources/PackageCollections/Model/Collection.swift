@@ -23,28 +23,28 @@ extension PackageCollectionsModel {
         public typealias Identifier = CollectionIdentifier
         public typealias Source = CollectionSource
 
-        /// The identifier of the group
+        /// The identifier of the collection
         public let identifier: Identifier
 
-        /// Where the group and its contents are obtained
+        /// Where the collection and its contents are obtained
         public let source: Source
 
-        /// The name of the group
+        /// The name of the collection
         public let name: String
 
-        /// The description of the group
+        /// The description of the collection
         public let description: String?
 
-        /// Keywords for the group
+        /// Keywords for the collection
         public let keywords: [String]?
 
-        /// Metadata of packages belonging to the group
+        /// Metadata of packages belonging to the collection
         public let packages: [Package]
 
-        /// When this group was created/published by the source
+        /// When this collection was created/published by the source
         public let createdAt: Date
 
-        /// When this group was last processed locally
+        /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
         /// Initializes a `PackageCollection`
@@ -85,61 +85,28 @@ extension PackageCollectionsModel {
     }
 
     /// Represents the source type of a `PackageCollection`
-    public enum CollectionSourceType: Equatable, CaseIterable {
-        case feed
-    }
-}
-
-extension PackageCollectionsModel.CollectionSourceType: Codable {
-    public enum CodingKeys: CodingKey {
-        case _case
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let value = try container.decode(String.self, forKey: ._case)
-        switch value {
-        case "feed":
-            self = .feed
-        default:
-            throw UnknownType(value)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .feed:
-            try container.encode("feed", forKey: ._case)
-        }
-    }
-
-    struct UnknownType: Error {
-        let type: String
-
-        init(_ type: String) {
-            self.type = type
-        }
+    public enum CollectionSourceType: String, Codable, CaseIterable {
+        case json
     }
 }
 
 extension PackageCollectionsModel {
     /// Represents the identifier of a `PackageCollection`
     public enum CollectionIdentifier: Hashable, Comparable {
-        /// Package feed at URL
-        case feed(URL)
+        /// JSON based package collection at URL
+        case json(URL)
 
         /// Creates an `Identifier` from `Source`
         init(from source: CollectionSource) {
             switch source.type {
-            case .feed:
-                self = .feed(source.url)
+            case .json:
+                self = .json(source.url)
             }
         }
 
         public static func < (lhs: Self, rhs: Self) -> Bool {
             switch (lhs, rhs) {
-            case (.feed(let lhs), .feed(let rhs)):
+            case (.json(let lhs), .json(let rhs)):
                 return lhs.absoluteString < rhs.absoluteString
             }
         }
@@ -148,7 +115,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel.CollectionIdentifier: Codable {
     public enum DiscriminatorKeys: String, Codable {
-        case feed
+        case json
     }
 
     public enum CodingKeys: CodingKey {
@@ -159,22 +126,23 @@ extension PackageCollectionsModel.CollectionIdentifier: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         switch try container.decode(DiscriminatorKeys.self, forKey: ._case) {
-        case .feed:
+        case .json:
             let url = try container.decode(URL.self, forKey: .url)
-            self = .feed(url)
+            self = .json(url)
         }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .feed(let url):
-            try container.encode(DiscriminatorKeys.feed, forKey: ._case)
+        case .json(let url):
+            try container.encode(DiscriminatorKeys.json, forKey: ._case)
             try container.encode(url, forKey: .url)
         }
     }
 }
 
+// FIXME: add minimumPlatformVersions
 extension PackageCollectionsModel.Collection {
     /// A representation of package metadata
     public struct Package: Equatable, Codable {

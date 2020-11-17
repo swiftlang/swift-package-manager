@@ -11,6 +11,7 @@
 import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
+import class Foundation.JSONDecoder
 import struct Foundation.URL
 import TSCBasic
 import TSCUtility
@@ -34,9 +35,10 @@ public struct HTTPClient {
     private static var hostsErrorsLock = Lock()
     private static var hostsErrors = [String: [Date]]()
 
-    public init(configuration: HTTPClientConfiguration = .init(), handler: @escaping Handler) {
+    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil) {
         self.configuration = configuration
-        self.underlying = handler
+        // FIXME: inject platform specific implementation here
+        self.underlying = handler ?? URLSessionHTTPClient().execute
     }
 
     public func execute(_ request: Request, callback: @escaping (Result<Response, Error>) -> Void) {
@@ -159,33 +161,39 @@ public struct HTTPClient {
 }
 
 extension HTTPClient {
-    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    public func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), callback: callback)
     }
 
-    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    public func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), callback: callback)
     }
 
-    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    public func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), callback: callback)
     }
 
-    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    public func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), callback: callback)
     }
 
-    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    public func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), callback: callback)
     }
 }
 
+extension HTTPClientResponse {
+    public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = .init()) throws -> T? {
+        try self.body.flatMap { try decoder.decode(type, from: $0) }
+    }
+}
+
 public struct HTTPClientConfiguration {
-    var requestHeaders: HTTPClientHeaders?
-    var requestTimeout: DispatchTimeInterval?
-    var retryStrategy: HTTPClientRetryStrategy?
-    var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
-    var callbackQueue: DispatchQueue
+    public var requestHeaders: HTTPClientHeaders?
+    public var requestTimeout: DispatchTimeInterval?
+    public var retryStrategy: HTTPClientRetryStrategy?
+    public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
+    public var callbackQueue: DispatchQueue
 
     public init() {
         self.requestHeaders = .none
@@ -205,11 +213,11 @@ public enum HTTPClientCircuitBreakerStrategy {
 }
 
 public struct HTTPClientRequest {
-    let method: Method
-    let url: URL
-    var headers: HTTPClientHeaders
-    var body: Data?
-    var options: Options
+    public let method: Method
+    public let url: URL
+    public var headers: HTTPClientHeaders
+    public var body: Data?
+    public var options: Options
 
     public init(method: Method = .get,
                 url: URL,
@@ -232,12 +240,12 @@ public struct HTTPClientRequest {
     }
 
     public struct Options {
-        var addUserAgent: Bool
-        var validResponseCodes: [Int]?
-        var timeout: DispatchTimeInterval?
-        var retryStrategy: HTTPClientRetryStrategy?
-        var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
-        var callbackQueue: DispatchQueue?
+        public var addUserAgent: Bool
+        public var validResponseCodes: [Int]?
+        public var timeout: DispatchTimeInterval?
+        public var retryStrategy: HTTPClientRetryStrategy?
+        public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
+        public var callbackQueue: DispatchQueue?
 
         public init() {
             self.addUserAgent = true
@@ -251,10 +259,10 @@ public struct HTTPClientRequest {
 }
 
 public struct HTTPClientResponse {
-    let statusCode: Int
-    let statusText: String?
-    let headers: HTTPClientHeaders
-    let body: Data?
+    public let statusCode: Int
+    public let statusText: String?
+    public let headers: HTTPClientHeaders
+    public let body: Data?
 
     public init(statusCode: Int,
                 statusText: String? = nil,
@@ -327,6 +335,11 @@ public struct HTTPClientHeaders: Sequence, Equatable {
     public struct Item: Equatable {
         let name: String
         let value: String
+
+        public init(name: String, value: String) {
+            self.name = name
+            self.value = value
+        }
     }
 
     public static func == (lhs: HTTPClientHeaders, rhs: HTTPClientHeaders) -> Bool {
