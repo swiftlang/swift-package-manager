@@ -171,17 +171,6 @@ extension JSONPackageCollectionProvider {
         let packages: [Package]
         let generatedAt: Date
         let generatedBy: Author?
-
-        private enum CodingKeys: String, CodingKey {
-            case name
-            case description
-            case keywords
-            case formatVersion
-            case revision
-            case packages
-            case generatedAt
-            case generatedBy
-        }
     }
 }
 
@@ -192,14 +181,6 @@ extension JSONPackageCollectionProvider.CollectionV1 {
         let keywords: [String]?
         let versions: [Version]
         let readmeURL: String?
-
-        enum CodingKeys: String, CodingKey {
-            case url
-            case description
-            case keywords
-            case versions
-            case readmeURL
-        }
     }
 
     fileprivate struct Version: Decodable {
@@ -212,18 +193,6 @@ extension JSONPackageCollectionProvider.CollectionV1 {
         let verifiedPlatforms: [Platform]?
         let verifiedSwiftVersions: [String]?
         let license: License?
-
-        enum CodingKeys: String, CodingKey {
-            case version
-            case packageName
-            case toolsVersion
-            case targets
-            case products
-            case minimumPlatformVersions
-            case verifiedPlatforms
-            case verifiedSwiftVersions
-            case license
-        }
     }
 
     fileprivate struct Target: Decodable {
@@ -235,12 +204,6 @@ extension JSONPackageCollectionProvider.CollectionV1 {
         let name: String
         let type: ProductType
         let targets: [String]
-
-        enum CodingKeys: String, CodingKey {
-            case name
-            case type
-            case targets
-        }
     }
 
     fileprivate struct Platform: Decodable {
