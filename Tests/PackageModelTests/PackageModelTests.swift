@@ -21,13 +21,13 @@ class PackageModelTests: XCTestCase {
         
         PackageModel._useLegacyIdentities = false
         XCTAssertEqual(
-            PackageIdentity("git@github.com/foo/bar/baz.git").description,
+            PackageIdentity(url: "git@github.com/foo/bar/baz.git").description,
             "github.com/foo/bar/baz"
         )
 
         PackageModel._useLegacyIdentities = true
         XCTAssertEqual(
-            PackageIdentity("git@github.com/foo/bar/baz.git").description,
+            PackageIdentity(url: "git@github.com/foo/bar/baz.git").description,
             "baz"
         )
     }

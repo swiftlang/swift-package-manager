@@ -396,7 +396,7 @@ public final class PubgrubDependencyResolver {
         pinsMap: PinsStore.PinsMap = [:]
     ) throws -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {
         let root = DependencyResolutionNode.root(package: PackageReference(
-            identity: PackageIdentity("<synthesized-root>"),
+            identity: PackageIdentity(url: "<synthesized-root>"),
             path: "<synthesized-root-path>",
             name: nil,
             kind: .root
@@ -979,7 +979,7 @@ private final class DiagnosticReportBuilder {
 
     // FIXME: This is duplicated and wrong.
     private func isFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == PackageIdentity("<synthesized-root>")
+        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == PackageIdentity(url: "<synthesized-root>")
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) -> String {

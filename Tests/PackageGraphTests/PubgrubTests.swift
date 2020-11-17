@@ -12,7 +12,7 @@ import XCTest
 
 import TSCBasic
 import PackageLoading
-import PackageModel
+@testable import PackageModel
 import SourceControl
 
 import PackageGraph
@@ -299,7 +299,8 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() {
-        let fooRef = PackageReference(identity: PackageIdentity("foo"), path: "https://some.url/FooBar")
+        let fooURL = "https://example.com/foo"
+        let fooRef = PackageReference(identity: PackageIdentity(url: fooURL), path: fooURL)
         let foo = MockContainer(name: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
 

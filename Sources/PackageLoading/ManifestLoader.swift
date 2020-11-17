@@ -268,7 +268,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // Get the JSON string for the manifest.
-        let identity = PackageIdentity(baseURL)
+        let identity = PackageIdentity(url: baseURL)
         let jsonString = try loadJSONString(
             path: inputPath,
             toolsVersion: toolsVersion,
@@ -388,7 +388,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine?
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            PackageIdentity(dependency.url)
+            PackageIdentity(url: dependency.url)
         })
 
         let duplicateDependencyIdentities = dependenciesByIdentity

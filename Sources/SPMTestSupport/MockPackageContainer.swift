@@ -81,11 +81,11 @@ public class MockPackageContainer: PackageContainer {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = deps.map {
-                let ref = PackageReference(identity: PackageIdentity($0.container), path: "/\($0.container)")
+                let ref = PackageReference(identity: PackageIdentity(url: $0.container), path: "/\($0.container)")
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
-        let ref = PackageReference(identity: PackageIdentity(name), path: "/\(name)")
+        let ref = PackageReference(identity: PackageIdentity(url: name), path: "/\(name)")
         self.init(name: ref, dependencies: dependencies)
     }
 
@@ -124,12 +124,12 @@ public struct MockPackageContainerProvider: PackageContainerProvider {
 
 public extension MockPackageContainer.Constraint {
     init(container identifier: String, requirement: PackageRequirement, products: ProductFilter) {
-        let ref = PackageReference(identity: PackageIdentity(identifier), path: "")
+        let ref = PackageReference(identity: PackageIdentity(url: identifier), path: "")
         self.init(container: ref, requirement: requirement, products: products)
     }
 
     init(container identifier: String, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        let ref = PackageReference(identity: PackageIdentity(identifier), path: "")
+        let ref = PackageReference(identity: PackageIdentity(url: identifier), path: "")
         self.init(container: ref, versionRequirement: versionRequirement, products: products)
     }
 }

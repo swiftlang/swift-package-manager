@@ -34,16 +34,21 @@ public struct PackageIdentity: Hashable, CustomStringConvertible {
     /// A textual representation of this instance.
     public let description: String
 
+    /// Creates a package identity from a string.
+    /// - Parameter string: A string used to identify a package.
+    init(_ string: String) {
+        self.description = Self.provider.init(string).description
+    }
 
     /// Creates a package identity from a URL.
     /// - Parameter url: The package's URL.
-    public init(_ url: String) {
-        self.description = Self.provider.init(url).description
+    public init(url: String) { // TODO: Migrate to Foundation.URL
+        self.init(url)
     }
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
-    public init(_ path: AbsolutePath) {
+    public init(path: AbsolutePath) {
         self.init(path.pathString)
     }
 }
