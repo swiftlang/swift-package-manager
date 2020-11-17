@@ -521,7 +521,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 private extension PackageCollectionsModel.Collection.Identifier {
     func databaseKey() -> String {
         switch self {
-        case .feed(let url):
+        case .json(let url):
             return url.absoluteString
         }
     }

@@ -24,7 +24,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -49,7 +49,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 10)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -106,7 +106,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockProfile1 = PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)")
         let mockProfile2 = PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)")
 
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider([mockCollection])]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -157,7 +157,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 10)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -226,7 +226,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 3)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -333,7 +333,7 @@ final class PackageCollectionsTests: XCTestCase {
         var profiles = [PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.Collection](),
                         PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.Collection]()]
         let mockCollections = makeMockCollections()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -368,7 +368,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockCollections = makeMockCollections(count: 1000)
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -416,14 +416,14 @@ final class PackageCollectionsTests: XCTestCase {
                                                                      versions: [mockVersion],
                                                                      readmeURL: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .feed, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                 name: UUID().uuidString,
                                                                 description: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
                                                                 packages: [mockPackage],
                                                                 createdAt: Date())
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .feed, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
                                                                  description: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -435,7 +435,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         mockCollections.append(contentsOf: expectedCollections)
 
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -503,7 +503,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1000, maxPackages: 20)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -553,14 +553,14 @@ final class PackageCollectionsTests: XCTestCase {
                                                                      versions: [mockVersion],
                                                                      readmeURL: nil)
 
-        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .feed, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                 name: UUID().uuidString,
                                                                 description: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
                                                                 packages: [mockPackage],
                                                                 createdAt: Date())
 
-        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .feed, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
+        let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
                                                                  description: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
@@ -572,7 +572,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         mockCollections.append(contentsOf: expectedCollections)
 
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -614,7 +614,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1000)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -642,7 +642,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -682,12 +682,12 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let expectedError = MyError()
-        let goodSources = [PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "https://feed-\(UUID().uuidString)")!),
-                           PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "https://feed-\(UUID().uuidString)")!)]
-        let brokenSources = [PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "https://feed-\(UUID().uuidString)")!),
-                             PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "https://feed-\(UUID().uuidString)")!)]
+        let goodSources = [PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!),
+                           PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!)]
+        let brokenSources = [PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!),
+                             PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!)]
         let provider = BrokenProvider(brokenSources: brokenSources, error: expectedError)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: provider]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: provider]
 
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
@@ -703,7 +703,7 @@ final class PackageCollectionsTests: XCTestCase {
         try brokenSources.forEach { source in
             _ = try tsc_await { callback in storage.collectionsProfiles.add(source: source, order: nil, to: .default, callback: callback) }
         }
-        _ = try tsc_await { callback in storage.collectionsProfiles.add(source: .init(type: .feed, url: URL(string: "https://feed-\(UUID().uuidString)")!), order: nil, to: .default, callback: callback) }
+        _ = try tsc_await { callback in storage.collectionsProfiles.add(source: .init(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!), order: nil, to: .default, callback: callback) }
 
         XCTAssertThrowsError(try tsc_await { callback in packageCollections.refreshCollections(callback: callback) }, "expected error", { error in
             if let error = error as? MultipleErrors {
@@ -727,7 +727,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -763,7 +763,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 5)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -810,7 +810,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockCollections = makeMockCollections()
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -843,7 +843,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockCollections = makeMockCollections(count: 2)
         let mockPackage = mockCollections.last!.packages.first!
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -933,7 +933,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockPackage = makeMockCollections().first!.packages.first!
         let mockMetadata = makeMockPackageBasicMetadata()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider([])]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([])]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -954,7 +954,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockCollections = makeMockCollections()
         let mockPackage = mockCollections.last!.packages.last!
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -995,7 +995,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockCollections = makeMockCollections()
         let mockPackage = mockCollections.last!.packages.last!
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = BrokenMetadataProvider()
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -1030,7 +1030,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockCollections = makeMockCollections(count: 1000)
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.feed: MockCollectionsProvider(mockCollections)]
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
@@ -1051,22 +1051,22 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testSourceValidation() throws {
-        let httpsSource = PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "https://feed.mock.io")!)
+        let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed.mock.io")!)
         XCTAssertNil(httpsSource.validate(), "not expecting errors")
 
-        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "HTTPS://feed.mock.io")!)
+        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HTTPS://feed.mock.io")!)
         XCTAssertNil(httpsSource2.validate(), "not expecting errors")
 
-        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "HttpS://feed.mock.io")!)
+        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HttpS://feed.mock.io")!)
         XCTAssertNil(httpsSource3.validate(), "not expecting errors")
 
-        let httpSource = PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "http://feed.mock.io")!)
+        let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "http://feed.mock.io")!)
         XCTAssertEqual(httpSource.validate()?.count, 1, "expecting errors")
 
-        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "ftp://feed.mock.io")!)
+        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "ftp://feed.mock.io")!)
         XCTAssertEqual(otherProtocolSource.validate()?.count, 1, "expecting errors")
 
-        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .feed, url: URL(string: "blah")!)
+        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "blah")!)
         XCTAssertEqual(brokenUrlSource.validate()?.count, 1, "expecting errors")
     }
 }
