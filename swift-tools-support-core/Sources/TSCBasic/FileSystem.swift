@@ -342,7 +342,7 @@ private class LocalFileSystem: FileSystem {
     }
     
     var cachesDirectory: AbsolutePath? {
-        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.absoluteString) }
+        return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
