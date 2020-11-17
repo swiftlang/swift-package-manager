@@ -41,6 +41,12 @@ public struct PackageIdentity: Hashable, CustomStringConvertible {
     public init(_ url: String) {
         self.description = Self.provider.init(url).description
     }
+
+    /// Creates a package identity from a file path.
+    /// - Parameter path: An absolute path to the package.
+    public init(_ path: AbsolutePath) {
+        self.init(path.pathString)
+    }
 }
 
 extension PackageIdentity: Comparable {
