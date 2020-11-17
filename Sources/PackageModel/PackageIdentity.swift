@@ -13,7 +13,6 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
-//@warn_unqualified_access
 /// When set to `false`,
 /// `PackageIdentity` uses the canonical location of package dependencies as its identity.
 /// Otherwise, only the last path component is used to identify package dependencies.
