@@ -29,6 +29,7 @@ internal protocol PackageIdentityProvider: CustomStringConvertible {
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: Hashable, CustomStringConvertible {
+    /// The underlying type used to create package identities.
     internal static var provider: PackageIdentityProvider.Type = LegacyPackageIdentity.self
 
     /// A textual representation of this instance.
