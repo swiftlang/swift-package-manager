@@ -10,6 +10,7 @@
 
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
+import func Foundation.NSHomeDirectory
 import Dispatch
 
 import ArgumentParser
@@ -418,8 +419,22 @@ public class SwiftTool {
         return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
     }()
     
-    func resolvedNetrcFilePath() -> AbsolutePath? {
-        return options.netrcFilePath 
+    func resolvedNetrcFilePath() throws -> AbsolutePath? {
+        guard options.netrc ||
+                options.netrcFilePath != nil ||
+                options.netrcOptional else { return nil }
+        
+        let resolvedPath: AbsolutePath = options.netrcFilePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
+        guard localFileSystem.exists(resolvedPath) else {
+            if !options.netrcOptional {
+                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(resolvedPath.pathString).  To make .netrc file optional, use --netrc-optional flag.")
+                throw ExitCode.failure
+            } else {
+                diagnostics.emit(warning: "Did not find optional .netrc file at \(resolvedPath.pathString).")
+                return nil
+            }
+        }
+        return resolvedPath
     }
 
     /// Holds the currently active workspace.
@@ -446,7 +461,7 @@ public class SwiftTool {
             delegate: delegate,
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
-            netrcFilePath: resolvedNetrcFilePath(),
+            netrcFilePath: try resolvedNetrcFilePath(),
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace
