@@ -23,20 +23,22 @@ public var _useLegacyIdentities: Bool = true {
     }
 }
 
-internal protocol PackageIdentityProvider: LosslessStringConvertible {
+internal protocol PackageIdentityProvider: CustomStringConvertible {
     init(_ string: String)
 }
 
 /// The canonical identifier for a package, based on its source location.
-public struct PackageIdentity: LosslessStringConvertible, Hashable {
+public struct PackageIdentity: Hashable, CustomStringConvertible {
     internal static var provider: PackageIdentityProvider.Type = LegacyPackageIdentity.self
 
     /// A textual representation of this instance.
     public let description: String
 
-    /// Instantiates an instance of the conforming type from a string representation.
-    public init(_ string: String) {
-        self.description = Self.provider.init(string).description
+
+    /// Creates a package identity from a URL.
+    /// - Parameter url: The package's URL.
+    public init(_ url: String) {
+        self.description = Self.provider.init(url).description
     }
 }
 
