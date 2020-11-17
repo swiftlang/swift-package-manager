@@ -142,6 +142,7 @@ extension PackageCollectionsModel.CollectionIdentifier: Codable {
     }
 }
 
+// FIXME: add minimumPlatformVersions
 extension PackageCollectionsModel.Collection {
     /// A representation of package metadata
     public struct Package: Equatable, Codable {
