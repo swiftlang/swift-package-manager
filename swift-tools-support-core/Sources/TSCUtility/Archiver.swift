@@ -51,12 +51,12 @@ public struct ZipArchiver: Archiver {
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         guard fileSystem.exists(archivePath) else {
-            completion(.failure(FileSystemError(.noEntry, archivePath)))
+            completion(.failure(FileSystemError.noEntry))
             return
         }
 
         guard fileSystem.isDirectory(destinationPath) else {
-            completion(.failure(FileSystemError(.notDirectory, destinationPath)))
+            completion(.failure(FileSystemError.notDirectory))
             return
         }
 

@@ -110,7 +110,7 @@ public final class FileLock {
         if fileDescriptor == nil {
             let fd = TSCLibc.open(lockFile.pathString, O_WRONLY | O_CREAT | O_CLOEXEC, 0o666)
             if fd == -1 {
-                throw FileSystemError(errno: errno, lockFile)
+                throw FileSystemError(errno: errno)
             }
             self.fileDescriptor = fd
         }
