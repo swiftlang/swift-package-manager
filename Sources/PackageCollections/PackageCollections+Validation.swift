@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import TSCBasic
+
 extension PackageCollectionsModel.CollectionSource {
     func validate() -> [ValidationError]? {
         var errors: [ValidationError]?
@@ -18,12 +20,15 @@ extension PackageCollectionsModel.CollectionSource {
             errors?.append(error)
         }
 
-        let allowedSchemes = Set(["https"])
+        let allowedSchemes = Set(["https", "file"])
 
         switch self.type {
-        case .feed:
-            if !allowedSchemes.contains(url.scheme?.lowercased() ?? "") {
+        case .json:
+            let scheme = url.scheme?.lowercased() ?? ""
+            if !allowedSchemes.contains(scheme) {
                 appendError(.other(description: "Schema not allowed: \(url.absoluteString)"))
+            } else if scheme == "file", !localFileSystem.exists(AbsolutePath(self.url.path)) {
+                appendError(.other(description: "Non-local files not allowed: \(url.absoluteString)"))
             }
         }
 
@@ -31,7 +36,7 @@ extension PackageCollectionsModel.CollectionSource {
     }
 }
 
-enum ValidationError: Error, CustomStringConvertible {
+internal enum ValidationError: Error, Equatable, CustomStringConvertible {
     case property(name: String, description: String)
     case other(description: String)
 

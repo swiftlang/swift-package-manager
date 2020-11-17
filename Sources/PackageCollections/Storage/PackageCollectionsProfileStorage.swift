@@ -280,7 +280,7 @@ private enum Model {
     }
 
     enum SourceType: String {
-        case feed
+        case json
     }
 }
 
@@ -303,8 +303,8 @@ private extension PackageCollectionsModel.CollectionSource {
         }
         self.url = url
         switch from.type {
-        case Model.SourceType.feed.rawValue:
-            self.type = .feed
+        case Model.SourceType.json.rawValue:
+            self.type = .json
         default:
             throw SerializationError.unknownType(from.type)
         }
@@ -312,8 +312,8 @@ private extension PackageCollectionsModel.CollectionSource {
 
     func source() -> Model.Source {
         switch self.type {
-        case .feed:
-            return .init(type: Model.SourceType.feed.rawValue, value: self.url.absoluteString)
+        case .json:
+            return .init(type: Model.SourceType.json.rawValue, value: self.url.absoluteString)
         }
     }
 }
