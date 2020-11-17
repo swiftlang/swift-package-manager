@@ -158,44 +158,23 @@ extension Diagnostic.Message {
 extension FileSystemError: CustomStringConvertible {
     
     public var description: String {
-        guard let path = path else {
-            switch self.kind {
-            case .invalidAccess:
-                return "invalid access"
-            case .ioError:
-                return "encountered I/O error"
-            case .isDirectory:
-                return "is a directory"
-            case .noEntry:
-                return "doesn't exist in file system"
-            case .notDirectory:
-                return "is not a directory"
-            case .unsupported:
-                return "unsupported operation"
-            case .unknownOSError:
-                return "unknown system error"
-            case .alreadyExistsAtDestination:
-                return "already exists in file system"
-            }
-        }
-
-        switch self.kind {
+        switch self {
         case .invalidAccess:
-            return "invalid access to \(path)"
+            return "invalid access"
         case .ioError:
-            return "encountered an I/O error while reading \(path)"
+            return "encountered I/O error"
         case .isDirectory:
-            return "\(path) is a directory"
+            return "is a directory"
         case .noEntry:
-            return "\(path) doesn't exist in file system"
+            return "doesn't exist in file system"
         case .notDirectory:
-            return "\(path) is not a directory"
+            return "is not a directory"
         case .unsupported:
-            return "unsupported operation on \(path)"
+            return "unsupported operation"
         case .unknownOSError:
-            return "unknown system error while operating on \(path)"
+            return "unknown system error"
         case .alreadyExistsAtDestination:
-            return "\(path) already exists in file system"
+            return "already exists in file system"
         }
     }
 }

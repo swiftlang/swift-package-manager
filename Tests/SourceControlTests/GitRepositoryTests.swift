@@ -208,36 +208,31 @@ class GitRepositoryTests: XCTestCase {
             XCTAssert(view.isExecutableFile(AbsolutePath("/test-file-3.sh")))
 
             // Check read of a directory.
-            let subdirPath = AbsolutePath("/subdir")
             XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/")).sorted(), ["file.swift", "subdir", "test-file-1.txt", "test-file-3.sh"])
-            XCTAssertEqual(try view.getDirectoryContents(subdirPath).sorted(), ["test-file-2.txt"])
-            XCTAssertThrows(FileSystemError(.isDirectory, subdirPath)) {
-                _ = try view.readFileContents(subdirPath)
+            XCTAssertEqual(try view.getDirectoryContents(AbsolutePath("/subdir")).sorted(), ["test-file-2.txt"])
+            XCTAssertThrows(FileSystemError.isDirectory) {
+                _ = try view.readFileContents(AbsolutePath("/subdir"))
             }
 
             // Check read versus root.
-            XCTAssertThrows(FileSystemError(.isDirectory, .root)) {
-                _ = try view.readFileContents(.root)
+            XCTAssertThrows(FileSystemError.isDirectory) {
+                _ = try view.readFileContents(AbsolutePath("/"))
             }
 
             // Check read through a non-directory.
-            let notDirectoryPath1 = AbsolutePath("/test-file-1.txt")
-            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath1)) {
-                _ = try view.getDirectoryContents(notDirectoryPath1)
+            XCTAssertThrows(FileSystemError.notDirectory) {
+                _ = try view.getDirectoryContents(AbsolutePath("/test-file-1.txt"))
             }
-            let notDirectoryPath2 = AbsolutePath("/test-file-1.txt/thing")
-            XCTAssertThrows(FileSystemError(.notDirectory, notDirectoryPath2)) {
-                _ = try view.readFileContents(notDirectoryPath2)
+            XCTAssertThrows(FileSystemError.notDirectory) {
+                _ = try view.readFileContents(AbsolutePath("/test-file-1.txt/thing"))
             }
 
             // Check read/write into a missing directory.
-            let noEntryPath1 = AbsolutePath("/does-not-exist")
-            XCTAssertThrows(FileSystemError(.noEntry, noEntryPath1)) {
-                _ = try view.getDirectoryContents(noEntryPath1)
+            XCTAssertThrows(FileSystemError.noEntry) {
+                _ = try view.getDirectoryContents(AbsolutePath("/does-not-exist"))
             }
-            let noEntryPath2 = AbsolutePath("/does/not/exist")
-            XCTAssertThrows(FileSystemError(.noEntry, noEntryPath2)) {
-                _ = try view.readFileContents(noEntryPath2)
+            XCTAssertThrows(FileSystemError.noEntry) {
+                _ = try view.readFileContents(AbsolutePath("/does/not/exist"))
             }
 
             // Check read of a file.
