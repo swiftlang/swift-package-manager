@@ -278,7 +278,18 @@ public struct SwiftToolOptions: ParsableArguments {
         archs.count > 1 ? .xcode : _buildSystem
     }
     
-    /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.  
+    /// Tells `Workspace` to attempt to locate .netrc file at `NSHomeDirectory`.
+    @Flag()
+    var netrc: Bool = false
+    
+    /// Similar to `--netrc`, but this option makes the .netrc usage optional and not mandatory as with the `--netrc` option.
+    @Flag(name: .customLong("netrc-optional"))
+    var netrcOptional: Bool = false
+    
+    /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.
+    /// Similar to `--netrc`, except that you also provide the path to the actual file to use.
+    /// This is useful when you want to provide the information in another directory or with another file name.
+    ///  - important: Respects `--netrcOptional` option.
     @Option(name: .customLong("netrc-file"), completion: .file())
     var netrcFilePath: AbsolutePath?
     
