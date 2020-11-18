@@ -573,7 +573,7 @@ extension SwiftPackageTool {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
-            swiftTool.diagnostics.emit(.warning("Xcode supports Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon."))
+            swiftTool.diagnostics.emit(.warning("Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon."))
 
             let graph = try swiftTool.loadPackageGraph()
 
