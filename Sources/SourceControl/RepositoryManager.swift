@@ -454,6 +454,10 @@ public class RepositoryManager {
         if !fileSystem.exists(defaultCachePath) {
             try fileSystem.createDirectory(defaultCachePath, recursive: true)
         }
+        // Create .swiftpm directory.
+        if !fileSystem.exists(fileSystem.dotSwiftPM) {
+            try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
+        }
         // Symlink the default cache path to .swiftpm/cache.
         // Don't symlink the user supplied cache path since it might change.
         let symlinkPath = fileSystem.dotSwiftPM.appending(component: "cache")
