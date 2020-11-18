@@ -399,4 +399,11 @@ class GenerateXcodeprojTests: XCTestCase {
             }
         }
     }
+
+    func testGenerateXcodeprojDeprecation() {
+            fixture(name: "DependencyResolution/External/Simple/Foo") { path in
+                let (_, stderr) = try SwiftPMProduct.SwiftPackage.execute(["generate-xcodeproj"], packagePath: path)
+                XCTAssertMatch(stderr, .contains("'generate-xcodeproj' is no longer needed and will be deprecated soon"))
+            }
+        }
 }

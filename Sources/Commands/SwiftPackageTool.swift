@@ -534,7 +534,7 @@ extension SwiftPackageTool {
     struct GenerateXcodeProject: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "generate-xcodeproj",
-            abstract: "Generates an Xcode project")
+            abstract: "Generates an Xcode project. This command will be deprecated soon.")
 
         struct Options: ParsableArguments {
             @Option(help: "Path to xcconfig file", completion: .file())
@@ -573,6 +573,8 @@ extension SwiftPackageTool {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
+            swiftTool.diagnostics.emit(.warning("Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon."))
+
             let graph = try swiftTool.loadPackageGraph()
 
             let projectName: String
