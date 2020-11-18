@@ -1094,10 +1094,11 @@ public final class ProductBuildDescription {
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when not using test manifest, executable otherwise.
-            if !buildParameters.useTestManifest {
+            // Test products are bundle when using objectiveC, executable when using test manifests.
+            switch buildParameters.testDiscoveryStrategy {
+            case .objectiveC:
                 args += ["-Xlinker", "-bundle"]
-            } else {
+            case .manifest:
                 args += ["-emit-executable"]
             }
         case .library(.dynamic):
@@ -1266,7 +1267,7 @@ public class BuildPlan {
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph
     ) throws -> [(product: ResolvedProduct, targetBuildDescription: SwiftTargetBuildDescription)] {
-        guard buildParameters.useTestManifest else {
+        guard case .manifest(let generate) = buildParameters.testDiscoveryStrategy else {
             preconditionFailure("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
         }
 
@@ -1275,7 +1276,7 @@ public class BuildPlan {
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
-            if let testManifestTarget = testProduct.testManifestTarget, !buildParameters.forceTestDiscovery {
+            if let testManifestTarget = testProduct.testManifestTarget, !generate {
                 let desc = try SwiftTargetBuildDescription(
                     target: testManifestTarget,
                     buildParameters: buildParameters,
@@ -1375,7 +1376,7 @@ public class BuildPlan {
         }
 
         // Plan the test manifest target.
-        if buildParameters.useTestManifest {
+        if case .manifest = buildParameters.testDiscoveryStrategy {
             let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph)
             for item in testManifestTargets {
                 targetMap[item.targetBuildDescription.target] = .swift(item.targetBuildDescription)
@@ -1591,7 +1592,7 @@ public class BuildPlan {
         }
 
         // add test manifest targets
-        if buildParameters.useTestManifest {
+        if case .manifest = buildParameters.testDiscoveryStrategy {
             if product.type == .test, let testManifestTarget = testManifestTargetsMap[product] {
                 staticTargets.append(testManifestTarget)
             }
