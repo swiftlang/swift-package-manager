@@ -449,6 +449,9 @@ def build_with_cmake(args, cmake_args, source_path, build_dir, targets=[]):
         if args.sysroot:
             swift_flags = "-sdk %s" % args.sysroot
 
+        # Ensure we are not sharing the module cache with concurrent builds in CI
+        swift_flags += ' -module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache'))
+
         cmd = [
             args.cmake_path, "-G", "Ninja",
             "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_path,
@@ -774,6 +777,11 @@ def get_swiftpm_flags(args):
         build_flags += ["--arch", "x86_64", "--arch", "arm64"]
     elif cross_compile_hosts:
         error("cannot cross-compile for %s" % cross_compile_hosts)
+
+    # Ensure we are not sharing the module cache with concurrent builds in CI
+    local_module_cache_path=os.path.join(args.build_dir, "module-cache")
+    for modifier in ["-Xswiftc", "-Xmanifest"]:
+        build_flags.extend([modifier, "-module-cache-path", modifier, local_module_cache_path])
 
     return build_flags
 
