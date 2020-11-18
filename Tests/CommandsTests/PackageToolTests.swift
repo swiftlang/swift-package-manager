@@ -565,7 +565,8 @@ final class PackageToolTests: XCTestCase {
                 try execute("resolve", "bar", "--branch", "YOLO")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 let state = CheckoutState(revision: yoloRevision, branch: "YOLO")
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
+                let identity = PackageIdentity(path: barPath)
+                XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }
 
             // Try to pin bar at a revision.
@@ -573,7 +574,8 @@ final class PackageToolTests: XCTestCase {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 let state = CheckoutState(revision: yoloRevision)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state, state)
+                let identity = PackageIdentity(path: barPath)
+                XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }
 
             // Try to pin bar at a bad revision.
@@ -614,8 +616,9 @@ final class PackageToolTests: XCTestCase {
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
-                    let pin = pinsStore.pinsMap[pkg]!
-                    XCTAssertEqual(pin.packageRef.identity, pkg)
+                    let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
+                    let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
+                    XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
                     XCTAssert(pin.packageRef.repository.url.hasSuffix(pkg))
                     XCTAssertEqual(pin.state.version, "1.2.3")
                 }
@@ -630,7 +633,8 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
+                let identity = PackageIdentity(path: barPath)
+                XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
             }
 
             // Update bar repo.
@@ -653,7 +657,8 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
-                XCTAssertEqual(pinsStore.pinsMap["bar"]!.state.version, "1.2.3")
+                let identity = PackageIdentity(path: barPath)
+                XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
                 try checkBar(5)
             }
 

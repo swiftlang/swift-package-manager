@@ -15,8 +15,6 @@ import TSCUtility
 ///
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference: Codable {
-    public typealias PackageIdentity = String
-
     /// The kind of package reference.
     public enum Kind: String, Codable {
         /// A root package.
@@ -27,11 +25,6 @@ public struct PackageReference: Codable {
 
         /// A remote package.
         case remote
-    }
-
-    /// Compute identity of a package given its URL.
-    public static func computeIdentity(packageURL: String) -> String {
-        return computeDefaultName(fromURL: packageURL).lowercased()
     }
 
     /// Compute the default name of a package given its URL.
@@ -79,8 +72,7 @@ public struct PackageReference: Codable {
     public let kind: Kind
 
     /// Create a package reference given its identity and repository.
-    public init(identity: String, path: String, name: String? = nil, kind: Kind = .remote) {
-        assert(identity == identity.lowercased(), "The identity is expected to be lowercased")
+    public init(identity: PackageIdentity, path: String, name: String? = nil, kind: Kind = .remote) {
         self._name = name
         self.identity = identity
         self.path = path
@@ -107,7 +99,7 @@ extension PackageReference: Hashable {
 
 extension PackageReference: CustomStringConvertible {
     public var description: String {
-        return identity + (path.isEmpty ? "" : "[\(path)]")
+        return "\(identity)\(path.isEmpty ? "" : "[\(path)]")"
     }
 }
 

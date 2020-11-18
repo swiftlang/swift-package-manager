@@ -1035,20 +1035,20 @@ extension Workspace {
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [String: Manifest] = Dictionary(uniqueKeysWithValues:
-                root.manifests.map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) }) +
-                dependencies.map({ (PackageReference.computeIdentity(packageURL: $0.manifest.url), $0.manifest) }))
+            let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
+                root.manifests.map({ (PackageIdentity(url: $0.url), $0) }) +
+                dependencies.map({ (PackageIdentity(url: $0.manifest.url), $0.manifest) }))
 
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = root.manifests.map({ manifest in
-                let identity = PackageReference.computeIdentity(packageURL: manifest.url)
+                let identity = PackageIdentity(url: manifest.url)
                 let package = PackageReference(identity: identity, path: manifest.url, kind: manifest.packageKind)
                 inputIdentities.insert(package)
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
             }) + root.dependencies.compactMap({ dependency in
                 let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
-                let identity = PackageReference.computeIdentity(packageURL: url)
+                let identity = PackageIdentity(url: url)
                 let package = PackageReference(identity: identity, path: url)
                 inputIdentities.insert(package)
                 guard let manifest = manifestsMap[identity] else { return nil }
@@ -1060,7 +1060,7 @@ extension Workspace {
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
                     let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
-                    let identity = PackageReference.computeIdentity(packageURL: url)
+                    let identity = PackageIdentity(url: url)
                     let package = PackageReference(identity: identity, path: url)
                     requiredIdentities.insert(package)
                     guard let manifest = manifestsMap[identity] else { return nil }
@@ -1799,8 +1799,8 @@ extension Workspace {
         for missingURLs in dependencyManifests.computePackageURLs().missing {
             guard let manifest = loadManifest(forURL: missingURLs.path, diagnostics: diagnostics) else { continue }
             if let override = rootManifests[manifest.name] {
-                let overrideIdentity = PackageReference.computeIdentity(packageURL: override.url)
-                let manifestIdentity = PackageReference.computeIdentity(packageURL: manifest.url)
+                let overrideIdentity = PackageIdentity(url: override.url)
+                let manifestIdentity = PackageIdentity(url: manifest.url)
 
                 diagnostics.emit(error: "unable to override package '\(manifest.name)' because its basename '\(manifestIdentity)' doesn't match directory name '\(overrideIdentity)'")
 

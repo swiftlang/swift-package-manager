@@ -396,7 +396,7 @@ public final class PubgrubDependencyResolver {
         pinsMap: PinsStore.PinsMap = [:]
     ) throws -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {
         let root = DependencyResolutionNode.root(package: PackageReference(
-            identity: "<synthesized-root>",
+            identity: PackageIdentity(url: "<synthesized-root>"),
             path: "<synthesized-root-path>",
             name: nil,
             kind: .root
@@ -895,7 +895,7 @@ private final class DiagnosticReportBuilder {
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
-            return "package \(versionedDependency) is required using a version-based requirement and it depends on unversion package \(unversionedDependency)"
+            return "package \(versionedDependency.identity) is required using a version-based requirement and it depends on unversion package \(unversionedDependency.identity)"
         case .incompatibleToolsVersion:
             let term = incompatibility.terms.first!
             return "\(description(for: term, normalizeRange: true)) contains incompatible tools version"
@@ -979,7 +979,7 @@ private final class DiagnosticReportBuilder {
 
     // FIXME: This is duplicated and wrong.
     private func isFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == "<synthesized-root>"
+        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == PackageIdentity(url: "<synthesized-root>")
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) -> String {
@@ -1180,8 +1180,8 @@ private final class PubGrubPackageContainer {
             // Version-based packages are not allowed to contain unversioned dependencies.
             guard case .versionSet = dep.requirement else {
                 let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
-                    versionedDependency: package.identity,
-                    unversionedDependency: dep.identifier.identity)
+                    versionedDependency: package,
+                    unversionedDependency: dep.identifier)
                 return [Incompatibility(Term(node, .exact(version)), root: root, cause: cause)]
             }
 

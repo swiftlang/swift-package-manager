@@ -268,7 +268,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // Get the JSON string for the manifest.
-        let identity = PackageReference.computeIdentity(packageURL: baseURL)
+        let identity = PackageIdentity(url: baseURL)
         let jsonString = try loadJSONString(
             path: inputPath,
             toolsVersion: toolsVersion,
@@ -388,7 +388,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine?
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            PackageReference.computeIdentity(packageURL: dependency.url)
+            PackageIdentity(url: dependency.url)
         })
 
         let duplicateDependencyIdentities = dependenciesByIdentity
@@ -476,7 +476,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func loadJSONString(
         path inputPath: AbsolutePath,
         toolsVersion: ToolsVersion,
-        packageIdentity: String,
+        packageIdentity: PackageIdentity,
         fs: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> String {
@@ -560,7 +560,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     fileprivate struct ManifestCacheKey {
-        let packageIdentity: String
+        let packageIdentity: PackageIdentity
         let pathOrContents: ManifestPathOrContents
         let toolsVersion: ToolsVersion
         let env: [String: String]
@@ -621,7 +621,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Parse the manifest at the given path to JSON.
     fileprivate func parse(
-        packageIdentity: String,
+        packageIdentity: PackageIdentity,
         pathOrContents: ManifestPathOrContents,
         toolsVersion: ToolsVersion
     ) -> ManifestParseResult {
@@ -706,7 +706,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Add the arguments for emitting serialized diagnostics, if requested.
             if serializedDiagnostics, cacheDir != nil {
                 let diaDir = cacheDir.appending(component: "ManifestLoading")
-                let diagnosticFile = diaDir.appending(component: packageIdentity + ".dia")
+                let diagnosticFile = diaDir.appending(component: "\(packageIdentity).dia")
                 try localFileSystem.createDirectory(diaDir, recursive: true)
                 cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
                 manifestParseResult.diagnosticFile = diagnosticFile
@@ -939,7 +939,7 @@ extension TSCBasic.Diagnostic.Message {
         .error("invalid type for binary product '\(productName)'; products referencing only binary targets must have a type of 'library'")
     }
 
-    static func duplicateDependency(dependencyIdentity: String) -> Self {
+    static func duplicateDependency(dependencyIdentity: PackageIdentity) -> Self {
         .error("duplicate dependency '\(dependencyIdentity)'")
     }
 

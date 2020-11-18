@@ -14,7 +14,7 @@ import SourceControl
 import PackageModel
 
 public final class PinsStore {
-    public typealias PinsMap = [PackageReference.PackageIdentity: PinsStore.Pin]
+    public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
 
     public struct Pin: Equatable {
         /// The package reference of the pinned dependency.
@@ -135,7 +135,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
         let name: String? = json.get("package")
         let url: String = try json.get("repositoryURL")
-        let identity = PackageReference.computeIdentity(packageURL: url)
+        let identity = PackageIdentity(url: url)
         let ref = PackageReference(identity: identity, path: url)
         self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")

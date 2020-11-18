@@ -18,10 +18,10 @@ public struct MockDependencyGraph {
     public let name: String
     public let constraints: [MockPackageContainer.Constraint]
     public let containers: [MockPackageContainer]
-    public let result: [String: Version]
+    public let result: [PackageReference: Version]
 
     public func checkResult(
-        _ output: [(container: String, version: Version)],
+        _ output: [(container: PackageReference, version: Version)],
         file: StaticString = #file,
         line: UInt = #line
     ) {
@@ -49,7 +49,8 @@ public extension MockDependencyGraph {
         self.result = Dictionary(uniqueKeysWithValues: result.map { value in
             let (container, version) = value
             guard case .string(let str) = version else { fatalError() }
-            return (container.lowercased(), Version(string: str)!)
+            let package = PackageReference(identity: PackageIdentity(url: container.lowercased()), path: "/\(container)")
+            return (package, Version(string: str)!)
         })
         self.name = name
         self.constraints = constraints.map(PackageContainerConstraint.init(json:))
@@ -71,7 +72,7 @@ private extension MockPackageContainer {
                 .map { constraint in
                     switch constraint.requirement {
                     case .versionSet(let versionSet):
-                        return (constraint.identifier.identity, versionSet)
+                        return (constraint.identifier.identity.description, versionSet)
                     case .unversioned:
                         fatalError()
                     case .revision:
@@ -90,7 +91,7 @@ private extension MockPackageContainer.Constraint {
         guard case .string(let identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
         let products: ProductFilter = try! JSON(dict).get("products")
-        let id = PackageReference(identity: identifier.lowercased(), path: "", kind: .remote)
+        let id = PackageReference(identity: PackageIdentity(url: identifier), path: "", kind: .remote)
         self.init(container: id, versionRequirement: VersionSetSpecifier(requirement), products: products)
     }
 }

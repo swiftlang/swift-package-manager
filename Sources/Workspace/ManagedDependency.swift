@@ -95,7 +95,7 @@ public final class ManagedDependency {
             packageRef: packageRef,
             state: .local,
             // FIXME: This is just a fake entry, we should fix it.
-            subpath: RelativePath(packageRef.identity),
+            subpath: RelativePath(packageRef.identity.description),
             basedOn: nil
         )
     }
@@ -224,14 +224,14 @@ public final class ManagedDependencies {
         dependencyMap[url]
     }
 
-    public subscript(forIdentity identity: String) -> ManagedDependency? {
+    public subscript(forIdentity identity: PackageIdentity) -> ManagedDependency? {
         dependencyMap.values.first(where: { $0.packageRef.identity == identity })
     }
 
     public subscript(forNameOrIdentity nameOrIdentity: String) -> ManagedDependency? {
         let lowercasedNameOrIdentity = nameOrIdentity.lowercased()
         return dependencyMap.values.first(where: {
-            $0.packageRef.name == nameOrIdentity || $0.packageRef.identity == lowercasedNameOrIdentity
+            $0.packageRef.name == nameOrIdentity || $0.packageRef.identity.description == lowercasedNameOrIdentity
         })
     }
 

@@ -853,8 +853,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
@@ -909,8 +909,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1],
@@ -966,8 +966,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
@@ -1017,7 +1017,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let cRepo = RepositorySpecifier(url: testWorkspace.urlForPackage(withName: "C"))
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try testWorkspace.set(
             pins: [cRef: v1_5],
@@ -1076,8 +1076,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5],
@@ -1138,8 +1138,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
@@ -1201,8 +1201,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5, cRef: master],
@@ -1263,8 +1263,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
@@ -1322,8 +1322,8 @@ final class WorkspaceTests: XCTestCase {
 
         let bRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "B"))
         let cRepo = RepositorySpecifier(url: workspace.urlForPackage(withName: "C"))
-        let bRef = PackageReference(identity: "b", path: bRepo.url)
-        let cRef = PackageReference(identity: "c", path: cRepo.url)
+        let bRef = PackageReference(identity: PackageIdentity(url: bRepo.url), path: bRepo.url)
+        let cRef = PackageReference(identity: PackageIdentity(url: cRepo.url), path: cRepo.url)
 
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
@@ -1531,8 +1531,9 @@ final class WorkspaceTests: XCTestCase {
             let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif
 
+            let path = AbsolutePath("/tmp/ws/pkgs/Foo")
             let expectedChange = (
-                PackageReference(identity: "foo", path: "/tmp/ws/pkgs/Foo"),
+                PackageReference(identity: PackageIdentity(path: path), path: path.pathString),
                 stateChange
             )
             guard let change = changes?.first, changes?.count == 1 else {
@@ -3677,7 +3678,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let ws = workspace.createWorkspace()
             let pinsStore = try ws.pinsStore.load()
-            let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity == "foo" })!
+            let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity.description == "foo" })!
 
             let fooRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: fooPin.packageRef.path)]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
@@ -4352,9 +4353,9 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
-        let aPath = workspace.urlForPackage(withName: "A")
-        let aRef = PackageReference(identity: "a", path: aPath)
-        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
+        let aURL = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference(identity: PackageIdentity(url: aURL), path: aURL)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState(revision: aRevision, version: "1.0.0")
 
@@ -4614,9 +4615,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Pin A to 1.0.0, Checkout A to 1.0.0
-        let aPath = workspace.urlForPackage(withName: "A")
-        let aRef = PackageReference(identity: "a", path: aPath)
-        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aPath)]!
+        let aURL = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference(identity: PackageIdentity(url: aURL), path: aURL)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState(revision: aRevision, version: "1.0.0")
         let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
