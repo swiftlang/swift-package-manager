@@ -338,7 +338,10 @@ public class RepositoryManager {
         var updatedCache = false
         var fromCache = false
 
-        if let cachePath = cachePath {
+        // We are expecting handle.repository.url to always be a resolved absolute path.
+        let isLocal = (try? AbsolutePath(validating: handle.repository.url)) != nil
+
+        if let cachePath = cachePath, !isLocal {
             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
             do {
                 try initalizeCacheIfNeeded(cachePath: cachePath)
