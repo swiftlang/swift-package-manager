@@ -57,12 +57,12 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
                 let resolver = PubgrubDependencyResolver(provider)
                 switch resolver.solve(dependencies: graph.constraints) {
                 case .success(let result):
-                    let result: [(container: String, version: Version)] = result.compactMap {
+                    let result: [(container: PackageReference, version: Version)] = result.compactMap {
                         guard case .version(let version) = $0.binding else {
                             XCTFail("Unexpected result")
                             return nil
                         }
-                        return ($0.container.identity, version)
+                        return ($0.container, version)
                     }
                     graph.checkResult(result)
                 case .failure:

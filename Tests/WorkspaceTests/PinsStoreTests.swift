@@ -23,10 +23,12 @@ final class PinsStoreTests: XCTestCase {
     let v1: Version = "1.0.0"
 
     func testBasics() throws {
-        let foo = "foo"
-        let bar = "bar"
-        let fooRepo = RepositorySpecifier(url: "/foo")
-        let barRepo = RepositorySpecifier(url: "/bar")
+        let fooPath = AbsolutePath("/foo")
+        let barPath = AbsolutePath("/bar")
+        let foo = PackageIdentity(path: fooPath)
+        let bar = PackageIdentity(path: barPath)
+        let fooRepo = RepositorySpecifier(url: fooPath.pathString)
+        let barRepo = RepositorySpecifier(url: barPath.pathString)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
         let fooRef = PackageReference(identity: foo, path: fooRepo.url)
         let barRef = PackageReference(identity: bar, path: barRepo.url)
@@ -138,7 +140,7 @@ final class PinsStoreTests: XCTestCase {
         }
 
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
-        XCTAssertEqual(store.pinsMap.keys.map{$0}.sorted(), ["clang_c", "commandant"])
+        XCTAssertEqual(store.pinsMap.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
     }
 
     func testEmptyPins() throws {
@@ -149,7 +151,9 @@ final class PinsStoreTests: XCTestCase {
         try store.saveState()
         XCTAssertFalse(fs.exists(pinsFile))
 
-        let fooRef = PackageReference(identity: "foo", path: "/foo")
+        let fooPath = AbsolutePath("/foo")
+        let foo = PackageIdentity(path: fooPath)
+        let fooRef = PackageReference(identity: foo, path: fooPath.pathString)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
         store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1))
 

@@ -38,12 +38,12 @@ extension PackageGraph {
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageReference.computeIdentity(packageURL: $0.url), $0) })
+        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageIdentity(url: $0.url), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
                 let url = mirrors.effectiveURL(forURL: dependency.url)
-                return manifestMap[PackageReference.computeIdentity(packageURL: url)].map { manifest in
+                return manifestMap[PackageIdentity(url: url)].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
             })
@@ -52,11 +52,11 @@ extension PackageGraph {
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
         let rootDependencies = Set(root.dependencies.compactMap({
-            manifestMap[PackageReference.computeIdentity(packageURL: $0.url)]
+            manifestMap[PackageIdentity(url: $0.url)]
         }))
         let rootManifestNodes = root.manifests.map { GraphLoadingNode(manifest: $0, productFilter: .everything) }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
-            guard let manifest = manifestMap[PackageReference.computeIdentity(packageURL: dependency.url)] else { return nil }
+            guard let manifest = manifestMap[PackageIdentity(url: dependency.url)] else { return nil }
             return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -209,8 +209,8 @@ private func createResolvedPackages(
     })
 
     // Create a map of package builders keyed by the package identity.
-    let packageMapByIdentity: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
-        let identity = PackageReference.computeIdentity(packageURL: $0.package.manifest.url)
+    let packageMapByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
+        let identity = PackageIdentity(url: $0.package.manifest.url)
         return (identity, $0)
     }
     let packageMapByName: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{ ($0.package.name, $0) }
@@ -229,7 +229,7 @@ private func createResolvedPackages(
 
                 // Otherwise, look it up by its identity.
                 let url = mirrors.effectiveURL(forURL: dependency.url)
-                let resolvedPackage = packageMapByIdentity[PackageReference.computeIdentity(packageURL: url)]
+                let resolvedPackage = packageMapByIdentity[PackageIdentity(url: url)]
 
                 // We check that the explicit package dependency name matches the package name.
                 if let resolvedPackage = resolvedPackage,
@@ -360,10 +360,10 @@ private func createResolvedPackages(
                     // dependency to share the same name. We don't check this in manifest loading for root-packages so
                     // we can provide a more detailed diagnostic here.
                     let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
-                    let referencedPackageIdentity = PackageReference.computeIdentity(packageURL: referencedPackageURL)
+                    let referencedPackageIdentity = PackageIdentity(url: referencedPackageURL)
                     let packageDependency = packageBuilder.package.manifest.dependencies.first { package in
                         let packageURL = mirrors.effectiveURL(forURL: package.url)
-                        let packageIdentity = PackageReference.computeIdentity(packageURL: packageURL)
+                        let packageIdentity = PackageIdentity(url: packageURL)
                         return packageIdentity == referencedPackageIdentity
                     }!
 

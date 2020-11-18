@@ -12,7 +12,7 @@ import XCTest
 
 import TSCBasic
 import PackageLoading
-import PackageModel
+@testable import PackageModel
 import SourceControl
 
 import PackageGraph
@@ -53,11 +53,11 @@ private let v1_5Range: VersionSetSpecifier = .range(v1_5..<v2)
 private let v1to3Range: VersionSetSpecifier = .range(v1..<v3)
 private let v2Range: VersionSetSpecifier = .range(v2..<v3)
 
-let aRef = PackageReference(identity: "a", path: "")
-let bRef = PackageReference(identity: "b", path: "")
-let cRef = PackageReference(identity: "c", path: "")
+let aRef = PackageReference(identity: PackageIdentity("a"), path: "")
+let bRef = PackageReference(identity: PackageIdentity("b"), path: "")
+let cRef = PackageReference(identity: PackageIdentity("c"), path: "")
 
-let rootRef = PackageReference(identity: "root", path: "", kind: .root)
+let rootRef = PackageReference(identity: PackageIdentity("root"), path: "", kind: .root)
 let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = Incompatibility("cause@0.0.0", root: rootNode)
@@ -208,16 +208,16 @@ final class PubgrubTests: XCTestCase {
             .derivation("b@2.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
-        let a1 = s1._positive.first { $0.key.package.identity == "a" }?.value
+        let a1 = s1._positive.first { $0.key.package.identity == PackageIdentity("a") }?.value
         XCTAssertEqual(a1?.requirement, v1_5Range)
-        let b1 = s1._positive.first { $0.key.package.identity == "b" }?.value
+        let b1 = s1._positive.first { $0.key.package.identity == PackageIdentity("b") }?.value
         XCTAssertEqual(b1?.requirement, .exact(v2))
 
         let s2 = PartialSolution(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
-        let a2 = s2._positive.first { $0.key.package.identity == "a" }?.value
+        let a2 = s2._positive.first { $0.key.package.identity == PackageIdentity("a") }?.value
         XCTAssertEqual(a2?.requirement, .range(v1..<v1_5))
     }
 
@@ -299,7 +299,8 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() {
-        let fooRef = PackageReference(identity: "foo", path: "https://some.url/FooBar")
+        let fooURL = "https://example.com/foo"
+        let fooRef = PackageReference(identity: PackageIdentity(url: fooURL), path: fooURL)
         let foo = MockContainer(name: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
 
@@ -316,7 +317,7 @@ final class PubgrubTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
-            let foo = bindings.first { $0.container.identity == "foo" }
+            let foo = bindings.first { $0.container.identity == PackageIdentity("foo") }
             XCTAssertEqual(foo?.container.name, "bar")
         }
     }
@@ -392,7 +393,7 @@ final class PubgrubTests: XCTestCase {
                                     root: rootNode), location: .topLevel)
         solver2.solution.decide(rootNode, at: v1)
         XCTAssertEqual(solver2.solution.assignments.count, 1)
-        try solver2.propagate(.root(package: PackageReference(identity: "root", path: "")))
+        try solver2.propagate(.root(package: PackageReference(identity: PackageIdentity("root"), path: "")))
         XCTAssertEqual(solver2.solution.assignments.count, 2)
     }
 
@@ -1838,7 +1839,7 @@ fileprivate extension CheckoutState {
 /// specified versions.
 private func AssertBindings(
     _ bindings: [DependencyResolver.Binding],
-    _ packages: [(identity: String, version: BoundVersion)],
+    _ packages: [(identity: PackageIdentity, version: BoundVersion)],
     file: StaticString = #file,
     line: UInt = #line
 ) {
@@ -1846,12 +1847,12 @@ private func AssertBindings(
         let unexpectedBindings = bindings
             .filter { binding in
                 packages.contains(where: { pkg in
-                    pkg.0 != binding.container.identity
+                    pkg.identity != binding.container.identity
                 })
             }
             .map { $0.container.identity }
 
-        XCTFail("Unexpected binding(s) found for \(unexpectedBindings.joined(separator: ", ")).", file: file, line: line)
+        XCTFail("Unexpected binding(s) found for \(unexpectedBindings.map { $0.description }.joined(separator: ", ")).", file: file, line: line)
     }
     for package in packages {
         guard let binding = bindings.first(where: { $0.container.identity == package.identity }) else {
@@ -1868,13 +1869,13 @@ private func AssertBindings(
 /// Asserts that a result succeeded and contains the specified bindings.
 private func AssertResult(
     _ result: Result<[DependencyResolver.Binding], Error>,
-    _ packages: [(identity: String, version: BoundVersion)],
+    _ packages: [(identifier: String, version: BoundVersion)],
     file: StaticString = #file,
     line: UInt = #line
 ) {
     switch result {
     case .success(let bindings):
-        AssertBindings(bindings, packages, file: file, line: line)
+        AssertBindings(bindings, packages.map { (PackageIdentity($0.identifier), $0.version) }, file: file, line: line)
     case .failure(let error):
         XCTFail("Unexpected error: \(error)", file: file, line: line)
     }
@@ -1971,7 +1972,7 @@ public class MockContainer: PackageContainer {
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         if let manifestName = manifestName {
-            name = name.with(newName: manifestName.identity)
+            name = name.with(newName: manifestName.identity.description)
         }
         return name
     }
@@ -2055,7 +2056,7 @@ class DependencyGraphBuilder {
         if let reference = self.references[packageName] {
             return reference
         }
-        let newReference = PackageReference(identity: packageName, path: "/" + packageName)
+        let newReference = PackageReference(identity: PackageIdentity(packageName), path: "/\(packageName)")
         self.references[packageName] = newReference
         return newReference
     }
@@ -2172,7 +2173,7 @@ extension Term: ExpressibleByStringLiteral {
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
         }
 
-        let packageReference = PackageReference(identity: components[0], path: "", name: components[0])
+        let packageReference = PackageReference(identity: PackageIdentity(components[0]), path: "", name: components[0])
 
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
@@ -2185,12 +2186,12 @@ extension Term: ExpressibleByStringLiteral {
 
 extension PackageReference: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        let ref = PackageReference(identity: value.lowercased(), path: "")
+        let ref = PackageReference(identity: PackageIdentity(value), path: "")
         self = ref
     }
 
     init(_ name: String) {
-        self.init(identity: name, path: "")
+        self.init(identity: PackageIdentity(name), path: "")
     }
 }
 extension Result where Success == [DependencyResolver.Binding] {

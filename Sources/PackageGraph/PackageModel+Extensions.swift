@@ -23,7 +23,7 @@ extension PackageDependencyDescription {
         //        We should instead use the declared URL of a package dependency
         //        as its identity, as it will be needed for supporting package
         //        registries.
-        let identity = PackageReference.computeIdentity(packageURL: effectiveURL)
+        let identity = PackageIdentity(url: effectiveURL)
         
         return PackageReference(
             identity: identity,

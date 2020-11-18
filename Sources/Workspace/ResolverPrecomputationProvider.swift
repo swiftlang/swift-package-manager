@@ -105,7 +105,7 @@ private struct LocalPackageContainer: PackageContainer {
         if let identifier = dependency?.packageRef {
             return identifier
         } else {
-            let identity = PackageReference.computeIdentity(packageURL: manifest.url)
+            let identity = PackageIdentity(url: manifest.url)
             return PackageReference(
                 identity: identity,
                 path: manifest.path.pathString,

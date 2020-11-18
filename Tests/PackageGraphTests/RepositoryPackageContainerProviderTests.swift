@@ -39,7 +39,7 @@ private class MockRepository: Repository {
     }
 
     var packageRef: PackageReference {
-        return PackageReference(identity: self.url.lowercased(), path: self.url)
+        return PackageReference(identity: PackageIdentity(url: self.url), path: self.url)
     }
 
     var tags: [String] {
@@ -140,23 +140,6 @@ private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class RepositoryPackageContainerProviderTests: XCTestCase {
-    func testPackageReference() {
-        func assertIdentity(_ url: String, _ identity: String, file: StaticString = #file, line: UInt = #line) {
-            let computedIdentity = PackageReference.computeIdentity(packageURL: url)
-            XCTAssertEqual(computedIdentity, identity, file: file, line: line)
-        }
-        assertIdentity("foo", "foo")
-        assertIdentity("/foo", "foo")
-        assertIdentity("/foo/bar", "bar")
-        assertIdentity("foo/bar", "bar")
-        assertIdentity("https://foo/bar/baz", "baz")
-        assertIdentity("git@github.com/foo/bar/baz", "baz")
-        assertIdentity("/path/to/foo/bar/baz/", "baz")
-        assertIdentity("https://foo/bar/baz.git", "baz")
-        assertIdentity("git@github.com/foo/bar/baz.git", "baz")
-        assertIdentity("/path/to/foo/bar/baz.git", "baz")
-    }
-
     func testVprefixVersions() throws {
         let fs = InMemoryFileSystem()
 
@@ -190,7 +173,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             repositoryManager: repositoryManager,
             manifestLoader: MockManifestLoader(manifests: [:])
         )
-        let ref = PackageReference(identity: "foo", path: repoPath.pathString)
+
+        let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
         let v = container.versions(filter: { _ in true }).map { $0 }
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
@@ -245,7 +229,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
-            let ref = PackageReference(identity: "foo", path: specifier.url)
+            let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
             let v = container.versions(filter: { _ in true }).map { $0 }
             XCTAssertEqual(v, ["1.0.1"])
@@ -253,7 +237,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "4.2.0"))
-            let ref = PackageReference(identity: "foo", path: specifier.url)
+            let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
             XCTAssertEqual((container as! RepositoryPackageContainer).validToolsVersionsCache, [:])
             let v = container.versions(filter: { _ in true }).map { $0 }
@@ -263,7 +247,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         do {
             let provider = createProvider(ToolsVersion(version: "3.0.0"))
-            let ref = PackageReference(identity: "foo", path: specifier.url)
+            let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
             let v = container.versions(filter: { _ in true }).map { $0 }
             XCTAssertEqual(v, [])
@@ -272,7 +256,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         // Test that getting dependencies on a revision that has unsupported tools version is diganosed properly.
         do {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
-            let ref = PackageReference(identity: "foo", path: specifier.url)
+            let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) } as! RepositoryPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
@@ -319,7 +303,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             repositoryManager: repositoryManager,
             manifestLoader: MockManifestLoader(manifests: [:])
         )
-        let ref = PackageReference(identity: "foo", path: repoPath.pathString)
+        let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
         let v = container.versions(filter: { _ in true }).map { $0 }
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
@@ -359,7 +343,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             repositoryManager: repositoryManager,
             manifestLoader: MockManifestLoader(manifests: [:])
         )
-        let ref = PackageReference(identity: "foo", path: repoPath.pathString)
+        let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try tsc_await { provider.getContainer(for: ref, skipUpdate: false, completion: $0) }
         let v = container.versions(filter: { _ in true }).map { $0 }
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
@@ -547,7 +531,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
 
             // Get a hold of the container for the test package.
-            let packageRef = PackageReference(identity: "somepackage", path: packageDir.pathString)
+            let packageRef = PackageReference(identity: PackageIdentity(path: packageDir), path: packageDir.pathString)
             let container = try tsc_await { containerProvider.getContainer(for: packageRef, skipUpdate: false, completion: $0) } as! RepositoryPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
@@ -624,7 +608,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 )
             )
 
-            let packageReference = PackageReference(identity: "package", path: packageDirectory.pathString)
+            let packageReference = PackageReference(identity: PackageIdentity(path: packageDirectory), path: packageDirectory.pathString)
             let container = try tsc_await { completion in
                 containerProvider.getContainer(
                     for: packageReference,
