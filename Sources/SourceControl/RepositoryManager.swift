@@ -445,13 +445,17 @@ public class RepositoryManager {
 
     /// Sets up the cache directories if they don't already exist.
     public func initalizeCacheIfNeeded(cachePath: AbsolutePath) throws {
+        // Create the supplied cache directory.
         if !fileSystem.exists(cachePath) {
             try fileSystem.createDirectory(cachePath, recursive: true)
         }
+        // Create the default cache directory.
         let defaultCachePath = fileSystem.swiftPMCacheDirectory.appending(component: "repositories")
         if !fileSystem.exists(defaultCachePath) {
             try fileSystem.createDirectory(defaultCachePath, recursive: true)
         }
+        // Symlink the default cache path to .swiftpm/cache.
+        // Don't symlink the user supplied cache path since it might change.
         let symlinkPath = fileSystem.dotSwiftPM.appending(component: "cache")
         if !fileSystem.exists(symlinkPath, followSymlink: false) {
             try fileSystem.createSymbolicLink(symlinkPath, pointingAt: defaultCachePath, relative: false)
