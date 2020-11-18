@@ -54,20 +54,20 @@ public final class ManifestRewriter {
         }
 
         // Find dependencies section in the argument list of Package(...).
-        let packageDependenciesFinder = DependenciesArrayFinder()
+        let packageDependenciesFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
         packageDependenciesFinder.walk(initFnExpr.argumentList)
 
         let packageDependencies: ArrayExprSyntax
-        if let existingPackageDependencies = packageDependenciesFinder.dependenciesArrayExpr {
+        if let existingPackageDependencies = packageDependenciesFinder.foundArrayExpr {
             packageDependencies = existingPackageDependencies
         } else {
             // We didn't find a dependencies section so insert one.
             let argListWithDependencies = DependenciesArrayWriter().visit(initFnExpr.argumentList)
 
             // Find the inserted section.
-            let packageDependenciesFinder = DependenciesArrayFinder()
+            let packageDependenciesFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
             packageDependenciesFinder.walk(argListWithDependencies)
-            packageDependencies = packageDependenciesFinder.dependenciesArrayExpr!
+            packageDependencies = packageDependenciesFinder.foundArrayExpr!
         }
 
         // Add the the package dependency entry.
@@ -93,9 +93,9 @@ public final class ManifestRewriter {
         }
 
         // Find the `targets: []` array.
-        let targetsArrayFinder = TargetsArrayFinder()
+        let targetsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsArrayFinder.walk(initFnExpr.argumentList)
-        guard let targetsArrayExpr = targetsArrayFinder.targets else {
+        guard let targetsArrayExpr = targetsArrayFinder.foundArrayExpr else {
             throw Error.error("Couldn't find targets label")
         }
 
@@ -106,10 +106,10 @@ public final class ManifestRewriter {
             throw Error.error("Couldn't find target \(target)")
         }
 
-        let targetDependencyFinder = DependenciesArrayFinder()
+        let targetDependencyFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
         targetDependencyFinder.walk(targetNode)
 
-        guard let targetDependencies = targetDependencyFinder.dependenciesArrayExpr else {
+        guard let targetDependencies = targetDependencyFinder.foundArrayExpr else {
             throw Error.error("Couldn't find dependencies section")
         }
 
@@ -134,10 +134,10 @@ public final class ManifestRewriter {
             throw Error.error("Couldn't find Package initializer")
         }
 
-        let targetsFinder = TargetsArrayFinder()
+        let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsFinder.walk(initFnExpr.argumentList)
 
-        guard let targetsNode = targetsFinder.targets else {
+        guard let targetsNode = targetsFinder.foundArrayExpr else {
             throw Error.error("Couldn't find targets section")
         }
 
@@ -169,41 +169,31 @@ final class PackageInitFinder: SyntaxVisitor {
 }
 
 /// Finder for "dependencies" array syntax.
-final class DependenciesArrayFinder: SyntaxVisitor {
+final class ArrayExprArgumentFinder: SyntaxVisitor {
 
-    private(set) var dependenciesArrayExpr: ArrayExprSyntax?
+    private(set) var foundArrayExpr: ArrayExprSyntax?
+    private let expectedLabel: String
+
+    init(expectedLabel: String) {
+        self.expectedLabel = expectedLabel
+        super.init()
+    }
 
     override func visit(_ node: TupleExprElementSyntax) -> SyntaxVisitorContinueKind {
-        guard node.label?.text == "dependencies" else {
+        guard node.label?.text == expectedLabel else {
             return .skipChildren
         }
 
         // We have custom code like foo + bar + [] (hopefully there is an array expr here).
         if let seq = node.expression.as(SequenceExprSyntax.self) {
-            dependenciesArrayExpr = seq.elements.first(where: { $0.is(ArrayExprSyntax.self) })?.as(ArrayExprSyntax.self)
+            foundArrayExpr = seq.elements.first(where: { $0.is(ArrayExprSyntax.self) })?.as(ArrayExprSyntax.self)
         } else if let arrayExpr = node.expression.as(ArrayExprSyntax.self) {
-            dependenciesArrayExpr = arrayExpr
+            foundArrayExpr = arrayExpr
         }
 
         // FIXME: If we find a dependencies section but not an array expr, then we should
         // not try to insert one later. i.e. return error if depsArray is nil.
 
-        return .skipChildren
-    }
-}
-
-/// Finder for targets array expression.
-final class TargetsArrayFinder: SyntaxVisitor {
-
-    /// The found targets array expr.
-    private(set) var targets: ArrayExprSyntax?
-
-    override func visit(_ node: TupleExprElementSyntax) -> SyntaxVisitorContinueKind {
-        if node.label?.text == "targets",
-           let expr = node.expression.as(ArrayExprSyntax.self) {
-            assert(targets == nil, "Found two targets labels")
-            targets = expr
-        }
         return .skipChildren
     }
 }
