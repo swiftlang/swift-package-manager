@@ -257,16 +257,20 @@ final class DependenciesArrayWriter: SyntaxRewriter {
 /// Writer for inserting a trailing comma in an array expr.
 final class ArrayTrailingCommaWriter: SyntaxRewriter {
     let lastElement: ArrayElementSyntax
+    let addSpaceAfterComma: Bool
 
-    init(lastElement: ArrayElementSyntax) {
+    init(lastElement: ArrayElementSyntax, addSpaceAfterComma: Bool) {
         self.lastElement = lastElement
+        self.addSpaceAfterComma = addSpaceAfterComma
     }
 
     override func visit(_ node: ArrayElementSyntax) -> Syntax {
         guard lastElement == node else {
             return Syntax(node)
         }
-        return Syntax(node.withTrailingComma(SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1))))
+        return Syntax(node.withTrailingComma(SyntaxFactory.makeCommaToken(
+                                                trailingTrivia: addSpaceAfterComma ? .spaces(1) : []))
+        )
     }
 }
 
@@ -334,12 +338,16 @@ final class PackageDependencyWriter: SyntaxRewriter {
         let rightBrace = SyntaxFactory.makeRightSquareBracketToken(
             leadingTrivia: [.newlines(1), .spaces(4)])
 
-        let newElements = SyntaxFactory.makeArrayElementList(
-            node.elements.dropLast() +
-                [node.elements.last?.withTrailingComma(SyntaxFactory.makeCommaToken()),
-                 newDependencyElement].compactMap {$0})
+        var newNode = node
+        if newNode.elements.count > 0 {
+            let lastElement = newNode.elements.map{$0}.last!
+            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement,
+                                                                addSpaceAfterComma: false)
+            let newElements = trailingTriviaWriter.visit(newNode.elements)
+            newNode = newNode.withElements((newElements.as(ArrayElementListSyntax.self)!))
+        }
 
-        return ExprSyntax(node.withElements(newElements)
+        return ExprSyntax(newNode.addElement(newDependencyElement)
                             .withRightSquare(rightBrace))
     }
 }
@@ -360,7 +368,8 @@ final class TargetDependencyWriter: SyntaxRewriter {
         // Insert trailing comma, if needed.
         if node.elements.count > 0 {
             let lastElement = node.elements.map{$0}.last!
-            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement)
+            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement,
+                                                                addSpaceAfterComma: true)
             let newElements = trailingTriviaWriter.visit(node.elements)
             node = node.withElements((newElements.as(ArrayElementListSyntax.self)!))
         }
