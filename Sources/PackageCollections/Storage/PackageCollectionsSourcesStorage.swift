@@ -16,22 +16,14 @@ import class Foundation.JSONEncoder
 import struct Foundation.URL
 import TSCBasic
 
-// MARK: - PackageCollectionsProfileStorage
+// MARK: - PackageCollectionsSourcesStorage
 
-public protocol PackageCollectionsProfileStorage {
-    /// Lists all configured profiles.
-    ///
-    /// - Parameters:
-    ///   - callback: The closure to invoke when result becomes available
-    func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void)
-
+public protocol PackageCollectionsSourcesStorage {
     /// Lists all `PackageCollectionSource`s in the given profile.
     ///
     /// - Parameters:
-    ///   - profile: The `PackageCollectionsModel.Profile`
     ///   - callback: The closure to invoke when result becomes available
-    func listSources(in profile: PackageCollectionsModel.Profile,
-                     callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
+    func list(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
 
     /// Adds source to the given profile.
     ///
@@ -39,11 +31,9 @@ public protocol PackageCollectionsProfileStorage {
     ///   - source: The `PackageCollectionSource` to add
     ///   - order: Optional. The order that the source should take after being added to the profile.
     ///            By default the new source is appended to the end (i.e., the least relevant order).
-    ///   - profile: The `Profile` to add source
     ///   - callback: The closure to invoke when result becomes available
     func add(source: PackageCollectionsModel.CollectionSource,
              order: Int?,
-             to profile: PackageCollectionsModel.Profile,
              callback: @escaping (Result<Void, Error>) -> Void)
 
     /// Removes source from the given profile.
@@ -53,7 +43,6 @@ public protocol PackageCollectionsProfileStorage {
     ///   - profile: The `Profile` to remove source
     ///   - callback: The closure to invoke when result becomes available
     func remove(source: PackageCollectionsModel.CollectionSource,
-                from profile: PackageCollectionsModel.Profile,
                 callback: @escaping (Result<Void, Error>) -> Void)
 
     /// Moves source to a different order within the given profile.
@@ -61,27 +50,23 @@ public protocol PackageCollectionsProfileStorage {
     /// - Parameters:
     ///   - source: The `PackageCollectionSource` to move
     ///   - order: The order that the source should take in the profile.
-    ///   - profile: The `Profile` to move source
     ///   - callback: The closure to invoke when result becomes available
     func move(source: PackageCollectionsModel.CollectionSource,
               to order: Int,
-              in profile: PackageCollectionsModel.Profile,
               callback: @escaping (Result<Void, Error>) -> Void)
 
     /// Checks if a source is already in a profile.
     ///
     /// - Parameters:
     ///   - source: The `PackageCollectionSource`
-    ///   - profile: Optional. The `Profile`, If not specified, checks across all profiles.
     ///   - callback: The closure to invoke when result becomes available
     func exists(source: PackageCollectionsModel.CollectionSource,
-                in profile: PackageCollectionsModel.Profile?,
                 callback: @escaping (Result<Bool, Error>) -> Void)
 }
 
 // MARK: - FilePackageCollectionsProfileStorage
 
-struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
+struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
     let path: AbsolutePath
 
@@ -107,26 +92,13 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
         self.decoder = JSONDecoder()
     }
 
-    func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void) {
+    func list(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
         self.queue.async {
             do {
-                let profiles = try self.withLock {
+                let sources = try self.withLock {
                     try self.loadFromDisk()
                 }
-                callback(.success(Array(profiles.keys)))
-            } catch {
-                callback(.failure(error))
-            }
-        }
-    }
-
-    func listSources(in profile: PackageCollectionsModel.Profile, callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
-        self.queue.async {
-            do {
-                let profiles = try self.withLock {
-                    try self.loadFromDisk()
-                }
-                callback(.success(profiles[profile] ?? []))
+                callback(.success(sources))
             } catch {
                 callback(.failure(error))
             }
@@ -135,17 +107,15 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
 
     func add(source: PackageCollectionsModel.CollectionSource,
              order: Int?,
-             to profile: PackageCollectionsModel.Profile,
              callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
                 try self.withLock {
-                    var profiles = try self.loadFromDisk()
-                    var sources = profiles[profile]?.filter { $0 != source } ?? []
+                    var sources = try self.loadFromDisk()
+                    sources = sources.filter { $0 != source }
                     let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
                     sources.insert(source, at: order)
-                    profiles[profile] = sources
-                    try self.saveToDisk(profiles)
+                    try self.saveToDisk(sources)
                 }
                 callback(.success(()))
             } catch {
@@ -155,17 +125,13 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     }
 
     func remove(source: PackageCollectionsModel.CollectionSource,
-                from profile: PackageCollectionsModel.Profile,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
                 try self.withLock {
-                    var profiles = try self.loadFromDisk()
-                    guard let sources = profiles[profile] else {
-                        throw Errors.invalidProfile(profile)
-                    }
-                    profiles[profile] = sources.filter { $0 != source }
-                    try self.saveToDisk(profiles)
+                    var sources = try self.loadFromDisk()
+                    sources = sources.filter { $0 != source }
+                    try self.saveToDisk(sources)
                 }
                 callback(.success(()))
             } catch {
@@ -176,20 +142,15 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
 
     func move(source: PackageCollectionsModel.CollectionSource,
               to order: Int,
-              in profile: PackageCollectionsModel.Profile,
               callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
                 try self.withLock {
-                    var profiles = try self.loadFromDisk()
-                    guard var sources = profiles[profile] else {
-                        throw Errors.invalidProfile(profile)
-                    }
+                    var sources = try self.loadFromDisk()
                     sources = sources.filter { $0 != source }
                     let order = order >= 0 && order < sources.endIndex ? order : sources.endIndex
                     sources.insert(source, at: order)
-                    profiles[profile] = sources
-                    try self.saveToDisk(profiles)
+                    try self.saveToDisk(sources)
                 }
                 callback(.success(()))
             } catch {
@@ -199,26 +160,20 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     }
 
     func exists(source: PackageCollectionsModel.CollectionSource,
-                in profile: PackageCollectionsModel.Profile?,
                 callback: @escaping (Result<Bool, Error>) -> Void) {
         self.queue.async {
             do {
-                let profiles = try self.withLock {
+                let sources = try self.withLock {
                     try self.loadFromDisk()
                 }
-                let containers = profiles.filter { $0.value.contains(source) }
-                if let profile = profile {
-                    callback(.success(containers.keys.contains(profile)))
-                } else {
-                    callback(.success(!containers.isEmpty))
-                }
+                callback(.success(sources.contains(source)))
             } catch {
                 callback(.failure(error))
             }
         }
     }
 
-    private func loadFromDisk() throws -> [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]] {
+    private func loadFromDisk() throws -> [PackageCollectionsModel.CollectionSource] {
         guard self.fileSystem.exists(self.path) else {
             return .init()
         }
@@ -227,14 +182,14 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
             return .init()
         }
         let container = try decoder.decode(Model.Container.self, from: Data(buffer))
-        return try container.profiles()
+        return try container.sources()
     }
 
-    private func saveToDisk(_ profiles: [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]]) throws {
+    private func saveToDisk(_ sources: [PackageCollectionsModel.CollectionSource]) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
         }
-        let container = Model.Container(profiles)
+        let container = Model.Container(sources)
         let buffer = try encoder.encode(container)
         try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer))
     }
@@ -242,35 +197,24 @@ struct FilePackageCollectionsProfileStorage: PackageCollectionsProfileStorage {
     private func withLock<T>(_ body: () throws -> T) throws -> T {
         try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive, body)
     }
-
-    private enum Errors: Error {
-        case invalidProfile(PackageCollectionsModel.Profile)
-    }
 }
 
 // MARK: - FilePackageCollectionsProfileStorage Serialization
 
 private enum Model {
     struct Container: Codable {
-        var data: [String: [Source]]
+        var data: [Source]
 
         init() {
             self.data = .init()
         }
 
-        init(_ profiles: [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]]) {
-            self.data = .init()
-            profiles.forEach { key, value in
-                self.data[key.profile()] = value.map { $0.source() }
-            }
+        init(_ from: [PackageCollectionsModel.CollectionSource]) {
+            self.data = from.map { $0.source() }
         }
 
-        func profiles() throws -> [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]] {
-            var profiles = [PackageCollectionsModel.Profile: [PackageCollectionsModel.CollectionSource]]()
-            try self.data.forEach { key, value in
-                try profiles[PackageCollectionsModel.Profile(key)] = value.map { try PackageCollectionsModel.CollectionSource($0) }
-            }
-            return profiles
+        func sources() throws -> [PackageCollectionsModel.CollectionSource] {
+            return try self.data.map { try PackageCollectionsModel.CollectionSource($0) }
         }
     }
 
@@ -285,16 +229,6 @@ private enum Model {
 }
 
 // MARK: - Utility
-
-private extension PackageCollectionsModel.Profile {
-    init(_ from: String) {
-        self.init(name: from)
-    }
-
-    func profile() -> String {
-        name
-    }
-}
 
 private extension PackageCollectionsModel.CollectionSource {
     init(_ from: Model.Source) throws {

@@ -12,18 +12,6 @@ import PackageModel
 import SourceControl
 
 public protocol PackageCollectionsProtocol {
-    // MARK: - Package collection profile APIs
-
-    /// Lists package collection profiles.
-    ///
-    /// The result of this API does not include `PackageCollection` data. All other APIs in this
-    /// protocol require the context of a profile. Implementations should support a "default"
-    /// profile such that the `profile` API parameter can be optional.
-    ///
-    /// - Parameters:
-    ///   - callback: The closure to invoke when result becomes available
-    func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void)
-
     // MARK: - Package set APIs
 
     /// Returns packages organized into collections.
@@ -33,23 +21,17 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - identifiers: Optional. If specified, only `PackageCollection`s with matching identifiers will be returned.
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke when result becomes available
     func listCollections(
         identifiers: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        in profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
     )
 
     /// Refreshes all configured package collections.
     ///
     /// - Parameters:
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke after triggering a refresh for the configured package collections.
-    func refreshCollections(
-        in profile: PackageCollectionsModel.Profile?,
-        callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void
-    )
+    func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
 
     /// Adds a package collection.
     ///
@@ -57,12 +39,10 @@ public protocol PackageCollectionsProtocol {
     ///   - source: The package collection's source
     ///   - order: Optional. The order that the `PackageCollection` should take after being added to the list.
     ///            By default the new collection is appended to the end (i.e., the least relevant order).
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke with the updated `PackageCollection`s
     func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         order: Int?,
-        to profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     )
 
@@ -70,11 +50,9 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - source: The package collection's source
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke with the updated `PackageCollection`s
     func removeCollection(
         _ source: PackageCollectionsModel.CollectionSource,
-        from profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<Void, Error>) -> Void
     )
 
@@ -83,12 +61,10 @@ public protocol PackageCollectionsProtocol {
     /// - Parameters:
     ///   - id: The identifier of the `PackageCollection` to be moved
     ///   - order: The new order that the `PackageCollection` should be positioned after the move
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke with the updated `PackageCollection`s
     func moveCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         to order: Int,
-        in profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<Void, Error>) -> Void
     )
 
@@ -112,11 +88,9 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - reference: The package reference
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke when result becomes available
     func getPackageMetadata(
         _ reference: PackageReference,
-        profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     )
 
@@ -130,11 +104,9 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - collections: Optional. If specified, only list targets within these collections.
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke when result becomes available
     func listTargets(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        in profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
     )
 
@@ -148,12 +120,10 @@ public protocol PackageCollectionsProtocol {
     /// - Parameters:
     ///   - query: The search query
     ///   - collections: Optional. If specified, only search within these collections.
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke when result becomes available
     func findPackages(
         _ query: String,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     )
 
@@ -167,13 +137,11 @@ public protocol PackageCollectionsProtocol {
     ///   - searchType: Optional. Target names must either match exactly or contain the prefix.
     ///                 For more flexibility, use the `findPackages` API instead.
     ///   - collections: Optional. If specified, only search within these collections.
-    ///   - profile: Optional. The `PackageCollectionProfile` context. By default the `default` profile is used.
     ///   - callback: The closure to invoke when result becomes available
     func findTargets(
         _ query: String,
         searchType: PackageCollectionsModel.TargetSearchType?,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        profile: PackageCollectionsModel.Profile?,
         callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
     )
 }
