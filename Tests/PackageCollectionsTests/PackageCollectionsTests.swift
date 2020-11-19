@@ -43,6 +43,32 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
+    func testAddDuplicates() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+        }
+
+        _ = try tsc_await { callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }
+        _ = try tsc_await { callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }
+        _ = try tsc_await { callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 1, "list count should match")
+        }
+    }
+
     func testDelete() throws {
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -90,21 +116,14 @@ final class PackageCollectionsTests: XCTestCase {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
             XCTAssertEqual(list.count, mockCollections.count - 2, "list should be empty")
         }
-
-        do {
-            let unknownProfile = PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)")
-            XCTAssertThrowsError(try tsc_await { callback in packageCollections.removeCollection(mockCollections[mockCollections.count - 2].source, from: unknownProfile, callback: callback) }, "expected error")
-        }
     }
 
-    func testDeleteFromStorageWhenLast() throws {
+    func testDeleteFromFromBothStorages() throws {
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollection = makeMockCollections(count: 1).first!
-        let mockProfile1 = PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)")
-        let mockProfile2 = PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)")
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
         let metadataProvider = MockMetadataProvider([:])
@@ -115,36 +134,17 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, 0, "list should be empty")
         }
 
-        _ = try tsc_await { callback in packageCollections.addCollection(mockCollection.source, order: nil, to: mockProfile1, callback: callback) }
-        _ = try tsc_await { callback in packageCollections.addCollection(mockCollection.source, order: nil, to: mockProfile2, callback: callback) }
+        _ = try tsc_await { callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }
 
         do {
-            let list1 = try tsc_await { callback in packageCollections.listCollections(in: mockProfile1, callback: callback) }
-            XCTAssertEqual(list1.count, 1, "list count should match")
-
-            let list2 = try tsc_await { callback in packageCollections.listCollections(in: mockProfile2, callback: callback) }
-            XCTAssertEqual(list2.count, 1, "list count should match")
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 1, "list count should match")
         }
 
         do {
-            _ = try tsc_await { callback in packageCollections.removeCollection(mockCollection.source, from: mockProfile1, callback: callback) }
-            let list1 = try tsc_await { callback in packageCollections.listCollections(in: mockProfile1, callback: callback) }
-            XCTAssertEqual(list1.count, 0, "list count should match")
-
-            let list2 = try tsc_await { callback in packageCollections.listCollections(in: mockProfile2, callback: callback) }
-            XCTAssertEqual(list2.count, 1, "list count should match")
-
-            // check if exists in storage
-            XCTAssertNoThrow(try tsc_await { callback in storage.collections.get(identifier: mockCollection.identifier, callback: callback) })
-        }
-
-        do {
-            _ = try tsc_await { callback in packageCollections.removeCollection(mockCollection.source, from: mockProfile2, callback: callback) }
-            let list1 = try tsc_await { callback in packageCollections.listCollections(in: mockProfile1, callback: callback) }
-            XCTAssertEqual(list1.count, 0, "list count should match")
-
-            let list2 = try tsc_await { callback in packageCollections.listCollections(in: mockProfile2, callback: callback) }
-            XCTAssertEqual(list2.count, 0, "list count should match")
+            _ = try tsc_await { callback in packageCollections.removeCollection(mockCollection.source, callback: callback) }
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
 
             // check if exists in storage
             XCTAssertThrowsError(try tsc_await { callback in storage.collections.get(identifier: mockCollection.identifier, callback: callback) }, "expected error")
@@ -317,41 +317,6 @@ final class PackageCollectionsTests: XCTestCase {
                 let expectedOrder = expectedOrder[collection.identifier]!
                 XCTAssertEqual(index, expectedOrder, "order should match")
             }
-        }
-
-        do {
-            let unknownProfile = PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)")
-            XCTAssertThrowsError(try tsc_await { callback in packageCollections.moveCollection(mockCollections[2].source, to: 1, in: unknownProfile, callback: callback) }, "expected error")
-        }
-    }
-
-    func testProfiles() throws {
-        let configuration = PackageCollections.Configuration()
-        let storage = makeMockStorage()
-        defer { XCTAssertNoThrow(try storage.close()) }
-
-        var profiles = [PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.Collection](),
-                        PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.Collection]()]
-        let mockCollections = makeMockCollections()
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
-
-        try mockCollections.enumerated().forEach { index, collection in
-            let profile = index % 2 == 0 ? Array(profiles.keys)[0] : Array(profiles.keys)[1]
-            let collection = try tsc_await { callback in packageCollections.addCollection(collection.source, order: nil, to: profile, callback: callback) }
-            if profiles[profile] == nil {
-                profiles[profile] = .init()
-            }
-            profiles[profile]!.append(collection)
-        }
-
-        let list = try tsc_await { callback in packageCollections.listProfiles(callback: callback) }
-        XCTAssertEqual(list.count, profiles.count, "list count should match")
-
-        try profiles.forEach { profile, profileCollections in
-            let list = try tsc_await { callback in packageCollections.listCollections(in: profile, callback: callback) }
-            XCTAssertEqual(list.count, profileCollections.count, "list count should match")
         }
     }
 
@@ -648,7 +613,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         try mockCollections.forEach { collection in
             // save directly to storage to circumvent refresh on add
-            _ = try tsc_await { callback in storage.collectionsProfiles.add(source: collection.source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.sources.add(source: collection.source, order: nil, callback: callback) }
         }
         _ = try tsc_await { callback in packageCollections.refreshCollections(callback: callback) }
 
@@ -692,18 +657,18 @@ final class PackageCollectionsTests: XCTestCase {
         let metadataProvider = MockMetadataProvider([:])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
-        XCTAssertThrowsError(try tsc_await { callback in packageCollections.addCollection(brokenSources.first!, order: nil, to: .default, callback: callback) }, "expected error", { error in
+        XCTAssertThrowsError(try tsc_await { callback in packageCollections.addCollection(brokenSources.first!, order: nil, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? MyError, expectedError, "expected error to match")
         })
 
         // save directly to storage to circumvent refresh on add
         try goodSources.forEach { source in
-            _ = try tsc_await { callback in storage.collectionsProfiles.add(source: source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.sources.add(source: source, order: nil, callback: callback) }
         }
         try brokenSources.forEach { source in
-            _ = try tsc_await { callback in storage.collectionsProfiles.add(source: source, order: nil, to: .default, callback: callback) }
+            _ = try tsc_await { callback in storage.sources.add(source: source, order: nil, callback: callback) }
         }
-        _ = try tsc_await { callback in storage.collectionsProfiles.add(source: .init(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!), order: nil, to: .default, callback: callback) }
+        _ = try tsc_await { callback in storage.sources.add(source: .init(type: .json, url: URL(string: "https://feed-\(UUID().uuidString)")!), order: nil, callback: callback) }
 
         XCTAssertThrowsError(try tsc_await { callback in packageCollections.refreshCollections(callback: callback) }, "expected error", { error in
             if let error = error as? MultipleErrors {
@@ -717,7 +682,7 @@ final class PackageCollectionsTests: XCTestCase {
         })
 
         // test isolation - broken feeds does not impact good ones
-        let list = try tsc_await { callback in packageCollections.listCollections(in: .default, callback: callback) }
+        let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
         XCTAssertEqual(list.count, goodSources.count + 1, "list count should match")
     }
 
@@ -755,51 +720,6 @@ final class PackageCollectionsTests: XCTestCase {
         let targetsCollectionsList = Set(targetsList.flatMap { $0.packages.flatMap { $0.collections } })
         let expectedCollections = Set(mockCollections.filter { !$0.packages.filter { expectedPackages.contains($0.reference) }.isEmpty }.map { $0.identifier })
         XCTAssertEqual(targetsCollectionsList, expectedCollections, "collections should match")
-    }
-
-    func testListTargetsCustomProfile() throws {
-        let configuration = PackageCollections.Configuration()
-        let storage = makeMockStorage()
-        defer { XCTAssertNoThrow(try storage.close()) }
-
-        let mockCollections = makeMockCollections(count: 5)
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
-
-        let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
-        XCTAssertEqual(list.count, 0, "list should be empty")
-
-        var profiles = [PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.Collection](),
-                        PackageCollectionsModel.Profile(name: "profile-\(UUID().uuidString)"): [PackageCollectionsModel.Collection]()]
-
-        try mockCollections.enumerated().forEach { index, collection in
-            let profile = index % 2 == 0 ? Array(profiles.keys)[0] : Array(profiles.keys)[1]
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, order: nil, to: profile, callback: callback) }
-            profiles[profile]?.append(collection)
-        }
-
-        do {
-            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
-            XCTAssertEqual(list.count, 0, "list should be empty")
-        }
-
-        try profiles.forEach { profile, collections in
-            let list = try tsc_await { callback in packageCollections.listCollections(in: profile, callback: callback) }
-            XCTAssertEqual(list.count, collections.count, "list count should match")
-
-            let targetsList = try tsc_await { callback in packageCollections.listTargets(in: profile, callback: callback) }
-            let expectedTargets = Set(collections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.targets.map { $0.name } } } })
-            XCTAssertEqual(Set(targetsList.map { $0.target.name }), expectedTargets, "targets should match")
-
-            let targetsPackagesList = Set(targetsList.flatMap { $0.packages })
-            let expectedPackages = Set(collections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
-            XCTAssertEqual(targetsPackagesList.count, expectedPackages.count, "packages should match")
-
-            let targetsCollectionsList = Set(targetsList.flatMap { $0.packages.flatMap { $0.collections } })
-            let expectedCollections = Set(collections.filter { !$0.packages.filter { expectedPackages.contains($0.reference) }.isEmpty }.map { $0.identifier })
-            XCTAssertEqual(targetsCollectionsList, expectedCollections, "collections should match")
-        }
     }
 
     func testFetchMetadataHappy() throws {
