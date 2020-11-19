@@ -83,7 +83,7 @@ class InitTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests", "LinuxMain.swift"])
+                ["FooTests"])
             
             // Try building it
             XCTAssertBuilds(path)
@@ -127,7 +127,7 @@ class InitTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests", "LinuxMain.swift"])
+                ["FooTests"])
 
             // Try building it
             XCTAssertBuilds(path)
@@ -207,8 +207,7 @@ class InitTests: XCTestCase {
             
             // Create the package
             let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
-            initPackage.progressReporter = { message in
-            }
+            initPackage.progressReporter = { message in }
             try initPackage.writePackageStructure()
 
             // Try building it.
@@ -238,41 +237,6 @@ class InitTests: XCTestCase {
             #else
               XCTAssertBuilds(packageRoot)
             #endif
-        }
-    }
-
-    func testXCTestManifestOption() throws {
-        try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            var options = InitPackage.InitPackageOptions(packageType: .library)
-
-            func assertTestManifestFiles(options: InitPackage.InitPackageOptions, expected: Bool) throws {
-                let packageRoot = tempDirPath.appending(component: "Foo")
-                try localFileSystem.removeFileTree(packageRoot)
-                try localFileSystem.createDirectory(packageRoot)
-
-                let initPackage = try InitPackage(
-                    name: "Foo",
-                    destinationPath: packageRoot,
-                    options: options
-                )
-                var progressMessages = [String]()
-                initPackage.progressReporter = { message in
-                    progressMessages.append(message)
-                }
-                try initPackage.writePackageStructure()
-
-                let linuxMain = packageRoot.appending(RelativePath("Tests/LinuxMain.swift"))
-                let xctManifest = packageRoot.appending(RelativePath("Tests/FooTests/XCTestManifests.swift"))
-
-                XCTAssertEqual(localFileSystem.isFile(linuxMain), expected, "\(progressMessages)")
-                XCTAssertEqual(localFileSystem.isFile(xctManifest), expected, "\(progressMessages)")
-            }
-
-            options.enableXCTestManifest = true
-            try assertTestManifestFiles(options: options, expected: true)
-
-            options.enableXCTestManifest = false
-            try assertTestManifestFiles(options: options, expected: false)
         }
     }
 

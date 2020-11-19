@@ -2176,7 +2176,7 @@ extension PIFBuilderParameters {
         shouldCreateDylibForDynamicProducts: Bool = false
     ) -> Self {
         PIFBuilderParameters(
-            enableTestDiscovery: false,
+            enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
         )
     }

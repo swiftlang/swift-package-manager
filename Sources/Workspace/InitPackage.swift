@@ -21,9 +21,6 @@ public final class InitPackage {
         /// The type of package to create.
         public var packageType: PackageType
 
-        /// Whether to laydown files related to corelibs-xctest manifest.
-        public var enableXCTestManifest: Bool
-
         /// The list of platforms in the manifest.
         ///
         /// Note: This should only contain Apple platforms right now.
@@ -31,11 +28,9 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
-            enableXCTestManifest: Bool = true,
             platforms: [SupportedPlatform] = []
         ) {
             self.packageType = packageType
-            self.enableXCTestManifest = enableXCTestManifest
             self.platforms = platforms
         }
     }
@@ -329,24 +324,7 @@ public final class InitPackage {
         switch packageType {
         case .systemModule, .empty, .manifest: break
         case .library, .executable:
-            try writeLinuxMain(testsPath: tests)
             try writeTestFileStubs(testsPath: tests)
-        }
-    }
-
-    private func writeLinuxMain(testsPath: AbsolutePath) throws {
-        guard options.enableXCTestManifest else { return }
-        try writePackageFile(testsPath.appending(component: "LinuxMain.swift")) { stream in
-            stream <<< """
-                import XCTest
-
-                import \(moduleName)Tests
-
-                var tests = [XCTestCaseEntry]()
-                tests += \(moduleName)Tests.allTests()
-                XCTMain(tests)
-
-                """
         }
     }
 
@@ -365,16 +343,6 @@ public final class InitPackage {
                     }
 
             """
-
-            if options.enableXCTestManifest {
-                stream <<< """
-
-                        static var allTests = [
-                            ("testExample", testExample),
-                        ]
-
-                """
-            }
 
             stream <<< """
                 }
@@ -435,16 +403,6 @@ public final class InitPackage {
 
                 """
 
-            if options.enableXCTestManifest {
-                stream <<< """
-
-                    static var allTests = [
-                        ("testExample", testExample),
-                    ]
-
-                """
-            }
-
             stream <<< """
                 }
 
@@ -464,26 +422,6 @@ public final class InitPackage {
             try writeLibraryTestsFile(testClassFile)
         case .executable:
             try writeExecutableTestsFile(testClassFile)
-        }
-
-        try writeXCTestManifest(testModule)
-    }
-
-    func writeXCTestManifest(_ testModule: AbsolutePath) throws {
-        guard options.enableXCTestManifest else { return }
-        try writePackageFile(testModule.appending(component: "XCTestManifests.swift")) { stream in
-            stream <<< """
-                import XCTest
-
-                #if !canImport(ObjectiveC)
-                public func allTests() -> [XCTestCaseEntry] {
-                    return [
-                        testCase(\(moduleName)Tests.allTests),
-                    ]
-                }
-                #endif
-
-                """
         }
     }
 }

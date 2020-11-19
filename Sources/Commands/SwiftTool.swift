@@ -383,6 +383,10 @@ public class SwiftTool {
             diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
             #endif
         }
+        
+        if options.enableTestDiscovery {
+            diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+        }
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -571,13 +575,13 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildSystem {
+    func createBuildSystem(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
             buildSystem = try BuildOperation(
-                buildParameters: buildParameters(),
+                buildParameters: buildParameters ?? self.buildParameters(),
                 useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
                 packageGraphLoader: graphLoader,
                 diagnostics: diagnostics,
@@ -586,7 +590,7 @@ public class SwiftTool {
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
             buildSystem = try XcodeBuildSystem(
-                buildParameters: buildParameters(),
+                buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
                 diagnostics: diagnostics,
@@ -627,12 +631,12 @@ public class SwiftTool {
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
                 indexStoreMode: options.indexStore,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
-                enableTestDiscovery: options.enableTestDiscovery,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
                 useExplicitModuleBuild: options.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
-                printManifestGraphviz: options.printManifestGraphviz
+                printManifestGraphviz: options.printManifestGraphviz,
+                forceTestDiscovery: options.enableTestDiscovery // backwards compatibility, remove with --enable-test-discovery
             )
         })
     }()

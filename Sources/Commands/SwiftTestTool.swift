@@ -86,8 +86,7 @@ struct TestToolOptions: ParsableArguments {
     var shouldListTests: Bool = false
 
     /// Generate LinuxMain entries and exit.
-    @Flag(name: .customLong("generate-linuxmain"),
-          help: "Generate LinuxMain.swift entries for the package")
+    @Flag(name: .customLong("generate-linuxmain"), help: .hidden)
     var shouldGenerateLinuxMain: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
@@ -225,24 +224,16 @@ public struct SwiftTestTool: SwiftCommand {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifest = workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics)[0]
-            let buildParameters = try swiftTool.buildParameters()
+            let buildParameters = try swiftTool.buildParametersForTest()
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
 
         case .generateLinuxMain:
-          #if os(Linux)
-            swiftTool.diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
-          #endif
-            let graph = try swiftTool.loadPackageGraph()
-            let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
-            let allTestSuites = testSuites.values.flatMap { $0 }
-            let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
-            try generator.generate()
+            return // warning emitted by validateArguments
 
         case .runSerial:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParameters()
+            let buildParameters = try swiftTool.buildParametersForTest()
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
@@ -307,7 +298,7 @@ public struct SwiftTestTool: SwiftCommand {
             let tests = testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.testCaseSkip)
-            let buildParameters = try swiftTool.buildParameters()
+            let buildParameters = try swiftTool.buildParametersForTest()
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -349,7 +340,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
-        let buildParameters = try swiftTool.buildParameters()
+        let buildParameters = try swiftTool.buildParametersForTest()
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = codeCovAsJSONPath(
@@ -365,7 +356,7 @@ public struct SwiftTestTool: SwiftCommand {
         let llvmProf = try swiftTool.getToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let buildParameters = try swiftTool.buildParameters()
+        let buildParameters = try swiftTool.buildParametersForTest()
         let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
@@ -389,7 +380,7 @@ public struct SwiftTestTool: SwiftCommand {
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftTool.getToolchain().getLLVMCov()
-        let buildParameters = try swiftTool.buildParameters()
+        let buildParameters = try swiftTool.buildParametersForTest()
         let args = [
             llvmCov.pathString,
             "export",
@@ -409,7 +400,7 @@ public struct SwiftTestTool: SwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-        let buildSystem = try swiftTool.createBuildSystem()
+        let buildSystem = try swiftTool.createBuildSystem(buildParameters: swiftTool.buildParametersForTest())
 
         if options.shouldBuildTests {
             let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
@@ -476,7 +467,7 @@ public struct SwiftTestTool: SwiftCommand {
       #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
             let args = [xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParameters())
+            var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
             if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
@@ -488,7 +479,7 @@ public struct SwiftTestTool: SwiftCommand {
             return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
       #else
-        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParameters())
+        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
         let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
       #endif
@@ -513,6 +504,10 @@ public struct SwiftTestTool: SwiftCommand {
                 diagnostics.emit(error: "'--num-workers' must be greater than zero")
                 throw ExitCode.failure
             }
+        }
+        
+        if options.shouldGenerateLinuxMain {
+            diagnostics.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
         }
     }
     
@@ -1103,5 +1098,14 @@ final class XUnitGenerator {
 private extension Diagnostic.Message {
     static var noMatchingTests: Diagnostic.Message {
         .warning("No matching test cases were run")
+    }
+}
+
+private extension SwiftTool {
+    func buildParametersForTest() throws -> BuildParameters {
+        var parameters = try self.buildParameters()
+        // for test commands, alway enable building with testability enabled
+        parameters.enableTestability = true
+        return parameters
     }
 }

@@ -178,6 +178,20 @@ public func executeSwiftPackage(
     return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
 }
 
+@discardableResult
+public func executeSwiftTest(
+    _ packagePath: AbsolutePath,
+    configuration: Configuration = .Debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: [String: String]? = nil
+) throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
+    return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath, env: env)
+}
+
 private func swiftArgs(
     configuration: Configuration,
     extraArgs: [String],
