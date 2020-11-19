@@ -21,7 +21,7 @@ import TSCUtility
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseRL() throws {
-        let apiURL = URL(string: "https://api.github.com/octocat/Hello-World")
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
 
         let provider = GitHubPackageMetadataProvider()
         let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
@@ -35,7 +35,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testGood() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         fixture(name: "Collections") { directoryPath in
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -107,7 +107,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testOthersNotFound() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         fixture(name: "Collections") { directoryPath in
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -143,7 +143,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider()
             let reference = PackageReference(repository: RepositorySpecifier(url: UUID().uuidString))
             XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .unprocessable(reference))
+                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitUrl(reference.path))
             }
         }
     }
@@ -151,10 +151,31 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
     func testInvalidRef() throws {
         fixture(name: "Collections") { _ in
             let provider = GitHubPackageMetadataProvider()
-            let reference = PackageReference(identity: .init(path: AbsolutePath("/")), path: "/")
+            let reference = PackageReference(identity: .init(path: AbsolutePath("/")), path: "/", kind: .local)
             XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .unprocessable(reference))
+                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidReferenceType(reference))
             }
         }
+    }
+
+    func testForRealz() throws {
+        #if ENABLE_GITHUB_NETWORK_TEST
+        #else
+        try XCTSkipIf(true)
+        #endif
+
+        let repoURL = "https://github.com/apple/swift-numerics.git"
+
+        var httpClient = HTTPClient()
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+        let provider = GitHubPackageMetadataProvider(httpClient: httpClient)
+        let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
+        let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
+
+        XCTAssertNotNil(metadata)
+        XCTAssert(metadata.versions.count > 0)
+        XCTAssert(metadata.keywords!.count > 0)
+        XCTAssert(metadata.authors!.count > 0)
     }
 }

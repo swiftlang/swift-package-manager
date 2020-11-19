@@ -17,7 +17,6 @@ extension PackageCollectionsModel {
     public typealias TargetListResult = [TargetListItem]
 
     public struct TargetListItem {
-        public typealias Target = PackageCollectionsModel.PackageTarget
         public typealias Package = PackageCollectionsModel.TargetListResult.Package
 
         /// Target
