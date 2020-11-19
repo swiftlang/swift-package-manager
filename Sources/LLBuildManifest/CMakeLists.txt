@@ -15,6 +15,7 @@ add_library(LLBuildManifest
   Target.swift
   Tools.swift)
 target_link_libraries(LLBuildManifest PUBLIC
+  Basics
   TSCBasic)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

@@ -33,6 +33,7 @@ add_library(PackageModel
   Target.swift
   ToolsVersion.swift)
 target_link_libraries(PackageModel PUBLIC
+  Basics
   TSCBasic
   TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

@@ -22,6 +22,7 @@ add_library(Workspace
   WorkspaceState.swift
   WindowsToolchainInfo.swift)
 target_link_libraries(Workspace PUBLIC
+  Basics
   TSCBasic
   TSCUtility
   SPMBuildCore

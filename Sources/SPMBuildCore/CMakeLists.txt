@@ -16,6 +16,7 @@ add_library(SPMBuildCore
 set_target_properties(SPMBuildCore PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 target_link_libraries(SPMBuildCore PUBLIC
+  Basics
   TSCBasic
   TSCUtility
   PackageGraph)

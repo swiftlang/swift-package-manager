@@ -21,6 +21,7 @@ add_library(Commands
   SymbolGraphExtract.swift
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
+  Basics
   ArgumentParser
   Build
   PackageGraph

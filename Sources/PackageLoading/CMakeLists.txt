@@ -20,6 +20,7 @@ add_library(PackageLoading
   ToolsVersionLoader.swift
   UserManifestResources.swift)
 target_link_libraries(PackageLoading PUBLIC
+  Basics
   TSCBasic
   PackageModel
   TSCUtility)

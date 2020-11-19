@@ -28,6 +28,7 @@ add_library(PackageCollections
   PackageCollections+Validation.swift
   Utility.swift)
 target_link_libraries(PackageCollections PUBLIC
+  Basics
   TSCBasic
   TSCUtility
   PackageModel

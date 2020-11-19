@@ -15,6 +15,7 @@ add_library(Build
   SwiftCompilerOutputParser.swift
   XCFrameworkInfo.swift)
 target_link_libraries(Build PUBLIC
+  Basics
   TSCBasic
   PackageGraph
   LLBuildManifest

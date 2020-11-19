@@ -34,6 +34,7 @@ add_library(PackageGraph
   Version+Extensions.swift
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
+  Basics
   TSCBasic
   PackageLoading
   PackageModel
