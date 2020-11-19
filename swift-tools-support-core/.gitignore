@@ -1,8 +1,0 @@
-.DS_Store
-/.build
-/Packages
-/*.xcodeproj
-xcuserdata/
-.swiftpm
-build
-.vscode
