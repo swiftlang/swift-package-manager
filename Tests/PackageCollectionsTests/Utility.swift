@@ -57,7 +57,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                    description: "package \(packageIndex) description",
                                                    keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                    versions: versions,
-                                                   latestVersion: versions.last,
+                                                   latestVersion: versions.first,
                                                    watchersCount: Int.random(in: 1 ... 1000),
                                                    readmeURL: URL(string: "https://package-\(packageIndex)-readme")!,
                                                    authors: nil)

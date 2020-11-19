@@ -23,7 +23,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.FilePackageCollectionsProfileStorage")
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.FilePackageCollectionsSourcesStorage")
 
     init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil) {
         self.fileSystem = fileSystem
@@ -152,7 +152,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     }
 }
 
-// MARK: - FilePackageCollectionsProfileStorage Serialization
+// MARK: - FilePackageCollectionsSourcesStorage Serialization
 
 private enum Model {
     struct Container: Codable {

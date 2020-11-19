@@ -61,7 +61,9 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
             // get the main data
             sync.enter()
             let options = self.makeRequestOptions(validResponseCodes: [200])
-            httpClient.get(metadataURL, options: options) { result in
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
+            httpClient.get(metadataURL, headers: headers, options: options) { result in
                 defer { sync.leave() }
                 resultsLock.withLock {
                     results[metadataURL] = result
@@ -128,7 +130,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let owner = String(url[ownerRange])
                     let repo = String(url[repoRange])
 
-                    return URL(string: "https://api.\(host)/\(owner)/\(repo)")
+                    return URL(string: "https://api.\(host)/repos/\(owner)/\(repo)")
                 }
             }
             return nil

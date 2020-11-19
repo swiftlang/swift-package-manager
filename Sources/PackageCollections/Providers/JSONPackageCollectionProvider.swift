@@ -120,7 +120,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                              description: package.description,
                              keywords: package.keywords,
                              versions: versions,
-                             latestVersion: versions.last!,
+                             latestVersion: versions.first,
                              watchersCount: nil,
                              readmeURL: package.readmeURL.flatMap { Foundation.URL(string: $0) },
                              authors: nil)
