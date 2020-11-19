@@ -62,7 +62,12 @@ public final class ManifestRewriter {
             packageDependencies = existingPackageDependencies
         } else {
             // We didn't find a dependencies section so insert one.
-            let argListWithDependencies = DependenciesArrayWriter().visit(initFnExpr.argumentList)
+            let argListWithDependencies = EmptyArrayArgumentWriter(argumentLabel: "dependencies",
+                                                                   followingArgumentLabels: "targets",
+                                                                   "swiftLanguageVersions",
+                                                                   "cLanguageStandard",
+                                                                   "cxxLanguageStandard")
+                .visit(initFnExpr.argumentList)
 
             // Find the inserted section.
             let packageDependenciesFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
@@ -232,14 +237,21 @@ final class TargetFinder: SyntaxVisitor {
 
 // MARK: - Syntax Rewriters
 
-/// Writer for "dependencies" array syntax.
-final class DependenciesArrayWriter: SyntaxRewriter {
+/// Writer for an empty array argument.
+final class EmptyArrayArgumentWriter: SyntaxRewriter {
+    let argumentLabel: String
+    let followingArgumentLabels: Set<String>
+
+    init(argumentLabel: String, followingArgumentLabels: String...) {
+        self.argumentLabel = argumentLabel
+        self.followingArgumentLabels = .init(followingArgumentLabels)
+    }
 
     override func visit(_ node: TupleExprElementListSyntax) -> Syntax {
         let leadingTrivia = node.firstToken?.leadingTrivia ?? .zero
 
         let dependenciesArg = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier("dependencies", leadingTrivia: leadingTrivia),
+            label: SyntaxFactory.makeIdentifier(argumentLabel, leadingTrivia: leadingTrivia),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
             expression: ExprSyntax(SyntaxFactory.makeArrayExpr(
                                     leftSquare: SyntaxFactory.makeLeftSquareBracketToken(),
@@ -248,12 +260,9 @@ final class DependenciesArrayWriter: SyntaxRewriter {
             trailingComma: SyntaxFactory.makeCommaToken()
         )
 
-
-        let postDependenciesArgumentLabels: Set = ["targets", "swiftLanguageVersions",
-                                                   "cLanguageStandard", "cxxLanguageStandard"]
         let existingLabels = node.map(\.label?.text)
         let insertionIndex = existingLabels.firstIndex {
-            postDependenciesArgumentLabels.contains($0 ?? "")
+            followingArgumentLabels.contains($0 ?? "")
         } ?? existingLabels.endIndex
         
         return Syntax(node.inserting(dependenciesArg, at: insertionIndex))
