@@ -22,6 +22,7 @@ extension PackageCollectionsModel {
     public struct Collection: Equatable, Codable {
         public typealias Identifier = CollectionIdentifier
         public typealias Source = CollectionSource
+        public typealias Author = CollectionAuthor
 
         /// The identifier of the collection
         public let identifier: Identifier
@@ -44,6 +45,9 @@ extension PackageCollectionsModel {
         /// When this collection was created/published by the source
         public let createdAt: Date
 
+        /// Who authored this collection
+        public let createdBy: Author?
+        
         /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
@@ -55,6 +59,7 @@ extension PackageCollectionsModel {
             keywords: [String]?,
             packages: [Package],
             createdAt: Date,
+            createdBy: Author?,
             lastProcessedAt: Date = Date()
         ) {
             self.identifier = .init(from: source)
@@ -64,6 +69,7 @@ extension PackageCollectionsModel {
             self.keywords = keywords
             self.packages = packages
             self.createdAt = createdAt
+            self.createdBy = createdBy
             self.lastProcessedAt = lastProcessedAt
         }
     }
@@ -110,6 +116,14 @@ extension PackageCollectionsModel {
                 return lhs.absoluteString < rhs.absoluteString
             }
         }
+    }
+}
+
+extension PackageCollectionsModel {
+    /// Represents the author of a `PackageCollection`
+    public struct CollectionAuthor: Equatable, Codable {
+        /// The name of the author
+        public let name: String
     }
 }
 

@@ -37,7 +37,7 @@ public struct Platform: Equatable, Hashable, Codable {
 }
 
 /// Represents a platform supported by a target.
-public struct SupportedPlatform: Codable {
+public struct SupportedPlatform: Equatable, Codable {
     /// The platform.
     public let platform: Platform
 

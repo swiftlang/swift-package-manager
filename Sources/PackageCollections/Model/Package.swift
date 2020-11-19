@@ -90,7 +90,6 @@ extension PackageCollectionsModel {
     }
 }
 
-// FIXME: add minimumPlatformVersions
 extension PackageCollectionsModel.Package {
     /// A representation of package version
     public struct Version: Codable, Equatable {
@@ -113,6 +112,9 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's Swift tools version
         public let toolsVersion: ToolsVersion
+        
+        /// The package version's supported platforms
+        public let minimumPlatformVersions: [SupportedPlatform]?
 
         /// The package version's supported platforms verified to work
         public let verifiedPlatforms: [PackageModel.Platform]?

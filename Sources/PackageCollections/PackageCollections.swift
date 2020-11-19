@@ -347,6 +347,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                   targets: packageVersion.targets,
                   products: packageVersion.products,
                   toolsVersion: packageVersion.toolsVersion,
+                  minimumPlatformVersions: packageVersion.minimumPlatformVersions,
                   verifiedPlatforms: packageVersion.verifiedPlatforms,
                   verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
                   license: packageVersion.license)

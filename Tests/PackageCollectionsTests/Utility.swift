@@ -25,6 +25,11 @@ func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectio
 
 func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: Int = 50) -> [PackageCollectionsModel.Collection] {
     let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi]
+    let supportedPlatforms: [PackageModel.SupportedPlatform] = [
+        .init(platform: .macOS, version: .init("10.15")),
+        .init(platform: .iOS, version: .init("13")),
+        .init(platform: .watchOS, version: "6")
+    ]
 
     return (0 ..< count).map { collectionIndex in
         let packages = (0 ..< Int.random(in: min(5, maxPackages) ... maxPackages)).map { packageIndex -> PackageCollectionsModel.Package in
@@ -38,6 +43,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                     type: .executable,
                                                     targets: targets)
                 }
+                let minimumPlatformVersions = (0 ..< Int.random(in: 1 ... 2)).map { _ in supportedPlatforms.randomElement()! }
                 let verifiedPlatforms = (0 ..< Int.random(in: 1 ... 3)).map { _ in platforms.randomElement()! }
                 let verifiedSwiftVersions = (0 ..< Int.random(in: 1 ... 3)).map { _ in SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()! }
                 let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
@@ -48,6 +54,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                                targets: targets,
                                                                products: products,
                                                                toolsVersion: .currentToolsVersion,
+                                                               minimumPlatformVersions: minimumPlatformVersions,
                                                                verifiedPlatforms: verifiedPlatforms,
                                                                verifiedSwiftVersions: verifiedSwiftVersions,
                                                                license: license)
@@ -66,9 +73,10 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
         return PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed-\(collectionIndex)")!),
                                                   name: "collection \(collectionIndex)",
                                                   description: "collection \(collectionIndex) description",
-                                                  keywords: nil,
+                                                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                   packages: packages,
-                                                  createdAt: Date())
+                                                  createdAt: Date(),
+                                                  createdBy: PackageCollectionsModel.Collection.Author(name: "Jane Doe"))
     }
 }
 

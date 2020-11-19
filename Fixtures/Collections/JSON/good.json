@@ -5,10 +5,14 @@
   "formatVersion": "1.0",
   "revision": 3,
   "generatedAt": "2020-10-22T06:03:52Z",
+  "generatedBy": {
+    "name": "Jane Doe"
+  },
   "packages": [
     {
       "url": "https://www.example.com/repos/RepoOne.git",
       "description": "Package One",
+      "keywords": ["sample package"],
       "readmeURL": "https://www.example.com/repos/RepoOne/README",
       "versions": [
         {
@@ -30,6 +34,9 @@
             }
           ],
           "toolsVersion": "5.1",
+          "minimumPlatformVersions": [
+            { "name": "macOS", "version": "10.15" }
+          ],
           "verifiedPlatforms": [
             { "name": "macOS" },
             { "name": "iOS" },
