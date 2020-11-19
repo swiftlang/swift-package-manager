@@ -19,12 +19,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
 
     func testCodable() throws {
         let packages = [
-            Model.PackageCollection.Package(
+            Model.Collection.Package(
                 url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
-                description: "Package Foobar",
+                summary: "Package Foobar",
                 keywords: ["test package"],
                 versions: [
-                    Model.PackageCollection.Package.Version(
+                    Model.Collection.Package.Version(
                         version: "1.3.2",
                         packageName: "Foobar",
                         targets: [.init(name: "Foo", moduleName: "Foo")],
@@ -39,9 +39,9 @@ class JSONPackageCollectionModelTests: XCTestCase {
                 readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
             ),
         ]
-        let packageCollection = Model.PackageCollection(
+        let packageCollection = Model.Collection(
             name: "Test Package Collection",
-            description: "A test package collection",
+            overview: "A test package collection",
             keywords: ["swift packages"],
             packages: packages,
             formatVersion: .v1_0,
@@ -51,7 +51,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         )
 
         let data = try JSONEncoder().encode(packageCollection)
-        let decoded = try JSONDecoder().decode(Model.PackageCollection.self, from: data)
+        let decoded = try JSONDecoder().decode(Model.Collection.self, from: data)
         XCTAssertEqual(packageCollection, decoded)
     }
 }

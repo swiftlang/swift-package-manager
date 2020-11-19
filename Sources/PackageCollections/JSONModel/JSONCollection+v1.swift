@@ -18,18 +18,18 @@ extension JSONPackageCollectionModel {
 }
 
 extension JSONPackageCollectionModel.V1 {
-    public struct PackageCollection: Equatable, Codable {
+    public struct Collection: Equatable, Codable {
         /// The name of the package collection, for display purposes only.
         public let name: String
 
         /// A description of the package collection.
-        public let _description: String?
+        public let overview: String?
 
         /// An array of keywords that the collection is associated with.
         public let keywords: [String]?
 
         /// An array of package metadata objects
-        public let packages: [JSONPackageCollectionModel.V1.PackageCollection.Package]
+        public let packages: [JSONPackageCollectionModel.V1.Collection.Package]
 
         /// The version of the format to which the collection conforms.
         public let formatVersion: JSONPackageCollectionModel.FormatVersion
@@ -43,12 +43,12 @@ extension JSONPackageCollectionModel.V1 {
         /// The author of this package collection.
         public let generatedBy: Author?
 
-        /// Creates a `PackageCollection`
+        /// Creates a `Collection`
         public init(
             name: String,
-            description: String? = nil,
+            overview: String? = nil,
             keywords: [String]? = nil,
-            packages: [JSONPackageCollectionModel.V1.PackageCollection.Package],
+            packages: [JSONPackageCollectionModel.V1.Collection.Package],
             formatVersion: JSONPackageCollectionModel.FormatVersion,
             revision: Int? = nil,
             generatedAt: Date = Date(),
@@ -57,24 +57,13 @@ extension JSONPackageCollectionModel.V1 {
             precondition(formatVersion == .v1_0, "Unsupported format version: \(formatVersion)")
 
             self.name = name
-            self._description = description
+            self.overview = overview
             self.keywords = keywords
             self.packages = packages
             self.formatVersion = formatVersion
             self.revision = revision
             self.generatedAt = generatedAt
             self.generatedBy = generatedBy
-        }
-
-        private enum CodingKeys: String, CodingKey {
-            case name
-            case _description = "description"
-            case keywords
-            case packages
-            case formatVersion
-            case revision
-            case generatedAt
-            case generatedBy
         }
 
         public struct Author: Equatable, Codable {
@@ -89,19 +78,19 @@ extension JSONPackageCollectionModel.V1 {
     }
 }
 
-extension JSONPackageCollectionModel.V1.PackageCollection {
+extension JSONPackageCollectionModel.V1.Collection {
     public struct Package: Equatable, Codable {
         /// The URL of the package. Currently only Git repository URLs are supported.
         public let url: Foundation.URL
 
         /// A description of the package.
-        public let _description: String?
+        public let summary: String?
 
         /// An array of keywords that the package is associated with.
         public let keywords: [String]?
 
         /// An array of version objects representing the most recent and/or relevant releases of the package.
-        public let versions: [JSONPackageCollectionModel.V1.PackageCollection.Package.Version]
+        public let versions: [JSONPackageCollectionModel.V1.Collection.Package.Version]
 
         /// The URL of the package's README.
         public let readmeURL: Foundation.URL?
@@ -109,29 +98,21 @@ extension JSONPackageCollectionModel.V1.PackageCollection {
         /// Creates a `Package`
         public init(
             url: URL,
-            description: String? = nil,
+            summary: String? = nil,
             keywords: [String]? = nil,
-            versions: [JSONPackageCollectionModel.V1.PackageCollection.Package.Version],
+            versions: [JSONPackageCollectionModel.V1.Collection.Package.Version],
             readmeURL: URL? = nil
         ) {
             self.url = url
-            self._description = description
+            self.summary = summary
             self.keywords = keywords
             self.versions = versions
             self.readmeURL = readmeURL
         }
-
-        private enum CodingKeys: String, CodingKey {
-            case url
-            case _description = "description"
-            case keywords
-            case versions
-            case readmeURL
-        }
     }
 }
 
-extension JSONPackageCollectionModel.V1.PackageCollection.Package {
+extension JSONPackageCollectionModel.V1.Collection.Package {
     public struct Version: Equatable, Codable {
         /// The semantic version string.
         public let version: String

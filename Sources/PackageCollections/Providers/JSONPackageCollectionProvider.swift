@@ -84,10 +84,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         func makeCollection(_ response: HTTPClientResponse) -> Result<PackageCollectionsModel.Collection, Error> {
-            let collection: JSONModel.PackageCollection
+            let collection: JSONModel.Collection
             do {
                 // parse json
-                guard let decoded = try response.decodeBody(JSONModel.PackageCollection.self, using: self.decoder) else {
+                guard let decoded = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
                     throw Errors.invalidResponse("Invalid body")
                 }
                 collection = decoded
@@ -121,7 +121,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  license: license)
                 }
                 return .init(repository: RepositorySpecifier(url: package.url.absoluteString),
-                             description: package._description,
+                             summary: package.summary,
                              keywords: package.keywords,
                              versions: versions,
                              latestVersion: versions.first,
@@ -131,11 +131,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
             return .success(.init(source: source,
                                   name: collection.name,
-                                  description: collection._description,
+                                  overview: collection.overview,
                                   keywords: collection.keywords,
                                   packages: packages,
                                   createdAt: collection.generatedAt,
-                                  createdBy: collection.generatedBy.flatMap { PackageCollectionsModel.CollectionAuthor(name: $0.name) },
+                                  createdBy: collection.generatedBy.flatMap { PackageCollectionsModel.Collection.Author(name: $0.name) },
                                   lastProcessedAt: Date()))
         }
     }

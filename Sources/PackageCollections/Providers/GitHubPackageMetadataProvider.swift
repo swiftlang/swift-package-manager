@@ -104,7 +104,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
 
                     callback(.success(.init(
-                        description: metadata.description,
+                        summary: metadata.description,
                         keywords: metadata.topics,
                         versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
                         watchersCount: metadata.watchersCount,

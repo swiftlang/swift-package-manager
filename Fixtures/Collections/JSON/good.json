@@ -1,6 +1,6 @@
 {
   "name": "Sample Package Collection",
-  "description": "This is a sample package collection listing made-up packages.",
+  "overview": "This is a sample package collection listing made-up packages.",
   "keywords": ["sample package collection"],
   "formatVersion": "1.0",
   "revision": 3,
@@ -11,7 +11,7 @@
   "packages": [
     {
       "url": "https://www.example.com/repos/RepoOne.git",
-      "description": "Package One",
+      "summary": "Package One",
       "keywords": ["sample package"],
       "readmeURL": "https://www.example.com/repos/RepoOne/README",
       "versions": [
@@ -52,7 +52,7 @@
     },
     {
       "url": "https://www.example.com/repos/RepoTwo.git",
-      "description": "Package Two",
+      "summary": "Package Two",
       "readmeURL": "https://www.example.com/repos/RepoTwo/README",
       "versions": [
         {

@@ -49,13 +49,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
-            XCTAssertEqual(collection.description, "This is a sample package collection listing made-up packages.")
+            XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
             XCTAssertEqual(collection.keywords, ["sample package collection"])
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
-            XCTAssertEqual(package.description, "Package One")
+            XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
             XCTAssertEqual(package.versions.count, 1)
@@ -99,13 +99,13 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
-            XCTAssertEqual(collection.description, "This is a sample package collection listing made-up packages.")
+            XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
             XCTAssertEqual(collection.keywords, ["sample package collection"])
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
-            XCTAssertEqual(package.description, "Package One")
+            XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
             XCTAssertEqual(package.versions.count, 1)

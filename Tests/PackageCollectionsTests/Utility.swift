@@ -61,7 +61,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
             }
 
             return PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),
-                                                   description: "package \(packageIndex) description",
+                                                   summary: "package \(packageIndex) description",
                                                    keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                    versions: versions,
                                                    latestVersion: versions.first,
@@ -72,7 +72,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
 
         return PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed-\(collectionIndex)")!),
                                                   name: "collection \(collectionIndex)",
-                                                  description: "collection \(collectionIndex) description",
+                                                  overview: "collection \(collectionIndex) description",
                                                   keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                   packages: packages,
                                                   createdAt: Date(),
@@ -81,7 +81,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
 }
 
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
-    return .init(description: UUID().uuidString,
+    return .init(summary: UUID().uuidString,
                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                  versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
                  watchersCount: Int.random(in: 0 ... 50),
