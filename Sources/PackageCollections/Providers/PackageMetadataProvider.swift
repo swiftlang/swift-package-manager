@@ -20,7 +20,7 @@ protocol PackageMetadataProvider {
     /// - Parameters:
     ///   - reference: The package's reference
     ///   - callback: The closure to invoke when result becomes available
-    func get(reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata?, Error>) -> Void)
+    func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void)
 }
 
 extension PackageCollectionsModel {

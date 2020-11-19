@@ -106,7 +106,11 @@ struct MockMetadataProvider: PackageMetadataProvider {
         self.packages = packages
     }
 
-    func get(reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata?, Error>) -> Void) {
-        callback(.success(self.packages[reference]))
+    func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
+        if let package = self.packages[reference] {
+            callback(.success(package))
+        } else {
+            callback(.failure(NotFoundError("\(reference)")))
+        }
     }
 }
