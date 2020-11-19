@@ -27,10 +27,10 @@ public func writeToolsVersion(at path: AbsolutePath, version: ToolsVersion, fs: 
 
     let stream = BufferedOutputByteStream()
     // Write out the tools version.
-    stream <<< "// swift-tools-version:" <<< Format.asJSON(version.major) <<< "." <<< Format.asJSON(version.minor)
+    stream <<< "// swift-tools-version:\(version.major).\(version.minor)"
     // Write patch version only if its not zero.
     if version.patch != 0 {
-        stream <<< "." <<< Format.asJSON(version.patch)
+        stream <<< ".\(version.patch)"
     }
     stream <<< "\n"
     
