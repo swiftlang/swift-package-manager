@@ -267,4 +267,90 @@ final class AddPackageDependencyTests: XCTestCase {
             )
             """)
     }
+
+    func testAddPackageDependency8() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                targets: [
+                    .target(name: "exec"),
+                ]
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            url: "https://github.com/foo/goo",
+            requirement: .upToNextMajor("1.0.1")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                targets: [
+                    .target(name: "exec"),
+                ]
+            )
+            """)
+    }
+
+    func testAddPackageDependency9() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                swiftLanguageVersions: []
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            url: "https://github.com/foo/goo",
+            requirement: .upToNextMajor("1.0.1")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                swiftLanguageVersions: []
+            )
+            """)
+    }
+
+    func testAddPackageDependency10() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            url: "https://github.com/foo/goo",
+            requirement: .upToNextMajor("1.0.1")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+            )
+            """)
+    }
 }

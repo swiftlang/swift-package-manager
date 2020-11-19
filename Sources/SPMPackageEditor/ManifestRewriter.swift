@@ -248,9 +248,15 @@ final class DependenciesArrayWriter: SyntaxRewriter {
             trailingComma: SyntaxFactory.makeCommaToken()
         )
 
-        // FIXME: This is not correct, we need to find the
-        // proper position for inserting `dependencies: []`.
-        return Syntax(node.inserting(dependenciesArg, at: 1))
+
+        let postDependenciesArgumentLabels: Set = ["targets", "swiftLanguageVersions",
+                                                   "cLanguageStandard", "cxxLanguageStandard"]
+        let existingLabels = node.map(\.label?.text)
+        let insertionIndex = existingLabels.firstIndex {
+            postDependenciesArgumentLabels.contains($0 ?? "")
+        } ?? existingLabels.endIndex
+        
+        return Syntax(node.inserting(dependenciesArg, at: insertionIndex))
     }
 }
 

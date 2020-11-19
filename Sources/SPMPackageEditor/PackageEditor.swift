@@ -52,7 +52,7 @@ public final class PackageEditor {
         // FIXME: We need to handle version-specific manifests.
         let loadedManifest = try context.loadManifest(at: context.manifestPath.parentDirectory)
         let containsDependency = loadedManifest.dependencies.contains {
-            return PackageIdentity(options.url) == PackageIdentity($0.url)
+            return PackageIdentity(url: url) == PackageIdentity(url: $0.url)
         }
         guard !containsDependency else {
             throw StringError("Already has dependency \(url)")
