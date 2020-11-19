@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 
@@ -70,5 +70,38 @@ final class AddTargetTests: XCTestCase {
                 ]
             )
             """)
+    }
+
+    func testAddTarget2() throws {
+        let manifest = """
+                // swift-tools-version:5.0
+                import PackageDescription
+
+                let package = Package(
+                    name: "exec",
+                    dependencies: [
+                        .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    ]
+                )
+                """
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addTarget(targetName: "NewTarget")
+
+        XCTAssertEqual(editor.editedManifest, """
+                // swift-tools-version:5.0
+                import PackageDescription
+
+                let package = Package(
+                    name: "exec",
+                    dependencies: [
+                        .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "NewTarget",
+                            dependencies: []),]
+                )
+                """)
     }
 }

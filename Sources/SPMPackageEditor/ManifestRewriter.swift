@@ -63,7 +63,8 @@ public final class ManifestRewriter {
         } else {
             // We didn't find a dependencies section so insert one.
             let argListWithDependencies = EmptyArrayArgumentWriter(argumentLabel: "dependencies",
-                                                                   followingArgumentLabels: "targets",
+                                                                   followingArgumentLabels:
+                                                                   "targets",
                                                                    "swiftLanguageVersions",
                                                                    "cLanguageStandard",
                                                                    "cxxLanguageStandard")
@@ -141,9 +142,23 @@ public final class ManifestRewriter {
 
         let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsFinder.walk(initFnExpr.argumentList)
+        let targetsNode: ArrayExprSyntax
 
-        guard let targetsNode = targetsFinder.foundArrayExpr else {
-            throw Error.error("Couldn't find targets section")
+        if let existingTargets = targetsFinder.foundArrayExpr {
+            targetsNode = existingTargets
+        } else {
+            // We didn't find a targets section, so insert one.
+            let argListWithTargets = EmptyArrayArgumentWriter(argumentLabel: "targets",
+                                                              followingArgumentLabels:
+                                                              "swiftLanguageVersions",
+                                                              "cLanguageStandard",
+                                                              "cxxLanguageStandard")
+                .visit(initFnExpr.argumentList)
+
+            // Find the inserted section.
+            let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
+            targetsFinder.walk(argListWithTargets)
+            targetsNode = targetsFinder.foundArrayExpr!
         }
 
         let newManifest = NewTargetWriter(
@@ -250,6 +265,11 @@ final class EmptyArrayArgumentWriter: SyntaxRewriter {
     override func visit(_ node: TupleExprElementListSyntax) -> Syntax {
         let leadingTrivia = node.firstToken?.leadingTrivia ?? .zero
 
+        let existingLabels = node.map(\.label?.text)
+        let insertionIndex = existingLabels.firstIndex {
+            followingArgumentLabels.contains($0 ?? "")
+        } ?? existingLabels.endIndex
+
         let dependenciesArg = SyntaxFactory.makeTupleExprElement(
             label: SyntaxFactory.makeIdentifier(argumentLabel, leadingTrivia: leadingTrivia),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
@@ -257,15 +277,18 @@ final class EmptyArrayArgumentWriter: SyntaxRewriter {
                                     leftSquare: SyntaxFactory.makeLeftSquareBracketToken(),
                                     elements: SyntaxFactory.makeBlankArrayElementList(),
                                     rightSquare: SyntaxFactory.makeRightSquareBracketToken())),
-            trailingComma: SyntaxFactory.makeCommaToken()
+            trailingComma: insertionIndex != existingLabels.endIndex ? SyntaxFactory.makeCommaToken() : nil
         )
 
-        let existingLabels = node.map(\.label?.text)
-        let insertionIndex = existingLabels.firstIndex {
-            followingArgumentLabels.contains($0 ?? "")
-        } ?? existingLabels.endIndex
+        var newNode = node
+        if let lastArgument = newNode.last,
+           insertionIndex == existingLabels.endIndex {
+            // If the new argument is being added at the end of the list, the argument before it needs a comma.
+            newNode = newNode.replacing(childAt: newNode.count-1,
+                                        with: lastArgument.withTrailingComma(SyntaxFactory.makeCommaToken()))
+        }
         
-        return Syntax(node.inserting(dependenciesArg, at: insertionIndex))
+        return Syntax(newNode.inserting(dependenciesArg, at: insertionIndex))
     }
 }
 

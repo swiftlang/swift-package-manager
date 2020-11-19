@@ -349,7 +349,7 @@ final class AddPackageDependencyTests: XCTestCase {
                 platforms: [.iOS],
                 dependencies: [
                     .package(url: "https://github.com/foo/goo", from: "1.0.1"),
-                ],
+                ]
             )
             """)
     }
