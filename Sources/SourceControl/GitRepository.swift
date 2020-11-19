@@ -46,13 +46,13 @@ public class GitRepositoryProvider: RepositoryProvider {
         return try result.utf8Output()
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
-        if update {
+        if localFileSystem.exists(path.appending(component: ".git")) {
             // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
             try callGit("-C", path.pathString, "fetch", "origin", failureMessage: "Failed to fetch repository \(repository.url)", repository: repository)
         } else {

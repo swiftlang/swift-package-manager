@@ -96,7 +96,7 @@ private class MockRepositories: RepositoryProvider {
         self.manifestLoader = MockManifestLoader(manifests: allManifests)
     }
 
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         // No-op.
         assert(self.repositories.index(forKey: repository.url) != nil)
     }

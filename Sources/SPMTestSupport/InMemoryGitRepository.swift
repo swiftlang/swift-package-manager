@@ -334,7 +334,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // MARK: - RepositoryProvider conformance
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         let repo = specifierMap[RepositorySpecifier(url: repository.url.spm_dropGitSuffix())]!
         fetchedMap[path] = repo.copy()
         add(specifier: RepositorySpecifier(url: path.asURL.absoluteString), repository: repo)

@@ -40,7 +40,7 @@ class GitRepositoryTests: XCTestCase {
             let provider = GitRepositoryProvider()
             XCTAssertTrue(try provider.checkoutExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
-            try! provider.fetch(repository: repoSpec, to: testCheckoutPath, update: false)
+            try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
             XCTAssert(localFileSystem.exists(testCheckoutPath))
@@ -190,7 +190,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
-            try provider.fetch(repository: repoSpec, to: testClonePath, update: false)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
             let repository = provider.open(repository: repoSpec, at: testClonePath)
 
             // Get and test the file system view.
@@ -267,7 +267,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
-            try provider.fetch(repository: repoSpec, to: testClonePath, update: false)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
@@ -306,7 +306,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
-            try provider.fetch(repository: repoSpec, to: testClonePath, update: false)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(clonedRepo.tags, ["1.2.3"])
 
@@ -348,7 +348,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testBareRepoPath.pathString)
-            try provider.fetch(repository: repoSpec, to: testClonePath, update: false)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
@@ -527,7 +527,7 @@ class GitRepositoryTests: XCTestCase {
             try foo.tag(name: "1.0.0")
 
             // Fetch and clone repo foo.
-            try provider.fetch(repository: fooSpecifier, to: fooRepoPath, update: false)
+            try provider.fetch(repository: fooSpecifier, to: fooRepoPath)
             try provider.cloneCheckout(repository: fooSpecifier, at: fooRepoPath, to: fooWorkingPath, editable: false)
 
             let fooRepo = GitRepository(path: fooRepoPath, isWorkingRepo: false)
@@ -594,7 +594,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
-            try provider.fetch(repository: repoSpec, to: testClonePath, update: false)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(clonedRepo.tags, ["1.2.3"])
 
@@ -668,7 +668,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
-            try provider.fetch(repository: repoSpec, to: testClonePath, update: false)
+            try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(clonedRepo.tags, [])
 

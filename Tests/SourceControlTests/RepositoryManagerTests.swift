@@ -71,7 +71,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     private var fetchesLock = Lock()
     var _numFetches = 0
     
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         assert(!localFileSystem.exists(path))
         try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
         try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
