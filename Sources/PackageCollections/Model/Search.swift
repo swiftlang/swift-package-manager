@@ -18,7 +18,7 @@ extension PackageCollectionsModel {
         public struct Item {
             // Merged package metadata from across collections
             /// The matching package
-            public let package: PackageCollectionsModel.Collection.Package
+            public let package: PackageCollectionsModel.Package
 
             /// Package collections that contain the package
             public let collections: [PackageCollectionsModel.CollectionIdentifier]

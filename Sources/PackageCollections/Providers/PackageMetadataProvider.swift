@@ -26,6 +26,7 @@ protocol PackageMetadataProvider {
 extension PackageCollectionsModel {
     struct PackageBasicMetadata: Equatable {
         let description: String?
+        let keywords: [String]?
         let versions: [TSCUtility.Version]
         let watchersCount: Int?
         let readmeURL: Foundation.URL?

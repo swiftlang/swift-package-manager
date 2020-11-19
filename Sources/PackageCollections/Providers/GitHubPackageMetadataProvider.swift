@@ -42,10 +42,10 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
         guard reference.kind == .remote else {
-            return callback(.failure(Errors.unprocessable(reference)))
+            return callback(.failure(Errors.invalidReferenceType(reference)))
         }
         guard let baseURL = self.apiURL(reference.path) else {
-            return callback(.failure(Errors.unprocessable(reference)))
+            return callback(.failure(Errors.invalidGitUrl(reference.path)))
         }
 
         let metadataURL = baseURL
@@ -103,6 +103,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
                     callback(.success(.init(
                         description: metadata.description,
+                        keywords: metadata.topics,
                         versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
@@ -154,7 +155,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     }
 
     enum Errors: Error, Equatable {
-        case unprocessable(PackageReference)
+        case invalidReferenceType(PackageReference)
+        case invalidGitUrl(String)
         case invalidResponse(URL)
     }
 }
@@ -164,6 +166,7 @@ extension GitHubPackageMetadataProvider {
         let name: String
         let fullName: String
         let description: String?
+        let topics: [String]?
         let isPrivate: Bool
         let isFork: Bool
         let defaultBranch: String
@@ -181,6 +184,7 @@ extension GitHubPackageMetadataProvider {
             case name
             case fullName = "full_name"
             case description
+            case topics
             case isPrivate = "private"
             case isFork = "fork"
             case defaultBranch = "default_branch"

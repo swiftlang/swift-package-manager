@@ -27,36 +27,40 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
     let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi]
 
     return (0 ..< count).map { collectionIndex in
-        let packages = (0 ..< Int.random(in: min(5, maxPackages) ... maxPackages)).map { packageIndex -> PackageCollectionsModel.Collection.Package in
-            let versions = (0 ..< Int.random(in: 1 ... 3)).map { versionIndex -> PackageCollectionsModel.Collection.PackageVersion in
+        let packages = (0 ..< Int.random(in: min(5, maxPackages) ... maxPackages)).map { packageIndex -> PackageCollectionsModel.Package in
+            let versions = (0 ..< Int.random(in: 1 ... 3)).map { versionIndex -> PackageCollectionsModel.Package.Version in
                 let targets = (0 ..< Int.random(in: 1 ... 5)).map {
-                    PackageCollectionsModel.PackageTarget(name: "package-\(packageIndex)-target-\($0)",
-                                                          moduleName: "module-package-\(packageIndex)-target-\($0)")
+                    PackageCollectionsModel.Target(name: "package-\(packageIndex)-target-\($0)",
+                                                   moduleName: "module-package-\(packageIndex)-target-\($0)")
                 }
                 let products = (0 ..< Int.random(in: 1 ... 3)).map {
-                    PackageCollectionsModel.PackageProduct(name: "package-\(packageIndex)-product-\($0)",
-                                                           type: .executable,
-                                                           targets: targets)
+                    PackageCollectionsModel.Product(name: "package-\(packageIndex)-product-\($0)",
+                                                    type: .executable,
+                                                    targets: targets)
                 }
                 let verifiedPlatforms = (0 ..< Int.random(in: 1 ... 3)).map { _ in platforms.randomElement()! }
                 let verifiedSwiftVersions = (0 ..< Int.random(in: 1 ... 3)).map { _ in SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()! }
                 let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
                 let license = PackageCollectionsModel.License(type: licenseType, url: URL(string: "http://\(licenseType).license")!)
 
-                return PackageCollectionsModel.Collection.PackageVersion(version: TSCUtility.Version(versionIndex, 0, 0),
-                                                                         packageName: "package-\(packageIndex)",
-                                                                         targets: targets,
-                                                                         products: products,
-                                                                         toolsVersion: .currentToolsVersion,
-                                                                         verifiedPlatforms: verifiedPlatforms,
-                                                                         verifiedSwiftVersions: verifiedSwiftVersions,
-                                                                         license: license)
+                return PackageCollectionsModel.Package.Version(version: TSCUtility.Version(versionIndex, 0, 0),
+                                                               packageName: "package-\(packageIndex)",
+                                                               targets: targets,
+                                                               products: products,
+                                                               toolsVersion: .currentToolsVersion,
+                                                               verifiedPlatforms: verifiedPlatforms,
+                                                               verifiedSwiftVersions: verifiedSwiftVersions,
+                                                               license: license)
             }
 
-            return PackageCollectionsModel.Collection.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),
-                                                              summary: "package \(packageIndex) description",
-                                                              versions: versions,
-                                                              readmeURL: URL(string: "https://package-\(packageIndex)-readme")!)
+            return PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),
+                                                   description: "package \(packageIndex) description",
+                                                   keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
+                                                   versions: versions,
+                                                   latestVersion: versions.last,
+                                                   watchersCount: Int.random(in: 1 ... 1000),
+                                                   readmeURL: URL(string: "https://package-\(packageIndex)-readme")!,
+                                                   authors: nil)
         }
 
         return PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed-\(collectionIndex)")!),
@@ -70,6 +74,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
 
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
     return .init(description: UUID().uuidString,
+                 keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                  versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: URL(string: "https://package-readme")!,

@@ -180,4 +180,20 @@ class PackageCollectionsStorageTests: XCTestCase {
         let list = try tsc_await { callback in storage.list(identifiers: mockCollections.map { $0.identifier }, callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
     }
+
+    func testPutUpdates() throws {
+        let storage = SQLitePackageCollectionsStorage(location: .memory)
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 3)
+        try mockCollections.forEach { collection in
+            _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+        }
+
+        let list = try tsc_await { callback in storage.list(identifiers: mockCollections.map { $0.identifier }, callback: callback) }
+        XCTAssertEqual(list.count, mockCollections.count)
+
+        _ = try tsc_await { callback in storage.put(collection: mockCollections.last!, callback: callback) }
+        XCTAssertEqual(list.count, mockCollections.count)
+    }
 }
