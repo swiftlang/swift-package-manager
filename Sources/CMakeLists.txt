@@ -6,9 +6,11 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
+add_subdirectory(Basics)
 add_subdirectory(Build)
 add_subdirectory(Commands)
 add_subdirectory(LLBuildManifest)
+add_subdirectory(PackageCollections)
 add_subdirectory(PackageDescription)
 add_subdirectory(PackageGraph)
 add_subdirectory(PackageLoading)

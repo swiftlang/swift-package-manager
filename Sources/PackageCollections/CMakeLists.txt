@@ -14,13 +14,16 @@ add_library(PackageCollections
   Model/Profile.swift
   Model/Search.swift
   Model/TargetListResult.swift
-  PackageCollectionProvider.swift
-  PackageCollections+Configuration.swift
-  PackageCollections+Storage.swift
-  PackageCollections+Vallidation.swift
-  PackageCollections.swift
+  Providers/JSONPackageCollectionProvider.swift
+  Providers/PackageCollectionProvider.swift
+  Providers/PackageMetadataProvider.swift
   Storage/PackageCollectionsProfileStorage.swift
   Storage/PackageCollectionsStorage.swift
+  API.swift
+  PackageCollections.swift
+  PackageCollections+Configuration.swift
+  PackageCollections+Storage.swift
+  PackageCollections+Validation.swift
   Utility.swift)
 target_link_libraries(PackageCollections PUBLIC
   TSCBasic
