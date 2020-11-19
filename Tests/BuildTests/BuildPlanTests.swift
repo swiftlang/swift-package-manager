@@ -366,10 +366,8 @@ final class BuildPlanTests: XCTestCase {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",
             "/A/Tests/ATargetTests/foo.swift",
-            "/A/Tests/LinuxMain.swift",
             "/B/Sources/BTarget/foo.swift",
-            "/B/Tests/BTargetTests/foo.swift",
-            "/B/Tests/LinuxMain.swift"
+            "/B/Tests/BTargetTests/foo.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
@@ -894,7 +892,7 @@ final class BuildPlanTests: XCTestCase {
     func testTestModule() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/Foo/foo.swift",
-            "/Pkg/Tests/LinuxMain.swift",
+            "/Pkg/Tests/\(SwiftTarget.testManifestNames.first!).swift",
             "/Pkg/Tests/FooTests/foo.swift"
         )
 
@@ -919,7 +917,7 @@ final class BuildPlanTests: XCTestCase {
       #if os(macOS)
         result.checkTargetsCount(2)
       #else
-        // We have an extra LinuxMain target on linux.
+        // We have an extra test discovery target on linux.
         result.checkTargetsCount(3)
       #endif
 
@@ -1655,7 +1653,6 @@ final class BuildPlanTests: XCTestCase {
 
         var parameters = mockBuildParameters(destinationTriple: .wasi)
         parameters.shouldLinkStaticSwiftStdlib = true
-        parameters.enableTestDiscovery = true
         let result = BuildPlanResult(
             plan: try BuildPlan(
                 buildParameters: parameters,

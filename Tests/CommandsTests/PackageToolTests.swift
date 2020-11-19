@@ -378,7 +378,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests", "LinuxMain.swift"])
+                ["FooTests"])
         }
     }
 
@@ -393,7 +393,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests", "LinuxMain.swift"])
+                ["FooTests"])
         }
     }
 
@@ -413,7 +413,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
             XCTAssertEqual(
                 try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["CustomNameTests", "LinuxMain.swift"])
+                ["CustomNameTests"])
         }
     }
 

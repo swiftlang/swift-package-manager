@@ -200,8 +200,8 @@ extension Target: CustomStringConvertible {
 
 public final class SwiftTarget: Target {
 
-    /// The file name of linux main file.
-    public static let linuxMainBasename = "LinuxMain.swift"
+    /// The file name of test manifest.
+    public static let testManifestNames = ["XCTMain.swift", "LinuxMain.swift"]
 
     public init(testDiscoverySrc: Sources, name: String, dependencies: [Target.Dependency]) {
         self.swiftVersion = .v5
@@ -247,8 +247,8 @@ public final class SwiftTarget: Target {
         )
     }
 
-    /// Create an executable Swift target from linux main test manifest file.
-    public init(linuxMain: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
+    /// Create an executable Swift target from test manifest file.
+    public init(testManifest: AbsolutePath, name: String, dependencies: [Target.Dependency]) {
         // Look for the first swift test target and use the same swift version
         // for linux main target. This will need to change if we move to a model
         // where we allow per target swift language version build settings.
@@ -262,7 +262,7 @@ public final class SwiftTarget: Target {
         // satisfy the current tools version but there is not a good way to
         // do that currently.
         self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
-        let sources = Sources(paths: [linuxMain], root: linuxMain.parentDirectory)
+        let sources = Sources(paths: [testManifest], root: testManifest.parentDirectory)
 
         let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
 

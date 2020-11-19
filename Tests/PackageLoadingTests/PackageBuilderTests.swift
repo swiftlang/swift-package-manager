@@ -383,40 +383,42 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+    
+    func testTestManifestFound() {
+        SwiftTarget.testManifestNames.forEach { name in
+            let fs = InMemoryFileSystem(emptyFiles:
+                "/swift/exe/foo.swift",
+                "/\(name)",
+                "/swift/tests/footests.swift"
+            )
 
-    func testLinuxMain() {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/swift/exe/foo.swift",
-            "/LinuxMain.swift",
-            "/swift/tests/footests.swift"
-        )
+            let manifest = Manifest.createV4Manifest(
+                name: "pkg",
+                targets: [
+                    TargetDescription(name: "exe", path: "swift/exe"),
+                    TargetDescription(name: "tests", path: "swift/tests", type: .test),
+                ]
+            )
+            PackageBuilderTester(manifest, in: fs) { package, _ in
+                package.checkModule("exe") { module in
+                    module.check(c99name: "exe", type: .library)
+                    module.checkSources(root: "/swift/exe", paths: "foo.swift")
+                }
 
-        let manifest = Manifest.createV4Manifest(
-            name: "pkg",
-            targets: [
-                TargetDescription(name: "exe", path: "swift/exe"),
-                TargetDescription(name: "tests", path: "swift/tests", type: .test),
-            ]
-        )
-        PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("exe") { module in
-                module.check(c99name: "exe", type: .library)
-                module.checkSources(root: "/swift/exe", paths: "foo.swift")
-            }
+                package.checkModule("tests") { module in
+                    module.check(c99name: "tests", type: .test)
+                    module.checkSources(root: "/swift/tests", paths: "footests.swift")
+                }
 
-            package.checkModule("tests") { module in
-                module.check(c99name: "tests", type: .test)
-                module.checkSources(root: "/swift/tests", paths: "footests.swift")
-            }
-
-            package.checkProduct("pkgPackageTests") { product in
-                product.check(type: .test, targets: ["tests"])
-                product.check(linuxMainPath: "/LinuxMain.swift")
+                package.checkProduct("pkgPackageTests") { product in
+                    product.check(type: .test, targets: ["tests"])
+                    product.check(testManifestPath: "/\(name)")
+                }
             }
         }
     }
 
-    func testLinuxMainSearch() {
+    func testTestManifestSearch() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/foo.swift",
             "/pkg/footests.swift"
@@ -444,15 +446,16 @@ class PackageBuilderTests: XCTestCase {
 
             package.checkProduct("pkgPackageTests") { product in
                 product.check(type: .test, targets: ["tests"])
-                product.check(linuxMainPath: nil)
+                product.check(testManifestPath: nil)
             }
         }
     }
 
-    func testLinuxMainError() {
+    func testMultipleTestManifestError() {
+        let name = SwiftTarget.testManifestNames.first!
         let fs = InMemoryFileSystem(emptyFiles:
-            "/LinuxMain.swift",
-            "/swift/LinuxMain.swift",
+            "/\(name)",
+            "/swift/\(name)",
             "/swift/tests/footests.swift"
         )
 
@@ -467,7 +470,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' has multiple linux main files: /LinuxMain.swift, /swift/LinuxMain.swift", behavior: .error)
+            diagnostics.check(diagnostic: "package 'pkg' has multiple test manifest files: /\(name), /swift/\(name)", behavior: .error)
         }
     }
 
@@ -2168,8 +2171,8 @@ final class PackageBuilderTester {
             XCTAssertEqual(product.targets.map{$0.name}.sorted(), targets.sorted(), file: file, line: line)
         }
 
-        func check(linuxMainPath: String?, file: StaticString = #file, line: UInt = #line) {
-            XCTAssertEqual(product.linuxMain, linuxMainPath.map({ AbsolutePath($0) }), file: file, line: line)
+        func check(testManifestPath: String?, file: StaticString = #file, line: UInt = #line) {
+            XCTAssertEqual(product.testManifest, testManifestPath.map({ AbsolutePath($0) }), file: file, line: line)
         }
     }
 

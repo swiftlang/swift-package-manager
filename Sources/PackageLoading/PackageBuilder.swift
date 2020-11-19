@@ -49,8 +49,8 @@ public enum ModuleError: Swift.Error {
     /// The sources of a target are overlapping with another target.
     case overlappingSources(target: String, sources: [AbsolutePath])
 
-    /// We found multiple LinuxMain.swift files.
-    case multipleLinuxMainFound(package: String, linuxMainFiles: [AbsolutePath])
+    /// We found multiple test manifest  files.
+    case multipleTestManifestFilesFound(package: String, files: [AbsolutePath])
 
     /// The tools version in use is not compatible with target's sources.
     case incompatibleToolsVersions(package: String, required: [SwiftLanguageVersion], current: ToolsVersion)
@@ -92,9 +92,9 @@ extension ModuleError: CustomStringConvertible {
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
                 sources.map({ $0.description }).joined(separator: ", ")
-        case .multipleLinuxMainFound(let package, let linuxMainFiles):
-            return "package '\(package)' has multiple linux main files: " +
-                linuxMainFiles.map({ $0.description }).sorted().joined(separator: ", ")
+        case .multipleTestManifestFilesFound(let package, let files):
+            return "package '\(package)' has multiple test manifest files: " +
+                files.map({ $0.description }).sorted().joined(separator: ", ")
         case .incompatibleToolsVersions(let package, let required, let current):
             if required.isEmpty {
                 return "package '\(package)' supported Swift language versions is empty"
@@ -353,8 +353,8 @@ public final class PackageBuilder {
         // Ignore dotfiles.
         if basename.hasPrefix(".") { return false }
 
-        // Ignore linux main.
-        if basename == SwiftTarget.linuxMainBasename { return false }
+        // Ignore test manifest.
+        if SwiftTarget.testManifestNames.contains(basename) { return false }
 
         // Ignore paths which are not valid files.
         if !fileSystem.isFile(path) {
@@ -972,9 +972,9 @@ public final class PackageBuilder {
         }
     }
 
-    /// Find the linux main file for the package.
-    private func findLinuxMain(in testTargets: [Target]) throws -> AbsolutePath? {
-        var linuxMainFiles = Set<AbsolutePath>()
+    /// Find the test manifest file for the package.
+    private func findTestManifest(in testTargets: [Target]) throws -> AbsolutePath? {
+        var testManifestFiles = Set<AbsolutePath>()
         var pathsSearched = Set<AbsolutePath>()
 
         // Look for linux main file adjacent to each test target root, iterating upto package root.
@@ -993,9 +993,11 @@ public final class PackageBuilder {
                 assert(searchPath.contains(packagePath), "search path \(searchPath) is outside the package \(packagePath)")
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
-                    let linuxMain = searchPath.appending(component: SwiftTarget.linuxMainBasename)
-                    if fileSystem.isFile(linuxMain) {
-                        linuxMainFiles.insert(linuxMain)
+                    SwiftTarget.testManifestNames.forEach { name in
+                        let path = searchPath.appending(component: name)
+                        if fileSystem.isFile(path) {
+                            testManifestFiles.insert(path)
+                        }
                     }
                     pathsSearched.insert(searchPath)
                 }
@@ -1007,11 +1009,11 @@ public final class PackageBuilder {
         }
 
         // It is an error if there are multiple linux main files.
-        if linuxMainFiles.count > 1 {
-            throw ModuleError.multipleLinuxMainFound(
-                package: manifest.name, linuxMainFiles: linuxMainFiles.map({ $0 }))
+        if testManifestFiles.count > 1 {
+            throw ModuleError.multipleTestManifestFilesFound(
+                package: manifest.name, files: testManifestFiles.map({ $0 }))
         }
-        return linuxMainFiles.first
+        return testManifestFiles.first
     }
 
     /// Collects the products defined by a package.
@@ -1056,10 +1058,9 @@ public final class PackageBuilder {
             // Add suffix 'PackageTests' to test product name so the target name
             // of linux executable don't collide with main package, if present.
             let productName = manifest.name + "PackageTests"
-            let linuxMain = try findLinuxMain(in: testModules)
+            let testManifest = try self.findTestManifest(in: testModules)
 
-            let product = Product(
-                name: productName, type: .test, targets: testModules, linuxMain: linuxMain)
+            let product = Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
             append(product)
         }
 

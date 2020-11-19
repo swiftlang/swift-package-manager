@@ -37,6 +37,37 @@ public struct BuildParameters: Encodable {
         case modulewrap
     }
 
+    /// Represents the test discovery strategy.
+    public enum TestDiscoveryStrategy: Encodable {
+        // Rely on objective C runtime
+        case objectiveC
+        // Use a test-manifest that lists the tests
+        // generate: Whether test-manifest generation is forced
+        //           This flag is or backwards compatibility, remove with --enable-test-discovery
+        case manifest(generate: Bool)
+
+        public enum DiscriminatorKeys: String, Codable {
+            case objectiveC
+            case manifest
+        }
+
+        public enum CodingKeys: CodingKey {
+            case _case
+            case generate
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .objectiveC:
+                try container.encode(DiscriminatorKeys.objectiveC, forKey: ._case)
+            case .manifest(let generate):
+                try container.encode(DiscriminatorKeys.manifest, forKey: ._case)
+                try container.encode(generate, forKey: .generate)
+            }
+        }
+    }
+
     /// The path to the data directory.
     public var dataPath: AbsolutePath
 
@@ -79,9 +110,6 @@ public struct BuildParameters: Encodable {
 
     /// Whether to enable code coverage.
     public var enableCodeCoverage: Bool
-
-    /// Whether to enable test discovery on platforms without Objective-C runtime.
-    public var enableTestDiscovery: Bool
 
     /// Whether to enable generation of `.swiftinterface` files alongside
     /// `.swiftmodule`s.
@@ -130,6 +158,12 @@ public struct BuildParameters: Encodable {
 
     /// Extra arguments to pass when using xcbuild.
     public var xcbuildFlags: [String]
+        
+    // Whether building for testability is enabled.
+    public var enableTestability: Bool
+    
+    // What strategy to use to discover tests
+    public var testDiscoveryStrategy: TestDiscoveryStrategy
 
     public init(
         dataPath: AbsolutePath,
@@ -149,18 +183,21 @@ public struct BuildParameters: Encodable {
         enableCodeCoverage: Bool = false,
         indexStoreMode: IndexStoreMode = .auto,
         enableParseableModuleInterfaces: Bool = false,
-        enableTestDiscovery: Bool = false,
         emitSwiftModuleSeparately: Bool = false,
         useIntegratedSwiftDriver: Bool = false,
         useExplicitModuleBuild: Bool = false,
         isXcodeBuildSystemEnabled: Bool = false,
-        printManifestGraphviz: Bool = false
+        printManifestGraphviz: Bool = false,
+        enableTestability: Bool? = nil,
+        forceTestDiscovery: Bool = false
     ) {
+        let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.hostTriple = hostTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
-        self.triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
+        self.triple = triple
         self.archs = archs
         self.flags = flags
         self.xcbuildFlags = xcbuildFlags
@@ -173,12 +210,15 @@ public struct BuildParameters: Encodable {
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode
         self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
-        self.enableTestDiscovery = enableTestDiscovery
         self.emitSwiftModuleSeparately = emitSwiftModuleSeparately
         self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
         self.useExplicitModuleBuild = useExplicitModuleBuild
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.printManifestGraphviz = printManifestGraphviz
+        // decide on testability based on debug/release config
+        self.enableTestability = enableTestability ?? (.debug == configuration)
+        // decide if to enable the use of test manifests based on platform. this is likely to change in the future
+        self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
     }
 
     /// The path to the build directory (inside the data directory).
