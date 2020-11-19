@@ -27,7 +27,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.httpClient = httpClient ?? .init()
         self.defaultHttpClient = httpClient == nil
         self.decoder = JSONDecoder()
-        #if os(Linux)
+        #if os(Linux) || os(Windows)
         self.decoder.dateDecodingStrategy = .iso8601
         #else
         if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
