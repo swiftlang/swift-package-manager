@@ -14,18 +14,42 @@ import TSCBasic
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol {
     private let configuration: Configuration
-    private let storage: Storage
+    private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider]
     private let metadataProvider: PackageMetadataProvider
 
-    init(configuration: Configuration,
+    private var storage: Storage {
+        self.storageContainer.storage
+    }
+
+    // initialize with defaults
+    public init(configuration: Configuration = .init()) {
+        let storage = Storage(sources: FilePackageCollectionsSourcesStorage(),
+                              collections: SQLitePackageCollectionsStorage())
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: JSONPackageCollectionProvider()]
+        let metadataProvider = GitHubPackageMetadataProvider()
+
+        self.configuration = configuration
+        self.storageContainer = (storage, true)
+        self.collectionProviders = collectionProviders
+        self.metadataProvider = metadataProvider
+    }
+
+    // internal initializer for testing
+    init(configuration: Configuration = .init(),
          storage: Storage,
          collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider) {
         self.configuration = configuration
-        self.storage = storage
+        self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
+    }
+
+    public func shutdown() throws {
+        if self.storageContainer.owned {
+            try self.storageContainer.storage.close()
+        }
     }
 
     // MARK: - Collections
@@ -279,8 +303,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     private func targetListResultFromCollections(_ collections: [PackageCollectionsModel.Collection]) -> PackageCollectionsModel.TargetListResult {
-        var packageCollections = [PackageReference: (package: PackageCollectionsModel.Collection.Package, collections: Set<PackageCollectionsModel.CollectionIdentifier>)]()
-        var targetsPackages = [String: (target: PackageCollectionsModel.PackageTarget, packages: Set<PackageReference>)]()
+        var packageCollections = [PackageReference: (package: PackageCollectionsModel.Package, collections: Set<PackageCollectionsModel.CollectionIdentifier>)]()
+        var targetsPackages = [String: (target: PackageCollectionsModel.Target, packages: Set<PackageReference>)]()
 
         collections.forEach { collection in
             collection.packages.forEach { package in
@@ -306,7 +330,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 .map { pair -> PackageCollectionsModel.TargetListResult.Package in
                     let versions = pair.package.versions.map { PackageCollectionsModel.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
                     return .init(repository: pair.package.repository,
-                                 description: pair.package.summary,
+                                 description: pair.package.description,
                                  versions: versions,
                                  collections: Array(pair.collections))
                 }
@@ -315,7 +339,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    internal static func mergedPackageMetadata(package: PackageCollectionsModel.Collection.Package,
+    internal static func mergedPackageMetadata(package: PackageCollectionsModel.Package,
                                                basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
         var versions = package.versions.map { packageVersion -> PackageCollectionsModel.Package.Version in
             .init(version: packageVersion.version,
@@ -334,7 +358,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
         return .init(
             repository: package.repository,
-            description: basicMetadata?.description ?? package.summary,
+            description: basicMetadata?.description ?? package.description,
+            keywords: basicMetadata?.keywords ?? package.keywords,
             versions: versions,
             latestVersion: latestVersion,
             watchersCount: basicMetadata?.watchersCount,

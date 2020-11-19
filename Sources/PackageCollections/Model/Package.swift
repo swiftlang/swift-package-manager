@@ -15,7 +15,7 @@ import SourceControl
 
 extension PackageCollectionsModel {
     /// Package metadata
-    public struct Package: Equatable {
+    public struct Package: Codable, Equatable {
         /// Package reference
         public let reference: PackageReference
 
@@ -24,6 +24,9 @@ extension PackageCollectionsModel {
 
         /// Package description
         public let description: String?
+
+        /// Keywords for the package
+        public let keywords: [String]?
 
         /// Published versions of the package
         public let versions: [Version]
@@ -67,6 +70,7 @@ extension PackageCollectionsModel {
         init(
             repository: RepositorySpecifier,
             description: String?,
+            keywords: [String]?,
             versions: [Version],
             latestVersion: Version?,
             watchersCount: Int?,
@@ -76,6 +80,7 @@ extension PackageCollectionsModel {
             self.reference = .init(repository: repository)
             self.repository = repository
             self.description = description
+            self.keywords = keywords
             self.versions = versions
             self.latestVersion = latestVersion
             self.watchersCount = watchersCount
@@ -88,9 +93,9 @@ extension PackageCollectionsModel {
 // FIXME: add minimumPlatformVersions
 extension PackageCollectionsModel.Package {
     /// A representation of package version
-    public struct Version: Equatable {
-        public typealias Target = PackageCollectionsModel.PackageTarget
-        public typealias Product = PackageCollectionsModel.PackageProduct
+    public struct Version: Codable, Equatable {
+        public typealias Target = PackageCollectionsModel.Target
+        public typealias Product = PackageCollectionsModel.Product
 
         /// The version
         public let version: TSCUtility.Version
@@ -122,7 +127,7 @@ extension PackageCollectionsModel.Package {
 
 extension PackageCollectionsModel {
     /// A representation of package target
-    public struct PackageTarget: Equatable, Hashable, Codable {
+    public struct Target: Equatable, Hashable, Codable {
         /// The target name
         public let name: String
 
@@ -133,7 +138,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel {
     /// A representation of package product
-    public struct PackageProduct: Equatable, Codable {
+    public struct Product: Equatable, Codable {
         /// The product name
         public let name: String
 
@@ -141,7 +146,7 @@ extension PackageCollectionsModel {
         public let type: ProductType
 
         /// The product's targets
-        public let targets: [PackageTarget]
+        public let targets: [Target]
     }
 }
 

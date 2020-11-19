@@ -54,7 +54,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
-            XCTAssertEqual(package.summary, "Package One")
+            XCTAssertEqual(package.description, "Package One")
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
@@ -101,7 +101,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
-            XCTAssertEqual(package.summary, "Package One")
+            XCTAssertEqual(package.description, "Package One")
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!

@@ -93,8 +93,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 return .failure(Errors.invalidJSON(error))
             }
 
-            let packages = collection.packages.map { package -> PackageCollectionsModel.Collection.Package in
-                let versions = package.versions.compactMap { version -> PackageCollectionsModel.Collection.Package.Version? in
+            let packages = collection.packages.map { package -> PackageCollectionsModel.Package in
+                let versions = package.versions.compactMap { version -> PackageCollectionsModel.Package.Version? in
                     // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
                     guard let parsedVersion = TSCUtility.Version(string: version.version) else {
                         return nil
@@ -102,8 +102,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     guard let toolsVersion = ToolsVersion(string: version.toolsVersion) else {
                         return nil
                     }
-                    let targets = version.targets.map { PackageCollectionsModel.PackageTarget(name: $0.name, moduleName: $0.moduleName) }
-                    let products = version.products.compactMap { PackageCollectionsModel.PackageProduct(from: $0, packageTargets: targets) }
+                    let targets = version.targets.map { PackageCollectionsModel.Target(name: $0.name, moduleName: $0.moduleName) }
+                    let products = version.products.compactMap { PackageCollectionsModel.Product(from: $0, packageTargets: targets) }
                     let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
                     let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
                     let license = version.license.flatMap { PackageCollectionsModel.License(from: $0) }
@@ -117,9 +117,13 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  license: license)
                 }
                 return .init(repository: RepositorySpecifier(url: package.url),
-                             summary: package.description,
+                             description: package.description,
+                             keywords: package.keywords,
                              versions: versions,
-                             readmeURL: package.readmeURL.flatMap { Foundation.URL(string: $0) })
+                             latestVersion: versions.first,
+                             watchersCount: nil,
+                             readmeURL: package.readmeURL.flatMap { Foundation.URL(string: $0) },
+                             authors: nil)
             }
             return .success(.init(source: source,
                                   name: collection.name,
@@ -227,8 +231,8 @@ extension JSONPackageCollectionProvider.CollectionV1 {
 
 // MARK: - Extensions for mapping from JSON to PackageCollectionsModel
 
-extension PackageCollectionsModel.PackageProduct {
-    fileprivate init?(from: JSONPackageCollectionProvider.CollectionV1.Product, packageTargets: [PackageCollectionsModel.PackageTarget]) {
+extension PackageCollectionsModel.Product {
+    fileprivate init?(from: JSONPackageCollectionProvider.CollectionV1.Product, packageTargets: [PackageCollectionsModel.Target]) {
         let targets = packageTargets.filter { from.targets.map { $0.lowercased() }.contains($0.name.lowercased()) }
         self = .init(name: from.name, type: from.type, targets: targets)
     }
