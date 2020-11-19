@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -114,7 +114,7 @@ public final class MockWorkspace {
             let toolsVersion = package.toolsVersion ?? .currentToolsVersion
             let repoManifestPath = AbsolutePath.root.appending(component: Manifest.filename)
             try repo.writeFileContents(repoManifestPath, bytes: "")
-            try writeToolsVersion(at: .root, version: toolsVersion, fs: repo)
+            try prependToolsVersionSpecification(toDefaultManifestIn: .root, specifying: toolsVersion, fileSystem: repo)
             try repo.commit()
 
             let versions: [String?] = packageKind == .remote ? package.versions : [nil]
