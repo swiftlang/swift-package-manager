@@ -71,9 +71,18 @@ public protocol RepositoryProvider {
     ///
     /// - Parameters:
     ///   - repository: The specifier of the repository to fetch.
-    ///
+    ///   - path: The destiantion path for the fetch.
+    ///   - update: Perfrom a clean fetch or update an existing fetch.
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws
+
+    /// Fetch the complete repository at the given location to `path`.
+    ///
+    /// - Parameters:
+    ///   - repository: The specifier of the repository to fetch.
+    ///   - path: The destiantion path for the fetch.
+    /// - Throws: If there is any error fetching the repository.
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
     /// Open the given repository.
     ///
@@ -130,6 +139,15 @@ extension RepositoryProvider {
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
         fatalError("Unimplemented")
     }
+
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, update: Bool) throws {
+        try fetch(repository: repository, to: path, update: false)
+    }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("Unimplemented")
+    }
+
 }
 
 /// Abstract repository operations.
