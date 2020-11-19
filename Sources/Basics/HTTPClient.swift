@@ -20,6 +20,10 @@ import TSCUtility
 import Glibc
 #endif
 
+#if os(Windows)
+import CRT
+#endif
+
 // MARK: - HTTPClient
 
 public struct HTTPClient {
