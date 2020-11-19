@@ -214,8 +214,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 callback(.failure(error))
             case .success(let packageSearchResult):
                 // then try to get more metadata from provider (optional)
-                self.metadataProvider.get(reference: reference) { result in
+                self.metadataProvider.get(reference) { result in
                     switch result {
+                    case .failure(let error) where error is NotFoundError:
+                        let metadata = PackageCollectionsModel.PackageMetadata(
+                            package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
+                            collections: packageSearchResult.collections
+                        )
+                        callback(.success(metadata))
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let basicMetadata):

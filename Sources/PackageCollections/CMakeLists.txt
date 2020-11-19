@@ -14,6 +14,7 @@ add_library(PackageCollections
   Model/Profile.swift
   Model/Search.swift
   Model/TargetListResult.swift
+  Providers/GitHubPackageMetadataProvider.swift
   Providers/JSONPackageCollectionProvider.swift
   Providers/PackageCollectionProvider.swift
   Providers/PackageMetadataProvider.swift

@@ -19,11 +19,13 @@ import SourceControl
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     let configuration: Configuration
     let httpClient: HTTPClient
+    let defaultHttpClient: Bool
     let decoder: JSONDecoder
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient = .init()) {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
         self.configuration = configuration
-        self.httpClient = httpClient
+        self.httpClient = httpClient ?? .init()
+        self.defaultHttpClient = httpClient == nil
         self.decoder = JSONDecoder()
         #if os(Linux)
         self.decoder.dateDecodingStrategy = .iso8601
@@ -133,22 +135,25 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         var options = HTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
-        options.timeout = self.configuration.requestTimeout
-        // TODO: consider making these configurable
-        options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-        options.circuitBreakerStrategy = .hostErrors(maxErrors: 5, age: .seconds(5))
+        if defaultHttpClient {
+            // TODO: make these defaults configurable?
+            options.timeout = httpClient.configuration.requestTimeout ?? .seconds(1)
+            options.retryStrategy = httpClient.configuration.retryStrategy ?? .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+            options.circuitBreakerStrategy = httpClient.configuration.circuitBreakerStrategy ?? .hostErrors(maxErrors: 5, age: .seconds(5))
+        } else {
+            options.timeout = httpClient.configuration.requestTimeout
+            options.retryStrategy = httpClient.configuration.retryStrategy
+            options.circuitBreakerStrategy = httpClient.configuration.circuitBreakerStrategy
+        }
         return options
     }
 
     public struct Configuration {
         public var maximumSizeInBytes: Int
-        public var requestTimeout: DispatchTimeInterval?
 
-        public init(maximumSizeInBytes: Int? = nil,
-                    requestTimeout: DispatchTimeInterval? = nil) {
+        public init(maximumSizeInBytes: Int? = nil) {
             // TODO: where should we read defaults from?
             self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
-            self.requestTimeout = requestTimeout ?? .seconds(1)
         }
     }
 

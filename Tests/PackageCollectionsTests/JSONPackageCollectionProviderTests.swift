@@ -23,7 +23,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good.json")
-            let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+            let url = URL(string: "https://www.test.com/collection.json")!
             let data = Data(try localFileSystem.readFileContents(path).contents)
 
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -41,7 +41,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            let httpClient = HTTPClient(handler: handler)
+            var httpClient = HTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
@@ -86,7 +88,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 }
             }
 
-            let httpClient = HTTPClient(handler: handler)
+            var httpClient = HTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
@@ -112,9 +116,11 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testInvalidURL() throws {
-        let url = URL(string: "ftp://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "ftp://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let httpClient = HTTPClient(handler: { (_, _) -> Void in fatalError("should not be called") })
+        var httpClient = HTTPClient(handler: { (_, _) -> Void in fatalError("should not be called") })
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             guard let internalError = (error as? MultipleErrors)?.errors.first else {
@@ -126,7 +132,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
     func testExceedsDownloadSizeLimitHead() throws {
         let maxSize = 50
-        let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -136,7 +142,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                                     headers: .init([.init(name: "Content-Length", value: "\(maxSize * 2)")]))))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
@@ -151,7 +159,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
     func testExceedsDownloadSizeLimitGet() throws {
         let maxSize = 50
-        let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -168,7 +176,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
@@ -182,7 +192,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testNoContentLengthOnGet() throws {
-        let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
         let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -191,7 +201,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             callback(.success(.init(statusCode: 200)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
@@ -205,7 +217,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testUnsuccessfulHead() throws {
-        let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 201 ... 550)
 
@@ -215,7 +227,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             callback(.success(.init(statusCode: statusCode)))
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode))
@@ -223,7 +237,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testUnsuccessfulGet() throws {
-        let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         let statusCode = Int.random(in: 201 ... 550)
 
@@ -239,7 +253,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode))
@@ -247,7 +263,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testBadJSON() throws {
-        let url = URL(string: "https://www.\(UUID().uuidString).com/collection.json")!
+        let url = URL(string: "https://www.test.com/collection.json")!
         let data = "blah".data(using: .utf8)!
 
         let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -264,7 +280,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             }
         }
 
-        let httpClient = HTTPClient(handler: handler)
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
