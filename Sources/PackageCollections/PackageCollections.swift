@@ -28,20 +28,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
         self.metadataProvider = metadataProvider
     }
 
-    // MARK: - Profiles
-
-    public func listProfiles(callback: @escaping (Result<[PackageCollectionsModel.Profile], Error>) -> Void) {
-        self.storage.collectionsProfiles.listProfiles(callback: callback)
-    }
-
     // MARK: - Collections
 
     public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-                                in profile: PackageCollectionsModel.Profile? = nil,
                                 callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.listSources(in: profile) { result in
+        self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -69,11 +60,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    public func refreshCollections(in profile: PackageCollectionsModel.Profile? = nil,
-                                   callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.listSources(in: profile) { result in
+    public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
+        self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -84,7 +72,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 let lock = Lock()
                 var refreshResults = [Result<PackageCollectionsModel.Collection, Error>]()
                 sources.forEach { source in
-                    self.refreshCollectionFromSource(source: source, profile: profile) { refreshResult in
+                    self.refreshCollectionFromSource(source: source) { refreshResult in
                         lock.withLock { refreshResults.append(refreshResult) }
                         if refreshResults.count == (lock.withLock { sources.count }) {
                             let errors = refreshResults.compactMap { $0.failure }
@@ -98,60 +86,39 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func addCollection(_ source: PackageCollectionsModel.CollectionSource,
                               order: Int? = nil,
-                              to profile: PackageCollectionsModel.Profile? = nil,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
-        let profile = profile ?? .default
-
         if let errors = source.validate() {
             return callback(.failure(MultipleErrors(errors)))
         }
 
         // first record the registration
-        self.storage.collectionsProfiles.add(source: source, order: order, to: profile) { result in
+        self.storage.sources.add(source: source, order: order) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success:
                 // next try to fetch the collection from the network and store it locally so future operations dont need to access the network
-                self.refreshCollectionFromSource(source: source, order: order, profile: profile, callback: callback)
+                self.refreshCollectionFromSource(source: source, order: order, callback: callback)
             }
         }
     }
 
     public func removeCollection(_ source: PackageCollectionsModel.CollectionSource,
-                                 from profile: PackageCollectionsModel.Profile? = nil,
                                  callback: @escaping (Result<Void, Error>) -> Void) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.remove(source: source, from: profile) { result in
+        self.storage.sources.remove(source: source) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success:
-                // check to see if the collection is used in some other profile,
-                // if not delete it from storage to reduce disk space
-                self.storage.collectionsProfiles.exists(source: source, in: nil) { result in
-                    switch result {
-                    case .failure(let error):
-                        callback(.failure(error))
-                    case .success(let exists):
-                        if exists {
-                            callback(.success(()))
-                        } else {
-                            self.storage.collections.remove(identifier: .init(from: source), callback: callback)
-                        }
-                    }
-                }
+                self.storage.collections.remove(identifier: .init(from: source), callback: callback)
             }
         }
     }
 
     public func moveCollection(_ source: PackageCollectionsModel.CollectionSource,
-                               to order: Int, in profile: PackageCollectionsModel.Profile? = nil,
+                               to order: Int,
                                callback: @escaping (Result<Void, Error>) -> Void) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.move(source: source, to: order, in: profile, callback: callback)
+        self.storage.sources.move(source: source, to: order, callback: callback)
     }
 
     // Returns information about a package collection.
@@ -181,12 +148,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func findPackages(
         _ query: String,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.listSources(in: profile) { result in
+        self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -203,12 +167,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // MARK: - Package Metadata
 
     public func getPackageMetadata(_ reference: PackageReference,
-                                   profile: PackageCollectionsModel.Profile? = nil,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        let profile = profile ?? .default
-
         // first find in storage
-        self.findPackage(identifier: reference.identity, profile: profile) { result in
+        self.findPackage(identifier: reference.identity) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -241,10 +202,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func listTargets(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        in profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
     ) {
-        self.listCollections(identifiers: collections, in: profile) { result in
+        self.listCollections(identifiers: collections) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -259,13 +219,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
         _ query: String,
         searchType: PackageCollectionsModel.TargetSearchType? = nil,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
     ) {
-        let profile = profile ?? .default
         let searchType = searchType ?? .exactMatch
 
-        self.storage.collectionsProfiles.listSources(in: profile) { result in
+        self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -285,7 +243,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // This helps avoid network access in normal operations
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
                                              order _: Int? = nil,
-                                             profile _: PackageCollectionsModel.Profile? = nil,
                                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
         if let errors = source.validate() {
             return callback(.failure(MultipleErrors(errors)))
@@ -305,12 +262,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     func findPackage(
         identifier: PackageIdentity,
-        profile: PackageCollectionsModel.Profile? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void
     ) {
-        let profile = profile ?? .default
-
-        self.storage.collectionsProfiles.listSources(in: profile) { result in
+        self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
