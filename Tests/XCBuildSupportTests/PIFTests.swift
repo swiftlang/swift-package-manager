@@ -9,6 +9,7 @@
 */
 
 import XCTest
+import Basics
 import TSCBasic
 import TSCUtility
 import PackageModel
@@ -193,14 +194,14 @@ class PIFTests: XCTestCase {
         // sorted dictionary in order to get deterministic output
         // when encoding (SR-12587).
       #if false
-        let encoder = JSONEncoder()
+        let encoder = JSONEncoder.makeWithDefaults()
         if #available(macOS 10.13, *) {
             encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
         }
 
         let workspace = topLevelObject.workspace
         let encodedData = try encoder.encode(workspace)
-        let decodedWorkspace = try JSONDecoder().decode(PIF.Workspace.self, from: encodedData)
+        let decodedWorkspace = try JSONDecoder.makeWithDefaults().decode(PIF.Workspace.self, from: encodedData)
 
         let originalPIF = try encoder.encode(workspace)
         let decodedPIF = try encoder.encode(decodedWorkspace)
@@ -213,7 +214,7 @@ class PIFTests: XCTestCase {
     }
 
     func testEncodable() throws {
-        let encoder = JSONEncoder()
+        let encoder = JSONEncoder.makeWithDefaults()
         encoder.userInfo[.encodeForXCBuild] = true
         try PIF.sign(topLevelObject.workspace)
         let data = try encoder.encode(topLevelObject)

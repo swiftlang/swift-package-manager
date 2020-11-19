@@ -26,16 +26,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.configuration = configuration
         self.httpClient = httpClient ?? .init()
         self.defaultHttpClient = httpClient == nil
-        self.decoder = JSONDecoder()
-        #if os(Linux) || os(Windows)
-        self.decoder.dateDecodingStrategy = .iso8601
-        #else
-        if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
-            self.decoder.dateDecodingStrategy = .iso8601
-        } else {
-            self.decoder.dateDecodingStrategy = .customISO8601
-        }
-        #endif
+        self.decoder = JSONDecoder.makeWithDefaults()        
     }
 
     func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {

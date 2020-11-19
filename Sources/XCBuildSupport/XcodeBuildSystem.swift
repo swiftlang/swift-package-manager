@@ -137,10 +137,7 @@ public final class XcodeBuildSystem: BuildSystem {
             activeRunDestination: runDestination
         )
 
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        }
+        let encoder = JSONEncoder.makeWithDefaults()        
 
         let data = try encoder.encode(params)
         let file = try withTemporaryFile(deleteOnClose: false) { $0.path }

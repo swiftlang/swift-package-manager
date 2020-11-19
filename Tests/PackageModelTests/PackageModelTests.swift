@@ -9,9 +9,8 @@
 */
 
 import XCTest
-
+import Basics
 import TSCBasic
-
 import PackageModel
 
 class PackageModelTests: XCTestCase {
@@ -40,8 +39,8 @@ class PackageModelTests: XCTestCase {
         func checkCodable(_ type: ProductType) {
             do {
                 let foo = Foo(type: type)
-                let data = try JSONEncoder().encode(foo)
-                let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
+                let data = try JSONEncoder.makeWithDefaults().encode(foo)
+                let decodedFoo = try JSONDecoder.makeWithDefaults().decode(Foo.self, from: data)
                 XCTAssertEqual(foo, decodedFoo)
             } catch {
                 XCTFail("\(error)")
