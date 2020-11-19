@@ -47,8 +47,16 @@ public protocol WorkspaceDelegate: class {
     /// The workspace has started fetching this repository.
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
 
+    /// The workspace has started fetching this repository.
+    @available(*, deprecated)
+    func fetchingWillBegin(repository: String)
+
     /// The workspace has finished fetching this repository.
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?)
+
+    /// The workspace has finished fetching this repository.
+    @available(*, deprecated)
+    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
@@ -115,6 +123,20 @@ public extension WorkspaceDelegate {
     func resolvedFileChanged() {}
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {}
     func didDownloadBinaryArtifacts() {}
+
+    func fetchingWillBegin(repository: String) {}
+    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {}
+
+    @available(*, deprecated)
+    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
+        fetchingWillBegin(repository: repository)
+    }
+
+    @available(*, deprecated)
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
+        fetchingDidFinish(repository: repository, diagnostic: diagnostic)
+    }
+
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {

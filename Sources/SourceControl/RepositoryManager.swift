@@ -20,8 +20,16 @@ public protocol RepositoryManagerDelegate: class {
     /// Called when a repository is about to be fetched.
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?)
 
+    /// Called when a repository is about to be fetched.
+    @available(*, deprecated)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle)
+
     /// Called when a repository has finished fetching.
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?)
+
+    /// Called when a repository has finished fetching.
+    @available(*, deprecated)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?)
 
     /// Called when a repository has started updating from its remote.
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
@@ -31,8 +39,19 @@ public protocol RepositoryManagerDelegate: class {
 }
 
 public extension RepositoryManagerDelegate {
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {}
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {}
+
+    @available(*, deprecated)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
+        fetchingWillBegin(handle: handle)
+    }
+
+    @available(*, deprecated)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
+        fetchingDidFinish(handle: handle, error: error)
+    }
+
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {}
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
 }
