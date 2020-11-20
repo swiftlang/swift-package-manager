@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -758,13 +758,13 @@ private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
     stream <<< "(allow file-write*" <<< "\n"
     for directory in Platform.darwinCacheDirectories() {
         // For compiler module cache.
-        stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
+        stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
         // For archive tool.
-        stream <<< "    (regex #\"^\(directory.pathString)/ar.*\")" <<< "\n"
+        stream <<< ##"    (regex #"^\##(directory.pathString)/ar.*")"## <<< "\n"
         // For xcrun cache.
-        stream <<< "    (regex #\"^\(directory.pathString)/xcrun.*\")" <<< "\n"
+        stream <<< ##"    (regex #"^\##(directory.pathString)/xcrun.*")"## <<< "\n"
         // For autolink files.
-        stream <<< "    (regex #\"^\(directory.pathString)/.*\\.(swift|c)-[0-9a-f]+\\.autolink\")" <<< "\n"
+        stream <<< ##"    (regex #"^\##(directory.pathString)/.*\.(swift|c)-[0-9a-f]+\.autolink")"## <<< "\n"
     }
     for directory in allowedDirectories {
         stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
