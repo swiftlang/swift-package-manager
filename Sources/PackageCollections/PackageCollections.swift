@@ -15,7 +15,7 @@ import TSCBasic
 public struct PackageCollections: PackageCollectionsProtocol {
     private let configuration: Configuration
     private let storageContainer: (storage: Storage, owned: Bool)
-    private let collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider]
+    private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     private let metadataProvider: PackageMetadataProvider
 
     private var storage: Storage {
@@ -26,7 +26,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public init(configuration: Configuration = .init()) {
         let storage = Storage(sources: FilePackageCollectionsSourcesStorage(),
                               collections: SQLitePackageCollectionsStorage())
-        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: JSONPackageCollectionProvider()]
+        let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider()]
         let metadataProvider = GitHubPackageMetadataProvider()
 
         self.configuration = configuration
@@ -38,7 +38,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // internal initializer for testing
     init(configuration: Configuration = .init(),
          storage: Storage,
-         collectionProviders: [PackageCollectionsModel.CollectionSourceType: PackageCollectionProvider],
+         collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider) {
         self.configuration = configuration
         self.storageContainer = (storage, false)
@@ -65,7 +65,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success([]))
                 }
-                let collectionOrder = identifiers.enumerated().reduce([PackageCollectionsModel.CollectionIdentifier: Int]()) { partial, element in
+                let collectionOrder = identifiers.enumerated().reduce([Model.CollectionIdentifier: Int]()) { partial, element in
                     var dictionary = partial
                     dictionary[element.element] = element.offset
                     return dictionary
@@ -94,7 +94,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     return callback(.success([]))
                 }
                 let lock = Lock()
-                var refreshResults = [Result<PackageCollectionsModel.Collection, Error>]()
+                var refreshResults = [Result<Model.Collection, Error>]()
                 sources.forEach { source in
                     self.refreshCollectionFromSource(source: source) { refreshResult in
                         lock.withLock { refreshResults.append(refreshResult) }
@@ -181,7 +181,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .success(let sources):
                 let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
                 if identifiers.isEmpty {
-                    return callback(.success(PackageCollectionsModel.PackageSearchResult(items: [])))
+                    return callback(.success(Model.PackageSearchResult(items: [])))
                 }
                 self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
             }
@@ -202,7 +202,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 self.metadataProvider.get(reference) { result in
                     switch result {
                     case .failure(let error) where error is NotFoundError:
-                        let metadata = PackageCollectionsModel.PackageMetadata(
+                        let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections
                         )
@@ -211,7 +211,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                         callback(.failure(error))
                     case .success(let basicMetadata):
                         // finally merge the results
-                        let metadata = PackageCollectionsModel.PackageMetadata(
+                        let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
                             collections: packageSearchResult.collections
                         )
@@ -267,7 +267,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // This helps avoid network access in normal operations
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
                                              order _: Int? = nil,
-                                             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+                                             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         if let errors = source.validate() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -293,7 +293,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
-                let identifiers = sources.map { PackageCollectionsModel.CollectionIdentifier(from: $0) }
+                let identifiers = sources.map { Model.CollectionIdentifier(from: $0) }
                 if identifiers.isEmpty {
                     return callback(.failure(NotFoundError("\(identifier)")))
                 }
@@ -302,9 +302,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    private func targetListResultFromCollections(_ collections: [PackageCollectionsModel.Collection]) -> PackageCollectionsModel.TargetListResult {
-        var packageCollections = [PackageReference: (package: PackageCollectionsModel.Package, collections: Set<PackageCollectionsModel.CollectionIdentifier>)]()
-        var targetsPackages = [String: (target: PackageCollectionsModel.Target, packages: Set<PackageReference>)]()
+    private func targetListResultFromCollections(_ collections: [Model.Collection]) -> Model.TargetListResult {
+        var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+        var targetsPackages = [String: (target: Model.Target, packages: Set<PackageReference>)]()
 
         collections.forEach { collection in
             collection.packages.forEach { package in
@@ -327,21 +327,21 @@ public struct PackageCollections: PackageCollectionsProtocol {
         return targetsPackages.map { _, pair in
             let targetPackages = pair.packages
                 .compactMap { packageCollections[$0] }
-                .map { pair -> PackageCollectionsModel.TargetListResult.Package in
-                    let versions = pair.package.versions.map { PackageCollectionsModel.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
+                .map { pair -> Model.TargetListResult.Package in
+                    let versions = pair.package.versions.map { Model.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
                     return .init(repository: pair.package.repository,
                                  summary: pair.package.summary,
                                  versions: versions,
                                  collections: Array(pair.collections))
                 }
 
-            return PackageCollectionsModel.TargetListItem(target: pair.target, packages: targetPackages)
+            return Model.TargetListItem(target: pair.target, packages: targetPackages)
         }
     }
 
-    internal static func mergedPackageMetadata(package: PackageCollectionsModel.Package,
-                                               basicMetadata: PackageCollectionsModel.PackageBasicMetadata?) -> PackageCollectionsModel.Package {
-        var versions = package.versions.map { packageVersion -> PackageCollectionsModel.Package.Version in
+    internal static func mergedPackageMetadata(package: Model.Package,
+                                               basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
+        var versions = package.versions.map { packageVersion -> Model.Package.Version in
             .init(version: packageVersion.version,
                   packageName: packageVersion.packageName,
                   targets: packageVersion.targets,
@@ -371,9 +371,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
 }
 
 private struct UnknownProvider: Error {
-    let sourceType: PackageCollectionsModel.CollectionSourceType
+    let sourceType: Model.CollectionSourceType
 
-    init(_ sourceType: PackageCollectionsModel.CollectionSourceType) {
+    init(_ sourceType: Model.CollectionSourceType) {
         self.sourceType = sourceType
     }
 }
