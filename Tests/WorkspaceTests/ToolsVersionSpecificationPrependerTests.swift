@@ -14,15 +14,15 @@ import TSCBasic
 import PackageModel
 import Workspace
 
-// FIXME: Add tests to version-specific manifests.
-class ToolsVersionWriterTests: XCTestCase {
+// FIXME: Add tests for version-specific manifests.
+class ToolsVersionSpecificationPrependerTests: XCTestCase {
 
     func testNonVersionSpecificManifests() throws {
         // Empty file.
         var stream = BufferedOutputByteStream()
         stream <<< ""
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n")
         }
 
@@ -30,7 +30,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "\n"
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n\n")
         }
 
@@ -38,7 +38,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "let package = ... " <<< "\n"
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
         }
 
@@ -47,7 +47,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
@@ -56,7 +56,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersionCover(stream, version: ToolsVersion(version: "2.1.0")) { result in
+        prependToolsVersionSpecificationCover(stream, version: ToolsVersion(version: "2.1.0")) { result in
             XCTAssertEqual(result, "// swift-tools-version:2.1\n...")
         }
 
@@ -65,7 +65,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tool-version:3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n...")
         }
 
@@ -74,7 +74,7 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:-3.1.2\n"
         stream <<< "..."
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
@@ -83,14 +83,14 @@ class ToolsVersionWriterTests: XCTestCase {
         stream <<< "// swift-tools-version:-3.1.2;hello\n"
         stream <<< "..."
 
-        writeToolsVersionCover(stream) { result in
+        prependToolsVersionSpecificationCover(stream) { result in
             // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
         // Try to write a version with prerelease and build meta data.
         let toolsVersion = ToolsVersion(version: "4.1.2-alpha.beta+sha.1234")
-        writeToolsVersionCover(stream, version: toolsVersion) { result in
+        prependToolsVersionSpecificationCover(stream, version: toolsVersion) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
     }
@@ -101,7 +101,7 @@ class ToolsVersionWriterTests: XCTestCase {
         XCTAssertEqual(ToolsVersion(version: "6.0.129").zeroedPatch.description, "6.0.0")
     }
 
-    func writeToolsVersionCover(
+    func prependToolsVersionSpecificationCover(
         _ stream: BufferedOutputByteStream,
         version: ToolsVersion = ToolsVersion(version: "4.1.2"),
         _ result: (ByteString) -> Void

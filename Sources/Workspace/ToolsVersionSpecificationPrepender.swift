@@ -1,4 +1,4 @@
-// Workspace/ToolsVersionWriter.swift - Prepends/replaces Swift tools version specifications in manifest files.
+// Workspace/ToolsVersionSpecificationPrepender.swift - Prepends/replaces Swift tools version specifications in manifest files.
 //
 // This source file is part of the Swift.org open source project
 //
