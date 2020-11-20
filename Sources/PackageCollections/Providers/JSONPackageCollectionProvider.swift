@@ -21,11 +21,11 @@ private typealias JSONModel = JSONPackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let configuration: Configuration
-    private let diagnosticsEngine: DiagnosticsEngine
+    private let diagnosticsEngine: DiagnosticsEngine?
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine = .init()) {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)        
@@ -144,7 +144,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
 
             if !serializationOkay {
-                self.diagnosticsEngine.emit(warning: "Some collection information could not be deserialized likely due to invalid format, contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+                self.diagnosticsEngine?.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
             }
 
             return .success(.init(source: source,
@@ -165,7 +165,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         return options
     }
 
-    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine) -> HTTPClient {
+    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
         var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)

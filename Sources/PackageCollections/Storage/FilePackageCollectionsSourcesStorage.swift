@@ -20,13 +20,13 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
     let path: AbsolutePath
 
-    private let diagnosticsEngine: DiagnosticsEngine
+    private let diagnosticsEngine: DiagnosticsEngine?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.FilePackageCollectionsSourcesStorage")
 
-    init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil, diagnosticsEngine: DiagnosticsEngine = .init()) {
+    init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.fileSystem = fileSystem
 
         let name = "collections"

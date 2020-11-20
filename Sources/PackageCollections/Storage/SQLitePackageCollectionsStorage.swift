@@ -24,7 +24,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     let fileSystem: FileSystem
     let location: SQLite.Location
 
-    private let diagnosticsEngine: DiagnosticsEngine
+    private let diagnosticsEngine: DiagnosticsEngine?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -37,7 +37,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var cache = [Model.CollectionIdentifier: Model.Collection]()
     private let cacheLock = Lock()
 
-    init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine = .init()) {
+    init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
         case .path, .temporary:
@@ -50,7 +50,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine = .init()) {
+    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.init(location: .path(path), diagnosticsEngine: diagnosticsEngine)
     }
 
@@ -213,7 +213,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 }
 
                 if collections.count != blobs.count {
-                    self.diagnosticsEngine.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
+                    self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                 }
 
                 callback(.success(collections))

@@ -22,11 +22,11 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     public var name: String = "GitHub"
 
     private let httpClient: HTTPClient
-    private let diagnosticsEngine: DiagnosticsEngine
+    private let diagnosticsEngine: DiagnosticsEngine?
     private let decoder: JSONDecoder
     private let queue: DispatchQueue
 
-    init(httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine = .init()) {
+    init(httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.diagnosticsEngine = diagnosticsEngine
         self.decoder = JSONDecoder.makeWithDefaults()
@@ -140,7 +140,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         return options
     }
 
-    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine) -> HTTPClient {
+    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
         var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)
