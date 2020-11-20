@@ -330,7 +330,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 .map { pair -> PackageCollectionsModel.TargetListResult.Package in
                     let versions = pair.package.versions.map { PackageCollectionsModel.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
                     return .init(repository: pair.package.repository,
-                                 description: pair.package.description,
+                                 summary: pair.package.summary,
                                  versions: versions,
                                  collections: Array(pair.collections))
                 }
@@ -347,6 +347,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                   targets: packageVersion.targets,
                   products: packageVersion.products,
                   toolsVersion: packageVersion.toolsVersion,
+                  minimumPlatformVersions: packageVersion.minimumPlatformVersions,
                   verifiedPlatforms: packageVersion.verifiedPlatforms,
                   verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
                   license: packageVersion.license)
@@ -358,7 +359,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
         return .init(
             repository: package.repository,
-            description: basicMetadata?.description ?? package.description,
+            summary: basicMetadata?.summary ?? package.summary,
             keywords: basicMetadata?.keywords ?? package.keywords,
             versions: versions,
             latestVersion: latestVersion,

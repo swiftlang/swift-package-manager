@@ -233,7 +233,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     var map = partial
                     map[collection.identifier] = collection.packages.filter { package in
                         if package.repository.url.lowercased().contains(queryString) { return true }
-                        if let description = package.description, description.lowercased().contains(queryString) { return true }
+                        if let summary = package.summary, summary.lowercased().contains(queryString) { return true }
                         if let keywords = package.keywords, (keywords.map { $0.lowercased() }).contains(queryString) { return true }
                         return package.versions.contains(where: { version in
                             if version.packageName.lowercased().contains(queryString) { return true }
@@ -351,7 +351,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         .map { pair -> PackageCollectionsModel.TargetListItem.Package in
                             let versions = pair.package.versions.map { PackageCollectionsModel.TargetListItem.Package.Version(version: $0.version, packageName: $0.packageName) }
                             return PackageCollectionsModel.TargetListItem.Package(repository: pair.package.repository,
-                                                                                  description: pair.package.description,
+                                                                                  summary: pair.package.summary,
                                                                                   versions: versions,
                                                                                   collections: Array(pair.collections))
                         }
