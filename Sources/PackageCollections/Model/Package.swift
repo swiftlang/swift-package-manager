@@ -112,7 +112,7 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's Swift tools version
         public let toolsVersion: ToolsVersion
-        
+
         /// The package version's supported platforms
         public let minimumPlatformVersions: [SupportedPlatform]?
 

@@ -33,7 +33,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var state = State.idle
     private let stateLock = Lock()
 
-    private var cache = [PackageCollectionsModel.CollectionIdentifier: PackageCollectionsModel.Collection]()
+    private var cache = [Model.CollectionIdentifier: Model.Collection]()
     private let cacheLock = Lock()
 
     init(location: SQLite.Location? = nil) {
@@ -67,8 +67,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func put(collection: PackageCollectionsModel.Collection,
-             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    func put(collection: Model.Collection,
+             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         self.queue.async {
             do {
                 // write to db
@@ -94,7 +94,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func remove(identifier: PackageCollectionsModel.CollectionIdentifier,
+    func remove(identifier: Model.CollectionIdentifier,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
@@ -118,8 +118,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func get(identifier: PackageCollectionsModel.CollectionIdentifier,
-             callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    func get(identifier: Model.CollectionIdentifier,
+             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         // try read to cache
         if let collection = (self.cacheLock.withLock { self.cache[identifier] }) {
             return callback(.success(collection))
@@ -129,7 +129,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.queue.async {
             do {
                 let query = "SELECT value FROM PACKAGES_COLLECTIONS WHERE key == ? LIMIT 1;"
-                let collection = try self.executeStatement(query) { statement -> PackageCollectionsModel.Collection in
+                let collection = try self.executeStatement(query) { statement -> Model.Collection in
                     try statement.bind([.string(identifier.databaseKey())])
 
                     let row = try statement.step()
@@ -137,7 +137,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         throw NotFoundError("\(identifier)")
                     }
 
-                    let collection = try self.decoder.decode(PackageCollectionsModel.Collection.self, from: data)
+                    let collection = try self.decoder.decode(Model.Collection.self, from: data)
                     return collection
                 }
                 callback(.success(collection))
@@ -147,8 +147,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
-              callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+    func list(identifiers: [Model.CollectionIdentifier]? = nil,
+              callback: @escaping (Result<[Model.Collection], Error>) -> Void) {
         // try read to cache
         let cached = self.cacheLock.withLock {
             identifiers?.compactMap { identifier in
@@ -187,21 +187,21 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 // decoding is a performance bottleneck (10+s for 1000 collections)
                 // workaround is to decode in parallel if list is large enough to justify it
-                var collections: [PackageCollectionsModel.Collection]
+                var collections: [Model.Collection]
                 if blobs.count < 50 {
                     // TODO: consider some diagnostics / warning for invalid data
-                    collections = blobs.compactMap { data -> PackageCollectionsModel.Collection? in
-                        try? self.decoder.decode(PackageCollectionsModel.Collection.self, from: data)
+                    collections = blobs.compactMap { data -> Model.Collection? in
+                        try? self.decoder.decode(Model.Collection.self, from: data)
                     }
                 } else {
                     let lock = Lock()
                     let sync = DispatchGroup()
-                    collections = [PackageCollectionsModel.Collection]()
+                    collections = [Model.Collection]()
                     blobs.forEach { data in
                         sync.enter()
                         self.queue.async {
                             defer { sync.leave() }
-                            if let collection = try? self.decoder.decode(PackageCollectionsModel.Collection.self, from: data) {
+                            if let collection = try? self.decoder.decode(Model.Collection.self, from: data) {
                                 lock.withLock {
                                     collections.append(collection)
                                 }
@@ -219,9 +219,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // TODO: this is PoC for search, need a more performant version of this
-    func searchPackages(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
+    func searchPackages(identifiers: [Model.CollectionIdentifier]? = nil,
                         query: String,
-                        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
+                        callback: @escaping (Result<Model.PackageSearchResult, Error>) -> Void) {
         let queryString = query.lowercased()
 
         self.list(identifiers: identifiers) { result in
@@ -229,7 +229,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             case .failure(let error):
                 callback(.failure(error))
             case .success(let collections):
-                let collectionsPackages = collections.reduce([PackageCollectionsModel.CollectionIdentifier: [PackageCollectionsModel.Package]]()) { partial, collection in
+                let collectionsPackages = collections.reduce([Model.CollectionIdentifier: [Model.Package]]()) { partial, collection in
                     var map = partial
                     map[collection.identifier] = collection.packages.filter { package in
                         if package.repository.url.lowercased().contains(queryString) { return true }
@@ -246,7 +246,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 // compose result :p
 
-                var packageCollections = [PackageReference: (package: PackageCollectionsModel.Package, collections: Set<PackageCollectionsModel.CollectionIdentifier>)]()
+                var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
                 collectionsPackages.forEach { collectionIdentifier, packages in
                     packages.forEach { package in
                         // Avoid copy-on-write: remove entry from dictionary before mutating
@@ -256,7 +256,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                let result = PackageCollectionsModel.PackageSearchResult(items: packageCollections.map { entry in
+                let result = Model.PackageSearchResult(items: packageCollections.map { entry in
                     .init(package: entry.value.package, collections: Array(entry.value.collections))
                 })
 
@@ -267,8 +267,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // TODO: this is PoC for search, need a more performant version of this
     func findPackage(identifier: PackageIdentity,
-                     collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
+                     collectionIdentifiers: [Model.CollectionIdentifier]?,
+                     callback: @escaping (Result<Model.PackageSearchResult.Item, Error>) -> Void) {
         self.list(identifiers: collectionIdentifiers) { result in
             switch result {
             case .failure(let error):
@@ -291,10 +291,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // TODO: this is PoC for search, need a more performant version of this
-    func searchTargets(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
+    func searchTargets(identifiers: [Model.CollectionIdentifier]? = nil,
                        query: String,
-                       type: PackageCollectionsModel.TargetSearchType,
-                       callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void) {
+                       type: Model.TargetSearchType,
+                       callback: @escaping (Result<Model.TargetSearchResult, Error>) -> Void) {
         let query = query.lowercased()
 
         self.list(identifiers: identifiers) { result in
@@ -302,7 +302,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             case .failure(let error):
                 callback(.failure(error))
             case .success(let collections):
-                let collectionsPackages = collections.reduce([PackageCollectionsModel.CollectionIdentifier: [(target: PackageCollectionsModel.Target, package: PackageCollectionsModel.Package)]]()) { partial, collection in
+                let collectionsPackages = collections.reduce([Model.CollectionIdentifier: [(target: Model.Target, package: Model.Package)]]()) { partial, collection in
                     var map = partial
                     collection.packages.forEach { package in
                         package.versions.forEach { version in
@@ -328,8 +328,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 // compose result :p
 
-                var packageCollections = [PackageReference: (package: PackageCollectionsModel.Package, collections: Set<PackageCollectionsModel.CollectionIdentifier>)]()
-                var targetsPackages = [PackageCollectionsModel.Target: Set<PackageReference>]()
+                var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+                var targetsPackages = [Model.Target: Set<PackageReference>]()
 
                 collectionsPackages.forEach { collectionIdentifier, packagesAndTargets in
                     packagesAndTargets.forEach { item in
@@ -345,18 +345,18 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                let result = PackageCollectionsModel.TargetSearchResult(items: targetsPackages.map { target, packages in
+                let result = Model.TargetSearchResult(items: targetsPackages.map { target, packages in
                     let targetsPackages = packages
                         .compactMap { packageCollections[$0] }
-                        .map { pair -> PackageCollectionsModel.TargetListItem.Package in
-                            let versions = pair.package.versions.map { PackageCollectionsModel.TargetListItem.Package.Version(version: $0.version, packageName: $0.packageName) }
-                            return PackageCollectionsModel.TargetListItem.Package(repository: pair.package.repository,
-                                                                                  summary: pair.package.summary,
-                                                                                  versions: versions,
-                                                                                  collections: Array(pair.collections))
+                        .map { pair -> Model.TargetListItem.Package in
+                            let versions = pair.package.versions.map { Model.TargetListItem.Package.Version(version: $0.version, packageName: $0.packageName) }
+                            return Model.TargetListItem.Package(repository: pair.package.repository,
+                                                                summary: pair.package.summary,
+                                                                versions: versions,
+                                                                collections: Array(pair.collections))
                         }
 
-                    return PackageCollectionsModel.TargetListItem(target: target, packages: targetsPackages)
+                    return Model.TargetListItem(target: target, packages: targetsPackages)
                 })
 
                 callback(.success(result))
@@ -449,7 +449,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
 // MARK: - Utility
 
-private extension PackageCollectionsModel.Collection.Identifier {
+private extension Model.Collection.Identifier {
     func databaseKey() -> String {
         switch self {
         case .json(let url):

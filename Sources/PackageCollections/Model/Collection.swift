@@ -17,6 +17,9 @@ import TSCUtility
 
 public enum PackageCollectionsModel {}
 
+// make things less verbose internally
+internal typealias Model = PackageCollectionsModel
+
 extension PackageCollectionsModel {
     /// A `Collection` is a collection of packages.
     public struct Collection: Equatable, Codable {
@@ -46,7 +49,7 @@ extension PackageCollectionsModel {
 
         /// Who authored this collection
         public let createdBy: Author?
-        
+
         /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
