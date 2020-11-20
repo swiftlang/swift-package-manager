@@ -10,7 +10,7 @@
 
 import TSCBasic
 
-extension PackageCollectionsModel.CollectionSource {
+extension Model.CollectionSource {
     func validate() -> [ValidationError]? {
         var errors: [ValidationError]?
         let appendError = { (error: ValidationError) in

@@ -23,7 +23,7 @@ protocol PackageMetadataProvider {
     func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void)
 }
 
-extension PackageCollectionsModel {
+extension Model {
     struct PackageBasicMetadata: Equatable {
         let summary: String?
         let keywords: [String]?

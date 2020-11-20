@@ -20,13 +20,11 @@ import TSCBasic
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     let httpClient: HTTPClient
-    let defaultHttpClient: Bool
     let decoder: JSONDecoder
     let queue: DispatchQueue
 
     init(httpClient: HTTPClient? = nil) {
-        self.httpClient = httpClient ?? .init()
-        self.defaultHttpClient = httpClient == nil
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
         self.decoder = JSONDecoder()
         #if os(Linux) || os(Windows)
         self.decoder.dateDecodingStrategy = .iso8601
@@ -40,7 +38,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         self.queue = DispatchQueue(label: "org.swift.swiftpm.GitHubPackageMetadataProvider", attributes: .concurrent)
     }
 
-    func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
+    func get(_ reference: PackageReference, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
         guard reference.kind == .remote else {
             return callback(.failure(Errors.invalidReferenceType(reference)))
         }
@@ -143,17 +141,16 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         var options = HTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
-        if defaultHttpClient {
-            // TODO: make these defaults configurable?
-            options.timeout = httpClient.configuration.requestTimeout ?? .seconds(1)
-            options.retryStrategy = httpClient.configuration.retryStrategy ?? .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-            options.circuitBreakerStrategy = httpClient.configuration.circuitBreakerStrategy ?? .hostErrors(maxErrors: 5, age: .seconds(5))
-        } else {
-            options.timeout = httpClient.configuration.requestTimeout
-            options.retryStrategy = httpClient.configuration.retryStrategy
-            options.circuitBreakerStrategy = httpClient.configuration.circuitBreakerStrategy
-        }
         return options
+    }
+
+    private static func makeDefaultHTTPClient() -> HTTPClient {
+        var client = HTTPClient()
+        // TODO: make these defaults configurable?
+        client.configuration.requestTimeout = .seconds(1)
+        client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+        client.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: 50, age: .seconds(30))
+        return client
     }
 
     enum Errors: Error, Equatable {

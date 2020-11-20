@@ -16,18 +16,16 @@ import struct Foundation.URL
 import PackageModel
 import SourceControl
 
-fileprivate typealias JSONModel = JSONPackageCollectionModel.V1
+private typealias JSONModel = JSONPackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     let configuration: Configuration
     let httpClient: HTTPClient
-    let defaultHttpClient: Bool
     let decoder: JSONDecoder
 
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
         self.configuration = configuration
-        self.httpClient = httpClient ?? .init()
-        self.defaultHttpClient = httpClient == nil
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
         self.decoder = JSONDecoder()
         #if os(Linux) || os(Windows)
         self.decoder.dateDecodingStrategy = .iso8601
@@ -40,7 +38,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         #endif
     }
 
-    func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         guard case .json = source.type else {
             preconditionFailure("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")
         }
@@ -83,7 +81,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
         }
 
-        func makeCollection(_ response: HTTPClientResponse) -> Result<PackageCollectionsModel.Collection, Error> {
+        func makeCollection(_ response: HTTPClientResponse) -> Result<Model.Collection, Error> {
             let collection: JSONModel.Collection
             do {
                 // parse json
@@ -95,8 +93,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 return .failure(Errors.invalidJSON(error))
             }
 
-            let packages = collection.packages.map { package -> PackageCollectionsModel.Package in
-                let versions = package.versions.compactMap { version -> PackageCollectionsModel.Package.Version? in
+            let packages = collection.packages.map { package -> Model.Package in
+                let versions = package.versions.compactMap { version -> Model.Package.Version? in
                     // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
                     guard let parsedVersion = TSCUtility.Version(string: version.version) else {
                         return nil
@@ -104,12 +102,12 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     guard let toolsVersion = ToolsVersion(string: version.toolsVersion) else {
                         return nil
                     }
-                    let targets = version.targets.map { PackageCollectionsModel.Target(name: $0.name, moduleName: $0.moduleName) }
-                    let products = version.products.compactMap { PackageCollectionsModel.Product(from: $0, packageTargets: targets) }
+                    let targets = version.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                    let products = version.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
                     let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
                     let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
                     let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
-                    let license = version.license.flatMap { PackageCollectionsModel.License(from: $0) }
+                    let license = version.license.flatMap { Model.License(from: $0) }
                     return .init(version: parsedVersion,
                                  packageName: version.packageName,
                                  targets: targets,
@@ -135,7 +133,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                   keywords: collection.keywords,
                                   packages: packages,
                                   createdAt: collection.generatedAt,
-                                  createdBy: collection.generatedBy.flatMap { PackageCollectionsModel.Collection.Author(name: $0.name) },
+                                  createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
                                   lastProcessedAt: Date()))
         }
     }
@@ -144,17 +142,16 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         var options = HTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
-        if defaultHttpClient {
-            // TODO: make these defaults configurable?
-            options.timeout = httpClient.configuration.requestTimeout ?? .seconds(1)
-            options.retryStrategy = httpClient.configuration.retryStrategy ?? .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
-            options.circuitBreakerStrategy = httpClient.configuration.circuitBreakerStrategy ?? .hostErrors(maxErrors: 5, age: .seconds(5))
-        } else {
-            options.timeout = httpClient.configuration.requestTimeout
-            options.retryStrategy = httpClient.configuration.retryStrategy
-            options.circuitBreakerStrategy = httpClient.configuration.circuitBreakerStrategy
-        }
         return options
+    }
+
+    private static func makeDefaultHTTPClient() -> HTTPClient {
+        var client = HTTPClient()
+        // TODO: make these defaults configurable?
+        client.configuration.requestTimeout = .seconds(1)
+        client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+        client.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: 50, age: .seconds(30))
+        return client
     }
 
     public struct Configuration {
@@ -175,8 +172,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
 // MARK: - Extensions for mapping from JSON to PackageCollectionsModel
 
-extension PackageCollectionsModel.Product {
-    fileprivate init(from: JSONModel.Product, packageTargets: [PackageCollectionsModel.Target]) {
+extension Model.Product {
+    fileprivate init(from: JSONModel.Product, packageTargets: [Model.Target]) {
         let targets = packageTargets.filter { from.targets.map { $0.lowercased() }.contains($0.name.lowercased()) }
         self = .init(name: from.name, type: from.type, targets: targets)
     }
@@ -196,7 +193,7 @@ extension PackageModel.Platform {
     fileprivate init?(from: JSONModel.Platform) {
         self.init(name: from.name)
     }
-    
+
     fileprivate init?(name: String) {
         switch name.lowercased() {
         case let name where name.contains("macos"):
@@ -221,9 +218,9 @@ extension PackageModel.Platform {
     }
 }
 
-extension PackageCollectionsModel.License {
+extension Model.License {
     fileprivate init(from: JSONModel.License) {
-        let type = PackageCollectionsModel.LicenseType.allCases.first { $0.description.lowercased() == from.name.lowercased() } ?? .other(from.name)
+        let type = Model.LicenseType.allCases.first { $0.description.lowercased() == from.name.lowercased() } ?? .other(from.name)
         self.init(type: type, url: from.url)
     }
 }
