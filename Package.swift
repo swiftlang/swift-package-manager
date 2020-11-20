@@ -23,6 +23,8 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEP
     macOSPlatform = .macOS(.v10_10)
 }
 
+let enablePackageEditor = ProcessInfo.processInfo.environment["SPM_ENABLE_PACKAGE_EDITOR"] != nil
+
 let package = Package(
     name: "SwiftPM",
     platforms: [macOSPlatform],
@@ -174,7 +176,10 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"] + (enablePackageEditor ? ["SPMPackageEditor"] : []),
+            swiftSettings: enablePackageEditor ?
+                [.define("ENABLE_PACKAGE_EDITOR")] :
+                [.define("DISABLE_PACKAGE_EDITOR")]), // Unnecessary, but SPM errors if swiftSettings is empty.
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -316,17 +321,15 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     ]
 }
 
-// Because SwiftSyntax is closely tied to the compiler, only attempt to build
-// the package editor library if we're in a build-script environment and can
-// assume we're using a just-built compiler and SwiftSyntax library.
-if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
+// Because SwiftSyntax is closely tied to the compiler, only build it it if 'SPM_ENABLE_PACKAGE_EDITOR'
+// is set. Package editor support can only be built alongside a matching SwiftSyntax
+// and compiler toolchain, so only a path-based dependency is supported.
+if enablePackageEditor {
     package.dependencies += [.package(path: "../swift-syntax")]
     package.targets += [
       .target(name: "SPMPackageEditor",
               dependencies: ["Workspace", "PackageModel", "PackageLoading",
                              "SourceControl", "SwiftSyntax", "SwiftToolsSupport-auto"]),
       .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport"]),
-      .target(name: "swiftpm-manifest-tool",
-              dependencies: ["SPMPackageEditor", "ArgumentParser"])
   ]
 }

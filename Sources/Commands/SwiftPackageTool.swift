@@ -23,41 +23,80 @@ import XCBuildSupport
 import Workspace
 import Foundation
 
+#if ENABLE_PACKAGE_EDITOR
+import SPMPackageEditor
+#endif
+
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
+
+    #if ENABLE_PACKAGE_EDITOR
+    private static let subcommands: [ParsableCommand.Type] = [
+        Clean.self,
+        Reset.self,
+        Update.self,
+        Describe.self,
+        Init.self,
+        Format.self,
+
+        APIDiff.self,
+        DumpSymbolGraph.self,
+        DumpPIF.self,
+        DumpPackage.self,
+
+        Edit.self,
+        Unedit.self,
+
+        Config.self,
+        Resolve.self,
+        Fetch.self,
+
+        ShowDependencies.self,
+        ToolsVersionCommand.self,
+        GenerateXcodeProject.self,
+        ComputeChecksum.self,
+        CompletionTool.self,
+
+        AddDependency.self,
+        AddTarget.self,
+    ]
+    #else
+    private static let subcommands: [ParsableCommand.Type] = [
+        Clean.self,
+        PurgeCache.self,
+        Reset.self,
+        Update.self,
+        Describe.self,
+        Init.self,
+        Format.self,
+
+        APIDiff.self,
+        DumpSymbolGraph.self,
+        DumpPIF.self,
+        DumpPackage.self,
+
+        Edit.self,
+        Unedit.self,
+
+        Config.self,
+        Resolve.self,
+        Fetch.self,
+
+        ShowDependencies.self,
+        ToolsVersionCommand.self,
+        GenerateXcodeProject.self,
+        ComputeChecksum.self,
+        CompletionTool.self,
+    ]
+    #endif
+
     public static var configuration = CommandConfiguration(
         commandName: "package",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
         version: Versioning.currentVersion.completeDisplayString,
-        subcommands: [
-            Clean.self,
-            PurgeCache.self,
-            Reset.self,
-            Update.self,
-            Describe.self,
-            Init.self,
-            Format.self,
-            
-            APIDiff.self,
-            DumpSymbolGraph.self,
-            DumpPIF.self,
-            DumpPackage.self,
-            
-            Edit.self,
-            Unedit.self,
-            
-            Config.self,
-            Resolve.self,
-            Fetch.self,
-            
-            ShowDependencies.self,
-            ToolsVersionCommand.self,
-            GenerateXcodeProject.self,
-            ComputeChecksum.self,
-            CompletionTool.self,
-        ],
+        subcommands: subcommands,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -644,6 +683,68 @@ extension SwiftPackageTool {
         }
     }
 }
+
+#if ENABLE_PACKAGE_EDITOR
+extension SwiftPackageTool {
+    struct AddDependency: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Add a dependency to the current package.")
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Argument
+        var dependencyURL: String
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let packageRoot = try swiftTool.getPackageRoot()
+            let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
+                                           buildDir: swiftTool.buildPath,
+                                           toolchain: swiftTool.getToolchain())
+            try editor.addPackageDependency(url: dependencyURL, requirement: nil)
+        }
+    }
+
+    struct AddTarget: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Add a target to the current package.")
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Argument
+        var targetName: String
+
+        @Option
+        var targetType: TargetType?
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let packageRoot = try swiftTool.getPackageRoot()
+            let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
+                                           buildDir: swiftTool.buildPath,
+                                           toolchain: swiftTool.getToolchain())
+            try editor.addTarget(name: targetName, type: targetType)
+        }
+    }
+}
+
+extension SPMPackageEditor.TargetType: ExpressibleByArgument {
+    public init?(argument: String) {
+        switch argument {
+        case "regular":
+            self = .regular
+        case "test":
+            self = .test
+        default:
+            return nil
+        }
+    }
+
+    public static var defaultCompletionKind: CompletionKind {
+        .list(["regular", "test"])
+    }
+}
+#endif
 
 extension SwiftPackageTool {
     struct Config: ParsableCommand {
