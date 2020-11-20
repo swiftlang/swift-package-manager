@@ -23,7 +23,7 @@ extension PackageCollectionsModel {
         public let repository: RepositorySpecifier
 
         /// Package description
-        public let description: String?
+        public let summary: String?
 
         /// Keywords for the package
         public let keywords: [String]?
@@ -69,7 +69,7 @@ extension PackageCollectionsModel {
         /// Initializes a `PackageMetadata`
         init(
             repository: RepositorySpecifier,
-            description: String?,
+            summary: String?,
             keywords: [String]?,
             versions: [Version],
             latestVersion: Version?,
@@ -79,7 +79,7 @@ extension PackageCollectionsModel {
         ) {
             self.reference = .init(repository: repository)
             self.repository = repository
-            self.description = description
+            self.summary = summary
             self.keywords = keywords
             self.versions = versions
             self.latestVersion = latestVersion
@@ -90,7 +90,6 @@ extension PackageCollectionsModel {
     }
 }
 
-// FIXME: add minimumPlatformVersions
 extension PackageCollectionsModel.Package {
     /// A representation of package version
     public struct Version: Codable, Equatable {
@@ -113,6 +112,9 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's Swift tools version
         public let toolsVersion: ToolsVersion
+        
+        /// The package version's supported platforms
+        public let minimumPlatformVersions: [SupportedPlatform]?
 
         /// The package version's supported platforms verified to work
         public let verifiedPlatforms: [PackageModel.Platform]?

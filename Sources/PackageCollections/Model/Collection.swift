@@ -18,7 +18,7 @@ import TSCUtility
 public enum PackageCollectionsModel {}
 
 extension PackageCollectionsModel {
-    /// A `PackageCollection` is a collection of packages.
+    /// A `Collection` is a collection of packages.
     public struct Collection: Equatable, Codable {
         public typealias Identifier = CollectionIdentifier
         public typealias Source = CollectionSource
@@ -33,7 +33,7 @@ extension PackageCollectionsModel {
         public let name: String
 
         /// The description of the collection
-        public let description: String?
+        public let overview: String?
 
         /// Keywords for the collection
         public let keywords: [String]?
@@ -44,33 +44,38 @@ extension PackageCollectionsModel {
         /// When this collection was created/published by the source
         public let createdAt: Date
 
+        /// Who authored this collection
+        public let createdBy: Author?
+        
         /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
-        /// Initializes a `PackageCollection`
+        /// Initializes a `Collection`
         init(
             source: Source,
             name: String,
-            description: String?,
+            overview: String?,
             keywords: [String]?,
             packages: [Package],
             createdAt: Date,
+            createdBy: Author?,
             lastProcessedAt: Date = Date()
         ) {
             self.identifier = .init(from: source)
             self.source = source
             self.name = name
-            self.description = description
+            self.overview = overview
             self.keywords = keywords
             self.packages = packages
             self.createdAt = createdAt
+            self.createdBy = createdBy
             self.lastProcessedAt = lastProcessedAt
         }
     }
 }
 
 extension PackageCollectionsModel {
-    /// Represents the source of a `PackageCollection`
+    /// Represents the source of a `Collection`
     public struct CollectionSource: Equatable, Hashable, Codable {
         /// Source type
         public let type: CollectionSourceType
@@ -84,14 +89,14 @@ extension PackageCollectionsModel {
         }
     }
 
-    /// Represents the source type of a `PackageCollection`
+    /// Represents the source type of a `Collection`
     public enum CollectionSourceType: String, Codable, CaseIterable {
         case json
     }
 }
 
 extension PackageCollectionsModel {
-    /// Represents the identifier of a `PackageCollection`
+    /// Represents the identifier of a `Collection`
     public enum CollectionIdentifier: Hashable, Comparable {
         /// JSON based package collection at URL
         case json(URL)
@@ -139,5 +144,13 @@ extension PackageCollectionsModel.CollectionIdentifier: Codable {
             try container.encode(DiscriminatorKeys.json, forKey: ._case)
             try container.encode(url, forKey: .url)
         }
+    }
+}
+
+extension PackageCollectionsModel.Collection {
+    /// Represents the author of a `Collection`
+    public struct Author: Equatable, Codable {
+        /// The name of the author
+        public let name: String
     }
 }

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -372,12 +372,13 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   targets: mockTargets,
                                                                   products: mockProducts,
                                                                   toolsVersion: .currentToolsVersion,
+                                                                  minimumPlatformVersions: nil,
                                                                   verifiedPlatforms: nil,
                                                                   verifiedSwiftVersions: nil,
                                                                   license: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: .init(url: "https://packages.mock/\(UUID().uuidString)"),
-                                                          description: UUID().uuidString,
+                                                          summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
                                                           latestVersion: mockVersion,
@@ -387,17 +388,19 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                 name: UUID().uuidString,
-                                                                description: UUID().uuidString,
+                                                                overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
                                                                 packages: [mockPackage],
-                                                                createdAt: Date())
+                                                                createdAt: Date(),
+                                                                createdBy: nil)
 
         let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
-                                                                 description: UUID().uuidString,
+                                                                 overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
                                                                  packages: [mockPackage],
-                                                                 createdAt: Date())
+                                                                 createdAt: Date(),
+                                                                 createdBy: nil)
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -420,8 +423,8 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         do {
-            // search by package description
-            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockPackage.description!, callback: callback) }
+            // search by package description/summary
+            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockPackage.summary!, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
             XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "list count should match")
         }
@@ -520,13 +523,14 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   targets: mockTargets,
                                                                   products: mockProducts,
                                                                   toolsVersion: .currentToolsVersion,
+                                                                  minimumPlatformVersions: nil,
                                                                   verifiedPlatforms: nil,
                                                                   verifiedSwiftVersions: nil,
                                                                   license: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://packages.mock/\(UUID().uuidString)"),
-                                                          description: UUID().uuidString,
-                                                          keywords: nil,
+                                                          summary: UUID().uuidString,
+                                                          keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
                                                           latestVersion: mockVersion,
                                                           watchersCount: nil,
@@ -535,17 +539,19 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                 name: UUID().uuidString,
-                                                                description: UUID().uuidString,
+                                                                overview: UUID().uuidString,
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
                                                                 packages: [mockPackage],
-                                                                createdAt: Date())
+                                                                createdAt: Date(),
+                                                                createdBy: nil)
 
         let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
-                                                                 description: UUID().uuidString,
+                                                                 overview: UUID().uuidString,
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
                                                                  packages: [mockPackage],
-                                                                 createdAt: Date())
+                                                                 createdAt: Date(),
+                                                                 createdBy: nil)
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -650,7 +656,7 @@ final class PackageCollectionsTests: XCTestCase {
                 if self.brokenSources.contains(source) {
                     callback(.failure(self.error))
                 } else {
-                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", description: nil, keywords: nil, packages: [], createdAt: Date())))
+                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil)))
                 }
             }
         }
@@ -820,13 +826,14 @@ final class PackageCollectionsTests: XCTestCase {
                                                     targets: targets,
                                                     products: products,
                                                     toolsVersion: .currentToolsVersion,
+                                                    minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))],
                                                     verifiedPlatforms: [.iOS, .linux],
                                                     verifiedSwiftVersions: SwiftLanguageVersion.knownSwiftLanguageVersions,
                                                     license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!))
         }
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageId)"),
-                                                          description: "package \(packageId) description",
+                                                          summary: "package \(packageId) description",
                                                           keywords: [UUID().uuidString],
                                                           versions: versions,
                                                           latestVersion: versions.first,
@@ -834,7 +841,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                           readmeURL: URL(string: "https://package-\(packageId)-readme")!,
                                                           authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) })
 
-        let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(description: "\(mockPackage.description!) 2",
+        let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
                                                                         versions: mockPackage.versions.map { TSCUtility.Version($0.version.major, 1, 0) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
@@ -846,7 +853,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         XCTAssertEqual(metadata.reference, mockPackage.reference, "reference should match")
         XCTAssertEqual(metadata.repository, mockPackage.repository, "repository should match")
-        XCTAssertEqual(metadata.description, mockMetadata.description, "description should match")
+        XCTAssertEqual(metadata.summary, mockMetadata.summary, "summary should match")
         XCTAssertEqual(metadata.keywords, mockMetadata.keywords, "keywords should match")
         mockPackage.versions.forEach { version in
             let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
@@ -856,6 +863,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(version.targets, metadataVersion?.targets, "targets should match")
             XCTAssertEqual(version.products, metadataVersion?.products, "products should match")
             XCTAssertEqual(version.toolsVersion, metadataVersion?.toolsVersion, "toolsVersion should match")
+            XCTAssertEqual(version.minimumPlatformVersions, metadataVersion?.minimumPlatformVersions, "minimumPlatformVersions should match")
             XCTAssertEqual(version.verifiedPlatforms, metadataVersion?.verifiedPlatforms, "verifiedPlatforms should match")
             XCTAssertEqual(version.verifiedSwiftVersions, metadataVersion?.verifiedSwiftVersions, "verifiedSwiftVersions should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")

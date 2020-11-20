@@ -36,7 +36,7 @@ extension PackageCollectionsModel.TargetListResult {
         public let repository: RepositorySpecifier
 
         /// Package description
-        public let description: String?
+        public let summary: String?
 
         /// Package versions that contain the target
         public let versions: [Version]

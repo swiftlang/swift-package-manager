@@ -76,7 +76,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
             let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
 
-            XCTAssertEqual(metadata.description, "This your first repo!")
+            XCTAssertEqual(metadata.summary, "This your first repo!")
             XCTAssertEqual(metadata.versions, [TSCUtility.Version("0.1.0")])
             XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
                                                                                      url: URL(string: "https://api.github.com/users/octocat")!,
@@ -130,7 +130,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
             let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
 
-            XCTAssertEqual(metadata.description, "This your first repo!")
+            XCTAssertEqual(metadata.summary, "This your first repo!")
             XCTAssertEqual(metadata.versions, [])
             XCTAssertNil(metadata.authors)
             XCTAssertNil(metadata.readmeURL)

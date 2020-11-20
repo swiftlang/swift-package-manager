@@ -7,8 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageCollections
-  Model/CVE.swift
+  JSONModel/JSONCollection.swift
+  JSONModel/JSONCollection+v1.swift
   Model/Collection.swift
+  Model/CVE.swift
   Model/License.swift
   Model/Package.swift
   Model/Search.swift

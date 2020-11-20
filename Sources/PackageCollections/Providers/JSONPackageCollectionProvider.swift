@@ -16,6 +16,8 @@ import struct Foundation.URL
 import PackageModel
 import SourceControl
 
+fileprivate typealias JSONModel = JSONPackageCollectionModel.V1
+
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     let configuration: Configuration
     let httpClient: HTTPClient
@@ -82,10 +84,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         func makeCollection(_ response: HTTPClientResponse) -> Result<PackageCollectionsModel.Collection, Error> {
-            let collection: CollectionV1
+            let collection: JSONModel.Collection
             do {
                 // parse json
-                guard let decoded = try response.decodeBody(CollectionV1.self, using: self.decoder) else {
+                guard let decoded = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
                     throw Errors.invalidResponse("Invalid body")
                 }
                 collection = decoded
@@ -104,6 +106,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     }
                     let targets = version.targets.map { PackageCollectionsModel.Target(name: $0.name, moduleName: $0.moduleName) }
                     let products = version.products.compactMap { PackageCollectionsModel.Product(from: $0, packageTargets: targets) }
+                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
                     let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
                     let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
                     let license = version.license.flatMap { PackageCollectionsModel.License(from: $0) }
@@ -112,25 +115,27 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  targets: targets,
                                  products: products,
                                  toolsVersion: toolsVersion,
+                                 minimumPlatformVersions: minimumPlatformVersions,
                                  verifiedPlatforms: verifiedPlatforms,
                                  verifiedSwiftVersions: verifiedSwiftVersions,
                                  license: license)
                 }
-                return .init(repository: RepositorySpecifier(url: package.url),
-                             description: package.description,
+                return .init(repository: RepositorySpecifier(url: package.url.absoluteString),
+                             summary: package.summary,
                              keywords: package.keywords,
                              versions: versions,
                              latestVersion: versions.first,
                              watchersCount: nil,
-                             readmeURL: package.readmeURL.flatMap { Foundation.URL(string: $0) },
+                             readmeURL: package.readmeURL,
                              authors: nil)
             }
             return .success(.init(source: source,
                                   name: collection.name,
-                                  description: collection.description,
+                                  overview: collection.overview,
                                   keywords: collection.keywords,
                                   packages: packages,
                                   createdAt: collection.generatedAt,
+                                  createdBy: collection.generatedBy.flatMap { PackageCollectionsModel.Collection.Author(name: $0.name) },
                                   lastProcessedAt: Date()))
         }
     }
@@ -168,79 +173,32 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 }
 
-// MARK: - JSON Models
-
-extension JSONPackageCollectionProvider {
-    fileprivate struct CollectionV1: Decodable {
-        let name: String
-        let description: String?
-        let keywords: [String]?
-        let formatVersion: String
-        let revision: Int?
-        let packages: [Package]
-        let generatedAt: Date
-        let generatedBy: Author?
-    }
-}
-
-extension JSONPackageCollectionProvider.CollectionV1 {
-    fileprivate struct Package: Decodable {
-        let url: String
-        let description: String?
-        let keywords: [String]?
-        let versions: [Version]
-        let readmeURL: String?
-    }
-
-    fileprivate struct Version: Decodable {
-        let version: String
-        let packageName: String
-        let toolsVersion: String
-        let targets: [Target]
-        let products: [Product]
-        let minimumPlatformVersions: [PlatformVersion]?
-        let verifiedPlatforms: [Platform]?
-        let verifiedSwiftVersions: [String]?
-        let license: License?
-    }
-
-    fileprivate struct Target: Decodable {
-        let name: String
-        let moduleName: String?
-    }
-
-    fileprivate struct Product: Decodable {
-        let name: String
-        let type: ProductType
-        let targets: [String]
-    }
-
-    fileprivate struct Platform: Decodable {
-        let name: String
-    }
-
-    fileprivate struct License: Decodable {
-        let name: String
-        let url: String
-    }
-
-    fileprivate struct Author: Decodable {
-        let name: String
-    }
-}
-
 // MARK: - Extensions for mapping from JSON to PackageCollectionsModel
 
 extension PackageCollectionsModel.Product {
-    fileprivate init?(from: JSONPackageCollectionProvider.CollectionV1.Product, packageTargets: [PackageCollectionsModel.Target]) {
+    fileprivate init(from: JSONModel.Product, packageTargets: [PackageCollectionsModel.Target]) {
         let targets = packageTargets.filter { from.targets.map { $0.lowercased() }.contains($0.name.lowercased()) }
         self = .init(name: from.name, type: from.type, targets: targets)
     }
 }
 
+extension PackageModel.SupportedPlatform {
+    fileprivate init?(from: JSONModel.PlatformVersion) {
+        guard let platform = Platform(name: from.name) else {
+            return nil
+        }
+        let version = PlatformVersion(from.version)
+        self.init(platform: platform, version: version)
+    }
+}
+
 extension PackageModel.Platform {
-    fileprivate init?(from: JSONPackageCollectionProvider.CollectionV1.Platform) {
-        switch from.name.lowercased() {
+    fileprivate init?(from: JSONModel.Platform) {
+        self.init(name: from.name)
+    }
+    
+    fileprivate init?(name: String) {
+        switch name.lowercased() {
         case let name where name.contains("macos"):
             self = PackageModel.Platform.macOS
         case let name where name.contains("ios"):
@@ -264,11 +222,8 @@ extension PackageModel.Platform {
 }
 
 extension PackageCollectionsModel.License {
-    fileprivate init?(from: JSONPackageCollectionProvider.CollectionV1.License) {
+    fileprivate init(from: JSONModel.License) {
         let type = PackageCollectionsModel.LicenseType.allCases.first { $0.description.lowercased() == from.name.lowercased() } ?? .other(from.name)
-        guard let url = Foundation.URL(string: from.url) else {
-            return nil
-        }
-        self.init(type: type, url: url)
+        self.init(type: type, url: from.url)
     }
 }
