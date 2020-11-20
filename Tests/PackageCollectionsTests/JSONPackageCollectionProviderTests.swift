@@ -49,12 +49,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
-            XCTAssertEqual(collection.description, "This is a sample package collection listing made-up packages.")
+            XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
             XCTAssertEqual(collection.keywords, ["sample package collection"])
+            XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
-            XCTAssertEqual(package.description, "Package One")
+            XCTAssertEqual(package.summary, "Package One")
+            XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
@@ -62,6 +64,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.targets, [.init(name: "Foo", moduleName: "Foo")])
             XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
             XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
+            XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
             XCTAssertEqual(version.verifiedSwiftVersions, [SwiftLanguageVersion(string: "5.1")!])
             XCTAssertEqual(version.verifiedPlatforms, [.macOS, .iOS, .linux])
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
@@ -96,12 +99,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
             XCTAssertEqual(collection.name, "Sample Package Collection")
-            XCTAssertEqual(collection.description, "This is a sample package collection listing made-up packages.")
+            XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
             XCTAssertEqual(collection.keywords, ["sample package collection"])
+            XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
-            XCTAssertEqual(package.description, "Package One")
+            XCTAssertEqual(package.summary, "Package One")
+            XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
@@ -109,6 +114,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.targets, [.init(name: "Foo", moduleName: "Foo")])
             XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
             XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
+            XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
             XCTAssertEqual(version.verifiedSwiftVersions, [SwiftLanguageVersion(string: "5.1")!])
             XCTAssertEqual(version.verifiedPlatforms, [.macOS, .iOS, .linux])
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))

@@ -35,7 +35,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    func list(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
+    func list(callback: @escaping (Result<[Model.CollectionSource], Error>) -> Void) {
         self.queue.async {
             do {
                 let sources = try self.withLock {
@@ -48,7 +48,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func add(source: PackageCollectionsModel.CollectionSource,
+    func add(source: Model.CollectionSource,
              order: Int?,
              callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
@@ -67,7 +67,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func remove(source: PackageCollectionsModel.CollectionSource,
+    func remove(source: Model.CollectionSource,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
@@ -83,7 +83,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func move(source: PackageCollectionsModel.CollectionSource,
+    func move(source: Model.CollectionSource,
               to order: Int,
               callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
@@ -102,7 +102,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    func exists(source: PackageCollectionsModel.CollectionSource,
+    func exists(source: Model.CollectionSource,
                 callback: @escaping (Result<Bool, Error>) -> Void) {
         self.queue.async {
             do {
@@ -116,7 +116,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
-    private func loadFromDisk() throws -> [PackageCollectionsModel.CollectionSource] {
+    private func loadFromDisk() throws -> [Model.CollectionSource] {
         guard self.fileSystem.exists(self.path) else {
             return .init()
         }
@@ -124,15 +124,15 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         guard buffer.count > 0 else {
             return .init()
         }
-        let container = try decoder.decode(Model.Container.self, from: Data(buffer))
+        let container = try decoder.decode(StorageModel.Container.self, from: Data(buffer))
         return try container.sources()
     }
 
-    private func saveToDisk(_ sources: [PackageCollectionsModel.CollectionSource]) throws {
+    private func saveToDisk(_ sources: [Model.CollectionSource]) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
         }
-        let container = Model.Container(sources)
+        let container = StorageModel.Container(sources)
         let buffer = try encoder.encode(container)
         try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer))
     }
@@ -147,7 +147,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
 
 // MARK: - FilePackageCollectionsSourcesStorage Serialization
 
-private enum Model {
+private enum StorageModel {
     struct Container: Codable {
         var data: [Source]
 
@@ -155,12 +155,12 @@ private enum Model {
             self.data = .init()
         }
 
-        init(_ from: [PackageCollectionsModel.CollectionSource]) {
+        init(_ from: [Model.CollectionSource]) {
             self.data = from.map { $0.source() }
         }
 
-        func sources() throws -> [PackageCollectionsModel.CollectionSource] {
-            return try self.data.map { try PackageCollectionsModel.CollectionSource($0) }
+        func sources() throws -> [Model.CollectionSource] {
+            return try self.data.map { try Model.CollectionSource($0) }
         }
     }
 
@@ -176,24 +176,24 @@ private enum Model {
 
 // MARK: - Utility
 
-private extension PackageCollectionsModel.CollectionSource {
-    init(_ from: Model.Source) throws {
+private extension Model.CollectionSource {
+    init(_ from: StorageModel.Source) throws {
         guard let url = URL(string: from.value) else {
             throw SerializationError.invalidURL(from.value)
         }
         self.url = url
         switch from.type {
-        case Model.SourceType.json.rawValue:
+        case StorageModel.SourceType.json.rawValue:
             self.type = .json
         default:
             throw SerializationError.unknownType(from.type)
         }
     }
 
-    func source() -> Model.Source {
+    func source() -> StorageModel.Source {
         switch self.type {
         case .json:
-            return .init(type: Model.SourceType.json.rawValue, value: self.url.absoluteString)
+            return .init(type: StorageModel.SourceType.json.rawValue, value: self.url.absoluteString)
         }
     }
 }
