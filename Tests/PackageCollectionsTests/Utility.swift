@@ -28,7 +28,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
     let supportedPlatforms: [PackageModel.SupportedPlatform] = [
         .init(platform: .macOS, version: .init("10.15")),
         .init(platform: .iOS, version: .init("13")),
-        .init(platform: .watchOS, version: "6")
+        .init(platform: .watchOS, version: "6"),
     ]
 
     return (0 ..< count).map { collectionIndex in
@@ -113,6 +113,8 @@ struct MockCollectionsProvider: PackageCollectionProvider {
 }
 
 struct MockMetadataProvider: PackageMetadataProvider {
+    var name: String = "MockMetadataProvider"
+
     let packages: [PackageReference: PackageCollectionsModel.PackageBasicMetadata]
 
     init(_ packages: [PackageReference: PackageCollectionsModel.PackageBasicMetadata]) {

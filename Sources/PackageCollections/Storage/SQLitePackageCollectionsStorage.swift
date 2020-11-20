@@ -24,6 +24,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     let fileSystem: FileSystem
     let location: SQLite.Location
 
+    private let diagnosticsEngine: DiagnosticsEngine
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -36,7 +37,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var cache = [Model.CollectionIdentifier: Model.Collection]()
     private let cacheLock = Lock()
 
-    init(location: SQLite.Location? = nil) {
+    init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine = .init()) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
         case .path, .temporary:
@@ -44,12 +45,13 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         case .memory:
             self.fileSystem = InMemoryFileSystem()
         }
+        self.diagnosticsEngine = diagnosticsEngine
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    convenience init(path: AbsolutePath) {
-        self.init(location: .path(path))
+    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine = .init()) {
+        self.init(location: .path(path), diagnosticsEngine: diagnosticsEngine)
     }
 
     deinit {
@@ -189,7 +191,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 // workaround is to decode in parallel if list is large enough to justify it
                 var collections: [Model.Collection]
                 if blobs.count < 50 {
-                    // TODO: consider some diagnostics / warning for invalid data
                     collections = blobs.compactMap { data -> Model.Collection? in
                         try? self.decoder.decode(Model.Collection.self, from: data)
                     }
@@ -209,6 +210,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
                     }
                     sync.wait()
+                }
+
+                if collections.count != blobs.count {
+                    self.diagnosticsEngine.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                 }
 
                 callback(.success(collections))
