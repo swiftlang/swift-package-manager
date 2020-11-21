@@ -696,12 +696,51 @@ extension SwiftPackageTool {
         @Argument
         var dependencyURL: String
 
+        @Option
+        var exact: Version?
+
+        @Option
+        var revision: String?
+
+        @Option
+        var branch: String?
+
+        @Option
+        var from: Version?
+
+        @Option
+        var upToNextMinorFrom: Version?
+
         func run(_ swiftTool: SwiftTool) throws {
+            var requirements: [PackageDependencyRequirement] = []
+            if let exactVersion = exact {
+                requirements.append(.exact(exactVersion.description))
+            }
+            if let revision = revision {
+                requirements.append(.revision(revision))
+            }
+            if let branch = branch {
+                requirements.append(.branch(branch))
+            }
+            if let version = from {
+                requirements.append(.upToNextMajor(version.description))
+            }
+            if let version = upToNextMinorFrom {
+                requirements.append(.upToNextMinor(version.description))
+            }
+
+            guard requirements.count <= 1 else {
+                swiftTool.diagnostics.emit(.error("only one requirement is allowed when specifiying a dependency"))
+                throw ExitCode.failure
+            }
+
+            let requirement = requirements.first
+
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
-            try editor.addPackageDependency(url: dependencyURL, requirement: nil)
+            try editor.addPackageDependency(url: dependencyURL, requirement: requirement)
         }
     }
 
@@ -725,6 +764,12 @@ extension SwiftPackageTool {
                                            toolchain: swiftTool.getToolchain())
             try editor.addTarget(name: targetName, type: targetType)
         }
+    }
+}
+
+extension Version: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(string: argument)
     }
 }
 

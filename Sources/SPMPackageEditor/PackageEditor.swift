@@ -50,6 +50,11 @@ public final class PackageEditor {
         let manifestPath = context.manifestPath
         // Validate that the package doesn't already contain this dependency.
         let loadedManifest = try context.loadManifest(at: context.manifestPath.parentDirectory)
+
+        guard loadedManifest.toolsVersion >= .v5_2 else {
+            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
+        }
+
         let containsDependency = loadedManifest.dependencies.contains {
             return PackageIdentity(url: url) == PackageIdentity(url: $0.url)
         }
@@ -120,6 +125,11 @@ public final class PackageEditor {
 
         // Validate that the package doesn't already contain a target with the same name.
         let loadedManifest = try context.loadManifest(at: manifestPath.parentDirectory)
+
+        guard loadedManifest.toolsVersion >= .v5_2 else {
+            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
+        }
+
         if loadedManifest.targets.contains(where: { $0.name == targetName }) {
             throw StringError("a target named '\(targetName)' already exists")
         }
@@ -253,10 +263,6 @@ public final class PackageEditorContext {
 
         let toolsVersion = try ToolsVersionLoader().load(
             at: path, fileSystem: fs)
-
-        guard toolsVersion >= .v5_2 else {
-            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
-        }
 
         return try manifestLoader.load(
             package: path,
