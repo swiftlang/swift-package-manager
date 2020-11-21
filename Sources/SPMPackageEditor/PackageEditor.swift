@@ -105,16 +105,6 @@ public final class PackageEditor {
         let editor = try ManifestRewriter(manifestContents)
         try editor.addPackageDependency(name: dependencyManifest.name, url: url, requirement: requirement!)
 
-        // FIXME: should this be opt-in?
-        // Add the product in the first regular target, if possible.
-        let productName = dependencyManifest.products.filter{ $0.type.isLibrary }.map{ $0.name }.first
-        let destTarget = loadedManifest.targets.filter{ $0.type == .regular }.first
-        if let product = productName,
-            let destTarget = destTarget,
-            !destTarget.dependencies.containsDependency(product) {
-            try editor.addTargetDependency(target: destTarget.name, dependency: product)
-        }
-
         try context.verifyEditedManifest(contents: editor.editedManifest)
         try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
     }
