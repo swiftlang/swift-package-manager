@@ -699,7 +699,7 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
-                                           buildDir: swiftTool.buildPath,
+                                           repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
             try editor.addPackageDependency(url: dependencyURL, requirement: nil)
         }
@@ -721,7 +721,7 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
-                                           buildDir: swiftTool.buildPath,
+                                           repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
             try editor.addTarget(name: targetName, type: targetType)
         }

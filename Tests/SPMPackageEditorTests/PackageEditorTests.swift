@@ -11,6 +11,7 @@
 import XCTest
 import TSCBasic
 import SPMTestSupport
+import SourceControl
 
 @testable import SPMPackageEditor
 
@@ -51,7 +52,8 @@ final class PackageEditorTests: XCTestCase {
 
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
-            buildDir: AbsolutePath("/pkg/foo"), toolchain: Resources.default.toolchain, fs: fs)
+            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: InMemoryGitRepositoryProvider()),
+            toolchain: Resources.default.toolchain, fs: fs)
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("a target named 'foo' already exists")) {
@@ -122,7 +124,8 @@ final class PackageEditorTests: XCTestCase {
 
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
-            buildDir: AbsolutePath("/pkg/foo"), toolchain: Resources.default.toolchain, fs: fs)
+            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: InMemoryGitRepositoryProvider()),
+            toolchain: Resources.default.toolchain, fs: fs)
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {

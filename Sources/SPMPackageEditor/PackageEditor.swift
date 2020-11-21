@@ -27,10 +27,10 @@ public final class PackageEditor {
 
     /// Create a package editor instance.
     public convenience init(manifestPath: AbsolutePath,
-                            buildDir: AbsolutePath,
+                            repositoryManager: RepositoryManager,
                             toolchain: UserToolchain) throws {
         self.init(context: try PackageEditorContext(manifestPath: manifestPath,
-                                                    buildDir: buildDir,
+                                                    repositoryManager: repositoryManager,
                                                     toolchain: toolchain))
     }
 
@@ -224,9 +224,6 @@ public final class PackageEditorContext {
     /// Path to the package manifest.
     let manifestPath: AbsolutePath
 
-    /// Path to the build directory of the package.
-    let buildDir: AbsolutePath
-
     /// The manifest loader.
     let manifestLoader: ManifestLoaderProtocol
 
@@ -237,21 +234,14 @@ public final class PackageEditorContext {
     let fs: FileSystem
 
     public init(manifestPath: AbsolutePath,
-                buildDir: AbsolutePath,
+                repositoryManager: RepositoryManager,
                 toolchain: UserToolchain,
                 fs: FileSystem = localFileSystem) throws {
         self.manifestPath = manifestPath
-        self.buildDir = buildDir
+        self.repositoryManager = repositoryManager
         self.fs = fs
 
-        // Create toolchain.
         self.manifestLoader = ManifestLoader(manifestResources: toolchain.manifestResources)
-
-        let repositoriesPath = buildDir.appending(component: "repositories")
-        self.repositoryManager = RepositoryManager(
-            path: repositoriesPath,
-            provider: GitRepositoryProvider()
-        )
     }
 
     /// Load the manifest at the given path.
