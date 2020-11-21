@@ -89,8 +89,9 @@ public final class PackageEditor {
                 // Use the latest version or the master branch.
                 let versions = repo.tags.compactMap{ Version(string: $0) }
                 let latestVersion = versions.filter({ $0.prereleaseIdentifiers.isEmpty }).max() ?? versions.max()
-                // FIXME: Also look for main, see if it exists.
-                requirement = latestVersion.map{ PackageDependencyRequirement.upToNextMajor($0.description) } ?? PackageDependencyRequirement.branch("master")
+                let mainExists = (try? repo.resolveRevision(identifier: "main")) != nil
+                requirement = latestVersion.map{ PackageDependencyRequirement.upToNextMajor($0.description) } ??
+                    (mainExists ? PackageDependencyRequirement.branch("main") : PackageDependencyRequirement.branch("master"))
             }
 
             // Load the manifest.
