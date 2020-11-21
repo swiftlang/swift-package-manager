@@ -39,7 +39,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
                 readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
             ),
         ]
-        let packageCollection = Model.Collection(
+        let collection = Model.Collection(
             name: "Test Package Collection",
             overview: "A test package collection",
             keywords: ["swift packages"],
@@ -50,8 +50,368 @@ class JSONPackageCollectionModelTests: XCTestCase {
             generatedBy: .init(name: "Jane Doe")
         )
 
-        let data = try JSONEncoder().encode(packageCollection)
+        let data = try JSONEncoder().encode(collection)
         let decoded = try JSONDecoder().decode(Model.Collection.self, from: data)
-        XCTAssertEqual(packageCollection, decoded)
+        XCTAssertEqual(collection, decoded)
+    }
+    
+    func test_noValidationError() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: nil
+            ),
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator()
+        XCTAssertNil(validator.validate(collection: collection))
+    }
+    
+    func test_validationError_noPackages() throws {
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: [],
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator()
+        let errors = validator.validate(collection: collection)!
+        XCTAssertEqual(1, errors.count)
+        
+        guard case .property(_, let description) = errors.first else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertTrue(description.contains("contain at least one package"))
+    }
+    
+    func test_validationError_tooManyPackages() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+            ),
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
+                summary: "Package Foobaz",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobaz",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: nil
+            ),
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator(configuration: .init(maximumPackageCount: 1))
+        let errors = validator.validate(collection: collection)!
+        XCTAssertEqual(1, errors.count)
+        
+        guard case .property(_, let description) = errors.first else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(description.range(of: "too many packages", options: .caseInsensitive))
+    }
+    
+    func test_validationError_duplicateVersions_emptyProductsAndTargets() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobar",
+                        targets: [],
+                        products: [],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: nil
+            ),
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator()
+        let errors = validator.validate(collection: collection)!
+        XCTAssertEqual(3, errors.count)
+        
+        guard case .property(_, let desc0) = errors[0] else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(desc0.range(of: "duplicate version(s)", options: .caseInsensitive))
+        
+        guard case .property(_, let desc1) = errors[1] else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(desc1.range(of: "does not contain any products", options: .caseInsensitive))
+        
+        guard case .property(_, let desc2) = errors[2] else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(desc2.range(of: "does not contain any targets", options: .caseInsensitive))
+    }
+    
+    func test_validationError_nonSemanticVersion() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "v1.3.2",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+            )
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator()
+        let errors = validator.validate(collection: collection)!
+        XCTAssertEqual(1, errors.count)
+        
+        guard case .property(_, let description) = errors.first else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(description.range(of: "non semantic version(s)", options: .caseInsensitive))
+    }
+    
+    func test_validationError_tooManyMajorsAndMinors() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "2.0.0",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+            ),
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
+                summary: "Package Foobaz",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.4.0",
+                        packageName: "Foobaz",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobaz",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: nil
+            ),
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator(configuration: .init(maximumMajorVersionCount: 1, maximumMinorVersionCount: 1))
+        let errors = validator.validate(collection: collection)!
+        XCTAssertEqual(2, errors.count)
+        
+        guard case .property(_, let desc0) = errors[0] else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(desc0.range(of: "too many major versions", options: .caseInsensitive))
+        
+        guard case .property(_, let desc1) = errors[1] else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(desc1.range(of: "too many minor versions", options: .caseInsensitive))
+    }
+    
+    func test_validationError_versionProductNoTargets() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        packageName: "Foobar",
+                        targets: [.init(name: "Foo", moduleName: "Foo")],
+                        products: [.init(name: "Bar", type: .library(.automatic), targets: [])],
+                        toolsVersion: "5.2",
+                        minimumPlatformVersions: nil,
+                        verifiedPlatforms: nil,
+                        verifiedSwiftVersions: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+            )
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator()
+        let errors = validator.validate(collection: collection)!
+        XCTAssertEqual(1, errors.count)
+        
+        guard case .property(_, let description) = errors.first else {
+            return XCTFail("Expected .property error")
+        }
+        XCTAssertNotNil(description.range(of: "does not contain any targets", options: .caseInsensitive))
     }
 }

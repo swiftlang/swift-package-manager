@@ -36,7 +36,7 @@ extension Model.CollectionSource {
     }
 }
 
-internal enum ValidationError: Error, Equatable, CustomStringConvertible {
+public enum ValidationError: Error, Equatable, CustomStringConvertible {
     case property(name: String, description: String)
     case other(description: String)
 

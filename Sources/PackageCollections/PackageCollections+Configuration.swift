@@ -11,7 +11,9 @@
 // TODO: how do we read default config values? ENV variables? user settings?
 extension PackageCollections {
     public struct Configuration {
-        // TODO: add configuration like mx size of feed, retries, etc
+        // TODO: add configuration including:
+        // JSONPackageCollectionProvider: maximumSizeInBytes
+        // JSONPackageCollectionValidator: maximumPackageCount, maximumMajorVersionCount, maximumMinorVersionCount
 
         /// Auth tokens for the collections or metadata provider
         public var authTokens: [AuthTokenType: String]?

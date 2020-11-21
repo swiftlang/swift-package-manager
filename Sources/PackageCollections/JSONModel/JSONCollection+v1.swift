@@ -10,6 +10,7 @@
 
 import struct Foundation.Date
 import struct Foundation.URL
+import TSCUtility
 
 import PackageModel
 
@@ -238,6 +239,128 @@ extension JSONPackageCollectionModel.V1 {
         public init(name: String, url: URL) {
             self.name = name
             self.url = url
+        }
+    }
+}
+
+// MARK: - Validations
+
+extension JSONPackageCollectionModel.V1 {
+    public struct Validator {
+        public let configuration: Configuration
+        
+        public init(configuration: Configuration = .init()) {
+            self.configuration = configuration
+        }
+        
+        public func validate(collection: Collection) -> [ValidationError]? {
+            var errors = [ValidationError]()
+            
+            let packages = collection.packages
+            // Stop validating if collection doesn't pass basic checks
+            if packages.isEmpty {
+                errors.append(.property(name: "packages",
+                                        description: "A collection must contain at least one package"))
+            } else if packages.count > self.configuration.maximumPackageCount {
+                errors.append(.property(name: "packages",
+                                        description: "Too many packages (\(packages.count)). Only \(self.configuration.maximumPackageCount) allowed."))
+            } else {
+                packages.forEach { self.validate(package: $0, errors: &errors) }
+            }
+            
+            guard errors.isEmpty else {
+                return errors
+            }
+            
+            return nil
+        }
+        
+        // TODO: validate package url?
+        private func validate(package: Collection.Package, errors: inout [ValidationError]) {
+            let packageID = package.url.absoluteString
+            
+            // Check for duplicate versions
+            let nonUniqueVersions = Dictionary(grouping: package.versions, by: { $0.version }).filter { $1.count > 1 }.keys
+            if !nonUniqueVersions.isEmpty {
+                errors.append(.property(name: "package.versions",
+                                        description: "Duplicate version(s) found in package \(packageID): \(nonUniqueVersions)"))
+            }
+            
+            var nonSemanticVersions = [String]()
+            let semanticVersions: [TSCUtility.Version] = package.versions.compactMap {
+                let semver = TSCUtility.Version(string: $0.version)
+                if semver == nil {
+                    nonSemanticVersions.append($0.version)
+                }
+                return semver
+            }
+            
+            guard nonSemanticVersions.isEmpty else {
+                errors.append(.property(name: "package.versions",
+                                        description: "Non semantic version(s) found in package \(packageID): \(nonSemanticVersions)"))
+                // The next part of validation requires sorting the semvers. Cannot continue if non-semver.
+                return
+            }
+            
+            let sortedVersions = semanticVersions.sorted(by: >)
+            
+            var currentMajor: Int?
+            var majorCount = 0
+            var minorCount = 0
+            for version in sortedVersions {
+                if version.major != currentMajor {
+                    currentMajor = version.major
+                    majorCount += 1
+                    minorCount = 0
+                }
+
+                guard majorCount <= self.configuration.maximumMajorVersionCount else {
+                    errors.append(.property(name: "package.versions",
+                                            description: "Package \(packageID) includes too many major versions. Only \(self.configuration.maximumMajorVersionCount) allowed."))
+                    break
+                }
+                guard minorCount < self.configuration.maximumMinorVersionCount else {
+                    errors.append(.property(name: "package.versions",
+                                            // !-safe currentMajor cannot be nil at this point
+                                            description: "Package \(packageID) includes too many minor versions for major version \(currentMajor!). Only \(self.configuration.maximumMinorVersionCount) allowed."))
+                    break
+                }
+
+                minorCount += 1
+            }
+            
+            package.versions.forEach { version in
+                if version.products.isEmpty {
+                    errors.append(.property(name: "version.products",
+                                            description: "Package \(packageID) version \(version.version) does not contain any products"))
+                }
+                version.products.forEach { product in
+                    if product.targets.isEmpty {
+                        errors.append(.property(name: "product.targets",
+                                                description: "Product \(product.name) of package \(packageID) version \(version.version) does not contain any targets"))
+                    }
+                }
+                
+                if version.targets.isEmpty {
+                    errors.append(.property(name: "version.targets",
+                                            description: "Package \(packageID) version \(version.version) does not contain any targets"))
+                }
+            }
+        }
+        
+        public struct Configuration {
+            public var maximumPackageCount: Int
+            public var maximumMajorVersionCount: Int
+            public var maximumMinorVersionCount: Int
+
+            public init(maximumPackageCount: Int? = nil,
+                        maximumMajorVersionCount: Int? = nil,
+                        maximumMinorVersionCount: Int? = nil) {
+                // TODO: where should we read defaults from?
+                self.maximumPackageCount = maximumPackageCount ?? 50
+                self.maximumMajorVersionCount = maximumMajorVersionCount ?? 2
+                self.maximumMinorVersionCount = maximumMinorVersionCount ?? 3
+            }
         }
     }
 }
