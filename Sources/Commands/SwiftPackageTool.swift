@@ -59,6 +59,7 @@ public struct SwiftPackageTool: ParsableCommand {
 
         AddDependency.self,
         AddTarget.self,
+        AddProduct.self,
     ]
     #else
     private static let subcommands: [ParsableCommand.Type] = [
