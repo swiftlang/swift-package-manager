@@ -35,14 +35,20 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
 
     /// Regex pattern to parse tools version. The format is SemVer 2.0 with an
     /// addition that specifying the patch version is optional.
-    static let toolsVersionRegex = try! NSRegularExpression(pattern: "^" +
-        #"(\d+)\.(\d+)(?:\.(\d+))?"# +
-        "(" +
-            #"\-[A-Za-z\d]+(?:\.[A-Za-z\d]+)*"# +
-        ")?" +
-        "(" +
-            #"\+[A-Za-z\d]+(?:\.[A-Za-z\d]+)*"# +
-        ")?$", options: [])
+    static let toolsVersionRegex = try! NSRegularExpression(
+        pattern: #"""
+                 ^
+                 (\d+)\.(\d+)(?:\.(\d+))?
+                 (
+                     \-[A-Za-z\d]+(?:\.[A-Za-z\d]+)*
+                 )?
+                 (
+                     \+[A-Za-z\d]+(?:\.[A-Za-z\d]+)*
+                 )?
+                 $
+                 """#,
+        options: [.allowCommentsAndWhitespace]
+    )
 
     /// The major version number.
     public var major: Int {
