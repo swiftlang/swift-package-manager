@@ -24,9 +24,13 @@ import Glibc
 import CRT
 #endif
 
+public protocol HTTPClientProtocol {
+    func execute(_ request: HTTPClientRequest, callback: @escaping (Result<HTTPClientResponse, Error>) -> Void)
+}
+
 // MARK: - HTTPClient
 
-public struct HTTPClient {
+public struct HTTPClient: HTTPClientProtocol {
     public typealias Configuration = HTTPClientConfiguration
     public typealias Request = HTTPClientRequest
     public typealias Response = HTTPClientResponse
