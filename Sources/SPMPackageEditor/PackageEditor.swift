@@ -115,7 +115,7 @@ public final class PackageEditor {
             try editor.addTargetDependency(target: destTarget.name, dependency: product)
         }
 
-        // FIXME: We should verify our edits by loading the edited manifest before writing it to disk.
+        try context.verifyEditedManifest(contents: editor.editedManifest)
         try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
     }
 
@@ -149,7 +149,7 @@ public final class PackageEditor {
             try editor.addTargetDependency(target: testTargetName, dependency: targetName)
         }
 
-        // FIXME: We should verify our edits by loading the edited manifest before writing it to disk.
+        try context.verifyEditedManifest(contents: editor.editedManifest)
         try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
 
         // Write template files.
@@ -262,6 +262,19 @@ public final class PackageEditorContext {
         self.manifestLoader = ManifestLoader(manifestResources: toolchain.manifestResources)
     }
 
+    func verifyEditedManifest(contents: String) throws {
+        do {
+            try withTemporaryDirectory {
+                let path = $0
+                try localFileSystem.writeFileContents(path.appending(component: "Package.swift"),
+                                                      bytes: ByteString(encodingAsUTF8: contents))
+                _ = try loadManifest(at: path, fs: localFileSystem)
+            }
+        } catch {
+            throw StringError("failed to verify edited manifest: \(error.localizedDescription)")
+        }
+    }
+
     /// Load the manifest at the given path.
     func loadManifest(
         at path: AbsolutePath,
@@ -271,7 +284,6 @@ public final class PackageEditorContext {
 
         let toolsVersion = try ToolsVersionLoader().load(
             at: path, fileSystem: fs)
-
         return try manifestLoader.load(
             package: path,
             baseURL: path.pathString,
