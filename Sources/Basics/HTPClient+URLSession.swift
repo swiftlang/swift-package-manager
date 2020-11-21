@@ -81,15 +81,7 @@ extension URLSessionHTTPClient.TaskDelegate: URLSessionDataDelegate {
                            newRequest request: URLRequest,
                            completionHandler: @escaping (URLRequest?) -> Void)
     {
-        if configuration.followRedirects {
-            completionHandler(request)
-        } else {
-            completionHandler(nil)
-
-            configuration.callbackQueue.async {
-                self.callback(.success(response.response(body: nil)))
-            }
-        }
+        completionHandler(configuration.followRedirects ? request : nil)
     }
 
     public func urlSession(_ session: URLSession,

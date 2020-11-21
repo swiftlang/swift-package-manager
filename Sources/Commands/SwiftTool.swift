@@ -156,6 +156,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
                     case .unversioned:
                         self.stdoutStream <<< "unversioned"
                     }
+                case .downloaded(let version):
+                    self.stdoutStream <<< "resolved to '\(version)'"
                 case .edited?:
                     self.stdoutStream <<< "edited"
                 case .local?:
@@ -228,7 +230,7 @@ private final class DiagnosticsEngineHandler {
 
 protocol SwiftCommand: ParsableCommand {
     var swiftOptions: SwiftToolOptions { get }
-  
+
     func run(_ swiftTool: SwiftTool) throws
 }
 
@@ -312,7 +314,7 @@ public class SwiftTool {
         do {
             try Self.postprocessArgParserResult(options: options, diagnostics: diagnostics)
             self.options = options
-            
+
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 try ProcessEnv.chdir(packagePath)
@@ -370,29 +372,33 @@ public class SwiftTool {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
-        
+
+        if options.enablePackageRegistry {
+            PackageModel._useLegacyIdentities = false
+        }
+
         // Setup the globals.
         verbosity = Verbosity(rawValue: options.verbosity)
         Process.verbose = verbosity != .concise
     }
-    
+
     static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
         if options.chdir != nil {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
-        
+
         if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
-        
+
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
             diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
-        
+
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
-        
+
         if options.netrcFilePath != nil {
             // --netrc-file option only supported on macOS >=10.13
             #if os(macOS)
@@ -405,7 +411,7 @@ public class SwiftTool {
             diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
             #endif
         }
-        
+
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
@@ -444,12 +450,12 @@ public class SwiftTool {
     private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
         return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
     }()
-    
+
     func resolvedNetrcFilePath() throws -> AbsolutePath? {
         guard options.netrc ||
                 options.netrcFilePath != nil ||
                 options.netrcOptional else { return nil }
-        
+
         let resolvedPath: AbsolutePath = options.netrcFilePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
         guard localFileSystem.exists(resolvedPath) else {
             if !options.netrcOptional {
@@ -493,7 +499,8 @@ public class SwiftTool {
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
-            cachePath: cachePath
+            cachePath: cachePath,
+            enablePackageRegistry: options.enablePackageRegistry
         )
         _workspace = workspace
         return workspace

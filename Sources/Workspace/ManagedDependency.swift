@@ -33,7 +33,10 @@ public final class ManagedDependency {
         /// for top of the tree style development.
         case edited(AbsolutePath?)
 
-        // The dependency is a local package.
+        /// A version of the dependency was downloaded as a source archive.
+        case downloaded(Version)
+
+        /// The dependency is a local package.
         case local
 
         /// Returns true if state is checkout.
@@ -52,7 +55,7 @@ public final class ManagedDependency {
     /// Returns true if the dependency is edited.
     public var isEdited: Bool {
         switch state {
-        case .checkout, .local:
+        case .checkout, .local, .downloaded:
             return false
         case .edited:
             return true
@@ -95,7 +98,20 @@ public final class ManagedDependency {
             packageRef: packageRef,
             state: .local,
             // FIXME: This is just a fake entry, we should fix it.
-            subpath: RelativePath(packageRef.identity.description),
+            subpath: RelativePath(packageRef.name),
+            basedOn: nil
+        )
+    }
+
+    public static func sourceArchive(
+        of package: PackageReference,
+        at version: Version
+    ) -> ManagedDependency {
+        return ManagedDependency(
+            packageRef: package,
+            state: .downloaded(version),
+            // FIXME: This is just a fake entry, we should fix it.
+            subpath: RelativePath(package.name).appending(component: version.description),
             basedOn: nil
         )
     }
@@ -169,6 +185,11 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
                 "name": "checkout",
                 "checkoutState": checkoutState,
             ])
+        case .downloaded(let version):
+            return .init([
+                "name": "download",
+                "version": version.toJSON()
+            ])
         case .edited(let path):
             return .init([
                 "name": "edited",
@@ -186,6 +207,8 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         switch name {
         case "checkout":
             self = try .checkout(json.get("checkoutState"))
+        case "download":
+            self = try .downloaded(json.get("version"))
         case "edited":
             let path: String? = json.get("path")
             self = .edited(path.map({AbsolutePath($0)}))
@@ -200,6 +223,8 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
         switch self {
         case .checkout(let checkout):
             return "\(checkout)"
+        case .downloaded(let version):
+            return "\(version)"
         case .edited:
             return "edited"
         case .local:

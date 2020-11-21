@@ -15,6 +15,7 @@ import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
+import PackageRegistry
 import SourceControl
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
@@ -203,6 +204,9 @@ public class Workspace {
     /// The path for working repository clones (checkouts).
     public let checkoutsPath: AbsolutePath
 
+    /// The path for downloaded source archives.
+    public let downloadsPath: AbsolutePath
+
     /// The path for downloaded binary artifacts.
     public let artifactsPath: AbsolutePath
 
@@ -228,7 +232,7 @@ public class Workspace {
     public let repositoryManager: RepositoryManager
 
     /// The package container provider.
-    fileprivate let containerProvider: RepositoryPackageContainerProvider
+    fileprivate let containerProvider: PackageContainerProvider
 
     /// The downloader used for downloading binary artifacts.
     fileprivate let downloader: Downloader
@@ -294,7 +298,8 @@ public class Workspace {
         enablePubgrubResolver: Bool = false,
         skipUpdate: Bool = false,
         enableResolverTrace: Bool = false,
-        cachePath: AbsolutePath? = nil
+        cachePath: AbsolutePath? = nil,
+        enablePackageRegistry: Bool = false
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -323,16 +328,28 @@ public class Workspace {
         self.repositoryManager = repositoryManager
 
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
+        self.downloadsPath = self.dataPath.appending(component: "downloads")
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
         self.cachePath = cachePath
 
-        self.containerProvider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager,
-            mirrors: self.config.mirrors,
-            manifestLoader: manifestLoader,
-            currentToolsVersion: currentToolsVersion,
-            toolsVersionLoader: toolsVersionLoader
-        )
+        if enablePackageRegistry {
+            self.containerProvider = CompositePackageContainerProvider(
+                repositoryManager: repositoryManager,
+                mirrors: self.config.mirrors,
+                manifestLoader: manifestLoader,
+                currentToolsVersion: currentToolsVersion,
+                toolsVersionLoader: toolsVersionLoader
+            )
+        } else {
+            self.containerProvider = RepositoryPackageContainerProvider(
+                repositoryManager: repositoryManager,
+                mirrors: self.config.mirrors,
+                manifestLoader: manifestLoader,
+                currentToolsVersion: currentToolsVersion,
+                toolsVersionLoader: toolsVersionLoader
+            )
+        }
+
         self.fileSystem = fileSystem
 
         self.pinsStore = LoadableResult {
@@ -582,7 +599,7 @@ extension Workspace {
             // the pins for the input packages so only those packages are updated.
             pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
         }
-        
+
         // Resolve the dependencies.
         let resolver = self.createResolver(pinsMap: pinsMap)
         activeResolver = resolver
@@ -603,7 +620,7 @@ extension Workspace {
         }
 
         // Update the checkouts based on new dependency resolution.
-        let packageStateChanges = updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
+        let packageStateChanges = updatePackages(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
 
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
@@ -822,6 +839,9 @@ extension Workspace {
         switch dependency.state {
         case .checkout(let checkoutState):
             return checkoutState
+        case .downloaded(let version):
+            let revision = Revision(identifier: "\(version)")
+            return CheckoutState(revision: revision)
         case .edited:
             diagnostics.emit(error: "dependency '\(dependency.packageRef.name)' already in edit mode")
         case .local:
@@ -949,9 +969,8 @@ extension Workspace {
 
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
-        case .checkout, .local:
+        case .checkout, .local, .downloaded:
             throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.name)
-
         case .edited(let path):
             if path != nil {
                 // Set force remove to true for unmanaged dependencies.  Note that
@@ -1035,12 +1054,14 @@ fileprivate extension PinsStore {
     ///
     /// This method does nothing if the dependency is in edited state.
     func pin(_ dependency: ManagedDependency) {
-
         // Get the checkout state.
         let checkoutState: CheckoutState
         switch dependency.state {
         case .checkout(let state):
             checkoutState = state
+        case .downloaded(let version):
+            let revision = Revision(identifier: "\(version)")
+            checkoutState = CheckoutState(revision: revision)
         case .edited, .local:
             return
         }
@@ -1096,13 +1117,13 @@ extension Workspace {
             for dependency in dependencies {
                 let dependency = dependency.dependency
                 switch dependency.state {
+                case .edited:
+                    continue
                 case .checkout(let checkout):
                     if checkout.isBranchOrRevisionBased {
                         result.insert(dependency.packageRef)
                     }
-                case .edited:
-                    continue
-                case .local:
+                case .downloaded, .local:
                     result.insert(dependency.packageRef)
                 }
             }
@@ -1168,8 +1189,7 @@ extension Workspace {
             for (externalManifest, managedDependency, productFilter) in dependencies {
                 // For edited packages, add a constraint with unversioned requirement so the
                 // resolver doesn't try to resolve it.
-                switch managedDependency.state {
-                case .edited:
+                if case .edited = managedDependency.state {
                     // FIXME: We shouldn't need to construct a new package reference object here.
                     // We should get the correct one from managed dependency object.
                     let ref = PackageReference(
@@ -1182,9 +1202,8 @@ extension Workspace {
                         requirement: .unversioned,
                         products: productFilter)
                     allConstraints.append(constraint)
-                case .checkout, .local:
-                    break
                 }
+
                 allConstraints += externalManifest.dependencyConstraints(
                     productFilter: productFilter,
                     mirrors: workspace.config.mirrors
@@ -1199,10 +1218,8 @@ extension Workspace {
             var constraints = [PackageContainerConstraint]()
 
             for (_, managedDependency, productFilter) in dependencies {
-                switch managedDependency.state {
-                case .checkout, .local: continue
-                case .edited: break
-                }
+                guard case .edited = managedDependency.state else { continue }
+
                 // FIXME: We shouldn't need to construct a new package reference object here.
                 // We should get the correct one from managed dependency object.
                 let ref = PackageReference(
@@ -1239,6 +1256,7 @@ extension Workspace {
             try fileSystem.createDirectory(repositoryManager.path, recursive: true)
             try fileSystem.createDirectory(checkoutsPath, recursive: true)
             try fileSystem.createDirectory(artifactsPath, recursive: true)
+            try fileSystem.createDirectory(downloadsPath, recursive: true)
         } catch {
             diagnostics.emit(error)
         }
@@ -1253,6 +1271,8 @@ extension Workspace {
         switch dependency.state {
         case .checkout:
             return checkoutsPath.appending(dependency.subpath)
+        case .downloaded:
+            return downloadsPath.appending(dependency.subpath)
         case .edited(let path):
             return path ?? editablesPath.appending(dependency.subpath)
 		case .local:
@@ -1370,6 +1390,9 @@ extension Workspace {
         case .checkout(let checkoutState):
             packageKind = .remote
             version = checkoutState.version
+        case .downloaded(let v):
+            packageKind = .remote
+            version = v
         case .edited, .local:
             packageKind = .local
             version = nil
@@ -1717,9 +1740,12 @@ extension Workspace {
             guard let dependency = state.dependencies[forURL: pin.packageRef.path] else {
                 return true
             }
+
             switch dependency.state {
             case .checkout(let checkoutState):
                 return pin.state != checkoutState
+            case .downloaded(let version):
+                return pin.state.version != version
             case .edited, .local:
                 return true
             }
@@ -1728,7 +1754,18 @@ extension Workspace {
         // Clone the required pins.
         for pin in requiredPins {
             diagnostics.wrap {
-                _ = try self.clone(package: pin.packageRef, at: pin.state)
+                let requirement: PackageStateChange.Requirement
+                if let version = pin.state.version {
+                    requirement = .version(version)
+                } else if pin.state.isBranchOrRevisionBased {
+                    requirement = .revision(pin.state.revision, branch: pin.state.branch)
+                } else {
+                    requirement = .unversioned
+                }
+
+                _ = try self.fetch(package: pin.packageRef, requirement: requirement, productFilter: .everything)
+//                _ = self.fetch(package: pin.packageRef, requirement: pin.state.requirement, productFilter: .everything)
+//                _ = try self.clone(package: pin.packageRef, at: pin.state)
             }
         }
 
@@ -1847,7 +1884,7 @@ extension Workspace {
         }
 
         // Update the checkouts with dependency resolution result.
-        let packageStateChanges = updateCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
+        let packageStateChanges = updatePackages(root: graphRoot, updateResults: result, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else {
             return currentManifests
         }
@@ -1985,8 +2022,8 @@ extension Workspace {
 
         for dependency in state.dependencies {
             switch dependency.state {
-            case .checkout: break
             case .edited, .local: continue
+            case .checkout, .downloaded: break
             }
 
             let identity = dependency.packageRef.identity
@@ -2040,6 +2077,7 @@ extension Workspace {
                 }
             }
         }
+
         public struct State: Equatable {
             public let requirement: Requirement
             public let products: ProductFilter
@@ -2133,7 +2171,7 @@ extension Workspace {
 
                 if let currentDependency = currentDependency {
                     switch currentDependency.state {
-                    case .local, .edited:
+                    case .local, .edited, .downloaded:
                         packageStateChanges[packageRef.path] = (packageRef, .unchanged)
                     case .checkout:
                         let newState = PackageStateChange.State(requirement: .unversioned, products: products)
@@ -2182,9 +2220,12 @@ extension Workspace {
 
             case .version(let version):
                 if let currentDependency = currentDependency {
-                    if case .checkout(let checkoutState) = currentDependency.state, checkoutState.version == version {
+                    switch currentDependency.state {
+                    case .checkout(let checkoutState) where checkoutState.version == version:
                         packageStateChanges[packageRef.path] = (packageRef, .unchanged)
-                    } else {
+                    case .downloaded(let v) where version == v:
+                        packageStateChanges[packageRef.path] = (packageRef, .unchanged)
+                    default:
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
                         packageStateChanges[packageRef.path] = (packageRef, .updated(newState))
                     }
@@ -2250,7 +2291,6 @@ extension Workspace {
         let allDependencies = Array(state.dependencies)
         for dependency in allDependencies {
             diagnostics.wrap {
-
                 // If the dependency is present, we're done.
                 let dependencyPath = path(for: dependency)
                 guard !fileSystem.isDirectory(dependencyPath) else { return }
@@ -2260,7 +2300,17 @@ extension Workspace {
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(package: dependency.packageRef, at: checkoutState)
                     diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.name))
-
+                case .downloaded(let version):
+                    // If some source archive dependency has been removed, download it again.
+                    // FIXME
+                    RegistryManager.discover(for: dependency.packageRef, diagnosticsEngine: diagnostics, on: queue) { result in
+                        switch result {
+                        case .success(let registryManager):
+                            self.download(package: dependency.packageRef, at: version, with: registryManager, on: self.queue) { _ in }
+                        case .failure(let error):
+                            diagnostics.emit(error)
+                        }
+                    }
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
                     //
@@ -2270,7 +2320,6 @@ extension Workspace {
                     try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
                     diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
-
                 case .local:
                     state.dependencies.remove(forURL: dependency.packageRef.path)
                     try state.saveState()
@@ -2293,7 +2342,7 @@ extension Workspace {
     ///     and notes.
     ///   - updateBranches: If the branches should be updated in case they're pinned.
     @discardableResult
-    fileprivate func updateCheckouts(
+    fileprivate func updatePackages(
         root: PackageGraphRoot,
         updateResults: [(PackageReference, BoundVersion, ProductFilter)],
         updateBranches: Bool = false,
@@ -2322,9 +2371,9 @@ extension Workspace {
             diagnostics.wrap {
                 switch state {
                 case .added(let state):
-                    _ = try clone(package: packageRef, requirement: state.requirement, productFilter: state.products)
+                    _ = try fetch(package: packageRef, requirement: state.requirement, productFilter: state.products)
                 case .updated(let state):
-                    _ = try clone(package: packageRef, requirement: state.requirement, productFilter: state.products)
+                    _ = try fetch(package: packageRef, requirement: state.requirement, productFilter: state.products)
                 case .removed, .unchanged: break
                 }
             }
@@ -2345,7 +2394,7 @@ extension Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetch(package: PackageReference) throws -> AbsolutePath {
+    private func checkOut(package: PackageReference) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = state.dependencies[forURL: package.path] {
             let path = checkoutsPath.appending(dependency.subpath)
@@ -2408,7 +2457,7 @@ extension Workspace {
         at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
         // Get the repository.
-        let path = try fetch(package: package)
+        let path = try checkOut(package: package)
 
         // Check out the given revision.
         let workingRepo = try repositoryManager.provider.openCheckout(at: path)
@@ -2433,13 +2482,48 @@ extension Workspace {
         return path
     }
 
-    private func clone(
+    func download(
+        package: PackageReference,
+        at version: Version,
+        with registryManager: RegistryManager,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<AbsolutePath, Error>) -> Void
+    ) {
+        let dependency = ManagedDependency.sourceArchive(of: package, at: version)
+        let path = self.path(for: dependency)
+
+        do {
+            try fileSystem.createDirectory(path, recursive: true)
+        } catch {
+            return queue.async {
+                completion(.failure(error))
+            }
+        }
+
+        registryManager.downloadSourceArchive(for: version, of: package, into: fileSystem, at: path, expectedChecksum: nil /* FIXME */) { result in
+            let result = result.tryMap {
+                self.state.dependencies.add(dependency)
+                try self.state.saveState()
+            }
+
+            switch result {
+            case .success:
+                queue.async {
+                    completion(.success(path))
+                }
+            case .failure(let error):
+                queue.async {
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    private func fetch(
         package: PackageReference,
         requirement: PackageStateChange.Requirement,
         productFilter: ProductFilter
     ) throws -> AbsolutePath {
-        let checkoutState: CheckoutState
-
         switch requirement {
         case .version(let version):
             // FIXME: We need to get the revision here, and we don't have a
@@ -2447,23 +2531,27 @@ extension Workspace {
             // annoying. Maybe we should make an SPI on the provider for
             // this?
             // FIXME: this should not block
-            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0) } as! RepositoryPackageContainer
-            guard let tag = container.getTag(for: version) else {
-                throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
+            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: queue, completion: $0) }
+            if let container = container as? RepositoryPackageContainer {
+                guard let tag = container.getTag(for: version) else {
+                    throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
+                }
+                let revision = try container.getRevision(forTag: tag)
+                let checkoutState = CheckoutState(revision: revision, version: version)
+                return try self.clone(package: package, at: checkoutState)
+            } else if let container = container as? RegistryPackageContainer {
+                return try tsc_await { self.download(package: package, at: version, with: container.registryManager, on: queue, completion: $0) }
+            } else {
+                throw InternalError("Unexpected package container: \(container)")
             }
-            let revision = try container.getRevision(forTag: tag)
-            checkoutState = CheckoutState(revision: revision, version: version)
-
         case .revision(let revision, let branch):
-            checkoutState = CheckoutState(revision: revision, branch: branch)
-
+            let checkoutState = CheckoutState(revision: revision, branch: branch)
+            return try self.clone(package: package, at: checkoutState)
         case .unversioned:
             state.dependencies.add(ManagedDependency.local(packageRef: package))
             try state.saveState()
             return AbsolutePath(package.path)
         }
-
-        return try self.clone(package: package, at: checkoutState)
     }
 
     /// Removes the clone and checkout of the provided specifier.
@@ -2477,13 +2565,9 @@ extension Workspace {
         // a local package.
         //
         // Note that we don't actually remove a local package from disk.
-        switch dependency.state {
-        case .local:
+        guard dependency.state != .local else {
             state.dependencies.remove(forURL: package.path)
-            try state.saveState()
-            return
-        case .checkout, .edited:
-            break
+            return try state.saveState()
         }
 
         // Inform the delegate.

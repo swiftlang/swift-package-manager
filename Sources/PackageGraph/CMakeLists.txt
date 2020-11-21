@@ -9,6 +9,7 @@
 add_library(PackageGraph
   BoundVersion.swift
   CheckoutState.swift
+  CompositePackageContainerProvider.swift
   DependencyMirrors.swift
   DependencyResolutionNode.swift
   DependencyResolver.swift
@@ -27,6 +28,7 @@ add_library(PackageGraph
   Pubgrub/PartialSolution.swift
   Pubgrub/PubgrubDependencyResolver.swift
   Pubgrub/Term.swift
+  RegistryPackageContainer.swift
   RepositoryPackageContainer.swift
   ResolvedPackage.swift
   ResolvedProduct.swift

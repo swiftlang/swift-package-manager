@@ -244,6 +244,10 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(name: .customLong("trace-resolver"))
     var enableResolverTrace: Bool = false
 
+    @Flag(name: .customLong("enable-package-registry"),
+          help: "Enable dependency resolution using package registries when available")
+    var enablePackageRegistry: Bool = false
+
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
     var jobs: UInt32?

@@ -1468,10 +1468,13 @@ private final class ContainerProvider {
             if self.prefetches[identifier] != nil {
                 continue
             }
-            self.prefetches[identifier] = DispatchGroup()
-            self.prefetches[identifier]?.enter()
+
+            let sync = DispatchGroup()
+            self.prefetches[identifier] = sync
+
+            sync.enter()
             self.provider.getContainer(for: identifier, skipUpdate: skipUpdate, on: self.queue) { result in
-                defer { self.prefetches[identifier]?.leave() }
+                defer { sync.leave() }
                 // only cache positive results
                 if case .success(let container) = result {
                     self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap, queue: self.queue)

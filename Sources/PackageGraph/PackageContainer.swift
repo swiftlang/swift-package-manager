@@ -12,6 +12,7 @@ import Dispatch
 import PackageLoading
 import PackageModel
 import SourceControl
+import Dispatch
 import struct TSCUtility.Version
 
 /// A container of packages.
