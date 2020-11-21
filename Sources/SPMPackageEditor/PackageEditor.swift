@@ -49,25 +49,25 @@ public final class PackageEditor {
       var requirement = requirement
         let manifestPath = context.manifestPath
         // Validate that the package doesn't already contain this dependency.
-        // FIXME: We need to handle version-specific manifests.
         let loadedManifest = try context.loadManifest(at: context.manifestPath.parentDirectory)
         let containsDependency = loadedManifest.dependencies.contains {
             return PackageIdentity(url: url) == PackageIdentity(url: $0.url)
         }
         guard !containsDependency else {
-            throw StringError("Already has dependency \(url)")
+            throw StringError("'\(url)' is already a package dependency")
         }
 
         // If the input URL is a path, force the requirement to be a local package.
         if TSCUtility.URL.scheme(url) == nil {
-            assert(requirement == nil || requirement == .localPackage)
+            guard requirement == nil || requirement == .localPackage else {
+                throw StringError("'\(url)' is a local path, but a non-local requirement was specified")
+            }
             requirement = .localPackage
         }
 
         // Load the dependency manifest depending on the inputs.
         let dependencyManifest: Manifest
         if requirement == .localPackage {
-            // For local packages, load the manifest and get the first library product name.
             let path = AbsolutePath(url, relativeTo: fs.currentWorkingDirectory!)
             dependencyManifest = try context.loadManifest(at: path)
             requirement = .localPackage
@@ -84,6 +84,7 @@ public final class PackageEditor {
                 // Use the latest version or the master branch.
                 let versions = repo.tags.compactMap{ Version(string: $0) }
                 let latestVersion = versions.filter({ $0.prereleaseIdentifiers.isEmpty }).max() ?? versions.max()
+                // FIXME: Also look for main, see if it exists.
                 requirement = latestVersion.map{ PackageDependencyRequirement.upToNextMajor($0.description) } ?? PackageDependencyRequirement.branch("master")
             }
 
@@ -98,6 +99,7 @@ public final class PackageEditor {
         let editor = try ManifestRewriter(manifestContents)
         try editor.addPackageDependency(name: dependencyManifest.name, url: url, requirement: requirement!)
 
+        // FIXME: should this be opt-in?
         // Add the product in the first regular target, if possible.
         let productName = dependencyManifest.products.filter{ $0.type.isLibrary }.map{ $0.name }.first
         let destTarget = loadedManifest.targets.filter{ $0.type == .regular }.first
@@ -116,15 +118,15 @@ public final class PackageEditor {
         let manifestPath = context.manifestPath
         let testTargetName = targetName + "Tests"
 
-        // Validate that the package doesn't already contain this dependency.
-        // FIXME: We need to handle version-specific manifests.
+        // Validate that the package doesn't already contain a target with the same name.
         let loadedManifest = try context.loadManifest(at: manifestPath.parentDirectory)
         if loadedManifest.targets.contains(where: { $0.name == targetName }) {
-            throw StringError("Already has a target named \(targetName)")
+            throw StringError("a target named '\(targetName)' already exists")
         }
 
         let manifestContents = try fs.readFileContents(manifestPath).cString
         let editor = try ManifestRewriter(manifestContents)
+        // FIXME: Account for the targetType parameter
         try editor.addTarget(targetName: targetName)
         try editor.addTarget(targetName: testTargetName, type: .test)
         try editor.addTargetDependency(target: testTargetName, dependency: targetName)

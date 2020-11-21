@@ -54,7 +54,7 @@ final class PackageEditorTests: XCTestCase {
             buildDir: AbsolutePath("/pkg/foo"), toolchain: Resources.default.toolchain, fs: fs)
         let editor = PackageEditor(context: context)
 
-        XCTAssertThrows(StringError("Already has a target named foo")) {
+        XCTAssertThrows(StringError("a target named 'foo' already exists")) {
             try editor.addTarget(name: "foo", type: .regular)
         }
 

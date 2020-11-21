@@ -9,6 +9,7 @@
 */
 
 import SwiftSyntax
+import TSCBasic
 
 /// A package manifest rewriter.
 ///
@@ -18,10 +19,6 @@ import SwiftSyntax
 /// Similar to SwiftSyntax, this class only deals with the
 /// syntax and has no functionality for semantics of the manifest.
 public final class ManifestRewriter {
-
-    enum Error: Swift.Error {
-        case error(String)
-    }
 
     /// The contents of the original manifest.
     public let originalManifest: String
@@ -51,7 +48,7 @@ public final class ManifestRewriter {
         packageFinder.walk(editedSource)
 
         guard let initFnExpr = packageFinder.packageInit else {
-            throw Error.error("Couldn't find Package initializer")
+            throw StringError("couldn't find 'Package' initializer")
         }
 
         // Find dependencies section in the argument list of Package(...).
@@ -97,28 +94,28 @@ public final class ManifestRewriter {
         packageFinder.walk(editedSource)
 
         guard let initFnExpr = packageFinder.packageInit else {
-            throw Error.error("Couldn't find Package initializer")
+            throw StringError("couldn't find 'Package' initializer")
         }
 
         // Find the `targets: []` array.
         let targetsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsArrayFinder.walk(initFnExpr.argumentList)
         guard let targetsArrayExpr = targetsArrayFinder.foundArrayExpr else {
-            throw Error.error("Couldn't find targets label")
+            throw StringError("Couldn't find 'targets' argument")
         }
 
         // Find the target node.
         let targetFinder = TargetFinder(name: target)
         targetFinder.walk(targetsArrayExpr)
         guard let targetNode = targetFinder.foundTarget else {
-            throw Error.error("Couldn't find target \(target)")
+            throw StringError("couldn't find target '\(target)'")
         }
 
         let targetDependencyFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
         targetDependencyFinder.walk(targetNode)
 
         guard let targetDependencies = targetDependencyFinder.foundArrayExpr else {
-            throw Error.error("Couldn't find dependencies section")
+            throw StringError("couldn't find 'dependencies' argument")
         }
 
         // Add the target dependency entry.
@@ -139,7 +136,7 @@ public final class ManifestRewriter {
         packageFinder.walk(editedSource)
 
         guard let initFnExpr = packageFinder.packageInit else {
-            throw Error.error("Couldn't find Package initializer")
+            throw StringError("couldn't find 'Package' initializer")
         }
 
         let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
