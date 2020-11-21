@@ -42,6 +42,7 @@ public final class ManifestRewriter {
 
     /// Add a package dependency.
     public func addPackageDependency(
+        name: String,
         url: String,
         requirement: PackageDependencyRequirement
     ) throws {
@@ -78,6 +79,7 @@ public final class ManifestRewriter {
 
         // Add the the package dependency entry.
        let newManifest = PackageDependencyWriter(
+            name: name,
             url: url,
             requirement: requirement
         ).visit(packageDependencies).root
@@ -315,13 +317,17 @@ final class ArrayTrailingCommaWriter: SyntaxRewriter {
 /// Package dependency writer.
 final class PackageDependencyWriter: SyntaxRewriter {
 
+    /// The dependency name to write.
+    let name: String
+
     /// The dependency url to write.
     let url: String
 
     /// The dependency requirement.
     let requirement: PackageDependencyRequirement
 
-    init(url: String, requirement: PackageDependencyRequirement) {
+    init(name: String, url: String, requirement: PackageDependencyRequirement) {
+        self.name = name
         self.url = url
         self.requirement = requirement
     }
@@ -339,24 +345,60 @@ final class PackageDependencyWriter: SyntaxRewriter {
 
         var args: [TupleExprElementSyntax] = []
 
-        let firstArgLabel = requirement == .localPackage ? "path" : "url"
-        let url = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier(firstArgLabel),
+        let nameArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier("name"),
+            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.name)),
+            trailingComma: SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1))
+        )
+        args.append(nameArg)
+
+        let locationArgLabel = requirement == .localPackage ? "path" : "url"
+        let locationArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier(locationArgLabel),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
             expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.url)),
             trailingComma: requirement == .localPackage ? nil : SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1))
         )
-        args.append(url)
+        args.append(locationArg)
 
-        // FIXME: Handle other types of requirements.
-        if requirement != .localPackage {
-            let secondArg = SyntaxFactory.makeTupleExprElement(
-                label: SyntaxFactory.makeIdentifier("from"),
-                colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-                expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(requirement.ref!)),
-                trailingComma: nil
-            )
-            args.append(secondArg)
+        let addArg = { (baseName: String, argumentLabel: String?, argumentString: String) in
+            let memberExpr = SyntaxFactory.makeMemberAccessExpr(base: nil,
+                                                                dot: SyntaxFactory.makePeriodToken(),
+                                                                name: SyntaxFactory.makeIdentifier(baseName),
+                                                                declNameArguments: nil)
+            let argList = SyntaxFactory.makeTupleExprElementList([
+                SyntaxFactory.makeTupleExprElement(label: argumentLabel.map { SyntaxFactory.makeIdentifier($0) },
+                                                   colon: argumentLabel.map { _ in SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)) },
+                                                   expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(argumentString)),
+                                                   trailingComma: nil)
+            ])
+            let exactExpr = SyntaxFactory.makeFunctionCallExpr(calledExpression: ExprSyntax(memberExpr),
+                                                               leftParen: SyntaxFactory.makeLeftParenToken(),
+                                                               argumentList: argList,
+                                                               rightParen: SyntaxFactory.makeRightParenToken(),
+                                                               trailingClosure: nil,
+                                                               additionalTrailingClosures: nil)
+            let exactArg = SyntaxFactory.makeTupleExprElement(label: nil,
+                                                              colon: nil,
+                                                              expression: ExprSyntax(exactExpr),
+                                                              trailingComma: nil)
+            args.append(exactArg)
+        }
+
+        switch requirement {
+        case .exact(let version):
+            addArg("exact", nil, version)
+        case .revision(let revision):
+            addArg("revision", nil, revision)
+        case .branch(let branch):
+            addArg("branch", nil, branch)
+        case .upToNextMajor(let version):
+            addArg("upToNextMajor", "from", version)
+        case .upToNextMinor(let version):
+            addArg("upToNextMinor", "from", version)
+        case .localPackage:
+            break
         }
 
         let expr = SyntaxFactory.makeFunctionCallExpr(

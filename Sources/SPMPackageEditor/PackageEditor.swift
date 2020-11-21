@@ -96,7 +96,7 @@ public final class PackageEditor {
         // Add the package dependency.
         let manifestContents = try fs.readFileContents(manifestPath).cString
         let editor = try ManifestRewriter(manifestContents)
-        try editor.addPackageDependency(url: url, requirement: requirement!)
+        try editor.addPackageDependency(name: dependencyManifest.name, url: url, requirement: requirement!)
 
         // Add the product in the first regular target, if possible.
         let productName = dependencyManifest.products.filter{ $0.type.isLibrary }.map{ $0.name }.first

@@ -36,6 +36,7 @@ final class AddPackageDependencyTests: XCTestCase {
         
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -47,7 +48,7 @@ final class AddPackageDependencyTests: XCTestCase {
             let package = Package(
                 name: "exec",
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(
@@ -75,6 +76,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -83,7 +85,7 @@ final class AddPackageDependencyTests: XCTestCase {
             let package = Package(
                 name: "exec",
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec"),
@@ -109,6 +111,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -119,7 +122,7 @@ final class AddPackageDependencyTests: XCTestCase {
                 dependencies: [
                     // Here is a comment.
                     .package(url: "https://github.com/foo/bar", .branch("master")),
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec"),
@@ -141,6 +144,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -149,7 +153,7 @@ final class AddPackageDependencyTests: XCTestCase {
             let package = Package(
                 name: "exec",
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec"),
@@ -175,6 +179,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -183,7 +188,7 @@ final class AddPackageDependencyTests: XCTestCase {
             let package = Package(
                 name: "exec",
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec"),
@@ -212,6 +217,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -225,7 +231,7 @@ final class AddPackageDependencyTests: XCTestCase {
                 name: "exec",
                 dependencies: myDeps + [
                     .package(url: "https://github.com/foo/bar", from: "1.0.3"),
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec"),
@@ -250,6 +256,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -259,7 +266,7 @@ final class AddPackageDependencyTests: XCTestCase {
                 name: "exec",
                 dependencies: [
                     .package(url: "https://github.com/foo/bar", from: "1.0.3"),
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec")
@@ -282,6 +289,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -291,7 +299,7 @@ final class AddPackageDependencyTests: XCTestCase {
                 name: "exec",
                 platforms: [.iOS],
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 targets: [
                     .target(name: "exec"),
@@ -312,6 +320,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -321,7 +330,7 @@ final class AddPackageDependencyTests: XCTestCase {
                 name: "exec",
                 platforms: [.iOS],
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],
                 swiftLanguageVersions: []
             )
@@ -339,6 +348,7 @@ final class AddPackageDependencyTests: XCTestCase {
 
         let editor = try ManifestRewriter(manifest)
         try editor.addPackageDependency(
+            name: "goo",
             url: "https://github.com/foo/goo",
             requirement: .upToNextMajor("1.0.1")
         )
@@ -348,7 +358,115 @@ final class AddPackageDependencyTests: XCTestCase {
                 name: "exec",
                 platforms: [.iOS],
                 dependencies: [
-                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
+                ]
+            )
+            """)
+    }
+
+    func testAddPackageDependencyWithExactRequirement() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            name: "goo",
+            url: "https://github.com/foo/goo",
+            requirement: .exact("2.0.2")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(name: "goo", url: "https://github.com/foo/goo", .exact("2.0.2")),
+                ]
+            )
+            """)
+    }
+
+    func testAddPackageDependencyWithBranchRequirement() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            name: "goo",
+            url: "https://github.com/foo/goo",
+            requirement: .branch("main")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(name: "goo", url: "https://github.com/foo/goo", .branch("main")),
+                ]
+            )
+            """)
+    }
+
+    func testAddPackageDependencyWithRevisionRequirement() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            name: "goo",
+            url: "https://github.com/foo/goo",
+            requirement: .revision("abcde")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(name: "goo", url: "https://github.com/foo/goo", .revision("abcde")),
+                ]
+            )
+            """)
+    }
+
+    func testAddPackageDependencyWithUpToNextMinorRequirement() throws {
+        let manifest = """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+            )
+            """
+
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addPackageDependency(
+            name: "goo",
+            url: "https://github.com/foo/goo",
+            requirement: .upToNextMinor("1.1.1")
+        )
+
+        XCTAssertEqual(editor.editedManifest, """
+            let package = Package(
+                name: "exec",
+                platforms: [.iOS],
+                dependencies: [
+                    .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMinor(from: "1.1.1")),
                 ]
             )
             """)
