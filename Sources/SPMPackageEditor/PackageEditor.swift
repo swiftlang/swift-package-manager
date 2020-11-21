@@ -120,7 +120,9 @@ public final class PackageEditor {
     }
 
     /// Add a new target.
-    public func addTarget(name targetName: String, type targetType: TargetType?) throws {
+    public func addTarget(name targetName: String, type targetType: TargetType, includeTestTarget: Bool) throws {
+        assert(!(includeTestTarget && targetType == .test))
+
         let manifestPath = context.manifestPath
         let testTargetName = targetName + "Tests"
 
@@ -135,18 +137,23 @@ public final class PackageEditor {
             throw StringError("a target named '\(targetName)' already exists")
         }
 
+        if includeTestTarget, loadedManifest.targets.contains(where: { $0.name == testTargetName }) {
+            throw StringError("a target named '\(targetName)' already exists")
+        }
+
         let manifestContents = try fs.readFileContents(manifestPath).cString
         let editor = try ManifestRewriter(manifestContents)
-        // FIXME: Account for the targetType parameter
-        try editor.addTarget(targetName: targetName)
-        try editor.addTarget(targetName: testTargetName, type: .test)
-        try editor.addTargetDependency(target: testTargetName, dependency: targetName)
+        try editor.addTarget(targetName: targetName, type: targetType)
+        if includeTestTarget {
+            try editor.addTarget(targetName: testTargetName, type: .test)
+            try editor.addTargetDependency(target: testTargetName, dependency: targetName)
+        }
 
         // FIXME: We should verify our edits by loading the edited manifest before writing it to disk.
         try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
 
         // Write template files.
-        let targetPath = manifestPath.parentDirectory.appending(components: "Sources", targetName)
+        let targetPath = manifestPath.parentDirectory.appending(components: targetType == .test ? "Tests" : "Sources", targetName)
         if !localFileSystem.exists(targetPath) {
             let file = targetPath.appending(components: targetName + ".swift")
             try fs.createDirectory(targetPath)
@@ -154,7 +161,7 @@ public final class PackageEditor {
         }
 
         let testTargetPath = manifestPath.parentDirectory.appending(components: "Tests", testTargetName)
-        if !fs.exists(testTargetPath) {
+        if includeTestTarget, !fs.exists(testTargetPath) {
             let file = testTargetPath.appending(components: testTargetName + ".swift")
             try fs.createDirectory(testTargetPath)
             try fs.writeFileContents(file) {

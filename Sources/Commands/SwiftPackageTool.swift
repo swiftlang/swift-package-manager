@@ -755,14 +755,17 @@ extension SwiftPackageTool {
         var targetName: String
 
         @Option
-        var targetType: TargetType?
+        var targetType: TargetType = .regular
+
+        @Flag
+        var noTestTarget: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
-            try editor.addTarget(name: targetName, type: targetType)
+            try editor.addTarget(name: targetName, type: targetType, includeTestTarget: !noTestTarget && targetType != .test)
         }
     }
 }

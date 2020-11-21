@@ -57,10 +57,12 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("a target named 'foo' already exists")) {
-            try editor.addTarget(name: "foo", type: .regular)
+            try editor.addTarget(name: "foo", type: .regular, includeTestTarget: true)
         }
 
-        try editor.addTarget(name: "baz", type: .regular)
+        try editor.addTarget(name: "baz", type: .regular, includeTestTarget: true)
+        try editor.addTarget(name: "qux", type: .regular, includeTestTarget: false)
+        try editor.addTarget(name: "IntegrationTests", type: .test, includeTestTarget: false)
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
@@ -88,12 +90,21 @@ final class PackageEditorTests: XCTestCase {
                     .testTarget(
                         name: "bazTests",
                         dependencies: ["baz"]),
+                    .target(
+                        name: "qux",
+                        dependencies: []),
+                    .testTarget(
+                        name: "IntegrationTests",
+                        dependencies: []),
                 ]
             )
             """)
 
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/baz/baz.swift")))
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/bazTests/bazTests.swift")))
+        XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/qux/qux.swift")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/pkg/Tests/quxTests")))
+        XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/IntegrationTests/IntegrationTests.swift")))
     }
 
     func testToolsVersionTest() throws {
@@ -129,7 +140,7 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {
-            try editor.addTarget(name: "bar", type: .regular)
+            try editor.addTarget(name: "bar", type: .regular, includeTestTarget: true)
         }
     }
 }
