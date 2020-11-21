@@ -173,6 +173,10 @@ public final class PackageEditor {
             }
         }
     }
+
+    public func addProduct(name: String, type: ProductType, targets: [String]) throws {
+        
+    }
 }
 
 extension Array where Element == TargetDescription.Dependency {

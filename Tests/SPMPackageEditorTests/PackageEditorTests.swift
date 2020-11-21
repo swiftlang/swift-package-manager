@@ -102,7 +102,6 @@ final class PackageEditorTests: XCTestCase {
             """)
     }
 
-
     func testAddTarget() throws {
         let manifest = """
             // swift-tools-version:5.2

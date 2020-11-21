@@ -752,10 +752,10 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         @Argument
-        var targetName: String
+        var name: String
 
         @Option
-        var targetType: TargetType = .regular
+        var type: TargetType = .regular
 
         @Flag
         var noTestTarget: Bool = false
@@ -768,17 +768,65 @@ extension SwiftPackageTool {
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
-            try editor.addTarget(name: targetName,
-                                 type: targetType,
-                                 includeTestTarget: !noTestTarget && targetType != .test,
+            try editor.addTarget(name: name,
+                                 type: type,
+                                 includeTestTarget: !noTestTarget && type != .test,
                                  dependencies: dependencies?.split(separator: ",").map(String.init) ?? [])
         }
     }
+
+    struct AddProduct: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Add a product to the current package.")
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Argument
+        var name: String
+
+        @Option
+        var type: ProductType?
+
+        @Option
+        var targets: String?
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let packageRoot = try swiftTool.getPackageRoot()
+            let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
+                                           repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
+                                           toolchain: swiftTool.getToolchain())
+            let targets = self.targets?.split(separator: ",").map(String.init) ?? []
+            try editor.addProduct(name: name, type: type ?? .library(.automatic), targets: targets)
+        }
+    }
+
 }
 
 extension Version: ExpressibleByArgument {
     public init?(argument: String) {
         self.init(string: argument)
+    }
+}
+
+extension ProductType: ExpressibleByArgument {
+    public init?(argument: String) {
+        switch argument {
+        case "library":
+            self = .library(.automatic)
+        case "static-library":
+            self = .library(.static)
+        case "dynamic-library":
+            self = .library(.dynamic)
+        case "executable":
+            self = .executable
+        default:
+            return nil
+        }
+    }
+
+    public static var defaultCompletionKind: CompletionKind {
+        .list(["library", "static-library", "dynamic-library", "executable"])
     }
 }
 
