@@ -15,7 +15,7 @@ import XCTest
 final class AddTargetTests: XCTestCase {
     func testAddTarget() throws {
         let manifest = """
-            // swift-tools-version:5.0
+            // swift-tools-version:5.2
             import PackageDescription
 
             let package = Package(
@@ -43,7 +43,7 @@ final class AddTargetTests: XCTestCase {
         try editor.addTargetDependency(target: "NewTargetTests", dependency: "NewTarget")
 
         XCTAssertEqual(editor.editedManifest, """
-            // swift-tools-version:5.0
+            // swift-tools-version:5.2
             import PackageDescription
 
             let package = Package(
@@ -74,7 +74,7 @@ final class AddTargetTests: XCTestCase {
 
     func testAddTarget2() throws {
         let manifest = """
-                // swift-tools-version:5.0
+                // swift-tools-version:5.2
                 import PackageDescription
 
                 let package = Package(
@@ -89,7 +89,7 @@ final class AddTargetTests: XCTestCase {
         try editor.addTarget(targetName: "NewTarget")
 
         XCTAssertEqual(editor.editedManifest, """
-                // swift-tools-version:5.0
+                // swift-tools-version:5.2
                 import PackageDescription
 
                 let package = Package(

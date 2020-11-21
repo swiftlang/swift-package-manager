@@ -15,7 +15,7 @@ import XCTest
 final class AddTargetDependencyTests: XCTestCase {
     func testAddTargetDependency() throws {
         let manifest = """
-            // swift-tools-version:5.0
+            // swift-tools-version:5.2
             import PackageDescription
 
             let package = Package(
@@ -49,7 +49,7 @@ final class AddTargetDependencyTests: XCTestCase {
             target: "execTests", dependency: "foo")
 
         XCTAssertEqual(editor.editedManifest, """
-            // swift-tools-version:5.0
+            // swift-tools-version:5.2
             import PackageDescription
 
             let package = Package(

@@ -262,6 +262,10 @@ public final class PackageEditorContext {
         let toolsVersion = try ToolsVersionLoader().load(
             at: path, fileSystem: fs)
 
+        guard toolsVersion >= .v5_2 else {
+            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
+        }
+
         return try manifestLoader.load(
             package: path,
             baseURL: path.pathString,

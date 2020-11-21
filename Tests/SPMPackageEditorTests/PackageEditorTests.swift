@@ -17,7 +17,7 @@ import SPMTestSupport
 final class PackageEditorTests: XCTestCase {
     func testAddTarget() throws {
         let manifest = """
-            // swift-tools-version:5.0
+            // swift-tools-version:5.2
             import PackageDescription
 
             let package = Package(
@@ -62,7 +62,7 @@ final class PackageEditorTests: XCTestCase {
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
-            // swift-tools-version:5.0
+            // swift-tools-version:5.2
             import PackageDescription
 
             let package = Package(
@@ -92,5 +92,41 @@ final class PackageEditorTests: XCTestCase {
 
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/baz/baz.swift")))
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/bazTests/bazTests.swift")))
+    }
+
+    func testToolsVersionTest() throws {
+        let manifest = """
+            // swift-tools-version:5.0
+            import PackageDescription
+
+            let package = Package(
+                name: "exec",
+                dependencies: [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: []),
+                ]
+            )
+            """
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/Package.swift",
+            "/pkg/Sources/foo/source.swift",
+            "end")
+
+        let manifestPath = AbsolutePath("/pkg/Package.swift")
+        try fs.writeFileContents(manifestPath) { $0 <<< manifest }
+
+        let context = try PackageEditorContext(
+            manifestPath: AbsolutePath("/pkg/Package.swift"),
+            buildDir: AbsolutePath("/pkg/foo"), toolchain: Resources.default.toolchain, fs: fs)
+        let editor = PackageEditor(context: context)
+
+        XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {
+            try editor.addTarget(name: "bar", type: .regular)
+        }
     }
 }
