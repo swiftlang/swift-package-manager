@@ -175,7 +175,30 @@ public final class PackageEditor {
     }
 
     public func addProduct(name: String, type: ProductType, targets: [String]) throws {
-        
+        let manifestPath = context.manifestPath
+
+        // Validate that the package doesn't already contain a product with the same name.
+        let loadedManifest = try context.loadManifest(at: manifestPath.parentDirectory)
+
+        guard loadedManifest.toolsVersion >= .v5_2 else {
+            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
+        }
+
+        if loadedManifest.products.contains(where: { $0.name == name }) {
+            throw StringError("a product named '\(name)' already exists")
+        }
+
+        let manifestContents = try fs.readFileContents(manifestPath).cString
+        let editor = try ManifestRewriter(manifestContents)
+        try editor.addProduct(name: name, type: type)
+
+
+        for target in targets {
+            try editor.addProductTarget(product: name, target: target)
+        }
+
+        try context.verifyEditedManifest(contents: editor.editedManifest)
+        try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
     }
 }
 
@@ -271,7 +294,7 @@ public final class PackageEditorContext {
                 _ = try loadManifest(at: path, fs: localFileSystem)
             }
         } catch {
-            throw StringError("failed to verify edited manifest: \(error.localizedDescription)")
+            throw StringError("failed to verify edited manifest: \(error)")
         }
     }
 

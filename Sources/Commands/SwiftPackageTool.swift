@@ -789,14 +789,14 @@ extension SwiftPackageTool {
         var type: ProductType?
 
         @Option
-        var targets: String?
+        var targets: String
 
         func run(_ swiftTool: SwiftTool) throws {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
-            let targets = self.targets?.split(separator: ",").map(String.init) ?? []
+            let targets = self.targets.split(separator: ",").map(String.init)
             try editor.addProduct(name: name, type: type ?? .library(.automatic), targets: targets)
         }
     }

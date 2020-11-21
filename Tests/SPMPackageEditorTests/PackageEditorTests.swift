@@ -193,6 +193,91 @@ final class PackageEditorTests: XCTestCase {
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/IntegrationTests/IntegrationTests.swift")))
     }
 
+    func testAddProduct() throws {
+        let manifest = """
+            // swift-tools-version:5.2
+            import PackageDescription
+
+            let package = Package(
+                name: "exec",
+                products: [
+                    .executable(name: "abc", targets: ["foo"]),
+                ],
+                dependencies: [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: []),
+                    .target(
+                        name: "bar",
+                        dependencies: []),
+                    .testTarget(
+                        name: "fooTests",
+                        dependencies: ["foo", "bar"]),
+                ]
+            )
+            """
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/Package.swift",
+            "/pkg/Sources/foo/source.swift",
+            "/pkg/Sources/bar/source.swift",
+            "/pkg/Tests/fooTests/source.swift",
+            "end")
+
+        let manifestPath = AbsolutePath("/pkg/Package.swift")
+        try fs.writeFileContents(manifestPath) { $0 <<< manifest }
+
+        let context = try PackageEditorContext(
+            manifestPath: AbsolutePath("/pkg/Package.swift"),
+            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: InMemoryGitRepositoryProvider()),
+            toolchain: Resources.default.toolchain, fs: fs)
+        let editor = PackageEditor(context: context)
+
+        XCTAssertThrows(StringError("a product named 'abc' already exists")) {
+            try editor.addProduct(name: "abc", type: .library(.automatic), targets: [])
+        }
+
+        try editor.addProduct(name: "xyz", type: .executable, targets: ["bar"])
+        try editor.addProduct(name: "libxyz", type: .library(.dynamic), targets: ["foo", "bar"])
+
+        let newManifest = try fs.readFileContents(manifestPath).cString
+        XCTAssertEqual(newManifest, """
+            // swift-tools-version:5.2
+            import PackageDescription
+
+            let package = Package(
+                name: "exec",
+                products: [
+                    .executable(name: "abc", targets: ["foo"]),
+                    .executable(
+                        name: "xyz",
+                        targets: ["bar"]),
+                    .library(
+                        name: "libxyz",
+                        type: .dynamic,
+                        targets: ["foo", "bar"]),
+                ],
+                dependencies: [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: []),
+                    .target(
+                        name: "bar",
+                        dependencies: []),
+                    .testTarget(
+                        name: "fooTests",
+                        dependencies: ["foo", "bar"]),
+                ]
+            )
+            """)
+    }
+
     func testToolsVersionTest() throws {
         let manifest = """
             // swift-tools-version:5.0

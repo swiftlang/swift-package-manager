@@ -10,6 +10,7 @@
 
 import SwiftSyntax
 import TSCBasic
+import PackageModel
 
 /// A package manifest rewriter.
 ///
@@ -105,9 +106,9 @@ public final class ManifestRewriter {
         }
 
         // Find the target node.
-        let targetFinder = TargetFinder(name: target)
+        let targetFinder = NamedEntityArgumentListFinder(name: target)
         targetFinder.walk(targetsArrayExpr)
-        guard let targetNode = targetFinder.foundTarget else {
+        guard let targetNode = targetFinder.foundEntity else {
             throw StringError("couldn't find target '\(target)'")
         }
 
@@ -166,6 +167,80 @@ public final class ManifestRewriter {
 
         self.editedSource = newManifest
     }
+
+    // Add a new product.
+    public func addProduct(name: String, type: ProductType) throws {
+        // Find Package initializer.
+        let packageFinder = PackageInitFinder()
+        packageFinder.walk(editedSource)
+
+        guard let initFnExpr = packageFinder.packageInit else {
+            throw StringError("couldn't find 'Package' initializer")
+        }
+
+        let productsFinder = ArrayExprArgumentFinder(expectedLabel: "products")
+        productsFinder.walk(initFnExpr.argumentList)
+        let productsNode: ArrayExprSyntax
+
+        if let existingProducts = productsFinder.foundArrayExpr {
+            productsNode = existingProducts
+        } else {
+            // We didn't find a products section, so insert one.
+            let argListWithProducts = EmptyArrayArgumentWriter(argumentLabel: "products",
+                                                               followingArgumentLabels:
+                                                               "dependencies",
+                                                               "targets",
+                                                               "swiftLanguageVersions",
+                                                               "cLanguageStandard",
+                                                               "cxxLanguageStandard")
+                .visit(initFnExpr.argumentList)
+
+            // Find the inserted section.
+            let productsFinder = ArrayExprArgumentFinder(expectedLabel: "products")
+            productsFinder.walk(argListWithProducts)
+            productsNode = productsFinder.foundArrayExpr!
+        }
+
+        let newManifest = NewProductWriter(
+            name: name, type: type
+        ).visit(productsNode).root
+
+        self.editedSource = newManifest
+    }
+
+    // Add a target to a product.
+    public func addProductTarget(product: String, target: String) throws {
+        // Find Package initializer.
+        let packageFinder = PackageInitFinder()
+        packageFinder.walk(editedSource)
+
+        guard let initFnExpr = packageFinder.packageInit else {
+            throw StringError("couldn't find 'Package' initializer")
+        }
+
+        // Find the `products: []` array.
+        let productsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "products")
+        productsArrayFinder.walk(initFnExpr.argumentList)
+        guard let productsArrayExpr = productsArrayFinder.foundArrayExpr else {
+            throw StringError("Couldn't find 'products' argument")
+        }
+
+        // Find the product node.
+        let productFinder = NamedEntityArgumentListFinder(name: product)
+        productFinder.walk(productsArrayExpr)
+        guard let productNode = productFinder.foundEntity else {
+            throw StringError("couldn't find product '\(product)'")
+        }
+
+        let productTargetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
+        productTargetsFinder.walk(productNode)
+
+        guard let productTargets = productTargetsFinder.foundArrayExpr else {
+            throw StringError("couldn't find 'targets' argument")
+        }
+
+        self.editedSource = ProductTargetWriter(name: target).visit(productTargets).root
+    }
 }
 
 // MARK: - Syntax Visitors
@@ -217,14 +292,15 @@ final class ArrayExprArgumentFinder: SyntaxVisitor {
     }
 }
 
-/// Finds a given target in a list of targets.
-final class TargetFinder: SyntaxVisitor {
+/// Given an Array expression of call expressions, find the argument list of the call
+/// expression with the specified `name` argument.
+final class NamedEntityArgumentListFinder: SyntaxVisitor {
 
-    let targetToFind: String
-    private(set) var foundTarget: TupleExprElementListSyntax?
+    let entityToFind: String
+    private(set) var foundEntity: TupleExprElementListSyntax?
 
     init(name: String) {
-        self.targetToFind = name
+        self.entityToFind = name
     }
 
     override func visit(_ node: TupleExprElementSyntax) -> SyntaxVisitorContinueKind {
@@ -236,12 +312,12 @@ final class TargetFinder: SyntaxVisitor {
             return .skipChildren
         }
 
-        guard case .stringSegment(let targetName) = segment.content.tokenKind else {
+        guard case .stringSegment(let name) = segment.content.tokenKind else {
             return .skipChildren
         }
 
-        if targetName == self.targetToFind {
-            self.foundTarget = node.parent?.as(TupleExprElementListSyntax.self)
+        if name == self.entityToFind {
+            self.foundEntity = node.parent?.as(TupleExprElementListSyntax.self)
             return .skipChildren
         }
 
@@ -515,5 +591,112 @@ final class NewTargetWriter: SyntaxRewriter {
         )
 
         return ExprSyntax(node.addElement(newDependencyElement))
+    }
+}
+
+/// Writer for inserting a new product in a products array.
+final class NewProductWriter: SyntaxRewriter {
+
+    let name: String
+    let type: ProductType
+
+    init(name: String, type: ProductType) {
+        self.name = name
+        self.type = type
+    }
+
+    override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
+
+        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
+        let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
+
+        let dotExpr = SyntaxFactory.makeMemberAccessExpr(
+            base: nil,
+            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
+            name: SyntaxFactory.makeIdentifier(type == .executable ? "executable" : "library"),
+            declNameArguments: nil
+        )
+
+        var args: [TupleExprElementSyntax] = []
+
+        let nameArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
+            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(name)),
+            trailingComma: SyntaxFactory.makeCommaToken()
+        )
+        args.append(nameArg)
+
+        if case .library(let kind) = type, kind != .automatic {
+            let typeExpr = SyntaxFactory.makeMemberAccessExpr(base: nil,
+                                                              dot: SyntaxFactory.makePeriodToken(),
+                                                              name: SyntaxFactory.makeIdentifier(kind == .dynamic ? "dynamic" : "static"),
+                                                              declNameArguments: nil)
+            let typeArg = SyntaxFactory.makeTupleExprElement(
+                label: SyntaxFactory.makeIdentifier("type", leadingTrivia: leadingTriviaArgs),
+                colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+                expression: ExprSyntax(typeExpr),
+                trailingComma: SyntaxFactory.makeCommaToken()
+            )
+            args.append(typeArg)
+        }
+
+        let emptyArray = SyntaxFactory.makeArrayExpr(leftSquare: SyntaxFactory.makeLeftSquareBracketToken(),
+                                                     elements: SyntaxFactory.makeBlankArrayElementList(),
+                                                     rightSquare: SyntaxFactory.makeRightSquareBracketToken())
+        let targetsArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier("targets", leadingTrivia: leadingTriviaArgs),
+            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+            expression: ExprSyntax(emptyArray),
+            trailingComma: nil
+        )
+        args.append(targetsArg)
+
+        let expr = SyntaxFactory.makeFunctionCallExpr(
+            calledExpression: ExprSyntax(dotExpr),
+            leftParen: SyntaxFactory.makeLeftParenToken(),
+            argumentList: SyntaxFactory.makeTupleExprElementList(args),
+            rightParen: SyntaxFactory.makeRightParenToken(),
+          trailingClosure: nil,
+          additionalTrailingClosures: nil
+        )
+
+        let newDependencyElement = SyntaxFactory.makeArrayElement(
+            expression: ExprSyntax(expr),
+            trailingComma: SyntaxFactory.makeCommaToken()
+        )
+
+        return ExprSyntax(node.addElement(newDependencyElement))
+    }
+}
+
+/// Writer for inserting a product target.
+final class ProductTargetWriter: SyntaxRewriter {
+
+    /// The name of the target to write.
+    let name: String
+
+    init(name: String) {
+        self.name = name
+    }
+
+    override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
+        var node = node
+
+        // Insert trailing comma, if needed.
+        if node.elements.count > 0 {
+            let lastElement = node.elements.map{$0}.last!
+            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement,
+                                                                addSpaceAfterComma: true)
+            let newElements = trailingTriviaWriter.visit(node.elements)
+            node = node.withElements((newElements.as(ArrayElementListSyntax.self)!))
+        }
+
+        let newTargetElement = SyntaxFactory.makeArrayElement(
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.name)),
+            trailingComma: nil
+        )
+
+        return ExprSyntax(node.addElement(newTargetElement))
     }
 }
