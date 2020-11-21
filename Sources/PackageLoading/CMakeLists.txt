@@ -21,6 +21,7 @@ add_library(PackageLoading
   UserManifestResources.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
+  Basics
   PackageModel
   TSCUtility)
 if(Foundation_FOUND)

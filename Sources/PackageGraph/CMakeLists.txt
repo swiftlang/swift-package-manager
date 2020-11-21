@@ -35,6 +35,7 @@ add_library(PackageGraph
   VersionSetSpecifier.swift)
 target_link_libraries(PackageGraph PUBLIC
   TSCBasic
+  Basics
   PackageLoading
   PackageModel
   SourceControl

@@ -14,6 +14,7 @@ set_target_properties(SPMLLBuild PROPERTIES
 target_link_libraries(SPMLLBuild PUBLIC
   TSCBasic
   TSCUtility
+  Basics
   llbuildSwift)
 
 if(USE_CMAKE_INSTALL)
