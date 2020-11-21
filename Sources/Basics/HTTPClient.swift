@@ -359,6 +359,12 @@ public struct HTTPClientHeaders: Sequence, Equatable {
     }
 }
 
+extension HTTPClientHeaders: ExpressibleByDictionaryLiteral {
+    public init(dictionaryLiteral elements: (String, String)...) {
+        self.init(elements.map(Item.init))
+    }
+}
+
 public enum HTTPClientError: Error, Equatable {
     case invalidResponse
     case badResponseStatusCode(Int)
