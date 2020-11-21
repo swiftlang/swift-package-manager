@@ -57,12 +57,12 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("a target named 'foo' already exists")) {
-            try editor.addTarget(name: "foo", type: .regular, includeTestTarget: true)
+            try editor.addTarget(name: "foo", type: .regular, includeTestTarget: true, dependencies: [])
         }
 
-        try editor.addTarget(name: "baz", type: .regular, includeTestTarget: true)
-        try editor.addTarget(name: "qux", type: .regular, includeTestTarget: false)
-        try editor.addTarget(name: "IntegrationTests", type: .test, includeTestTarget: false)
+        try editor.addTarget(name: "baz", type: .regular, includeTestTarget: true, dependencies: [])
+        try editor.addTarget(name: "qux", type: .regular, includeTestTarget: false, dependencies: ["foo", "baz"])
+        try editor.addTarget(name: "IntegrationTests", type: .test, includeTestTarget: false, dependencies: [])
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
@@ -92,7 +92,7 @@ final class PackageEditorTests: XCTestCase {
                         dependencies: ["baz"]),
                     .target(
                         name: "qux",
-                        dependencies: []),
+                        dependencies: ["foo", "baz"]),
                     .testTarget(
                         name: "IntegrationTests",
                         dependencies: []),
@@ -140,7 +140,7 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {
-            try editor.addTarget(name: "bar", type: .regular, includeTestTarget: true)
+            try editor.addTarget(name: "bar", type: .regular, includeTestTarget: true, dependencies: [])
         }
     }
 }

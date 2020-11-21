@@ -760,12 +760,18 @@ extension SwiftPackageTool {
         @Flag
         var noTestTarget: Bool = false
 
+        @Option
+        var dependencies: String?
+
         func run(_ swiftTool: SwiftTool) throws {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
-            try editor.addTarget(name: targetName, type: targetType, includeTestTarget: !noTestTarget && targetType != .test)
+            try editor.addTarget(name: targetName,
+                                 type: targetType,
+                                 includeTestTarget: !noTestTarget && targetType != .test,
+                                 dependencies: dependencies?.split(separator: ",").map(String.init) ?? [])
         }
     }
 }

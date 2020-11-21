@@ -110,7 +110,8 @@ public final class PackageEditor {
     }
 
     /// Add a new target.
-    public func addTarget(name targetName: String, type targetType: TargetType, includeTestTarget: Bool) throws {
+    public func addTarget(name targetName: String, type targetType: TargetType,
+                          includeTestTarget: Bool, dependencies: [String]) throws {
         assert(!(includeTestTarget && targetType == .test))
 
         let manifestPath = context.manifestPath
@@ -137,6 +138,11 @@ public final class PackageEditor {
         if includeTestTarget {
             try editor.addTarget(targetName: testTargetName, type: .test)
             try editor.addTargetDependency(target: testTargetName, dependency: targetName)
+        }
+
+        // FIXME: support product dependencies properly
+        for dependency in dependencies {
+            try editor.addTargetDependency(target: targetName, dependency: dependency)
         }
 
         try context.verifyEditedManifest(contents: editor.editedManifest)
