@@ -330,6 +330,6 @@ if enablePackageEditor {
       .target(name: "SPMPackageEditor",
               dependencies: ["Workspace", "PackageModel", "PackageLoading",
                              "SourceControl", "SwiftSyntax", "SwiftToolsSupport-auto"]),
-      .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport"]),
+      .testTarget(name: "SPMPackageEditorTests", dependencies: ["SPMPackageEditor", "SPMTestSupport", "SwiftSyntax"]),
   ]
 }

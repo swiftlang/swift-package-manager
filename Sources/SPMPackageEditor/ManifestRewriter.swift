@@ -30,12 +30,12 @@ public final class ManifestRewriter {
     }
 
     /// The edited manifest syntax.
-    private var editedSource: Syntax
+    private var editedSource: SourceFileSyntax
 
     /// Create a new manfiest editor with the given contents.
     public init(_ manifest: String) throws {
         self.originalManifest = manifest
-        self.editedSource = Syntax(try SyntaxParser.parse(source: manifest))
+        self.editedSource = try SyntaxParser.parse(source: manifest)
     }
 
     /// Add a package dependency.
@@ -75,14 +75,17 @@ public final class ManifestRewriter {
             packageDependencies = packageDependenciesFinder.foundArrayExpr!
         }
 
+        print(packageDependencies.description)
+
         // Add the the package dependency entry.
        let newManifest = PackageDependencyWriter(
             name: name,
             url: url,
-            requirement: requirement
+            requirement: requirement,
+            sourceFileSyntax: editedSource
         ).visit(packageDependencies).root
 
-        self.editedSource = newManifest
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
 
     /// Add a target dependency.
@@ -124,7 +127,7 @@ public final class ManifestRewriter {
             dependencyName: dependency
         ).visit(targetDependencies).root
 
-        self.editedSource = newManifest
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
 
     /// Add a new target.
@@ -165,7 +168,7 @@ public final class ManifestRewriter {
             name: targetName, targetType: type
         ).visit(targetsNode).root
 
-        self.editedSource = newManifest
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
 
     // Add a new product.
@@ -205,7 +208,7 @@ public final class ManifestRewriter {
             name: name, type: type
         ).visit(productsNode).root
 
-        self.editedSource = newManifest
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
 
     // Add a target to a product.
@@ -239,7 +242,8 @@ public final class ManifestRewriter {
             throw StringError("couldn't find 'targets' argument")
         }
 
-        self.editedSource = ProductTargetWriter(name: target).visit(productTargets).root
+        self.editedSource = ProductTargetWriter(name: target).visit(productTargets)
+            .root.as(SourceFileSyntax.self)!
     }
 }
 
@@ -399,10 +403,17 @@ final class PackageDependencyWriter: SyntaxRewriter {
     /// The dependency requirement.
     let requirement: PackageDependencyRequirement
 
-    init(name: String, url: String, requirement: PackageDependencyRequirement) {
+    /// The syntax node representing the containing source file.
+    let sourceFileSyntax: SourceFileSyntax
+
+    init(name: String,
+         url: String,
+         requirement: PackageDependencyRequirement,
+         sourceFileSyntax: SourceFileSyntax) {
         self.name = name
         self.url = url
         self.requirement = requirement
+        self.sourceFileSyntax = sourceFileSyntax
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
@@ -483,25 +494,7 @@ final class PackageDependencyWriter: SyntaxRewriter {
           additionalTrailingClosures: nil
         )
 
-        let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: ExprSyntax(expr),
-            trailingComma: SyntaxFactory.makeCommaToken()
-        )
-
-        let rightBrace = SyntaxFactory.makeRightSquareBracketToken(
-            leadingTrivia: [.newlines(1), .spaces(4)])
-
-        var newNode = node
-        if newNode.elements.count > 0 {
-            let lastElement = newNode.elements.map{$0}.last!
-            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement,
-                                                                addSpaceAfterComma: false)
-            let newElements = trailingTriviaWriter.visit(newNode.elements)
-            newNode = newNode.withElements((newElements.as(ArrayElementListSyntax.self)!))
-        }
-
-        return ExprSyntax(newNode.addElement(newDependencyElement)
-                            .withRightSquare(rightBrace))
+        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
     }
 }
 

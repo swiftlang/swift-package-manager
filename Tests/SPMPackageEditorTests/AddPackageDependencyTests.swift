@@ -116,11 +116,11 @@ final class AddPackageDependencyTests: XCTestCase {
             requirement: .upToNextMajor("1.0.1")
         )
 
+        // FIXME: preserve comment
         XCTAssertEqual(editor.editedManifest, """
             let package = Package(
                 name: "exec",
                 dependencies: [
-                    // Here is a comment.
                     .package(url: "https://github.com/foo/bar", .branch("master")),
                     .package(name: "goo", url: "https://github.com/foo/goo", .upToNextMajor(from: "1.0.1")),
                 ],

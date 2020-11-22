@@ -1,13 +1,12 @@
 import XCTest
-import ArrayFormatting
+import SPMPackageEditor
 import SwiftSyntax
 
 final class ArrayFormattingTests: XCTestCase {
     func assertAdding(string: String, to arrayLiteralCode: String, produces result: String) {
         let sourceFileSyntax = try! SyntaxParser.parse(source: arrayLiteralCode)
         let arrayExpr = sourceFileSyntax.statements.first?.item.as(ArrayExprSyntax.self)!
-        let outputSyntax = arrayExpr?.withAdditionalElementExpr(ExprSyntax(SyntaxFactory.makeStringLiteralExpr(string)),
-                                                                sourceFileSyntax: sourceFileSyntax)
+        let outputSyntax = arrayExpr?.withAdditionalElementExpr(ExprSyntax(SyntaxFactory.makeStringLiteralExpr(string)))
         XCTAssertEqual(outputSyntax!.description, result)
     }
 
@@ -16,8 +15,7 @@ final class ArrayFormattingTests: XCTestCase {
         let funcExpr = sourceFileSyntax.statements.first!.item.as(FunctionCallExprSyntax.self)!
         let arg = funcExpr.argumentList.first!
         let arrayExpr = arg.expression.as(ArrayExprSyntax.self)!
-        let newExpr = arrayExpr.withAdditionalElementExpr(ExprSyntax(SyntaxFactory.makeStringLiteralExpr(string)),
-                                                          sourceFileSyntax: sourceFileSyntax)
+        let newExpr = arrayExpr.withAdditionalElementExpr(ExprSyntax(SyntaxFactory.makeStringLiteralExpr(string)))
         let outputSyntax = funcExpr.withArgumentList(
             funcExpr.argumentList.replacing(childAt: 0,
                                             with: arg.withExpression(ExprSyntax(newExpr)))

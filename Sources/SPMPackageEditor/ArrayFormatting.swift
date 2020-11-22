@@ -1,8 +1,7 @@
 import SwiftSyntax
 
 extension ArrayExprSyntax {
-    public func withAdditionalElementExpr(_ expr: ExprSyntax,
-                                          sourceFileSyntax: SourceFileSyntax) -> ArrayExprSyntax {
+    public func withAdditionalElementExpr(_ expr: ExprSyntax) -> ArrayExprSyntax {
         if self.elements.count >= 2 {
             // If the array expression has >=2 elements, use the trivia between
             // the last and second-to-last elements to determine how we insert
@@ -39,11 +38,12 @@ extension ArrayExprSyntax {
             // of the line the opening square bracket appears on, and then use
             // that to indent the added element and closing brace onto newlines.
             var calculatedIndentTrivia: Trivia? = nil
-            let locationConverter = SourceLocationConverter(file: "", tree: sourceFileSyntax)
+            let sfSyntax = self.root.as(SourceFileSyntax.self)!
+            let locationConverter = SourceLocationConverter(file: "", tree: sfSyntax)
             if let lineNumber = self.leftSquare.startLocation(converter: locationConverter).line {
                 let indentVisitor = DetermineLineIndentVisitor(lineNumber: lineNumber,
                                                                sourceLocationConverter: locationConverter)
-                indentVisitor.walk(sourceFileSyntax)
+                indentVisitor.walk(sfSyntax)
                 calculatedIndentTrivia = indentVisitor.lineIndent
             }
             // If the indent couldn't be calculated for some reason, fallback to 4 spaces.
@@ -56,6 +56,12 @@ extension ArrayExprSyntax {
                     return $0 + count
                 }) % 4 == 0 ? 4 : 2
                 elementAdditionalIndentTrivia = .spaces(addedSpaces)
+                print("indent")
+                print(sfSyntax.description)
+                print(indentTrivia.reduce(0, {
+                    guard case .spaces(let count) = $1 else { fatalError() }
+                    return $0 + count
+                }))
             } else if indentTrivia.allSatisfy(\.isTabs) {
                 elementAdditionalIndentTrivia = .tabs(1)
             } else {
