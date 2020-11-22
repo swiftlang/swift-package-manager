@@ -259,11 +259,16 @@ final class PackageEditorTests: XCTestCase {
                     .executable(name: "abc", targets: ["foo"]),
                     .executable(
                         name: "xyz",
-                        targets: ["bar"]),
+                        targets: [
+                            "bar",
+                        ]),
                     .library(
                         name: "libxyz",
                         type: .dynamic,
-                        targets: ["foo", "bar"]),
+                        targets: [
+                            "foo",
+                            "bar",
+                        ]),
                 ],
                 dependencies: [
                     .package(url: "https://github.com/foo/goo", from: "1.0.1"),

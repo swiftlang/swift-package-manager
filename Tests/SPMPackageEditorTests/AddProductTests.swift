@@ -13,7 +13,7 @@ import XCTest
 @testable import SPMPackageEditor
 
 final class AddProductTests: XCTestCase {
-    func testAddTarget() throws {
+    func testAddProduct() throws {
         let manifest = """
             // swift-tools-version:5.2
             import PackageDescription
@@ -81,7 +81,7 @@ final class AddProductTests: XCTestCase {
             """)
     }
 
-    func testAddTarget2() throws {
+    func testAddProduct2() throws {
         let manifest = """
             // swift-tools-version:5.2
             import PackageDescription
@@ -129,7 +129,8 @@ final class AddProductTests: XCTestCase {
                     .library(
                         name: "dynamicLib",
                         type: .dynamic,
-                        targets: []),],
+                        targets: []),
+                ],
                 targets: [
                     .target(
                         name: "foo",

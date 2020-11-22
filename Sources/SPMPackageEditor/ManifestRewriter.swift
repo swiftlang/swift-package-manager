@@ -369,26 +369,6 @@ final class EmptyArrayArgumentWriter: SyntaxRewriter {
     }
 }
 
-/// Writer for inserting a trailing comma in an array expr.
-final class ArrayTrailingCommaWriter: SyntaxRewriter {
-    let lastElement: ArrayElementSyntax
-    let addSpaceAfterComma: Bool
-
-    init(lastElement: ArrayElementSyntax, addSpaceAfterComma: Bool) {
-        self.lastElement = lastElement
-        self.addSpaceAfterComma = addSpaceAfterComma
-    }
-
-    override func visit(_ node: ArrayElementSyntax) -> Syntax {
-        guard lastElement == node else {
-            return Syntax(node)
-        }
-        return Syntax(node.withTrailingComma(SyntaxFactory.makeCommaToken(
-                                                trailingTrivia: addSpaceAfterComma ? .spaces(1) : []))
-        )
-    }
-}
-
 /// Package dependency writer.
 final class PackageDependencyWriter: SyntaxRewriter {
 
@@ -415,12 +395,10 @@ final class PackageDependencyWriter: SyntaxRewriter {
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-        // FIXME: We should get the trivia from the closing brace.
-        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
 
         let dotPackageExpr = SyntaxFactory.makeMemberAccessExpr(
             base: nil,
-            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
+            dot: SyntaxFactory.makePeriodToken(),
             name: SyntaxFactory.makeIdentifier("package"),
             declNameArguments: nil
         )
@@ -526,6 +504,7 @@ final class NewTargetWriter: SyntaxRewriter {
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
 
+        //FIXME: determine from source
         let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
         let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
 
@@ -562,12 +541,7 @@ final class NewTargetWriter: SyntaxRewriter {
           additionalTrailingClosures: nil
         )
 
-        let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: ExprSyntax(expr),
-            trailingComma: SyntaxFactory.makeCommaToken()
-        )
-
-        return ExprSyntax(node.addElement(newDependencyElement))
+        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
     }
 }
 
@@ -584,6 +558,7 @@ final class NewProductWriter: SyntaxRewriter {
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
 
+        // FIXME: determine from source
         let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
         let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
 
@@ -638,12 +613,7 @@ final class NewProductWriter: SyntaxRewriter {
           additionalTrailingClosures: nil
         )
 
-        let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: ExprSyntax(expr),
-            trailingComma: SyntaxFactory.makeCommaToken()
-        )
-
-        return ExprSyntax(node.addElement(newDependencyElement))
+        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
     }
 }
 
@@ -658,22 +628,8 @@ final class ProductTargetWriter: SyntaxRewriter {
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-        var node = node
-
-        // Insert trailing comma, if needed.
-        if node.elements.count > 0 {
-            let lastElement = node.elements.map{$0}.last!
-            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement,
-                                                                addSpaceAfterComma: true)
-            let newElements = trailingTriviaWriter.visit(node.elements)
-            node = node.withElements((newElements.as(ArrayElementListSyntax.self)!))
-        }
-
-        let newTargetElement = SyntaxFactory.makeArrayElement(
-            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.name)),
-            trailingComma: nil
-        )
-
-        return ExprSyntax(node.addElement(newTargetElement))
+        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(
+            SyntaxFactory.makeStringLiteralExpr(self.name)
+        )))
     }
 }
