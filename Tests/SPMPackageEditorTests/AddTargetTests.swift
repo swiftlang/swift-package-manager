@@ -66,7 +66,9 @@ final class AddTargetTests: XCTestCase {
                         dependencies: []),
                     .testTarget(
                         name: "NewTargetTests",
-                        dependencies: ["NewTarget"]),
+                        dependencies: [
+                            "NewTarget",
+                        ]),
                 ]
             )
             """)

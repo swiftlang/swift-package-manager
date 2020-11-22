@@ -56,12 +56,6 @@ extension ArrayExprSyntax {
                     return $0 + count
                 }) % 4 == 0 ? 4 : 2
                 elementAdditionalIndentTrivia = .spaces(addedSpaces)
-                print("indent")
-                print(sfSyntax.description)
-                print(indentTrivia.reduce(0, {
-                    guard case .spaces(let count) = $1 else { fatalError() }
-                    return $0 + count
-                }))
             } else if indentTrivia.allSatisfy(\.isTabs) {
                 elementAdditionalIndentTrivia = .tabs(1)
             } else {

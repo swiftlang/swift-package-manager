@@ -175,10 +175,15 @@ final class PackageEditorTests: XCTestCase {
                         dependencies: []),
                     .testTarget(
                         name: "bazTests",
-                        dependencies: ["baz"]),
+                        dependencies: [
+                            "baz",
+                        ]),
                     .target(
                         name: "qux",
-                        dependencies: ["foo", "baz"]),
+                        dependencies: [
+                            "foo",
+                            "baz",
+                        ]),
                     .testTarget(
                         name: "IntegrationTests",
                         dependencies: []),

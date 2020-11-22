@@ -63,13 +63,19 @@ final class AddTargetDependencyTests: XCTestCase {
                         dependencies: []),
                     .target(
                         name: "exec",
-                        dependencies: ["foo", "bar"]),
+                        dependencies: [
+                            "foo",
+                            "bar",
+                        ]),
                     .target(
                         name: "c",
                         dependencies: []),
                     .testTarget(
                         name: "execTests",
-                        dependencies: ["exec", "foo"]),
+                        dependencies: [
+                            "exec",
+                            "foo",
+                        ]),
                 ]
             )
             """)
@@ -119,20 +125,28 @@ final class AddTargetDependencyTests: XCTestCase {
                 targets: [
                     .target(
                         name: "foo",
-                        dependencies: ["bar", "dep"]),
+                        dependencies: [
+                            "bar",
+                            "dep",
+                        ]),
                     .target(
                         name: "foo1",
-                        dependencies: ["bar", "dep"]),
+                        dependencies: [
+                            "bar",
+                            "dep",
+                        ]),
                     .target(
                         name: "foo2",
-                        dependencies: ["dep"]),
+                        dependencies: [
+                            "dep",
+                        ]),
                     .target(
                         name: "foo3",
-                        dependencies: ["foo", "bar", "dep"]),
+                        dependencies: ["foo", "bar", "dep",]),
                     .target(
                         name: "foo4",
                         dependencies: [
-                            "foo", "bar", "dep"
+                            "foo", "bar", "dep",
                         ]),
                 ]
             )

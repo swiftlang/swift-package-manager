@@ -75,8 +75,6 @@ public final class ManifestRewriter {
             packageDependencies = packageDependenciesFinder.foundArrayExpr!
         }
 
-        print(packageDependencies.description)
-
         // Add the the package dependency entry.
        let newManifest = PackageDependencyWriter(
             name: name,
@@ -509,23 +507,9 @@ final class TargetDependencyWriter: SyntaxRewriter {
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-        var node = node
-
-        // Insert trailing comma, if needed.
-        if node.elements.count > 0 {
-            let lastElement = node.elements.map{$0}.last!
-            let trailingTriviaWriter = ArrayTrailingCommaWriter(lastElement: lastElement,
-                                                                addSpaceAfterComma: true)
-            let newElements = trailingTriviaWriter.visit(node.elements)
-            node = node.withElements((newElements.as(ArrayElementListSyntax.self)!))
-        }
-
-        let newDependencyElement = SyntaxFactory.makeArrayElement(
-            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.dependencyName)),
-            trailingComma: nil
-        )
-
-        return ExprSyntax(node.addElement(newDependencyElement))
+        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(
+            SyntaxFactory.makeStringLiteralExpr(self.dependencyName)
+        )))
     }
 }
 
