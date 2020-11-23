@@ -19,6 +19,9 @@ add_library(PackageCollections
   Providers/JSONPackageCollectionProvider.swift
   Providers/PackageCollectionProvider.swift
   Providers/PackageMetadataProvider.swift
+  Search/InMemoryPackageCollectionsSearch.swift
+  Search/PackageCollectionsSearch.swift
+  Search/Trie.swift
   Storage/FilePackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsStorage.swift

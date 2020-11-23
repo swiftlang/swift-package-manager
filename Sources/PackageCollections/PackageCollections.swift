@@ -105,7 +105,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 sources.forEach { source in
                     self.refreshCollectionFromSource(source: source) { refreshResult in
                         lock.withLock { refreshResults.append(refreshResult) }
-                        if refreshResults.count == (lock.withLock { sources.count }) {
+                        if sources.count == (lock.withLock { refreshResults.count }) {
                             let errors = refreshResults.compactMap { $0.failure }
                             callback(errors.isEmpty ? .success(sources) : .failure(MultipleErrors(errors)))
                         }
