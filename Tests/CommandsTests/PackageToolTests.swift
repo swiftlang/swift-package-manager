@@ -959,4 +959,39 @@ final class PackageToolTests: XCTestCase {
         }
       #endif
     }
+
+    #if ENABLE_PACKAGE_EDITOR
+    func testAddDependency() throws {
+        fixture(name: "PackageEditor/Empty") { packageRoot in
+            fixture(name: "PackageEditor/OneProduct") { dependencyRoot in
+                _ = try execute(["add-dependency", dependencyRoot.pathString], packagePath: packageRoot)
+                let (dumpOutput, _) = try execute(["dump-package"], packagePath: packageRoot)
+                let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
+                guard case .dictionary(let dict) = json else { XCTFail(); return }
+                guard case .array(let deps) = dict["dependencies"] else { XCTFail(); return }
+                XCTAssertEqual(deps.count, 1)
+                let dependency = deps[0]
+                XCTAssertEqual(dependency["name"], .string("MyPackage"))
+                XCTAssertEqual(dependency["explicitName"], .string("MyPackage"))
+                XCTAssertEqual(dependency["requirement"], .dictionary(["localPackage": .null]))
+
+                XCTAssertThrowsError(try execute(["add-dependency", dependencyRoot.pathString], packagePath: packageRoot)) { error in
+                    guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error,
+                          stderr.contains("is already a package dependency") else {
+                        XCTFail()
+                        return
+                    }
+                }
+
+                XCTAssertThrowsError(try execute(["add-dependency", "http://www.githost.com/repo.git", "--exact", "1.0.0", "--from", "1.0.0"], packagePath: packageRoot)) { error in
+                    guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error,
+                          stderr.contains("error: only one requirement is allowed when specifiying a dependency") else {
+                        XCTFail()
+                        return
+                    }
+                }
+            }
+        }
+    }
+    #endif
 }
