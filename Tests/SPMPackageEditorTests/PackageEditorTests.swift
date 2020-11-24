@@ -143,11 +143,11 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("a target named 'foo' already exists")) {
-            try editor.addTarget(name: "foo", type: .regular, includeTestTarget: true, dependencies: [])
+            try editor.addTarget(name: "foo", type: .library, includeTestTarget: true, dependencies: [])
         }
 
-        try editor.addTarget(name: "baz", type: .regular, includeTestTarget: true, dependencies: [])
-        try editor.addTarget(name: "qux", type: .regular, includeTestTarget: false, dependencies: ["foo", "baz"])
+        try editor.addTarget(name: "baz", type: .library, includeTestTarget: true, dependencies: [])
+        try editor.addTarget(name: "qux", type: .executable, includeTestTarget: false, dependencies: ["foo", "baz"])
         try editor.addTarget(name: "IntegrationTests", type: .test, includeTestTarget: false, dependencies: [])
 
         let newManifest = try fs.readFileContents(manifestPath).cString
@@ -193,7 +193,7 @@ final class PackageEditorTests: XCTestCase {
 
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/baz/baz.swift")))
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/bazTests/bazTests.swift")))
-        XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/qux/qux.swift")))
+        XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/qux/main.swift")))
         XCTAssertFalse(fs.exists(AbsolutePath("/pkg/Tests/quxTests")))
         XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/IntegrationTests/IntegrationTests.swift")))
     }
@@ -321,7 +321,7 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {
-            try editor.addTarget(name: "bar", type: .regular, includeTestTarget: true, dependencies: [])
+            try editor.addTarget(name: "bar", type: .library, includeTestTarget: true, dependencies: [])
         }
     }
 }

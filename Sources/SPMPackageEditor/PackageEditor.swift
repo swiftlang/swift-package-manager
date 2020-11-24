@@ -112,7 +112,7 @@ public final class PackageEditor {
     /// Add a new target.
     public func addTarget(name targetName: String, type targetType: TargetType,
                           includeTestTarget: Bool, dependencies: [String]) throws {
-        assert(!(includeTestTarget && targetType == .test))
+        assert(!(includeTestTarget && (targetType == .test || targetType == .executable)))
 
         let manifestPath = context.manifestPath
         let testTargetName = targetName + "Tests"
@@ -149,28 +149,48 @@ public final class PackageEditor {
         try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
 
         // Write template files.
-        let targetPath = manifestPath.parentDirectory.appending(components: targetType == .test ? "Tests" : "Sources", targetName)
-        if !localFileSystem.exists(targetPath) {
-            let file = targetPath.appending(components: targetName + ".swift")
-            try fs.createDirectory(targetPath)
-            try fs.writeFileContents(file, bytes: "")
+        try writeTemplateFilesForTarget(name: targetName, type: targetType, manifestPath: manifestPath)
+
+        if includeTestTarget {
+            try writeTemplateFilesForTarget(name: testTargetName, type: .test, manifestPath: manifestPath)
         }
+    }
 
-        let testTargetPath = manifestPath.parentDirectory.appending(components: "Tests", testTargetName)
-        if includeTestTarget, !fs.exists(testTargetPath) {
-            let file = testTargetPath.appending(components: testTargetName + ".swift")
-            try fs.createDirectory(testTargetPath)
-            try fs.writeFileContents(file) {
-                $0 <<< """
-                import XCTest
-                @testable import \(targetName)
-
-                final class \(testTargetName): XCTestCase {
-                    func testExample() {
-                    }
-                }
-                """
+    private func writeTemplateFilesForTarget(name: String, type: TargetType, manifestPath: AbsolutePath) throws {
+        switch type {
+        case .library:
+            let targetPath = manifestPath.parentDirectory.appending(components: "Sources", name)
+            if !localFileSystem.exists(targetPath) {
+                let file = targetPath.appending(component: "\(name).swift")
+                try fs.createDirectory(targetPath)
+                try fs.writeFileContents(file, bytes: "")
             }
+        case .executable:
+            let targetPath = manifestPath.parentDirectory.appending(components: "Sources", name)
+            if !localFileSystem.exists(targetPath) {
+                let file = targetPath.appending(component: "main.swift")
+                try fs.createDirectory(targetPath)
+                try fs.writeFileContents(file, bytes: "")
+            }
+        case .test:
+            let testTargetPath = manifestPath.parentDirectory.appending(components: "Tests", name)
+            if !fs.exists(testTargetPath) {
+                let file = testTargetPath.appending(components: name + ".swift")
+                try fs.createDirectory(testTargetPath)
+                try fs.writeFileContents(file) {
+                    $0 <<< """
+                    import XCTest
+                    @testable import <#Module#>
+
+                    final class <#TestCase#>: XCTestCase {
+                        func testExample() {
+
+                        }
+                    }
+                    """
+                }
+            }
+
         }
     }
 
@@ -217,13 +237,14 @@ extension Array where Element == TargetDescription.Dependency {
 
 /// The types of target.
 public enum TargetType {
-    case regular
+    case library
+    case executable
     case test
 
     /// The name of the factory method for a target type.
     var factoryMethodName: String {
         switch self {
-        case .regular: return "target"
+        case .library, .executable: return "target"
         case .test: return "testTarget"
         }
     }

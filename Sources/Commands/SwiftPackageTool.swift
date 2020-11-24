@@ -756,7 +756,7 @@ extension SwiftPackageTool {
         var name: String
 
         @Option
-        var type: TargetType = .regular
+        var type: TargetType = .library
 
         @Flag
         var noTestTarget: Bool = false
@@ -771,7 +771,7 @@ extension SwiftPackageTool {
                                            toolchain: swiftTool.getToolchain())
             try editor.addTarget(name: name,
                                  type: type,
-                                 includeTestTarget: !noTestTarget && type != .test,
+                                 includeTestTarget: !noTestTarget && type == .library,
                                  dependencies: dependencies?.split(separator: ",").map(String.init) ?? [])
         }
     }
@@ -834,8 +834,10 @@ extension ProductType: ExpressibleByArgument {
 extension SPMPackageEditor.TargetType: ExpressibleByArgument {
     public init?(argument: String) {
         switch argument {
-        case "regular":
-            self = .regular
+        case "library":
+            self = .library
+        case "executable":
+            self = .executable
         case "test":
             self = .test
         default:
@@ -844,7 +846,7 @@ extension SPMPackageEditor.TargetType: ExpressibleByArgument {
     }
 
     public static var defaultCompletionKind: CompletionKind {
-        .list(["regular", "test"])
+        .list(["library", "executable", "test"])
     }
 }
 #endif

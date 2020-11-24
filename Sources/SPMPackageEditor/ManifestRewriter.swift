@@ -131,7 +131,7 @@ public final class ManifestRewriter {
     /// Add a new target.
     public func addTarget(
         targetName: String,
-        type: TargetType = .regular
+        type: TargetType = .library
     ) throws {
         // Find Package initializer.
         let packageFinder = PackageInitFinder()
