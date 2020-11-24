@@ -694,22 +694,22 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
 
-        @Argument
+        @Argument(help: "The URL of a remote package, or the path to a local package")
         var dependencyURL: String
 
-        @Option
+        @Option(help: "Specifies an exact package version requirement")
         var exact: Version?
 
-        @Option
+        @Option(help: "Specifies a package revision requirement")
         var revision: String?
 
-        @Option
+        @Option(help: "Specifies a package branch requirement")
         var branch: String?
 
-        @Option
+        @Option(help: "Specifies a package version requirement from the specified version up to the next major version")
         var from: Version?
 
-        @Option
+        @Option(help: "Specifies a package version requirement from the specified version up to the next minor version")
         var upToNextMinorFrom: Version?
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -752,16 +752,16 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
 
-        @Argument
+        @Argument(help: "The name of the new target")
         var name: String
 
-        @Option
+        @Option(help: "The type of the new target (library, executable, or test)")
         var type: TargetType = .library
 
-        @Flag
+        @Flag(help: "If present, no corresponding test target will be created for a new library target")
         var noTestTarget: Bool = false
 
-        @Option
+        @Option(help: "A comma-separated list of target dependency names (targets and/or dependency products)")
         var dependencies: String?
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -783,13 +783,13 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
 
-        @Argument
+        @Argument(help: "The name of the new product")
         var name: String
 
-        @Option
+        @Option(help: "The type of the new product (library, static-library, dynamic-library, or executable)")
         var type: ProductType?
 
-        @Option
+        @Option(help: "A comma-separated list of target names")
         var targets: String
 
         func run(_ swiftTool: SwiftTool) throws {
