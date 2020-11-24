@@ -52,7 +52,8 @@ public class GitRepositoryProvider: RepositoryProvider {
         // NOTE: We intentionally do not create a shallow clone here; the
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
-        if localFileSystem.exists(path.appending(component: ".git")) {
+        let isInsideGitRepo = try? callGit("-C", path.pathString, "rev-parse", "--is-inside-git-dir", "--is-inside-work-tree", repository: repository)
+        if isInsideGitRepo?.contains("true") ?? false {
             // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
             try callGit("-C", path.pathString, "fetch", "origin", failureMessage: "Failed to fetch repository \(repository.url)", repository: repository)
         } else {
