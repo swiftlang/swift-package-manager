@@ -178,21 +178,25 @@ final class PackageEditorTests: XCTestCase {
                         dependencies: ["foo", "bar"]),
                     .target(
                         name: "baz",
-                        dependencies: []),
+                        dependencies: []
+                    ),
                     .testTarget(
                         name: "bazTests",
                         dependencies: [
                             "baz",
-                        ]),
+                        ]
+                    ),
                     .target(
                         name: "qux",
                         dependencies: [
                             "foo",
                             "baz",
-                        ]),
+                        ]
+                    ),
                     .testTarget(
                         name: "IntegrationTests",
-                        dependencies: []),
+                        dependencies: []
+                    ),
                     .binaryTarget(
                         name: "LocalBinary",
                         path: "/some/local/binary/target.xcframework"),

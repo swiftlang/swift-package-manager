@@ -37,46 +37,21 @@ extension ArrayExprSyntax {
             // For empty and single-element array exprs, we determine the indent
             // of the line the opening square bracket appears on, and then use
             // that to indent the added element and closing brace onto newlines.
-            var calculatedIndentTrivia: Trivia? = nil
-            let sfSyntax = self.root.as(SourceFileSyntax.self)!
-            let locationConverter = SourceLocationConverter(file: "", tree: sfSyntax)
-            if let lineNumber = self.leftSquare.startLocation(converter: locationConverter).line {
-                let indentVisitor = DetermineLineIndentVisitor(lineNumber: lineNumber,
-                                                               sourceLocationConverter: locationConverter)
-                indentVisitor.walk(sfSyntax)
-                calculatedIndentTrivia = indentVisitor.lineIndent
-            }
-            // If the indent couldn't be calculated for some reason, fallback to 4 spaces.
-            let indentTrivia = calculatedIndentTrivia ?? .spaces(4)
-
-            let elementAdditionalIndentTrivia: Trivia
-            if indentTrivia.allSatisfy(\.isSpaces) {
-                let addedSpaces = indentTrivia.reduce(0, {
-                    guard case .spaces(let count) = $1 else { fatalError() }
-                    return $0 + count
-                }) % 4 == 0 ? 4 : 2
-                elementAdditionalIndentTrivia = .spaces(addedSpaces)
-            } else if indentTrivia.allSatisfy(\.isTabs) {
-                elementAdditionalIndentTrivia = .tabs(1)
-            } else {
-                // If we can't determine the indent, default to 4 spaces.
-                elementAdditionalIndentTrivia = .spaces(4)
-            }
-
+            let (indentTrivia, unitIndent) = self.leftSquare.determineIndentOfStartingLine()
             var newElements: [ArrayElementSyntax] = []
             if !self.elements.isEmpty {
                 let existingElement = self.elements.first!
                 newElements.append(
                     SyntaxFactory.makeArrayElement(expression: existingElement.expression,
                                                    trailingComma: SyntaxFactory.makeCommaToken())
-                        .withLeadingTrivia(indentTrivia + elementAdditionalIndentTrivia)
+                        .withLeadingTrivia(indentTrivia + unitIndent)
                         .withTrailingTrivia((existingElement.trailingTrivia ?? []) + .newlines(1))
                 )
             }
 
             newElements.append(
                 SyntaxFactory.makeArrayElement(expression: expr, trailingComma: SyntaxFactory.makeCommaToken())
-                    .withLeadingTrivia(indentTrivia + elementAdditionalIndentTrivia)
+                    .withLeadingTrivia(indentTrivia + unitIndent)
             )
 
             return self.withLeftSquare(self.leftSquare.withTrailingTrivia(.newlines(1)))
@@ -127,19 +102,44 @@ fileprivate extension Trivia {
     }
 }
 
+extension SyntaxProtocol {
+    func determineIndentOfStartingLine() -> (indent: Trivia, unitIndent: Trivia) {
+        let sourceLocationConverter = SourceLocationConverter(file: "", tree: self.root.as(SourceFileSyntax.self)!)
+        let line = startLocation(converter: sourceLocationConverter).line ?? 0
+        let visitor = DetermineLineIndentVisitor(lineNumber: line, sourceLocationConverter: sourceLocationConverter)
+        visitor.walk(self.root)
+        return (indent: visitor.lineIndent, unitIndent: visitor.lineUnitIndent)
+    }
+}
+
 public final class DetermineLineIndentVisitor: SyntaxVisitor {
 
     let lineNumber: Int
     let locationConverter: SourceLocationConverter
     private var bestMatch: TokenSyntax?
 
-    public var lineIndent: Trivia? {
+    public var lineIndent: Trivia {
         guard let pieces = bestMatch?.leadingTrivia
                 .lazy
                 .reversed()
                 .prefix(while: \.isHorizontalWhitespace)
-                .reversed() else { return nil }
+                .reversed() else { return .spaces(4) }
         return Trivia(pieces: Array(pieces))
+    }
+
+    public var lineUnitIndent: Trivia {
+        if lineIndent.allSatisfy(\.isSpaces) {
+            let addedSpaces = lineIndent.reduce(0, {
+                guard case .spaces(let count) = $1 else { fatalError() }
+                return $0 + count
+            }) % 4 == 0 ? 4 : 2
+            return .spaces(addedSpaces)
+        } else if lineIndent.allSatisfy(\.isTabs) {
+            return .tabs(1)
+        } else {
+            // If we can't determine the indent, default to 4 spaces.
+            return .spaces(4)
+        }
     }
 
     public init(lineNumber: Int, sourceLocationConverter: SourceLocationConverter) {
