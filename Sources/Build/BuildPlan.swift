@@ -1748,21 +1748,51 @@ public class BuildPlan {
         if let flags = pkgConfigCache[target] {
             return flags
         }
-        // Otherwise, get the result and cache it.
-        guard let result = pkgConfigArgs(for: target, diagnostics: diagnostics) else {
+        else {
             pkgConfigCache[target] = ([], [])
-            return pkgConfigCache[target]!
         }
-        // If there is no pc file on system and we have an available provider, emit a warning.
-        if let provider = result.provider, result.couldNotFindConfigFile {
-            diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
-        } else if let error = result.error {
-            diagnostics.emit(
-                .warning(PkgConfigGenericDiagnostic(error: "\(error)")),
-                location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
-            )
+        let results = pkgConfigArgs(for: target, diagnostics: diagnostics)
+        var ret: [(cFlags: [String], libs: [String])] = []
+        for resultW in results {
+            // Otherwise, get the result and cache it.
+            guard let result = resultW else {
+                ret.append(([], []))
+                continue
+            }
+
+            // If there is no pc file on system and we have an available provider, emit a warning.
+            if let provider = result.provider, result.couldNotFindConfigFile {
+                diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
+            } else if let error = result.error {
+                diagnostics.emit(
+                        .warning(PkgConfigGenericDiagnostic(error: "\(error)")),
+                        location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
+                )
+            }
+
+            ret.append((result.cFlags, result.libs))
         }
-        pkgConfigCache[target] = (result.cFlags, result.libs)
+
+        // Build cache
+        var cflagsCache: [String] = []
+        var libsCache: [String] = []
+        for tuple in ret {
+            // Avoid duplicates while merging
+            for cFlag in tuple.cFlags {
+                if !cflagsCache.contains(cFlag) {
+                    cflagsCache.append(cFlag)
+                }
+            }
+
+            for lib in tuple.libs {
+                if !libsCache.contains(lib) {
+                    libsCache.append(lib)
+                }
+            }
+        }
+
+        pkgConfigCache[target] = (cflagsCache, libsCache)
+
         return pkgConfigCache[target]!
     }
 

@@ -671,7 +671,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var impartedSettings = PIF.BuildSettings()
 
         var cFlags: [String] = []
-        if let result = pkgConfigArgs(for: systemTarget, diagnostics: diagnostics, fileSystem: fileSystem) {
+        for resultw in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics, fileSystem: fileSystem) {
+            guard let result = resultw else { continue }
             if let error = result.error {
                 let location = PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
                 diagnostics.emit(warning: "\(error)", location: location)
