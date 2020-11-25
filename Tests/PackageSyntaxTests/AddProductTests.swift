@@ -53,18 +53,22 @@ final class AddProductTests: XCTestCase {
                     .executable(name: "abc", targets: ["foo"]),
                     .executable(
                         name: "exec",
-                        targets: []),
+                        targets: []
+                    ),
                     .library(
                         name: "lib",
-                        targets: []),
+                        targets: []
+                    ),
                     .library(
                         name: "staticLib",
                         type: .static,
-                        targets: []),
+                        targets: []
+                    ),
                     .library(
                         name: "dynamicLib",
                         type: .dynamic,
-                        targets: []),
+                        targets: []
+                    ),
                 ]
                 targets: [
                     .target(
@@ -118,18 +122,22 @@ final class AddProductTests: XCTestCase {
                 products: [
                     .executable(
                         name: "exec",
-                        targets: []),
+                        targets: []
+                    ),
                     .library(
                         name: "lib",
-                        targets: []),
+                        targets: []
+                    ),
                     .library(
                         name: "staticLib",
                         type: .static,
-                        targets: []),
+                        targets: []
+                    ),
                     .library(
                         name: "dynamicLib",
                         type: .dynamic,
-                        targets: []),
+                        targets: []
+                    ),
                 ],
                 targets: [
                     .target(
@@ -142,6 +150,48 @@ final class AddProductTests: XCTestCase {
                         name: "fooTests",
                         dependencies: ["foo", "bar"]),
                 ]
+            )
+            """)
+    }
+
+    func testAddProduct3() throws {
+        let manifest = """
+            // swift-tools-version:5.2
+            import PackageDescription
+
+            let package = Package(
+            \tname: "exec",
+            \ttargets: [
+            \t\t.target(
+            \t\t\tname: "foo",
+            \t\t\tdependencies: []
+            \t\t),
+            \t]
+            )
+            """
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addProduct(name: "exec", type: .executable)
+
+        // FIXME: weird indentation
+        XCTAssertEqual(editor.editedManifest, """
+            // swift-tools-version:5.2
+            import PackageDescription
+
+            let package = Package(
+            \tname: "exec",
+            \tproducts: [
+            \t\t.executable(
+            \t\t\tname: "exec",
+            \t\t\ttargets: []
+            \t\t),
+            \t],
+            \ttargets: [
+            \t\t.target(
+            \t\t\tname: "foo",
+            \t\t\tdependencies: []
+            \t\t),
+            \t]
             )
             """)
     }

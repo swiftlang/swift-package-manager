@@ -199,11 +199,13 @@ final class PackageEditorTests: XCTestCase {
                     ),
                     .binaryTarget(
                         name: "LocalBinary",
-                        path: "/some/local/binary/target.xcframework"),
+                        path: "/some/local/binary/target.xcframework"
+                    ),
                     .binaryTarget(
                         name: "RemoteBinary",
                         url: "https://mybinaries.com/RemoteBinary.zip",
-                        checksum: "totallylegitchecksum"),
+                        checksum: "totallylegitchecksum"
+                    ),
                 ]
             )
             """)
@@ -278,14 +280,16 @@ final class PackageEditorTests: XCTestCase {
                         name: "xyz",
                         targets: [
                             "bar",
-                        ]),
+                        ]
+                    ),
                     .library(
                         name: "libxyz",
                         type: .dynamic,
                         targets: [
                             "foo",
                             "bar",
-                        ]),
+                        ]
+                    ),
                 ],
                 dependencies: [
                     .package(url: "https://github.com/foo/goo", from: "1.0.1"),

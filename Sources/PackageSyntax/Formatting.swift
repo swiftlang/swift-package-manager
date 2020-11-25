@@ -61,6 +61,16 @@ extension ArrayExprSyntax {
     }
 }
 
+extension ArrayExprSyntax {
+    func reindentingLastCallExprElement() -> ArrayExprSyntax {
+        let lastElement = elements.last!
+        let (indent, unitIndent) = lastElement.determineIndentOfStartingLine()
+        let formattingVisitor = MultilineArgumentListRewriter(indent: indent, unitIndent: unitIndent)
+        let formattedLastElement = formattingVisitor.visit(lastElement).as(ArrayElementSyntax.self)!
+        return self.withElements(elements.replacing(childAt: elements.count - 1, with: formattedLastElement))
+    }
+}
+
 fileprivate extension TriviaPiece {
     var isComment: Bool {
         switch self {
@@ -165,5 +175,25 @@ public final class DetermineLineIndentVisitor: SyntaxVisitor {
         } else {
             return .skipChildren
         }
+    }
+}
+
+/// Moves each argument to a function call expression onto a new line and indents them appropriately.
+final class MultilineArgumentListRewriter: SyntaxRewriter {
+    let indent: Trivia
+    let unitIndent: Trivia
+
+    init(indent: Trivia, unitIndent: Trivia) {
+        self.indent = indent
+        self.unitIndent = unitIndent
+    }
+
+    override func visit(_ token: TokenSyntax) -> Syntax {
+        guard token.tokenKind == .rightParen else { return Syntax(token) }
+        return Syntax(token.withLeadingTrivia(.newlines(1) + indent))
+    }
+
+    override func visit(_ node: TupleExprElementSyntax) -> Syntax {
+        return Syntax(node.withLeadingTrivia(.newlines(1) + indent + unitIndent))
     }
 }

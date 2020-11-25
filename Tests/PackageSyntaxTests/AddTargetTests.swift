@@ -110,4 +110,39 @@ final class AddTargetTests: XCTestCase {
                 )
                 """)
     }
+
+    func testAddTarget3() throws {
+        let manifest = """
+                // swift-tools-version:5.2
+                import PackageDescription
+
+                let package = Package(
+                \tname: "exec",
+                \tdependencies: [
+                \t\t.package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                \t]
+                )
+                """
+
+        let editor = try ManifestRewriter(manifest)
+        try editor.addTarget(targetName: "NewTarget", factoryMethodName: "target")
+
+        XCTAssertEqual(editor.editedManifest, """
+                // swift-tools-version:5.2
+                import PackageDescription
+
+                let package = Package(
+                \tname: "exec",
+                \tdependencies: [
+                \t\t.package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                \t],
+                \ttargets: [
+                \t\t.target(
+                \t\t\tname: "NewTarget",
+                \t\t\tdependencies: []
+                \t\t),
+                \t]
+                )
+                """)
+    }
 }

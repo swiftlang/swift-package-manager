@@ -74,9 +74,8 @@ public final class ManifestRewriter {
        let newManifest = PackageDependencyWriter(
             name: name,
             url: url,
-            requirement: requirement,
-            sourceFileSyntax: editedSource
-        ).visit(packageDependencies).root
+            requirement: requirement
+       ).visit(packageDependencies).root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
@@ -158,16 +157,9 @@ public final class ManifestRewriter {
             additionalTrailingClosures: nil
         )
 
-        let newTargetsNode = targetsNode.withAdditionalElementExpr(ExprSyntax(expr))
-        let addedTargetExpr = newTargetsNode.elements.last!
-
-        let (indent, unitIndent) = addedTargetExpr.determineIndentOfStartingLine()
-        let formattingVisitor = MultilineArgumentListRewriter(indent: indent, unitIndent: unitIndent)
-        let formattedTargetExpr = formattingVisitor.visit(addedTargetExpr).as(ArrayElementSyntax.self)!
-
-        let newManifest = newTargetsNode
-            .withElements(newTargetsNode.elements.replacing(childAt: newTargetsNode.elements.count - 1,
-                                                            with: formattedTargetExpr))
+        let newManifest = targetsNode
+            .withAdditionalElementExpr(ExprSyntax(expr))
+            .reindentingLastCallExprElement()
             .root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
@@ -179,13 +171,9 @@ public final class ManifestRewriter {
         let initFnExpr = try findPackageInit()
         let targetsNode = findOrCreateTargetsList(in: initFnExpr)
 
-        //FIXME: determine from source
-        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
-        let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
-
         let dotTargetExpr = SyntaxFactory.makeMemberAccessExpr(
             base: nil,
-            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
+            dot: SyntaxFactory.makePeriodToken(),
             name: SyntaxFactory.makeIdentifier("binaryTarget"),
             declNameArguments: nil
         )
@@ -193,7 +181,7 @@ public final class ManifestRewriter {
         var args: [TupleExprElementSyntax] = []
 
         let nameArg = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
+            label: SyntaxFactory.makeIdentifier("name"),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
             expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(targetName)),
             trailingComma: SyntaxFactory.makeCommaToken()
@@ -206,7 +194,7 @@ public final class ManifestRewriter {
             }
 
             let pathArg = SyntaxFactory.makeTupleExprElement(
-                label: SyntaxFactory.makeIdentifier("path", leadingTrivia: leadingTriviaArgs),
+                label: SyntaxFactory.makeIdentifier("path"),
                 colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
                 expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(urlOrPath)),
                 trailingComma: nil
@@ -218,7 +206,7 @@ public final class ManifestRewriter {
             }
 
             let urlArg = SyntaxFactory.makeTupleExprElement(
-                label: SyntaxFactory.makeIdentifier("url", leadingTrivia: leadingTriviaArgs),
+                label: SyntaxFactory.makeIdentifier("url"),
                 colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
                 expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(urlOrPath)),
                 trailingComma: SyntaxFactory.makeCommaToken()
@@ -226,7 +214,7 @@ public final class ManifestRewriter {
             args.append(urlArg)
 
             let checksumArg = SyntaxFactory.makeTupleExprElement(
-                label: SyntaxFactory.makeIdentifier("checksum", leadingTrivia: leadingTriviaArgs),
+                label: SyntaxFactory.makeIdentifier("checksum"),
                 colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
                 expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(checksum)),
                 trailingComma: nil
@@ -243,7 +231,10 @@ public final class ManifestRewriter {
           additionalTrailingClosures: nil
         )
 
-        let newManifest = targetsNode.withAdditionalElementExpr(ExprSyntax(expr)).root
+        let newManifest = targetsNode
+            .withAdditionalElementExpr(ExprSyntax(expr))
+            .reindentingLastCallExprElement()
+            .root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
@@ -486,17 +477,12 @@ final class PackageDependencyWriter: SyntaxRewriter {
     /// The dependency requirement.
     let requirement: PackageDependencyRequirement
 
-    /// The syntax node representing the containing source file.
-    let sourceFileSyntax: SourceFileSyntax
-
     init(name: String,
          url: String,
-         requirement: PackageDependencyRequirement,
-         sourceFileSyntax: SourceFileSyntax) {
+         requirement: PackageDependencyRequirement) {
         self.name = name
         self.url = url
         self.requirement = requirement
-        self.sourceFileSyntax = sourceFileSyntax
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
@@ -576,6 +562,7 @@ final class PackageDependencyWriter: SyntaxRewriter {
         )
 
         return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
+
     }
 }
 
@@ -591,14 +578,9 @@ final class NewProductWriter: SyntaxRewriter {
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-
-        // FIXME: determine from source
-        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
-        let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
-
         let dotExpr = SyntaxFactory.makeMemberAccessExpr(
             base: nil,
-            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
+            dot: SyntaxFactory.makePeriodToken(),
             name: SyntaxFactory.makeIdentifier(type == .executable ? "executable" : "library"),
             declNameArguments: nil
         )
@@ -606,7 +588,7 @@ final class NewProductWriter: SyntaxRewriter {
         var args: [TupleExprElementSyntax] = []
 
         let nameArg = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
+            label: SyntaxFactory.makeIdentifier("name"),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
             expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(name)),
             trailingComma: SyntaxFactory.makeCommaToken()
@@ -619,7 +601,7 @@ final class NewProductWriter: SyntaxRewriter {
                                                               name: SyntaxFactory.makeIdentifier(kind == .dynamic ? "dynamic" : "static"),
                                                               declNameArguments: nil)
             let typeArg = SyntaxFactory.makeTupleExprElement(
-                label: SyntaxFactory.makeIdentifier("type", leadingTrivia: leadingTriviaArgs),
+                label: SyntaxFactory.makeIdentifier("type"),
                 colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
                 expression: ExprSyntax(typeExpr),
                 trailingComma: SyntaxFactory.makeCommaToken()
@@ -631,7 +613,7 @@ final class NewProductWriter: SyntaxRewriter {
                                                      elements: SyntaxFactory.makeBlankArrayElementList(),
                                                      rightSquare: SyntaxFactory.makeRightSquareBracketToken())
         let targetsArg = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier("targets", leadingTrivia: leadingTriviaArgs),
+            label: SyntaxFactory.makeIdentifier("targets"),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
             expression: ExprSyntax(emptyArray),
             trailingComma: nil
@@ -647,26 +629,8 @@ final class NewProductWriter: SyntaxRewriter {
           additionalTrailingClosures: nil
         )
 
-        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
-    }
-}
-
-/// Moves each argument to a function call expression onto a new line and indents them appropriately.
-final class MultilineArgumentListRewriter: SyntaxRewriter {
-    let indent: Trivia
-    let unitIndent: Trivia
-
-    init(indent: Trivia, unitIndent: Trivia) {
-        self.indent = indent
-        self.unitIndent = unitIndent
-    }
-
-    override func visit(_ token: TokenSyntax) -> Syntax {
-        guard token.tokenKind == .rightParen else { return Syntax(token) }
-        return Syntax(token.withLeadingTrivia(.newlines(1) + indent))
-    }
-
-    override func visit(_ node: TupleExprElementSyntax) -> Syntax {
-        return Syntax(node.withLeadingTrivia(.newlines(1) + indent + unitIndent))
+        return ExprSyntax(node
+                            .withAdditionalElementExpr(ExprSyntax(expr))
+                            .reindentingLastCallExprElement())
     }
 }
