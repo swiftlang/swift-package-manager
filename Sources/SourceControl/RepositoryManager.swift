@@ -366,7 +366,12 @@ public class RepositoryManager {
                 try initalizeCacheIfNeeded(cachePath: cachePath)
                 try fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
                     // Fetch the repository into the cache.
-                    try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
+                    if (fileSystem.exists(cachedRepositoryPath)) {
+                        let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
+                        try repo.fetch()
+                    } else {
+                        try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
+                    }
                     updatedCache = true
                     // Copy the repository from the cache into the repository path.
                     try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
@@ -379,7 +384,7 @@ public class RepositoryManager {
                 fromCache = false
             }
         } else {
-            // Fetch without populating the cache in when no `cachePath` is set.
+            // Fetch without populating the cache when no `cachePath` is set.
             try self.provider.fetch(repository: handle.repository, to: repositoryPath)
             fromCache = false
         }
