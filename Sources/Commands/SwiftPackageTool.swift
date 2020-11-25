@@ -23,14 +23,14 @@ import XCBuildSupport
 import Workspace
 import Foundation
 
-#if ENABLE_PACKAGE_EDITOR
-import SPMPackageEditor
+#if BUILD_PACKAGE_SYNTAX
+import PackageSyntax
 #endif
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
 
-    #if ENABLE_PACKAGE_EDITOR
+    #if BUILD_PACKAGE_SYNTAX
     private static let subcommands: [ParsableCommand.Type] = [
         Clean.self,
         Reset.self,
@@ -685,7 +685,7 @@ extension SwiftPackageTool {
     }
 }
 
-#if ENABLE_PACKAGE_EDITOR
+#if BUILD_PACKAGE_SYNTAX
 extension SwiftPackageTool {
     struct AddDependency: SwiftCommand {
         static let configuration = CommandConfiguration(

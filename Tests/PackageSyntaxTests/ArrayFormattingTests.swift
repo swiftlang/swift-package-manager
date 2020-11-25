@@ -1,5 +1,5 @@
 import XCTest
-import SPMPackageEditor
+import PackageSyntax
 import SwiftSyntax
 
 final class ArrayFormattingTests: XCTestCase {

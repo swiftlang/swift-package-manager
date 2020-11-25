@@ -960,7 +960,7 @@ final class PackageToolTests: XCTestCase {
       #endif
     }
 
-    #if ENABLE_PACKAGE_EDITOR
+    #if BUILD_PACKAGE_SYNTAX
     func testAddDependency() throws {
         fixture(name: "PackageEditor/Empty") { packageRoot in
             fixture(name: "PackageEditor/OneProduct") { dependencyRoot in

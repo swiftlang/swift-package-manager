@@ -10,7 +10,7 @@
 
 import XCTest
 
-@testable import SPMPackageEditor
+import PackageSyntax
 
 final class AddProductTests: XCTestCase {
     func testAddProduct() throws {

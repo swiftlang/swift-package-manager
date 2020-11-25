@@ -13,7 +13,7 @@ import TSCBasic
 import SPMTestSupport
 import SourceControl
 
-@testable import SPMPackageEditor
+import PackageSyntax
 
 final class PackageEditorTests: XCTestCase {
 
