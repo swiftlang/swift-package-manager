@@ -257,7 +257,7 @@ class RepositoryManagerTests: XCTestCase {
             let delegate = DummyRepositoryManagerDelegate()
 
             let manager = RepositoryManager(path: repositoriesPath, provider: provider, delegate: delegate, cachePath: cachePath)
-            manager.skipCacheForLocalPackages = true
+            manager.cacheLocalPackages = true
 
             // fetch packages and populate cache
             _ = try manager.lookupSynchronously(repository: repo)

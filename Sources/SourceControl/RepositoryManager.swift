@@ -160,7 +160,8 @@ public class RepositoryManager {
     /// The path to the directory where all cached git repositories are stored.
     private let cachePath: AbsolutePath?
 
-    var skipCacheForLocalPackages = true
+    // used in tests to disable skipping of local packages.
+    var cacheLocalPackages = false
 
     /// The repository provider.
     public let provider: RepositoryProvider
@@ -361,9 +362,9 @@ public class RepositoryManager {
 
         // We are expecting handle.repository.url to always be a resolved absolute path.
         let isLocal = (try? AbsolutePath(validating: handle.repository.url)) != nil
-        let shouldSkipLocal = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || skipCacheForLocalPackages
+        let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
-        if let cachePath = cachePath, !(isLocal && !shouldSkipLocal) {
+        if let cachePath = cachePath, !(isLocal && !shouldCacheLocalPackages) {
             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
             do {
                 try initalizeCacheIfNeeded(cachePath: cachePath)
