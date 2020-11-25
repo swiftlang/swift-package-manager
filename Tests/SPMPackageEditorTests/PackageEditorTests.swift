@@ -104,7 +104,7 @@ final class PackageEditorTests: XCTestCase {
 
     func testAddTarget() throws {
         let manifest = """
-            // swift-tools-version:5.2
+            // swift-tools-version:5.3
             import PackageDescription
 
             let package = Package(
@@ -143,16 +143,22 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("a target named 'foo' already exists")) {
-            try editor.addTarget(name: "foo", type: .library, includeTestTarget: true, dependencies: [])
+            try editor.addTarget(.library(name: "foo", includeTestTarget: true, dependencyNames: []))
         }
 
-        try editor.addTarget(name: "baz", type: .library, includeTestTarget: true, dependencies: [])
-        try editor.addTarget(name: "qux", type: .executable, includeTestTarget: false, dependencies: ["foo", "baz"])
-        try editor.addTarget(name: "IntegrationTests", type: .test, includeTestTarget: false, dependencies: [])
+        try editor.addTarget(.library(name: "baz", includeTestTarget: true, dependencyNames: []))
+        try editor.addTarget(.executable(name: "qux", dependencyNames: ["foo", "baz"]))
+        try editor.addTarget(.test(name: "IntegrationTests", dependencyNames: []))
+        try editor.addTarget(.binary(name: "LocalBinary",
+                                     urlOrPath: "/some/local/binary/target.xcframework",
+                                     checksum: nil))
+        try editor.addTarget(.binary(name: "RemoteBinary",
+                                     urlOrPath: "https://mybinaries.com/RemoteBinary.zip",
+                                     checksum: "totallylegitchecksum"))
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
-            // swift-tools-version:5.2
+            // swift-tools-version:5.3
             import PackageDescription
 
             let package = Package(
@@ -187,6 +193,13 @@ final class PackageEditorTests: XCTestCase {
                     .testTarget(
                         name: "IntegrationTests",
                         dependencies: []),
+                    .binaryTarget(
+                        name: "LocalBinary",
+                        path: "/some/local/binary/target.xcframework"),
+                    .binaryTarget(
+                        name: "RemoteBinary",
+                        url: "https://mybinaries.com/RemoteBinary.zip",
+                        checksum: "totallylegitchecksum"),
                 ]
             )
             """)
@@ -321,7 +334,7 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {
-            try editor.addTarget(name: "bar", type: .library, includeTestTarget: true, dependencies: [])
+            try editor.addTarget(.library(name: "bar", includeTestTarget: true, dependencyNames: []))
         }
     }
 }

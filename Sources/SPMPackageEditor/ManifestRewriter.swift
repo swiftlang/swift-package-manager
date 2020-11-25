@@ -10,6 +10,7 @@
 
 import SwiftSyntax
 import TSCBasic
+import TSCUtility
 import PackageModel
 
 /// A package manifest rewriter.
@@ -131,7 +132,7 @@ public final class ManifestRewriter {
     /// Add a new target.
     public func addTarget(
         targetName: String,
-        type: TargetType = .library
+        factoryMethodName: String
     ) throws {
         // Find Package initializer.
         let packageFinder = PackageInitFinder()
@@ -162,8 +163,148 @@ public final class ManifestRewriter {
             targetsNode = targetsFinder.foundArrayExpr!
         }
 
-        let newManifest = NewTargetWriter(
-            name: targetName, targetType: type
+        //FIXME: determine from source
+        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
+        let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
+
+        let dotTargetExpr = SyntaxFactory.makeMemberAccessExpr(
+            base: nil,
+            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
+            name: SyntaxFactory.makeIdentifier(factoryMethodName),
+            declNameArguments: nil
+        )
+
+        let nameArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
+            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(targetName)),
+            trailingComma: SyntaxFactory.makeCommaToken()
+        )
+
+        let emptyArray = SyntaxFactory.makeArrayExpr(leftSquare: SyntaxFactory.makeLeftSquareBracketToken(), elements: SyntaxFactory.makeBlankArrayElementList(), rightSquare: SyntaxFactory.makeRightSquareBracketToken())
+        let depenenciesArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier("dependencies", leadingTrivia: leadingTriviaArgs),
+            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+            expression: ExprSyntax(emptyArray),
+            trailingComma: nil
+        )
+
+        let expr = SyntaxFactory.makeFunctionCallExpr(
+            calledExpression: ExprSyntax(dotTargetExpr),
+            leftParen: SyntaxFactory.makeLeftParenToken(),
+            argumentList: SyntaxFactory.makeTupleExprElementList([
+                nameArg, depenenciesArg,
+            ]),
+            rightParen: SyntaxFactory.makeRightParenToken(),
+          trailingClosure: nil,
+          additionalTrailingClosures: nil
+        )
+
+        let newManifest = InsertArrayExprElementWriter(
+            name: targetName, elementExpr: ExprSyntax(expr)
+        ).visit(targetsNode).root
+
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
+    }
+
+    public func addBinaryTarget(targetName: String,
+                                urlOrPath: String,
+                                checksum: String?) throws {
+        // Find Package initializer.
+        let packageFinder = PackageInitFinder()
+        packageFinder.walk(editedSource)
+
+        guard let initFnExpr = packageFinder.packageInit else {
+            throw StringError("couldn't find 'Package' initializer")
+        }
+
+        let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
+        targetsFinder.walk(initFnExpr.argumentList)
+        let targetsNode: ArrayExprSyntax
+
+        if let existingTargets = targetsFinder.foundArrayExpr {
+            targetsNode = existingTargets
+        } else {
+            // We didn't find a targets section, so insert one.
+            let argListWithTargets = EmptyArrayArgumentWriter(argumentLabel: "targets",
+                                                              followingArgumentLabels:
+                                                              "swiftLanguageVersions",
+                                                              "cLanguageStandard",
+                                                              "cxxLanguageStandard")
+                .visit(initFnExpr.argumentList)
+
+            // Find the inserted section.
+            let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
+            targetsFinder.walk(argListWithTargets)
+            targetsNode = targetsFinder.foundArrayExpr!
+        }
+
+        //FIXME: determine from source
+        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
+        let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
+
+        let dotTargetExpr = SyntaxFactory.makeMemberAccessExpr(
+            base: nil,
+            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
+            name: SyntaxFactory.makeIdentifier("binaryTarget"),
+            declNameArguments: nil
+        )
+
+        var args: [TupleExprElementSyntax] = []
+
+        let nameArg = SyntaxFactory.makeTupleExprElement(
+            label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
+            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(targetName)),
+            trailingComma: SyntaxFactory.makeCommaToken()
+        )
+        args.append(nameArg)
+
+        if TSCUtility.URL.scheme(urlOrPath) == nil {
+            guard checksum == nil else {
+                throw StringError("'\(urlOrPath)' is a local path, but a checksum was specified")
+            }
+
+            let pathArg = SyntaxFactory.makeTupleExprElement(
+                label: SyntaxFactory.makeIdentifier("path", leadingTrivia: leadingTriviaArgs),
+                colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+                expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(urlOrPath)),
+                trailingComma: nil
+            )
+            args.append(pathArg)
+        } else {
+            guard let checksum = checksum else {
+                throw StringError("'\(urlOrPath)' is not a local path, but no checksum was specified")
+            }
+
+            let urlArg = SyntaxFactory.makeTupleExprElement(
+                label: SyntaxFactory.makeIdentifier("url", leadingTrivia: leadingTriviaArgs),
+                colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+                expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(urlOrPath)),
+                trailingComma: SyntaxFactory.makeCommaToken()
+            )
+            args.append(urlArg)
+
+            let checksumArg = SyntaxFactory.makeTupleExprElement(
+                label: SyntaxFactory.makeIdentifier("checksum", leadingTrivia: leadingTriviaArgs),
+                colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+                expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(checksum)),
+                trailingComma: nil
+            )
+            args.append(checksumArg)
+        }
+
+        let expr = SyntaxFactory.makeFunctionCallExpr(
+            calledExpression: ExprSyntax(dotTargetExpr),
+            leftParen: SyntaxFactory.makeLeftParenToken(),
+            argumentList: SyntaxFactory.makeTupleExprElementList(args),
+            rightParen: SyntaxFactory.makeRightParenToken(),
+          trailingClosure: nil,
+          additionalTrailingClosures: nil
+        )
+
+        let newManifest = InsertArrayExprElementWriter(
+            name: targetName, elementExpr: ExprSyntax(expr)
         ).visit(targetsNode).root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
@@ -491,57 +632,19 @@ final class TargetDependencyWriter: SyntaxRewriter {
     }
 }
 
-/// Writer for inserting a new target in a targets array.
-final class NewTargetWriter: SyntaxRewriter {
+/// Writer for inserting a new element in an array literal expression.
+final class InsertArrayExprElementWriter: SyntaxRewriter {
 
     let name: String
-    let targetType: TargetType
+    let elementExpr: ExprSyntax
 
-    init(name: String, targetType: TargetType) {
+    init(name: String, elementExpr: ExprSyntax) {
         self.name = name
-        self.targetType = targetType
+        self.elementExpr = elementExpr
     }
 
     override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-
-        //FIXME: determine from source
-        let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
-        let leadingTriviaArgs: Trivia = leadingTrivia.appending(.spaces(4))
-
-        let dotPackageExpr = SyntaxFactory.makeMemberAccessExpr(
-            base: nil,
-            dot: SyntaxFactory.makePeriodToken(leadingTrivia: leadingTrivia),
-            name: SyntaxFactory.makeIdentifier(targetType.factoryMethodName),
-            declNameArguments: nil
-        )
-
-        let nameArg = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier("name", leadingTrivia: leadingTriviaArgs),
-            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-            expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(self.name)),
-            trailingComma: SyntaxFactory.makeCommaToken()
-        )
-
-        let emptyArray = SyntaxFactory.makeArrayExpr(leftSquare: SyntaxFactory.makeLeftSquareBracketToken(), elements: SyntaxFactory.makeBlankArrayElementList(), rightSquare: SyntaxFactory.makeRightSquareBracketToken())
-        let depenenciesArg = SyntaxFactory.makeTupleExprElement(
-            label: SyntaxFactory.makeIdentifier("dependencies", leadingTrivia: leadingTriviaArgs),
-            colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
-            expression: ExprSyntax(emptyArray),
-            trailingComma: nil
-        )
-
-        let expr = SyntaxFactory.makeFunctionCallExpr(
-            calledExpression: ExprSyntax(dotPackageExpr),
-            leftParen: SyntaxFactory.makeLeftParenToken(),
-            argumentList: SyntaxFactory.makeTupleExprElementList([
-                nameArg, depenenciesArg,
-            ]),
-            rightParen: SyntaxFactory.makeRightParenToken(),
-          trailingClosure: nil,
-          additionalTrailingClosures: nil
-        )
-
-        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
+        return ExprSyntax(node.withAdditionalElementExpr(elementExpr))
     }
 }
 

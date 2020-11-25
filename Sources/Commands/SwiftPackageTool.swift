@@ -755,8 +755,8 @@ extension SwiftPackageTool {
         @Argument(help: "The name of the new target")
         var name: String
 
-        @Option(help: "The type of the new target (library, executable, or test)")
-        var type: TargetType = .library
+        @Option(help: "The type of the new target (library, executable, test, or binary)")
+        var type: String = "library"
 
         @Flag(help: "If present, no corresponding test target will be created for a new library target")
         var noTestTarget: Bool = false
@@ -764,15 +764,70 @@ extension SwiftPackageTool {
         @Option(help: "A comma-separated list of target dependency names (targets and/or dependency products)")
         var dependencies: String?
 
+        @Option(help: "The URL for a remote binary target")
+        var url: String?
+
+        @Option(help: "The checksum for a remote binary target")
+        var checksum: String?
+
+        @Option(help: "The path for a local binary target")
+        var path: String?
+
         func run(_ swiftTool: SwiftTool) throws {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
                                            toolchain: swiftTool.getToolchain())
-            try editor.addTarget(name: name,
-                                 type: type,
-                                 includeTestTarget: !noTestTarget && type == .library,
-                                 dependencies: dependencies?.split(separator: ",").map(String.init) ?? [])
+            let dependencyNames = dependencies?.split(separator: ",").map(String.init)
+            let newTarget: NewTarget
+            switch type {
+            case "library":
+                try verifyNoTargetBinaryOptionsPassed(swiftTool: swiftTool)
+                newTarget = .library(name: name,
+                                     includeTestTarget: !noTestTarget,
+                                     dependencyNames: dependencyNames ?? [])
+            case "executable":
+                try verifyNoTargetBinaryOptionsPassed(swiftTool: swiftTool)
+                newTarget = .executable(name: name,
+                                        dependencyNames: dependencyNames ?? [])
+            case "test":
+                try verifyNoTargetBinaryOptionsPassed(swiftTool: swiftTool)
+                newTarget = .test(name: name,
+                                  dependencyNames: dependencyNames ?? [])
+            case "binary":
+                guard dependencies == nil else {
+                    swiftTool.diagnostics.emit(.error("option '--dependencies' is not supported for binary targets"))
+                    throw ExitCode.failure
+                }
+                // This check is somewhat forgiving, and does the right thing if
+                // the user passes a url with --path or a path with --url.
+                guard let urlOrPath = url ?? path, url == nil || path == nil else {
+                    swiftTool.diagnostics.emit(.error("binary targets must specify either a path or both a URL and a checksum"))
+                    throw ExitCode.failure
+                }
+                newTarget = .binary(name: name,
+                                    urlOrPath: urlOrPath,
+                                    checksum: checksum)
+            default:
+                swiftTool.diagnostics.emit(.error("unsupported target type '\(type)'; supported types are library, executable, test, and binary"))
+                throw ExitCode.failure
+            }
+            try editor.addTarget(newTarget)
+        }
+
+        func verifyNoTargetBinaryOptionsPassed(swiftTool: SwiftTool) throws {
+            guard url == nil else {
+                swiftTool.diagnostics.emit(.error("option '--url' is only supported for binary targets"))
+                throw ExitCode.failure
+            }
+            guard path == nil else {
+                swiftTool.diagnostics.emit(.error("option '--path' is only supported for binary targets"))
+                throw ExitCode.failure
+            }
+            guard checksum == nil else {
+                swiftTool.diagnostics.emit(.error("option '--checksum' is only supported for binary targets"))
+                throw ExitCode.failure
+            }
         }
     }
 
@@ -828,25 +883,6 @@ extension ProductType: ExpressibleByArgument {
 
     public static var defaultCompletionKind: CompletionKind {
         .list(["library", "static-library", "dynamic-library", "executable"])
-    }
-}
-
-extension SPMPackageEditor.TargetType: ExpressibleByArgument {
-    public init?(argument: String) {
-        switch argument {
-        case "library":
-            self = .library
-        case "executable":
-            self = .executable
-        case "test":
-            self = .test
-        default:
-            return nil
-        }
-    }
-
-    public static var defaultCompletionKind: CompletionKind {
-        .list(["library", "executable", "test"])
     }
 }
 #endif

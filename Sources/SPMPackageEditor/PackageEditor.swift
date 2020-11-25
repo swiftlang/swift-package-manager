@@ -110,12 +110,8 @@ public final class PackageEditor {
     }
 
     /// Add a new target.
-    public func addTarget(name targetName: String, type targetType: TargetType,
-                          includeTestTarget: Bool, dependencies: [String]) throws {
-        assert(!(includeTestTarget && (targetType == .test || targetType == .executable)))
-
+    public func addTarget(_ newTarget: NewTarget) throws {
         let manifestPath = context.manifestPath
-        let testTargetName = targetName + "Tests"
 
         // Validate that the package doesn't already contain a target with the same name.
         let loadedManifest = try context.loadManifest(at: manifestPath.parentDirectory)
@@ -124,58 +120,57 @@ public final class PackageEditor {
             throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
         }
 
-        if loadedManifest.targets.contains(where: { $0.name == targetName }) {
-            throw StringError("a target named '\(targetName)' already exists")
-        }
-
-        if includeTestTarget, loadedManifest.targets.contains(where: { $0.name == testTargetName }) {
-            throw StringError("a target named '\(targetName)' already exists")
+        if loadedManifest.targets.contains(where: { $0.name == newTarget.name }) {
+            throw StringError("a target named '\(newTarget.name)' already exists")
         }
 
         let manifestContents = try fs.readFileContents(manifestPath).cString
         let editor = try ManifestRewriter(manifestContents)
-        try editor.addTarget(targetName: targetName, type: targetType)
-        if includeTestTarget {
-            try editor.addTarget(targetName: testTargetName, type: .test)
-            try editor.addTargetDependency(target: testTargetName, dependency: targetName)
-        }
 
-        // FIXME: support product dependencies properly
-        for dependency in dependencies {
-            try editor.addTargetDependency(target: targetName, dependency: dependency)
+        switch newTarget {
+        case .library(name: let name, includeTestTarget: _, dependencyNames: let dependencyNames),
+             .executable(name: let name, dependencyNames: let dependencyNames),
+             .test(name: let name, dependencyNames: let dependencyNames):
+            try editor.addTarget(targetName: newTarget.name, factoryMethodName: newTarget.factoryMethodName)
+            // FIXME: support product dependencies properly
+            for dependency in dependencyNames {
+                try editor.addTargetDependency(target: name, dependency: dependency)
+            }
+        case .binary(name: let name, urlOrPath: let urlOrPath, checksum: let checksum):
+            try editor.addBinaryTarget(targetName: name, urlOrPath: urlOrPath, checksum: checksum)
         }
 
         try context.verifyEditedManifest(contents: editor.editedManifest)
         try fs.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: editor.editedManifest))
 
         // Write template files.
-        try writeTemplateFilesForTarget(name: targetName, type: targetType, manifestPath: manifestPath)
+        try writeTemplateFilesForTarget(newTarget)
 
-        if includeTestTarget {
-            try writeTemplateFilesForTarget(name: testTargetName, type: .test, manifestPath: manifestPath)
+        if case .library(name: let name, includeTestTarget: true, dependencyNames: _) = newTarget {
+            try self.addTarget(.test(name: "\(name)Tests", dependencyNames: [name]))
         }
     }
 
-    private func writeTemplateFilesForTarget(name: String, type: TargetType, manifestPath: AbsolutePath) throws {
-        switch type {
+    private func writeTemplateFilesForTarget(_ newTarget: NewTarget) throws {
+        switch newTarget {
         case .library:
-            let targetPath = manifestPath.parentDirectory.appending(components: "Sources", name)
+            let targetPath = context.manifestPath.parentDirectory.appending(components: "Sources", newTarget.name)
             if !localFileSystem.exists(targetPath) {
-                let file = targetPath.appending(component: "\(name).swift")
+                let file = targetPath.appending(component: "\(newTarget.name).swift")
                 try fs.createDirectory(targetPath)
                 try fs.writeFileContents(file, bytes: "")
             }
         case .executable:
-            let targetPath = manifestPath.parentDirectory.appending(components: "Sources", name)
+            let targetPath = context.manifestPath.parentDirectory.appending(components: "Sources", newTarget.name)
             if !localFileSystem.exists(targetPath) {
                 let file = targetPath.appending(component: "main.swift")
                 try fs.createDirectory(targetPath)
                 try fs.writeFileContents(file, bytes: "")
             }
         case .test:
-            let testTargetPath = manifestPath.parentDirectory.appending(components: "Tests", name)
+            let testTargetPath = context.manifestPath.parentDirectory.appending(components: "Tests", newTarget.name)
             if !fs.exists(testTargetPath) {
-                let file = testTargetPath.appending(components: name + ".swift")
+                let file = testTargetPath.appending(components: newTarget.name + ".swift")
                 try fs.createDirectory(testTargetPath)
                 try fs.writeFileContents(file) {
                     $0 <<< """
@@ -190,7 +185,8 @@ public final class PackageEditor {
                     """
                 }
             }
-
+        case .binary:
+            break
         }
     }
 
@@ -236,16 +232,29 @@ extension Array where Element == TargetDescription.Dependency {
 }
 
 /// The types of target.
-public enum TargetType {
-    case library
-    case executable
-    case test
+public enum NewTarget {
+    case library(name: String, includeTestTarget: Bool, dependencyNames: [String])
+    case executable(name: String, dependencyNames: [String])
+    case test(name: String, dependencyNames: [String])
+    case binary(name: String, urlOrPath: String, checksum: String?)
 
     /// The name of the factory method for a target type.
     var factoryMethodName: String {
         switch self {
         case .library, .executable: return "target"
         case .test: return "testTarget"
+        case .binary: return "binaryTarget"
+        }
+    }
+
+    /// The name of the new target.
+    var name: String {
+        switch self {
+        case .library(name: let name, includeTestTarget: _, dependencyNames: _),
+             .executable(name: let name, dependencyNames: _),
+             .test(name: let name, dependencyNames: _),
+             .binary(name: let name, urlOrPath: _, checksum: _):
+            return name
         }
     }
 }

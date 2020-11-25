@@ -38,8 +38,8 @@ final class AddTargetTests: XCTestCase {
             """
         
         let editor = try ManifestRewriter(manifest)
-        try editor.addTarget(targetName: "NewTarget")
-        try editor.addTarget(targetName: "NewTargetTests", type: .test)
+        try editor.addTarget(targetName: "NewTarget", factoryMethodName: "target")
+        try editor.addTarget(targetName: "NewTargetTests", factoryMethodName: "testTarget")
         try editor.addTargetDependency(target: "NewTargetTests", dependency: "NewTarget")
 
         XCTAssertEqual(editor.editedManifest, """
@@ -88,7 +88,7 @@ final class AddTargetTests: XCTestCase {
                 """
 
         let editor = try ManifestRewriter(manifest)
-        try editor.addTarget(targetName: "NewTarget")
+        try editor.addTarget(targetName: "NewTarget", factoryMethodName: "target")
 
         XCTAssertEqual(editor.editedManifest, """
                 // swift-tools-version:5.2
