@@ -45,13 +45,7 @@ public final class ManifestRewriter {
         url: String,
         requirement: PackageDependencyRequirement
     ) throws {
-        // Find Package initializer.
-        let packageFinder = PackageInitFinder()
-        packageFinder.walk(editedSource)
-
-        guard let initFnExpr = packageFinder.packageInit else {
-            throw StringError("couldn't find 'Package' initializer")
-        }
+        let initFnExpr = try findPackageInit()
 
         // Find dependencies section in the argument list of Package(...).
         let packageDependenciesFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
@@ -92,13 +86,7 @@ public final class ManifestRewriter {
         target: String,
         dependency: String
     ) throws {
-        // Find Package initializer.
-        let packageFinder = PackageInitFinder()
-        packageFinder.walk(editedSource)
-
-        guard let initFnExpr = packageFinder.packageInit else {
-            throw StringError("couldn't find 'Package' initializer")
-        }
+        let initFnExpr = try findPackageInit()
 
         // Find the `targets: []` array.
         let targetsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
@@ -122,9 +110,9 @@ public final class ManifestRewriter {
         }
 
         // Add the target dependency entry.
-        let newManifest = TargetDependencyWriter(
-            dependencyName: dependency
-        ).visit(targetDependencies).root
+        let newManifest = targetDependencies.withAdditionalElementExpr(ExprSyntax(
+            SyntaxFactory.makeStringLiteralExpr(dependency)
+        )).root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
@@ -134,34 +122,8 @@ public final class ManifestRewriter {
         targetName: String,
         factoryMethodName: String
     ) throws {
-        // Find Package initializer.
-        let packageFinder = PackageInitFinder()
-        packageFinder.walk(editedSource)
-
-        guard let initFnExpr = packageFinder.packageInit else {
-            throw StringError("couldn't find 'Package' initializer")
-        }
-
-        let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
-        targetsFinder.walk(initFnExpr.argumentList)
-        let targetsNode: ArrayExprSyntax
-
-        if let existingTargets = targetsFinder.foundArrayExpr {
-            targetsNode = existingTargets
-        } else {
-            // We didn't find a targets section, so insert one.
-            let argListWithTargets = EmptyArrayArgumentWriter(argumentLabel: "targets",
-                                                              followingArgumentLabels:
-                                                              "swiftLanguageVersions",
-                                                              "cLanguageStandard",
-                                                              "cxxLanguageStandard")
-                .visit(initFnExpr.argumentList)
-
-            // Find the inserted section.
-            let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
-            targetsFinder.walk(argListWithTargets)
-            targetsNode = targetsFinder.foundArrayExpr!
-        }
+        let initFnExpr = try findPackageInit()
+        let targetsNode = findOrCreateTargetsList(in: initFnExpr)
 
         //FIXME: determine from source
         let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
@@ -196,13 +158,11 @@ public final class ManifestRewriter {
                 nameArg, depenenciesArg,
             ]),
             rightParen: SyntaxFactory.makeRightParenToken(),
-          trailingClosure: nil,
-          additionalTrailingClosures: nil
+            trailingClosure: nil,
+            additionalTrailingClosures: nil
         )
 
-        let newManifest = InsertArrayExprElementWriter(
-            name: targetName, elementExpr: ExprSyntax(expr)
-        ).visit(targetsNode).root
+        let newManifest = targetsNode.withAdditionalElementExpr(ExprSyntax(expr)).root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
@@ -210,34 +170,8 @@ public final class ManifestRewriter {
     public func addBinaryTarget(targetName: String,
                                 urlOrPath: String,
                                 checksum: String?) throws {
-        // Find Package initializer.
-        let packageFinder = PackageInitFinder()
-        packageFinder.walk(editedSource)
-
-        guard let initFnExpr = packageFinder.packageInit else {
-            throw StringError("couldn't find 'Package' initializer")
-        }
-
-        let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
-        targetsFinder.walk(initFnExpr.argumentList)
-        let targetsNode: ArrayExprSyntax
-
-        if let existingTargets = targetsFinder.foundArrayExpr {
-            targetsNode = existingTargets
-        } else {
-            // We didn't find a targets section, so insert one.
-            let argListWithTargets = EmptyArrayArgumentWriter(argumentLabel: "targets",
-                                                              followingArgumentLabels:
-                                                              "swiftLanguageVersions",
-                                                              "cLanguageStandard",
-                                                              "cxxLanguageStandard")
-                .visit(initFnExpr.argumentList)
-
-            // Find the inserted section.
-            let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
-            targetsFinder.walk(argListWithTargets)
-            targetsNode = targetsFinder.foundArrayExpr!
-        }
+        let initFnExpr = try findPackageInit()
+        let targetsNode = findOrCreateTargetsList(in: initFnExpr)
 
         //FIXME: determine from source
         let leadingTrivia: Trivia = [.newlines(1), .spaces(8)]
@@ -303,22 +237,14 @@ public final class ManifestRewriter {
           additionalTrailingClosures: nil
         )
 
-        let newManifest = InsertArrayExprElementWriter(
-            name: targetName, elementExpr: ExprSyntax(expr)
-        ).visit(targetsNode).root
+        let newManifest = targetsNode.withAdditionalElementExpr(ExprSyntax(expr)).root
 
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
 
     // Add a new product.
     public func addProduct(name: String, type: ProductType) throws {
-        // Find Package initializer.
-        let packageFinder = PackageInitFinder()
-        packageFinder.walk(editedSource)
-
-        guard let initFnExpr = packageFinder.packageInit else {
-            throw StringError("couldn't find 'Package' initializer")
-        }
+        let initFnExpr = try findPackageInit()
 
         let productsFinder = ArrayExprArgumentFinder(expectedLabel: "products")
         productsFinder.walk(initFnExpr.argumentList)
@@ -352,13 +278,7 @@ public final class ManifestRewriter {
 
     // Add a target to a product.
     public func addProductTarget(product: String, target: String) throws {
-        // Find Package initializer.
-        let packageFinder = PackageInitFinder()
-        packageFinder.walk(editedSource)
-
-        guard let initFnExpr = packageFinder.packageInit else {
-            throw StringError("couldn't find 'Package' initializer")
-        }
+        let initFnExpr = try findPackageInit()
 
         // Find the `products: []` array.
         let productsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "products")
@@ -381,8 +301,46 @@ public final class ManifestRewriter {
             throw StringError("couldn't find 'targets' argument")
         }
 
-        self.editedSource = ProductTargetWriter(name: target).visit(productTargets)
-            .root.as(SourceFileSyntax.self)!
+        let newManifest = productTargets.withAdditionalElementExpr(ExprSyntax(
+            SyntaxFactory.makeStringLiteralExpr(target)
+        )).root
+
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
+    }
+
+    private func findOrCreateTargetsList(in packageInitExpr: FunctionCallExprSyntax) -> ArrayExprSyntax {
+        let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
+        targetsFinder.walk(packageInitExpr.argumentList)
+
+        let targetsNode: ArrayExprSyntax
+        if let existingTargets = targetsFinder.foundArrayExpr {
+            targetsNode = existingTargets
+        } else {
+            // We didn't find a targets section, so insert one.
+            let argListWithTargets = EmptyArrayArgumentWriter(argumentLabel: "targets",
+                                                              followingArgumentLabels:
+                                                              "swiftLanguageVersions",
+                                                              "cLanguageStandard",
+                                                              "cxxLanguageStandard")
+                .visit(packageInitExpr.argumentList)
+
+            // Find the inserted section.
+            let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
+            targetsFinder.walk(argListWithTargets)
+            targetsNode = targetsFinder.foundArrayExpr!
+        }
+
+        return targetsNode
+    }
+
+    private func findPackageInit() throws -> FunctionCallExprSyntax {
+        // Find Package initializer.
+        let packageFinder = PackageInitFinder()
+        packageFinder.walk(editedSource)
+        guard let initFnExpr = packageFinder.packageInit else {
+            throw StringError("couldn't find 'Package' initializer")
+        }
+        return initFnExpr
     }
 }
 
@@ -405,7 +363,7 @@ final class PackageInitFinder: SyntaxVisitor {
     }
 }
 
-/// Finder for "dependencies" array syntax.
+/// Finder for an array expression used as or as part of a labeled argument.
 final class ArrayExprArgumentFinder: SyntaxVisitor {
 
     private(set) var foundArrayExpr: ArrayExprSyntax?
@@ -615,39 +573,6 @@ final class PackageDependencyWriter: SyntaxRewriter {
     }
 }
 
-/// Writer for inserting a target dependency.
-final class TargetDependencyWriter: SyntaxRewriter {
-
-    /// The name of the dependency to write.
-    let dependencyName: String
-
-    init(dependencyName name: String) {
-        self.dependencyName = name
-    }
-
-    override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(
-            SyntaxFactory.makeStringLiteralExpr(self.dependencyName)
-        )))
-    }
-}
-
-/// Writer for inserting a new element in an array literal expression.
-final class InsertArrayExprElementWriter: SyntaxRewriter {
-
-    let name: String
-    let elementExpr: ExprSyntax
-
-    init(name: String, elementExpr: ExprSyntax) {
-        self.name = name
-        self.elementExpr = elementExpr
-    }
-
-    override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-        return ExprSyntax(node.withAdditionalElementExpr(elementExpr))
-    }
-}
-
 /// Writer for inserting a new product in a products array.
 final class NewProductWriter: SyntaxRewriter {
 
@@ -717,22 +642,5 @@ final class NewProductWriter: SyntaxRewriter {
         )
 
         return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
-    }
-}
-
-/// Writer for inserting a product target.
-final class ProductTargetWriter: SyntaxRewriter {
-
-    /// The name of the target to write.
-    let name: String
-
-    init(name: String) {
-        self.name = name
-    }
-
-    override func visit(_ node: ArrayExprSyntax) -> ExprSyntax {
-        return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(
-            SyntaxFactory.makeStringLiteralExpr(self.name)
-        )))
     }
 }
