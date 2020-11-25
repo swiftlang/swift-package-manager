@@ -27,7 +27,10 @@ final class PackageToolTests: XCTestCase {
         packagePath: AbsolutePath? = nil,
         env: [String: String]? = nil
     ) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
+        var environment = env ?? [:]
+        // don't ignore local packages when caching
+        environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
+        return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
     }
 
     func testUsage() throws {
@@ -154,6 +157,37 @@ final class PackageToolTests: XCTestCase {
             // We shouldn't assume package path will be same after an update so ask again for it.
             path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3", "1.2.4"])
+        }
+    }
+
+    func testCache() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            let cachePath = prefix.appending(component: "cache")
+            let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
+
+            // Perform an initial fetch and populate the cache
+            _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+            // we have to check for the prefix here since the hash value changes becasue spm sees the `prefix`
+            // directory `/var/...` as `/private/var/...`.
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+            XCTAssert(try localFileSystem.getDirectoryContents(cachePath).contains { $0.hasPrefix("Foo-") })
+
+            // Remove .build folder
+            _ = try execute(["reset"], packagePath: packageRoot)
+
+            // Perfom another cache this time from the cache
+            _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+
+            // Remove .build and cache folder
+            _ = try execute(["reset"], packagePath: packageRoot)
+            try localFileSystem.removeFileTree(cachePath)
+
+            // Perfom another fetch
+            _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+            XCTAssert(try localFileSystem.getDirectoryContents(cachePath).contains { $0.hasPrefix("Foo-") })
         }
     }
 

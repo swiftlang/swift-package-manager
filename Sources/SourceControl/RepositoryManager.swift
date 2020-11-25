@@ -147,7 +147,7 @@ public class RepositoryManager {
     }
 
     /// Additional information about a fetch
-    public struct FetchDetails {
+    public struct FetchDetails: Equatable {
         /// Indicates if the repository was fetched from the cache or from the remote.
         public let fromCache: Bool
         /// Indicates wether the wether the repository was already present in the cache and updated or if a clean fetch was performed.
@@ -159,6 +159,8 @@ public class RepositoryManager {
 
     /// The path to the directory where all cached git repositories are stored.
     private let cachePath: AbsolutePath?
+
+    var skipCacheForLocalPackages = true
 
     /// The repository provider.
     public let provider: RepositoryProvider
@@ -297,7 +299,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     self.callbacksQueue.async {
-                        let details = FetchDetails(fromCache: isCached, updatedCache: isCached)
+                        let details = FetchDetails(fromCache: isCached, updatedCache: false)
                         self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: details)
                     }
 
@@ -359,8 +361,9 @@ public class RepositoryManager {
 
         // We are expecting handle.repository.url to always be a resolved absolute path.
         let isLocal = (try? AbsolutePath(validating: handle.repository.url)) != nil
+        let shouldSkipLocal = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || skipCacheForLocalPackages
 
-        if let cachePath = cachePath, !isLocal {
+        if let cachePath = cachePath, !(isLocal && !shouldSkipLocal) {
             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
             do {
                 try initalizeCacheIfNeeded(cachePath: cachePath)
