@@ -264,6 +264,10 @@ final class PackageEditorTests: XCTestCase {
             try editor.addProduct(name: "abc", type: .library(.automatic), targets: [])
         }
 
+        XCTAssertThrows(StringError("no target named 'nonexistent' in package 'exec'")) {
+            try editor.addProduct(name: "SomeProduct", type: .library(.automatic), targets: ["nonexistent"])
+        }
+
         try editor.addProduct(name: "xyz", type: .executable, targets: ["bar"])
         try editor.addProduct(name: "libxyz", type: .library(.dynamic), targets: ["foo", "bar"])
 

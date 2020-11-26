@@ -132,7 +132,7 @@ public final class PackageEditor {
              .executable(name: let name, dependencyNames: let dependencyNames),
              .test(name: let name, dependencyNames: let dependencyNames):
             try editor.addTarget(targetName: newTarget.name, factoryMethodName: newTarget.factoryMethodName)
-            // FIXME: support product dependencies properly
+            // FIXME: support product dependencies properly and check for nonexistence
             for dependency in dependencyNames {
                 try editor.addTargetDependency(target: name, dependency: dependency)
             }
@@ -213,6 +213,9 @@ public final class PackageEditor {
 
 
         for target in targets {
+            guard loadedManifest.targets.map(\.name).contains(target) else {
+                throw StringError("no target named '\(target)' in package '\(loadedManifest.name)'")
+            }
             try editor.addProductTarget(product: name, target: target)
         }
 
