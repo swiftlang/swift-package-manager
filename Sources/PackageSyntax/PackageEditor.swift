@@ -137,6 +137,9 @@ public final class PackageEditor {
                 try editor.addTargetDependency(target: name, dependency: dependency)
             }
         case .binary(name: let name, urlOrPath: let urlOrPath, checksum: let checksum):
+            guard loadedManifest.toolsVersion >= .v5_3 else {
+                throw StringError("binary targets are only supported in packages with a swift-tools-version of 5.3 and later")
+            }
             try editor.addBinaryTarget(targetName: name, urlOrPath: urlOrPath, checksum: checksum)
         }
 
