@@ -52,9 +52,10 @@ public final class ManifestRewriter {
         packageDependenciesFinder.walk(initFnExpr.argumentList)
 
         let packageDependencies: ArrayExprSyntax
-        if let existingPackageDependencies = packageDependenciesFinder.foundArrayExpr {
+        switch packageDependenciesFinder.result {
+        case .found(let existingPackageDependencies):
             packageDependencies = existingPackageDependencies
-        } else {
+        case .missing:
             // We didn't find a dependencies section so insert one.
             let argListWithDependencies = EmptyArrayArgumentWriter(argumentLabel: "dependencies",
                                                                    followingArgumentLabels:
@@ -67,7 +68,12 @@ public final class ManifestRewriter {
             // Find the inserted section.
             let packageDependenciesFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
             packageDependenciesFinder.walk(argListWithDependencies)
-            packageDependencies = packageDependenciesFinder.foundArrayExpr!
+            guard case .found(let newPackageDependencies) = packageDependenciesFinder.result else {
+                throw fatalError("Could not find just inserted dependencies array")
+            }
+            packageDependencies = newPackageDependencies
+        case .incompatibleExpr:
+            throw StringError("'targets' argument is not an array literal or concatenation of array literals")
         }
 
         // Add the the package dependency entry.
@@ -90,7 +96,7 @@ public final class ManifestRewriter {
         // Find the `targets: []` array.
         let targetsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsArrayFinder.walk(initFnExpr.argumentList)
-        guard let targetsArrayExpr = targetsArrayFinder.foundArrayExpr else {
+        guard case .found(let targetsArrayExpr) = targetsArrayFinder.result else {
             throw StringError("Couldn't find 'targets' argument")
         }
 
@@ -104,7 +110,7 @@ public final class ManifestRewriter {
         let targetDependencyFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
         targetDependencyFinder.walk(targetNode)
 
-        guard let targetDependencies = targetDependencyFinder.foundArrayExpr else {
+        guard case .found(let targetDependencies) = targetDependencyFinder.result else {
             throw StringError("couldn't find 'dependencies' argument")
         }
 
@@ -122,7 +128,7 @@ public final class ManifestRewriter {
         factoryMethodName: String
     ) throws {
         let initFnExpr = try findPackageInit()
-        let targetsNode = findOrCreateTargetsList(in: initFnExpr)
+        let targetsNode = try findOrCreateTargetsList(in: initFnExpr)
 
         let dotTargetExpr = SyntaxFactory.makeMemberAccessExpr(
             base: nil,
@@ -169,7 +175,7 @@ public final class ManifestRewriter {
                                 urlOrPath: String,
                                 checksum: String?) throws {
         let initFnExpr = try findPackageInit()
-        let targetsNode = findOrCreateTargetsList(in: initFnExpr)
+        let targetsNode = try findOrCreateTargetsList(in: initFnExpr)
 
         let dotTargetExpr = SyntaxFactory.makeMemberAccessExpr(
             base: nil,
@@ -247,9 +253,10 @@ public final class ManifestRewriter {
         productsFinder.walk(initFnExpr.argumentList)
         let productsNode: ArrayExprSyntax
 
-        if let existingProducts = productsFinder.foundArrayExpr {
+        switch productsFinder.result {
+        case .found(let existingProducts):
             productsNode = existingProducts
-        } else {
+        case .missing:
             // We didn't find a products section, so insert one.
             let argListWithProducts = EmptyArrayArgumentWriter(argumentLabel: "products",
                                                                followingArgumentLabels:
@@ -263,7 +270,12 @@ public final class ManifestRewriter {
             // Find the inserted section.
             let productsFinder = ArrayExprArgumentFinder(expectedLabel: "products")
             productsFinder.walk(argListWithProducts)
-            productsNode = productsFinder.foundArrayExpr!
+            guard case .found(let newProducts) = productsFinder.result else {
+                fatalError("Could not find just inserted products array")
+            }
+            productsNode = newProducts
+        case .incompatibleExpr:
+            throw StringError("'products' argument is not an array literal or concatenation of array literals")
         }
 
         let newManifest = NewProductWriter(
@@ -280,7 +292,7 @@ public final class ManifestRewriter {
         // Find the `products: []` array.
         let productsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "products")
         productsArrayFinder.walk(initFnExpr.argumentList)
-        guard let productsArrayExpr = productsArrayFinder.foundArrayExpr else {
+        guard case .found(let productsArrayExpr) = productsArrayFinder.result else {
             throw StringError("Couldn't find 'products' argument")
         }
 
@@ -294,7 +306,7 @@ public final class ManifestRewriter {
         let productTargetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         productTargetsFinder.walk(productNode)
 
-        guard let productTargets = productTargetsFinder.foundArrayExpr else {
+        guard case .found(let productTargets) = productTargetsFinder.result else {
             throw StringError("couldn't find 'targets' argument")
         }
 
@@ -305,14 +317,16 @@ public final class ManifestRewriter {
         self.editedSource = newManifest.as(SourceFileSyntax.self)!
     }
 
-    private func findOrCreateTargetsList(in packageInitExpr: FunctionCallExprSyntax) -> ArrayExprSyntax {
+    private func findOrCreateTargetsList(in packageInitExpr: FunctionCallExprSyntax) throws -> ArrayExprSyntax {
         let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsFinder.walk(packageInitExpr.argumentList)
 
         let targetsNode: ArrayExprSyntax
-        if let existingTargets = targetsFinder.foundArrayExpr {
+        switch targetsFinder.result {
+
+        case .found(let existingTargets):
             targetsNode = existingTargets
-        } else {
+        case .missing:
             // We didn't find a targets section, so insert one.
             let argListWithTargets = EmptyArrayArgumentWriter(argumentLabel: "targets",
                                                               followingArgumentLabels:
@@ -324,7 +338,12 @@ public final class ManifestRewriter {
             // Find the inserted section.
             let targetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
             targetsFinder.walk(argListWithTargets)
-            targetsNode = targetsFinder.foundArrayExpr!
+            guard case .found(let newTargets) = targetsFinder.result else {
+                fatalError("Could not find just-inserted targets array")
+            }
+            targetsNode = newTargets
+        case .incompatibleExpr:
+            throw StringError("'targets' argument is not an array literal or concatenation of array literals")
         }
 
         return targetsNode
@@ -334,10 +353,14 @@ public final class ManifestRewriter {
         // Find Package initializer.
         let packageFinder = PackageInitFinder()
         packageFinder.walk(editedSource)
-        guard let initFnExpr = packageFinder.packageInit else {
+        switch packageFinder.result {
+        case .found(let initFnExpr):
+            return initFnExpr
+        case .foundMultiple:
+            throw StringError("found multiple 'Package' initializers")
+        case .missing:
             throw StringError("couldn't find 'Package' initializer")
         }
-        return initFnExpr
     }
 }
 
@@ -346,15 +369,24 @@ public final class ManifestRewriter {
 /// Package init finder.
 final class PackageInitFinder: SyntaxVisitor {
 
+    enum Result {
+        case found(FunctionCallExprSyntax)
+        case foundMultiple
+        case missing
+    }
+
     /// Reference to the function call of the package initializer.
-    private(set) var packageInit: FunctionCallExprSyntax?
+    private(set) var result: Result = .missing
 
     override func visit(_ node: InitializerClauseSyntax) -> SyntaxVisitorContinueKind {
         if let fnCall = FunctionCallExprSyntax(Syntax(node.value)),
             let identifier = fnCall.calledExpression.firstToken,
             identifier.text == "Package" {
-            assert(packageInit == nil, "Found two package initializers")
-            packageInit = fnCall
+            if case .missing = result {
+                result = .found(fnCall)
+            } else {
+                result = .foundMultiple
+            }
         }
         return .skipChildren
     }
@@ -363,11 +395,18 @@ final class PackageInitFinder: SyntaxVisitor {
 /// Finder for an array expression used as or as part of a labeled argument.
 final class ArrayExprArgumentFinder: SyntaxVisitor {
 
-    private(set) var foundArrayExpr: ArrayExprSyntax?
+    enum Result {
+        case found(ArrayExprSyntax)
+        case missing
+        case incompatibleExpr
+    }
+
+    private(set) var result: Result
     private let expectedLabel: String
 
     init(expectedLabel: String) {
         self.expectedLabel = expectedLabel
+        self.result = .missing
         super.init()
     }
 
@@ -377,14 +416,14 @@ final class ArrayExprArgumentFinder: SyntaxVisitor {
         }
 
         // We have custom code like foo + bar + [] (hopefully there is an array expr here).
-        if let seq = node.expression.as(SequenceExprSyntax.self) {
-            foundArrayExpr = seq.elements.first(where: { $0.is(ArrayExprSyntax.self) })?.as(ArrayExprSyntax.self)
+        if let seq = node.expression.as(SequenceExprSyntax.self),
+           let arrayExpr = seq.elements.first(where: { $0.is(ArrayExprSyntax.self) })?.as(ArrayExprSyntax.self) {
+            result = .found(arrayExpr)
         } else if let arrayExpr = node.expression.as(ArrayExprSyntax.self) {
-            foundArrayExpr = arrayExpr
+            result = .found(arrayExpr)
+        } else {
+            result = .incompatibleExpr
         }
-
-        // FIXME: If we find a dependencies section but not an array expr, then we should
-        // not try to insert one later. i.e. return error if depsArray is nil.
 
         return .skipChildren
     }

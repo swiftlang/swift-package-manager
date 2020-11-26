@@ -349,4 +349,131 @@ final class PackageEditorTests: XCTestCase {
             try editor.addTarget(.library(name: "bar", includeTestTarget: true, dependencyNames: []))
         }
     }
+
+    func testEditingManifestsWithComplexArgumentExpressions() throws {
+        let manifest = """
+            // swift-tools-version:5.3
+            import PackageDescription
+
+            let flag = false
+            let extraDeps: [Package.Dependency] = []
+
+            let package = Package(
+                name: "exec",
+                products: [
+                    .library(name: "Library", targets: ["foo"])
+                ].filter { _ in true },
+                dependencies: extraDeps + [
+                    .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                ],
+                targets: flag ? [] : [
+                    .target(
+                        name: "foo",
+                        dependencies: []),
+                ]
+            )
+            """
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/Package.swift",
+            "/pkg/Sources/foo/source.swift",
+            "end")
+
+        let manifestPath = AbsolutePath("/pkg/Package.swift")
+        try fs.writeFileContents(manifestPath) { $0 <<< manifest }
+
+        try fs.createDirectory(.init("/pkg/repositories"), recursive: false)
+        try fs.createDirectory(.init("/pkg/repo"), recursive: false)
+
+
+        let provider = InMemoryGitRepositoryProvider()
+        let repo = InMemoryGitRepository(path: .init("/pkg/repo"), fs: fs)
+        try repo.writeFileContents(.init("/Package.swift"), bytes: .init(encodingAsUTF8: """
+        // swift-tools-version:5.2
+        import PackageDescription
+
+        let package = Package(name: "repo")
+        """))
+        repo.commit()
+        try repo.tag(name: "1.1.1")
+        provider.add(specifier: .init(url: "http://www.githost.com/repo"), repository: repo)
+
+        let context = try PackageEditorContext(
+            manifestPath: AbsolutePath("/pkg/Package.swift"),
+            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: provider, fileSystem: fs),
+            toolchain: Resources.default.toolchain,
+            fs: fs)
+        let editor = PackageEditor(context: context)
+        try editor.addPackageDependency(url: "http://www.githost.com/repo.git", requirement: .exact("1.1.1"))
+        XCTAssertThrows(StringError("'targets' argument is not an array literal or concatenation of array literals")) {
+            try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []))
+        }
+        XCTAssertThrows(StringError("'products' argument is not an array literal or concatenation of array literals")) {
+            try editor.addProduct(name: "Executable", type: .executable, targets: ["foo"])
+        }
+
+        let newManifest = try fs.readFileContents(manifestPath).cString
+        XCTAssertEqual(newManifest, """
+        // swift-tools-version:5.3
+        import PackageDescription
+
+        let flag = false
+        let extraDeps: [Package.Dependency] = []
+
+        let package = Package(
+            name: "exec",
+            products: [
+                .library(name: "Library", targets: ["foo"])
+            ].filter { _ in true },
+            dependencies: extraDeps + [
+                .package(url: "https://github.com/foo/goo", from: "1.0.1"),
+                .package(name: "repo", url: "http://www.githost.com/repo.git", .exact("1.1.1")),
+            ],
+            targets: flag ? [] : [
+                .target(
+                    name: "foo",
+                    dependencies: []),
+            ]
+        )
+        """)
+    }
+
+    func testEditingConditionalPackageInit() throws {
+        let manifest = """
+            // swift-tools-version:5.3
+            import PackageDescription
+
+            #if os(macOS)
+            let package = Package(
+                name: "macOSPackage"
+            )
+            #else
+            let package = Package(
+                name: "otherPlatformsPackage"
+            )
+            #endif
+            """
+
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/pkg/Package.swift",
+            "/pkg/Sources/foo/source.swift",
+            "end")
+
+        let manifestPath = AbsolutePath("/pkg/Package.swift")
+        try fs.writeFileContents(manifestPath) { $0 <<< manifest }
+
+        try fs.createDirectory(.init("/pkg/repositories"), recursive: false)
+
+        let context = try PackageEditorContext(
+            manifestPath: AbsolutePath("/pkg/Package.swift"),
+            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"),
+                                                 provider: InMemoryGitRepositoryProvider(),
+                                                 fileSystem: fs),
+            toolchain: Resources.default.toolchain,
+            fs: fs)
+        let editor = PackageEditor(context: context)
+        XCTAssertThrows(StringError("found multiple 'Package' initializers")) {
+            try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []))
+        }
+    }
 }
