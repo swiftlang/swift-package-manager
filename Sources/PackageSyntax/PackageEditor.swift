@@ -157,21 +157,21 @@ public final class PackageEditor {
             let targetPath = context.manifestPath.parentDirectory.appending(components: "Sources", newTarget.name)
             if !localFileSystem.exists(targetPath) {
                 let file = targetPath.appending(component: "\(newTarget.name).swift")
-                try fs.createDirectory(targetPath)
+                try fs.createDirectory(targetPath, recursive: true)
                 try fs.writeFileContents(file, bytes: "")
             }
         case .executable:
             let targetPath = context.manifestPath.parentDirectory.appending(components: "Sources", newTarget.name)
             if !localFileSystem.exists(targetPath) {
                 let file = targetPath.appending(component: "main.swift")
-                try fs.createDirectory(targetPath)
+                try fs.createDirectory(targetPath, recursive: true)
                 try fs.writeFileContents(file, bytes: "")
             }
         case .test:
             let testTargetPath = context.manifestPath.parentDirectory.appending(components: "Tests", newTarget.name)
             if !fs.exists(testTargetPath) {
                 let file = testTargetPath.appending(components: newTarget.name + ".swift")
-                try fs.createDirectory(testTargetPath)
+                try fs.createDirectory(testTargetPath, recursive: true)
                 try fs.writeFileContents(file) {
                     $0 <<< """
                     import XCTest
