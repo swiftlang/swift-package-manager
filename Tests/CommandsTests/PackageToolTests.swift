@@ -971,8 +971,8 @@ final class PackageToolTests: XCTestCase {
                 guard case .array(let deps) = dict["dependencies"] else { XCTFail(); return }
                 XCTAssertEqual(deps.count, 1)
                 let dependency = deps[0]
-                XCTAssertEqual(dependency["name"], .string("MyPackage"))
-                XCTAssertEqual(dependency["explicitName"], .string("MyPackage"))
+                XCTAssertEqual(dependency["name"], .string("MyPackage2"))
+                XCTAssertEqual(dependency["explicitName"], .string("MyPackage2"))
                 XCTAssertEqual(dependency["requirement"], .dictionary(["localPackage": .null]))
 
                 check(stderr: "error: 'MyPackage' already has a dependency on '\(dependencyRoot.pathString)'\n") {
@@ -991,8 +991,9 @@ final class PackageToolTests: XCTestCase {
 
     func testAddTarget() throws {
         fixture(name: "PackageEditor/Empty") { packageRoot in
-            fixture(name: "PackageEditor/LocalBinary") { localBinaryRoot in
-                _ = try execute(["add-target", "MyLibrary"], packagePath: packageRoot)
+            fixture(name: "PackageEditor/OneProduct") { dependencyRoot in
+                _ = try execute(["add-dependency", dependencyRoot.pathString], packagePath: packageRoot)
+                _ = try execute(["add-target", "MyLibrary", "--dependencies", "Library"], packagePath: packageRoot)
                 _ = try execute(["add-target", "MyExecutable", "--type", "executable",
                                  "--dependencies", "MyLibrary"], packagePath: packageRoot)
                 _ = try execute(["add-target", "--type", "test", "IntegrationTests",
@@ -1004,10 +1005,15 @@ final class PackageToolTests: XCTestCase {
 
                 let package = Package(
                     name: "MyPackage",
+                    dependencies: [
+                        .package(name: "MyPackage2", path: "\(dependencyRoot.pathString)"),
+                    ],
                     targets: [
                         .target(
                             name: "MyLibrary",
-                            dependencies: []
+                            dependencies: [
+                                .product(name: "Library", package: "MyPackage2"),
+                            ]
                         ),
                         .testTarget(
                             name: "MyLibraryTests",
@@ -1037,7 +1043,7 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertTrue(localFileSystem.exists(packageRoot.appending(components: "Tests", "IntegrationTests", "IntegrationTests.swift")))
 
                 _ = try execute(["add-target", "MyLocalBinary", "--type", "binary",
-                                 "--url", localBinaryRoot.appending(component: "LocalBinary.xcframework").pathString],
+                                 "--path", "LocalBinary.xcframework"],
                                 packagePath: packageRoot)
                 check(stderr: "error: a target named 'MyLibrary' already exists in 'MyPackage'\n") {
                     _ = try execute(["add-target", "MyLibrary"], packagePath: packageRoot)
@@ -1056,6 +1062,7 @@ final class PackageToolTests: XCTestCase {
                     _ = try execute(["add-target", "MyLibrary", "--type", "unsupported"],
                                     packagePath: packageRoot)
                 }
+
             }
         }
     }

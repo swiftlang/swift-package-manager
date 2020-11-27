@@ -818,14 +818,27 @@ extension SwiftPackageTool {
                 swiftTool.diagnostics.emit(.error("unsupported target type '\(type)'; supported types are library, executable, test, and binary"))
                 throw ExitCode.failure
             }
+
             do {
-                try editor.addTarget(newTarget)
+                try editor.addTarget(newTarget,
+                                     productPackageNameMapping: createProductPackageNameMapping(swiftTool: swiftTool))
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
         }
 
-        func verifyNoTargetBinaryOptionsPassed(swiftTool: SwiftTool) throws {
+        private func createProductPackageNameMapping(swiftTool: SwiftTool) throws -> [String: String] {
+            let graph = try swiftTool.loadPackageGraph()
+            var productPackageNameMapping: [String: String] = [:]
+            for dependencyPackage in graph.rootPackages.flatMap(\.dependencies) {
+                for product in dependencyPackage.products {
+                    productPackageNameMapping[product.name] = dependencyPackage.name
+                }
+            }
+            return productPackageNameMapping
+        }
+
+        private func verifyNoTargetBinaryOptionsPassed(swiftTool: SwiftTool) throws {
             guard url == nil else {
                 swiftTool.diagnostics.emit(.error("option '--url' is only supported for binary targets"))
                 throw ExitCode.failure

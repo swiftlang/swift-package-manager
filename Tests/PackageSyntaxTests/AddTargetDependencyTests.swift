@@ -41,11 +41,11 @@ final class AddTargetDependencyTests: XCTestCase {
             """
         
         let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "exec", dependency: "foo")
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "exec", dependency: "bar")
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "execTests", dependency: "foo")
 
         XCTAssertEqual(editor.editedManifest, """
@@ -108,15 +108,15 @@ final class AddTargetDependencyTests: XCTestCase {
             """
 
         let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "foo", dependency: "dep")
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "foo1", dependency: "dep")
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "foo2", dependency: "dep")
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "foo3", dependency: "dep")
-        try editor.addTargetDependency(
+        try editor.addByNameTargetDependency(
             target: "foo4", dependency: "dep")
 
         XCTAssertEqual(editor.editedManifest, """

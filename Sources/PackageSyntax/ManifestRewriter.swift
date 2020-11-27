@@ -92,10 +92,56 @@ public final class ManifestRewriter {
     }
 
     /// Add a target dependency.
-    public func addTargetDependency(
+    public func addByNameTargetDependency(
         target: String,
         dependency: String
     ) throws {
+        let targetDependencies = try findTargetDependenciesArrayExpr(target: target)
+
+        // Add the target dependency entry.
+        let newManifest = targetDependencies.withAdditionalElementExpr(ExprSyntax(
+            SyntaxFactory.makeStringLiteralExpr(dependency)
+        )).root
+
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
+    }
+
+    public func addProductTargetDependency(
+        target: String,
+        product: String,
+        package: String
+    ) throws {
+        let targetDependencies = try findTargetDependenciesArrayExpr(target: target)
+
+        let dotProductExpr = SyntaxFactory.makeMemberAccessExpr(base: nil,
+                                                                dot: SyntaxFactory.makePeriodToken(),
+                                                                name: SyntaxFactory.makeIdentifier("product"),
+                                                                declNameArguments: nil)
+
+        let argumentList = SyntaxFactory.makeTupleExprElementList([
+            SyntaxFactory.makeTupleExprElement(label: SyntaxFactory.makeIdentifier("name"),
+                                               colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+                                               expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(product)),
+                                               trailingComma: SyntaxFactory.makeCommaToken(trailingTrivia: .spaces(1))),
+            SyntaxFactory.makeTupleExprElement(label: SyntaxFactory.makeIdentifier("package"),
+                                               colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
+                                               expression: ExprSyntax(SyntaxFactory.makeStringLiteralExpr(package)),
+                                               trailingComma: nil)
+        ])
+
+        let callExpr = SyntaxFactory.makeFunctionCallExpr(calledExpression: ExprSyntax(dotProductExpr),
+                                                          leftParen: SyntaxFactory.makeLeftParenToken(),
+                                                          argumentList: argumentList,
+                                                          rightParen: SyntaxFactory.makeRightParenToken(),
+                                                          trailingClosure: nil,
+                                                          additionalTrailingClosures: nil)
+
+        // Add the target dependency entry.
+        let newManifest = targetDependencies.withAdditionalElementExpr(ExprSyntax(callExpr)).root
+        self.editedSource = newManifest.as(SourceFileSyntax.self)!
+    }
+
+    private func findTargetDependenciesArrayExpr(target: String) throws -> ArrayExprSyntax {
         let initFnExpr = try findPackageInit()
 
         // Find the `targets: []` array.
@@ -121,13 +167,7 @@ public final class ManifestRewriter {
             diagnosticsEngine.emit(.missingArgument(name: "dependencies", parent: "target '\(target)'"))
             throw Diagnostics.fatalError
         }
-
-        // Add the target dependency entry.
-        let newManifest = targetDependencies.withAdditionalElementExpr(ExprSyntax(
-            SyntaxFactory.makeStringLiteralExpr(dependency)
-        )).root
-
-        self.editedSource = newManifest.as(SourceFileSyntax.self)!
+        return targetDependencies
     }
 
     /// Add a new target.

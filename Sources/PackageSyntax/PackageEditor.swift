@@ -113,7 +113,7 @@ public final class PackageEditor {
     }
 
     /// Add a new target.
-    public func addTarget(_ newTarget: NewTarget) throws {
+    public func addTarget(_ newTarget: NewTarget, productPackageNameMapping: [String: String]) throws {
         let manifestPath = context.manifestPath
 
         // Validate that the package doesn't already contain a target with the same name.
@@ -135,9 +135,20 @@ public final class PackageEditor {
              .executable(name: let name, dependencyNames: let dependencyNames),
              .test(name: let name, dependencyNames: let dependencyNames):
             try editor.addTarget(targetName: newTarget.name, factoryMethodName: newTarget.factoryMethodName)
-            // FIXME: support product dependencies properly and check for nonexistence
+
             for dependency in dependencyNames {
-                try editor.addTargetDependency(target: name, dependency: dependency)
+                if loadedManifest.targets.map(\.name).contains(dependency) {
+                    try editor.addByNameTargetDependency(target: name, dependency: dependency)
+                } else if let productPackage = productPackageNameMapping[dependency] {
+                    if productPackage == dependency {
+                        try editor.addByNameTargetDependency(target: name, dependency: dependency)
+                    } else {
+                        try editor.addProductTargetDependency(target: name, product: dependency, package: productPackage)
+                    }
+                } else {
+                    context.diagnosticsEngine.emit(.missingProductOrTarget(name: dependency))
+                    throw Diagnostics.fatalError
+                }
             }
         case .binary(name: let name, urlOrPath: let urlOrPath, checksum: let checksum):
             guard loadedManifest.toolsVersion >= .v5_3 else {
@@ -154,7 +165,8 @@ public final class PackageEditor {
         try writeTemplateFilesForTarget(newTarget)
 
         if case .library(name: let name, includeTestTarget: true, dependencyNames: _) = newTarget {
-            try self.addTarget(.test(name: "\(name)Tests", dependencyNames: [name]))
+            try self.addTarget(.test(name: "\(name)Tests", dependencyNames: [name]),
+                               productPackageNameMapping: productPackageNameMapping)
         }
     }
 
@@ -393,5 +405,8 @@ private extension Diagnostic.Message {
     }
     static func nonLocalRequirementSpecifiedForLocalPath(path: String) -> Diagnostic.Message {
         .error("'\(path)' is a local package, but a non-local requirement was specified")
+    }
+    static func missingProductOrTarget(name: String) -> Diagnostic.Message {
+        .error("could not find a product or target named '\(name)'")
     }
 }

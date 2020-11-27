@@ -148,19 +148,31 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(Diagnostics.fatalError) {
-            try editor.addTarget(.library(name: "foo", includeTestTarget: true, dependencyNames: []))
+            try editor.addTarget(.library(name: "foo", includeTestTarget: true, dependencyNames: []),
+                                 productPackageNameMapping: [:])
         }
         XCTAssertEqual(diags.diagnostics.map(\.message.text), ["a target named 'foo' already exists in 'exec'"])
+        XCTAssertThrows(Diagnostics.fatalError) {
+            try editor.addTarget(.library(name: "Error", includeTestTarget: true, dependencyNames: ["NotFound"]),
+                                 productPackageNameMapping: [:])
+        }
+        XCTAssertEqual(diags.diagnostics.map(\.message.text), ["a target named 'foo' already exists in 'exec'",
+                                                               "could not find a product or target named 'NotFound'"])
 
-        try editor.addTarget(.library(name: "baz", includeTestTarget: true, dependencyNames: []))
-        try editor.addTarget(.executable(name: "qux", dependencyNames: ["foo", "baz"]))
-        try editor.addTarget(.test(name: "IntegrationTests", dependencyNames: []))
+        try editor.addTarget(.library(name: "baz", includeTestTarget: true, dependencyNames: []),
+                             productPackageNameMapping: [:])
+        try editor.addTarget(.executable(name: "qux", dependencyNames: ["foo", "baz"]),
+                             productPackageNameMapping: [:])
+        try editor.addTarget(.test(name: "IntegrationTests", dependencyNames: ["OtherProduct", "goo"]),
+                             productPackageNameMapping: ["goo": "goo", "OtherProduct": "goo"])
         try editor.addTarget(.binary(name: "LocalBinary",
                                      urlOrPath: "/some/local/binary/target.xcframework",
-                                     checksum: nil))
+                                     checksum: nil),
+                             productPackageNameMapping: [:])
         try editor.addTarget(.binary(name: "RemoteBinary",
                                      urlOrPath: "https://mybinaries.com/RemoteBinary.zip",
-                                     checksum: "totallylegitchecksum"))
+                                     checksum: "totallylegitchecksum"),
+                             productPackageNameMapping: [:])
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
@@ -201,7 +213,10 @@ final class PackageEditorTests: XCTestCase {
                     ),
                     .testTarget(
                         name: "IntegrationTests",
-                        dependencies: []
+                        dependencies: [
+                            .product(name: "OtherProduct", package: "goo"),
+                            "goo",
+                        ]
                     ),
                     .binaryTarget(
                         name: "LocalBinary",
@@ -359,7 +374,8 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
 
         XCTAssertThrows(Diagnostics.fatalError) {
-            try editor.addTarget(.library(name: "bar", includeTestTarget: true, dependencyNames: []))
+            try editor.addTarget(.library(name: "bar", includeTestTarget: true, dependencyNames: []),
+                                 productPackageNameMapping: [:])
         }
         XCTAssertEqual(diags.diagnostics.map(\.message.text),
                        ["command line editing of manifests is only supported for packages with a swift-tools-version of 5.2 and later"])
@@ -425,7 +441,8 @@ final class PackageEditorTests: XCTestCase {
         let editor = PackageEditor(context: context)
         try editor.addPackageDependency(url: "http://www.githost.com/repo.git", requirement: .exact("1.1.1"))
         XCTAssertThrows(Diagnostics.fatalError) {
-            try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []))
+            try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []),
+                                 productPackageNameMapping: [:])
         }
         XCTAssertEqual(diags.diagnostics.map(\.message.text),
                        ["'targets' argument is not an array literal or concatenation of array literals"])
@@ -499,7 +516,8 @@ final class PackageEditorTests: XCTestCase {
             fs: fs)
         let editor = PackageEditor(context: context)
         XCTAssertThrows(Diagnostics.fatalError) {
-            try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []))
+            try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []),
+                                 productPackageNameMapping: [:])
         }
         XCTAssertEqual(diags.diagnostics.map(\.message.text), ["found multiple Package initializers"])
     }
