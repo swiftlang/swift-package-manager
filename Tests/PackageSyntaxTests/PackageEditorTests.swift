@@ -10,6 +10,7 @@
 
 import XCTest
 import TSCBasic
+import TSCUtility
 import SPMTestSupport
 import SourceControl
 
@@ -70,6 +71,7 @@ final class PackageEditorTests: XCTestCase {
             manifestPath: AbsolutePath("/pkg/Package.swift"),
             repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: provider, fileSystem: fs),
             toolchain: Resources.default.toolchain,
+            diagnosticsEngine: .init(),
             fs: fs
         )
         let editor = PackageEditor(context: context)
@@ -136,15 +138,19 @@ final class PackageEditorTests: XCTestCase {
         let manifestPath = AbsolutePath("/pkg/Package.swift")
         try fs.writeFileContents(manifestPath) { $0 <<< manifest }
 
+        let diags = DiagnosticsEngine()
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
             repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: InMemoryGitRepositoryProvider()),
-            toolchain: Resources.default.toolchain, fs: fs)
+            toolchain: Resources.default.toolchain,
+            diagnosticsEngine: diags,
+            fs: fs)
         let editor = PackageEditor(context: context)
 
-        XCTAssertThrows(StringError("a target named 'foo' already exists")) {
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addTarget(.library(name: "foo", includeTestTarget: true, dependencyNames: []))
         }
+        XCTAssertEqual(diags.diagnostics.map(\.message.text), ["a target named 'foo' already exists in 'exec'"])
 
         try editor.addTarget(.library(name: "baz", includeTestTarget: true, dependencyNames: []))
         try editor.addTarget(.executable(name: "qux", dependencyNames: ["foo", "baz"]))
@@ -254,19 +260,25 @@ final class PackageEditorTests: XCTestCase {
         let manifestPath = AbsolutePath("/pkg/Package.swift")
         try fs.writeFileContents(manifestPath) { $0 <<< manifest }
 
+        let diags = DiagnosticsEngine()
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
             repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: InMemoryGitRepositoryProvider()),
-            toolchain: Resources.default.toolchain, fs: fs)
+            toolchain: Resources.default.toolchain,
+            diagnosticsEngine: diags,
+            fs: fs)
         let editor = PackageEditor(context: context)
 
-        XCTAssertThrows(StringError("a product named 'abc' already exists")) {
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addProduct(name: "abc", type: .library(.automatic), targets: [])
         }
 
-        XCTAssertThrows(StringError("no target named 'nonexistent' in package 'exec'")) {
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addProduct(name: "SomeProduct", type: .library(.automatic), targets: ["nonexistent"])
         }
+        
+        XCTAssertEqual(diags.diagnostics.map(\.message.text), ["a product named 'abc' already exists in 'exec'",
+                                                               "no target named 'nonexistent' in 'exec'"])
 
         try editor.addProduct(name: "xyz", type: .executable, targets: ["bar"])
         try editor.addProduct(name: "libxyz", type: .library(.dynamic), targets: ["foo", "bar"])
@@ -339,15 +351,18 @@ final class PackageEditorTests: XCTestCase {
         let manifestPath = AbsolutePath("/pkg/Package.swift")
         try fs.writeFileContents(manifestPath) { $0 <<< manifest }
 
+        let diags = DiagnosticsEngine()
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
             repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: InMemoryGitRepositoryProvider()),
-            toolchain: Resources.default.toolchain, fs: fs)
+            toolchain: Resources.default.toolchain, diagnosticsEngine: diags, fs: fs)
         let editor = PackageEditor(context: context)
 
-        XCTAssertThrows(StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")) {
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addTarget(.library(name: "bar", includeTestTarget: true, dependencyNames: []))
         }
+        XCTAssertEqual(diags.diagnostics.map(\.message.text),
+                       ["command line editing of manifests is only supported for packages with a swift-tools-version of 5.2 and later"])
     }
 
     func testEditingManifestsWithComplexArgumentExpressions() throws {
@@ -400,8 +415,11 @@ final class PackageEditorTests: XCTestCase {
 
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
-            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"), provider: provider, fileSystem: fs),
+            repositoryManager: RepositoryManager(path: .init("/pkg/repositories"),
+                                                 provider: provider,
+                                                 fileSystem: fs),
             toolchain: Resources.default.toolchain,
+            diagnosticsEngine: .init(),
             fs: fs)
         let editor = PackageEditor(context: context)
         try editor.addPackageDependency(url: "http://www.githost.com/repo.git", requirement: .exact("1.1.1"))
@@ -470,6 +488,7 @@ final class PackageEditorTests: XCTestCase {
                                                  provider: InMemoryGitRepositoryProvider(),
                                                  fileSystem: fs),
             toolchain: Resources.default.toolchain,
+            diagnosticsEngine: .init(),
             fs: fs)
         let editor = PackageEditor(context: context)
         XCTAssertThrows(StringError("found multiple 'Package' initializers")) {

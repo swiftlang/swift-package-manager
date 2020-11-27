@@ -975,7 +975,7 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(dependency["explicitName"], .string("MyPackage"))
                 XCTAssertEqual(dependency["requirement"], .dictionary(["localPackage": .null]))
 
-                check(stderr: "error: '\(dependencyRoot.pathString)' is already a package dependency\n") {
+                check(stderr: "error: 'MyPackage' already has a dependency on '\(dependencyRoot.pathString)'\n") {
                     try execute(["add-dependency", dependencyRoot.pathString], packagePath: packageRoot)
                 }
 
@@ -1039,7 +1039,7 @@ final class PackageToolTests: XCTestCase {
                 _ = try execute(["add-target", "MyLocalBinary", "--type", "binary",
                                  "--url", localBinaryRoot.appending(component: "LocalBinary.xcframework").pathString],
                                 packagePath: packageRoot)
-                check(stderr: "error: a target named 'MyLibrary' already exists\n") {
+                check(stderr: "error: a target named 'MyLibrary' already exists in 'MyPackage'\n") {
                     _ = try execute(["add-target", "MyLibrary"], packagePath: packageRoot)
                 }
                 check(stderr: "error: binary targets must specify either a path or both a URL and a checksum\n") {
@@ -1132,7 +1132,7 @@ final class PackageToolTests: XCTestCase {
             )
             """)
 
-            check(stderr: "error: a product named 'LibraryProduct' already exists\n") {
+            check(stderr: "error: a product named 'LibraryProduct' already exists in 'MyPackage'\n") {
                 _ = try execute(["add-product", "LibraryProduct",
                                  "--targets", "MyLibrary,MyLibrary2"],
                                 packagePath: packageRoot)
@@ -1141,7 +1141,7 @@ final class PackageToolTests: XCTestCase {
             error: Missing expected argument '--targets <targets>'
             Usage: swift package add-product <options>
               See 'package add-product --help' for more information.
-            
+
             """) {
                 _ = try execute(["add-product", "LibraryProduct"],
                                 packagePath: packageRoot)

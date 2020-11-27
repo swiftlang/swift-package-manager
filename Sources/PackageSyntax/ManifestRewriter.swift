@@ -69,7 +69,7 @@ public final class ManifestRewriter {
             let packageDependenciesFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
             packageDependenciesFinder.walk(argListWithDependencies)
             guard case .found(let newPackageDependencies) = packageDependenciesFinder.result else {
-                throw fatalError("Could not find just inserted dependencies array")
+                fatalError("Could not find just inserted dependencies array")
             }
             packageDependencies = newPackageDependencies
         case .incompatibleExpr:

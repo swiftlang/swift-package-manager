@@ -740,8 +740,14 @@ extension SwiftPackageTool {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
-                                           toolchain: swiftTool.getToolchain())
-            try editor.addPackageDependency(url: dependencyURL, requirement: requirement)
+                                           toolchain: swiftTool.getToolchain(),
+                                           diagnosticsEngine: swiftTool.diagnostics)
+            do {
+                try editor.addPackageDependency(url: dependencyURL, requirement: requirement)
+            } catch Diagnostics.fatalError {
+                throw ExitCode.failure
+            }
+            guard !swiftTool.diagnostics.hasErrors else { throw ExitCode.failure }
         }
     }
 
@@ -777,7 +783,8 @@ extension SwiftPackageTool {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
-                                           toolchain: swiftTool.getToolchain())
+                                           toolchain: swiftTool.getToolchain(),
+                                           diagnosticsEngine: swiftTool.diagnostics)
             let dependencyNames = dependencies?.split(separator: ",").map(String.init)
             let newTarget: NewTarget
             switch type {
@@ -812,7 +819,12 @@ extension SwiftPackageTool {
                 swiftTool.diagnostics.emit(.error("unsupported target type '\(type)'; supported types are library, executable, test, and binary"))
                 throw ExitCode.failure
             }
-            try editor.addTarget(newTarget)
+            do {
+                try editor.addTarget(newTarget)
+            } catch Diagnostics.fatalError {
+                throw ExitCode.failure
+            }
+            guard !swiftTool.diagnostics.hasErrors else { throw ExitCode.failure }
         }
 
         func verifyNoTargetBinaryOptionsPassed(swiftTool: SwiftTool) throws {
@@ -851,9 +863,15 @@ extension SwiftPackageTool {
             let packageRoot = try swiftTool.getPackageRoot()
             let editor = try PackageEditor(manifestPath: packageRoot.appending(component: Manifest.filename),
                                            repositoryManager: swiftTool.getActiveWorkspace().repositoryManager,
-                                           toolchain: swiftTool.getToolchain())
+                                           toolchain: swiftTool.getToolchain(),
+                                           diagnosticsEngine: swiftTool.diagnostics)
             let targets = self.targets.split(separator: ",").map(String.init)
-            try editor.addProduct(name: name, type: type ?? .library(.automatic), targets: targets)
+            do {
+                try editor.addProduct(name: name, type: type ?? .library(.automatic), targets: targets)
+            } catch Diagnostics.fatalError {
+                throw ExitCode.failure
+            }
+            guard !swiftTool.diagnostics.hasErrors else { throw ExitCode.failure }
         }
     }
 

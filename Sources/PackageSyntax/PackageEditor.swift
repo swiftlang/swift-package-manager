@@ -28,10 +28,12 @@ public final class PackageEditor {
     /// Create a package editor instance.
     public convenience init(manifestPath: AbsolutePath,
                             repositoryManager: RepositoryManager,
-                            toolchain: UserToolchain) throws {
+                            toolchain: UserToolchain,
+                            diagnosticsEngine: DiagnosticsEngine) throws {
         self.init(context: try PackageEditorContext(manifestPath: manifestPath,
                                                     repositoryManager: repositoryManager,
-                                                    toolchain: toolchain))
+                                                    toolchain: toolchain,
+                                                    diagnosticsEngine: diagnosticsEngine))
     }
 
     /// Create a package editor instance.
@@ -51,21 +53,22 @@ public final class PackageEditor {
         // Validate that the package doesn't already contain this dependency.
         let loadedManifest = try context.loadManifest(at: context.manifestPath.parentDirectory)
 
-        guard loadedManifest.toolsVersion >= .v5_2 else {
-            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
-        }
+        try diagnoseUnsupportedToolsVersions(manifest: loadedManifest)
 
         let containsDependency = loadedManifest.dependencies.contains {
             return PackageIdentity(url: url) == PackageIdentity(url: $0.url)
         }
         guard !containsDependency else {
-            throw StringError("'\(url)' is already a package dependency")
+            context.diagnosticsEngine.emit(.packageDependencyAlreadyExists(url: url,
+                                                                           packageName: loadedManifest.name))
+            throw Diagnostics.fatalError
         }
 
         // If the input URL is a path, force the requirement to be a local package.
         if TSCUtility.URL.scheme(url) == nil {
             guard requirement == nil || requirement == .localPackage else {
-                throw StringError("'\(url)' is a local path, but a non-local requirement was specified")
+                context.diagnosticsEngine.emit(.nonLocalRequirementSpecifiedForLocalPath(path: url))
+                throw Diagnostics.fatalError
             }
             requirement = .localPackage
         }
@@ -116,12 +119,12 @@ public final class PackageEditor {
         // Validate that the package doesn't already contain a target with the same name.
         let loadedManifest = try context.loadManifest(at: manifestPath.parentDirectory)
 
-        guard loadedManifest.toolsVersion >= .v5_2 else {
-            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
-        }
+        try diagnoseUnsupportedToolsVersions(manifest: loadedManifest)
 
         if loadedManifest.targets.contains(where: { $0.name == newTarget.name }) {
-            throw StringError("a target named '\(newTarget.name)' already exists")
+            context.diagnosticsEngine.emit(.targetAlreadyExists(name: newTarget.name,
+                                                                packageName: loadedManifest.name))
+            throw Diagnostics.fatalError
         }
 
         let manifestContents = try fs.readFileContents(manifestPath).cString
@@ -138,7 +141,8 @@ public final class PackageEditor {
             }
         case .binary(name: let name, urlOrPath: let urlOrPath, checksum: let checksum):
             guard loadedManifest.toolsVersion >= .v5_3 else {
-                throw StringError("binary targets are only supported in packages with a swift-tools-version of 5.3 and later")
+                context.diagnosticsEngine.emit(.unsupportedToolsVersionForBinaryTargets)
+                throw Diagnostics.fatalError
             }
             try editor.addBinaryTarget(targetName: name, urlOrPath: urlOrPath, checksum: checksum)
         }
@@ -151,6 +155,13 @@ public final class PackageEditor {
 
         if case .library(name: let name, includeTestTarget: true, dependencyNames: _) = newTarget {
             try self.addTarget(.test(name: "\(name)Tests", dependencyNames: [name]))
+        }
+    }
+
+    private func diagnoseUnsupportedToolsVersions(manifest: Manifest) throws {
+        guard manifest.toolsVersion >= .v5_2 else {
+            context.diagnosticsEngine.emit(.unsupportedToolsVersionForEditing)
+            throw Diagnostics.fatalError
         }
     }
 
@@ -199,12 +210,12 @@ public final class PackageEditor {
         // Validate that the package doesn't already contain a product with the same name.
         let loadedManifest = try context.loadManifest(at: manifestPath.parentDirectory)
 
-        guard loadedManifest.toolsVersion >= .v5_2 else {
-            throw StringError("mechanical manifest editing operations are only supported for packages with swift-tools-version 5.2 and later")
-        }
+        try diagnoseUnsupportedToolsVersions(manifest: loadedManifest)
 
-        if loadedManifest.products.contains(where: { $0.name == name }) {
-            throw StringError("a product named '\(name)' already exists")
+        guard !loadedManifest.products.contains(where: { $0.name == name }) else {
+            context.diagnosticsEngine.emit(.productAlreadyExists(name: name,
+                                                                 packageName: loadedManifest.name))
+            throw Diagnostics.fatalError
         }
 
         let manifestContents = try fs.readFileContents(manifestPath).cString
@@ -214,7 +225,8 @@ public final class PackageEditor {
 
         for target in targets {
             guard loadedManifest.targets.map(\.name).contains(target) else {
-                throw StringError("no target named '\(target)' in package '\(loadedManifest.name)'")
+                context.diagnosticsEngine.emit(.noTarget(name: target, packageName: loadedManifest.name))
+                throw Diagnostics.fatalError
             }
             try editor.addProductTarget(product: name, target: target)
         }
@@ -310,12 +322,17 @@ public final class PackageEditorContext {
     /// The file system in use.
     let fs: FileSystem
 
+    /// The diagnostics engine used to report errors.
+    let diagnosticsEngine: DiagnosticsEngine
+
     public init(manifestPath: AbsolutePath,
                 repositoryManager: RepositoryManager,
                 toolchain: UserToolchain,
+                diagnosticsEngine: DiagnosticsEngine,
                 fs: FileSystem = localFileSystem) throws {
         self.manifestPath = manifestPath
         self.repositoryManager = repositoryManager
+        self.diagnosticsEngine = diagnosticsEngine
         self.fs = fs
 
         self.manifestLoader = ManifestLoader(manifestResources: toolchain.manifestResources)
@@ -330,7 +347,8 @@ public final class PackageEditorContext {
                 _ = try loadManifest(at: path, fs: localFileSystem)
             }
         } catch {
-            throw StringError("failed to verify edited manifest: \(error)")
+            diagnosticsEngine.emit(.failedToLoadEditedManifest(error: error))
+            throw Diagnostics.fatalError
         }
     }
 
@@ -350,5 +368,30 @@ public final class PackageEditorContext {
             packageKind: .local,
             fileSystem: fs
         )
+    }
+}
+
+private extension Diagnostic.Message {
+    static func failedToLoadEditedManifest(error: Error) -> Diagnostic.Message {
+        .error("discarding changes because the edited manifest could not be loaded: \(error)")
+    }
+    static var unsupportedToolsVersionForEditing: Diagnostic.Message =
+        .error("command line editing of manifests is only supported for packages with a swift-tools-version of 5.2 and later")
+    static var unsupportedToolsVersionForBinaryTargets: Diagnostic.Message =
+        .error("binary targets are only supported in packages with a swift-tools-version of 5.3 and later")
+    static func productAlreadyExists(name: String, packageName: String) -> Diagnostic.Message {
+        .error("a product named '\(name)' already exists in '\(packageName)'")
+    }
+    static func packageDependencyAlreadyExists(url: String, packageName: String) -> Diagnostic.Message {
+        .error("'\(packageName)' already has a dependency on '\(url)'")
+    }
+    static func noTarget(name: String, packageName: String) -> Diagnostic.Message {
+        .error("no target named '\(name)' in '\(packageName)'")
+    }
+    static func targetAlreadyExists(name: String, packageName: String) -> Diagnostic.Message {
+        .error("a target named '\(name)' already exists in '\(packageName)'")
+    }
+    static func nonLocalRequirementSpecifiedForLocalPath(path: String) -> Diagnostic.Message {
+        .error("'\(path)' is a local package, but a non-local requirement was specified")
     }
 }
