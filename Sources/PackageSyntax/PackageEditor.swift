@@ -105,7 +105,7 @@ public final class PackageEditor {
 
         // Add the package dependency.
         let manifestContents = try fs.readFileContents(manifestPath).cString
-        let editor = try ManifestRewriter(manifestContents)
+        let editor = try ManifestRewriter(manifestContents, diagnosticsEngine: context.diagnosticsEngine)
         try editor.addPackageDependency(name: dependencyManifest.name, url: url, requirement: requirement!)
 
         try context.verifyEditedManifest(contents: editor.editedManifest)
@@ -128,7 +128,7 @@ public final class PackageEditor {
         }
 
         let manifestContents = try fs.readFileContents(manifestPath).cString
-        let editor = try ManifestRewriter(manifestContents)
+        let editor = try ManifestRewriter(manifestContents, diagnosticsEngine: context.diagnosticsEngine)
 
         switch newTarget {
         case .library(name: let name, includeTestTarget: _, dependencyNames: let dependencyNames),
@@ -219,7 +219,7 @@ public final class PackageEditor {
         }
 
         let manifestContents = try fs.readFileContents(manifestPath).cString
-        let editor = try ManifestRewriter(manifestContents)
+        let editor = try ManifestRewriter(manifestContents, diagnosticsEngine: context.diagnosticsEngine)
         try editor.addProduct(name: name, type: type)
 
 

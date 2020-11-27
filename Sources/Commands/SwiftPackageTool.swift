@@ -747,7 +747,6 @@ extension SwiftPackageTool {
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
-            guard !swiftTool.diagnostics.hasErrors else { throw ExitCode.failure }
         }
     }
 
@@ -824,7 +823,6 @@ extension SwiftPackageTool {
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
-            guard !swiftTool.diagnostics.hasErrors else { throw ExitCode.failure }
         }
 
         func verifyNoTargetBinaryOptionsPassed(swiftTool: SwiftTool) throws {
@@ -871,7 +869,6 @@ extension SwiftPackageTool {
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
-            guard !swiftTool.diagnostics.hasErrors else { throw ExitCode.failure }
         }
     }
 

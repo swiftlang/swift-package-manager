@@ -34,7 +34,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
         
         
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -74,7 +74,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -109,7 +109,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -142,7 +142,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -177,7 +177,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -215,7 +215,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -254,7 +254,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -287,7 +287,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -318,7 +318,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -346,7 +346,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -373,7 +373,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -400,7 +400,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -427,7 +427,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",
@@ -454,7 +454,7 @@ final class AddPackageDependencyTests: XCTestCase {
             """
 
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addPackageDependency(
             name: "goo",
             url: "https://github.com/foo/goo",

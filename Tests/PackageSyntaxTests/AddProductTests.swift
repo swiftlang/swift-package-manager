@@ -37,7 +37,7 @@ final class AddProductTests: XCTestCase {
             )
             """
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addProduct(name: "exec", type: .executable)
         try editor.addProduct(name: "lib", type: .library(.automatic))
         try editor.addProduct(name: "staticLib", type: .library(.static))
@@ -106,7 +106,7 @@ final class AddProductTests: XCTestCase {
             )
             """
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addProduct(name: "exec", type: .executable)
         try editor.addProduct(name: "lib", type: .library(.automatic))
         try editor.addProduct(name: "staticLib", type: .library(.static))
@@ -170,7 +170,7 @@ final class AddProductTests: XCTestCase {
             )
             """
 
-        let editor = try ManifestRewriter(manifest)
+        let editor = try ManifestRewriter(manifest, diagnosticsEngine: .init())
         try editor.addProduct(name: "exec", type: .executable)
 
         // FIXME: weird indentation

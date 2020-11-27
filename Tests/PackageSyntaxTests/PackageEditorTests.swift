@@ -413,22 +413,28 @@ final class PackageEditorTests: XCTestCase {
         try repo.tag(name: "1.1.1")
         provider.add(specifier: .init(url: "http://www.githost.com/repo"), repository: repo)
 
+        let diags = DiagnosticsEngine()
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
             repositoryManager: RepositoryManager(path: .init("/pkg/repositories"),
                                                  provider: provider,
                                                  fileSystem: fs),
             toolchain: Resources.default.toolchain,
-            diagnosticsEngine: .init(),
+            diagnosticsEngine: diags,
             fs: fs)
         let editor = PackageEditor(context: context)
         try editor.addPackageDependency(url: "http://www.githost.com/repo.git", requirement: .exact("1.1.1"))
-        XCTAssertThrows(StringError("'targets' argument is not an array literal or concatenation of array literals")) {
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []))
         }
-        XCTAssertThrows(StringError("'products' argument is not an array literal or concatenation of array literals")) {
+        XCTAssertEqual(diags.diagnostics.map(\.message.text),
+                       ["'targets' argument is not an array literal or concatenation of array literals"])
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addProduct(name: "Executable", type: .executable, targets: ["foo"])
         }
+        XCTAssertEqual(diags.diagnostics.map(\.message.text),
+                       ["'targets' argument is not an array literal or concatenation of array literals",
+                        "'products' argument is not an array literal or concatenation of array literals"])
 
         let newManifest = try fs.readFileContents(manifestPath).cString
         XCTAssertEqual(newManifest, """
@@ -482,17 +488,19 @@ final class PackageEditorTests: XCTestCase {
 
         try fs.createDirectory(.init("/pkg/repositories"), recursive: false)
 
+        let diags = DiagnosticsEngine()
         let context = try PackageEditorContext(
             manifestPath: AbsolutePath("/pkg/Package.swift"),
             repositoryManager: RepositoryManager(path: .init("/pkg/repositories"),
                                                  provider: InMemoryGitRepositoryProvider(),
                                                  fileSystem: fs),
             toolchain: Resources.default.toolchain,
-            diagnosticsEngine: .init(),
+            diagnosticsEngine: diags,
             fs: fs)
         let editor = PackageEditor(context: context)
-        XCTAssertThrows(StringError("found multiple 'Package' initializers")) {
+        XCTAssertThrows(Diagnostics.fatalError) {
             try editor.addTarget(.library(name: "Library", includeTestTarget: false, dependencyNames: []))
         }
+        XCTAssertEqual(diags.diagnostics.map(\.message.text), ["found multiple Package initializers"])
     }
 }

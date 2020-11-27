@@ -33,9 +33,13 @@ public final class ManifestRewriter {
     /// The edited manifest syntax.
     private var editedSource: SourceFileSyntax
 
+    /// Engine used to report manifest rewrite failures.
+    private let diagnosticsEngine: DiagnosticsEngine
+
     /// Create a new manfiest editor with the given contents.
-    public init(_ manifest: String) throws {
+    public init(_ manifest: String, diagnosticsEngine: DiagnosticsEngine) throws {
         self.originalManifest = manifest
+        self.diagnosticsEngine = diagnosticsEngine
         self.editedSource = try SyntaxParser.parse(source: manifest)
     }
 
@@ -73,7 +77,8 @@ public final class ManifestRewriter {
             }
             packageDependencies = newPackageDependencies
         case .incompatibleExpr:
-            throw StringError("'targets' argument is not an array literal or concatenation of array literals")
+            diagnosticsEngine.emit(.incompatibleArgument(name: "targets"))
+            throw Diagnostics.fatalError
         }
 
         // Add the the package dependency entry.
@@ -97,21 +102,24 @@ public final class ManifestRewriter {
         let targetsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         targetsArrayFinder.walk(initFnExpr.argumentList)
         guard case .found(let targetsArrayExpr) = targetsArrayFinder.result else {
-            throw StringError("Couldn't find 'targets' argument")
+            diagnosticsEngine.emit(.missingPackageInitArgument(name: "targets"))
+            throw Diagnostics.fatalError
         }
 
         // Find the target node.
         let targetFinder = NamedEntityArgumentListFinder(name: target)
         targetFinder.walk(targetsArrayExpr)
         guard let targetNode = targetFinder.foundEntity else {
-            throw StringError("couldn't find target '\(target)'")
+            diagnosticsEngine.emit(.missingTarget(name: target))
+            throw Diagnostics.fatalError
         }
 
         let targetDependencyFinder = ArrayExprArgumentFinder(expectedLabel: "dependencies")
         targetDependencyFinder.walk(targetNode)
 
         guard case .found(let targetDependencies) = targetDependencyFinder.result else {
-            throw StringError("couldn't find 'dependencies' argument")
+            diagnosticsEngine.emit(.missingArgument(name: "dependencies", parent: "target '\(target)'"))
+            throw Diagnostics.fatalError
         }
 
         // Add the target dependency entry.
@@ -196,7 +204,8 @@ public final class ManifestRewriter {
 
         if TSCUtility.URL.scheme(urlOrPath) == nil {
             guard checksum == nil else {
-                throw StringError("'\(urlOrPath)' is a local path, but a checksum was specified")
+                diagnosticsEngine.emit(.unexpectedChecksumForBinaryTarget(path: urlOrPath))
+                throw Diagnostics.fatalError
             }
 
             let pathArg = SyntaxFactory.makeTupleExprElement(
@@ -208,7 +217,8 @@ public final class ManifestRewriter {
             args.append(pathArg)
         } else {
             guard let checksum = checksum else {
-                throw StringError("'\(urlOrPath)' is not a local path, but no checksum was specified")
+                diagnosticsEngine.emit(.missingChecksumForBinaryTarget(url: urlOrPath))
+                throw Diagnostics.fatalError
             }
 
             let urlArg = SyntaxFactory.makeTupleExprElement(
@@ -275,7 +285,8 @@ public final class ManifestRewriter {
             }
             productsNode = newProducts
         case .incompatibleExpr:
-            throw StringError("'products' argument is not an array literal or concatenation of array literals")
+            diagnosticsEngine.emit(.incompatibleArgument(name: "products"))
+            throw Diagnostics.fatalError
         }
 
         let newManifest = NewProductWriter(
@@ -293,21 +304,24 @@ public final class ManifestRewriter {
         let productsArrayFinder = ArrayExprArgumentFinder(expectedLabel: "products")
         productsArrayFinder.walk(initFnExpr.argumentList)
         guard case .found(let productsArrayExpr) = productsArrayFinder.result else {
-            throw StringError("Couldn't find 'products' argument")
+            diagnosticsEngine.emit(.missingPackageInitArgument(name: "products"))
+            throw Diagnostics.fatalError
         }
 
         // Find the product node.
         let productFinder = NamedEntityArgumentListFinder(name: product)
         productFinder.walk(productsArrayExpr)
         guard let productNode = productFinder.foundEntity else {
-            throw StringError("couldn't find product '\(product)'")
+            diagnosticsEngine.emit(.missingProduct(name: product))
+            throw Diagnostics.fatalError
         }
 
         let productTargetsFinder = ArrayExprArgumentFinder(expectedLabel: "targets")
         productTargetsFinder.walk(productNode)
 
         guard case .found(let productTargets) = productTargetsFinder.result else {
-            throw StringError("couldn't find 'targets' argument")
+            diagnosticsEngine.emit(.missingArgument(name: "targets", parent: "product '\(product)'"))
+            throw Diagnostics.fatalError
         }
 
         let newManifest = productTargets.withAdditionalElementExpr(ExprSyntax(
@@ -343,7 +357,8 @@ public final class ManifestRewriter {
             }
             targetsNode = newTargets
         case .incompatibleExpr:
-            throw StringError("'targets' argument is not an array literal or concatenation of array literals")
+            diagnosticsEngine.emit(.incompatibleArgument(name: "targets"))
+            throw Diagnostics.fatalError
         }
 
         return targetsNode
@@ -357,9 +372,11 @@ public final class ManifestRewriter {
         case .found(let initFnExpr):
             return initFnExpr
         case .foundMultiple:
-            throw StringError("found multiple 'Package' initializers")
+            diagnosticsEngine.emit(.multiplePackageInits)
+            throw Diagnostics.fatalError
         case .missing:
-            throw StringError("couldn't find 'Package' initializer")
+            diagnosticsEngine.emit(.missingPackageInit)
+            throw Diagnostics.fatalError
         }
     }
 }
@@ -671,5 +688,33 @@ final class NewProductWriter: SyntaxRewriter {
         return ExprSyntax(node
                             .withAdditionalElementExpr(ExprSyntax(expr))
                             .reindentingLastCallExprElement())
+    }
+}
+
+extension TSCBasic.Diagnostic.Message {
+    static var missingPackageInit: Self =
+        .error("couldn't find Package initializer")
+    static var multiplePackageInits: Self =
+        .error("found multiple Package initializers")
+    static func missingPackageInitArgument(name: String) -> Self {
+        .error("couldn't find '\(name)' argument in Package initializer")
+    }
+    static func missingArgument(name: String, parent: String) -> Self {
+        .error("couldn't find '\(name)' argument of \(parent)")
+    }
+    static func incompatibleArgument(name: String) -> Self {
+        .error("'\(name)' argument is not an array literal or concatenation of array literals")
+    }
+    static func missingProduct(name: String) -> Self {
+        .error("couldn't find product '\(name)'")
+    }
+    static func missingTarget(name: String) -> Self {
+        .error("couldn't find target '\(name)'")
+    }
+    static func unexpectedChecksumForBinaryTarget(path: String) -> Self {
+        .error("'\(path)' is a local path, but a checksum was specified for the binary target")
+    }
+    static func missingChecksumForBinaryTarget(url: String) -> Self {
+        .error("'\(url)' is a remote URL, but no checksum was specified for the binary target")
     }
 }
