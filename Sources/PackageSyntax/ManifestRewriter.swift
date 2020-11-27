@@ -60,7 +60,7 @@ public final class ManifestRewriter {
         case .found(let existingPackageDependencies):
             packageDependencies = existingPackageDependencies
         case .missing:
-            // We didn't find a dependencies section so insert one.
+            // We didn't find a dependencies section, so insert one.
             let argListWithDependencies = EmptyArrayArgumentWriter(argumentLabel: "dependencies",
                                                                    followingArgumentLabels:
                                                                    "targets",
@@ -337,7 +337,6 @@ public final class ManifestRewriter {
 
         let targetsNode: ArrayExprSyntax
         switch targetsFinder.result {
-
         case .found(let existingTargets):
             targetsNode = existingTargets
         case .missing:
@@ -618,7 +617,6 @@ final class PackageDependencyWriter: SyntaxRewriter {
         )
 
         return ExprSyntax(node.withAdditionalElementExpr(ExprSyntax(expr)))
-
     }
 }
 
@@ -691,7 +689,7 @@ final class NewProductWriter: SyntaxRewriter {
     }
 }
 
-extension TSCBasic.Diagnostic.Message {
+private extension TSCBasic.Diagnostic.Message {
     static var missingPackageInit: Self =
         .error("couldn't find Package initializer")
     static var multiplePackageInits: Self =
