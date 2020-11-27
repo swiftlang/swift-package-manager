@@ -386,6 +386,7 @@ public struct Xcode {
             public var SDKROOT: String?
             public var SKIP_INSTALL: String?
             public var SUPPORTED_PLATFORMS: [String]?
+            public var SUPPORTS_MACCATALYST: String?
             public var SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]?
             public var SWIFT_FORCE_STATIC_LINK_STDLIB: String?
             public var SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String?
@@ -433,6 +434,7 @@ public struct Xcode {
                 SDKROOT: String? = nil,
                 SKIP_INSTALL: String? = nil,
                 SUPPORTED_PLATFORMS: [String]? = nil,
+                SUPPORTS_MACCATALYST: String? = nil,
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]? = nil,
                 SWIFT_FORCE_STATIC_LINK_STDLIB: String? = nil,
                 SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String? = nil,
@@ -479,6 +481,7 @@ public struct Xcode {
                 self.SDKROOT = SDKROOT
                 self.SKIP_INSTALL = SKIP_INSTALL
                 self.SUPPORTED_PLATFORMS = SUPPORTED_PLATFORMS
+                self.SUPPORTS_MACCATALYST = SUPPORTS_MACCATALYST
                 self.SWIFT_ACTIVE_COMPILATION_CONDITIONS = SWIFT_ACTIVE_COMPILATION_CONDITIONS
                 self.SWIFT_FORCE_STATIC_LINK_STDLIB = SWIFT_FORCE_STATIC_LINK_STDLIB
                 self.SWIFT_FORCE_DYNAMIC_LINK_STDLIB = SWIFT_FORCE_DYNAMIC_LINK_STDLIB

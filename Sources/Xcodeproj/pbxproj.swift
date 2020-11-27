@@ -108,15 +108,8 @@ public func xcodeProject(
     // Set the SUPPORTED_PLATFORMS to all platforms.
     // FIXME: This doesn't seem correct, but was what the old project generation
     // code did, so for now we do so too.
-    projectSettings.common.SUPPORTED_PLATFORMS = [
-        "macosx",
-        "iphoneos",
-        "iphonesimulator",
-        "appletvos",
-        "appletvsimulator",
-        "watchos",
-        "watchsimulator",
-    ]
+    projectSettings.common.SUPPORTED_PLATFORMS = ["$(AVAILABLE_PLATFORMS)"]
+    projectSettings.common.SUPPORTS_MACCATALYST = "YES"
 
     // Set the default `SDKROOT` to the latest macOS SDK.
     projectSettings.common.SDKROOT = "macosx"
