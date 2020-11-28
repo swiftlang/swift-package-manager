@@ -8,6 +8,7 @@
 
 add_library(SourceControl
   GitRepository.swift
+  GitProgress.swift
   Repository.swift
   RepositoryManager.swift)
 

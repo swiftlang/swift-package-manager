@@ -37,6 +37,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The progress animation for downloads.
     private let downloadAnimation: NinjaProgressAnimation
 
+    private let fetchAnimation: NinjaProgressAnimation
+
     /// Wether the tool is in a verbose mode.
     private let isVerbose: Bool
 
@@ -56,6 +58,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
         self.downloadAnimation = NinjaProgressAnimation(stream: self.stdoutStream)
+        self.fetchAnimation = NinjaProgressAnimation(stream: self.stdoutStream)
         self.isVerbose = isVerbose
         self.diagnostics = diagnostics
     }
@@ -74,6 +77,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
+        queue.async {
+            self.downloadAnimation.complete(success: true)
+            self.downloadProgress.removeAll()
+            self.fetchAnimation.complete(success: true)
+            self.fetchAnimation.clear()
+        }
     }
 
     func repositoryWillUpdate(_ repository: String) {
@@ -207,6 +216,28 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
             self.downloadAnimation.complete(success: true)
             self.downloadProgress.removeAll()
+        }
+    }
+
+    func fetchingGitRepository(status: GitProgress) {
+        switch status {
+        case .compressingObjects(_, let currentObjects, let totalObjects),
+            .countingObjects(_, let currentObjects, let totalObjects),
+            .resolvingDeltas(_, let currentObjects, let totalObjects):
+            queue.async {
+                self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: status.message)
+            }
+            
+        case .receivingObjects(_, let currentObjects, let totalObjects, let downloadProgress, let downloadSpeed):
+            queue.async {
+                if let downloadProgress = downloadProgress, let downloadSpeed = downloadSpeed {
+                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: "\(status.message) \(downloadProgress) | \(downloadSpeed)")
+                } else {
+                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: status.message)
+                }
+            }
+        default:
+            return
         }
     }
 }

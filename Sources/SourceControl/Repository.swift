@@ -75,6 +75,8 @@ public protocol RepositoryProvider {
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: @escaping GitProgress.Handler) throws
+
     /// Open the given repository.
     ///
     /// - Parameters:
@@ -135,6 +137,9 @@ extension RepositoryProvider {
         fatalError("Unimplemented")
     }
 
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: @escaping GitProgress.Handler) throws {
+        fatalError("Unimplemented")
+    }
 }
 
 /// Abstract repository operations.
@@ -177,6 +182,11 @@ public protocol Repository {
     /// - Throws: If an error occurs while performing the fetch operation.
     func fetch() throws
 
+    /// Fetch and update the repository from its remote.
+    ///
+    /// - Throws: If an error occurs while performing the fetch operation.
+    func fetch(progress: @escaping GitProgress.Handler) throws
+
     /// Returns true if the given revision exists.
     func exists(revision: Revision) -> Bool
 
@@ -195,6 +205,12 @@ public protocol Repository {
     ///
     /// - Throws: If a error occurs accessing the revision.
     func openFileView(revision: Revision) throws -> FileSystem
+}
+
+extension Repository {
+    public func fetch(progress: @escaping GitProgress.Handler) throws {
+        try fetch()
+    }
 }
 
 /// An editable checkout of a repository (i.e. a working copy) on the local file
