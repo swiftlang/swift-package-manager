@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Foundation
 import TSCBasic
 
@@ -1198,12 +1199,7 @@ extension PIF.BaseTarget: PIFSignableObject {}
 extension PIF {
     /// Add signature to workspace and its subobjects.
     public static func sign(_ workspace: PIF.Workspace) throws {
-        let encoder = JSONEncoder()
-        #if os(macOS)
-        if #available(OSX 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-        #endif
+        let encoder = JSONEncoder.makeWithDefaults()
 
         func sign<T: PIFSignableObject & Encodable>(_ obj: T) throws {
             let signatureContent = try encoder.encode(obj)

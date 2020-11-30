@@ -31,15 +31,8 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         let name = "collections"
         self.path = path ?? fileSystem.dotSwiftPM.appending(components: "config", "\(name).json")
 
-        self.encoder = JSONEncoder()
-        if #available(macOS 10.15, *) {
-            #if os(macOS)
-            encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
-            #else // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
-            encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-            #endif
-        }
-        self.decoder = JSONDecoder()
+        self.encoder = JSONEncoder.makeWithDefaults()        
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     func list(callback: @escaping (Result<[Model.CollectionSource], Error>) -> Void) {

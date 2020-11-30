@@ -85,21 +85,8 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false
     ) throws -> String {
-        let encoder = JSONEncoder()
-        if prettyPrint {
-            encoder.outputFormatting = .prettyPrinted
-          #if os(macOS)
-            if #available(macOS 10.13, *) {
-                encoder.outputFormatting.insert(.sortedKeys)
-            }
-            if #available(macOS 10.15, *) {
-                #if os(macOS) // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
-                encoder.outputFormatting.insert(.withoutEscapingSlashes)
-                #endif
-            }
-          #endif
-        }
-
+        let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
+        
         if !preservePIFModelStructure {
             encoder.userInfo[.encodeForXCBuild] = true
         }

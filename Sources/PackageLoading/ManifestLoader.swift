@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import PackageModel
 import TSCUtility
@@ -531,7 +532,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let cacheHit = try keyHash.withData {
             try cache.get(key: $0)
         }.flatMap {
-            try? JSONDecoder().decode(ManifestParseResult.self, from: $0)
+            try? JSONDecoder.makeWithDefaults().decode(ManifestParseResult.self, from: $0)
         }
         if let result = cacheHit {
             return result
@@ -543,15 +544,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: key.toolsVersion
         )
 
-        let encoder = JSONEncoder()
-        if #available(macOS 10.15, *) {
-            #if os(macOS)
-            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-            #else // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
-            encoder.outputFormatting = [.sortedKeys]
-            #endif
-        }
-
+        let encoder = JSONEncoder.makeWithDefaults()
         try keyHash.withData {
             try cache.put(key: $0, value: encoder.encode(result))
         }

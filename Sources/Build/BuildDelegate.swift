@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import SPMLLBuild
@@ -216,17 +217,15 @@ public struct BuildDescription: Codable {
     }
 
     public func write(to path: AbsolutePath) throws {
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        }
+        let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
         try localFileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
     public static func load(from path: AbsolutePath) throws -> BuildDescription {
         let contents = try localFileSystem.readFileContents(path).contents
-        return try JSONDecoder().decode(BuildDescription.self, from: Data(contents))
+        let decoder = JSONDecoder.makeWithDefaults()
+        return try decoder.decode(BuildDescription.self, from: Data(contents))
     }
 }
 
@@ -296,11 +295,7 @@ public protocol PackageStructureDelegate {
 final class PackageStructureCommand: CustomLLBuildCommand {
 
     override func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-
+        let encoder = JSONEncoder.makeWithDefaults()
         // Include build parameters and process env in the signature.
         var hash = Data()
         hash += try! encoder.encode(self.ctx.buildParameters)

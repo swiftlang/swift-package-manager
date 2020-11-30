@@ -117,7 +117,7 @@ public final class SwiftCompilerOutputParser {
         self.targetName = targetName
         self.delegate = delegate
 
-        let decoder = JSONDecoder()
+        let decoder = JSONDecoder.makeWithDefaults()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         jsonParser = JSONMessageStreamingParser<SwiftCompilerOutputParser>(delegate: self, decoder: decoder)
     }
