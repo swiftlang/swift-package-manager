@@ -9,6 +9,7 @@
 */
 
 import ArgumentParser
+import Basics
 import TSCBasic
 import SPMBuildCore
 import Build
@@ -339,11 +340,8 @@ extension SwiftPackageTool {
                 packages: root.packages, diagnostics: swiftTool.diagnostics)
             guard let manifest = manifests.first else { return }
 
-            let encoder = JSONEncoder()
+            let encoder = JSONEncoder.makeWithDefaults()
             encoder.userInfo[Manifest.dumpPackageKey] = true
-            if #available(macOS 10.13, *) {
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            }
 
             let jsonData = try encoder.encode(manifest)
             let jsonString = String(data: jsonData, encoding: .utf8)!

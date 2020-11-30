@@ -44,8 +44,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         case .memory:
             self.fileSystem = InMemoryFileSystem()
         }
-        self.encoder = JSONEncoder()
-        self.decoder = JSONDecoder()
+        self.encoder = JSONEncoder.makeWithDefaults()
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     convenience init(path: AbsolutePath) {

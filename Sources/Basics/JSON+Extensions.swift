@@ -39,3 +39,64 @@ extension JSONDecoder.DateDecodingStrategy {
     }
 }
 #endif
+
+extension JSONEncoder.DateEncodingStrategy {
+    public static var safeISO8601: JSONEncoder.DateEncodingStrategy {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
+            return .iso8601
+        } else {
+            return .customISO8601
+        }
+        #else
+        return .iso8601
+        #endif
+    }
+}
+
+extension JSONDecoder.DateDecodingStrategy {
+    public static var safeISO8601: JSONDecoder.DateDecodingStrategy {
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        if #available(macOS 10.12, iOS 10.0, watchOS 3.0, tvOS 10.0, *) {
+            return .iso8601
+        } else {
+            return .customISO8601
+        }
+        #else
+        return .iso8601
+        #endif
+    }
+}
+
+extension JSONDecoder {
+    public static func makeWithDefaults(dateDecodingStrategy: DateDecodingStrategy = .safeISO8601) -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = dateDecodingStrategy
+        return decoder
+    }
+}
+
+extension JSONEncoder {
+    public static func makeWithDefaults(prettified: Bool = true, dateEncodingStrategy: DateEncodingStrategy = .safeISO8601) -> JSONEncoder {
+        let encoder = JSONEncoder()
+        if prettified {
+            // output formatting
+            #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
+                encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
+            } else if #available(macOS 10.13, iOS 11.0, watchOS 4.0, tvOS 11.0, *) {
+                encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+            } else {
+                encoder.outputFormatting = [.prettyPrinted]
+            }
+            #elseif compiler(>=5.3)
+            encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
+            #else
+            encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+            #endif
+        }
+        // date
+        encoder.dateEncodingStrategy = dateEncodingStrategy
+        return encoder
+    }
+}
