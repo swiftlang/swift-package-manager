@@ -32,6 +32,7 @@ add_library(PackageCollections
 target_link_libraries(PackageCollections PUBLIC
   TSCBasic
   TSCUtility
+  Basics
   PackageModel
   SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

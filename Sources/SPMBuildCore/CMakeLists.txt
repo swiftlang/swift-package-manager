@@ -18,6 +18,7 @@ set_target_properties(SPMBuildCore PROPERTIES
 target_link_libraries(SPMBuildCore PUBLIC
   TSCBasic
   TSCUtility
+  Basics
   PackageGraph)
 
 

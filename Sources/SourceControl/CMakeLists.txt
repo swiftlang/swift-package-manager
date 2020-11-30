@@ -13,7 +13,8 @@ add_library(SourceControl
 
 target_link_libraries(SourceControl PUBLIC
   TSCBasic
-  TSCUtility)
+  TSCUtility
+  Basics)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SourceControl PROPERTIES
