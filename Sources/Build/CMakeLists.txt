@@ -16,6 +16,7 @@ add_library(Build
   XCFrameworkInfo.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
+  Basics
   PackageGraph
   LLBuildManifest
   SPMBuildCore

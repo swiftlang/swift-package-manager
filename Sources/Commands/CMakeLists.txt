@@ -22,6 +22,7 @@ add_library(Commands
   WatchmanHelper.swift)
 target_link_libraries(Commands PUBLIC
   ArgumentParser
+  Basics
   Build
   PackageGraph
   SourceControl

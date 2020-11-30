@@ -24,6 +24,7 @@ add_library(Workspace
 target_link_libraries(Workspace PUBLIC
   TSCBasic
   TSCUtility
+  Basics
   SPMBuildCore
   PackageGraph
   PackageLoading
