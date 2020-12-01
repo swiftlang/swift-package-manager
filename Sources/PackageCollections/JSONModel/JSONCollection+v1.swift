@@ -253,37 +253,34 @@ extension JSONPackageCollectionModel.V1 {
             self.configuration = configuration
         }
         
-        public func validate(collection: Collection) -> [ValidationError]? {
-            var errors = [ValidationError]()
+        public func validate(collection: Collection) -> [ValidationMessage]? {
+            var messages = [ValidationMessage]()
             
             let packages = collection.packages
             // Stop validating if collection doesn't pass basic checks
             if packages.isEmpty {
-                errors.append(.property(name: "packages",
-                                        description: "A collection must contain at least one package"))
+                messages.append(.error("A collection must contain at least one package.", property: "packages"))
             } else if packages.count > self.configuration.maximumPackageCount {
-                errors.append(.property(name: "packages",
-                                        description: "Too many packages (\(packages.count)). Only \(self.configuration.maximumPackageCount) allowed."))
+                messages.append(.warning("The collection has (\(packages.count)) packages, which is more than the recommended maximum (\(self.configuration.maximumPackageCount)) and may impact the performance of certain operations.", property: "packages"))
             } else {
-                packages.forEach { self.validate(package: $0, errors: &errors) }
+                packages.forEach { self.validate(package: $0, messages: &messages) }
             }
             
-            guard errors.isEmpty else {
-                return errors
+            guard messages.isEmpty else {
+                return messages
             }
             
             return nil
         }
         
         // TODO: validate package url?
-        private func validate(package: Collection.Package, errors: inout [ValidationError]) {
+        private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
             let packageID = package.url.absoluteString
             
             // Check for duplicate versions
             let nonUniqueVersions = Dictionary(grouping: package.versions, by: { $0.version }).filter { $1.count > 1 }.keys
             if !nonUniqueVersions.isEmpty {
-                errors.append(.property(name: "package.versions",
-                                        description: "Duplicate version(s) found in package \(packageID): \(nonUniqueVersions)"))
+                messages.append(.error("Duplicate version(s) found in package \(packageID): \(nonUniqueVersions).", property: "package.versions"))
             }
             
             var nonSemanticVersions = [String]()
@@ -296,8 +293,7 @@ extension JSONPackageCollectionModel.V1 {
             }
             
             guard nonSemanticVersions.isEmpty else {
-                errors.append(.property(name: "package.versions",
-                                        description: "Non semantic version(s) found in package \(packageID): \(nonSemanticVersions)"))
+                messages.append(.error("Non semantic version(s) found in package \(packageID): \(nonSemanticVersions).", property: "package.versions"))
                 // The next part of validation requires sorting the semvers. Cannot continue if non-semver.
                 return
             }
@@ -315,14 +311,12 @@ extension JSONPackageCollectionModel.V1 {
                 }
 
                 guard majorCount <= self.configuration.maximumMajorVersionCount else {
-                    errors.append(.property(name: "package.versions",
-                                            description: "Package \(packageID) includes too many major versions. Only \(self.configuration.maximumMajorVersionCount) allowed."))
+                    messages.append(.warning("Package \(packageID) includes too many major versions. Only \(self.configuration.maximumMajorVersionCount) is allowed and extra data might be ignored.", property: "package.versions"))
                     break
                 }
                 guard minorCount < self.configuration.maximumMinorVersionCount else {
-                    errors.append(.property(name: "package.versions",
-                                            // !-safe currentMajor cannot be nil at this point
-                                            description: "Package \(packageID) includes too many minor versions for major version \(currentMajor!). Only \(self.configuration.maximumMinorVersionCount) allowed."))
+                    // !-safe currentMajor cannot be nil at this point
+                    messages.append(.warning("Package \(packageID) includes too many minor versions for major version \(currentMajor!). Only \(self.configuration.maximumMinorVersionCount) is allowed and extra data might be ignored.", property: "package.versions"))
                     break
                 }
 
@@ -331,19 +325,16 @@ extension JSONPackageCollectionModel.V1 {
             
             package.versions.forEach { version in
                 if version.products.isEmpty {
-                    errors.append(.property(name: "version.products",
-                                            description: "Package \(packageID) version \(version.version) does not contain any products"))
+                    messages.append(.error("Package \(packageID) version \(version.version) does not contain any products.", property: "version.products"))
                 }
                 version.products.forEach { product in
                     if product.targets.isEmpty {
-                        errors.append(.property(name: "product.targets",
-                                                description: "Product \(product.name) of package \(packageID) version \(version.version) does not contain any targets"))
+                        messages.append(.error("Product \(product.name) of package \(packageID) version \(version.version) does not contain any targets.", property: "product.targets"))
                     }
                 }
                 
                 if version.targets.isEmpty {
-                    errors.append(.property(name: "version.targets",
-                                            description: "Package \(packageID) version \(version.version) does not contain any targets"))
+                    messages.append(.error("Package \(packageID) version \(version.version) does not contain any targets.", property: "version.targets"))
                 }
             }
         }

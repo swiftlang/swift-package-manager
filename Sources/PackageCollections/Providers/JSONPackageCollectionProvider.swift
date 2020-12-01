@@ -37,7 +37,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             preconditionFailure("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")
         }
 
-        if let errors = source.validate() {
+        if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
 
