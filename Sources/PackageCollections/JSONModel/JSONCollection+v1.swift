@@ -261,7 +261,7 @@ extension JSONPackageCollectionModel.V1 {
             if packages.isEmpty {
                 messages.append(.error("A collection must contain at least one package.", property: "packages"))
             } else if packages.count > self.configuration.maximumPackageCount {
-                messages.append(.warning("The collection has (\(packages.count)) packages, which is more than the recommended maximum (\(self.configuration.maximumPackageCount)) and may impact the performance of certain operations.", property: "packages"))
+                messages.append(.warning("The collection has (\(packages.count)) packages, which is more than the recommended maximum (\(self.configuration.maximumPackageCount)) and extra data might be ignored.", property: "packages"))
             } else {
                 packages.forEach { self.validate(package: $0, messages: &messages) }
             }
