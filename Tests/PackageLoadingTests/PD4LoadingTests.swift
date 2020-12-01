@@ -429,7 +429,7 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found", behavior: .error)
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", behavior: .error)
         }
     }
 }
