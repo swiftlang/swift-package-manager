@@ -68,7 +68,7 @@ public enum WorkspaceDiagnostics {
     }
 
     /// The diagnostic triggered when an operation fails because its completion
-    /// would loose the unpushed changes in a repository.
+    /// would lose the unpushed changes in a repository.
     public struct UnpushedChanges: DiagnosticData, Swift.Error {
         /// The local path to the repository.
         public let repositoryPath: AbsolutePath
