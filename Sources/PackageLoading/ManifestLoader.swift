@@ -371,7 +371,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Check that the product references existing targets.
             for target in product.targets {
                 if !manifest.targetMap.keys.contains(target) {
-                    try diagnostics.emit(.productTargetNotFound(productName: product.name, targetName: target))
+                    try diagnostics.emit(.productTargetNotFound(productName: product.name, targetName: target, validTargets: manifest.targetMap.keys.sorted()))
                 }
             }
 
@@ -454,7 +454,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     if manifest.packageDependency(referencedBy: targetDependency) == nil {
                         try diagnostics.emit(.unknownTargetPackageDependency(
                             packageName: packageName!,
-                            targetName: target.name
+                            targetName: target.name,
+                            validPackages: manifest.dependencies.map { $0.name }
                         ))
                     }
                 case .byName(let name, _):
@@ -465,7 +466,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     {
                         try diagnostics.emit(.unknownTargetDependency(
                             dependency: name,
-                            targetName: target.name
+                            targetName: target.name,
+                            validDependencies: manifest.dependencies.map { $0.name }
                         ))
                     }
                 }
@@ -924,8 +926,8 @@ extension TSCBasic.Diagnostic.Message {
         .error("product '\(productName)' doesn't reference any targets")
     }
 
-    static func productTargetNotFound(productName: String, targetName: String) -> Self {
-        .error("target '\(targetName)' referenced in product '\(productName)' could not be found")
+    static func productTargetNotFound(productName: String, targetName: String, validTargets: [String]) -> Self {
+        .error("target '\(targetName)' referenced in product '\(productName)' could not be found; valid targets are: '\(validTargets.joined(separator: "', '"))'")
     }
 
     static func invalidBinaryProductType(productName: String) -> Self {
@@ -940,12 +942,12 @@ extension TSCBasic.Diagnostic.Message {
         .error("duplicate dependency named '\(dependencyName)'; consider differentiating them using the 'name' argument")
     }
 
-    static func unknownTargetDependency(dependency: String, targetName: String) -> Self {
-        .error("unknown dependency '\(dependency)' in target '\(targetName)'")
+    static func unknownTargetDependency(dependency: String, targetName: String, validDependencies: [String]) -> Self {
+        .error("unknown dependency '\(dependency)' in target '\(targetName)'; valid dependencies are: '\(validDependencies.joined(separator: "', '"))'")
     }
 
-    static func unknownTargetPackageDependency(packageName: String, targetName: String) -> Self {
-        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'")
+    static func unknownTargetPackageDependency(packageName: String, targetName: String, validPackages: [String]) -> Self {
+        .error("unknown package '\(packageName)' in dependencies of target '\(targetName)'; valid packages are: '\(validPackages.joined(separator: "', '"))'")
     }
 
     static func invalidBinaryLocation(targetName: String) -> Self {
@@ -953,11 +955,11 @@ extension TSCBasic.Diagnostic.Message {
     }
 
     static func invalidBinaryURLScheme(targetName: String, validSchemes: [String]) -> Self {
-        .error("invalid URL scheme for binary target '\(targetName)'; valid schemes are: \(validSchemes.joined(separator: ", "))")
+        .error("invalid URL scheme for binary target '\(targetName)'; valid schemes are: '\(validSchemes.joined(separator: "', '"))'")
     }
 
     static func unsupportedBinaryLocationExtension(targetName: String, validExtensions: [String]) -> Self {
-        .error("unsupported extension for binary target '\(targetName)'; valid extensions are: \(validExtensions.joined(separator: ", "))")
+        .error("unsupported extension for binary target '\(targetName)'; valid extensions are: '\(validExtensions.joined(separator: "', '"))'")
     }
 
     static func invalidLanguageTag(_ languageTag: String) -> Self {

@@ -638,12 +638,14 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 ],
                 targets: [
                     .target(name: "A"),
+                    .target(name: "b"),
+                    .target(name: "C"),
                 ]
             )
             """
 
         XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found", behavior: .error)
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'", behavior: .error)
         }
     }
 
@@ -673,7 +675,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             XCTFail("Unexpected success")
         } catch let error as StringError {
-            XCTAssertMatch(error.description, "target 'B' referenced in product 'Product' could not be found")
+            XCTAssertMatch(error.description, "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'")
         }
     }
 
