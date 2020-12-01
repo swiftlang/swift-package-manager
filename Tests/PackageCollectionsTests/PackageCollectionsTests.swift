@@ -931,6 +931,8 @@ final class PackageCollectionsTests: XCTestCase {
 
     func testFetchMetadataProviderError() throws {
         struct BrokenMetadataProvider: PackageMetadataProvider {
+            var name: String = "BrokenMetadataProvider"
+
             func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
                 callback(.failure(TerribleThing()))
             }

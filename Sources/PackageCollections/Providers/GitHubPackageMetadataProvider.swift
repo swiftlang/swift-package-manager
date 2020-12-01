@@ -19,12 +19,16 @@ import PackageModel
 import TSCBasic
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider {
-    let httpClient: HTTPClient
-    let decoder: JSONDecoder
-    let queue: DispatchQueue
+    public var name: String = "GitHub"
 
-    init(httpClient: HTTPClient? = nil) {
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
+    private let httpClient: HTTPClient
+    private let diagnosticsEngine: DiagnosticsEngine?
+    private let decoder: JSONDecoder
+    private let queue: DispatchQueue
+
+    init(httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
+        self.diagnosticsEngine = diagnosticsEngine
         self.decoder = JSONDecoder.makeWithDefaults()
         self.queue = DispatchQueue(label: "org.swift.swiftpm.GitHubPackageMetadataProvider", attributes: .concurrent)
     }
@@ -95,6 +99,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     callback(.success(.init(
                         summary: metadata.description,
                         keywords: metadata.topics,
+                        // filters out non-semantic versioned tags
                         versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
@@ -135,8 +140,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         return options
     }
 
-    private static func makeDefaultHTTPClient() -> HTTPClient {
-        var client = HTTPClient()
+    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
+        var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))

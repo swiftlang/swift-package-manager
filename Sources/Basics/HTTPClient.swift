@@ -33,14 +33,16 @@ public struct HTTPClient {
     public typealias Handler = (Request, @escaping (Result<Response, Error>) -> Void) -> Void
 
     public var configuration: HTTPClientConfiguration
+    private let diagnosticsEngine: DiagnosticsEngine?
     private let underlying: Handler
 
     // static to share across instances of the http client
     private static var hostsErrorsLock = Lock()
     private static var hostsErrors = [String: [Date]]()
 
-    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil) {
+    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
+        self.diagnosticsEngine = diagnosticsEngine
         // FIXME: inject platform specific implementation here
         self.underlying = handler ?? URLSessionHTTPClient().execute
     }
@@ -80,6 +82,7 @@ public struct HTTPClient {
 
     private func _execute(request: Request, requestNumber: Int, callback: @escaping (Result<Response, Error>) -> Void) {
         if self.shouldCircuitBreak(request: request) {
+            diagnosticsEngine?.emit(warning: "Circuit breaker triggered for \(request.url)")
             return callback(.failure(HTTPClientError.circuitBreakerTriggered))
         }
 
@@ -92,6 +95,7 @@ public struct HTTPClient {
                 self.recordErrorIfNecessary(response: response, request: request)
                 // handle retry strategy
                 if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
+                    diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
                     // TODO: dedicated retry queue?
                     return DispatchQueue.global().asyncAfter(deadline: .now() + retryDelay) {
                         self._execute(request: request, requestNumber: requestNumber + 1, callback: callback)

@@ -14,6 +14,7 @@ import TSCBasic
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol {
     private let configuration: Configuration
+    private let diagnosticsEngine: DiagnosticsEngine?
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     private let metadataProvider: PackageMetadataProvider
@@ -23,13 +24,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init()) {
-        let storage = Storage(sources: FilePackageCollectionsSourcesStorage(),
-                              collections: SQLitePackageCollectionsStorage())
-        let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider()]
-        let metadataProvider = GitHubPackageMetadataProvider()
+    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+        let storage = Storage(sources: FilePackageCollectionsSourcesStorage(diagnosticsEngine: diagnosticsEngine),
+                              collections: SQLitePackageCollectionsStorage(diagnosticsEngine: diagnosticsEngine))
+        let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider(diagnosticsEngine: diagnosticsEngine)]
+        let metadataProvider = GitHubPackageMetadataProvider(diagnosticsEngine: diagnosticsEngine)
 
         self.configuration = configuration
+        self.diagnosticsEngine = diagnosticsEngine
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
@@ -37,10 +39,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // internal initializer for testing
     init(configuration: Configuration = .init(),
+         diagnosticsEngine: DiagnosticsEngine? = nil,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider) {
         self.configuration = configuration
+        self.diagnosticsEngine = diagnosticsEngine
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
@@ -202,12 +206,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 self.metadataProvider.get(reference) { result in
                     switch result {
                     case .failure(let error) where error is NotFoundError:
+                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections
                         )
                         callback(.success(metadata))
                     case .failure(let error):
+                        self.diagnosticsEngine?.emit(error: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
                         callback(.failure(error))
                     case .success(let basicMetadata):
                         // finally merge the results
