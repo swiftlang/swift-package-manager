@@ -15,6 +15,9 @@ import TSCUtility
 
 /// `PackageBasicMetadata` provider
 protocol PackageMetadataProvider {
+    /// The name of the provider
+    var name: String { get }
+
     /// Retrieves metadata for a package at the given repository address.
     ///
     /// - Parameters:

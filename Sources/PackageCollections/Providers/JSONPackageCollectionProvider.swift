@@ -15,17 +15,20 @@ import class Foundation.JSONDecoder
 import struct Foundation.URL
 import PackageModel
 import SourceControl
+import TSCBasic
 
 private typealias JSONModel = JSONPackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
-    let configuration: Configuration
-    let httpClient: HTTPClient
-    let decoder: JSONDecoder
+    private let configuration: Configuration
+    private let diagnosticsEngine: DiagnosticsEngine?
+    private let httpClient: HTTPClient
+    private let decoder: JSONDecoder
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
+        self.diagnosticsEngine = diagnosticsEngine
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)        
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
@@ -84,6 +87,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 return .failure(Errors.invalidJSON(error))
             }
 
+            var serializationOkay = true
             let packages = collection.packages.map { package -> Model.Package in
                 let versions = package.versions.compactMap { version -> Model.Package.Version? in
                     // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
@@ -94,11 +98,27 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                         return nil
                     }
                     let targets = version.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                    if targets.count != version.targets.count {
+                        serializationOkay = false
+                    }
                     let products = version.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
+                    if products.count != version.products.count {
+                        serializationOkay = false
+                    }
                     let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
+                    if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
+                        serializationOkay = false
+                    }
                     let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
+                    if verifiedPlatforms?.count != version.verifiedPlatforms?.count {
+                        serializationOkay = false
+                    }
                     let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
+                    if verifiedSwiftVersions?.count != version.verifiedSwiftVersions?.count {
+                        serializationOkay = false
+                    }
                     let license = version.license.flatMap { Model.License(from: $0) }
+
                     return .init(version: parsedVersion,
                                  packageName: version.packageName,
                                  targets: targets,
@@ -109,6 +129,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  verifiedSwiftVersions: verifiedSwiftVersions,
                                  license: license)
                 }
+                if versions.count != package.versions.count {
+                    serializationOkay = false
+                }
+
                 return .init(repository: RepositorySpecifier(url: package.url.absoluteString),
                              summary: package.summary,
                              keywords: package.keywords,
@@ -118,6 +142,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                              readmeURL: package.readmeURL,
                              authors: nil)
             }
+
+            if !serializationOkay {
+                self.diagnosticsEngine?.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            }
+
             return .success(.init(source: source,
                                   name: collection.name,
                                   overview: collection.overview,
@@ -136,8 +165,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         return options
     }
 
-    private static func makeDefaultHTTPClient() -> HTTPClient {
-        var client = HTTPClient()
+    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
+        var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
