@@ -98,7 +98,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                             }
                         }
                     default:
-                        return callback(.failure(Errors.invalidResponse(metadataURL)))
+                        return callback(.failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")))
                     }
                 }
             }
@@ -110,12 +110,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 // check for main request error state
                 switch results[metadataURL] {
                 case .none:
-                    throw Errors.invalidResponse(metadataURL)
+                    throw Errors.invalidResponse(metadataURL, "Response missing")
                 case .some(.failure(let error)):
                     throw error
                 case .some(.success(let metadataResponse)):
                     guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
-                        throw Errors.invalidResponse(metadataURL)
+                        throw Errors.invalidResponse(metadataURL, "Empty body")
                     }
                     let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
@@ -196,7 +196,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     enum Errors: Error, Equatable {
         case invalidReferenceType(PackageReference)
         case invalidGitUrl(String)
-        case invalidResponse(URL)
+        case invalidResponse(URL, String)
         case permissionDenied(URL)
         case invalidAuthToken(URL)
         case apiLimitsExceeded(URL, Int)

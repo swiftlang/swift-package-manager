@@ -108,11 +108,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         fixture(name: "Collections") { directoryPath in
+            let path = directoryPath.appending(components: "GitHub", "metadata.json")
+            let data = try Data(localFileSystem.readFileContents(path).contents)
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
                 switch (request.method, request.url) {
                 case (.get, apiURL):
-                    let path = directoryPath.appending(components: "GitHub", "metadata.json")
-                    let data = Data(try! localFileSystem.readFileContents(path).contents)
                     callback(.success(.init(statusCode: 200,
                                             headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                             body: data)))
@@ -187,6 +187,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         var remaining = total
 
         fixture(name: "Collections") { directoryPath in
+            let path = directoryPath.appending(components: "GitHub", "metadata.json")
+            let data = try Data(localFileSystem.readFileContents(path).contents)
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
                 var headers = HTTPClientHeaders()
                 headers.add(name: "X-RateLimit-Limit", value: "\(total)")
@@ -195,8 +197,6 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     callback(.success(.init(statusCode: 403, headers: headers)))
                 } else if request.url == apiURL {
                     remaining = remaining - 1
-                    let path = directoryPath.appending(components: "GitHub", "metadata.json")
-                    let data = Data(try! localFileSystem.readFileContents(path).contents)
                     headers.add(name: "Content-Length", value: "\(data.count)")
                     callback(.success(.init(statusCode: 200,
                                             headers: headers,
