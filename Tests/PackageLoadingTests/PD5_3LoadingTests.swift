@@ -212,7 +212,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: https", behavior: .error)
+                diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", behavior: .error)
             }
         }
 
@@ -232,7 +232,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: xcframework", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework'", behavior: .error)
             }
         }
 
@@ -255,7 +255,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: zip", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", behavior: .error)
             }
         }
 
@@ -275,7 +275,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: xcframework", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework'", behavior: .error)
             }
         }
 
@@ -298,7 +298,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: zip", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", behavior: .error)
             }
         }
     }

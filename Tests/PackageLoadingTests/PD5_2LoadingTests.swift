@@ -98,6 +98,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                     products: [],
                     dependencies: [
                         .package(name: "Foo", url: "/foo1", from: "1.0.0"),
+                        .package(name: "Bar", url: "/bar1", from: "2.0.0"),
                     ],
                     targets: [
                         .target(
@@ -111,8 +112,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes, packageKind: .remote) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'", behavior: .error)
-                diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", behavior: .error)
             }
         }
 
@@ -138,7 +139,33 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes, packageKind: .root) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", behavior: .error)
+            }
+        }
+        
+        do {
+            let stream = BufferedOutputByteStream()
+            stream <<< """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(path: "/foo2"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target1",
+                            dependencies: [.product(name: "product", package: "foo1")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
+                    ]
+                )
+                """
+
+            XCTAssertManifestLoadThrows(stream.bytes, packageKind: .root) { _, diagnostics in
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", behavior: .error)
             }
         }
     }
