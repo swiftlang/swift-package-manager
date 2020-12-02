@@ -159,31 +159,84 @@ final class PackageToolTests: XCTestCase {
 
     func testDescribe() throws {
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
-            let output = try result.utf8Output()
-            let json = try JSON(bytes: ByteString(encodingAsUTF8: output))
-
+            // Generate the JSON description.
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonOutput = try jsonResult.utf8Output()
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            
+            // Check that the JSON description contains what we expect it to.
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
-            // Path should be an absolute path.
-            XCTAssert(json["path"]?.string?.hasPrefix("/") == true)
-            // Sort the target.
-            let targets = json["targets"]?.array?.sorted {
-                guard let first = $0["name"], let second = $1["name"] else {
-                    return false
+            XCTAssertEqual(json["path"]?.string?.hasPrefix("/"), true)
+            XCTAssertEqual(json["path"]?.string?.hasSuffix("/" + prefix.basename), true)
+            XCTAssertEqual(json["targets"]?.array?.count, 3)
+            let jsonTarget0 = try XCTUnwrap(json["targets"]?.array?[0])
+            XCTAssertEqual(jsonTarget0["name"]?.stringValue, "SeaLib")
+            XCTAssertEqual(jsonTarget0["c99name"]?.stringValue, "SeaLib")
+            XCTAssertEqual(jsonTarget0["type"]?.stringValue, "library")
+            XCTAssertEqual(jsonTarget0["module_type"]?.stringValue, "ClangTarget")
+            let jsonTarget1 = try XCTUnwrap(json["targets"]?.array?[1])
+            XCTAssertEqual(jsonTarget1["name"]?.stringValue, "SeaExec")
+            XCTAssertEqual(jsonTarget1["c99name"]?.stringValue, "SeaExec")
+            XCTAssertEqual(jsonTarget1["type"]?.stringValue, "executable")
+            XCTAssertEqual(jsonTarget1["module_type"]?.stringValue, "SwiftTarget")
+            let jsonTarget2 = try XCTUnwrap(json["targets"]?.array?[2])
+            XCTAssertEqual(jsonTarget2["name"]?.stringValue, "CExec")
+            XCTAssertEqual(jsonTarget2["c99name"]?.stringValue, "CExec")
+            XCTAssertEqual(jsonTarget2["type"]?.stringValue, "executable")
+            XCTAssertEqual(jsonTarget2["module_type"]?.stringValue, "ClangTarget")
+
+            // Generate the text description.
+            let textResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=text"], packagePath: prefix)
+            let textOutput = try textResult.utf8Output()
+            let textChunks = textOutput.components(separatedBy: "\n").reduce(into: [""]) { chunks, line in
+                // Split the text into chunks based on presence or absence of leading whitespace.
+                if line.hasPrefix(" ") == chunks[chunks.count-1].hasPrefix(" ") {
+                    chunks[chunks.count-1].append(line + "\n")
                 }
-                return first.stringValue < second.stringValue
-            }
-
-            XCTAssertEqual(targets?[0]["name"]?.stringValue, "CExec")
-            XCTAssertEqual(targets?[2]["type"]?.stringValue, "library")
-            XCTAssertEqual(targets?[1]["sources"]?.array?.map{$0.stringValue} ?? [], ["main.swift"])
-
-            let (textOutput, _) = try execute(["describe"], packagePath: prefix)
-
-            XCTAssert(textOutput.hasPrefix("Name: SwiftCMixed"))
-            XCTAssert(textOutput.contains("    C99name: CExec"))
-            XCTAssert(textOutput.contains("    Name: SeaLib"))
-            XCTAssert(textOutput.contains("   Sources: main.swift"))
+                else {
+                    chunks.append(line + "\n")
+                }
+            }.filter{ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            
+            // Check that the text description contains what we expect it to.
+            // FIXME: This is a bit inelegant, but any errors are easy to reason about.
+            let textChunk0 = try XCTUnwrap(textChunks[0])
+            XCTAssert(textChunk0.contains("Name: SwiftCMixed"), textChunk0)
+            XCTAssert(textChunk0.contains("Path: /"), textChunk0)
+            XCTAssert(textChunk0.contains("/" + prefix.basename + "\n"), textChunk0)
+            XCTAssert(textChunk0.contains("Tools version: 4.2"), textChunk0)
+            XCTAssert(textChunk0.contains("Products:"), textChunk0)
+            let textChunk1 = try XCTUnwrap(textChunks[1])
+            XCTAssert(textChunk1.contains("Name: SeaExec"), textChunk1)
+            XCTAssert(textChunk1.contains("Type:\n        Executable"), textChunk1)
+            XCTAssert(textChunk1.contains("Targets:\n        SeaExec"), textChunk1)
+            let textChunk2 = try XCTUnwrap(textChunks[2])
+            XCTAssert(textChunk2.contains("Name: CExec"), textChunk2)
+            XCTAssert(textChunk2.contains("Type:\n        Executable"), textChunk2)
+            XCTAssert(textChunk2.contains("Targets:\n        CExec"), textChunk2)
+            let textChunk3 = try XCTUnwrap(textChunks[3])
+            XCTAssert(textChunk3.contains("Targets:"), textChunk3)
+            let textChunk4 = try XCTUnwrap(textChunks[4])
+            XCTAssert(textChunk4.contains("Name: SeaLib"), textChunk4)
+            XCTAssert(textChunk4.contains("C99name: SeaLib"), textChunk4)
+            XCTAssert(textChunk4.contains("Type: library"), textChunk4)
+            XCTAssert(textChunk4.contains("Module type: ClangTarget"), textChunk4)
+            XCTAssert(textChunk4.contains("Path: Sources/SeaLib"), textChunk4)
+            XCTAssert(textChunk4.contains("Sources:\n        Foo.c"), textChunk4)
+            let textChunk5 = try XCTUnwrap(textChunks[5])
+            XCTAssert(textChunk5.contains("Name: SeaExec"), textChunk5)
+            XCTAssert(textChunk5.contains("C99name: SeaExec"), textChunk5)
+            XCTAssert(textChunk5.contains("Type: executable"), textChunk5)
+            XCTAssert(textChunk5.contains("Module type: SwiftTarget"), textChunk5)
+            XCTAssert(textChunk5.contains("Path: Sources/SeaExec"), textChunk5)
+            XCTAssert(textChunk5.contains("Sources:\n        main.swift"), textChunk5)
+            let textChunk6 = try XCTUnwrap(textChunks[6])
+            XCTAssert(textChunk6.contains("Name: CExec"), textChunk6)
+            XCTAssert(textChunk6.contains("C99name: CExec"), textChunk6)
+            XCTAssert(textChunk6.contains("Type: executable"), textChunk6)
+            XCTAssert(textChunk6.contains("Module type: ClangTarget"), textChunk6)
+            XCTAssert(textChunk6.contains("Path: Sources/CExec"), textChunk6)
+            XCTAssert(textChunk6.contains("Sources:\n        main.c"), textChunk6)
         }
     }
 
