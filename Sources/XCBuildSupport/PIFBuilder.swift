@@ -670,9 +670,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // Impart the header search path to all direct and indirect clients.
         var impartedSettings = PIF.BuildSettings()
 
-        var cFlags: [String] = []
-        for resultw in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics, fileSystem: fileSystem) {
-            guard let result = resultw else { continue }
+        var cFlags: OrderedSet<String> = []
+        for result in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics, fileSystem: fileSystem) {
             if let error = result.error {
                 let location = PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
                 diagnostics.emit(warning: "\(error)", location: location)

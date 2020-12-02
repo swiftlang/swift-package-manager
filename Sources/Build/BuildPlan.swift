@@ -1743,7 +1743,7 @@ public class BuildPlan {
     }
 
     /// Get pkgConfig arguments for a system library target.
-    private func pkgConfig(for target: SystemLibraryTarget) -> (cFlags: [String], libs: [String]) {
+    private func pkgConfig(for target: SystemLibraryTarget) -> (cFlags: OrderedSet<String>, libs: OrderedSet<String>) {
         // If we already have these flags, we're done.
         if let flags = pkgConfigCache[target] {
             return flags
@@ -1752,14 +1752,8 @@ public class BuildPlan {
             pkgConfigCache[target] = ([], [])
         }
         let results = pkgConfigArgs(for: target, diagnostics: diagnostics)
-        var ret: [(cFlags: [String], libs: [String])] = []
-        for resultW in results {
-            // Otherwise, get the result and cache it.
-            guard let result = resultW else {
-                ret.append(([], []))
-                continue
-            }
-
+        var ret: (cFlags: OrderedSet<String>, libs: OrderedSet<String>) = (cFlags: OrderedSet<String>(), libs: OrderedSet<String>())
+        for result in results {
             // If there is no pc file on system and we have an available provider, emit a warning.
             if let provider = result.provider, result.couldNotFindConfigFile {
                 diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
@@ -1770,28 +1764,16 @@ public class BuildPlan {
                 )
             }
 
-            ret.append((result.cFlags, result.libs))
-        }
-
-        // Build cache
-        var cflagsCache: [String] = []
-        var libsCache: [String] = []
-        for tuple in ret {
-            // Avoid duplicates while merging
-            for cFlag in tuple.cFlags {
-                if !cflagsCache.contains(cFlag) {
-                    cflagsCache.append(cFlag)
-                }
+            for cflag in result.cFlags {
+                ret.cFlags.append(cflag)
             }
 
-            for lib in tuple.libs {
-                if !libsCache.contains(lib) {
-                    libsCache.append(lib)
-                }
+            for lib in result.libs {
+                ret.libs.append(lib)
             }
         }
 
-        pkgConfigCache[target] = (cflagsCache, libsCache)
+        pkgConfigCache[target] = (ret.cFlags, ret.libs)
 
         return pkgConfigCache[target]!
     }
@@ -1831,7 +1813,7 @@ public class BuildPlan {
     }
 
     /// Cache for pkgConfig flags.
-    private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+    private var pkgConfigCache = [SystemLibraryTarget: (cFlags: OrderedSet<String>, libs: OrderedSet<String>)]()
 
     /// Cache for xcframework library information.
     private var xcFrameworkCache = [BinaryTarget: LibraryInfo?]()
