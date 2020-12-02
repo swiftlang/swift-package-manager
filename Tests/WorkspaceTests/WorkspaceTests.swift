@@ -824,7 +824,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Dependency resolution failed"), behavior: .error)
+                result.check(diagnostic: .contains("Dependencies could not be resolved"), behavior: .error)
             }
         }
         // There should be no extra fetches.

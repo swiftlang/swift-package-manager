@@ -1228,8 +1228,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
         
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because no versions of 'foopkg' match the requirement 2.0.0..<3.0.0 and root depends on 'foopkg' 2.0.0..<3.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because no versions of 'foopkg' match the requirement 2.0.0..<3.0.0 and root depends on 'foopkg' 2.0.0..<3.0.0.
             """)
     }
 
@@ -1242,7 +1241,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        XCTAssertEqual(result.errorMsg, "Dependency resolution failed.\nBecause no versions of 'package' match the requirement 1.0.0 and root depends on 'package' 1.0.0, dependencies could not be resolved.")
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because no versions of 'package' match the requirement 1.0.0 and root depends on 'package' 1.0.0.
+            """)
     }
 
     func testResolutionLinearErrorReporting() {
@@ -1262,9 +1263,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because 'foo' depends on 'bar' 2.0.0..<3.0.0 and 'bar' depends on 'baz' 3.0.0..<4.0.0, 'foo' practically depends on 'baz' 3.0.0..<4.0.0.
-            And because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'baz' 1.0.0..<2.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'baz' 1.0.0..<2.0.0.
+            'foo' practically depends on 'baz' 3.0.0..<4.0.0 because 'foo' depends on 'bar' 2.0.0..<3.0.0 and 'bar' depends on 'baz' 3.0.0..<4.0.0.
             """)
     }
 
@@ -1294,14 +1294,15 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
         
+        print(result.errorMsg!)
+        
         XCTAssertEqual(result.errorMsg, """
-          Dependency resolution failed.
-          Because 'a' depends on 'b' 2.0.0..<3.0.0 and 'foo' < 1.1.0 depends on 'a' 1.0.0..<2.0.0, 'foo' < 1.1.0 practically depends on 'b' 2.0.0..<3.0.0.
-             (1) So, because 'foo' < 1.1.0 depends on 'b' 1.0.0..<2.0.0, 'foo' < 1.1.0 cannot be used.
-          Because 'x' depends on 'y' 2.0.0..<3.0.0 and 'foo' >= 1.1.0 depends on 'x' 1.0.0..<2.0.0, 'foo' >= 1.1.0 practically depends on 'y' 2.0.0..<3.0.0.
-          And because 'foo' >= 1.1.0 depends on 'y' 1.0.0..<2.0.0, 'foo' >= 1.1.0 cannot be used.
-          And because 'foo' < 1.1.0 cannot be used (1), 'foo' cannot be used.
-          And because root depends on 'foo' 1.0.0..<2.0.0, dependencies could not be resolved.
+          Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+          'foo' cannot be used because 'foo' < 1.1.0 cannot be used (1).
+          'foo' >= 1.1.0 cannot be used because 'foo' >= 1.1.0 depends on 'y' 1.0.0..<2.0.0.
+          'foo' >= 1.1.0 practically depends on 'y' 2.0.0..<3.0.0 because 'x' depends on 'y' 2.0.0..<3.0.0 and 'foo' >= 1.1.0 depends on 'x' 1.0.0..<2.0.0.
+          'foo' < 1.1.0 practically depends on 'b' 2.0.0..<3.0.0 because 'a' depends on 'b' 2.0.0..<3.0.0 and 'foo' < 1.1.0 depends on 'a' 1.0.0..<2.0.0.
+             (1) As a result, 'foo' < 1.1.0 cannot be used because 'foo' < 1.1.0 depends on 'b' 1.0.0..<2.0.0.
         """)
     }
     
@@ -1319,9 +1320,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because 'bar' depends on 'config' 2.0.0..<3.0.0 and 'foo' depends on 'config' 1.0.0..<2.0.0, 'bar' is incompatible with 'foo'.
-            And because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+            'bar' is incompatible with 'foo' because 'bar' depends on 'config' 2.0.0..<3.0.0 and 'foo' depends on 'config' 1.0.0..<2.0.0.
             """)
     }
 
@@ -1341,9 +1341,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result1 = resolver1.solve(dependencies: dependencies1)
 
         XCTAssertEqual(result1.errorMsg, """
-            Dependency resolution failed.
-            Because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0, 'foo' cannot be used.
-            And because root depends on 'foo' 1.0.0..<2.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' cannot be used because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0.
             """)
 
         let dependencies2 = builder.create(dependencies: [
@@ -1355,9 +1354,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result2 = resolver2.solve(dependencies: dependencies2)
 
         XCTAssertEqual(result2.errorMsg, """
-            Dependency resolution failed.
-            Because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0, 'config' 1.0.0..<2.0.0 is required.
-            And because root depends on 'config' 2.0.0..<3.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'config' 2.0.0..<3.0.0.
+            'config' 1.0.0..<2.0.0 is required because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
             """)
     }
 
@@ -1373,8 +1371,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because no versions of 'config' match the requirement 2.0.0..<3.0.0 and root depends on 'config' 2.0.0..<3.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because no versions of 'config' match the requirement 2.0.0..<3.0.0 and root depends on 'config' 2.0.0..<3.0.0.
             """)
     }
 
@@ -1423,9 +1420,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because no versions of 'foo' match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar', 'foo' cannot be used.
-            And because root depends on 'foo' 1.0.0..<2.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' cannot be used because no versions of 'foo' match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar'.
             """)
     }
 
@@ -1440,8 +1436,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar' and root depends on 'foo' 1.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar' and root depends on 'foo' 1.0.0.
             """)
     }
 
@@ -1456,9 +1451,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because no versions of 'a' match the requirement 1.0.1..<2.0.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v5)), 'a' >= 1.0.0 cannot be used.
-            And because root depends on 'a' 1.0.0..<2.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0.
+            'a' >= 1.0.0 cannot be used because no versions of 'a' match the requirement 1.0.1..<2.0.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v5)).
             """)
     }
 
@@ -1480,10 +1474,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
         
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because no versions of 'a' match the requirement 1.0.1..<1.1.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v4)), 'a' 1.0.0..<1.1.0 cannot be used.
-            And because 'a' >= 1.1.0 depends on 'b' 1.0.0..<2.0.0, 'a' >= 1.0.0 practically depends on 'b' 1.0.0..<2.0.0.
-            And because root depends on 'a' 1.0.0..<2.0.0 and root depends on 'b' 2.0.0..<3.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0 and root depends on 'b' 2.0.0..<3.0.0.
+            'a' >= 1.0.0 practically depends on 'b' 1.0.0..<2.0.0 because 'a' >= 1.1.0 depends on 'b' 1.0.0..<2.0.0.
+            'a' 1.0.0..<1.1.0 cannot be used because no versions of 'a' match the requirement 1.0.1..<1.1.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v4)).
             """)
     }
 
@@ -1500,8 +1493,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because 'a' contains incompatible tools version (\(ToolsVersion.v3)) and root depends on 'a' 3.2.0..<4.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because 'a' contains incompatible tools version (\(ToolsVersion.v3)) and root depends on 'a' 3.2.0..<4.0.0.
             """)
     }
 
@@ -1518,8 +1510,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because 'a' contains incompatible tools version (\(ToolsVersion.v5)) and root depends on 'a' 3.2.0..<4.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because 'a' contains incompatible tools version (\(ToolsVersion.v5)) and root depends on 'a' 3.2.0..<4.0.0.
             """)
     }
 
@@ -1539,10 +1530,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because 'b' 1.0.0 contains incompatible tools version (\(ToolsVersion.v3)) and no versions of 'b' match the requirement 1.0.1..<2.0.0, 'b' >= 1.0.0 cannot be used.
-            And because 'a' < 3.2.1 depends on 'b' 1.0.0..<2.0.0, 'a' < 3.2.1 cannot be used.
-            And because 'a' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because 'a' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
+            'a' < 3.2.1 cannot be used because 'a' < 3.2.1 depends on 'b' 1.0.0..<2.0.0.
+            'b' >= 1.0.0 cannot be used because 'b' 1.0.0 contains incompatible tools version (\(ToolsVersion.v3)) and no versions of 'b' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
@@ -1565,10 +1555,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because 'bar' depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0, 'bar' practically depends on 'shared' 3.0.0..<4.0.0.
-            And because 'foo' depends on 'shared' 2.0.0..<3.0.0, 'foo' is incompatible with 'bar'.
-            And because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0.
+            'foo' is incompatible with 'bar' because 'foo' depends on 'shared' 2.0.0..<3.0.0.
+            'bar' practically depends on 'shared' 3.0.0..<4.0.0 because 'bar' depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0.
             """)
     }
 
@@ -1595,12 +1584,11 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependency resolution failed.
-            Because no versions of 'a' match the requirement 3.0.0..<5.0.0 and 'a' < 2.0.0 depends on 'b' 1.0.0, 'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} practically depends on 'b' 1.0.0.
-            And because 'b' < 2.0.0 depends on 'a' 2.0.0, 'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} cannot be used.
-            Because 'b' >= 2.0.0 depends on 'a' 1.0.0 and 'a' >= 2.0.0 depends on 'b' 2.0.0, 'a' >= 2.0.0 cannot be used.
-            Thus, 'a' cannot be used.
-            And because root depends on 'a' 0.0.0..<5.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'a' 0.0.0..<5.0.0.
+            'a' cannot be used.
+            'a' >= 2.0.0 cannot be used because 'b' >= 2.0.0 depends on 'a' 1.0.0 and 'a' >= 2.0.0 depends on 'b' 2.0.0.
+            'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} cannot be used because 'b' < 2.0.0 depends on 'a' 2.0.0.
+            'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} practically depends on 'b' 1.0.0 because no versions of 'a' match the requirement 3.0.0..<5.0.0 and 'a' < 2.0.0 depends on 'b' 1.0.0.
             """)
     }
 
@@ -1639,10 +1627,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         XCTAssertEqual(
             result.errorMsg,
             """
-            Dependency resolution failed.
-            Because 'intermediate_b::Intermediate B' depends on 'transitive::Product B' 1.1.0 and 'transitive::Product B' >= 1.1.0 depends on 'transitive' 1.1.0, 'intermediate_b::Intermediate B' practically depends on 'transitive' 1.1.0.
-            And because 'transitive::Product A' < 1.1.0 depends on 'transitive' 1.0.0 and 'intermediate_a::Intermediate A' depends on 'transitive::Product A' 1.0.0, 'intermediate_b::Intermediate B' is incompatible with 'intermediate_a::Intermediate A'.
-            And because root depends on 'intermediate_a::Intermediate A' 1.0.0..<2.0.0 and root depends on 'intermediate_b::Intermediate B' 1.0.0..<2.0.0, dependencies could not be resolved.
+            Dependencies could not be resolved because root depends on 'intermediate_a::Intermediate A' 1.0.0..<2.0.0 and root depends on 'intermediate_b::Intermediate B' 1.0.0..<2.0.0.
+            'intermediate_b::Intermediate B' is incompatible with 'intermediate_a::Intermediate A' because 'transitive::Product A' < 1.1.0 depends on 'transitive' 1.0.0 and 'intermediate_a::Intermediate A' depends on 'transitive::Product A' 1.0.0.
+            'intermediate_b::Intermediate B' practically depends on 'transitive' 1.1.0 because 'intermediate_b::Intermediate B' depends on 'transitive::Product B' 1.1.0 and 'transitive::Product B' >= 1.1.0 depends on 'transitive' 1.1.0.
             """
         )
     }

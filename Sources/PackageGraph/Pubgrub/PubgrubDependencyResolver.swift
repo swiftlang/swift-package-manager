@@ -712,7 +712,7 @@ private final class DiagnosticReportBuilder {
     let rootNode: DependencyResolutionNode
     let incompatibilities: [DependencyResolutionNode: [Incompatibility]]
 
-    private var lines: [(String, Int)] = []
+    private var lines: [(number: Int, message: String)] = []
     private var derivations: [Incompatibility: Int] = [:]
     private var lineNumbers: [Incompatibility: Int] = [:]
     private let provider: ContainerProvider
@@ -735,16 +735,11 @@ private final class DiagnosticReportBuilder {
 
         countDerivations(rootCause)
 
-        write(
-            rootCause,
-            message: "Dependency resolution failed.",
-            isNumbered: false)
-        
         if rootCause.cause.isConflict {
-            visit(rootCause)
+            self.visit(rootCause)
         } else {
             assertionFailure("Unimplemented")
-            write(
+            self.record(
                 rootCause,
                 message: description(for: rootCause),
                 isNumbered: false)
@@ -755,14 +750,13 @@ private final class DiagnosticReportBuilder {
         let padding = lineNumbers.isEmpty ? 0 : "\(lineNumbers.values.map{$0}.last!) ".count
 
         for (idx, line) in lines.enumerated() {
-            let message = line.0
-            let number = line.1
             stream <<< Format.asRepeating(string: " ", count: padding)
-            if (number != -1) {
+            if (line.number != -1) {
                 stream <<< Format.asRepeating(string: " ", count: padding)
-                stream <<< " (\(number)) "
+                stream <<< " (\(line.number)) "
             }
-            stream <<< message
+            stream <<< line.message.prefix(1).capitalized
+            stream <<< line.message.dropFirst()
 
             if lines.count - 1 != idx {
                 stream <<< "\n"
@@ -777,7 +771,7 @@ private final class DiagnosticReportBuilder {
         isConclusion: Bool = false
     ) {
         let isNumbered = isConclusion || derivations[incompatibility]! > 1
-        let conjunction = isConclusion || incompatibility.cause == .root ? "So," : "And"
+        let conjunction = isConclusion || incompatibility.cause == .root ? "As a result, " : ""
         let incompatibilityDesc = description(for: incompatibility)
 
         guard case .conflict(let cause) = incompatibility.cause else {
@@ -790,9 +784,9 @@ private final class DiagnosticReportBuilder {
             let otherLine = lineNumbers[cause.other]
 
             if let conflictLine = conflictLine, let otherLine = otherLine {
-                write(
+                self.record(
                     incompatibility,
-                    message: "Because \(description(for: cause.conflict)) (\(conflictLine)) and \(description(for: cause.other)) (\(otherLine), \(incompatibilityDesc).",
+                    message: "\(incompatibilityDesc) because \(description(for: cause.conflict)) (\(conflictLine)) and \(description(for: cause.other)) (\(otherLine).",
                     isNumbered: isNumbered)
             } else if conflictLine != nil || otherLine != nil {
                 let withLine: Incompatibility
@@ -808,10 +802,10 @@ private final class DiagnosticReportBuilder {
                     line = otherLine!
                 }
 
-                visit(withoutLine)
-                write(
+                self.visit(withoutLine)
+                self.record(
                     incompatibility,
-                    message: "\(conjunction) because \(description(for: withLine)) \(line), \(incompatibilityDesc).",
+                    message: "\(conjunction)\(incompatibilityDesc) because \(description(for: withLine)) \(line).",
                     isNumbered: isNumbered)
             } else {
                 let singleLineConflict = cause.conflict.cause.isSingleLine
@@ -819,31 +813,29 @@ private final class DiagnosticReportBuilder {
                 if singleLineOther || singleLineConflict {
                     let first = singleLineOther ? cause.conflict : cause.other
                     let second = singleLineOther ? cause.other : cause.conflict
-                    visit(first)
-                    visit(second)
-                    write(
+                    self.visit(first)
+                    self.visit(second)
+                    self.record(
                         incompatibility,
-                        message: "Thus, \(incompatibilityDesc).",
+                        message: "\(incompatibilityDesc).",
                         isNumbered: isNumbered)
                 } else {
-                    visit(cause.conflict, isConclusion: true)
-                    visit(cause.other)
-                    write(
+                    self.visit(cause.conflict, isConclusion: true)
+                    self.visit(cause.other)
+                    self.record(
                         incompatibility,
-                        message: "\(conjunction) because \(description(for: cause.conflict)) (\(lineNumbers[cause.conflict]!)), \(incompatibilityDesc).",
+                        message: "\(conjunction)\(incompatibilityDesc) because \(description(for: cause.conflict)) (\(lineNumbers[cause.conflict]!)).",
                         isNumbered: isNumbered)
                 }
             }
         } else if cause.conflict.cause.isConflict || cause.other.cause.isConflict {
-            let derived =
-                cause.conflict.cause.isConflict ? cause.conflict : cause.other
-            let ext =
-                cause.conflict.cause.isConflict ? cause.other : cause.conflict
+            let derived = cause.conflict.cause.isConflict ? cause.conflict : cause.other
+            let ext = cause.conflict.cause.isConflict ? cause.other : cause.conflict
             let derivedLine = lineNumbers[derived]
             if let derivedLine = derivedLine {
-                write(
+                self.record(
                     incompatibility,
-                    message: "Because \(description(for: ext)) and \(description(for: derived)) (\(derivedLine)), \(incompatibilityDesc).",
+                    message: "\(incompatibilityDesc) because \(description(for: ext)) and \(description(for: derived)) (\(derivedLine)).",
                     isNumbered: isNumbered)
             } else if isCollapsible(derived) {
                 guard case .conflict(let derivedCause) = derived.cause else {
@@ -854,22 +846,22 @@ private final class DiagnosticReportBuilder {
                 let collapsedDerived = derivedCause.conflict.cause.isConflict ? derivedCause.conflict : derivedCause.other
                 let collapsedExt = derivedCause.conflict.cause.isConflict ? derivedCause.other : derivedCause.conflict
 
-                visit(collapsedDerived)
-                write(
+                self.visit(collapsedDerived)
+                self.record(
                     incompatibility,
-                    message: "\(conjunction) because \(description(for: collapsedExt)) and \(description(for: ext)), \(incompatibilityDesc).",
+                    message: "\(conjunction)\(incompatibilityDesc) because \(description(for: collapsedExt)) and \(description(for: ext)).",
                     isNumbered: isNumbered)
             } else {
-                visit(derived)
-                write(
+                self.visit(derived)
+                self.record(
                     incompatibility,
-                    message: "\(conjunction) because \(description(for: ext)), \(incompatibilityDesc).",
+                    message: "\(conjunction)\(incompatibilityDesc) because \(description(for: ext)).",
                     isNumbered: isNumbered)
             }
         } else {
-            write(
+            self.record(
                 incompatibility,
-                message: "Because \(description(for: cause.conflict)) and \(description(for: cause.other)), \(incompatibilityDesc).",
+                message: "\(incompatibilityDesc) because \(description(for: cause.conflict)) and \(description(for: cause.other)).",
                 isNumbered: isNumbered)
         }
     }
@@ -1029,17 +1021,22 @@ private final class DiagnosticReportBuilder {
     /// the incompatibility and how it as derived. If `isNumbered` is true, a
     /// line number will be assigned to this incompatibility so that it can be
     /// referred to again.
-    private func write(
-        _ i: Incompatibility,
+    private func record(
+        _ incompatibility: Incompatibility,
         message: String,
         isNumbered: Bool
     ) {
         var number = -1
         if isNumbered {
             number = lineNumbers.count + 1
-            lineNumbers[i] = number
+            lineNumbers[incompatibility] = number
         }
-        lines.append((message, number))
+        let line = (number: number, message: message)
+        if isNumbered  {
+            lines.append(line)
+        } else {
+            lines.insert(line, at: 0)
+        }
     }
 }
 
