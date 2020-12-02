@@ -13,15 +13,6 @@ extension PackageCollections {
     public struct Configuration {
         // TODO: add configuration like mx size of feed, retries, etc
 
-        /// Auth tokens for the collections or metadata provider
-        public var authTokens: [AuthTokenType: String]?
-
-        public init(authTokens: [AuthTokenType: String]? = nil) {
-            self.authTokens = authTokens
-        }
+        public init() {}
     }
-}
-
-public enum AuthTokenType: Hashable {
-    case github(_ host: String)
 }

@@ -27,11 +27,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         let storage = Storage(sources: FilePackageCollectionsSourcesStorage(diagnosticsEngine: diagnosticsEngine),
                               collections: SQLitePackageCollectionsStorage(diagnosticsEngine: diagnosticsEngine))
-
         let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider(diagnosticsEngine: diagnosticsEngine)]
-
-        let metadataProvider = GitHubPackageMetadataProvider(configuration: .init(authTokens: configuration.authTokens),
-                                                             diagnosticsEngine: diagnosticsEngine)
+        let metadataProvider = GitHubPackageMetadataProvider(diagnosticsEngine: diagnosticsEngine)
 
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
