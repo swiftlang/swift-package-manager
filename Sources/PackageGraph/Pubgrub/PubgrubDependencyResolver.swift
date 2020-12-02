@@ -1413,10 +1413,6 @@ fileprivate extension PackageRequirement {
 
 fileprivate extension DependencyResolutionNode {
     var nameForDiagnostics: String {
-        if let product = specificProduct, product != package.name{
-            return "'\(package.name)::\(product)'"
-        } else {
-            return "'\(package.name)'"
-        }
+        return "'\(package.name)'"
     }
 }

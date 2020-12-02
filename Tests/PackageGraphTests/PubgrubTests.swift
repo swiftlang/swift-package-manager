@@ -1294,8 +1294,6 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
         
-        print(result.errorMsg!)
-        
         XCTAssertEqual(result.errorMsg, """
           Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
           'foo' cannot be used because 'foo' < 1.1.0 cannot be used (1).
@@ -1627,9 +1625,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         XCTAssertEqual(
             result.errorMsg,
             """
-            Dependencies could not be resolved because root depends on 'intermediate_a::Intermediate A' 1.0.0..<2.0.0 and root depends on 'intermediate_b::Intermediate B' 1.0.0..<2.0.0.
-            'intermediate_b::Intermediate B' is incompatible with 'intermediate_a::Intermediate A' because 'transitive::Product A' < 1.1.0 depends on 'transitive' 1.0.0 and 'intermediate_a::Intermediate A' depends on 'transitive::Product A' 1.0.0.
-            'intermediate_b::Intermediate B' practically depends on 'transitive' 1.1.0 because 'intermediate_b::Intermediate B' depends on 'transitive::Product B' 1.1.0 and 'transitive::Product B' >= 1.1.0 depends on 'transitive' 1.1.0.
+            Dependencies could not be resolved because root depends on 'intermediate_a' 1.0.0..<2.0.0 and root depends on 'intermediate_b' 1.0.0..<2.0.0.
+            'intermediate_b' is incompatible with 'intermediate_a' because 'transitive' < 1.1.0 depends on 'transitive' 1.0.0 and 'intermediate_a' depends on 'transitive' 1.0.0.
+            'intermediate_b' practically depends on 'transitive' 1.1.0 because 'intermediate_b' depends on 'transitive' 1.1.0 and 'transitive' >= 1.1.0 depends on 'transitive' 1.1.0.
             """
         )
     }
