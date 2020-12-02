@@ -28,7 +28,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)        
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
