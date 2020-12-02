@@ -21,12 +21,15 @@ import TSCBasic
 struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     public var name: String = "GitHub"
 
+    var configuration: Configuration
+
     private let httpClient: HTTPClient
     private let diagnosticsEngine: DiagnosticsEngine?
     private let decoder: JSONDecoder
     private let queue: DispatchQueue
 
-    init(httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.configuration = configuration
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.diagnosticsEngine = diagnosticsEngine
         self.decoder = JSONDecoder.makeWithDefaults()
@@ -53,28 +56,52 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
             // get the main data
             sync.enter()
-            let options = self.makeRequestOptions(validResponseCodes: [200])
-            var headers = HTTPClientHeaders()
-            headers.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
-            httpClient.get(metadataURL, headers: headers, options: options) { result in
+            var metadataHeaders = self.makeRequestHeaders(metadataURL)
+            metadataHeaders.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
+            let metadataOptions = self.makeRequestOptions(validResponseCodes: [200, 401, 403, 404])
+            httpClient.get(metadataURL, headers: metadataHeaders, options: metadataOptions) { result in
                 defer { sync.leave() }
                 resultsLock.withLock {
                     results[metadataURL] = result
                 }
-                // if successful, fan out multiple API calls
-                if case .success = result {
-                    [tagsURL, contributorsURL, readmeURL].forEach { url in
-                        sync.enter()
-                        httpClient.get(url, options: options) { result in
-                            defer { sync.leave() }
-                            resultsLock.withLock {
-                                results[url] = result
+                if case .success(let response) = result {
+                    let apiLimit = response.headers.get("X-RateLimit-Limit").first.flatMap(Int.init) ?? -1
+                    let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
+
+                    switch (response.statusCode, metadataHeaders.contains("Authorization"), apiRemaining) {
+                    case (_, _, 0):
+                        self.diagnosticsEngine?.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                        return callback(.failure(Errors.apiLimitsExceeded(metadataURL, apiLimit)))
+                    case (401, true, _):
+                        return callback(.failure(Errors.invalidAuthToken(metadataURL)))
+                    case (401, false, _):
+                        return callback(.failure(Errors.permissionDenied(metadataURL)))
+                    case (403, _, _):
+                        return callback(.failure(Errors.permissionDenied(metadataURL)))
+                    case (404, _, _):
+                        return callback(.failure(NotFoundError("\(baseURL)")))
+                    case (200, _, _):
+                        if apiRemaining < self.configuration.apiLimitWarningThreshold {
+                            self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                        }
+                        // if successful, fan out multiple API calls
+                        [tagsURL, contributorsURL, readmeURL].forEach { url in
+                            sync.enter()
+                            var headers = self.makeRequestHeaders(url)
+                            headers.add(name: "Accept", value: "application/vnd.github.v3+json")
+                            let options = self.makeRequestOptions(validResponseCodes: [200])
+                            httpClient.get(url, headers: headers, options: options) { result in
+                                defer { sync.leave() }
+                                resultsLock.withLock {
+                                    results[url] = result
+                                }
                             }
                         }
+                    default:
+                        return callback(.failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")))
                     }
                 }
             }
-
             sync.wait()
 
             // process results
@@ -83,14 +110,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 // check for main request error state
                 switch results[metadataURL] {
                 case .none:
-                    throw Errors.invalidResponse(metadataURL)
-                case .some(.failure(let error)) where error as? HTTPClientError == .badResponseStatusCode(404):
-                    throw NotFoundError("\(baseURL)")
+                    throw Errors.invalidResponse(metadataURL, "Response missing")
                 case .some(.failure(let error)):
                     throw error
                 case .some(.success(let metadataResponse)):
                     guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
-                        throw Errors.invalidResponse(metadataURL)
+                        throw Errors.invalidResponse(metadataURL, "Empty body")
                     }
                     let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
@@ -140,6 +165,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         return options
     }
 
+    private func makeRequestHeaders(_ url: URL) -> HTTPClientHeaders {
+        var headers = HTTPClientHeaders()
+        if let host = url.host, let token = self.configuration.authTokens?[.github(host)] {
+            headers.add(name: "Authorization", value: "token \(token)")
+        }
+        return headers
+    }
+
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
         var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
@@ -149,10 +182,24 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         return client
     }
 
+    public struct Configuration {
+        public var apiLimitWarningThreshold: Int
+        public var authTokens: [AuthTokenType: String]?
+
+        public init(authTokens: [AuthTokenType: String]? = nil,
+                    apiLimitWarningThreshold: Int? = nil) {
+            self.authTokens = authTokens
+            self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
+        }
+    }
+
     enum Errors: Error, Equatable {
         case invalidReferenceType(PackageReference)
         case invalidGitUrl(String)
-        case invalidResponse(URL)
+        case invalidResponse(URL, String)
+        case permissionDenied(URL)
+        case invalidAuthToken(URL)
+        case apiLimitsExceeded(URL, Int)
     }
 }
 
