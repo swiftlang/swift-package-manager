@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2017 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -322,7 +322,7 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
         """
         loadManifest(stream.bytes) { manifest in
             XCTAssertEqual(manifest.name, "testPackage")
-            XCTAssertEqual(manifest.cLanguageStandard, "iso9899:1994")
+            XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
             XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
         }
     }
