@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2017 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,67 +9,139 @@
 */
 
 /// The supported C language standard to use for compiling C sources in the package.
+///
+/// Aliases are available for some C language standards. For example,
+/// use `c89`, `c90`, or `iso9899_1990` for the "ISO C 1990" standard.
+/// To learn more, read the [Clang Compiler User's Manual][1].
+///
+/// [1]: <https://clang.llvm.org/docs/UsersManual.html#differences-between-various-standard-modes>
 public enum CLanguageStandard: String, Encodable {
-    /// The identifier for the C89 language standard.
+
+    /// ISO C 1990.
     case c89
-    /// The identifier for the C90 language standard.
+
+    /// ISO C 1990.
     case c90
-    /// The identifier for the ISO 9899:1990 language standard.
-    case iso9899_1990 = "iso9899:1990"
-    /// The identifier for the ISO 9899:1994 language standard.
-    case iso9899_199409 = "iso9899:1994"
-    /// The identifier for the GNU89 language standard.
-    case gnu89
-    /// The identifier for the GNU90 language standard.
-    case gnu90
-    /// The identifier for the C99 language standard.
+
+    /// ISO C 1999.
     case c99
-    /// The identifier for the ISO 9899:1999 language standard.
-    case iso9899_1999 = "iso9899:1999"
-    /// The identifier for the GNU99 language standard.
-    case gnu99
-    /// The identifier for the C11 language standard.
+
+    /// ISO C 2011.
     case c11
-    /// The identifier for the ISO 9899:2011 language standard.
-    case iso9899_2011 = "iso9899:2011"
-    /// The identifier for the GNU11 language standard.
+
+    /// ISO C 2017.
+    @available(_PackageDescription, introduced: 999.0)
+    case c17
+
+    /// ISO C 2017.
+    @available(_PackageDescription, introduced: 999.0)
+    case c18
+
+    /// Working Draft for ISO C2x.
+    @available(_PackageDescription, introduced: 999.0)
+    case c2x
+
+    /// ISO C 1990 with GNU extensions.
+    case gnu89
+
+    /// ISO C 1990 with GNU extensions.
+    case gnu90
+
+    /// ISO C 1999 with GNU extensions.
+    case gnu99
+
+    /// ISO C 2011 with GNU extensions.
     case gnu11
+
+    /// ISO C 2017 with GNU extensions.
+    @available(_PackageDescription, introduced: 999.0)
+    case gnu17
+
+    /// ISO C 2017 with GNU extensions.
+    @available(_PackageDescription, introduced: 999.0)
+    case gnu18
+
+    /// Working Draft for ISO C2x with GNU extensions.
+    @available(_PackageDescription, introduced: 999.0)
+    case gnu2x
+
+    /// ISO C 1990.
+    case iso9899_1990 = "iso9899:1990"
+
+    /// ISO C 1990 with amendment 1.
+    case iso9899_199409 = "iso9899:199409"
+
+    /// ISO C 1999.
+    case iso9899_1999 = "iso9899:1999"
+
+    /// ISO C 2011.
+    case iso9899_2011 = "iso9899:2011"
+
+    /// ISO C 2017.
+    @available(_PackageDescription, introduced: 999.0)
+    case iso9899_2017 = "iso9899:2017"
+
+    /// ISO C 2017.
+    @available(_PackageDescription, introduced: 999.0)
+    case iso9899_2018 = "iso9899:2018"
 }
 
-/// The supported C++ language standards to use for compiling C++ sources in the package.
+/// The supported C++ language standard to use for compiling C++ sources in the package.
+///
+/// Aliases are available for some C++ language standards. For example,
+/// use `cxx98` or `cxx03` for the "ISO C++ 1998 with amendments" standard.
+/// To learn more, read the [C++ Support in Clang][1] status page.
+///
+/// [1]: <https://clang.llvm.org/cxx_status.html>
 public enum CXXLanguageStandard: String, Encodable {
-    /// The identifier for the C++98 language standard.
+
+    /// ISO C++ 1998 with amendments.
     case cxx98 = "c++98"
-    /// The identifier for the C++03 language standard.
+
+    /// ISO C++ 1998 with amendments.
     case cxx03 = "c++03"
-    /// The identifier for the GNU++98 language standard.
-    case gnucxx98 = "gnu++98"
-    /// The identifier for the GNU++03 language standard.
-    case gnucxx03 = "gnu++03"
-    /// The identifier for the C++11 language standard.
+
+    /// ISO C++ 2011 with amendments.
     case cxx11 = "c++11"
-    /// The identifier for the GNU++11 language standard.
-    case gnucxx11 = "gnu++11"
-    /// The identifier for the C++14 language standard.
+
+    /// ISO C++ 2014 with amendments.
     case cxx14 = "c++14"
-    /// The identifier for the GNU++14 language standard.
-    case gnucxx14 = "gnu++14"
-    /// The identifier for the C++1z language standard.
-    case cxx1z = "c++1z"
-    /// The identifier for the GNU++1z language standard.
-    case gnucxx1z = "gnu++1z"
-    /// The identifier for the C++17 language standard.
+
+    /// ISO C++ 2017 with amendments.
     @available(_PackageDescription, introduced: 999.0)
     case cxx17 = "c++17"
-    /// The identifier for the GNU++17 language standard.
+
+    /// ISO C++ 2017 with amendments.
+    @available(_PackageDescription, introduced: 4, deprecated: 999.0, renamed: "cxx17")
+    case cxx1z = "c++1z"
+
+    /// ISO C++ 2020 DIS.
+    @available(_PackageDescription, introduced: 999.0)
+    case cxx20 = "c++20"
+
+    /// ISO C++ 1998 with amendments and GNU extensions.
+    case gnucxx98 = "gnu++98"
+
+    /// ISO C++ 1998 with amendments and GNU extensions.
+    case gnucxx03 = "gnu++03"
+
+    /// ISO C++ 2011 with amendments and GNU extensions.
+    case gnucxx11 = "gnu++11"
+
+    /// ISO C++ 2014 with amendments and GNU extensions.
+    case gnucxx14 = "gnu++14"
+
+    /// ISO C++ 2017 with amendments and GNU extensions.
     @available(_PackageDescription, introduced: 999.0)
     case gnucxx17 = "gnu++17"
-    /// The identifier for the C++2a language standard.
+
+    /// ISO C++ 2017 with amendments and GNU extensions.
+    @available(_PackageDescription, introduced: 4, deprecated: 999.0, renamed: "gnucxx17")
+    case gnucxx1z = "gnu++1z"
+
+    /// ISO C++ 2020 DIS with GNU extensions.
     @available(_PackageDescription, introduced: 999.0)
-    case cxx2a = "c++2a"
-    /// The identifier for the GNU++2a language standard.
-    @available(_PackageDescription, introduced: 999.0)
-    case gnucxx2a = "gnu++2a"
+    case gnucxx20 = "gnu++20"
 }
 
 #if !PACKAGE_DESCRIPTION_4
