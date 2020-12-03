@@ -18,6 +18,7 @@ import SPMBuildCore
 import TSCBasic
 import TSCUtility
 import Workspace
+import Basics
 
 import SPMTestSupport
 
@@ -143,7 +144,8 @@ final class WorkspaceTests: XCTestCase {
                     editablesPath: sandbox.appending(component: "edits"),
                     pinsFile: sandbox.appending(component: "Package.resolved"),
                     manifestLoader: manifestLoader,
-                    delegate: MockWorkspaceDelegate()
+                    delegate: MockWorkspaceDelegate(),
+                    cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories")
                 )
             }
 

@@ -25,6 +25,7 @@ import SPMBuildCore
 import Build
 import XCBuildSupport
 import Workspace
+import Basics
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -59,13 +60,18 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.diagnostics = diagnostics
     }
 
-    func fetchingWillBegin(repository: String) {
+    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
         stdoutStream <<< "Fetching \(repository)"
+        if let fetchDetails = fetchDetails {
+            if fetchDetails.fromCache {
+                stdoutStream <<< " from cache"
+            }
+        }
         stdoutStream <<< "\n"
         stdoutStream.flush()
     }
 
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
@@ -456,6 +462,8 @@ public class SwiftTool {
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
+        let defaultCachePath = localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
+        let cachePath = !options.skipCache ? options.cachePath ?? defaultCachePath : nil
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: try editablesPath(),
@@ -468,7 +476,8 @@ public class SwiftTool {
             netrcFilePath: try resolvedNetrcFilePath(),
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
-            enableResolverTrace: options.enableResolverTrace
+            enableResolverTrace: options.enableResolverTrace,
+            cachePath: cachePath
         )
         _workspace = workspace
         return workspace

@@ -12,6 +12,7 @@ add_library(SourceControl
   RepositoryManager.swift)
 
 target_link_libraries(SourceControl PUBLIC
+  Basics
   TSCBasic
   TSCUtility
   Basics)
