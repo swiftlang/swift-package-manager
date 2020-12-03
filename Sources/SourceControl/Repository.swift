@@ -34,7 +34,7 @@ public struct RepositorySpecifier: Hashable, Codable {
 
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
-        var basename = url.components(separatedBy: "/").last!
+        var basename = url.components(separatedBy: "/").last(where: { !$0.isEmpty }) ?? ""
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
@@ -71,7 +71,7 @@ public protocol RepositoryProvider {
     ///
     /// - Parameters:
     ///   - repository: The specifier of the repository to fetch.
-    ///
+    ///   - path: The destiantion path for the fetch.
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
@@ -118,12 +118,23 @@ public protocol RepositoryProvider {
     ///   - path: The location of the repository on disk, at which the repository
     ///     has previously been created via `cloneCheckout`.
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout
+
+    /// Copies the repository at path `from` to path `to`.
+    /// - Parameters:
+    ///   - sourcePath: the source path.
+    ///   - destinationPath: the destination  path.
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 }
 
 extension RepositoryProvider {
     public func checkoutExists(at path: AbsolutePath) throws -> Bool {
         fatalError("Unimplemented")
     }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        fatalError("Unimplemented")
+    }
+
 }
 
 /// Abstract repository operations.

@@ -101,6 +101,10 @@ private class MockRepositories: RepositoryProvider {
         assert(self.repositories.index(forKey: repository.url) != nil)
     }
 
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        // No-op.
+    }
+
     func checkoutExists(at path: AbsolutePath) throws -> Bool {
         return false
     }
@@ -123,11 +127,12 @@ private class MockResolverDelegate: RepositoryManagerDelegate {
 
     var fetched = [RepositorySpecifier]()
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
         self.fetched += [handle.repository]
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
+    }
 }
 
 // Some handy versions & ranges.

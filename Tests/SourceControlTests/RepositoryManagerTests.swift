@@ -11,7 +11,7 @@
 import XCTest
 
 import TSCBasic
-import SourceControl
+@testable import SourceControl
 
 import SPMTestSupport
 
@@ -85,6 +85,18 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
     }
 
+    func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try localFileSystem.copy(from: sourcePath, to: destinationPath)
+
+        numClones += 1
+
+        // We only support one dummy URL.
+        let basename = sourcePath.basename
+        if basename != "dummy" {
+            throw DummyError.invalidRepository
+        }
+    }
+
     func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
         return DummyRepository(provider: self)
     }
@@ -104,19 +116,19 @@ private class DummyRepositoryProvider: RepositoryProvider {
 }
 
 private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
-    private var _willFetch = [RepositorySpecifier]()
-    private var _didFetch = [RepositorySpecifier]()
+    private var _willFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)]()
+    private var _didFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)]()
 
     private var _willUpdate = [RepositorySpecifier]()
     private var _didUpdate = [RepositorySpecifier]()
 
     private var fetchedLock = Lock() 
 
-    var willFetch: [RepositorySpecifier] {
+    var willFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
         return fetchedLock.withLock({ _willFetch })
     }
 
-    var didFetch: [RepositorySpecifier] {
+    var didFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
         return fetchedLock.withLock({ _didFetch })
     }
 
@@ -128,15 +140,15 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
         return fetchedLock.withLock({ _didUpdate })
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
         fetchedLock.withLock {
-            _willFetch += [handle.repository]
+            _willFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
         }
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
         fetchedLock.withLock {
-            _didFetch += [handle.repository]
+            _didFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
         }
     }
 
@@ -230,8 +242,53 @@ class RepositoryManagerTests: XCTestCase {
             }
             
             // We should have tried fetching these two.
-            XCTAssertEqual(Set(delegate.willFetch), [dummyRepo, badDummyRepo])
-            XCTAssertEqual(Set(delegate.didFetch), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(Set(delegate.didFetch .map { $0.repository }), [dummyRepo, badDummyRepo])
+        }
+    }
+
+    func testCache() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let cachePath = prefix.appending(component: "cache")
+            let repositoriesPath = prefix.appending(component: "repositories")
+            let repo = RepositorySpecifier(url: prefix.appending(component: "Foo").pathString)
+
+            let provider = GitRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(path: repositoriesPath, provider: provider, delegate: delegate, cachePath: cachePath)
+            manager.cacheLocalPackages = true
+
+            // fetch packages and populate cache
+            _ = try manager.lookupSynchronously(repository: repo)
+            XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
+            XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
+            XCTAssertEqual(delegate.willFetch[0].fetchDetails,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
+            XCTAssertEqual(delegate.didFetch[0].fetchDetails,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+
+            try localFileSystem.removeFileTree(repositoriesPath)
+
+            // fetch packages from the cache
+            _ = try manager.lookupSynchronously(repository: repo)
+            XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
+            XCTAssertEqual(delegate.willFetch[1].fetchDetails,
+                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
+            XCTAssertEqual(delegate.didFetch[1].fetchDetails,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+
+            try localFileSystem.removeFileTree(repositoriesPath)
+            try localFileSystem.removeFileTree(cachePath)
+
+            // fetch packages and populate cache
+            _ = try manager.lookupSynchronously(repository: repo)
+            XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
+            XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
+            XCTAssertEqual(delegate.willFetch[2].fetchDetails,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
+            XCTAssertEqual(delegate.didFetch[2].fetchDetails,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
         }
     }
 
@@ -269,8 +326,8 @@ class RepositoryManagerTests: XCTestCase {
 
                 _ = try manager.lookupSynchronously(repository: dummyRepo)
 
-                XCTAssertEqual(delegate.willFetch, [dummyRepo])
-                XCTAssertEqual(delegate.didFetch, [dummyRepo])
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
             }
             // We should have performed one fetch.
             XCTAssertEqual(provider.numClones, 1)
@@ -283,7 +340,7 @@ class RepositoryManagerTests: XCTestCase {
                 let dummyRepo = RepositorySpecifier(url: "dummy")
                 _ = try manager.lookupSynchronously(repository: dummyRepo)
                 // This time fetch shouldn't be called.
-                XCTAssertEqual(delegate.willFetch, [])
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [])
             }
             // We shouldn't have done a new fetch.
             XCTAssertEqual(provider.numClones, 1)
@@ -299,8 +356,8 @@ class RepositoryManagerTests: XCTestCase {
 
                 _ = try manager.lookupSynchronously(repository: dummyRepo)
 
-                XCTAssertEqual(delegate.willFetch, [dummyRepo])
-                XCTAssertEqual(delegate.didFetch, [dummyRepo])
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
             }
             // We should have re-fetched.
             XCTAssertEqual(provider.numClones, 2)

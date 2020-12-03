@@ -45,9 +45,17 @@ public protocol WorkspaceDelegate: class {
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic])
 
     /// The workspace has started fetching this repository.
+    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
+
+    /// The workspace has started fetching this repository.
+    @available(*, deprecated)
     func fetchingWillBegin(repository: String)
 
     /// The workspace has finished fetching this repository.
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?)
+
+    /// The workspace has finished fetching this repository.
+    @available(*, deprecated)
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?)
 
     /// The workspace has started updating this repository.
@@ -115,6 +123,20 @@ public extension WorkspaceDelegate {
     func resolvedFileChanged() {}
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {}
     func didDownloadBinaryArtifacts() {}
+
+    func fetchingWillBegin(repository: String) {}
+    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {}
+
+    @available(*, deprecated)
+    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
+        fetchingWillBegin(repository: repository)
+    }
+
+    @available(*, deprecated)
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
+        fetchingDidFinish(repository: repository, diagnostic: diagnostic)
+    }
+
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -124,17 +146,17 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {
-        workspaceDelegate.fetchingWillBegin(repository: handle.repository.url)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?) {
+        workspaceDelegate.fetchingWillBegin(repository: handle.repository.url, fetchDetails: details)
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?) {
         let diagnostic: Diagnostic? = error.flatMap({
             let engine = DiagnosticsEngine()
             engine.emit($0)
             return engine.diagnostics.first
         })
-        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, diagnostic: diagnostic)
+        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, fetchDetails: details, diagnostic: diagnostic)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
@@ -185,6 +207,9 @@ public class Workspace {
 
     /// The path where packages which are put in edit mode are checked out.
     public let editablesPath: AbsolutePath
+
+    /// The path where repositories are globally cached by the `RepositoryManager`
+    private let cachePath: AbsolutePath?
 
     /// The file system on which the workspace will operate.
     fileprivate var fileSystem: FileSystem
@@ -265,7 +290,8 @@ public class Workspace {
         isResolverPrefetchingEnabled: Bool = false,
         enablePubgrubResolver: Bool = false,
         skipUpdate: Bool = false,
-        enableResolverTrace: Bool = false
+        enableResolverTrace: Bool = false,
+        cachePath: AbsolutePath? = nil
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -289,11 +315,14 @@ public class Workspace {
             path: repositoriesPath,
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
-            fileSystem: fileSystem)
+            fileSystem: fileSystem,
+            cachePath: cachePath)
         self.repositoryManager = repositoryManager
 
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
+        self.cachePath = cachePath
+
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
             mirrors: self.config.mirrors,
@@ -472,6 +501,15 @@ extension Workspace {
         for name in contentsToRemove {
             try? fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
         }
+    }
+
+    /// Cleans the build artefacts from workspace data.
+    ///
+    /// - Parameters:
+    ///     - diagnostics: The diagnostics engine that reports errors, warnings
+    ///       and notes.
+    public func purgeCache(with diagnostics: DiagnosticsEngine) {
+        diagnostics.wrap { try repositoryManager.purgeCache() }
     }
 
     /// Resets the entire workspace by removing the data directory.

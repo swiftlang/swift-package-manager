@@ -15,6 +15,7 @@ import PackageModel
 import SourceControl
 import TSCBasic
 import Workspace
+import Basics
 
 public final class MockWorkspace {
     let sandbox: AbsolutePath
@@ -171,7 +172,8 @@ public final class MockWorkspace {
             checksumAlgorithm: self.checksumAlgorithm,
             isResolverPrefetchingEnabled: true,
             enablePubgrubResolver: self.enablePubGrub,
-            skipUpdate: self.skipUpdate
+            skipUpdate: self.skipUpdate,
+            cachePath: localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
         )
         return self._workspace!
     }
@@ -552,11 +554,11 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.events.append("Everything is already up-to-date")
     }
 
-    public func fetchingWillBegin(repository: String) {
+    public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
         self.events.append("fetching repo: \(repository)")
     }
 
-    public func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {
+    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
         self.events.append("finished fetching repo: \(repository)")
     }
 

@@ -52,12 +52,14 @@ public class GitRepositoryProvider: RepositoryProvider {
         // NOTE: We intentionally do not create a shallow clone here; the
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
-
         precondition(!localFileSystem.exists(path))
-
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         try callGit("clone", "--mirror", repository.url, path.pathString,
-            failureMessage: "Failed to clone repository \(repository.url)", repository: repository)
+                    failureMessage: "Failed to clone repository \(repository.url)", repository: repository)
+    }
+
+    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
+        try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
