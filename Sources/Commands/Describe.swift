@@ -27,18 +27,8 @@ func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteSt
     let data: Data
     switch mode {
     case .json:
-        let encoder = JSONEncoder()
+        let encoder = JSONEncoder.makeWithDefaults()
         encoder.keyEncodingStrategy = .convertToSnakeCase
-        // FIXME: This should be extracted into somewhere reusable.
-        if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-            encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
-        }
-        else if #available(macOS 10.13, iOS 11.0, watchOS 4.0, tvOS 11.0, *) {
-            encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-        }
-        else {
-            encoder.outputFormatting = [.prettyPrinted]
-        }
         data = try! encoder.encode(desc)
     case .text:
         var encoder = PlainTextEncoder()
