@@ -118,7 +118,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func addCollection(_ source: PackageCollectionsModel.CollectionSource,
                               order: Int? = nil,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
-        if let errors = source.validate() {
+        if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
 
@@ -157,7 +157,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // If not found locally (storage), the collection will be fetched from the source.
     public func getCollection(_ source: PackageCollectionsModel.CollectionSource,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
-        if let errors = source.validate() {
+        if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
 
@@ -277,7 +277,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
                                              order _: Int? = nil,
                                              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
-        if let errors = source.validate() {
+        if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
         guard let provider = self.collectionProviders[source.type] else {
