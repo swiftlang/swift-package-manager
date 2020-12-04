@@ -11,13 +11,13 @@
 import TSCBasic
 
 extension Model.CollectionSource {
-    func validate() -> [ValidationError]? {
-        var errors: [ValidationError]?
-        let appendError = { (error: ValidationError) in
-            if errors == nil {
-                errors = .init()
+    func validate() -> [ValidationMessage]? {
+        var messages: [ValidationMessage]?
+        let appendMessage = { (message: ValidationMessage) in
+            if messages == nil {
+                messages = .init()
             }
-            errors?.append(error)
+            messages?.append(message)
         }
 
         let allowedSchemes = Set(["https", "file"])
@@ -26,26 +26,71 @@ extension Model.CollectionSource {
         case .json:
             let scheme = url.scheme?.lowercased() ?? ""
             if !allowedSchemes.contains(scheme) {
-                appendError(.other(description: "Schema not allowed: \(url.absoluteString)"))
+                appendMessage(.error("Schema not allowed: \(url.absoluteString)"))
             } else if scheme == "file", !localFileSystem.exists(AbsolutePath(self.url.path)) {
-                appendError(.other(description: "Non-local files not allowed: \(url.absoluteString)"))
+                appendMessage(.error("Non-local files not allowed: \(url.absoluteString)"))
             }
         }
 
-        return errors
+        return messages
     }
 }
 
-internal enum ValidationError: Error, Equatable, CustomStringConvertible {
-    case property(name: String, description: String)
-    case other(description: String)
+public struct ValidationMessage: Equatable, CustomStringConvertible {
+    public let message: String
+    public let level: Level
+    public let property: String?
+    
+    private init(_ message: String, level: Level, property: String? = nil) {
+        self.message = message
+        self.level = level
+        self.property = property
+    }
+    
+    static func error(_ message: String, property: String? = nil) -> ValidationMessage {
+        .init(message, level: .error, property: property)
+    }
+    
+    static func warning(_ message: String, property: String? = nil) -> ValidationMessage {
+        .init(message, level: .warning, property: property)
+    }
+    
+    public enum Level: String, Equatable {
+        case warning
+        case error
+    }
+    
+    public var description: String {
+        "[\(self.level)] \(self.property.map { "\($0): " } ?? "")\(self.message)"
+    }
+}
+
+extension Array where Element == ValidationMessage {
+    func errors(include levels: Set<ValidationMessage.Level> = [.error]) -> [ValidationError]? {
+        let errors = self.filter { levels.contains($0.level) }
+        
+        guard !errors.isEmpty else { return nil }
+        
+        return errors.map {
+            if let property = $0.property {
+                return ValidationError.property(name: property, message: $0.message)
+            } else {
+                return ValidationError.other(message: $0.message)
+            }
+        }
+    }
+}
+
+public enum ValidationError: Error, Equatable, CustomStringConvertible {
+    case property(name: String, message: String)
+    case other(message: String)
 
     public var description: String {
         switch self {
-        case .property(let name, let description):
-            return "\(name): \(description)"
-        case .other(let description):
-            return description
+        case .property(let name, let message):
+            return "\(name): \(message)"
+        case .other(let message):
+            return message
         }
     }
 }

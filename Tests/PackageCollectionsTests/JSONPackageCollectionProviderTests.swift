@@ -132,7 +132,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             guard let internalError = (error as? MultipleErrors)?.errors.first else {
                 return XCTFail("invalid error \(error)")
             }
-            XCTAssertEqual(internalError as? ValidationError, ValidationError.other(description: "Schema not allowed: \(url.absoluteString)"))
+            XCTAssertEqual(internalError as? ValidationError, ValidationError.other(message: "Schema not allowed: \(url.absoluteString)"))
         })
     }
 
