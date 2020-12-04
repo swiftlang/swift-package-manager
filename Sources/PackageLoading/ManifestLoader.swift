@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -900,7 +900,7 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
         // Allow writing in temporary locations.
         stream <<< "(allow file-write*" <<< "\n"
         for directory in Platform.darwinCacheDirectories() {
-            stream <<< "    (regex #\"^\(directory.pathString)/org\\.llvm\\.clang.*\")" <<< "\n"
+            stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
         }
         for directory in cacheDirectories {
             stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
