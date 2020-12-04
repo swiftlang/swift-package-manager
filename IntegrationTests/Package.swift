@@ -16,7 +16,7 @@ import class Foundation.ProcessInfo
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("main")),
     ]
 } else {
     package.dependencies += [
