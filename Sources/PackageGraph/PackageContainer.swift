@@ -40,6 +40,9 @@ public protocol PackageContainer {
     /// Returns true if the tools version is compatible at the given version.
     func isToolsVersionCompatible(at version: Version) -> Bool
 
+    /// Returns the tools version for the given version
+    func toolsVersion(for version: Version) throws -> ToolsVersion
+    
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.
@@ -177,6 +180,10 @@ public class BasePackageContainer: PackageContainer {
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {
+        fatalError("This should never be called")
+    }
+    
+    public func toolsVersion(for version: Version) throws -> ToolsVersion {
         fatalError("This should never be called")
     }
 

@@ -148,7 +148,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     }
 
     /// Returns the tools version of the given version of the package.
-    private func toolsVersion(for version: Version) throws -> ToolsVersion {
+    public override func toolsVersion(for version: Version) throws -> ToolsVersion {
         let tag = knownVersions[version]!
         let revision = try repository.resolveRevision(tag: tag)
         let fs = try repository.openFileView(revision: revision)
@@ -264,7 +264,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     public override func isToolsVersionCompatible(at version: Version) -> Bool {
         return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
     }
-
+   
     private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
         let fs = try repository.openFileView(revision: revision)
         let packageURL = identifier.repository.url

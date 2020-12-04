@@ -130,6 +130,10 @@ private struct LocalPackageContainer: PackageContainer {
             return false
         }
     }
+    
+    func toolsVersion(for version: Version) throws -> ToolsVersion {
+        return currentToolsVersion
+    }
 
     func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
         return AnySequence(reversedVersions)
