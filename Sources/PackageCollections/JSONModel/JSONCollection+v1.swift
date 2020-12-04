@@ -275,7 +275,7 @@ extension JSONPackageCollectionModel.V1 {
         
         // TODO: validate package url?
         private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
-            let packageID = package.url.absoluteString
+            let packageID = PackageIdentity(url: package.url.absoluteString).description
             
             // Check for duplicate versions
             let nonUniqueVersions = Dictionary(grouping: package.versions, by: { $0.version }).filter { $1.count > 1 }.keys
