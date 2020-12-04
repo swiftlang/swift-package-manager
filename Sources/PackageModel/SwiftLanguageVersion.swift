@@ -57,7 +57,7 @@ public struct SwiftLanguageVersion {
     }
 
     /// Regex for parsing the Swift language version.
-    private static let regex = try! RegEx(pattern: "^(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?$")
+    private static let regex = try! RegEx(pattern: #"^(\d+)(?:\.(\d+))?(?:\.(\d+))?$"#)
 
     /// Create an instance of Swift language version from the given string.
     ///

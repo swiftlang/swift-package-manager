@@ -67,7 +67,7 @@ extension Manifest {
         do { contents = try fileSystem.getDirectoryContents(packagePath) } catch {
             throw ToolsVersionLoader.Error.inaccessiblePackage(path: packagePath, reason: String(describing: error))
         }
-        let regex = try! RegEx(pattern: "^Package@swift-(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?.swift$")
+        let regex = try! RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
 
         // Collect all version-specific manifests at the given package path.
         let versionSpecificManifests = Dictionary(contents.compactMap{ file -> (ToolsVersion, String)? in

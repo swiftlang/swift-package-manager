@@ -147,7 +147,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     internal func apiURL(_ url: String) -> Foundation.URL? {
         do {
-            let regex = try NSRegularExpression(pattern: "([^/@]+)[:/]([^:/]+)/([^/]+)\\.git$", options: .caseInsensitive)
+            let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/]+)\.git$"#, options: .caseInsensitive)
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
                 if let hostRange = Range(match.range(at: 1), in: url),
                     let ownerRange = Range(match.range(at: 2), in: url),
