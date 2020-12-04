@@ -826,7 +826,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("version solving failed"), behavior: .error)
+                result.check(diagnostic: .contains("Dependencies could not be resolved"), behavior: .error)
             }
         }
         // There should be no extra fetches.
@@ -2001,7 +2001,7 @@ final class WorkspaceTests: XCTestCase {
         // Check failure.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Foo 1.3.0"), behavior: .error)
+                result.check(diagnostic: .contains("'Foo' 1.3.0"), behavior: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -2746,7 +2746,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Bar[Bar] 1.1.0"), behavior: .error)
+                result.check(diagnostic: .contains("'Bar' 1.1.0"), behavior: .error)
             }
         }
     }

@@ -69,6 +69,10 @@ public class MockPackageContainer: PackageContainer {
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         return true
     }
+    
+    public func toolsVersion(for version: Version) throws -> ToolsVersion {
+        return ToolsVersion.currentToolsVersion
+    }
 
     public var isRemoteContainer: Bool? {
         return true

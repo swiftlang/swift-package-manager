@@ -108,7 +108,7 @@ extension Incompatibility {
         case versionBasedDependencyContainsUnversionedDependency(versionedDependency: PackageReference, unversionedDependency: PackageReference)
 
         /// The package's tools version is incompatible.
-        case incompatibleToolsVersion
+        case incompatibleToolsVersion(ToolsVersion)
 
         public var isConflict: Bool {
             if case .conflict = self { return true }

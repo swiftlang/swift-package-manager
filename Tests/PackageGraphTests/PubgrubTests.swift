@@ -1044,7 +1044,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testIncompatibleToolsVersion2() {
-        builder.serve("a", at: v1_1, isToolsVersionCompatible: false)
+        builder.serve("a", at: v1_1, toolsVersion: ToolsVersion.v5)
         builder.serve("a", at: v1)
 
         let resolver = builder.create()
@@ -1226,8 +1226,10 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foopkg": (.versionSet(v2Range), .specific(["foopkg"])),
         ])
         let result = resolver.solve(dependencies: dependencies)
-
-        XCTAssertEqual(result.errorMsg, "because no versions of foopkg[foopkg] match the requirement 2.0.0..<3.0.0 and root depends on foopkg[foopkg] 2.0.0..<3.0.0, version solving failed.")
+        
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because no versions of 'foopkg' match the requirement 2.0.0..<3.0.0 and root depends on 'foopkg' 2.0.0..<3.0.0.
+            """)
     }
 
     func testResolutionNonExistentVersion() {
@@ -1239,7 +1241,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        XCTAssertEqual(result.errorMsg, "because no versions of package[package] match the requirement 1.0.0 and root depends on package[package] 1.0.0, version solving failed.")
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because no versions of 'package' match the requirement 1.0.0 and root depends on 'package' 1.0.0.
+            """)
     }
 
     func testResolutionLinearErrorReporting() {
@@ -1259,8 +1263,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because every version of foo[foo] depends on bar[bar] 2.0.0..<3.0.0 and every version of bar[bar] depends on baz[baz] 3.0.0..<4.0.0, every version of foo[foo] requires baz[baz] 3.0.0..<4.0.0.
-            And because root depends on foo[foo] 1.0.0..<2.0.0 and root depends on baz[baz] 1.0.0..<2.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'baz' 1.0.0..<2.0.0.
+            'foo' practically depends on 'baz' 3.0.0..<4.0.0 because 'foo' depends on 'bar' 2.0.0..<3.0.0 and 'bar' depends on 'baz' 3.0.0..<4.0.0.
             """)
     }
 
@@ -1289,17 +1293,17 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
         let result = resolver.solve(dependencies: dependencies)
-
+        
         XCTAssertEqual(result.errorMsg, """
-          because every version of a[a] depends on b[b] 2.0.0..<3.0.0 and foo[foo] <1.1.0 depends on a[a] 1.0.0..<2.0.0, foo[foo] <1.1.0 requires b[b] 2.0.0..<3.0.0.
-             (1) So, because foo[foo] <1.1.0 depends on b[b] 1.0.0..<2.0.0, foo[foo] <1.1.0 is forbidden.
-          because every version of x[x] depends on y[y] 2.0.0..<3.0.0 and foo[foo] >=1.1.0 depends on x[x] 1.0.0..<2.0.0, foo[foo] >=1.1.0 requires y[y] 2.0.0..<3.0.0.
-          And because foo[foo] >=1.1.0 depends on y[y] 1.0.0..<2.0.0, foo[foo] >=1.1.0 is forbidden.
-          And because foo[foo] <1.1.0 is forbidden (1), foo[foo] is forbidden.
-          And because root depends on foo[foo] 1.0.0..<2.0.0, version solving failed.
+          Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+          'foo' cannot be used because 'foo' < 1.1.0 cannot be used (1).
+          'foo' >= 1.1.0 cannot be used because 'foo' >= 1.1.0 depends on 'y' 1.0.0..<2.0.0.
+          'foo' >= 1.1.0 practically depends on 'y' 2.0.0..<3.0.0 because 'x' depends on 'y' 2.0.0..<3.0.0 and 'foo' >= 1.1.0 depends on 'x' 1.0.0..<2.0.0.
+          'foo' < 1.1.0 practically depends on 'b' 2.0.0..<3.0.0 because 'a' depends on 'b' 2.0.0..<3.0.0 and 'foo' < 1.1.0 depends on 'a' 1.0.0..<2.0.0.
+             (1) As a result, 'foo' < 1.1.0 cannot be used because 'foo' < 1.1.0 depends on 'b' 1.0.0..<2.0.0.
         """)
     }
-
+    
     func testConflict1() {
         builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         builder.serve("bar", at: v1, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
@@ -1314,8 +1318,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because every version of bar[bar] depends on config[config] 2.0.0..<3.0.0 and every version of foo[foo] depends on config[config] 1.0.0..<2.0.0, bar[bar] is incompatible with foo[foo].
-            And because root depends on foo[foo] 1.0.0..<2.0.0 and root depends on bar[bar] 1.0.0..<2.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+            'bar' is incompatible with 'foo' because 'bar' depends on 'config' 2.0.0..<3.0.0 and 'foo' depends on 'config' 1.0.0..<2.0.0.
             """)
     }
 
@@ -1335,8 +1339,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result1 = resolver1.solve(dependencies: dependencies1)
 
         XCTAssertEqual(result1.errorMsg, """
-            because every version of foo[foo] depends on config[config] 1.0.0..<2.0.0 and root depends on config[config] 2.0.0..<3.0.0, foo[foo] is forbidden.
-            And because root depends on foo[foo] 1.0.0..<2.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' cannot be used because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0.
             """)
 
         let dependencies2 = builder.create(dependencies: [
@@ -1348,8 +1352,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result2 = resolver2.solve(dependencies: dependencies2)
 
         XCTAssertEqual(result2.errorMsg, """
-            because every version of foo[foo] depends on config[config] 1.0.0..<2.0.0 and root depends on foo[foo] 1.0.0..<2.0.0, config[config] 1.0.0..<2.0.0 is required.
-            And because root depends on config[config] 2.0.0..<3.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'config' 2.0.0..<3.0.0.
+            'config' 1.0.0..<2.0.0 is required because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
             """)
     }
 
@@ -1364,7 +1368,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        XCTAssertEqual(result.errorMsg, "because no versions of config[config] match the requirement 2.0.0..<3.0.0 and root depends on config[config] 2.0.0..<3.0.0, version solving failed.")
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because no versions of 'config' match the requirement 2.0.0..<3.0.0 and root depends on 'config' 2.0.0..<3.0.0.
+            """)
     }
 
     func testUnversioned6() {
@@ -1412,8 +1418,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of foo[foo] match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package foo is required using a version-based requirement and it depends on unversion package bar, foo[foo] is forbidden.
-            And because root depends on foo[foo] 1.0.0..<2.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' cannot be used because no versions of 'foo' match the requirement {1.0.0..<1.1.0, 1.1.1..<2.0.0} and package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar'.
             """)
     }
 
@@ -1427,11 +1433,13 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(dependencies: dependencies)
 
-        XCTAssertEqual(result.errorMsg, "because package foo is required using a version-based requirement and it depends on unversion package bar and root depends on foo[foo] 1.0.0, version solving failed.")
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because package 'foo' is required using a stable-version but 'foo' depends on an unstable-version package 'bar' and root depends on 'foo' 1.0.0.
+            """)
     }
 
     func testIncompatibleToolsVersion1() {
-        builder.serve("a", at: v1, isToolsVersionCompatible: false)
+        builder.serve("a", at: v1, toolsVersion: .v5)
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -1441,8 +1449,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of a[a] match the requirement 1.0.1..<2.0.0 and a[a] 1.0.0 contains incompatible tools version, a[a] >=1.0.0 is forbidden.
-            And because root depends on a[a] 1.0.0..<2.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0.
+            'a' >= 1.0.0 cannot be used because no versions of 'a' match the requirement 1.0.1..<2.0.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v5)).
             """)
     }
 
@@ -1450,7 +1458,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         builder.serve("a", at: v1_1, with: [
             "a": ["b": (.versionSet(v1Range), .specific(["b"]))]
         ])
-        builder.serve("a", at: v1, isToolsVersionCompatible: false)
+        builder.serve("a", at: v1, toolsVersion: .v4)
 
         builder.serve("b", at: v1)
         builder.serve("b", at: v2)
@@ -1462,18 +1470,18 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
 
         let result = resolver.solve(dependencies: dependencies)
-
+        
         XCTAssertEqual(result.errorMsg, """
-            because no versions of a[a] match the requirement 1.0.1..<1.1.0 and a[a] 1.0.0 contains incompatible tools version, a[a] 1.0.0..<1.1.0 is forbidden.
-            And because a[a] >=1.1.0 depends on b[b] 1.0.0..<2.0.0, a[a] >=1.0.0 requires b[b] 1.0.0..<2.0.0.
-            And because root depends on a[a] 1.0.0..<2.0.0 and root depends on b[b] 2.0.0..<3.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0 and root depends on 'b' 2.0.0..<3.0.0.
+            'a' >= 1.0.0 practically depends on 'b' 1.0.0..<2.0.0 because 'a' >= 1.1.0 depends on 'b' 1.0.0..<2.0.0.
+            'a' 1.0.0..<1.1.0 cannot be used because no versions of 'a' match the requirement 1.0.1..<1.1.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v4)).
             """)
     }
 
     func testIncompatibleToolsVersion4() {
-        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
-        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
-        builder.serve("a", at: "3.2.3", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.1", toolsVersion: .v3)
+        builder.serve("a", at: "3.2.2", toolsVersion: .v4)
+        builder.serve("a", at: "3.2.3", toolsVersion: .v3)
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -1483,14 +1491,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because every version of a[a] contains incompatible tools version and root depends on a[a] 3.2.0..<4.0.0, version solving failed.
+            Dependencies could not be resolved because 'a' contains incompatible tools version (\(ToolsVersion.v3)) and root depends on 'a' 3.2.0..<4.0.0.
             """)
     }
 
     func testIncompatibleToolsVersion5() {
-        builder.serve("a", at: "3.2.0", isToolsVersionCompatible: false)
-        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
-        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.0", toolsVersion: .v3)
+        builder.serve("a", at: "3.2.1", toolsVersion: .v4)
+        builder.serve("a", at: "3.2.2", toolsVersion: .v5)
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -1500,17 +1508,17 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because every version of a[a] contains incompatible tools version and root depends on a[a] 3.2.0..<4.0.0, version solving failed.
+            Dependencies could not be resolved because 'a' contains incompatible tools version (\(ToolsVersion.v5)) and root depends on 'a' 3.2.0..<4.0.0.
             """)
     }
 
     func testIncompatibleToolsVersion6() {
-        builder.serve("a", at: "3.2.1", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.1", toolsVersion: .v5)
         builder.serve("a", at: "3.2.0", with: [
             "a": ["b": (.versionSet(v1Range), .specific(["b"]))],
         ])
-        builder.serve("a", at: "3.2.2", isToolsVersionCompatible: false)
-        builder.serve("b", at: "1.0.0", isToolsVersionCompatible: false)
+        builder.serve("a", at: "3.2.2", toolsVersion: .v4)
+        builder.serve("b", at: "1.0.0", toolsVersion: .v3)
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
@@ -1520,9 +1528,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because b[b] 1.0.0 contains incompatible tools version and no versions of b[b] match the requirement 1.0.1..<2.0.0, b[b] >=1.0.0 is forbidden.
-            And because a[a] <3.2.1 depends on b[b] 1.0.0..<2.0.0, a[a] <3.2.1 is forbidden.
-            And because a[a] >=3.2.1 contains incompatible tools version and root depends on a[a] 3.2.0..<4.0.0, version solving failed.
+            Dependencies could not be resolved because 'a' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
+            'a' < 3.2.1 cannot be used because 'a' < 3.2.1 depends on 'b' 1.0.0..<2.0.0.
+            'b' >= 1.0.0 cannot be used because 'b' 1.0.0 contains incompatible tools version (\(ToolsVersion.v3)) and no versions of 'b' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
@@ -1545,9 +1553,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because every version of bar[bar] depends on shared[shared] 2.9.0..<4.0.0 and no versions of shared[shared] match the requirement 2.9.0..<3.0.0, every version of bar[bar] requires shared[shared] 3.0.0..<4.0.0.
-            And because every version of foo[foo] depends on shared[shared] 2.0.0..<3.0.0, foo[foo] is incompatible with bar[bar].
-            And because root depends on bar[bar] 1.0.0 and root depends on foo[foo] 1.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0.
+            'foo' is incompatible with 'bar' because 'foo' depends on 'shared' 2.0.0..<3.0.0.
+            'bar' practically depends on 'shared' 3.0.0..<4.0.0 because 'bar' depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0.
             """)
     }
 
@@ -1574,11 +1582,11 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(dependencies: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            because no versions of a[a] match the requirement 3.0.0..<5.0.0 and a[a] <2.0.0 depends on b[b] 1.0.0, a[a] {0.0.0..<2.0.0, 3.0.0..<5.0.0} requires b[b] 1.0.0.
-            And because b[b] <2.0.0 depends on a[a] 2.0.0, a[a] {0.0.0..<2.0.0, 3.0.0..<5.0.0} is forbidden.
-            because b[b] >=2.0.0 depends on a[a] 1.0.0 and a[a] >=2.0.0 depends on b[b] 2.0.0, a[a] >=2.0.0 is forbidden.
-            Thus, a[a] is forbidden.
-            And because root depends on a[a] 0.0.0..<5.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'a' 0.0.0..<5.0.0.
+            'a' cannot be used.
+            'a' >= 2.0.0 cannot be used because 'b' >= 2.0.0 depends on 'a' 1.0.0 and 'a' >= 2.0.0 depends on 'b' 2.0.0.
+            'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} cannot be used because 'b' < 2.0.0 depends on 'a' 2.0.0.
+            'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} practically depends on 'b' 1.0.0 because no versions of 'a' match the requirement 3.0.0..<5.0.0 and 'a' < 2.0.0 depends on 'b' 1.0.0.
             """)
     }
 
@@ -1613,13 +1621,13 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "root": (.unversioned, .everything)
         ])
         let result = resolver.solve(dependencies: dependencies)
-
+        
         XCTAssertEqual(
             result.errorMsg,
             """
-            because every version of intermediate_b[Intermediate B] depends on transitive[Product B] 1.1.0 and transitive[Product B] >=1.1.0 depends on transitive 1.1.0, every version of intermediate_b[Intermediate B] requires transitive 1.1.0.
-            And because transitive[Product A] <1.1.0 depends on transitive 1.0.0 and every version of intermediate_a[Intermediate A] depends on transitive[Product A] 1.0.0, intermediate_b[Intermediate B] is incompatible with intermediate_a[Intermediate A].
-            And because root depends on intermediate_a[Intermediate A] 1.0.0..<2.0.0 and root depends on intermediate_b[Intermediate B] 1.0.0..<2.0.0, version solving failed.
+            Dependencies could not be resolved because root depends on 'intermediate_a' 1.0.0..<2.0.0 and root depends on 'intermediate_b' 1.0.0..<2.0.0.
+            'intermediate_b' is incompatible with 'intermediate_a' because 'transitive' < 1.1.0 depends on 'transitive' 1.0.0 and 'intermediate_a' depends on 'transitive' 1.0.0.
+            'intermediate_b' practically depends on 'transitive' 1.1.0 because 'intermediate_b' depends on 'transitive' 1.1.0 and 'transitive' >= 1.1.0 depends on 'transitive' 1.1.0.
             """
         )
     }
@@ -1915,7 +1923,8 @@ public class MockContainer: PackageContainer {
     }
 
     /// The list of versions that have incompatible tools version.
-    var incompatibleToolsVersions: [Version] = []
+    var toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
+    var versionsToolsVersions = [Version: ToolsVersion]()
 
     public var _versions: [BoundVersion]
 
@@ -1940,7 +1949,21 @@ public class MockContainer: PackageContainer {
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {
-        return !incompatibleToolsVersions.contains(version)
+        // this checks for *exact* version match which is good enough for our current tests
+        if let toolsVersion = try? self.toolsVersion(for: version) {
+            return self.toolsVersion == toolsVersion
+        }
+        
+        return self.versions{ _ in true }.contains(version)
+    }
+    
+    public func toolsVersion(for version: Version) throws -> ToolsVersion {
+        struct NotFound: Error {}
+        
+        guard let version = versionsToolsVersions[version] else {
+            throw NotFound()
+        }
+        return version
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
@@ -2072,27 +2095,23 @@ class DependencyGraphBuilder {
     func serve(
         _ package: String,
         at version: Version,
-        isToolsVersionCompatible: Bool = true,
+        toolsVersion: ToolsVersion? = nil,
         with dependencies: OrderedDictionary<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
-        serve(package, at: .version(version), isToolsVersionCompatible: isToolsVersionCompatible, with: dependencies)
+        serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
 
     func serve(
         _ package: String,
         at version: BoundVersion,
-        isToolsVersionCompatible: Bool = true,
+        toolsVersion: ToolsVersion? = nil,
         with dependencies: OrderedDictionary<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(name: packageReference)
 
-        if !isToolsVersionCompatible {
-            if case .version(let v) = version {
-                container.incompatibleToolsVersions.append(v)
-            } else {
-                fatalError("Setting incompatible tools version on non-versions is not currently supported")
-            }
+        if case .version(let v) = version {
+            container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
         }
 
         container._versions.append(version)
