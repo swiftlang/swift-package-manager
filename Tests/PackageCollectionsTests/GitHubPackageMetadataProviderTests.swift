@@ -20,22 +20,31 @@ import TSCBasic
 import TSCUtility
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
-    func testBaseRL() throws {
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
-
+    func testBaseURL() throws {
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")
         let provider = GitHubPackageMetadataProvider()
-        let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
-        XCTAssertEqual(apiURL, sshURLRetVal)
+        
+        do {
+            let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
+            XCTAssertEqual(apiURL, sshURLRetVal)
+        }
 
-        let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World.git")
-        XCTAssertEqual(apiURL, httpsURLRetVal)
+        do {
+            let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World.git")
+            XCTAssertEqual(apiURL, httpsURLRetVal)
+        }
+        
+        do {
+            let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World")
+            XCTAssertEqual(apiURL, httpsURLRetVal)
+        }
 
         XCTAssertNil(provider.apiURL("bad/Hello-World.git"))
     }
 
     func testGood() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
 
         fixture(name: "Collections") { directoryPath in
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -105,7 +114,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testOthersNotFound() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "GitHub", "metadata.json")
@@ -138,7 +147,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testPermissionDenied() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
 
         let handler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
             callback(.success(.init(statusCode: 401)))
@@ -156,7 +165,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidAuthToken() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
         let authTokens = [AuthTokenType.github("api.github.com"): "foo"]
 
         let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -181,7 +190,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testAPILimit() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
 
         let total = 5
         var remaining = total
@@ -228,7 +237,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider()
             let reference = PackageReference(repository: RepositorySpecifier(url: UUID().uuidString))
             XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitUrl(reference.path))
+                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(reference.path))
             }
         }
     }
