@@ -507,8 +507,7 @@ public func xcodeProject(
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
                 hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)")
-                for pkgArgsWrapped in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
-                    guard let pkgArgs = pkgArgsWrapped else { continue }
+                for pkgArgs in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags

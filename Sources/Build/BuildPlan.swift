@@ -1753,13 +1753,7 @@ public class BuildPlan {
         }
         let results = pkgConfigArgs(for: target, diagnostics: diagnostics)
         var ret: [(cFlags: [String], libs: [String])] = []
-        for resultW in results {
-            // Otherwise, get the result and cache it.
-            guard let result = resultW else {
-                ret.append(([], []))
-                continue
-            }
-
+        for result in results {
             // If there is no pc file on system and we have an available provider, emit a warning.
             if let provider = result.provider, result.couldNotFindConfigFile {
                 diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
@@ -1774,24 +1768,20 @@ public class BuildPlan {
         }
 
         // Build cache
-        var cflagsCache: [String] = []
+        var cflagsCache: OrderedSet<String> = []
         var libsCache: [String] = []
         for tuple in ret {
             // Avoid duplicates while merging
             for cFlag in tuple.cFlags {
-                if !cflagsCache.contains(cFlag) {
-                    cflagsCache.append(cFlag)
-                }
+                cflagsCache.append(cFlag)
             }
 
             for lib in tuple.libs {
-                if !libsCache.contains(lib) {
-                    libsCache.append(lib)
-                }
+                libsCache.append(lib)
             }
         }
 
-        pkgConfigCache[target] = (cflagsCache, libsCache)
+        pkgConfigCache[target] = ([String](cflagsCache), libsCache)
 
         return pkgConfigCache[target]!
     }

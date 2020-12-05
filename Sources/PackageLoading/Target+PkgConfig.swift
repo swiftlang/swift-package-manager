@@ -55,7 +55,7 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> [PkgConfigResult?] {
+public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> [PkgConfigResult] {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigNames = target.pkgConfig else { return [] }
 
