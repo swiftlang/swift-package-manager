@@ -19,10 +19,10 @@ public struct PkgConfigResult {
     public let pkgConfigName: String
 
     /// The cFlags from pkgConfig.
-    public let cFlags: OrderedSet<String>
+    public let cFlags: [String]
 
     /// The library flags from pkgConfig.
-    public let libs: OrderedSet<String>
+    public let libs: [String]
 
     /// Available provider, if any.
     public let provider: SystemPackageProviderDescription?
@@ -41,8 +41,8 @@ public struct PkgConfigResult {
     /// Create a result.
     fileprivate init(
         pkgConfigName: String,
-        cFlags: OrderedSet<String> = [],
-        libs: OrderedSet<String> = [],
+        cFlags: [String] = [],
+        libs: [String] = [],
         error: Swift.Error? = nil,
         provider: SystemPackageProviderDescription? = nil
     ) {
@@ -55,7 +55,7 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> [PkgConfigResult] {
+public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> [PkgConfigResult?] {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigNames = target.pkgConfig else { return [] }
 
@@ -216,7 +216,7 @@ public func allowlist(
 ///
 /// This behavior is similar to pkg-config cli tool and helps avoid conflicts between
 /// sdk and default search paths in macOS.
-public func removeDefaultFlags(cFlags: [String], libs: [String]) -> (OrderedSet<String>, OrderedSet<String>) {
+public func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]) {
     /// removes a flag from given array of flags.
     func remove(flag: (String, String), from flags: [String]) -> [String] {
         var result = [String]()
@@ -245,7 +245,7 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) -> (OrderedSet<
         }
         return result
     }
-    return (OrderedSet<String>(remove(flag: ("-I", "/usr/include"), from: cFlags)), OrderedSet<String>(remove(flag: ("-L", "/usr/lib"), from: libs)))
+    return (remove(flag: ("-I", "/usr/include"), from: cFlags), remove(flag: ("-L", "/usr/lib"), from: libs))
 }
 
 public struct PkgConfigDiagnosticLocation: DiagnosticLocation {

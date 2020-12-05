@@ -507,10 +507,11 @@ public func xcodeProject(
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
                 hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)")
-                for pkgArgs in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
-                    targetSettings.common.OTHER_LDFLAGS += [String](pkgArgs.libs)
-                    targetSettings.common.OTHER_SWIFT_FLAGS += [String](pkgArgs.cFlags)
-                    targetSettings.common.OTHER_CFLAGS += [String](pkgArgs.cFlags)
+                for pkgArgsWrapped in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
+                    guard let pkgArgs = pkgArgsWrapped else { continue }
+                    targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
+                    targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
+                    targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags
                 }
             case let clangTarget as ClangTarget:
                 hdrInclPaths.append("$(SRCROOT)/\(clangTarget.includeDir.relative(to: sourceRootDir).pathString)")
