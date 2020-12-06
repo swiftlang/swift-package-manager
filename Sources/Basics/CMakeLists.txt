@@ -7,6 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Basics
+  ConcurrencyHelpers.swift
+  Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
   FileSystem+Extensions.swift
   HTPClient+URLSession.swift

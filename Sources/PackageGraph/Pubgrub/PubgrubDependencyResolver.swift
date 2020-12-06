@@ -182,8 +182,12 @@ public final class PubgrubDependencyResolver {
                     provider: provider
                 )
 
-                let diagnostic = builder.makeErrorReport(for: rootCause)
-                error = PubgrubError.unresolvable(diagnostic)
+                do {
+                    let diagnostic = try builder.makeErrorReport(for: rootCause)
+                    error = PubgrubError.unresolvable(diagnostic)
+                } catch {
+                    // failed to construct the repo, will report the original error
+                }
             }
 
             return .failure(error)
@@ -723,7 +727,7 @@ private final class DiagnosticReportBuilder {
         self.provider = provider
     }
 
-    func makeErrorReport(for rootCause: Incompatibility) -> String {
+    func makeErrorReport(for rootCause: Incompatibility) throws -> String {
         /// Populate `derivations`.
         func countDerivations(_ i: Incompatibility) {
             derivations[i, default: 0] += 1
@@ -736,12 +740,12 @@ private final class DiagnosticReportBuilder {
         countDerivations(rootCause)
 
         if rootCause.cause.isConflict {
-            self.visit(rootCause)
+            try self.visit(rootCause)
         } else {
             assertionFailure("Unimplemented")
             self.record(
                 rootCause,
-                message: description(for: rootCause),
+                message: try description(for: rootCause),
                 isNumbered: false)
         }
 
@@ -769,10 +773,10 @@ private final class DiagnosticReportBuilder {
     private func visit(
         _ incompatibility: Incompatibility,
         isConclusion: Bool = false
-    ) {
+    ) throws {
         let isNumbered = isConclusion || derivations[incompatibility]! > 1
         let conjunction = isConclusion || incompatibility.cause == .root ? "As a result, " : ""
-        let incompatibilityDesc = description(for: incompatibility)
+        let incompatibilityDesc = try description(for: incompatibility)
 
         guard case .conflict(let cause) = incompatibility.cause else {
             assertionFailure("\(incompatibility)")
@@ -786,7 +790,7 @@ private final class DiagnosticReportBuilder {
             if let conflictLine = conflictLine, let otherLine = otherLine {
                 self.record(
                     incompatibility,
-                    message: "\(incompatibilityDesc) because \(description(for: cause.conflict)) (\(conflictLine)) and \(description(for: cause.other)) (\(otherLine).",
+                    message: "\(incompatibilityDesc) because \(try description(for: cause.conflict)) (\(conflictLine)) and \(try description(for: cause.other)) (\(otherLine).",
                     isNumbered: isNumbered)
             } else if conflictLine != nil || otherLine != nil {
                 let withLine: Incompatibility
@@ -802,10 +806,10 @@ private final class DiagnosticReportBuilder {
                     line = otherLine!
                 }
 
-                self.visit(withoutLine)
+                try self.visit(withoutLine)
                 self.record(
                     incompatibility,
-                    message: "\(conjunction)\(incompatibilityDesc) because \(description(for: withLine)) \(line).",
+                    message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: withLine)) \(line).",
                     isNumbered: isNumbered)
             } else {
                 let singleLineConflict = cause.conflict.cause.isSingleLine
@@ -813,18 +817,18 @@ private final class DiagnosticReportBuilder {
                 if singleLineOther || singleLineConflict {
                     let first = singleLineOther ? cause.conflict : cause.other
                     let second = singleLineOther ? cause.other : cause.conflict
-                    self.visit(first)
-                    self.visit(second)
+                    try self.visit(first)
+                    try self.visit(second)
                     self.record(
                         incompatibility,
                         message: "\(incompatibilityDesc).",
                         isNumbered: isNumbered)
                 } else {
-                    self.visit(cause.conflict, isConclusion: true)
-                    self.visit(cause.other)
+                    try self.visit(cause.conflict, isConclusion: true)
+                    try self.visit(cause.other)
                     self.record(
                         incompatibility,
-                        message: "\(conjunction)\(incompatibilityDesc) because \(description(for: cause.conflict)) (\(lineNumbers[cause.conflict]!)).",
+                        message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: cause.conflict)) (\(lineNumbers[cause.conflict]!)).",
                         isNumbered: isNumbered)
                 }
             }
@@ -835,7 +839,7 @@ private final class DiagnosticReportBuilder {
             if let derivedLine = derivedLine {
                 self.record(
                     incompatibility,
-                    message: "\(incompatibilityDesc) because \(description(for: ext)) and \(description(for: derived)) (\(derivedLine)).",
+                    message: "\(incompatibilityDesc) because \(try description(for: ext)) and \(try description(for: derived)) (\(derivedLine)).",
                     isNumbered: isNumbered)
             } else if isCollapsible(derived) {
                 guard case .conflict(let derivedCause) = derived.cause else {
@@ -846,27 +850,27 @@ private final class DiagnosticReportBuilder {
                 let collapsedDerived = derivedCause.conflict.cause.isConflict ? derivedCause.conflict : derivedCause.other
                 let collapsedExt = derivedCause.conflict.cause.isConflict ? derivedCause.other : derivedCause.conflict
 
-                self.visit(collapsedDerived)
+                try self.visit(collapsedDerived)
                 self.record(
                     incompatibility,
-                    message: "\(conjunction)\(incompatibilityDesc) because \(description(for: collapsedExt)) and \(description(for: ext)).",
+                    message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: collapsedExt)) and \(try description(for: ext)).",
                     isNumbered: isNumbered)
             } else {
-                self.visit(derived)
+                try self.visit(derived)
                 self.record(
                     incompatibility,
-                    message: "\(conjunction)\(incompatibilityDesc) because \(description(for: ext)).",
+                    message: "\(conjunction)\(incompatibilityDesc) because \(try description(for: ext)).",
                     isNumbered: isNumbered)
             }
         } else {
             self.record(
                 incompatibility,
-                message: "\(incompatibilityDesc) because \(description(for: cause.conflict)) and \(description(for: cause.other)).",
+                message: "\(incompatibilityDesc) because \(try description(for: cause.conflict)) and \(try description(for: cause.other)).",
                 isNumbered: isNumbered)
         }
     }
 
-    private func description(for incompatibility: Incompatibility) -> String {
+    private func description(for incompatibility: Incompatibility) throws -> String {
         switch incompatibility.cause {
         case .dependency(node: _):
             assert(incompatibility.terms.count == 2)
@@ -875,8 +879,8 @@ private final class DiagnosticReportBuilder {
             assert(depender.isPositive)
             assert(!dependee.isPositive)
 
-            let dependerDesc = description(for: depender, normalizeRange: true)
-            let dependeeDesc = description(for: dependee)
+            let dependerDesc = try description(for: depender, normalizeRange: true)
+            let dependeeDesc = try description(for: dependee)
             return "\(dependerDesc) depends on \(dependeeDesc)"
         case .noAvailableVersion:
             assert(incompatibility.terms.count == 1)
@@ -895,7 +899,7 @@ private final class DiagnosticReportBuilder {
             return "package '\(versionedDependency.identity)' is required using a stable-version but '\(versionedDependency.identity)' depends on an unstable-version package '\(unversionedDependency.identity)'"
         case .incompatibleToolsVersion(let version):
             let term = incompatibility.terms.first!
-            return "\(description(for: term, normalizeRange: true)) contains incompatible tools version (\(version))"
+            return "\(try description(for: term, normalizeRange: true)) contains incompatible tools version (\(version))"
         }
 
         if isFailure(incompatibility) {
@@ -905,7 +909,7 @@ private final class DiagnosticReportBuilder {
         let terms = incompatibility.terms
         if terms.count == 1 {
             let term = terms.first!
-            let prefix = hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics : description(for: term, normalizeRange: true)
+            let prefix = try hasEffectivelyAnyRequirement(term) ? term.node.nameForDiagnostics : description(for: term, normalizeRange: true)
             return "\(prefix) " + (term.isPositive ? "cannot be used" : "is required")
         } else if terms.count == 2 {
             let term1 = terms.first!
@@ -919,12 +923,12 @@ private final class DiagnosticReportBuilder {
             }
         }
 
-        let positive = terms.filter{ $0.isPositive }.map{ description(for: $0) }
-        let negative = terms.filter{ !$0.isPositive }.map{ description(for: $0) }
+        let positive = try terms.filter{ $0.isPositive }.map{ try description(for: $0) }
+        let negative = try terms.filter{ !$0.isPositive }.map{ try description(for: $0) }
         if !positive.isEmpty && !negative.isEmpty {
             if positive.count == 1 {
                 let positiveTerm = terms.first{ $0.isPositive }!
-                return "\(description(for: positiveTerm, normalizeRange: true)) practically depends on \(negative.joined(separator: " or "))";
+                return "\(try description(for: positiveTerm, normalizeRange: true)) practically depends on \(negative.joined(separator: " or "))";
             } else {
                 return "if \(positive.joined(separator: " and ")) then \(negative.joined(separator: " or "))";
             }
@@ -937,7 +941,7 @@ private final class DiagnosticReportBuilder {
 
     /// Returns true if the requirement on this term is effectively "any" because of either the actual
     /// `any` requirement or because the version range is large enough to fit all current available versions.
-    private func hasEffectivelyAnyRequirement(_ term: Term) -> Bool {
+    private func hasEffectivelyAnyRequirement(_ term: Term) throws -> Bool {
         switch term.requirement {
         case .any:
             return true
@@ -947,7 +951,7 @@ private final class DiagnosticReportBuilder {
             guard let container = try? provider.getContainer(for: term.node.package) else {
                 return false
             }
-            let bounds = container.computeBounds(for: range)
+            let bounds = try container.computeBounds(for: range)
             return !bounds.includesLowerBound && !bounds.includesUpperBound
         }
     }
@@ -979,7 +983,7 @@ private final class DiagnosticReportBuilder {
         return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == PackageIdentity(url: "<synthesized-root>")
     }
 
-    private func description(for term: Term, normalizeRange: Bool = false) -> String {
+    private func description(for term: Term, normalizeRange: Bool = false) throws -> String {
         let name = term.node.nameForDiagnostics
 
         switch term.requirement {
@@ -996,7 +1000,7 @@ private final class DiagnosticReportBuilder {
                 return "\(name) \(range.description)"
             }
 
-            switch container.computeBounds(for: range) {
+            switch try container.computeBounds(for: range) {
             case (true, true):
                 return "\(name) \(range.description)"
             case (false, false):
@@ -1067,22 +1071,22 @@ private final class PubGrubPackageContainer {
     }
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.
-    func versionCount(_ requirement: VersionSetSpecifier) -> Int {
+    func versionCount(_ requirement: VersionSetSpecifier) throws -> Int {
         if let pinnedVersion = self.pinnedVersion, requirement.contains(pinnedVersion) {
             return 1
         }
-        return packageContainer.reversedVersions.filter(requirement.contains).count
+        return try packageContainer.reversedVersions().filter(requirement.contains).count
     }
 
     /// Computes the bounds of the given range against the versions available in the package.
     ///
     /// `includesLowerBound` is `false` if range's lower bound is less than or equal to the lowest available version.
     /// Similarly, `includesUpperBound` is `false` if range's upper bound is greater than or equal to the highest available version.
-    func computeBounds(for range: Range<Version>) -> (includesLowerBound: Bool, includesUpperBound: Bool) {
+    func computeBounds(for range: Range<Version>) throws -> (includesLowerBound: Bool, includesUpperBound: Bool) {
         var includeLowerBound = true
         var includeUpperBound = true
 
-        let versions = packageContainer.reversedVersions
+        let versions = try packageContainer.reversedVersions()
 
         if let last = versions.last, range.lowerBound < last {
             includeLowerBound = false
@@ -1108,13 +1112,13 @@ private final class PubGrubPackageContainer {
         }
 
         // Return the highest version that is allowed by the input requirement.
-        return packageContainer.reversedVersions.first{ versionSet.contains($0) }
+        return try packageContainer.reversedVersions().first{ versionSet.contains($0) }
     }
 
     /// Compute the bounds of incompatible tools version starting from the given version.
-    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) -> VersionSetSpecifier {
+    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) throws -> VersionSetSpecifier {
         assert(!packageContainer.isToolsVersionCompatible(at: fromVersion))
-        let versions: [Version] = packageContainer.reversedVersions.reversed()
+        let versions: [Version] = try packageContainer.reversedVersions().reversed()
 
         // This is guaranteed to be present.
         let idx = versions.firstIndex(of: fromVersion)!
@@ -1169,7 +1173,7 @@ private final class PubGrubPackageContainer {
     ) throws -> [Incompatibility] {
         // FIXME: It would be nice to compute bounds for this as well.
         if !packageContainer.isToolsVersionCompatible(at: version) {
-            let requirement = computeIncompatibleToolsVersionBounds(fromVersion: version)
+            let requirement = try self.computeIncompatibleToolsVersionBounds(fromVersion: version)
             let toolsVersion = try packageContainer.toolsVersion(for: version)
             return [Incompatibility(Term(node, requirement), root: root, cause: .incompatibleToolsVersion(toolsVersion))]
         }
@@ -1221,7 +1225,7 @@ private final class PubGrubPackageContainer {
             }).joined())
         }
 
-        let (lowerBounds, upperBounds) = computeBounds(dependencies, from: version, products: node.productFilter)
+        let (lowerBounds, upperBounds) = try computeBounds(dependencies, from: version, products: node.productFilter)
 
         return dependencies.map { dependency in
             var terms: OrderedSet<Term> = []
@@ -1262,7 +1266,7 @@ private final class PubGrubPackageContainer {
         _ dependencies: [PackageContainerConstraint],
         from fromVersion: Version,
         products: ProductFilter
-    ) -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
+    ) throws -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
         func computeBounds(with versionsToIterate: AnyCollection<Version>, upperBound: Bool) -> [PackageReference: Version] {
             var result: [PackageReference: Version] = [:]
             var prev = fromVersion
@@ -1300,7 +1304,7 @@ private final class PubGrubPackageContainer {
             return result
         }
 
-        let versions: [Version] = packageContainer.reversedVersions.reversed()
+        let versions: [Version] = try packageContainer.reversedVersions().reversed()
 
         // This is guaranteed to be present.
         let idx = versions.firstIndex(of: fromVersion)!

@@ -136,7 +136,7 @@ final class PackageToolTests: XCTestCase {
             // Check that `resolve` works.
             _ = try execute(["resolve"], packagePath: packageRoot)
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+            XCTAssertEqual(try GitRepository(path: path).tags(), ["1.2.3"])
         }
     }
 
@@ -147,7 +147,7 @@ final class PackageToolTests: XCTestCase {
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
             var path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3"])
+            XCTAssertEqual(try GitRepository(path: path).tags(), ["1.2.3"])
 
             // Retag the dependency, and update.
             let repo = GitRepository(path: prefix.appending(component: "Foo"))
@@ -156,7 +156,7 @@ final class PackageToolTests: XCTestCase {
 
             // We shouldn't assume package path will be same after an update so ask again for it.
             path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(GitRepository(path: path).tags, ["1.2.3", "1.2.4"])
+            XCTAssertEqual(try GitRepository(path: path).tags(), ["1.2.3", "1.2.4"])
         }
     }
 

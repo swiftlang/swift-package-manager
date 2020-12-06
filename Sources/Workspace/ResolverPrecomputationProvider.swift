@@ -114,7 +114,7 @@ private struct LocalPackageContainer: PackageContainer {
         }
     }
 
-    var reversedVersions: [Version] {
+    func reversedVersions() throws -> [Version] {
         if let version = dependency?.state.checkout?.version {
             return [version]
         } else {
@@ -135,8 +135,8 @@ private struct LocalPackageContainer: PackageContainer {
         return currentToolsVersion
     }
 
-    func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        return AnySequence(reversedVersions)
+    func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
+        return AnySequence(try self.reversedVersions())
     }
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {

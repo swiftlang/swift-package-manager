@@ -54,7 +54,7 @@ class DependencyResolutionTests: XCTestCase {
             XCTAssertBuilds(packageRoot)
             XCTAssertFileExists(prefix.appending(components: "Bar", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssert(GitRepository(path: path).tags.contains("1.2.3"))
+            XCTAssert(try GitRepository(path: path).tags().contains("1.2.3"))
         }
     }
 

@@ -26,11 +26,14 @@ private enum DummyError: Swift.Error {
 }
 
 private class DummyRepository: Repository {
-    var tags: [String] = ["1.0.0"]
     unowned let provider: DummyRepositoryProvider
 
     init(provider: DummyRepositoryProvider) {
         self.provider = provider
+    }
+    
+    func tags() throws -> [String] {
+        ["1.0.0"]
     }
 
     func resolveRevision(tag: String) throws -> Revision {
@@ -188,7 +191,7 @@ class RepositoryManagerTests: XCTestCase {
             
                 // Open the repository.
                 let repository = try! handle.open()
-                XCTAssertEqual(repository.tags, ["1.0.0"])
+                XCTAssertEqual(try! repository.tags(), ["1.0.0"])
 
                 // Create a checkout of the repository.
                 let checkoutPath = path.appending(component: "checkout")
