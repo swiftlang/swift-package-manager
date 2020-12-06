@@ -141,7 +141,7 @@ public extension WorkspaceDelegate {
         fetchingDidFinish(repository: repository, diagnostic: diagnostic)
     }
 
-    func fetchingGitRepository(status: GitProgress) {}
+    func fetchingGitRepository(progress: GitProgress) {}
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -172,8 +172,8 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         workspaceDelegate.repositoryDidUpdate(handle.repository.url)
     }
 
-    func fetchingGitRepository(status: GitProgress) {
-        workspaceDelegate.fetchingGitRepository(status: status)
+    func fetchingGitRepository(progress: GitProgress) {
+        workspaceDelegate.fetchingGitRepository(progress: progress)
     }
 }
 

@@ -220,21 +220,21 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingGitRepository(status: GitProgress) {
-        switch status {
+    func fetchingGitRepository(progress: GitProgress) {
+        switch progress {
         case .compressingObjects(_, let currentObjects, let totalObjects),
             .countingObjects(_, let currentObjects, let totalObjects),
             .resolvingDeltas(_, let currentObjects, let totalObjects):
             queue.async {
-                self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: status.message)
+                self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: progress.message)
             }
             
         case .receivingObjects(_, let currentObjects, let totalObjects, let downloadProgress, let downloadSpeed):
             queue.async {
                 if let downloadProgress = downloadProgress, let downloadSpeed = downloadSpeed {
-                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: "\(status.message) \(downloadProgress) | \(downloadSpeed)")
+                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: "\(progress.message) \(downloadProgress) | \(downloadSpeed)")
                 } else {
-                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: status.message)
+                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: progress.message)
                 }
             }
         default:

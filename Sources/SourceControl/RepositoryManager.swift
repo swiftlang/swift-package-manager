@@ -57,7 +57,7 @@ public extension RepositoryManagerDelegate {
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
-    func fetchingGitRepository(status: GitProgress) {}
+    func fetchingGitRepository(progress: GitProgress) {}
 }
 
 /// Manages a collection of bare repositories.
@@ -362,9 +362,9 @@ public class RepositoryManager {
         var updatedCache = false
         var fromCache = false
 
-        func updateGitStatus(status: GitProgress) -> Void {
+        func updateGitStatus(progress: GitProgress) -> Void {
             self.callbacksQueue.async {
-                self.delegate?.fetchingGitRepository(status: status)
+                self.delegate?.fetchingGitRepository(progress: progress)
             }
         }
 
@@ -380,9 +380,9 @@ public class RepositoryManager {
                     // Fetch the repository into the cache.
                     if (fileSystem.exists(cachedRepositoryPath)) {
                         let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
-                        try repo.fetch(progress: updateGitStatus(status:))
+                        try repo.fetch(progress: updateGitStatus(progress:))
                     } else {
-                        try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progress: updateGitStatus(status:))
+                        try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progress: updateGitStatus(progress:))
                     }
                     updatedCache = true
                     // Copy the repository from the cache into the repository path.
@@ -392,12 +392,12 @@ public class RepositoryManager {
             } catch {
                 // Fetch without populating the cache in the case of an error.
                 print("Skipping cache due to an error: \(error)")
-                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateGitStatus(status:))
+                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateGitStatus(progress:))
                 fromCache = false
             }
         } else {
             // Fetch without populating the cache when no `cachePath` is set.
-            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateGitStatus(status:))
+            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateGitStatus(progress:))
             fromCache = false
         }
         return FetchDetails(fromCache: fromCache, updatedCache: updatedCache)
