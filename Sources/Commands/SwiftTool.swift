@@ -79,10 +79,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
         queue.async {
-            self.downloadAnimation.complete(success: true)
-            self.downloadProgress.removeAll()
             self.fetchAnimation.complete(success: true)
-            self.fetchAnimation.clear()
         }
     }
 
