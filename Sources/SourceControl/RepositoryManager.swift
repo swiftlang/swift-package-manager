@@ -37,7 +37,8 @@ public protocol RepositoryManagerDelegate: class {
     /// Called when a repository has finished updating from its remote.
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle)
 
-    func fetchingGitRepository(status: GitProgress)
+    /// Called every time the progress of the git fetch operation updates.
+    func fetchingGitRepository(progress: GitProgress)
 }
 
 public extension RepositoryManagerDelegate {

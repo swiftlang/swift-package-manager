@@ -37,6 +37,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The progress animation for downloads.
     private let downloadAnimation: NinjaProgressAnimation
 
+    /// The progress animation for git fetches.
     private let fetchAnimation: NinjaProgressAnimation
 
     /// Wether the tool is in a verbose mode.

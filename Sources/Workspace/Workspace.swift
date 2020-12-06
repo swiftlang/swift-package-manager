@@ -103,7 +103,8 @@ public protocol WorkspaceDelegate: class {
     /// The workspace finished downloading all binary artifacts.
     func didDownloadBinaryArtifacts()
 
-    func fetchingGitRepository(status: GitProgress)
+    /// Called every time the progress of the git fetch operation updates.
+    func fetchingGitRepository(progress: GitProgress)
 }
 
 public extension WorkspaceDelegate {
