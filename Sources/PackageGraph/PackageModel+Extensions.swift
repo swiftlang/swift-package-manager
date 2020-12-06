@@ -35,9 +35,9 @@ extension PackageDependencyDescription {
 
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
+    public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
         return dependenciesRequired(for: productFilter).map({
-            return RepositoryPackageConstraint(
+            return PackageContainerConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter)
@@ -45,7 +45,7 @@ extension Manifest {
     }
 }
 
-extension RepositoryPackageConstraint {
+extension PackageContainerConstraint {
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:

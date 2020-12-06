@@ -71,12 +71,12 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints(mirrors: DependencyMirrors) -> [RepositoryPackageConstraint] {
+    public func constraints(mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
         let constraints = packageRefs.map({
-            RepositoryPackageConstraint(container: $0, requirement: .unversioned, products: .everything)
+            PackageContainerConstraint(container: $0, requirement: .unversioned, products: .everything)
         })
         return constraints + dependencies.map({
-            RepositoryPackageConstraint(
+            PackageContainerConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter

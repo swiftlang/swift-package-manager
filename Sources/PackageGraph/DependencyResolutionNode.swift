@@ -95,10 +95,10 @@ public enum DependencyResolutionNode {
     /// Returns the dependency that a product has on its own package, if relevant.
     ///
     /// This is the constraint that requires all products from a package resolve to the same version.
-    internal func versionLock(version: Version) -> RepositoryPackageConstraint? {
+    internal func versionLock(version: Version) -> PackageContainerConstraint? {
         // Don’t create a version lock for anything but a product.
         guard specificProduct != nil else { return nil }
-        return RepositoryPackageConstraint(
+        return PackageContainerConstraint(
             container: package,
             versionRequirement: .exact(version),
             products: .specific([])
@@ -108,10 +108,10 @@ public enum DependencyResolutionNode {
     /// Returns the dependency that a product has on its own package, if relevant.
     ///
     /// This is the constraint that requires all products from a package resolve to the same revision.
-    internal func revisionLock(revision: String) -> RepositoryPackageConstraint? {
+    internal func revisionLock(revision: String) -> PackageContainerConstraint? {
         // Don’t create a revision lock for anything but a product.
         guard specificProduct != nil else { return nil }
-        return RepositoryPackageConstraint(
+        return PackageContainerConstraint(
             container: package,
             requirement: .revision(revision),
             products: .specific([])
