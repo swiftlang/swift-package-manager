@@ -385,66 +385,108 @@ class PackageBuilderTests: XCTestCase {
     }
 
     func testExecutableTargets() {
-        // Check that executable targets are supported.
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/exec/exec.swift",
-            "/Sources/foo/main.swift"
+            "/Sources/exec1/exec.swift",
+            "/Sources/exec2/main.swift",
+            "/Sources/lib/lib.swift"
         )
-
+        
+        // Check that an explicitly declared target without a main source file works.
         var manifest = Manifest.createV4Manifest(
             name: "pkg",
             toolsVersion: .vNext,
             products: [
-                ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
+                ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
             ],
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "exec", type: .executable),
+                TargetDescription(name: "exec1", type: .executable),
+                TargetDescription(name: "lib"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { _ in }
-            package.checkModule("exec") { _ in }
-            package.checkProduct("exec") { product in
-                product.check(type: .executable, targets: ["exec", "foo"])
+            package.checkModule("lib") { _ in }
+            package.checkModule("exec1") { _ in }
+            package.checkProduct("exec1") { product in
+                product.check(type: .executable, targets: ["exec1", "lib"])
             }
         }
 
+        // Check that products are inferred for explicitly declared executable targets.
         manifest = Manifest.createV4Manifest(
             name: "pkg",
             toolsVersion: .vNext,
             products: [],
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "exec", type: .executable),
+                TargetDescription(name: "exec1", type: .executable),
+                TargetDescription(name: "lib"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { _ in }
-            package.checkModule("exec") { _ in }
-            package.checkProduct("exec") { product in
-                product.check(type: .executable, targets: ["exec"])
+            package.checkModule("lib") { _ in }
+            package.checkModule("exec1") { _ in }
+            package.checkProduct("exec1") { product in
+                product.check(type: .executable, targets: ["exec1"])
             }
         }
 
-        // If we already have an explicit product, we shouldn't create an
-        // implicit one.
+        // Check that products are not inferred if there is an explicit executable product.
         manifest = Manifest.createV4Manifest(
             name: "pkg",
             toolsVersion: .vNext,
             products: [
-                ProductDescription(name: "exec", type: .executable, targets: ["exec"]),
+                ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "exec", type: .executable),
+                TargetDescription(name: "lib"),
+                TargetDescription(name: "exec1", type: .executable),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { _ in }
-            package.checkModule("exec") { _ in }
-            package.checkProduct("exec") { product in
-                product.check(type: .executable, targets: ["exec"])
+            package.checkModule("lib") { _ in }
+            package.checkModule("exec1") { _ in }
+            package.checkProduct("exec1") { product in
+                product.check(type: .executable, targets: ["exec1"])
+            }
+        }
+
+        // Check that an explicitly declared target with a main source file still works.
+        manifest = Manifest.createV4Manifest(
+            name: "pkg",
+            toolsVersion: .vNext,
+            products: [
+                ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+            ],
+            targets: [
+                TargetDescription(name: "lib"),
+                TargetDescription(name: "exec1", type: .executable),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("lib") { _ in }
+            package.checkModule("exec1") { _ in }
+            package.checkProduct("exec1") { product in
+                product.check(type: .executable, targets: ["exec1"])
+            }
+        }
+
+        // Check that a inferred target with a main source file still works but yields a warning.
+        manifest = Manifest.createV4Manifest(
+            name: "pkg",
+            toolsVersion: .vNext,
+            products: [
+                ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
+            ],
+            targets: [
+                TargetDescription(name: "lib"),
+                TargetDescription(name: "exec2"),
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "in tools version 999.0.0 and later, use 'executableTarget()' to declare executable targets", behavior: .warning)
+            package.checkModule("lib") { _ in }
+            package.checkModule("exec2") { _ in }
+            package.checkProduct("exec2") { product in
+                product.check(type: .executable, targets: ["exec2"])
             }
         }
     }

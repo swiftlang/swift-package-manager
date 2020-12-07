@@ -225,7 +225,7 @@ public final class SwiftTarget: Target {
         bundleName: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
-        type: Kind? = nil,
+        type: Kind,
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
@@ -238,7 +238,7 @@ public final class SwiftTarget: Target {
             bundleName: bundleName,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
-            type: type ?? sources.computeTargetType(),
+            type: type,
             sources: sources,
             resources: resources,
             dependencies: dependencies,
@@ -389,7 +389,7 @@ public final class ClangTarget: Target {
         includeDir: AbsolutePath,
         moduleMapType: ModuleMapType,
         headers: [AbsolutePath] = [],
-        type: Kind? = nil,
+        type: Kind,
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
@@ -407,7 +407,7 @@ public final class ClangTarget: Target {
             bundleName: bundleName,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
-            type: type ?? sources.computeTargetType(),
+            type: type,
             sources: sources,
             resources: resources,
             dependencies: dependencies,
@@ -524,17 +524,5 @@ public final class BinaryTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
         try super.init(from: decoder)
-    }
-}
-
-extension Sources {
-    /// Determine target type based on the sources.
-    fileprivate func computeTargetType() -> Target.Kind {
-        let isLibrary = !relativePaths.contains { path in
-            let file = path.basename.lowercased()
-            // Look for a main.xxx file avoiding cases like main.xxx.xxx
-            return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
-        }
-        return isLibrary ? .library : .executable
     }
 }

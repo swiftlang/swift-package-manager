@@ -730,14 +730,17 @@ public final class PackageBuilder {
         try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
         
         /// Determine the target's type, or leave nil to check the source directory.
-        let targetType: Target.Kind?
+        let targetType: Target.Kind
         switch potentialModule.type {
         case .test:
             targetType = .test
         case .executable:
             targetType = .executable
         default:
-            targetType = (manifest.toolsVersion >= .vNext) ? .library : nil
+            targetType = sources.computeTargetType()
+            if targetType == .executable && manifest.toolsVersion >= .vNext {
+                diagnostics.emit(warning: "in tools version \(ToolsVersion.vNext) and later, use 'executableTarget()' to declare executable targets")
+            }
         }
         
         // Create and return the right kind of target depending on what kind of sources we found.
@@ -1254,5 +1257,15 @@ extension Sources {
         let swiftSources = relativePaths.filter{ $0.extension == "swift" }
         if swiftSources.isEmpty { return false }
         return swiftSources.count != relativePaths.count
+    }
+    
+    /// Determine target type based on the sources.
+    fileprivate func computeTargetType() -> Target.Kind {
+        let isLibrary = !relativePaths.contains { path in
+            let file = path.basename.lowercased()
+            // Look for a main.xxx file avoiding cases like main.xxx.xxx
+            return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
+        }
+        return isLibrary ? .library : .executable
     }
 }
