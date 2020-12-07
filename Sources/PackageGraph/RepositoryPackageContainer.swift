@@ -21,10 +21,9 @@ enum RepositoryPackageResolutionError: Swift.Error {
     case unavailableRepository
 }
 
-public typealias RepositoryPackageConstraint = PackageContainerConstraint
-
 /// Adaptor to expose an individual repository as a package container.
-public class RepositoryPackageContainer: BasePackageContainer, CustomStringConvertible {
+public class RepositoryPackageContainer: PackageContainer, CustomStringConvertible {
+    public typealias Constraint = PackageContainerConstraint
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
@@ -56,36 +55,24 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }
     }
 
+    public let identifier: PackageReference
+    private let repository: Repository
+    private let mirrors: DependencyMirrors
+    private let manifestLoader: ManifestLoaderProtocol
+    private let toolsVersionLoader: ToolsVersionLoaderProtocol
+    private let currentToolsVersion: ToolsVersion
+
+    /// The cached dependency information.
+    private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]] ()
+    private var dependenciesCacheLock = Lock()
+
+    private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
+    private var reversedVersionsCache = ThreadSafeBox<[Version]>()
+
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
     public private(set) var validToolsVersionsCache: [Version: Bool] = [:]
 
-    /// The available version list (in reverse order).
-    public override func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
-        let reversedVersions = try self.reversedVersions()
-        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
-            // If we have the result cached, return that.
-            if let result = self.validToolsVersionsCache[$0] {
-                return result
-            }
-
-            // Otherwise, compute and cache the result.
-            let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
-            self.validToolsVersionsCache[$0] = isValid
-            return isValid
-        }))
-    }
-
-    /// The opened repository.
-    let repository: Repository
-
-    /// The cached dependency information.
-    private var dependenciesCache = [String: [ProductFilter: (Manifest, [RepositoryPackageConstraint])]] ()
-    private var dependenciesCacheLock = Lock()
-    
-    private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
-    private var reversedVersionsCache = ThreadSafeBox<[Version]>()
-    
     init(
         identifier: PackageReference,
         mirrors: DependencyMirrors,
@@ -94,15 +81,12 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion
     ) {
+        self.identifier = identifier
+        self.mirrors = mirrors
         self.repository = repository
-
-        super.init(
-            identifier,
-            mirrors: mirrors,
-            manifestLoader: manifestLoader,
-            toolsVersionLoader: toolsVersionLoader,
-            currentToolsVersion: currentToolsVersion
-        )
+        self.manifestLoader = manifestLoader
+        self.toolsVersionLoader = toolsVersionLoader
+        self.currentToolsVersion = currentToolsVersion
     }
     
     // Compute the map of known versions.
@@ -121,18 +105,26 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }
     }
     
-    public override func reversedVersions() throws -> [Version] {
+    public func reversedVersions() throws -> [Version] {
         try self.reversedVersionsCache.memoize() {
             [Version](try self.knownVersions().keys).sorted().reversed()
         }
     }
+    
+    /// The available version list (in reverse order).
+    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
+        let reversedVersions = try self.reversedVersions()
+        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
+            // If we have the result cached, return that.
+            if let result = self.validToolsVersionsCache[$0] {
+                return result
+            }
 
-    public var description: String {
-        return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
-    }
-
-    public override var isRemoteContainer: Bool? {
-        return true
+            // Otherwise, compute and cache the result.
+            let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
+            self.validToolsVersionsCache[$0] = isValid
+            return isValid
+        }))
     }
 
     public func getTag(for version: Version) -> String? {
@@ -150,7 +142,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     }
 
     /// Returns the tools version of the given version of the package.
-    public override func toolsVersion(for version: Version) throws -> ToolsVersion {
+    public func toolsVersion(for version: Version) throws -> ToolsVersion {
         guard let tag = try self.knownVersions()[version] else {
             throw StringError("unknown tag \(version)")
         }
@@ -159,7 +151,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         return try toolsVersionLoader.load(at: .root, fileSystem: fs)
     }
 
-    public override func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
         do {
             return try cachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
@@ -174,7 +166,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }
     }
 
-    public override func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [Constraint] {
         do {
             return try cachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
@@ -210,8 +202,8 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     private func cachedDependencies(
         forIdentifier identifier: String,
         productFilter: ProductFilter,
-        getDependencies: () throws -> (Manifest, [RepositoryPackageConstraint])
-    ) throws -> (Manifest, [RepositoryPackageConstraint]) {
+        getDependencies: () throws -> (Manifest, [Constraint])
+    ) throws -> (Manifest, [Constraint]) {
         return try dependenciesCacheLock.withLock {
             if let result = dependenciesCache[identifier, default: [:]][productFilter] {
                 return result
@@ -227,17 +219,17 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         at revision: Revision,
         version: Version? = nil,
         productFilter: ProductFilter
-    ) throws -> (Manifest, [RepositoryPackageConstraint]) {
+    ) throws -> (Manifest, [Constraint]) {
         let manifest = try loadManifest(at: revision, version: version)
         return (manifest, manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors))
     }
 
-    public override func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [Constraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }
 
-    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         let revision: Revision
         var version: Version?
         switch boundVersion {
@@ -269,7 +261,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }
     }
 
-    public override func isToolsVersionCompatible(at version: Version) -> Bool {
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
         return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
     }
    
@@ -292,6 +284,14 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             toolsVersion: toolsVersion,
             packageKind: identifier.kind,
             fileSystem: fs)
+    }
+
+    public var isRemoteContainer: Bool? {
+        return true
+    }
+
+    public var description: String {
+        return "RepositoryPackageContainer(\(identifier.repository.url.debugDescription))"
     }
 }
 

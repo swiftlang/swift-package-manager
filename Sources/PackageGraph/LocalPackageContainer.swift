@@ -22,8 +22,12 @@ import TSCUtility
 /// There is no need to perform any git operations on such packages and they
 /// should be used as-is. Infact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-public class LocalPackageContainer: BasePackageContainer  {
-
+public class LocalPackageContainer: PackageContainer {
+    public let identifier: PackageReference
+    private let mirrors: DependencyMirrors
+    private let manifestLoader: ManifestLoaderProtocol
+    private let toolsVersionLoader: ToolsVersionLoaderProtocol
+    private let currentToolsVersion: ToolsVersion
     /// The file system that shoud be used to load this package.
     let fs: FileSystem
 
@@ -50,18 +54,18 @@ public class LocalPackageContainer: BasePackageContainer  {
         return _manifest!
     }
 
-    public override func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         return try loadManifest().dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
     }
 
-    public override func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> Identifier {
+    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
         let manifest = try loadManifest()
         return identifier.with(newName: manifest.name)
     }
 
     public init(
-        _ identifier: Identifier,
+        _ identifier: PackageReference,
         mirrors: DependencyMirrors,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
@@ -69,14 +73,36 @@ public class LocalPackageContainer: BasePackageContainer  {
         fs: FileSystem = localFileSystem
     ) {
         assert(URL.scheme(identifier.path) == nil, "unexpected scheme \(URL.scheme(identifier.path)!) in \(identifier.path)")
+        self.identifier = identifier
+        self.mirrors = mirrors
+        self.manifestLoader = manifestLoader
+        self.toolsVersionLoader = toolsVersionLoader
+        self.currentToolsVersion = currentToolsVersion
         self.fs = fs
-        super.init(
-            identifier,
-            mirrors: mirrors,
-            manifestLoader: manifestLoader,
-            toolsVersionLoader: toolsVersionLoader,
-            currentToolsVersion: currentToolsVersion
-        )
+    }
+    
+    public func isToolsVersionCompatible(at version: Version) -> Bool {
+        fatalError("This should never be called")
+    }
+    
+    public func toolsVersion(for version: Version) throws -> ToolsVersion {
+        fatalError("This should never be called")
+    }
+    
+    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
+        fatalError("This should never be called")
+    }
+    
+    public func reversedVersions() throws -> [Version] {
+        fatalError("This should never be called")
+    }
+    
+    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        fatalError("This should never be called")
+    }
+    
+    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        fatalError("This should never be called")
     }
 }
 

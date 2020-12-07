@@ -460,7 +460,7 @@ extension Workspace {
         } else {
             requirement = currentState.requirement
         }
-        let constraint = RepositoryPackageConstraint(
+        let constraint = PackageContainerConstraint(
                 // If any products are required, the rest of the package graph will supply those constraints.
                 container: dependency.packageRef, requirement: requirement, products: .nothing)
 
@@ -1121,8 +1121,8 @@ extension Workspace {
         }
 
         /// Returns constraints of the dependencies, including edited package constraints.
-        func dependencyConstraints() -> [RepositoryPackageConstraint] {
-            var allConstraints = [RepositoryPackageConstraint]()
+        func dependencyConstraints() -> [PackageContainerConstraint] {
+            var allConstraints = [PackageContainerConstraint]()
 
             for (externalManifest, managedDependency, productFilter) in dependencies {
                 // For edited packages, add a constraint with unversioned requirement so the
@@ -1136,7 +1136,7 @@ extension Workspace {
                         path: managedDependency.packageRef.path,
                         kind: .local
                     )
-                    let constraint = RepositoryPackageConstraint(
+                    let constraint = PackageContainerConstraint(
                         container: ref,
                         requirement: .unversioned,
                         products: productFilter)
@@ -1154,8 +1154,8 @@ extension Workspace {
 
         // FIXME: @testable(internal)
         /// Returns a list of constraints for all 'edited' package.
-        public func editedPackagesConstraints() -> [RepositoryPackageConstraint] {
-            var constraints = [RepositoryPackageConstraint]()
+        public func editedPackagesConstraints() -> [PackageContainerConstraint] {
+            var constraints = [PackageContainerConstraint]()
 
             for (_, managedDependency, productFilter) in dependencies {
                 switch managedDependency.state {
@@ -1169,7 +1169,7 @@ extension Workspace {
                     path: workspace.path(for: managedDependency).pathString,
                     kind: .local
                 )
-                let constraint = RepositoryPackageConstraint(
+                let constraint = PackageContainerConstraint(
                     container: ref,
                     requirement: .unversioned,
                     products: productFilter)
@@ -1699,7 +1699,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolution: Bool,
-        extraConstraints: [RepositoryPackageConstraint] = [],
+        extraConstraints: [PackageContainerConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true
     ) -> DependencyManifests {
@@ -1755,7 +1755,7 @@ extension Workspace {
         }
 
         // Create the constraints.
-        var constraints = [RepositoryPackageConstraint]()
+        var constraints = [PackageContainerConstraint]()
         constraints += currentManifests.editedPackagesConstraints()
         constraints += graphRoot.constraints(mirrors: config.mirrors) + extraConstraints
 
@@ -1868,7 +1868,7 @@ extension Workspace {
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
-        extraConstraints: [RepositoryPackageConstraint] = []
+        extraConstraints: [PackageContainerConstraint] = []
     ) -> ResolutionPrecomputationResult {
         let constraints =
             root.constraints(mirrors: config.mirrors) +
@@ -2143,7 +2143,7 @@ extension Workspace {
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
         resolver: PubgrubDependencyResolver,
-        dependencies: [RepositoryPackageConstraint],
+        dependencies: [PackageContainerConstraint],
         pinsMap: PinsStore.PinsMap,
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {

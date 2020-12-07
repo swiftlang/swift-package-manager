@@ -123,8 +123,6 @@ private class MockRepositories: RepositoryProvider {
 }
 
 private class MockResolverDelegate: RepositoryManagerDelegate {
-    typealias Identifier = RepositoryPackageContainer.Identifier
-
     var fetched = [RepositorySpecifier]()
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
@@ -384,7 +382,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             "Bar3": .specific(["Bar1", "Bar3"]),
         ]
         let v5Constraints = dependencies.map {
-            RepositoryPackageConstraint(
+            PackageContainerConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: v5ProductMapping[$0.name]!
@@ -396,7 +394,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             "Bar3": .specific(["Bar3"]),
         ]
         let v5_2Constraints = dependencies.map {
-            RepositoryPackageConstraint(
+            PackageContainerConstraint(
                 container: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.name]!
