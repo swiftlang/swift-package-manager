@@ -95,7 +95,7 @@ public struct HTTPClient {
                 self.recordErrorIfNecessary(response: response, request: request)
                 // handle retry strategy
                 if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
-                    diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
+                    self.diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
                     // TODO: dedicated retry queue?
                     return DispatchQueue.global().asyncAfter(deadline: .now() + retryDelay) {
                         self._execute(request: request, requestNumber: requestNumber + 1, callback: callback)
