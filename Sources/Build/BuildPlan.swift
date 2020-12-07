@@ -1771,14 +1771,11 @@ public class BuildPlan {
         var cflagsCache: OrderedSet<String> = []
         var libsCache: [String] = []
         for tuple in ret {
-            // Avoid duplicates while merging
             for cFlag in tuple.cFlags {
                 cflagsCache.append(cFlag)
             }
 
-            for lib in tuple.libs {
-                libsCache.append(lib)
-            }
+            libsCache.append(contentsOf: tuple.libs)
         }
 
         pkgConfigCache[target] = ([String](cflagsCache), libsCache)

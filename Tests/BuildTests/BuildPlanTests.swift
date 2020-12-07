@@ -1534,7 +1534,7 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(buildParameters: mockBuildParameters(),
             graph: graph, diagnostics: diagnostics, fileSystem: fileSystem)
 
-       XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.message.data is PkgConfigHintDiagnostic) }))
+       XCTAssertTrue(diagnostics.diagnostics.contains(where: { ($0.message.data is PkgConfigGenericDiagnostic) }))
     }
 
     func testPkgConfigGenericDiagnostic() throws {

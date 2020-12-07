@@ -35,7 +35,7 @@ class PkgConfigTests: XCTestCase {
         // No pkgConfig name.
         do {
             let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), diagnostics: diagnostics)
-            XCTAssertNil(result)
+            XCTAssertTrue(result.isEmpty)
         }
 
         // No pc file.
@@ -48,9 +48,7 @@ class PkgConfigTests: XCTestCase {
                     .yum(["libFoo-devel"])
                 ]
             )
-            let results = pkgConfigArgs(for: target, diagnostics: diagnostics)
-            for wrappedResult in results {
-                let result = wrappedResult!
+            for result in pkgConfigArgs(for: target, diagnostics: diagnostics) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, [])
                 XCTAssertEqual(result.libs, [])
@@ -75,9 +73,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let results = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: diagnostics)
-            for wrappedResult in results {
-                let result = wrappedResult!
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: diagnostics) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -89,9 +85,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let results = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics)
-            for wrappedResult in results {
-                let result = wrappedResult!
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics) {
                 XCTAssertEqual(result.pkgConfigName, "Bar")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
