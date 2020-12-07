@@ -157,7 +157,7 @@ extension RepositoryProvider {
 /// an inconsistency can be detected.
 public protocol Repository {
     /// Get the list of tags in the repository.
-    var tags: [String] { get }
+    func tags() throws -> [String]
 
     /// Resolve the revision for a specific tag.
     ///
@@ -201,7 +201,7 @@ public protocol Repository {
 /// system.
 public protocol WorkingCheckout {
     /// Get the list of tags in the repository.
-    var tags: [String] { get }
+    func tags() throws -> [String]
 
     /// Get the current revision.
     func getCurrentRevision() throws -> Revision

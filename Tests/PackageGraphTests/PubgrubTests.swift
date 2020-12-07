@@ -1928,7 +1928,7 @@ public class MockContainer: PackageContainer {
 
     public var _versions: [BoundVersion]
 
-    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
         var versions: [Version] = []
         for version in self._versions {
             guard case .version(let v) = version else { continue }
@@ -1939,7 +1939,7 @@ public class MockContainer: PackageContainer {
         return AnySequence(versions)
     }
 
-    public var reversedVersions: [Version] {
+    public func reversedVersions() throws ->  [Version] {
         var versions: [Version] = []
         for version in self._versions {
             guard case .version(let v) = version else { continue }
@@ -1954,7 +1954,7 @@ public class MockContainer: PackageContainer {
             return self.toolsVersion == toolsVersion
         }
         
-        return self.versions{ _ in true }.contains(version)
+        return (try? self.versions(filter: { _ in true }).contains(version)) ?? false
     }
     
     public func toolsVersion(for version: Version) throws -> ToolsVersion {

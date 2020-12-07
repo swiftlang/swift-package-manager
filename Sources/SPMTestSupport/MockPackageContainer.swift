@@ -38,11 +38,11 @@ public class MockPackageContainer: PackageContainer {
     }
 
     public let _versions: [Version]
-    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
         return AnySequence(_versions.filter(isIncluded))
     }
 
-    public var reversedVersions: [Version] {
+    public func reversedVersions() throws -> [Version] {
         return _versions
     }
 

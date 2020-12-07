@@ -9,7 +9,7 @@
 */
 
 import Dispatch
-
+import Basics
 import TSCBasic
 import PackageLoading
 import PackageModel
@@ -61,8 +61,9 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     public private(set) var validToolsVersionsCache: [Version: Bool] = [:]
 
     /// The available version list (in reverse order).
-    public override func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
-        return AnySequence(_reversedVersions.filter(isIncluded).lazy.filter({
+    public override func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
+        let reversedVersions = try self.reversedVersions()
+        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
             // If we have the result cached, return that.
             if let result = self.validToolsVersionsCache[$0] {
                 return result
@@ -75,21 +76,16 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         }))
     }
 
-    public override var reversedVersions: [Version] { _reversedVersions }
-
     /// The opened repository.
     let repository: Repository
 
-    /// The versions in the repository and their corresponding tags.
-    let knownVersions: [Version: String]
-
-    /// The versions in the repository sorted by latest first.
-    let _reversedVersions: [Version]
-
     /// The cached dependency information.
-    private var dependenciesCache: [String: [ProductFilter: (Manifest, [RepositoryPackageConstraint])]] = [:]
+    private var dependenciesCache = [String: [ProductFilter: (Manifest, [RepositoryPackageConstraint])]] ()
     private var dependenciesCacheLock = Lock()
-
+    
+    private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
+    private var reversedVersionsCache = ThreadSafeBox<[Version]>()
+    
     init(
         identifier: PackageReference,
         mirrors: DependencyMirrors,
@@ -100,22 +96,6 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     ) {
         self.repository = repository
 
-        // Compute the map of known versions.
-        //
-        // FIXME: Move this utility to a more stable location.
-        let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(repository.tags)
-
-        let knownVersions = knownVersionsWithDuplicates.mapValues({ tags -> String in
-            if tags.count == 2 {
-                // FIXME: Warn if the two tags point to different git references.
-                return tags.first(where: { !$0.hasPrefix("v") })!
-            }
-            assert(tags.count == 1, "Unexpected number of tags")
-            return tags[0]
-        })
-
-        self.knownVersions = knownVersions
-        self._reversedVersions = [Version](knownVersions.keys).sorted().reversed()
         super.init(
             identifier,
             mirrors: mirrors,
@@ -123,6 +103,28 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
             toolsVersionLoader: toolsVersionLoader,
             currentToolsVersion: currentToolsVersion
         )
+    }
+    
+    // Compute the map of known versions.
+    private func knownVersions() throws -> [Version: String] {
+        try self.knownVersionsCache.memoize() {
+            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(try repository.tags())
+
+            return knownVersionsWithDuplicates.mapValues({ tags -> String in
+                if tags.count == 2 {
+                    // FIXME: Warn if the two tags point to different git references.
+                    return tags.first(where: { !$0.hasPrefix("v") })!
+                }
+                assert(tags.count == 1, "Unexpected number of tags")
+                return tags[0]
+            })
+        }
+    }
+    
+    public override func reversedVersions() throws -> [Version] {
+        try self.reversedVersionsCache.memoize() {
+            [Version](try self.knownVersions().keys).sorted().reversed()
+        }
     }
 
     public var description: String {
@@ -134,7 +136,7 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     }
 
     public func getTag(for version: Version) -> String? {
-        return knownVersions[version]
+        return try? self.knownVersions()[version]
     }
 
     /// Returns revision for the given tag.
@@ -149,7 +151,9 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
 
     /// Returns the tools version of the given version of the package.
     public override func toolsVersion(for version: Version) throws -> ToolsVersion {
-        let tag = knownVersions[version]!
+        guard let tag = try self.knownVersions()[version] else {
+            throw StringError("unknown tag \(version)")
+        }
         let revision = try repository.resolveRevision(tag: tag)
         let fs = try repository.openFileView(revision: revision)
         return try toolsVersionLoader.load(at: .root, fileSystem: fs)
@@ -158,7 +162,9 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
     public override func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [RepositoryPackageConstraint] {
         do {
             return try cachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
-                let tag = knownVersions[version]!
+                guard let tag = try self.knownVersions()[version] else {
+                    throw StringError("unknown tag \(version)")
+                }
                 let revision = try repository.resolveRevision(tag: tag)
                 return try getDependencies(at: revision, version: version, productFilter: productFilter)
             }.1
@@ -236,7 +242,9 @@ public class RepositoryPackageContainer: BasePackageContainer, CustomStringConve
         var version: Version?
         switch boundVersion {
         case .version(let v):
-            let tag = knownVersions[v]!
+            guard let tag = try self.knownVersions()[v] else {
+                throw StringError("unknown tag \(v)")
+            }
             version = v
             revision = try repository.resolveRevision(tag: tag)
         case .revision(let identifier):
