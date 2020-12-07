@@ -57,7 +57,7 @@ public final class InMemoryGitRepository {
     fileprivate var tagsMap: [String: RevisionIdentifier] = [:]
 
     /// The array of current tags in the repository.
-    public var tags: [String] {
+    public func tags() throws -> [String] {
         return Array(tagsMap.keys)
     }
 

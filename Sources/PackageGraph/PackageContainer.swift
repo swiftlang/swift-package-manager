@@ -48,11 +48,11 @@ public protocol PackageContainer {
     /// The list will be returned in sorted order, with the latest version *first*.
     /// All versions will not be requested at once. Resolver will request the next one only
     /// if the previous one did not satisfy all constraints.
-    func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version>
+    func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version>
 
     /// Get the list of versions in the repository sorted in the reverse order, that is the latest
     /// version appears first.
-    var reversedVersions: [Version] { get }
+    func reversedVersions() throws -> [Version]
 
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
@@ -155,11 +155,11 @@ public class BasePackageContainer: PackageContainer {
     /// The current tools version in use.
     let currentToolsVersion: ToolsVersion
 
-    public func versions(filter isIncluded: (Version) -> Bool) -> AnySequence<Version> {
+    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
         fatalError("This should never be called")
     }
 
-    public var reversedVersions: [Version] {
+    public func reversedVersions() throws -> [Version] {
         fatalError("This should never be called")
     }
 

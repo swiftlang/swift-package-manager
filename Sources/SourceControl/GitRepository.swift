@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import Dispatch
 import TSCUtility
 
-
 /// A `git` repository provider.
-public class GitRepositoryProvider: RepositoryProvider {
+public struct GitRepositoryProvider: RepositoryProvider {
 
     /// Reference to process set, if installed.
     private let processSet: ProcessSet?
@@ -140,7 +140,7 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
 
 
 
-enum GitInterfaceError: Swift.Error {
+private enum GitInterfaceError: Swift.Error {
     /// This indicates a problem communicating with the `git` tool.
     case malformedResponse(String)
 
@@ -158,7 +158,7 @@ enum GitInterfaceError: Swift.Error {
 // class.
 //
 /// A basic Git repository in the local file system (almost always a clone of a remote).  This class is thread safe.
-public class GitRepository: Repository, WorkingCheckout {
+public final class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
     public struct Hash: Hashable {
         // FIXME: We should optimize this representation.
@@ -250,12 +250,18 @@ public class GitRepository: Repository, WorkingCheckout {
     /// The path of the repository in the local file system.
     public let path: AbsolutePath
 
-    /// The (serial) queue to execute git cli on.
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.gitqueue")
+    /// Concurrent queue to execute git cli on.
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.git", attributes: .concurrent)
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     let isWorkingRepo: Bool
-
+    
+    /// Dictionary for memoizing results of git calls that are not expected to change.
+    private var cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
+    private var cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
+    private var cachedTrees = ThreadSafeKeyValueStore<Hash, Tree>()
+    private var cachedTags = ThreadSafeBox<[String]>()
+    
     public init(path: AbsolutePath, isWorkingRepo: Bool = true) {
         self.path = path
         self.isWorkingRepo = isWorkingRepo
@@ -295,7 +301,8 @@ public class GitRepository: Repository, WorkingCheckout {
     ///   - remote: The name of the remote to operate on. It should already be present.
     ///   - url: The new url of the remote.
     public func setURL(remote: String, url: String) throws {
-        try queue.sync {
+        // use barrier for write operations
+        try queue.sync(flags: .barrier) {
             try callGit("remote", "set-url", remote, url,
                 failureMessage: "Couldn’t set the URL of the remote ‘\(remote)’ to ‘\(url)’")
             return
@@ -323,26 +330,15 @@ public class GitRepository: Repository, WorkingCheckout {
     // MARK: Repository Interface
 
     /// Returns the tags present in repository.
-    public var tags: [String] {
-        return queue.sync {
-            // Check if we already have the tags cached.
-            if let tags = tagsCache {
-                return tags
+    public func tags() throws -> [String] {
+        // Get the contents using `ls-tree`.
+        return try queue.sync {
+            try self.cachedTags.memoize() {
+                let tagList = try callGit("tag", "-l",
+                    failureMessage: "Couldn’t get the list of tags").spm_chomp()
+                return tagList.split(separator: "\n").map(String.init)
             }
-            tagsCache = getTags()
-            return tagsCache!
         }
-    }
-
-    /// Cache for the tags.
-    private var tagsCache: [String]?
-
-    /// Returns the tags present in repository.
-    private func getTags() -> [String] {
-        // FIXME: Error handling.
-        let tagList = try! callGit("tag", "-l",
-            failureMessage: "Couldn’t get the list of tags").spm_chomp()
-        return tagList.split(separator: "\n").map(String.init)
     }
 
     public func resolveRevision(tag: String) throws -> Revision {
@@ -354,10 +350,11 @@ public class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch() throws {
-        try queue.sync {
+        // use barrier for write operations
+        try queue.sync(flags: .barrier) {
             try callGit("remote", "update", "-p",
                 failureMessage: "Couldn’t fetch updates from remote repositories")
-            self.tagsCache = nil
+            self.cachedTags.clear()
         }
     }
 
@@ -396,25 +393,27 @@ public class GitRepository: Repository, WorkingCheckout {
     public func checkout(tag: String) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try queue.sync {
+        // use barrier for write operations
+        try queue.sync(flags: .barrier) {
             try callGit("reset", "--hard", tag,
                 failureMessage: "Couldn’t check out tag ‘\(tag)’")
-            try self.updateSubmoduleAndClean()
+            try self.updateSubmoduleAndCleanNotOnQueue()
         }
     }
 
     public func checkout(revision: Revision) throws {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
-        try queue.sync {
+        // use barrier for write operations
+        try queue.sync(flags: .barrier) {
             try callGit("checkout", "-f", revision.identifier,
                 failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’")
-            try self.updateSubmoduleAndClean()
+            try self.updateSubmoduleAndCleanNotOnQueue()
         }
     }
 
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
-    private func updateSubmoduleAndClean() throws {
+    private func updateSubmoduleAndCleanNotOnQueue() throws {
         try callGit("submodule", "update", "--init", "--recursive",
             failureMessage: "Couldn’t update repository submodules")
         try callGit("clean", "-ffdx",
@@ -430,7 +429,8 @@ public class GitRepository: Repository, WorkingCheckout {
 
     public func checkout(newBranch: String) throws {
         precondition(isWorkingRepo, "This operation is only valid in a working repository")
-        try queue.sync {
+        // use barrier for write operations
+        try queue.sync(flags: .barrier) {
             try callGit("checkout", "-b", newBranch,
                 failureMessage: "Couldn’t check out new branch ‘\(newBranch)’")
             return
@@ -494,16 +494,15 @@ public class GitRepository: Repository, WorkingCheckout {
         } else {
             specifier = treeish
         }
-        let response = try queue.sync {
-            try cachedHashes.memo(key: specifier) {
-                try callGit("rev-parse", "--verify", specifier,
+        return try queue.sync {
+            try self.cachedHashes.memoize(specifier) {
+                let output = try callGit("rev-parse", "--verify", specifier,
                     failureMessage: "Couldn’t get revision ‘\(specifier)’").spm_chomp()
+                guard let hash = Hash(output) else {
+                    throw GitInterfaceError.malformedResponse("expected an object hash in \(output)")
+                }
+                return hash
             }
-        }
-        if let hash = Hash(response) {
-            return hash
-        } else {
-            throw GitInterfaceError.malformedResponse("expected an object hash in \(response)")
         }
     }
 
@@ -517,63 +516,62 @@ public class GitRepository: Repository, WorkingCheckout {
 
     /// Read a tree object.
     public func read(tree hash: Hash) throws -> Tree {
-        // Get the contents using `ls-tree`.
-        let treeInfo: String = try queue.sync {
-            try cachedTrees.memo(key: hash) {
-                try Process.checkNonZeroExit(
+        return try queue.sync {
+            try self.cachedTrees.memoize(hash) {
+                // Get the contents using `ls-tree`.
+                let output = try Process.checkNonZeroExit(
                     args: Git.tool, "-C", self.path.pathString, "ls-tree", hash.bytes.description)
+                // construct tree
+                var contents: [Tree.Entry] = []
+                for line in output.components(separatedBy: "\n") {
+                    // Ignore empty lines.
+                    if line == "" { continue }
+
+                    // Each line in the response should match:
+                    //
+                    //   `mode type hash\tname`
+                    //
+                    // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
+                    // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
+                    // the line is the file name.
+                    let bytes = ByteString(encodingAsUTF8: line)
+                    let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
+                    guard bytes.count > expectedBytesCount,
+                          bytes.contents[6] == UInt8(ascii: " "),
+                          // Search for the second space since `type` is of variable length.
+                          let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
+                          bytes.contents[secondSpace] == UInt8(ascii: " "),
+                          bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
+                        throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(output)'")
+                    }
+
+                    // Compute the mode.
+                    let mode = bytes.contents[0..<6].reduce(0) { (acc: Int, char: UInt8) in
+                        (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
+                    }
+                    guard let type = Tree.Entry.EntryType(mode: mode),
+                          let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1)..<(secondSpace + 1 + 40)]),
+                          let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1)..<bytes.count]).validDescription else
+                    {
+                        throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(output)'")
+                    }
+
+                    // FIXME: We do not handle de-quoting of names, currently.
+                    if name.hasPrefix("\"") {
+                        throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(output)'")
+                    }
+
+                    contents.append(Tree.Entry(hash: hash, type: type, name: name))
+                }
+                return Tree(hash: hash, contents: contents)
             }
         }
-
-        var contents: [Tree.Entry] = []
-        for line in treeInfo.components(separatedBy: "\n") {
-            // Ignore empty lines.
-            if line == "" { continue }
-
-            // Each line in the response should match:
-            //
-            //   `mode type hash\tname`
-            //
-            // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
-            // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
-            // the line is the file name.
-            let bytes = ByteString(encodingAsUTF8: line)
-            let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
-            guard bytes.count > expectedBytesCount,
-                  bytes.contents[6] == UInt8(ascii: " "),
-                  // Search for the second space since `type` is of variable length.
-                  let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
-                  bytes.contents[secondSpace] == UInt8(ascii: " "),
-                  bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
-            }
-
-            // Compute the mode.
-            let mode = bytes.contents[0..<6].reduce(0) { (acc: Int, char: UInt8) in
-                (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
-            }
-            guard let type = Tree.Entry.EntryType(mode: mode),
-                  let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1)..<(secondSpace + 1 + 40)]),
-                  let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1)..<bytes.count]).validDescription else
-            {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
-            }
-
-            // FIXME: We do not handle de-quoting of names, currently.
-            if name.hasPrefix("\"") {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(treeInfo)'")
-            }
-
-            contents.append(Tree.Entry(hash: hash, type: type, name: name))
-        }
-
-        return Tree(hash: hash, contents: contents)
     }
 
     /// Read a blob object.
     func read(blob hash: Hash) throws -> ByteString {
         return try queue.sync {
-            try cachedBlobs.memo(key: hash) {
+            try self.cachedBlobs.memoize(hash) {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.
@@ -582,27 +580,6 @@ public class GitRepository: Repository, WorkingCheckout {
                 return ByteString(encodingAsUTF8: output)
             }
         }
-    }
-
-    /// Dictionary for memoizing results of git calls that are not expected to change.
-    private var cachedHashes: [String: String] = [:]
-    private var cachedBlobs: [Hash: ByteString] = [:]
-    private var cachedTrees: [Hash: String] = [:]
-}
-
-private extension Dictionary {
-    // Maybe lift to TSCBasic or TSCUtility.
-    /// Memoize the value returned by the given closure.
-    mutating func memo(
-        key: Key,
-        _ closure: () throws -> Value
-    ) rethrows -> Value {
-        if let value = self[key] {
-            return value
-        }
-        let value = try closure()
-        self[key] = value
-        return value
     }
 }
 
