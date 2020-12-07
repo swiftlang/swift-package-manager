@@ -89,9 +89,8 @@ extension JSONEncoder {
             } else {
                 encoder.outputFormatting = [.prettyPrinted]
             }
-            // `.withoutEscapingSlashes` is not in 5.3 on non-Darwin platforms
-//            #elseif compiler(>=5.3)
-//            encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
+            #elseif compiler(>=5.3)
+            encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
             #else
             encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
             #endif
