@@ -1907,6 +1907,7 @@ private func AssertError(
     }
 }
 
+// FIXME: this is not thread-safe
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)
 
@@ -1916,9 +1917,6 @@ public class MockContainer: PackageContainer {
     var dependencies: [String: [String: [Dependency]]]
 
     public var unversionedDeps: [PackageContainerConstraint] = []
-
-    /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
-    public var requestedVersions: Set<Version> = []
 
     public var identifier: PackageReference {
         return name
@@ -1969,7 +1967,6 @@ public class MockContainer: PackageContainer {
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        requestedVersions.insert(version)
         return try getDependencies(at: version.description, productFilter: productFilter)
     }
 
@@ -2064,9 +2061,10 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
+        on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>
     ) -> Void) {
-        DispatchQueue.global().async {
+        queue.async {
             completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
                 .failure(_MockLoadingError.unknownModule))
         }

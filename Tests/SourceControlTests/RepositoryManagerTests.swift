@@ -15,12 +15,6 @@ import TSCBasic
 
 import SPMTestSupport
 
-extension RepositoryManager {
-    fileprivate func lookupSynchronously(repository: RepositorySpecifier) throws -> RepositoryHandle {
-        return try tsc_await { self.lookup(repository: repository, completion: $0) }
-    }
-}
-
 private enum DummyError: Swift.Error {
     case invalidRepository
 }
@@ -180,7 +174,7 @@ class RepositoryManagerTests: XCTestCase {
             let lookupExpectation = expectation(description: "Repository lookup expectation")
 
             var prevHandle: RepositoryManager.RepositoryHandle?
-            manager.lookup(repository: dummyRepo) { result in
+            manager.lookup(repository: dummyRepo, on: .global()) { result in
                 guard case .success(let handle) = result else {
                     XCTFail("Could not get handle")
                     return
@@ -205,7 +199,7 @@ class RepositoryManagerTests: XCTestCase {
             let badLookupExpectation = expectation(description: "Repository lookup expectation")
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
-            manager.lookup(repository: badDummyRepo) { result in
+            manager.lookup(repository: badDummyRepo, on: .global()) { result in
                 guard case .failure(let error) = result else {
                     XCTFail("Unexpected success")
                     return
@@ -222,7 +216,7 @@ class RepositoryManagerTests: XCTestCase {
 
             // We should always get back the same handle once fetched.
             XCTNonNil(prevHandle) {
-                try XCTAssert($0 === manager.lookupSynchronously(repository: dummyRepo))
+                try XCTAssert($0 === manager.lookup(repository: dummyRepo))
             }
             // Since we looked up this repo again, we should have made a fetch call.
             XCTAssertEqual(provider.numFetches, 1)
@@ -241,7 +235,7 @@ class RepositoryManagerTests: XCTestCase {
 
             // We should get a new handle now because we deleted the exisiting repository.
             XCTNonNil(prevHandle) {
-                try XCTAssert($0 !== manager.lookupSynchronously(repository: dummyRepo))
+                try XCTAssert($0 !== manager.lookup(repository: dummyRepo))
             }
             
             // We should have tried fetching these two.
@@ -263,7 +257,7 @@ class RepositoryManagerTests: XCTestCase {
             manager.cacheLocalPackages = true
 
             // fetch packages and populate cache
-            _ = try manager.lookupSynchronously(repository: repo)
+            _ = try manager.lookup(repository: repo)
             XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
             XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
             XCTAssertEqual(delegate.willFetch[0].fetchDetails,
@@ -274,7 +268,7 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.removeFileTree(repositoriesPath)
 
             // fetch packages from the cache
-            _ = try manager.lookupSynchronously(repository: repo)
+            _ = try manager.lookup(repository: repo)
             XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
             XCTAssertEqual(delegate.willFetch[1].fetchDetails,
                            RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
@@ -285,7 +279,7 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.removeFileTree(cachePath)
 
             // fetch packages and populate cache
-            _ = try manager.lookupSynchronously(repository: repo)
+            _ = try manager.lookup(repository: repo)
             XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
             XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
             XCTAssertEqual(delegate.willFetch[2].fetchDetails,
@@ -303,14 +297,14 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.createDirectory(repos, recursive: true)
             let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
-            _ = try manager.lookupSynchronously(repository: dummyRepo)
-            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             manager.reset()
             XCTAssertTrue(!localFileSystem.isDirectory(repos))
             try localFileSystem.createDirectory(repos, recursive: true)
-            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 2)
             XCTAssertEqual(delegate.didFetch.count, 2)
         }
@@ -327,7 +321,7 @@ class RepositoryManagerTests: XCTestCase {
                 let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
 
-                _ = try manager.lookupSynchronously(repository: dummyRepo)
+                _ = try manager.lookup(repository: dummyRepo)
 
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
@@ -341,7 +335,7 @@ class RepositoryManagerTests: XCTestCase {
                 let delegate = DummyRepositoryManagerDelegate()
                 let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
-                _ = try manager.lookupSynchronously(repository: dummyRepo)
+                _ = try manager.lookup(repository: dummyRepo)
                 // This time fetch shouldn't be called.
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [])
             }
@@ -357,7 +351,7 @@ class RepositoryManagerTests: XCTestCase {
                 manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
 
-                _ = try manager.lookupSynchronously(repository: dummyRepo)
+                _ = try manager.lookup(repository: dummyRepo)
 
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
                 XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
@@ -381,8 +375,8 @@ class RepositoryManagerTests: XCTestCase {
             let numLookups = 1000
 
             for i in 0..<numLookups {
-                manager.lookup(repository: dummyRepo) { _ in
-                 doneCondition.whileLocked {
+                manager.lookup(repository: dummyRepo, on: .global()) { _ in
+                    doneCondition.whileLocked {
                         set.insert(i)
                         if set.count == numLookups {
                             // If set has all the lookups, we're done.
@@ -411,20 +405,20 @@ class RepositoryManagerTests: XCTestCase {
             let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
 
-            _ = try tsc_await { manager.lookup(repository: dummyRepo, completion: $0) }
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 0)
             XCTAssertEqual(delegate.didUpdate.count, 0)
 
-            _ = try tsc_await { manager.lookup(repository: dummyRepo, completion: $0) }
-            _ = try tsc_await { manager.lookup(repository: dummyRepo, completion: $0) }
+            _ = try manager.lookup(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
             XCTAssertEqual(delegate.didUpdate.count, 2)
 
-            _ = try tsc_await { manager.lookup(repository: dummyRepo, skipUpdate: true, completion: $0) }
+            _ = try manager.lookup(repository: dummyRepo, skipUpdate: true)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 2)
@@ -443,7 +437,7 @@ class RepositoryManagerTests: XCTestCase {
             let dummyRepo = RepositorySpecifier(url: "dummy")
 
             // Perform a lookup.
-            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 1)
 
             // Delete the checkout state file.
@@ -451,14 +445,20 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.removeFileTree(stateFile)
 
             // We should refetch the repository since we lost the state file.
-            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 2)
 
             // This time remove the entire repository directory and expect that
             // to work as well.
             try localFileSystem.removeFileTree(repos)
-            _ = try manager.lookupSynchronously(repository: dummyRepo)
+            _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 3)
         }
+    }
+}
+
+extension RepositoryManager {
+    fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false) throws -> RepositoryHandle {
+        return try tsc_await { self.lookup(repository: repository, skipUpdate: skipUpdate, on: .global(), completion: $0) }
     }
 }

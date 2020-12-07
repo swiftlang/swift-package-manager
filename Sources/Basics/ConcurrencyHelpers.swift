@@ -9,7 +9,7 @@
 import TSCBasic
 
 /// Thread-safe dictionary like structure
-public struct ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
+public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
     private let lock = Lock()
 
@@ -30,11 +30,13 @@ public struct ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     }
 
     @discardableResult
-    public mutating func memoize(_ key: Key, body: () throws -> Value) rethrows -> Value {
-        try self.underlying.memoize(key: key, lock: self.lock, body: body)
+    public func memoize(_ key: Key, body: () throws -> Value) rethrows -> Value {
+        try self.lock.withLock {
+            try self.underlying.memoize(key: key, body: body)
+        }
     }
 
-    public mutating func clear() {
+    public func clear() {
         self.lock.withLock {
             self.underlying.removeAll()
         }
@@ -42,14 +44,14 @@ public struct ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
 }
 
 /// Thread-safe value boxing  structure
-public struct ThreadSafeBox<Value> {
+public final class ThreadSafeBox<Value> {
     private var underlying: Value?
     private let lock = Lock()
 
     public init() {}
 
     @discardableResult
-    public mutating func memoize(body: () throws -> Value) rethrows -> Value {
+    public func memoize(body: () throws -> Value) rethrows -> Value {
         if let value = self.get() {
             return value
         }
@@ -60,7 +62,7 @@ public struct ThreadSafeBox<Value> {
         return value
     }
 
-    public mutating func clear() {
+    public func clear() {
         self.lock.withLock {
             self.underlying = nil
         }
@@ -71,4 +73,9 @@ public struct ThreadSafeBox<Value> {
             self.underlying
         }
     }
+}
+
+@available(*, deprecated, message: "use non-blocking version instead")
+public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
+    return try tsc_await(body)
 }

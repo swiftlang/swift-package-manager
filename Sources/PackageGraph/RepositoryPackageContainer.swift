@@ -317,9 +317,6 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     /// The tools version loader.
     let toolsVersionLoader: ToolsVersionLoaderProtocol
 
-    /// Queue for callbacks.
-    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.container-provider")
-
     /// Create a repository-based package provider.
     ///
     /// - Parameters:
@@ -344,11 +341,12 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
+        on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
         // If the container is local, just create and return a local package container.
         if identifier.kind != .remote {
-            callbacksQueue.async {
+            queue.async {
                 let container = LocalPackageContainer(identifier,
                     mirrors: self.mirrors,
                     manifestLoader: self.manifestLoader,
@@ -361,7 +359,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         }
 
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
+        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate, on: queue) { result in
             // Create the container wrapper.
             let container = result.tryMap { handle -> PackageContainer in
                 // Open the repository.

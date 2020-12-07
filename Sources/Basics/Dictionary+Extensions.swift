@@ -11,14 +11,12 @@ import TSCBasic
 extension Dictionary {
     @inlinable
     @discardableResult
-    public mutating func memoize(key: Key, lock: Lock, body: () throws -> Value) rethrows -> Value {
-        if let value = (lock.withLock { self[key] }) {
+    public mutating func memoize(key: Key, body: () throws -> Value) rethrows -> Value {
+        if let value = self[key] {
             return value
         }
         let value = try body()
-        lock.withLock {
-            self[key] = value
-        }
+        self[key] = value
         return value
     }
 }

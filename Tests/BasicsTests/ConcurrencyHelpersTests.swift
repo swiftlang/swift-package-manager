@@ -23,7 +23,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             var expected = [Int: Int]()
             let lock = Lock()
 
-            var cache = ThreadSafeKeyValueStore<Int, Int>()
+            let cache = ThreadSafeKeyValueStore<Int, Int>()
             for index in 0 ..< 1000 {
                 self.queue.async(group: sync) {
                     usleep(UInt32.random(in: 100 ... 300))
@@ -60,7 +60,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
 
             let serial = DispatchQueue(label: "testThreadSafeBoxSerial")
 
-            var cache = ThreadSafeBox<Int>()
+            let cache = ThreadSafeBox<Int>()
             for index in 0 ..< 1000 {
                 self.queue.async(group: sync) {
                     usleep(UInt32.random(in: 100 ... 300))
