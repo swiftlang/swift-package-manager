@@ -96,7 +96,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         var headers = self.makeRequestHeaders(url)
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
                         let options = self.makeRequestOptions(validResponseCodes: [200])
-                        httpClient.get(url, headers: headers, options: options) { result in
+                        self.httpClient.get(url, headers: headers, options: options) { result in
                             defer { sync.leave() }
                             resultsLock.withLock {
                                 results[url] = result
