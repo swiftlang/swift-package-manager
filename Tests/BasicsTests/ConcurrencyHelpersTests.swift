@@ -16,14 +16,14 @@ import XCTest
 final class ConcurrencyHelpersTest: XCTestCase {
     let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
 
-    func testThreadSafeDictionary() {
+    func testThreadSafeKeyValueStore() {
         for _ in 0 ..< 100 {
             let sync = DispatchGroup()
 
             var expected = [Int: Int]()
             let lock = Lock()
 
-            var cache = ThreadSafeDictionary<Int, Int>()
+            var cache = ThreadSafeKeyValueStore<Int, Int>()
             for index in 0 ..< 1000 {
                 self.queue.async(group: sync) {
                     usleep(UInt32.random(in: 100 ... 300))
@@ -31,10 +31,10 @@ final class ConcurrencyHelpersTest: XCTestCase {
                     lock.withLock {
                         expected[index] = value
                     }
-                    cache.memoize(key: index) {
+                    cache.memoize(index) {
                         value
                     }
-                    cache.memoize(key: index) {
+                    cache.memoize(index) {
                         Int.random(in: Int.min ..< Int.max)
                     }
                 }
@@ -64,7 +64,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             for index in 0 ..< 1000 {
                 self.queue.async(group: sync) {
                     usleep(UInt32.random(in: 100 ... 300))
-                    serial.sync {
+                    serial.async {
                         lock.withLock {
                             if winner == nil {
                                 winner = index

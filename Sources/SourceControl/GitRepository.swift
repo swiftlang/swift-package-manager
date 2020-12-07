@@ -250,16 +250,16 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// The path of the repository in the local file system.
     public let path: AbsolutePath
 
-    /// A  concurrent queue to execute git cli on.
+    /// Concurrent queue to execute git cli on.
     private let queue = DispatchQueue(label: "org.swift.swiftpm.git", attributes: .concurrent)
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     let isWorkingRepo: Bool
     
     /// Dictionary for memoizing results of git calls that are not expected to change.
-    private var cachedHashes = ThreadSafeDictionary<String, Hash>()
-    private var cachedBlobs = ThreadSafeDictionary<Hash, ByteString>()
-    private var cachedTrees = ThreadSafeDictionary<Hash, Tree>()
+    private var cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
+    private var cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
+    private var cachedTrees = ThreadSafeKeyValueStore<Hash, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
     
     public init(path: AbsolutePath, isWorkingRepo: Bool = true) {
@@ -495,7 +495,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             specifier = treeish
         }
         return try queue.sync {
-            try self.cachedHashes.memoize(key: specifier) {
+            try self.cachedHashes.memoize(specifier) {
                 let output = try callGit("rev-parse", "--verify", specifier,
                     failureMessage: "Couldn’t get revision ‘\(specifier)’").spm_chomp()
                 guard let hash = Hash(output) else {
@@ -517,7 +517,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Read a tree object.
     public func read(tree hash: Hash) throws -> Tree {
         return try queue.sync {
-            try self.cachedTrees.memoize(key: hash) {
+            try self.cachedTrees.memoize(hash) {
                 // Get the contents using `ls-tree`.
                 let output = try Process.checkNonZeroExit(
                     args: Git.tool, "-C", self.path.pathString, "ls-tree", hash.bytes.description)
@@ -571,7 +571,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Read a blob object.
     func read(blob hash: Hash) throws -> ByteString {
         return try queue.sync {
-            try self.cachedBlobs.memoize(key: hash) {
+            try self.cachedBlobs.memoize(hash) {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.

@@ -8,7 +8,8 @@
 
 import TSCBasic
 
-public struct ThreadSafeDictionary<Key, Value> where Key: Hashable {
+/// Thread-safe dictionary like structure
+public struct ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
     private let lock = Lock()
 
@@ -17,13 +18,19 @@ public struct ThreadSafeDictionary<Key, Value> where Key: Hashable {
     }
 
     public subscript(key: Key) -> Value? {
-        self.lock.withLock {
-            self.underlying[key]
+        get {
+            self.lock.withLock {
+                self.underlying[key]
+            }
+        } set {
+            self.lock.withLock {
+                self.underlying[key] = newValue
+            }
         }
     }
 
     @discardableResult
-    public mutating func memoize(key: Key, _ body: () throws -> Value) rethrows -> Value {
+    public mutating func memoize(_ key: Key, _ body: () throws -> Value) rethrows -> Value {
         try self.underlying.memoize(key: key, lock: self.lock, body: body)
     }
 
@@ -34,6 +41,7 @@ public struct ThreadSafeDictionary<Key, Value> where Key: Hashable {
     }
 }
 
+/// Thread-safe value boxing  structure
 public struct ThreadSafeBox<Value> {
     private var underlying: Value?
     private let lock = Lock()
