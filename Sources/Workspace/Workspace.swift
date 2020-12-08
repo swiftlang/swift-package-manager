@@ -570,10 +570,6 @@ extension Workspace {
         // Create constraints based on root manifest and pins for the update resolution.
         updateConstraints += graphRoot.constraints(mirrors: config.mirrors)
 
-        // Resolve the dependencies.
-        let resolver = createResolver()
-        activeResolver = resolver
-
         let pinsMap: PinsStore.PinsMap
         if packages.isEmpty {
             // No input packages so we have to do a full update. Set pins map to empty.
@@ -583,11 +579,14 @@ extension Workspace {
             // the pins for the input packages so only those packages are updated.
             pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
         }
+        
+        // Resolve the dependencies.
+        let resolver = self.createResolver(pinsMap: pinsMap)
+        activeResolver = resolver
 
         let updateResults = resolveDependencies(
             resolver: resolver,
-            dependencies: updateConstraints,
-            pinsMap: pinsMap,
+            constraints: updateConstraints,
             diagnostics: diagnostics
         )
 
@@ -1760,13 +1759,12 @@ extension Workspace {
         constraints += graphRoot.constraints(mirrors: config.mirrors) + extraConstraints
 
         // Perform dependency resolution.
-        let resolver = createResolver()
+        let resolver = createResolver(pinsMap: pinsStore.pinsMap)
         activeResolver = resolver
 
         let result = resolveDependencies(
             resolver: resolver,
-            dependencies: constraints,
-            pinsMap: pinsStore.pinsMap,
+            constraints: constraints,
             diagnostics: diagnostics)
         activeResolver = nil
 
@@ -1883,8 +1881,8 @@ extension Workspace {
             mirrors: config.mirrors
         )
 
-        let resolver = PubgrubDependencyResolver(precomputationProvider)
-        let result = resolver.solve(dependencies: constraints, pinsMap: pinsStore.pinsMap)
+        let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
+        let result = resolver.solve(constraints: constraints)
 
         switch result {
         case .success:
@@ -2130,11 +2128,12 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver() -> PubgrubDependencyResolver {
+    fileprivate func createResolver(pinsMap: PinsStore.PinsMap) -> PubgrubDependencyResolver {
         let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
 
         return PubgrubDependencyResolver(
-            containerProvider,
+            provider: containerProvider,
+            pinsMap: pinsMap,
             isPrefetchingEnabled: isResolverPrefetchingEnabled,
             skipUpdate: skipUpdate, traceFile: traceFile
         )
@@ -2143,13 +2142,12 @@ extension Workspace {
     /// Runs the dependency resolver based on constraints provided and returns the results.
     fileprivate func resolveDependencies(
         resolver: PubgrubDependencyResolver,
-        dependencies: [PackageContainerConstraint],
-        pinsMap: PinsStore.PinsMap,
+        constraints: [PackageContainerConstraint],
         diagnostics: DiagnosticsEngine
     ) -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {
 
         os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
-        let result = resolver.solve(dependencies: dependencies, pinsMap: pinsMap)
+        let result = resolver.solve(constraints: constraints)
         os_signpost(.end, log: .swiftpm, name: SignpostName.resolution)
 
         // Take an action based on the result.
