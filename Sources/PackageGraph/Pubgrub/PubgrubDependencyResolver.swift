@@ -15,38 +15,92 @@ import Dispatch
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.
-public final class PubgrubDependencyResolver {
-
+public struct PubgrubDependencyResolver {
     /// The type of the constraints the resolver operates on.
     public typealias Constraint = PackageContainerConstraint
 
-    /// The current best guess for a solution satisfying all requirements.
-    public var solution = PartialSolution()
+    /// the mutable state that get computed
+    internal final class State {
+        /// The root package reference.
+        let root: DependencyResolutionNode
 
-    /// A collection of all known incompatibilities matched to the packages they
-    /// refer to. This means an incompatibility can occur several times.
-    public var incompatibilities: [DependencyResolutionNode: [Incompatibility]] = [:]
+        /// The list of packages that are overridden in the graph. A local package reference will
+        /// always override any other kind of package reference and branch-based reference will override
+        /// version-based reference.
+        let overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)]
 
-    /// Find all incompatibilities containing a positive term for a given package.
-    public func positiveIncompatibilities(for node: DependencyResolutionNode) -> [Incompatibility]? {
-        guard let all = incompatibilities[node] else {
-            return nil
+        /// A collection of all known incompatibilities matched to the packages they
+        /// refer to. This means an incompatibility can occur several times.
+        public private(set) var incompatibilities: [DependencyResolutionNode: [Incompatibility]] = [:]
+
+        /// The current best guess for a solution satisfying all requirements.
+        public private(set) var solution: PartialSolution
+        
+        private let lock = Lock()
+
+        init(root: DependencyResolutionNode,
+             overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
+             solution: PartialSolution = PartialSolution()) {
+            self.root = root
+            self.overriddenPackages = overriddenPackages
+            self.solution = solution
         }
-        return all.filter {
-            $0.terms.first { $0.node == node }!.isPositive
+
+        func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
+            self.lock.withLock {
+                //log("incompat: \(incompatibility) \(location)")
+                for package in incompatibility.terms.map({ $0.node }) {
+                    if let incompats = self.incompatibilities[package] {
+                        if !incompats.contains(incompatibility) {
+                            self.incompatibilities[package]!.append(incompatibility)
+                        }
+                    } else {
+                        self.incompatibilities[package] = [incompatibility]
+                    }
+                }
+            }
+        }
+
+        /// Find all incompatibilities containing a positive term for a given package.
+        func positiveIncompatibilities(for node: DependencyResolutionNode) -> [Incompatibility]? {
+            self.lock.withLock {
+                guard let all = self.incompatibilities[node] else {
+                    return nil
+                }
+                return all.filter {
+                    $0.terms.first { $0.node == node }!.isPositive
+                }
+            }
+        }
+
+        func decide(_ node: DependencyResolutionNode, at version: Version) {
+            let term = Term(node, .exact(version))
+            // FIXME: Shouldn't we check this _before_ making a decision?
+            assert(term.isValidDecision(for: self.solution))
+
+            self.lock.withLock {
+                self.solution.decide(node, at: version)
+            }
+        }
+
+        func derive(_ term: Term, cause: Incompatibility) {
+            self.lock.withLock {
+                self.solution.derive(term, cause: cause)
+            }
+        }
+        
+        func backtrack(toDecisionLevel: Int) {
+            self.lock.withLock {
+                self.solution.backtrack(toDecisionLevel: toDecisionLevel)
+            }
         }
     }
-
-    /// The root package reference.
-    private(set) var root: DependencyResolutionNode?
-
+    
     /// Reference to the pins store, if provided.
-    private var pinsMap: PinsStore.PinsMap = [:]
+    private let pinsMap: PinsStore.PinsMap
 
     /// The container provider used to load package containers.
-    private lazy var provider: ContainerProvider = {
-        ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
-    }()
+    private let provider: ContainerProvider
 
     /// Skip updating containers while fetching them.
     private let skipUpdate: Bool
@@ -57,128 +111,62 @@ public final class PubgrubDependencyResolver {
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
 
-    /// Path to the trace file.
-    fileprivate let traceFile: AbsolutePath?
-
-    fileprivate lazy var traceStream: OutputByteStream? = {
-        if let stream = self._traceStream { return stream }
-        guard let traceFile = self.traceFile else { return nil }
-        // FIXME: Emit a warning if this fails.
-        return try? LocalFileOutputByteStream(traceFile, closeOnDeinit: true, buffered: false)
-    }()
-    private var _traceStream: OutputByteStream?
-
-    /// Set the package root.
-    public func set(_ root: DependencyResolutionNode) {
-        self.root = root
-        self.solution.root = root
-    }
-
-    public enum LogLocation: String {
-        case topLevel = "top level"
-        case unitPropagation = "unit propagation"
-        case decisionMaking = "decision making"
-        case conflictResolution = "conflict resolution"
-    }
-
-    private func log(_ assignments: [(container: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
-        log("solved:")
-        for (container, binding, _) in assignments {
-            log("\(container) \(binding)")
-        }
-    }
-
-    fileprivate func log(_ message: String) {
-        if let traceStream = traceStream {
-            traceStream <<< message <<< "\n"
-            traceStream.flush()
-        }
-    }
-
-    public func decide(_ node: DependencyResolutionNode, version: Version) {
-        let term = Term(node, .exact(version))
-        // FIXME: Shouldn't we check this _before_ making a decision?
-        assert(term.isValidDecision(for: solution))
-
-        solution.decide(node, at: version)
-    }
-
-    func derive(_ term: Term, cause: Incompatibility) {
-        solution.derive(term, cause: cause)
-    }
-
+    // Log stream
+    private let traceStream: OutputByteStream?
+    
     public init(
-        _ provider: PackageContainerProvider,
+        provider: PackageContainerProvider,
+        pinsMap: PinsStore.PinsMap = [:],
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
         traceFile: AbsolutePath? = nil,
         traceStream: OutputByteStream? = nil
     ) {
         self.packageContainerProvider = provider
+        self.pinsMap = pinsMap
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
-        self.traceFile = traceFile
-        self._traceStream = traceStream
+        if let stream = traceStream {
+            self.traceStream = stream
+        } else {
+            self.traceStream = traceFile.flatMap { file in
+                // FIXME: Emit a warning if this fails.
+                return try? LocalFileOutputByteStream(file, closeOnDeinit: true, buffered: false)
+            }
+        }
+        self.provider = ContainerProvider(self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
     }
 
-    public convenience init(
-        _ provider: PackageContainerProvider,
+    public init(
+        provider: PackageContainerProvider,
+        pinsMap: PinsStore.PinsMap = [:],
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
         traceFile: AbsolutePath? = nil
     ) {
-        self.init(provider, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
-    }
-
-    /// Add a new incompatibility to the list of known incompatibilities.
-    public func add(_ incompatibility: Incompatibility, location: LogLocation) {
-        log("incompat: \(incompatibility) \(location)")
-        for package in incompatibility.terms.map({ $0.node }) {
-            if let incompats = incompatibilities[package] {
-                if !incompats.contains(incompatibility) {
-                    incompatibilities[package]!.append(incompatibility)
-                }
-            } else {
-                incompatibilities[package] = [incompatibility]
-            }
-        }
-    }
-
-    public enum PubgrubError: Swift.Error, Equatable, CustomStringConvertible {
-        case _unresolvable(Incompatibility)
-        case unresolvable(String)
-
-        public var description: String {
-            switch self {
-            case ._unresolvable(let rootCause):
-                return rootCause.description
-            case .unresolvable(let error):
-                return error
-            }
-        }
-
-        var rootCause: Incompatibility? {
-            switch self {
-            case ._unresolvable(let rootCause):
-                return rootCause
-            case .unresolvable:
-                return nil
-            }
-        }
+        self.init(provider: provider, pinsMap: pinsMap, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(dependencies: [Constraint], pinsMap: PinsStore.PinsMap = [:]) -> Result<[DependencyResolver.Binding], Error> {
+    public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
+        let root = DependencyResolutionNode.root(package: PackageReference(
+            identity: PackageIdentity(url: "<synthesized-root>"),
+            path: "<synthesized-root-path>",
+            name: nil,
+            kind: .root
+        ))
+        
         do {
-            return try .success(solve(constraints: dependencies, pinsMap: pinsMap))
+            // strips state
+            return .success(try self.solve(root: root, constraints: constraints).bindings)
         } catch {
             var error = error
 
             // If version solving failing, build the user-facing diagnostic.
-            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause {
+            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let state = pubGrubError.state {
                 let builder = DiagnosticReportBuilder(
-                    root: root!,
-                    incompatibilities: incompatibilities,
+                    root: root,
+                    incompatibilities: state.incompatibilities,
                     provider: provider
                 )
 
@@ -186,43 +174,100 @@ public final class PubgrubDependencyResolver {
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
                     error = PubgrubError.unresolvable(diagnostic)
                 } catch {
-                    // failed to construct the repo, will report the original error
+                    // failed to construct the report, will report the original error
                 }
             }
 
             return .failure(error)
         }
     }
-
-    struct VersionBasedConstraint {
-        let node: DependencyResolutionNode
-        let requirement: VersionSetSpecifier
-
-        init(node: DependencyResolutionNode, req: VersionSetSpecifier) {
-            self.node = node
-            self.requirement = req
+    
+    /// Find a set of dependencies that fit the given constraints. If dependency
+    /// resolution is unable to provide a result, an error is thrown.
+    /// - Warning: It is expected that the root package reference has been set  before this is called.
+    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) throws -> (bindings: [DependencyResolver.Binding], state: State) {
+        // first process inputs
+        let inputs = try self.processInputs(root: root, with: constraints)
+        
+        // Prefetch the containers if prefetching is enabled.
+        if isPrefetchingEnabled {
+            // We avoid prefetching packages that are overridden since
+            // otherwise we'll end up creating a repository container
+            // for them.
+            let pins = self.pinsMap.values
+                .map{ $0.packageRef }
+                .filter{ !inputs.overriddenPackages.keys.contains($0) }
+            self.provider.prefetch(containers: pins)
         }
+                                
+        let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
+        
+        // Decide root at v1.
+        state.decide(state.root, at: "1.0.0")
+        
+        // Add the root incompatibility.
+        state.addIncompatibility(Incompatibility(terms: [Term(not: root, .exact("1.0.0"))], cause: .root), at: .topLevel)
+        
+        // Add inputs root incompatibilities.
+        for incompatibility in inputs.rootIncompatibilities {
+            state.addIncompatibility(incompatibility, at: .topLevel)
+        }
+    
+        try run(state: state)
 
-        internal static func constraints(_ constraint: Constraint) -> [VersionBasedConstraint]? {
-            switch constraint.requirement {
-            case .versionSet(let req):
-              return constraint.nodes().map { VersionBasedConstraint(node: $0, req: req) }
-            case .revision:
-                return nil
-            case .unversioned:
-                return nil
+        let decisions = state.solution.assignments.filter { $0.isDecision }
+        var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
+        for assignment in decisions {
+            if assignment.term.node == state.root {
+                continue
+            }
+
+            let boundVersion: BoundVersion
+            switch assignment.term.requirement {
+            case .exact(let version):
+                boundVersion = .version(version)
+            case .range, .any, .empty, .ranges:
+                fatalError("unexpected requirement value for assignment \(assignment.term)")
+            }
+
+            let products = assignment.term.node.productFilter
+
+            let container = try provider.getContainer(for: assignment.term.node.package)
+            let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
+
+            if var existing = flattenedAssignments[identifier] {
+                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                existing.products.formUnion(products)
+                flattenedAssignments[identifier] = existing
+            } else {
+                flattenedAssignments[identifier] = (binding: boundVersion, products: products)
             }
         }
-    }
+        var finalAssignments: [DependencyResolver.Binding]
+            = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
+                let details = flattenedAssignments[package]!
+                return (container: package, binding: details.binding, products: details.products)
+        }
 
+        // Add overriden packages to the result.
+        for (package, override) in state.overriddenPackages {
+            let container = try provider.getContainer(for: package)
+            let identifier = try container.packageContainer.getUpdatedIdentifier(at: override.version)
+            finalAssignments.append((identifier, override.version, override.products))
+        }
+
+        log(finalAssignments)
+
+        return (finalAssignments, state)
+    }
+    
     private func processInputs(
+        root: DependencyResolutionNode,
         with constraints: [Constraint]
     ) throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
     ) {
-        let root = self.root!
-
         // The list of constraints that we'll be working with. We start with the input constraints
         // and process them in two phases. The first phase finds all unversioned constraints and
         // the second phase discovers all branch-based constraints.
@@ -386,118 +431,18 @@ public final class PubgrubDependencyResolver {
         return (overriddenPackages, rootIncompatibilities)
     }
 
-    /// The list of packages that are overridden in the graph. A local package reference will
-    /// always override any other kind of package reference and branch-based reference will override
-    /// version-based reference.
-    private var overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:]
-
-    /// Find a set of dependencies that fit the given constraints. If dependency
-    /// resolution is unable to provide a result, an error is thrown.
-    /// - Warning: It is expected that the root package reference has been set
-    ///            before this is called.
-    private func solve(
-        constraints: [Constraint],
-        pinsMap: PinsStore.PinsMap = [:]
-    ) throws -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {
-        let root = DependencyResolutionNode.root(package: PackageReference(
-            identity: PackageIdentity(url: "<synthesized-root>"),
-            path: "<synthesized-root-path>",
-            name: nil,
-            kind: .root
-        ))
-
-        self.root = root
-        self.pinsMap = pinsMap
-
-        // Add the root incompatibility.
-        let rootIncompatibility = Incompatibility(
-            terms: [Term(not: root, .exact("1.0.0"))],
-            cause: .root
-        )
-        add(rootIncompatibility, location: .topLevel)
-
-        let inputs = try processInputs(with: constraints)
-        self.overriddenPackages = inputs.overriddenPackages
-
-        // Prefetch the containers if prefetching is enabled.
-        if isPrefetchingEnabled {
-            // We avoid prefetching packages that are overridden since
-            // otherwise we'll end up creating a repository container
-            // for them.
-            let pins = pinsMap.values
-                .map{ $0.packageRef }
-                .filter{ !overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: pins)
-        }
-
-        // Add all the root incompatibilities.
-        for incompat in inputs.rootIncompatibilities {
-            add(incompat, location: .topLevel)
-        }
-
-        // Decide root at v1.
-        decide(root, version: "1.0.0")
-
-        try run()
-
-        let decisions = solution.assignments.filter { $0.isDecision }
-        var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter)] = [:]
-        for assignment in decisions {
-            if assignment.term.node == root {
-                continue
-            }
-
-            let boundVersion: BoundVersion
-            switch assignment.term.requirement {
-            case .exact(let version):
-                boundVersion = .version(version)
-            case .range, .any, .empty, .ranges:
-                fatalError("unexpected requirement value for assignment \(assignment.term)")
-            }
-
-            let products = assignment.term.node.productFilter
-
-            let container = try provider.getContainer(for: assignment.term.node.package)
-            let identifier = try container.packageContainer.getUpdatedIdentifier(at: boundVersion)
-
-            if var existing = flattenedAssignments[identifier] {
-                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
-                existing.products.formUnion(products)
-                flattenedAssignments[identifier] = existing
-            } else {
-                flattenedAssignments[identifier] = (binding: boundVersion, products: products)
-            }
-        }
-        var finalAssignments: [DependencyResolver.Binding]
-            = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
-                let details = flattenedAssignments[package]!
-                return (container: package, binding: details.binding, products: details.products)
-        }
-
-        // Add overriden packages to the result.
-        for (package, override) in overriddenPackages {
-            let container = try provider.getContainer(for: package)
-            let identifier = try container.packageContainer.getUpdatedIdentifier(at: override.version)
-            finalAssignments.append((identifier, override.version, override.products))
-        }
-
-        log(finalAssignments)
-
-        return finalAssignments
-    }
-
     /// Perform unit propagation, resolving conflicts if necessary and making
     /// decisions if nothing else is left to be done.
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
-    func run() throws {
-        var next: DependencyResolutionNode? = root
+    private func run(state: State) throws {
+        var next: DependencyResolutionNode? = state.root
         while let nxt = next {
-            try propagate(nxt)
+            try self.propagate(state: state, node: nxt)
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try makeDecision()
+            next = try self.makeDecision(state: state)
         }
     }
 
@@ -505,24 +450,24 @@ public final class PubgrubDependencyResolver {
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    public func propagate(_ node: DependencyResolutionNode) throws {
+    internal func propagate(state: State, node: DependencyResolutionNode) throws {
         var changed: OrderedSet<DependencyResolutionNode> = [node]
 
         while !changed.isEmpty {
             let package = changed.removeFirst()
-            loop: for incompatibility in positiveIncompatibilities(for: package)?.reversed() ?? [] {
-                let result = propagate(incompatibility: incompatibility)
+            loop: for incompatibility in state.positiveIncompatibilities(for: package)?.reversed() ?? [] {
+                let result = propagate(state: state, incompatibility: incompatibility)
 
                 switch result {
                 case .conflict:
-                    let rootCause = try _resolve(conflict: incompatibility)
-                    let rootCauseResult = propagate(incompatibility: rootCause)
+                    let rootCause = try self.resolve(state: state, conflict: incompatibility)
+                    let rootCauseResult = self.propagate(state: state, incompatibility: rootCause)
 
                     guard case .almostSatisfied(let pkg) = rootCauseResult else {
                         fatalError("""
                             Expected root cause \(rootCause) to almost satisfy the \
                             current partial solution:
-                            \(solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
+                            \(state.solution.assignments.map { " * \($0.description)" }.joined(separator: "\n"))\n
                             """)
                     }
 
@@ -539,11 +484,11 @@ public final class PubgrubDependencyResolver {
         }
     }
 
-    func propagate(incompatibility: Incompatibility) -> PropagationResult {
+    private func propagate(state: State, incompatibility: Incompatibility) -> PropagationResult {
         var unsatisfied: Term?
 
         for term in incompatibility.terms {
-            let relation = solution.relation(with: term)
+            let relation = state.solution.relation(with: term)
 
             if relation == .disjoint {
                 return .none
@@ -561,18 +506,12 @@ public final class PubgrubDependencyResolver {
         }
 
         log("derived: \(unsatisfiedTerm.inverse)")
-        derive(unsatisfiedTerm.inverse, cause: incompatibility)
+        state.derive(unsatisfiedTerm.inverse, cause: incompatibility)
 
         return .almostSatisfied(node: unsatisfiedTerm.node)
     }
 
-    enum PropagationResult {
-        case conflict
-        case almostSatisfied(node: DependencyResolutionNode)
-        case none
-    }
-
-    public func _resolve(conflict: Incompatibility) throws -> Incompatibility {
+    internal func resolve(state: State, conflict: Incompatibility) throws -> Incompatibility {
         log("conflict: \(conflict)")
         // Based on:
         // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
@@ -580,18 +519,18 @@ public final class PubgrubDependencyResolver {
         var incompatibility = conflict
         var createdIncompatibility = false
 
-        while !isCompleteFailure(incompatibility) {
+        while !isCompleteFailure(incompatibility, root: state.root) {
             var mostRecentTerm: Term?
             var mostRecentSatisfier: Assignment?
             var difference: Term?
             var previousSatisfierLevel = 0
 
             for term in incompatibility.terms {
-                let satisfier = solution.satisfier(for: term)
+                let satisfier = state.solution.satisfier(for: term)
 
                 if let _mostRecentSatisfier = mostRecentSatisfier {
-                    let mostRecentSatisfierIdx = solution.assignments.firstIndex(of: _mostRecentSatisfier)!
-                    let satisfierIdx = solution.assignments.firstIndex(of: satisfier)!
+                    let mostRecentSatisfierIdx = state.solution.assignments.firstIndex(of: _mostRecentSatisfier)!
+                    let satisfierIdx = state.solution.assignments.firstIndex(of: satisfier)!
 
                     if mostRecentSatisfierIdx < satisfierIdx {
                         previousSatisfierLevel = max(previousSatisfierLevel, _mostRecentSatisfier.decisionLevel)
@@ -609,7 +548,7 @@ public final class PubgrubDependencyResolver {
                 if mostRecentTerm == term {
                     difference = mostRecentSatisfier?.term.difference(with: term)
                     if let difference = difference {
-                        previousSatisfierLevel = max(previousSatisfierLevel, solution.satisfier(for: difference.inverse).decisionLevel)
+                        previousSatisfierLevel = max(previousSatisfierLevel, state.solution.satisfier(for: difference.inverse).decisionLevel)
                     }
                 }
             }
@@ -619,9 +558,9 @@ public final class PubgrubDependencyResolver {
             }
 
             if previousSatisfierLevel < _mostRecentSatisfier.decisionLevel || _mostRecentSatisfier.cause == nil {
-                solution.backtrack(toDecisionLevel: previousSatisfierLevel)
+                state.backtrack(toDecisionLevel: previousSatisfierLevel)
                 if createdIncompatibility {
-                    add(incompatibility, location: .conflictResolution)
+                    state.addIncompatibility(incompatibility, at: .conflictResolution)
                 }
                 return incompatibility
             }
@@ -637,7 +576,7 @@ public final class PubgrubDependencyResolver {
 
             incompatibility = Incompatibility(
                 OrderedSet(newTerms),
-                root: root!,
+                root: state.root,
                 cause: .conflict(cause: .init(conflict: incompatibility, other: priorCause)))
             createdIncompatibility = true
 
@@ -647,18 +586,18 @@ public final class PubgrubDependencyResolver {
         }
 
         log("failed: \(incompatibility)")
-        throw PubgrubError._unresolvable(incompatibility)
+        throw PubgrubError._unresolvable(incompatibility, state)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
     /// failed, meaning this incompatibility is either empty or only for the root
     /// package.
-    private func isCompleteFailure(_ incompatibility: Incompatibility) -> Bool {
+    private func isCompleteFailure(_ incompatibility: Incompatibility, root: DependencyResolutionNode) -> Bool {
         return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
     }
 
-    public func makeDecision() throws -> DependencyResolutionNode? {
-        let undecided = solution.undecided
+    internal func makeDecision(state: State) throws -> DependencyResolutionNode? {
+        let undecided = state.solution.undecided
 
         // If there are no more undecided terms, version solving is complete.
         guard !undecided.isEmpty else {
@@ -676,7 +615,7 @@ public final class PubgrubDependencyResolver {
         let container = try provider.getContainer(for: pkgTerm.node.package)
         // Get the best available version for this package.
         guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
-            add(Incompatibility(pkgTerm, root: root!, cause: .noAvailableVersion), location: .decisionMaking)
+            state.addIncompatibility(Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
             return pkgTerm.node
         }
 
@@ -684,13 +623,13 @@ public final class PubgrubDependencyResolver {
         let depIncompatibilities = try container.incompatibilites(
             at: version,
             node: pkgTerm.node,
-            overriddenPackages: overriddenPackages,
-            root: root!)
+            overriddenPackages: state.overriddenPackages,
+            root: state.root)
 
         var haveConflict = false
         for incompatibility in depIncompatibilities {
             // Add the incompatibility to our partial solution.
-            add(incompatibility, location: .decisionMaking)
+            state.addIncompatibility(incompatibility, at: .decisionMaking)
 
             // Check if this incompatibility will statisfy the solution.
             haveConflict = haveConflict || incompatibility.terms.allSatisfy {
@@ -698,17 +637,31 @@ public final class PubgrubDependencyResolver {
                 // are satisfied because we _know_ that the terms matching
                 // this package will be satisfied if we make this version
                 // as a decision.
-                $0.node == pkgTerm.node || solution.satisfies($0)
+                $0.node == pkgTerm.node || state.solution.satisfies($0)
             }
         }
 
         // Decide this version if there was no conflict with its dependencies.
         if !haveConflict {
             log("decision: \(pkgTerm.node.package)@\(version)")
-            decide(pkgTerm.node, version: version)
+            state.decide(pkgTerm.node, at: version)
         }
 
         return pkgTerm.node
+    }
+    
+    private func log(_ assignments: [(container: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
+        log("solved:")
+        for (container, binding, _) in assignments {
+            log("\(container) \(binding)")
+        }
+    }
+
+    private func log(_ message: String) {
+        if let traceStream = traceStream {
+            traceStream <<< message <<< "\n"
+            traceStream.flush()
+        }
     }
 }
 
@@ -1404,6 +1357,76 @@ private final class ContainerProvider {
     }
 }
 
+internal enum LogLocation: String {
+    case topLevel = "top level"
+    case unitPropagation = "unit propagation"
+    case decisionMaking = "decision making"
+    case conflictResolution = "conflict resolution"
+}
+
+extension PubgrubDependencyResolver {
+    internal enum PubgrubError: Swift.Error, CustomStringConvertible {
+        case _unresolvable(Incompatibility, State)
+        case unresolvable(String)
+
+        public var description: String {
+            switch self {
+            case ._unresolvable(let rootCause, _):
+                return rootCause.description
+            case .unresolvable(let error):
+                return error
+            }
+        }
+
+        var rootCause: Incompatibility? {
+            switch self {
+            case ._unresolvable(let rootCause, _):
+                return rootCause
+            case .unresolvable:
+                return nil
+            }
+        }
+        
+        var state: State? {
+            switch self {
+            case ._unresolvable(_, let state):
+                return state
+            case .unresolvable:
+                return nil
+            }
+        }
+    }
+}
+
+extension PubgrubDependencyResolver {
+    private struct VersionBasedConstraint {
+        let node: DependencyResolutionNode
+        let requirement: VersionSetSpecifier
+
+        init(node: DependencyResolutionNode, req: VersionSetSpecifier) {
+            self.node = node
+            self.requirement = req
+        }
+
+        internal static func constraints(_ constraint: Constraint) -> [VersionBasedConstraint]? {
+            switch constraint.requirement {
+            case .versionSet(let req):
+              return constraint.nodes().map { VersionBasedConstraint(node: $0, req: req) }
+            case .revision:
+                return nil
+            case .unversioned:
+                return nil
+            }
+        }
+    }
+}
+
+private enum PropagationResult {
+    case conflict
+    case almostSatisfied(node: DependencyResolutionNode)
+    case none
+}
+
 fileprivate extension PackageRequirement {
     var isRevision: Bool {
         switch self {
@@ -1414,7 +1437,6 @@ fileprivate extension PackageRequirement {
         }
     }
 }
-
 fileprivate extension DependencyResolutionNode {
     var nameForDiagnostics: String {
         return "'\(package.name)'"
