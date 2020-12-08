@@ -11,7 +11,7 @@
 import XCTest
 
 import TSCBasic
-import SourceControl
+@testable import SourceControl
 import TSCUtility
 
 import SPMTestSupport
