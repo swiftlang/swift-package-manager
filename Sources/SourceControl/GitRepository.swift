@@ -322,8 +322,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Returns the tags present in repository.
     public func tags() throws -> [String] {
         // Get the contents using `ls-tree`.
-        return try self.queue.sync {
-            try self.cachedTags.memoize {
+        try self.cachedTags.memoize {
+            try self.queue.sync {
                 let tagList = try callGit("tag", "-l",
                                           failureMessage: "Couldn’t get the list of tags")
                 return tagList.split(separator: "\n").map(String.init)
@@ -504,8 +504,8 @@ public final class GitRepository: Repository, WorkingCheckout {
         } else {
             specifier = treeish
         }
-        return try queue.sync {
-            try self.cachedHashes.memoize(specifier) {
+        return try self.cachedHashes.memoize(specifier) {
+            try self.queue.sync {
                 let output = try callGit("rev-parse", "--verify", specifier,
                                          failureMessage: "Couldn’t get revision ‘\(specifier)’")
                 guard let hash = Hash(output) else {
@@ -526,8 +526,8 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Read a tree object.
     public func read(tree hash: Hash) throws -> Tree {
-        return try queue.sync {
-            try self.cachedTrees.memoize(hash) {
+        try self.cachedTrees.memoize(hash) {
+            try self.queue.sync {
                 // Get the contents using `ls-tree`.
                 let output = try callGit("ls-tree", hash.bytes.description,
                                          failureMessage: "Couldn’t read ‘\(hash.bytes.description)’")
@@ -579,8 +579,8 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Read a blob object.
     func read(blob hash: Hash) throws -> ByteString {
-        return try queue.sync {
-            try self.cachedBlobs.memoize(hash) {
+        try self.cachedBlobs.memoize(hash) {
+            try self.queue.sync {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.

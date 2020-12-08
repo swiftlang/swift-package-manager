@@ -68,6 +68,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
     private var reversedVersionsCache = ThreadSafeBox<[Version]>()
+    private var manifestsCache = ThreadSafeKeyValueStore<Revision, Manifest>()
+    private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
@@ -143,12 +145,14 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     /// Returns the tools version of the given version of the package.
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
-        guard let tag = try self.knownVersions()[version] else {
-            throw StringError("unknown tag \(version)")
+        try self.toolsVersionsCache.memoize(version) {
+            guard let tag = try self.knownVersions()[version] else {
+                throw StringError("unknown tag \(version)")
+            }
+            let revision = try repository.resolveRevision(tag: tag)
+            let fs = try repository.openFileView(revision: revision)
+            return try toolsVersionLoader.load(at: .root, fileSystem: fs)
         }
-        let revision = try repository.resolveRevision(tag: tag)
-        let fs = try repository.openFileView(revision: revision)
-        return try toolsVersionLoader.load(at: .root, fileSystem: fs)
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
@@ -220,7 +224,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         version: Version? = nil,
         productFilter: ProductFilter
     ) throws -> (Manifest, [Constraint]) {
-        let manifest = try loadManifest(at: revision, version: version)
+        let manifest = try self.loadManifest(at: revision, version: version)
         return (manifest, manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors))
     }
 
@@ -246,7 +250,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             return self.identifier
         }
 
-        let manifest = try loadManifest(at: revision, version: version)
+        let manifest = try self.loadManifest(at: revision, version: version)
         return self.identifier.with(newName: manifest.name)
     }
 
@@ -266,24 +270,26 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
    
     private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
-        let fs = try repository.openFileView(revision: revision)
-        let packageURL = identifier.repository.url
+        try self.manifestsCache.memoize(revision) {
+            let fs = try repository.openFileView(revision: revision)
+            let packageURL = identifier.repository.url
 
-        // Load the tools version.
-        let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+            // Load the tools version.
+            let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
 
-        // Validate the tools version.
-        try toolsVersion.validateToolsVersion(
-            self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
+            // Validate the tools version.
+            try toolsVersion.validateToolsVersion(
+                self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
 
-        // Load the manifest.
-        return try manifestLoader.load(
-            package: AbsolutePath.root,
-            baseURL: packageURL,
-            version: version,
-            toolsVersion: toolsVersion,
-            packageKind: identifier.kind,
-            fileSystem: fs)
+            // Load the manifest.
+            return try manifestLoader.load(
+                package: AbsolutePath.root,
+                baseURL: packageURL,
+                version: version,
+                toolsVersion: toolsVersion,
+                packageKind: identifier.kind,
+                fileSystem: fs)
+        }
     }
 
     public var isRemoteContainer: Bool? {
