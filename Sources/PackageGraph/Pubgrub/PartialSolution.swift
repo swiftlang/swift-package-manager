@@ -50,7 +50,7 @@ public struct PartialSolution {
 
     /// Create a new derivation assignment and add it to the partial solution's
     /// list of known assignments.
-    mutating public func derive(_ term: Term, cause: Incompatibility) {
+    public mutating func derive(_ term: Term, cause: Incompatibility) {
         let derivation = Assignment.derivation(term, cause: cause, decisionLevel: decisionLevel)
         self.assignments.append(derivation)
         register(derivation)
@@ -58,7 +58,7 @@ public struct PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    mutating public func decide(_ node: DependencyResolutionNode, at version: Version) {
+    public mutating func decide(_ node: DependencyResolutionNode, at version: Version) {
         decisions[node] = version
         let term = Term(node, .exact(version))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
@@ -67,7 +67,7 @@ public struct PartialSolution {
     }
 
     /// Populates the _positive and _negative poperties with the assignment.
-    mutating private func register(_ assignment: Assignment) {
+    private mutating func register(_ assignment: Assignment) {
         let term = assignment.term
         let pkg = term.node
 
@@ -107,7 +107,7 @@ public struct PartialSolution {
 
     /// Backtrack to a specific decision level by dropping all assignments with
     /// a decision level which is greater.
-    mutating public func backtrack(toDecisionLevel decisionLevel: Int) {
+    public mutating func backtrack(toDecisionLevel decisionLevel: Int) {
         var toBeRemoved: [(Int, Assignment)] = []
 
         for (idx, assignment) in zip(0..., assignments) {
