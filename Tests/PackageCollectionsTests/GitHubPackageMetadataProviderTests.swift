@@ -21,7 +21,7 @@ import TSCUtility
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
         let provider = GitHubPackageMetadataProvider()
         
         do {
@@ -44,7 +44,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testGood() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         fixture(name: "Collections") { directoryPath in
             let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -114,7 +114,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testOthersNotFound() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "GitHub", "metadata.json")
@@ -147,7 +147,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testPermissionDenied() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         let handler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
             callback(.success(.init(statusCode: 401)))
@@ -165,7 +165,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidAuthToken() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
         let authTokens = [AuthTokenType.github("api.github.com"): "foo"]
 
         let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
@@ -190,7 +190,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testAPILimit() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
-        let apiURL = URL(string: "https://api.github.com/repos/octocat/hello-world")!
+        let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         let total = 5
         var remaining = total
