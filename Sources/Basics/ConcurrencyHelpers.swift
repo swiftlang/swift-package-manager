@@ -30,7 +30,7 @@ public struct ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     }
 
     @discardableResult
-    public mutating func memoize(_ key: Key, _ body: () throws -> Value) rethrows -> Value {
+    public mutating func memoize(_ key: Key, body: () throws -> Value) rethrows -> Value {
         try self.underlying.memoize(key: key, lock: self.lock, body: body)
     }
 
@@ -49,7 +49,7 @@ public struct ThreadSafeBox<Value> {
     public init() {}
 
     @discardableResult
-    public mutating func memoize(_ body: () throws -> Value) rethrows -> Value {
+    public mutating func memoize(body: () throws -> Value) rethrows -> Value {
         if let value = self.get() {
             return value
         }
