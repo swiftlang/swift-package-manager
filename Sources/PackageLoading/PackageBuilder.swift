@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -223,6 +223,9 @@ public final class PackageBuilder {
     /// If set to true, one test product will be created for each test target.
     private let shouldCreateMultipleTestProducts: Bool
 
+    /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is vNext
+    private let warnAboutImplicitExecutableTargets: Bool
+
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
@@ -252,6 +255,7 @@ public final class PackageBuilder {
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
+        warnAboutImplicitExecutableTargets: Bool = (ProcessEnv.vars["SWIFTPM_ENABLE_EXECUTABLE_TARGETS"] == "1"),
         createREPLProduct: Bool = false
     ) {
         self.manifest = manifest
@@ -264,6 +268,7 @@ public final class PackageBuilder {
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
+        self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
 
     /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
@@ -738,7 +743,7 @@ public final class PackageBuilder {
             targetType = .executable
         default:
             targetType = sources.computeTargetType()
-            if targetType == .executable && manifest.toolsVersion >= .vNext {
+            if targetType == .executable && manifest.toolsVersion >= .vNext && warnAboutImplicitExecutableTargets {
                 diagnostics.emit(warning: "in tools version \(ToolsVersion.vNext) and later, use 'executableTarget()' to declare executable targets")
             }
         }

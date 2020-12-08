@@ -2207,6 +2207,7 @@ final class PackageBuilderTester {
                 fileSystem: fs,
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+                warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
