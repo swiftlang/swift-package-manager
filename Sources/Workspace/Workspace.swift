@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import Foundation
@@ -840,8 +841,8 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            // FIXE: this should not block
-            let handle = try tsc_await {
+            // TODO: replace with async/await when available
+            let handle = try temp_await {
                 repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .global(), completion: $0)
             }
             let repo = try handle.open()
@@ -1629,10 +1630,10 @@ extension Workspace {
         //
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
+        // FIXME: this should not block
         let pins = pinsStore.pins.map({ $0 })
-        // FIXE: this should not block
         DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
-            _ = try? tsc_await {
+            _ = try? temp_await {
                 containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: .global(), completion: $0)
             }
         }
@@ -2074,8 +2075,8 @@ extension Workspace {
 
             case .revision(let identifier, let branch):
                 // Get the latest revision from the container.
-                // FIXME: this should not block
-                let container = try tsc_await {
+                // TODO: replace with async/await when available
+                let container = try temp_await {
                     containerProvider.getContainer(for: packageRef, skipUpdate: true, on: .global(), completion: $0)
                 } as! RepositoryPackageContainer
                 var revision = try container.getRevision(forIdentifier: identifier)
@@ -2302,8 +2303,8 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        // FIXE: this should not block
-        let handle = try tsc_await {
+        // FIXME: this should not block
+        let handle = try temp_await {
             repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .global(), completion: $0)
         }
 
@@ -2374,8 +2375,8 @@ extension Workspace {
             // way to get it back out of the resolver which is very
             // annoying. Maybe we should make an SPI on the provider for
             // this?
-            // FIXE: this should not block
-            let container = try tsc_await { containerProvider.getContainer(for: package, skipUpdate: true, on: .global(), completion: $0) } as! RepositoryPackageContainer
+            // FIXME: this should not block
+            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: .global(), completion: $0) } as! RepositoryPackageContainer
             guard let tag = container.getTag(for: version) else {
                 throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(try container.reversedVersions())")
             }

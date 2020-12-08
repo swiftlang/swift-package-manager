@@ -41,6 +41,12 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
             self.underlying.removeAll()
         }
     }
+
+    public var isEmpty: Bool {
+        self.lock.withLock {
+            self.underlying.isEmpty
+        }
+    }
 }
 
 /// Thread-safe value boxing  structure
@@ -75,7 +81,7 @@ public final class ThreadSafeBox<Value> {
     }
 }
 
-@available(*, deprecated, message: "use non-blocking version instead")
+@available(*, deprecated, message: "replace with async/await when available")
 public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
     return try tsc_await(body)
 }

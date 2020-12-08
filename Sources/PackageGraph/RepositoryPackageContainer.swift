@@ -73,7 +73,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    public private(set) var validToolsVersionsCache: [Version: Bool] = [:]
+    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
 
     init(
         identifier: PackageReference,

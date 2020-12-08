@@ -236,7 +236,8 @@ public struct PubgrubDependencyResolver {
 
             let products = assignment.term.node.productFilter
 
-            let container = try provider.getContainer(for: assignment.term.node.package)
+            // TODO: replace with async/await when available
+            let container = try temp_await { provider.getContainer(for: assignment.term.node.package, completion: $0) }
             let identifier = try container.underlying.getUpdatedIdentifier(at: boundVersion)
 
             if var existing = flattenedAssignments[identifier] {
@@ -255,7 +256,8 @@ public struct PubgrubDependencyResolver {
 
         // Add overriden packages to the result.
         for (package, override) in state.overriddenPackages {
-            let container = try provider.getContainer(for: package)
+            // TODO: replace with async/await when available
+            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
             let identifier = try container.underlying.getUpdatedIdentifier(at: override.version)
             finalAssignments.append((identifier, override.version, override.products))
         }
@@ -309,7 +311,8 @@ public struct PubgrubDependencyResolver {
                 // We collect all version-based dependencies in a separate structure so they can
                 // be process at the end. This allows us to override them when there is a non-version
                 // based (unversioned/branch-based) constraint present in the graph.
-                let container = try provider.getContainer(for: node.package)
+                // TODO: replace with async/await when available
+                let container = try temp_await { provider.getContainer(for: node.package, completion: $0) }
                 for dependency in try container.underlying.getUnversionedDependencies(productFilter: node.productFilter) {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -357,7 +360,8 @@ public struct PubgrubDependencyResolver {
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
-            let container = try provider.getContainer(for: package)
+            // TODO: replace with async/await when avail
+            let container = try temp_await { provider.getContainer(for: package, completion: $0) }
 
             // If there is a pin for this revision-based dependency, get
             // the dependencies at the pinned revision instead of using
@@ -445,6 +449,7 @@ public struct PubgrubDependencyResolver {
     /// final version assignments or an error is thrown.
     private func run(state: State) throws {
         var next: DependencyResolutionNode? = state.root
+
         while let nxt = next {
             try self.propagate(state: state, node: nxt)
 
@@ -453,7 +458,8 @@ public struct PubgrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try self.makeDecision(state: state)
+            // TODO: replace with async/await when available
+            next = try temp_await { self.makeDecision(state: state, completion: $0) }
         }
     }
 
@@ -609,89 +615,89 @@ public struct PubgrubDependencyResolver {
         return incompatibility.terms.isEmpty || (incompatibility.terms.count == 1 && incompatibility.terms.first?.node == root)
     }
 
-    private func computeCounts(for terms: [Term]) throws -> [Term: Int] {
+    private func computeCounts(for terms: [Term], completion: @escaping (Result<[Term: Int], Error>) -> Void) {
         let lock = Lock()
-        var results = [Term: Int]()
-        var errors = [Error]()
+        var results = [Term: Result<Int, Error>]()
 
-        let sync = DispatchGroup()
         terms.forEach { term in
-            sync.enter()
             provider.getContainer(for: term.node.package) { result in
-                defer { sync.leave() }
-
                 let result = result.flatMap { container in Result(catching: { try container.versionCount(term.requirement) }) }
                 lock.withLock {
-                    switch result {
-                    case .failure(let error):
-                        errors.append(error)
-                    case .success(let count):
-                        results[term] = count
+                    results[term] = result
+                    if results.count == terms.count {
+                        do {
+                            completion(.success(try results.mapValues { try $0.get() }))
+                        } catch {
+                            completion(.failure(error))
+                        }
                     }
                 }
             }
         }
-        sync.wait()
-
-        // ideally we return all errors but this is for backwards compatibility
-        if let error = errors.first {
-            throw error
-        }
-        return results
     }
 
     // 👀 IMPORANT CHANGE
-    internal func makeDecision(state: State) throws -> DependencyResolutionNode? {
-        let undecided = state.solution.undecided
-
+    internal func makeDecision(state: State, completion: @escaping (Result<DependencyResolutionNode?, Error>) -> Void) {
         // If there are no more undecided terms, version solving is complete.
+        let undecided = state.solution.undecided
         guard !undecided.isEmpty else {
-            return nil
+            return completion(.success(nil))
         }
 
         // Prefer packages with least number of versions that fit the current requirements so we
         // get conflicts (if any) sooner.
-        let counts = try self.computeCounts(for: undecided)
-        // forced unwraps safe since we are testing for count and errors above
-        let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
+        self.computeCounts(for: undecided) { result in
+            do {
+                let counts = try result.get()
+                // forced unwraps safe since we are testing for count and errors above
+                let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
+                provider.getContainer(for: pkgTerm.node.package) { result in
+                    do {
+                        let container = try result.get()
+                        // Get the best available version for this package.
+                        guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
+                            state.addIncompatibility(Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
+                            return completion(.success(pkgTerm.node))
+                        }
 
-        let container = try provider.getContainer(for: pkgTerm.node.package)
-        // Get the best available version for this package.
-        guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
-            state.addIncompatibility(Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
-            return pkgTerm.node
-        }
+                        // Add all of this version's dependencies as incompatibilities.
+                        let depIncompatibilities = try container.incompatibilites(
+                            at: version,
+                            node: pkgTerm.node,
+                            overriddenPackages: state.overriddenPackages,
+                            root: state.root
+                        )
 
-        // Add all of this version's dependencies as incompatibilities.
-        let depIncompatibilities = try container.incompatibilites(
-            at: version,
-            node: pkgTerm.node,
-            overriddenPackages: state.overriddenPackages,
-            root: state.root
-        )
+                        var haveConflict = false
+                        for incompatibility in depIncompatibilities {
+                            // Add the incompatibility to our partial solution.
+                            state.addIncompatibility(incompatibility, at: .decisionMaking)
 
-        var haveConflict = false
-        for incompatibility in depIncompatibilities {
-            // Add the incompatibility to our partial solution.
-            state.addIncompatibility(incompatibility, at: .decisionMaking)
+                            // Check if this incompatibility will statisfy the solution.
+                            haveConflict = haveConflict || incompatibility.terms.allSatisfy {
+                                // We only need to check if the terms other than this package
+                                // are satisfied because we _know_ that the terms matching
+                                // this package will be satisfied if we make this version
+                                // as a decision.
+                                $0.node == pkgTerm.node || state.solution.satisfies($0)
+                            }
+                        }
 
-            // Check if this incompatibility will statisfy the solution.
-            haveConflict = haveConflict || incompatibility.terms.allSatisfy {
-                // We only need to check if the terms other than this package
-                // are satisfied because we _know_ that the terms matching
-                // this package will be satisfied if we make this version
-                // as a decision.
-                $0.node == pkgTerm.node || state.solution.satisfies($0)
+                        // Decide this version if there was no conflict with its dependencies.
+                        if !haveConflict {
+                            log("decision: \(pkgTerm.node.package)@\(version)")
+                            state.decide(pkgTerm.node, at: version)
+                        }
+
+                        completion(.success(pkgTerm.node))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                }
+            } catch {
+                completion(.failure(error))
             }
         }
-
-        // Decide this version if there was no conflict with its dependencies.
-        if !haveConflict {
-            log("decision: \(pkgTerm.node.package)@\(version)")
-            state.decide(pkgTerm.node, at: version)
-        }
-
-        return pkgTerm.node
     }
 
     private func log(_ assignments: [(container: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
@@ -953,7 +959,8 @@ private final class DiagnosticReportBuilder {
         case .empty, .exact, .ranges:
             return false
         case .range(let range):
-            guard let container = try? provider.getContainer(for: term.node.package) else {
+            // container expected to be cached at this point
+            guard let container = try? provider.getCachedContainer(for: term.node.package) else {
                 return false
             }
             let bounds = try container.computeBounds(for: range)
@@ -1001,7 +1008,8 @@ private final class DiagnosticReportBuilder {
             }
             return "\(name) \(version)"
         case .range(let range):
-            guard normalizeRange, let container = try? provider.getContainer(for: term.node.package) else {
+            // container expected to be cached at this point
+            guard normalizeRange, let container = try? provider.getCachedContainer(for: term.node.package) else {
                 return "\(name) \(range.description)"
             }
 
@@ -1230,8 +1238,12 @@ private final class PubGrubPackageContainer {
 
             // Since the pinned version is most likely to succeed, we don't compute bounds for its
             // incompatibilities.
-            return Array(constraints.map { (constraint: PackageContainerConstraint) -> [Incompatibility] in
-                guard case .versionSet(let vs) = constraint.requirement else { fatalError("Unexpected unversioned requirement: \(constraint)") }
+            return try Array(constraints.map { (constraint: PackageContainerConstraint) -> [Incompatibility] in
+                guard case .versionSet(let vs) = constraint.requirement else {
+                    let error = "Unexpected unversioned requirement: \(constraint)"
+                    assertionFailure(error)
+                    throw InternalError(error)
+                }
                 return constraint.nodes().map { dependencyNode in
                     var terms: OrderedSet<Term> = []
                     terms.append(Term(node, .exact(version)))
@@ -1385,18 +1397,13 @@ private final class ContainerProvider {
     }
 
     /// Get a cached container for the given identifier, asserting / throwing if not found.
-    /* func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
-         guard let container = self.containersCache[package] else {
-             assertionFailure("container for \(package.name) expected to be cached")
-             throw StringError("container for \(package.name) expected to be cached")
-         }
-         return container
-     }*/
-
-    /// Get the container for the given identifier, loading it if necessary.
-    @available(*, deprecated, message: "use non-blocking version instead")
-    func getContainer(for identifier: PackageReference) throws -> PubGrubPackageContainer {
-        try temp_await { self.getContainer(for: identifier, completion: $0) }
+    func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
+        guard let container = self.containersCache[package] else {
+            let error = "container for \(package.name) expected to be cached"
+            assertionFailure()
+            throw InternalError(error)
+        }
+        return container
     }
 
     /// Get the container for the given identifier, loading it if necessary.
