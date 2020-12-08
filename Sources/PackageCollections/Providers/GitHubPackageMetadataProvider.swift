@@ -39,7 +39,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
             return callback(.failure(Errors.invalidReferenceType(reference)))
         }
         guard let baseURL = self.apiURL(reference.path) else {
-            return callback(.failure(Errors.invalidGitUrl(reference.path)))
+            return callback(.failure(Errors.invalidGitURL(reference.path)))
         }
 
         let metadataURL = baseURL
@@ -147,7 +147,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     internal func apiURL(_ url: String) -> Foundation.URL? {
         do {
-            let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/]+)\.git$"#, options: .caseInsensitive)
+            let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
                 if let hostRange = Range(match.range(at: 1), in: url),
                     let ownerRange = Range(match.range(at: 2), in: url),
@@ -202,7 +202,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     enum Errors: Error, Equatable {
         case invalidReferenceType(PackageReference)
-        case invalidGitUrl(String)
+        case invalidGitURL(String)
         case invalidResponse(URL, String)
         case permissionDenied(URL)
         case invalidAuthToken(URL)

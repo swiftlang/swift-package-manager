@@ -20,15 +20,24 @@ import TSCBasic
 import TSCUtility
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
-    func testBaseRL() throws {
+    func testBaseURL() throws {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
-
         let provider = GitHubPackageMetadataProvider()
-        let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
-        XCTAssertEqual(apiURL, sshURLRetVal)
+        
+        do {
+            let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
+            XCTAssertEqual(apiURL, sshURLRetVal)
+        }
 
-        let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World.git")
-        XCTAssertEqual(apiURL, httpsURLRetVal)
+        do {
+            let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World.git")
+            XCTAssertEqual(apiURL, httpsURLRetVal)
+        }
+        
+        do {
+            let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World")
+            XCTAssertEqual(apiURL, httpsURLRetVal)
+        }
 
         XCTAssertNil(provider.apiURL("bad/Hello-World.git"))
     }
@@ -228,7 +237,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider()
             let reference = PackageReference(repository: RepositorySpecifier(url: UUID().uuidString))
             XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitUrl(reference.path))
+                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(reference.path))
             }
         }
     }
