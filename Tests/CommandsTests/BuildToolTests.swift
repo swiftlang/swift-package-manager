@@ -168,6 +168,25 @@ final class BuildToolTests: XCTestCase {
             }
         }
     }
+    
+    func testAtMainSupport() {
+        fixture(name: "Miscellaneous/AtMainSupport") { path in
+            let fullPath = resolveSymlinks(path)
+            do {
+                let result = try build(["--product", "ClangExec"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("ClangExec"))
+            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
+                XCTFail(stdout + "\n" + stderr)
+            }
+
+            do {
+                let result = try build(["--product", "SwiftExec"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("SwiftExec"))
+            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
+                XCTFail(stdout + "\n" + stderr)
+            }
+        }
+    }
 
     func testNonReachableProductsAndTargetsFunctional() {
         fixture(name: "Miscellaneous/UnreachableTargets") { path in

@@ -333,6 +333,8 @@ extension TargetDescription.TargetType {
         switch string {
         case "regular":
             self = .regular
+        case "executable":
+            self = .executable
         case "test":
             self = .test
         case "system":

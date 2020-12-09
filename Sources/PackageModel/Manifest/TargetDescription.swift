@@ -14,6 +14,7 @@ public struct TargetDescription: Equatable, Codable {
     /// The target type.
     public enum TargetType: String, Equatable, Codable {
         case regular
+        case executable
         case test
         case system
         case binary
@@ -124,7 +125,7 @@ public struct TargetDescription: Equatable, Codable {
         checksum: String? = nil
     ) {
         switch type {
-        case .regular, .test:
+        case .regular, .executable, .test:
             precondition(
                 url == nil &&
                 pkgConfig == nil &&
