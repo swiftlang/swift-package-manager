@@ -90,7 +90,7 @@ public final class PackageEditor {
                 requirement = inputRequirement
             } else {
                 // Use the latest version or the master branch.
-                let versions = repo.tags.compactMap{ Version(string: $0) }
+                let versions = try repo.tags().compactMap{ Version(string: $0) }
                 let latestVersion = versions.filter({ $0.prereleaseIdentifiers.isEmpty }).max() ?? versions.max()
                 let mainExists = (try? repo.resolveRevision(identifier: "main")) != nil
                 requirement = latestVersion.map{ PackageDependencyRequirement.upToNextMajor($0.description) } ??
