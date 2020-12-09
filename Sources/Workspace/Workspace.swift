@@ -2070,13 +2070,13 @@ extension Workspace {
                     packageStateChanges[packageRef.path] = (packageRef, .added(newState))
                 }
 
-            case .revision(let identifier):
+            case .revision(let identifier, let branch):
                 // Get the latest revision from the container.
                 let container = try tsc_await {
                     containerProvider.getContainer(for: packageRef, skipUpdate: true, completion: $0)
                 } as! RepositoryPackageContainer
                 var revision = try container.getRevision(forIdentifier: identifier)
-                let branch = identifier == revision.identifier ? nil : identifier
+                let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
 
                 // If we have a branch and we shouldn't be updating the
                 // branches, use the revision from pin instead (if present).

@@ -243,7 +243,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
             version = v
             revision = try repository.resolveRevision(tag: tag)
-        case .revision(let identifier):
+        case .revision(let identifier, _):
             revision = try repository.resolveRevision(identifier: identifier)
         case .unversioned, .excluded:
             assertionFailure("Unexpected type requirement \(boundVersion)")

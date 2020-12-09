@@ -338,9 +338,9 @@ public struct PubgrubDependencyResolver {
                 case .unversioned?:
                     // This package is overridden by an unversioned package so we can ignore this constraint.
                     continue
-                case .revision(let existingRevision)?:
+                case .revision(let existingRevision, let branch)?:
                     // If this branch-based package was encountered before, ensure the references match.
-                    if existingRevision != revision {
+                    if (branch ?? existingRevision) != revision {
                         // FIXME: Improve diagnostics here.
                         let lastPathComponent = String(package.path.split(separator: "/").last!).spm_dropGitSuffix()
                         throw PubgrubError.unresolvable("\(lastPathComponent) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
@@ -351,9 +351,6 @@ public struct PubgrubDependencyResolver {
                 case nil:
                     break
             }
-
-            // Mark the package as overridden.
-            overriddenPackages[package] = (version: .revision(revision), products: constraint.products)
 
             // Process dependencies of this package, similar to the first phase but branch-based dependencies
             // are not allowed to contain local/unversioned packages.
@@ -366,8 +363,14 @@ public struct PubgrubDependencyResolver {
             let revisionForDependencies: String
             if let pin = pinsMap[package.identity], pin.state.branch == revision {
                 revisionForDependencies = pin.state.revision.identifier
+
+                // Mark the package as overridden with the pinned revision and record the branch as well.
+                overriddenPackages[package] = (version: .revision(revisionForDependencies, branch: revision), products: constraint.products)
             } else {
                 revisionForDependencies = revision
+                
+                // Mark the package as overridden.
+                overriddenPackages[package] = (version: .revision(revision), products: constraint.products)
             }
 
             for node in constraint.nodes() {
