@@ -27,9 +27,11 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: [String: String] = Git.environment) throws -> String
+    func run(_ args: [String],
+             environment: [String: String] = Git.environment,
+             outputRedirection: Process.OutputRedirection = .collect) throws -> String
     {
-        let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: .collect)
+        let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
             try self.processSet?.add(process)
@@ -67,43 +69,30 @@ public struct GitRepositoryProvider: RepositoryProvider {
     private func callGit(_ args: String...,
                          environment: [String: String] = Git.environment,
                          repository: RepositorySpecifier,
-                         failureMessage: String = "") throws -> String {
+                         failureMessage: String = "",
+                         progress: GitProgress.Handler? = nil) throws -> String {
         do {
-            return try self.git.run(args, environment: environment)
+            if let progress = progress {
+                let outputRedirection = Process.OutputRedirection.stream {
+                    GitProgress.gitStatusFilter($0, progress: progress)
+                } stderr: {
+                    GitProgress.gitStatusFilter($0, progress: progress)
+                }
+                return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputRedirection)
+            } else {
+                return try self.git.run(args, environment: environment)
+            }
         } catch let error as GitShellError {
             throw GitCloneError(repository: repository, message: failureMessage, result: error.result)
         }
     }
 
-    /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
-    /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
-    /// output as a string.
-    @discardableResult
-    private func callGit(_ args: String..., environment: [String: String] = Git.environment, failureMessage: String = "", repository: RepositorySpecifier, progress: @escaping GitProgress.Handler) throws -> String {
-        let process = Process(arguments: [Git.tool] + args + ["--progress"], environment: environment, outputRedirection: .stream(stdout: { GitProgress.gitStatusFilter($0, progress: progress) }, stderr: { GitProgress.gitStatusFilter($0, progress: progress) }))
-        let result: ProcessResult
-        do {
-            try processSet?.add(process)
-            try process.launch()
-            result = try process.waitUntilExit()
-        }
-        catch {
-            // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
-            result = ProcessResult(arguments: process.arguments, environment: process.environment,
-                                   exitStatus: .terminated(code: -1), output: .failure(error), stderrOutput: .failure(error))
-        }
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw GitCloneError(repository: repository, message: failureMessage, result: result)
-        }
-        return try result.utf8Output()
-    }
-
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
-        try fetch(repository: repository, to: path, progress: {_ in})
+        try fetch(repository: repository, to: path, progress: nil)
     }
 
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: @escaping GitProgress.Handler) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: GitProgress.Handler? = nil) throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -112,8 +101,8 @@ public struct GitRepositoryProvider: RepositoryProvider {
         precondition(!localFileSystem.exists(path))
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         try self.callGit("clone", "--mirror", repository.url, path.pathString,
-                         failureMessage: "Failed to clone repository \(repository.url)",
                          repository: repository,
+                         failureMessage: "Failed to clone repository \(repository.url)",
                          progress: progress)
     }
 
@@ -306,34 +295,22 @@ public final class GitRepository: Repository, WorkingCheckout {
     @discardableResult
     private func callGit(_ args: String...,
                          environment: [String: String] = Git.environment,
-                         failureMessage: String = "") throws -> String {
+                         failureMessage: String = "",
+                         progress: GitProgress.Handler? = nil) throws -> String {
         do {
-            return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+            if let progress = progress {
+                let outputRedirection = Process.OutputRedirection.stream {
+                    GitProgress.gitStatusFilter($0, progress: progress)
+                } stderr: {
+                    GitProgress.gitStatusFilter($0, progress: progress)
+                }
+                return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputRedirection)
+            } else {
+                return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+            }
         } catch let error as GitShellError {
             throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
         }
-    }
-
-    /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
-    /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
-    /// output as a string.
-    @discardableResult
-    private func callGit(_ args: String..., environment: [String: String] = Git.environment, failureMessage: String = "", progress: @escaping GitProgress.Handler) throws -> String {
-        let process = Process(arguments: [Git.tool, "-C", path.pathString] + args, environment: environment, outputRedirection: .stream(stdout: { GitProgress.gitStatusFilter($0, progress: progress) }, stderr: { GitProgress.gitStatusFilter($0, progress: progress) }))
-        let result: ProcessResult
-        do {
-            try process.launch()
-            result = try process.waitUntilExit()
-        }
-        catch {
-            // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
-            result = ProcessResult(arguments: process.arguments, environment: process.environment,
-                                   exitStatus: .terminated(code: -1), output: .failure(error), stderrOutput: .failure(error))
-        }
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
-        }
-        return try result.utf8Output()
     }
 
     /// Changes URL for the remote.
@@ -391,19 +368,15 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch() throws {
-        // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
-            try callGit("remote", "update", "-p",
-                        failureMessage: "Couldn’t fetch updates from remote repositories")
-            self.cachedTags.clear()
-        }
+       try fetch(progress: nil)
     }
 
-    public func fetch(progress: @escaping GitProgress.Handler) throws {
-        try queue.sync {
+    public func fetch(progress: GitProgress.Handler? = nil) throws {
+        // use barrier for write operations
+        try self.queue.sync(flags: .barrier) {
             try callGit("remote", "-v", "update", "-p",
                         failureMessage: "Couldn’t fetch updates from remote repositories", progress: progress)
-            self.tagsCache = nil
+            self.cachedTags.clear()
         }
     }
 

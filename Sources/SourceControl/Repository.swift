@@ -82,7 +82,7 @@ public protocol RepositoryProvider {
     ///   - path: The destiantion path for the fetch.
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: @escaping GitProgress.Handler) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: GitProgress.Handler?) throws
 
     /// Open the given repository.
     ///
@@ -144,8 +144,8 @@ extension RepositoryProvider {
         fatalError("Unimplemented")
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: @escaping GitProgress.Handler) throws {
-        fatalError("Unimplemented")
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: GitProgress.Handler?) throws {
+        try fetch(repository: repository, to: path)
     }
 }
 
@@ -192,7 +192,7 @@ public protocol Repository {
     /// Fetch and update the repository from its remote.
     ///
     /// - Throws: If an error occurs while performing the fetch operation.
-    func fetch(progress: @escaping GitProgress.Handler) throws
+    func fetch(progress: GitProgress.Handler?) throws
 
     /// Returns true if the given revision exists.
     func exists(revision: Revision) -> Bool
@@ -215,7 +215,7 @@ public protocol Repository {
 }
 
 extension Repository {
-    public func fetch(progress: @escaping GitProgress.Handler) throws {
+    public func fetch(progress: GitProgress.Handler?) throws {
         try fetch()
     }
 }
