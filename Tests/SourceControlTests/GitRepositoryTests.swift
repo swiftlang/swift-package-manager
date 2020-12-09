@@ -47,8 +47,8 @@ class GitRepositoryTests: XCTestCase {
 
             // Test the repository interface.
             let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
-            let tags = try repository.tags()
-            XCTAssertEqual(try repository.tags(), ["1.2.3"])
+            let tags = try repository.getTags()
+            XCTAssertEqual(try repository.getTags(), ["1.2.3"])
 
             let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
             // FIXME: It would be nice if we had a deterministic hash here...
@@ -300,7 +300,7 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.tags(), ["1.2.3"])
+            XCTAssertEqual(try repo.getTags(), ["1.2.3"])
 
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
@@ -308,13 +308,13 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            XCTAssertEqual(try clonedRepo.tags(), ["1.2.3"])
+            XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
             try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
             let checkoutRepo = try provider.openCheckout(at: checkoutPath)
-            XCTAssertEqual(try checkoutRepo.tags(), ["1.2.3"])
+            XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
 
             // Add a new file to original repo.
             try localFileSystem.writeFileContents(testRepoPath.appending(component: "test.txt"), bytes: "Hi")
@@ -325,11 +325,11 @@ class GitRepositoryTests: XCTestCase {
 
             // Update the cloned repo.
             try clonedRepo.fetch()
-            XCTAssertEqual(try clonedRepo.tags().sorted(), ["1.2.3", "2.0.0"])
+            XCTAssertEqual(try clonedRepo.getTags().sorted(), ["1.2.3", "2.0.0"])
 
             // Update the checkout.
             try checkoutRepo.fetch()
-            XCTAssertEqual(try checkoutRepo.tags().sorted(), ["1.2.3", "2.0.0"])
+            XCTAssertEqual(try checkoutRepo.getTags().sorted(), ["1.2.3", "2.0.0"])
         }
     }
 
@@ -588,7 +588,7 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.tags(), ["1.2.3"])
+            XCTAssertEqual(try repo.getTags(), ["1.2.3"])
 
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
@@ -596,7 +596,7 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            XCTAssertEqual(try clonedRepo.tags(), ["1.2.3"])
+            XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
@@ -670,7 +670,7 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
-            XCTAssertEqual(try clonedRepo.tags(), [])
+            XCTAssertEqual(try clonedRepo.getTags(), [])
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")

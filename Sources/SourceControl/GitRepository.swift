@@ -320,7 +320,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     // MARK: Repository Interface
 
     /// Returns the tags present in repository.
-    public func tags() throws -> [String] {
+    public func getTags() throws -> [String] {
         // Get the contents using `ls-tree`.
         try self.cachedTags.memoize {
             try self.queue.sync {
