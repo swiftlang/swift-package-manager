@@ -32,7 +32,7 @@ private class DummyRepository: Repository {
         self.provider = provider
     }
     
-    func tags() throws -> [String] {
+    func getTags() throws -> [String] {
         ["1.0.0"]
     }
 
@@ -191,7 +191,7 @@ class RepositoryManagerTests: XCTestCase {
             
                 // Open the repository.
                 let repository = try! handle.open()
-                XCTAssertEqual(try! repository.tags(), ["1.0.0"])
+                XCTAssertEqual(try! repository.getTags(), ["1.0.0"])
 
                 // Create a checkout of the repository.
                 let checkoutPath = path.appending(component: "checkout")
