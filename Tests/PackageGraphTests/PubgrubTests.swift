@@ -1040,8 +1040,8 @@ final class PubgrubTests: XCTestCase {
         let result = resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
-            ("a", .revision("develop")),
-            ("b", .revision("master")),
+            ("a", .revision("develop-sha-1", branch: "develop")),
+            ("b", .revision("master-sha-2", branch: "master")),
         ])
     }
 
