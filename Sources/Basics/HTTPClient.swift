@@ -24,9 +24,19 @@ import Glibc
 import CRT
 #endif
 
+public protocol HTTPClientProtocol {
+    func execute(_ request: HTTPClientRequest, callback: @escaping (Result<HTTPClientResponse, Error>) -> Void)
+}
+
+public enum HTTPClientError: Error, Equatable {
+    case invalidResponse
+    case badResponseStatusCode(Int)
+    case circuitBreakerTriggered
+}
+
 // MARK: - HTTPClient
 
-public struct HTTPClient {
+public struct HTTPClient: HTTPClientProtocol {
     public typealias Configuration = HTTPClientConfiguration
     public typealias Request = HTTPClientRequest
     public typealias Response = HTTPClientResponse
@@ -168,33 +178,29 @@ public struct HTTPClient {
     }
 }
 
-extension HTTPClient {
-    public func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+public extension HTTPClient {
+    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), callback: callback)
     }
 
-    public func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), callback: callback)
     }
 
-    public func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), callback: callback)
     }
 
-    public func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), callback: callback)
     }
 
-    public func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
+    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
         self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), callback: callback)
     }
 }
 
-extension HTTPClientResponse {
-    public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = .init()) throws -> T? {
-        try self.body.flatMap { try decoder.decode(type, from: $0) }
-    }
-}
+// MARK: - HTTPClientConfiguration
 
 public struct HTTPClientConfiguration {
     public var requestHeaders: HTTPClientHeaders?
@@ -220,6 +226,8 @@ public enum HTTPClientCircuitBreakerStrategy {
     case hostErrors(maxErrors: Int, age: DispatchTimeInterval)
 }
 
+// MARK: - HTTPClientRequest
+
 public struct HTTPClientRequest {
     public let method: Method
     public let url: URL
@@ -231,7 +239,8 @@ public struct HTTPClientRequest {
                 url: URL,
                 headers: HTTPClientHeaders = .init(),
                 body: Data? = nil,
-                options: Options = .init()) {
+                options: Options = .init())
+    {
         self.method = method
         self.url = url
         self.headers = headers
@@ -266,6 +275,8 @@ public struct HTTPClientRequest {
     }
 }
 
+// MARK: - HTTPClientResponse
+
 public struct HTTPClientResponse {
     public let statusCode: Int
     public let statusText: String?
@@ -275,15 +286,22 @@ public struct HTTPClientResponse {
     public init(statusCode: Int,
                 statusText: String? = nil,
                 headers: HTTPClientHeaders = .init(),
-                body: Data? = nil) {
+                body: Data? = nil)
+    {
         self.statusCode = statusCode
         self.statusText = statusText
         self.headers = headers
         self.body = body
     }
+
+    public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = .init()) throws -> T? {
+        try self.body.flatMap { try decoder.decode(type, from: $0) }
+    }
 }
 
-public struct HTTPClientHeaders: Sequence, Equatable {
+// MARK: - HTTPClientHeaders
+
+public struct HTTPClientHeaders {
     private var items: [Item]
     private var headers: [String: [String]]
 
@@ -336,10 +354,6 @@ public struct HTTPClientHeaders: Sequence, Equatable {
         self.headers[name.lowercased()] ?? []
     }
 
-    public func makeIterator() -> IndexingIterator<[Item]> {
-        return self.items.makeIterator()
-    }
-
     public struct Item: Equatable {
         let name: String
         let value: String
@@ -349,14 +363,22 @@ public struct HTTPClientHeaders: Sequence, Equatable {
             self.value = value
         }
     }
+}
 
+extension HTTPClientHeaders: Sequence {
+    public func makeIterator() -> IndexingIterator<[Item]> {
+        return self.items.makeIterator()
+    }
+}
+
+extension HTTPClientHeaders: Equatable {
     public static func == (lhs: HTTPClientHeaders, rhs: HTTPClientHeaders) -> Bool {
         return lhs.headers == rhs.headers
     }
 }
 
-public enum HTTPClientError: Error, Equatable {
-    case invalidResponse
-    case badResponseStatusCode(Int)
-    case circuitBreakerTriggered
+extension HTTPClientHeaders: ExpressibleByDictionaryLiteral {
+    public init(dictionaryLiteral elements: (String, String)...) {
+        self.init(elements.map(Item.init))
+    }
 }

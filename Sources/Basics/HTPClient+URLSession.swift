@@ -8,14 +8,14 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-public struct URLSessionHTTPClient {
+public struct URLSessionHTTPClient: HTTPClientProtocol {
     private let configuration: URLSessionConfiguration
 
     public init(configuration: URLSessionConfiguration = .default) {
         self.configuration = configuration
     }
 
-    public func execute(request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) {
+    public func execute(_ request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) {
         let session = URLSession(configuration: self.configuration)
         let task = session.dataTask(with: request.urlRequest()) { data, response, error in
             if let error = error {
