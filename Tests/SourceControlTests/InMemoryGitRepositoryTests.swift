@@ -56,9 +56,9 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
 
-        XCTAssert(try repo.tags().isEmpty)
+        XCTAssert(try repo.getTags().isEmpty)
         try repo.tag(name: "2.0.0")
-        XCTAssertEqual(try repo.tags(), ["2.0.0"])
+        XCTAssertEqual(try repo.getTags(), ["2.0.0"])
         XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
         XCTAssertEqual(try fs.readFileContents(filePath), "two")
@@ -96,7 +96,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
 
         // Adding a new tag in original repo shouldn't show up in fetched repo.
         try repo.tag(name: "random")
-        XCTAssertEqual(try fooRepo.tags().sorted(), [v1, v2])
+        XCTAssertEqual(try fooRepo.getTags().sorted(), [v1, v2])
         XCTAssert(fooRepo.exists(revision: try fooRepo.resolveRevision(tag: v1)))
 
         let fooCheckoutPath = AbsolutePath("/fooCheckout")
@@ -105,7 +105,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssertTrue(try provider.checkoutExists(at: fooCheckoutPath))
         let fooCheckout = try provider.openCheckout(at: fooCheckoutPath)
 
-        XCTAssertEqual(try fooCheckout.tags().sorted(), [v1, v2])
+        XCTAssertEqual(try fooCheckout.getTags().sorted(), [v1, v2])
         XCTAssert(fooCheckout.exists(revision: try fooCheckout.getCurrentRevision()))
         let checkoutRepo = provider.openRepo(at: fooCheckoutPath)
 

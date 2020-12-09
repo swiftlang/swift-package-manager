@@ -42,7 +42,7 @@ private class MockRepository: Repository {
         return PackageReference(identity: PackageIdentity(url: self.url), path: self.url)
     }
 
-    func tags() throws -> [String] {
+    func getTags() throws -> [String] {
         return self.versions.keys.map { String(describing: $0) }
     }
 

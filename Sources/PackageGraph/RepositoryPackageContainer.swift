@@ -94,7 +94,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     // Compute the map of known versions.
     private func knownVersions() throws -> [Version: String] {
         try self.knownVersionsCache.memoize() {
-            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(try repository.tags())
+            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(try repository.getTags())
 
             return knownVersionsWithDuplicates.mapValues({ tags -> String in
                 if tags.count == 2 {
