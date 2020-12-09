@@ -225,14 +225,13 @@ public final class SwiftTarget: Target {
         bundleName: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [SupportedPlatform] = [],
-        isTest: Bool = false,
+        type: Kind,
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
-        let type: Kind = isTest ? .test : sources.computeTargetType()
         self.swiftVersion = swiftVersion
         super.init(
             name: name,
@@ -390,14 +389,13 @@ public final class ClangTarget: Target {
         includeDir: AbsolutePath,
         moduleMapType: ModuleMapType,
         headers: [AbsolutePath] = [],
-        isTest: Bool = false,
+        type: Kind,
         sources: Sources,
         resources: [Resource] = [],
         dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
-        let type: Kind = isTest ? .test : sources.computeTargetType()
         self.isCXX = sources.containsCXXFiles
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
@@ -526,17 +524,5 @@ public final class BinaryTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
         try super.init(from: decoder)
-    }
-}
-
-extension Sources {
-    /// Determine target type based on the sources.
-    fileprivate func computeTargetType() -> Target.Kind {
-        let isLibrary = !relativePaths.contains { path in
-            let file = path.basename.lowercased()
-            // Look for a main.xxx file avoiding cases like main.xxx.xxx
-            return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
-        }
-        return isLibrary ? .library : .executable
     }
 }

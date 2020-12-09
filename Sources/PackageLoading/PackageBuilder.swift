@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -223,6 +223,9 @@ public final class PackageBuilder {
     /// If set to true, one test product will be created for each test target.
     private let shouldCreateMultipleTestProducts: Bool
 
+    /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is vNext
+    private let warnAboutImplicitExecutableTargets: Bool
+
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
@@ -252,6 +255,7 @@ public final class PackageBuilder {
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
+        warnAboutImplicitExecutableTargets: Bool = (ProcessEnv.vars["SWIFTPM_ENABLE_EXECUTABLE_TARGETS"] == "1"),
         createREPLProduct: Bool = false
     ) {
         self.manifest = manifest
@@ -264,6 +268,7 @@ public final class PackageBuilder {
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
+        self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
 
     /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
@@ -728,7 +733,21 @@ public final class PackageBuilder {
             return nil
         }
         try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
-
+        
+        /// Determine the target's type, or leave nil to check the source directory.
+        let targetType: Target.Kind
+        switch potentialModule.type {
+        case .test:
+            targetType = .test
+        case .executable:
+            targetType = .executable
+        default:
+            targetType = sources.computeTargetType()
+            if targetType == .executable && manifest.toolsVersion >= .vNext && warnAboutImplicitExecutableTargets {
+                diagnostics.emit(warning: "in tools version \(ToolsVersion.vNext) and later, use 'executableTarget()' to declare executable targets")
+            }
+        }
+        
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             return SwiftTarget(
@@ -736,7 +755,7 @@ public final class PackageBuilder {
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
                 platforms: self.platforms(isTest: potentialModule.isTest),
-                isTest: potentialModule.isTest,
+                type: targetType,
                 sources: sources,
                 resources: resources,
                 dependencies: dependencies,
@@ -767,7 +786,7 @@ public final class PackageBuilder {
                 includeDir: publicHeadersPath,
                 moduleMapType: moduleMapType,
                 headers: headers,
-                isTest: potentialModule.isTest,
+                type: targetType,
                 sources: sources,
                 resources: resources,
                 dependencies: dependencies,
@@ -1243,5 +1262,15 @@ extension Sources {
         let swiftSources = relativePaths.filter{ $0.extension == "swift" }
         if swiftSources.isEmpty { return false }
         return swiftSources.count != relativePaths.count
+    }
+    
+    /// Determine target type based on the sources.
+    fileprivate func computeTargetType() -> Target.Kind {
+        let isLibrary = !relativePaths.contains { path in
+            let file = path.basename.lowercased()
+            // Look for a main.xxx file avoiding cases like main.xxx.xxx
+            return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
+        }
+        return isLibrary ? .library : .executable
     }
 }
