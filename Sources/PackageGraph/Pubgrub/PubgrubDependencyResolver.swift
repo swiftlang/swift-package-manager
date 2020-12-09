@@ -1240,9 +1240,8 @@ private final class PubGrubPackageContainer {
             // incompatibilities.
             return try Array(constraints.map { (constraint: PackageContainerConstraint) -> [Incompatibility] in
                 guard case .versionSet(let vs) = constraint.requirement else {
-                    let error = "Unexpected unversioned requirement: \(constraint)"
-                    assertionFailure(error)
-                    throw InternalError(error)
+                    assertionFailure()
+                    throw InternalError("Unexpected unversioned requirement: \(constraint)")
                 }
                 return constraint.nodes().map { dependencyNode in
                     var terms: OrderedSet<Term> = []
@@ -1253,7 +1252,13 @@ private final class PubGrubPackageContainer {
             }.joined())
         }
 
-        let (lowerBounds, upperBounds) = try computeBounds(for: node, constraints: constraints, from: version, products: node.productFilter)
+        // FIXME: make timeout configurable
+        let computeBoundsTimeout = DispatchTimeInterval.seconds(60)
+        let (lowerBounds, upperBounds) = try computeBounds(for: node,
+                                                           constraints: constraints,
+                                                           startingWith: version,
+                                                           products: node.productFilter,
+                                                           timeout: computeBoundsTimeout)
 
         return constraints.map { constraint in
             var terms: OrderedSet<Term> = []
@@ -1287,82 +1292,99 @@ private final class PubGrubPackageContainer {
     private func computeBounds(
         for node: DependencyResolutionNode,
         constraints: [PackageContainerConstraint],
-        from fromVersion: Version,
-        products: ProductFilter
+        startingWith firstVersion: Version,
+        products: ProductFilter,
+        timeout: DispatchTimeInterval
     ) throws -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
+        let preloadCount = 3
+        
+        // nothing to do
         if constraints.isEmpty {
             return ([:], [:])
         }
-
-        func compute(_ versions: AnyCollection<Version>, upperBound: Bool) -> [PackageReference: Version] {
-            var result: [PackageReference: Version] = [:]
-            var prev = fromVersion
-
+        
+        func preload(_ versions: [Version]) {
+            let sync = DispatchGroup()
             for version in versions {
+                self.queue.async(group: sync) {
+                    if self.underlying.isToolsVersionCompatible(at: version) {
+                        _ = try? self.underlying.getDependencies(at: version, productFilter: products)
+                    }
+                }
+            }
+            // not throwing here since its only an optimization
+            _ = sync.wait(timeout: .now() + timeout)
+        }
+        
+        func compute(_ versions: [Version], upperBound: Bool) -> [PackageReference: Version] {
+            var result: [PackageReference: Version] = [:]
+            var previousVersion = firstVersion
+
+            for (index, version) in versions.enumerated() {
+                // optimization to preload few version in parallel.
+                // we cant preload all versions ahead of time since it will be more
+                // costly given the early termination condition
+                if index.isMultiple(of: preloadCount) {
+                    preload(Array(versions[index ..< min(index + preloadCount, versions.count)]))
+                }
+                
                 // Record this version as the bound if we're finding upper bounds since
                 // upper bound is exclusive and record the previous version if we're
                 // finding the lower bound since that is inclusive.
-                let bound = upperBound ? version : prev
-
-                // If we hit a version which doesn't have a compatible tools version then that's the boundary.
+                let bound = upperBound ? version : previousVersion
+                
                 let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
-                // Record this version as the bound for our list of dependencies, if appropriate.
-                if !isToolsVersionCompatible {
-                    for constraint in constraints where !result.keys.contains(constraint.identifier) {
-                        // Record the bound if the tools version isn't compatible at the current version.
+                for constraint in constraints where !result.keys.contains(constraint.identifier) {
+                    // If we hit a version which doesn't have a compatible tools version then that's the boundary.
+                    // Record the bound if the tools version isn't compatible at the current version.
+                    if !isToolsVersionCompatible {
                         result[constraint.identifier] = bound
-                    }
-                    // We're done if we found bounds for all of our dependencies.
-                    if result.count == constraints.count {
-                        break
+                    } else {
+                        // Get the dependencies at this version.
+                        if let currentDependencies = try? self.underlying.getDependencies(at: version, productFilter: products) {
+                            // Record this version as the bound for our list of dependencies, if appropriate.
+                            if currentDependencies.first(where: { $0.identifier == constraint.identifier }) != constraint {
+                                result[constraint.identifier] = bound
+                            }
+                        }
                     }
                 }
 
-                // Get the dependencies at this version.
-                let currentDependencies = (try? self.underlying.getDependencies(at: version, productFilter: products)) ?? []
-                // Record this version as the bound for our list of dependencies, if appropriate.
-                for constraint in constraints where !result.keys.contains(constraint.identifier) {
-                    if currentDependencies.first(where: { $0.identifier == constraint.identifier }) != constraint {
-                        result[constraint.identifier] = bound
-                    }
-                }
                 // We're done if we found bounds for all of our dependencies.
                 if result.count == constraints.count {
                     break
                 }
 
-                prev = version
+                previousVersion = version
             }
-
+            
             return result
         }
 
         let versions: [Version] = try self.underlying.reversedVersions().reversed()
 
-        // This is guaranteed to be present.
-        let idx = versions.firstIndex(of: fromVersion)!
-
-        // Compute upper and lower bounds for the dependencies.
+        guard let idx = versions.firstIndex(of: firstVersion) else {
+            assertionFailure()
+            throw InternalError("from version \(firstVersion) not found in \(node.package.name)")
+        }
 
         let sync = DispatchGroup()
 
-        var upperBounds: [PackageReference: Version] = [:]
+        var upperBounds = [PackageReference: Version]()
         self.queue.async(group: sync) {
-            upperBounds = compute(AnyCollection(versions.dropFirst(idx + 1)), upperBound: true)
+            upperBounds = compute(Array(versions.dropFirst(idx + 1)), upperBound: true)
         }
 
-        var lowerBounds: [PackageReference: Version] = [:]
+        var lowerBounds = [PackageReference: Version]()
         self.queue.async(group: sync) {
-            lowerBounds = compute(AnyCollection(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
+            lowerBounds = compute(Array(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
         }
 
-        // FIXME: should this timeout be configurable?
-        switch sync.wait(timeout: .now() + 60) {
-        case .timedOut:
+        guard case .success = sync.wait(timeout: .now() + timeout) else {
             throw StringError("timeout computing \(node.package.name) bounds")
-        case .success:
-            return (lowerBounds, upperBounds)
         }
+
+        return (lowerBounds, upperBounds)
     }
 }
 
@@ -1399,9 +1421,8 @@ private final class ContainerProvider {
     /// Get a cached container for the given identifier, asserting / throwing if not found.
     func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
         guard let container = self.containersCache[package] else {
-            let error = "container for \(package.name) expected to be cached"
             assertionFailure()
-            throw InternalError(error)
+            throw InternalError("container for \(package.name) expected to be cached")
         }
         return container
     }

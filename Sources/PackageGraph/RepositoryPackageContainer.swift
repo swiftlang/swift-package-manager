@@ -157,12 +157,12 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
         do {
-            return try cachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
+            return try self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
                 let revision = try repository.resolveRevision(tag: tag)
-                return try getDependencies(at: revision, version: version, productFilter: productFilter)
+                return try self.loadDependencies(at: revision, version: version, productFilter: productFilter)
             }.1
         } catch {
             throw GetDependenciesError(
@@ -172,10 +172,10 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [Constraint] {
         do {
-            return try cachedDependencies(forIdentifier: revision, productFilter: productFilter) {
+            return try self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
-                return try getDependencies(at: revision, productFilter: productFilter)
+                return try self.loadDependencies(at: revision, productFilter: productFilter)
             }.1
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
@@ -203,23 +203,23 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         }
     }
 
-    private func cachedDependencies(
+    private func getCachedDependencies(
         forIdentifier identifier: String,
         productFilter: ProductFilter,
         getDependencies: () throws -> (Manifest, [Constraint])
     ) throws -> (Manifest, [Constraint]) {
-        return try dependenciesCacheLock.withLock {
-            if let result = dependenciesCache[identifier, default: [:]][productFilter] {
-                return result
-            }
-            let result = try getDependencies()
-            dependenciesCache[identifier, default: [:]][productFilter] = result
+        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }) {
             return result
         }
+        let result = try getDependencies()
+        self.dependenciesCacheLock.withLock {
+            self.dependenciesCache[identifier, default: [:]][productFilter] = result
+        }
+        return result
     }
 
     /// Returns dependencies of a container at the given revision.
-    private func getDependencies(
+    private func loadDependencies(
         at revision: Revision,
         version: Version? = nil,
         productFilter: ProductFilter

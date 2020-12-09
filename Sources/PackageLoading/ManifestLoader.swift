@@ -159,6 +159,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     let delegate: ManifestLoaderDelegate?
     private(set) var cache: PersistentCacheProtocol?
     private let extraManifestFlags: [String]
+    
+    private let jsonEncoder: JSONEncoder
+    private let jsonDecoder: JSONDecoder
 
     public init(
         manifestResources: ManifestResourceProvider,
@@ -179,6 +182,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             try? localFileSystem.createDirectory(cacheDir, recursive: true)
         }
         self.cacheDir = cacheDir.map(resolveSymlinks)
+        self.jsonEncoder = JSONEncoder.makeWithDefaults()
+        self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
     @available(*, deprecated)
@@ -534,7 +539,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let cacheHit = try keyHash.withData {
             try cache.get(key: $0)
         }.flatMap {
-            try? JSONDecoder.makeWithDefaults().decode(ManifestParseResult.self, from: $0)
+            try? self.jsonDecoder.decode(ManifestParseResult.self, from: $0)
         }
         if let result = cacheHit {
             return result
@@ -546,9 +551,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: key.toolsVersion
         )
 
-        let encoder = JSONEncoder.makeWithDefaults()
         try keyHash.withData {
-            try cache.put(key: $0, value: encoder.encode(result))
+            try cache.put(key: $0, value: self.jsonEncoder.encode(result))
         }
 
         return result
