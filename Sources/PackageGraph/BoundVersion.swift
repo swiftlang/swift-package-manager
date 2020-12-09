@@ -26,7 +26,7 @@ public enum BoundVersion: Equatable, Hashable {
     case unversioned
 
     /// The package assignment is this revision.
-    case revision(String)
+    case revision(String, branch: String? = nil)
 }
 
 extension BoundVersion: CustomStringConvertible {
@@ -38,7 +38,7 @@ extension BoundVersion: CustomStringConvertible {
             return version.description
         case .unversioned:
             return "unversioned"
-        case .revision(let identifier):
+        case .revision(let identifier, _):
             return identifier
         }
     }
