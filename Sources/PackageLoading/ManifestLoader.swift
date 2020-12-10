@@ -761,7 +761,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #else
                 let executableSuffix = ""
 #endif
-                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
+                // Create a canonical package name that's suitable as a path component
+                let canonicalPackageName = packageIdentity.description
+                                            .split(separator: "/", omittingEmptySubsequences: true)
+                                            .joined(separator: "-")
+                                            .map { $0.isASCII ? "\($0)" : "-" }
+                                            .joined()
+
+                let compiledManifestFile = tmpDir.appending(component: "\(canonicalPackageName)-manifest\(executableSuffix)")
                 cmd += ["-o", compiledManifestFile.pathString]
 
                 // Compile the manifest.
@@ -775,7 +782,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
                 
                 // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
-                let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
+                let jsonOutputFile = tmpDir .appending(component: "\(canonicalPackageName)-output.json")
                 guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
                     throw StringError("couldn't create the manifest's JSON output file")
                 }
