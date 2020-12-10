@@ -341,7 +341,7 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
                 """
             }
 
-            let loader = ManifestLoader(
+            let loader = try ManifestLoader(
                 manifestResources: Resources.default,
                 serializedDiagnostics: true, cacheDir: path)
 

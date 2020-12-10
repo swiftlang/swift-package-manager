@@ -21,7 +21,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         try withTemporaryDirectory { packageDir in
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+            let manifestLoader = try ManifestLoader(manifestResources: Resources.default)
             let manifest = try manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root)
 
             // Generate source code for the loaded manifest, write it out to replace the manifest file contents, and load it again.

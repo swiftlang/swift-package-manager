@@ -17,7 +17,7 @@ import PackageModel
 import PackageLoading
 
 class PackageDescriptionLoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+    let manifestLoader = try! ManifestLoader(manifestResources: Resources.default)
 
     var toolsVersion: ToolsVersion {
         fatalError("implement in subclass")
