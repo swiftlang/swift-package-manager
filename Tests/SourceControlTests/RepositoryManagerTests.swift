@@ -6,12 +6,12 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import XCTest
 
-import TSCBasic
 @testable import SourceControl
+import TSCBasic
 
 import SPMTestSupport
 
@@ -25,7 +25,7 @@ private class DummyRepository: Repository {
     init(provider: DummyRepositoryProvider) {
         self.provider = provider
     }
-    
+
     func getTags() throws -> [String] {
         ["1.0.0"]
     }
@@ -43,7 +43,7 @@ private class DummyRepository: Repository {
     }
 
     func fetch() throws {
-        provider.numFetches += 1
+        self.provider.increaseFetchCount()
     }
 
     func openFileView(revision: Revision) throws -> FileSystem {
@@ -52,29 +52,19 @@ private class DummyRepository: Repository {
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
-    var numClones = 0
-    var numFetches: Int {
-        get {
-            return fetchesLock.withLock {
-                return _numFetches
-            }
-        }
-        set {
-            fetchesLock.withLock {
-                _numFetches = newValue
-            }
-        }
-    }
-    private var fetchesLock = Lock()
-    var _numFetches = 0
-    
+    private let lock = Lock()
+    private var _numClones = 0
+    private var _numFetches = 0
+
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         assert(!localFileSystem.exists(path))
         try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
         try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
 
-        numClones += 1
-        
+        self.lock.withLock {
+            self._numClones += 1
+        }
+
         // We only support one dummy URL.
         let basename = repository.url.components(separatedBy: "/").last!
         if basename != "dummy" {
@@ -85,7 +75,9 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
 
-        numClones += 1
+        self.lock.withLock {
+            self._numClones += 1
+        }
 
         // We only support one dummy URL.
         let basename = sourcePath.basename
@@ -110,6 +102,24 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         fatalError("unsupported")
     }
+
+    func increaseFetchCount() {
+        self.lock.withLock {
+            self._numFetches += 1
+        }
+    }
+
+    var numClones: Int {
+        self.lock.withLock {
+            self._numClones
+        }
+    }
+
+    var numFetches: Int {
+        self.lock.withLock {
+            self._numFetches
+        }
+    }
 }
 
 private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -119,46 +129,59 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
     private var _willUpdate = [RepositorySpecifier]()
     private var _didUpdate = [RepositorySpecifier]()
 
-    private var fetchedLock = Lock() 
+    private var fetchedLock = Lock()
+
+    var willFetchGroup: DispatchGroup?
+    var didFetchGroup: DispatchGroup?
+    var willUpdateGroup: DispatchGroup?
+    var didUpdateGroup: DispatchGroup?
 
     var willFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
-        return fetchedLock.withLock({ _willFetch })
+        self.willFetchGroup?.wait()
+        return self.fetchedLock.withLock { _willFetch }
     }
 
     var didFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
-        return fetchedLock.withLock({ _didFetch })
+        self.didFetchGroup?.wait()
+        return self.fetchedLock.withLock { _didFetch }
     }
 
     var willUpdate: [RepositorySpecifier] {
-        return fetchedLock.withLock({ _willUpdate })
+        self.willUpdateGroup?.wait()
+        return self.fetchedLock.withLock { _willUpdate }
     }
 
     var didUpdate: [RepositorySpecifier] {
-        return fetchedLock.withLock({ _didUpdate })
+        self.didUpdateGroup?.wait()
+        return self.fetchedLock.withLock { _didUpdate }
     }
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
-        fetchedLock.withLock {
+        self.fetchedLock.withLock {
             _willFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
         }
+        self.willFetchGroup?.leave()
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
-        fetchedLock.withLock {
+        self.fetchedLock.withLock {
             _didFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
         }
+        self.didFetchGroup?.leave()
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
-        fetchedLock.withLock {
+        self.fetchedLock.withLock {
             _willUpdate += [handle.repository]
         }
+        self.willUpdateGroup?.leave()
     }
 
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {
-        fetchedLock.withLock {
+        self.fetchedLock.withLock {
             _didUpdate += [handle.repository]
         }
+        self.didUpdateGroup?.leave()
     }
 }
 
@@ -167,6 +190,10 @@ class RepositoryManagerTests: XCTestCase {
         try testWithTemporaryDirectory { path in
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
+            delegate.willFetchGroup = DispatchGroup()
+            delegate.didFetchGroup = DispatchGroup()
+            delegate.willUpdateGroup = DispatchGroup()
+            delegate.didUpdateGroup = DispatchGroup()
             let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
 
             // Check that we can "fetch" a repository.
@@ -174,6 +201,9 @@ class RepositoryManagerTests: XCTestCase {
             let lookupExpectation = expectation(description: "Repository lookup expectation")
 
             var prevHandle: RepositoryManager.RepositoryHandle?
+
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             manager.lookup(repository: dummyRepo, on: .global()) { result in
                 guard case .success(let handle) = result else {
                     XCTFail("Could not get handle")
@@ -182,7 +212,7 @@ class RepositoryManagerTests: XCTestCase {
 
                 prevHandle = handle
                 XCTAssertEqual(provider.numFetches, 0)
-            
+
                 // Open the repository.
                 let repository = try! handle.open()
                 XCTAssertEqual(try! repository.getTags(), ["1.0.0"])
@@ -190,15 +220,23 @@ class RepositoryManagerTests: XCTestCase {
                 // Create a checkout of the repository.
                 let checkoutPath = path.appending(component: "checkout")
                 try! handle.cloneCheckout(to: checkoutPath, editable: false)
-            
+
                 XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
                 XCTAssert(localFileSystem.exists(checkoutPath))
                 lookupExpectation.fulfill()
             }
 
+            waitForExpectations(timeout: 1)
+
+            XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo])
+            XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo])
+
             let badLookupExpectation = expectation(description: "Repository lookup expectation")
             // Get a bad repository.
             let badDummyRepo = RepositorySpecifier(url: "badDummy")
+
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             manager.lookup(repository: badDummyRepo, on: .global()) { result in
                 guard case .failure(let error) = result else {
                     XCTFail("Unexpected success")
@@ -210,12 +248,18 @@ class RepositoryManagerTests: XCTestCase {
 
             waitForExpectations(timeout: 1)
 
+            XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
             // We shouldn't have made any update call yet.
             XCTAssert(delegate.willUpdate.isEmpty)
             XCTAssert(delegate.didUpdate.isEmpty)
 
             // We should always get back the same handle once fetched.
             XCTNonNil(prevHandle) {
+                delegate.willFetchGroup?.enter()
+                delegate.didFetchGroup?.enter()
+                delegate.willUpdateGroup?.enter()
+                delegate.didUpdateGroup?.enter()
                 try XCTAssert($0 === manager.lookup(repository: dummyRepo))
             }
             // Since we looked up this repo again, we should have made a fetch call.
@@ -233,14 +277,16 @@ class RepositoryManagerTests: XCTestCase {
                 XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.url], nil)
             }
 
-            // We should get a new handle now because we deleted the exisiting repository.
+            // We should get a new handle now because we deleted the existing repository.
             XCTNonNil(prevHandle) {
                 try XCTAssert($0 !== manager.lookup(repository: dummyRepo))
             }
-            
+
             // We should have tried fetching these two.
             XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-            XCTAssertEqual(Set(delegate.didFetch .map { $0.repository }), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
+            XCTAssertEqual(delegate.willUpdate, [dummyRepo])
+            XCTAssertEqual(delegate.didUpdate, [dummyRepo])
         }
     }
 
@@ -252,11 +298,15 @@ class RepositoryManagerTests: XCTestCase {
 
             let provider = GitRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
+            delegate.willFetchGroup = DispatchGroup()
+            delegate.didFetchGroup = DispatchGroup()
 
             let manager = RepositoryManager(path: repositoriesPath, provider: provider, delegate: delegate, cachePath: cachePath)
             manager.cacheLocalPackages = true
 
             // fetch packages and populate cache
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: repo)
             XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
             XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
@@ -268,6 +318,8 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.removeFileTree(repositoriesPath)
 
             // fetch packages from the cache
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: repo)
             XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
             XCTAssertEqual(delegate.willFetch[1].fetchDetails,
@@ -279,6 +331,8 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.removeFileTree(cachePath)
 
             // fetch packages and populate cache
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: repo)
             XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
             XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
@@ -294,16 +348,26 @@ class RepositoryManagerTests: XCTestCase {
             let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
+            delegate.willFetchGroup = DispatchGroup()
+            delegate.didFetchGroup = DispatchGroup()
+
             try localFileSystem.createDirectory(repos, recursive: true)
             let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
+
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
+
             manager.reset()
             XCTAssertTrue(!localFileSystem.isDirectory(repos))
             try localFileSystem.createDirectory(repos, recursive: true)
+
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 2)
             XCTAssertEqual(delegate.didFetch.count, 2)
@@ -318,9 +382,14 @@ class RepositoryManagerTests: XCTestCase {
             // Do the initial fetch.
             do {
                 let delegate = DummyRepositoryManagerDelegate()
+                delegate.willFetchGroup = DispatchGroup()
+                delegate.didFetchGroup = DispatchGroup()
+
                 let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
 
+                delegate.willFetchGroup?.enter()
+                delegate.didFetchGroup?.enter()
                 _ = try manager.lookup(repository: dummyRepo)
 
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
@@ -333,8 +402,12 @@ class RepositoryManagerTests: XCTestCase {
             // Create a new manager, and fetch.
             do {
                 let delegate = DummyRepositoryManagerDelegate()
+                delegate.willFetchGroup = DispatchGroup()
+                delegate.didFetchGroup = DispatchGroup()
+
                 let manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
+
                 _ = try manager.lookup(repository: dummyRepo)
                 // This time fetch shouldn't be called.
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [])
@@ -346,11 +419,16 @@ class RepositoryManagerTests: XCTestCase {
             // Manually destroy the manager state, and check it still works.
             do {
                 let delegate = DummyRepositoryManagerDelegate()
+                delegate.willFetchGroup = DispatchGroup()
+                delegate.didFetchGroup = DispatchGroup()
+
                 var manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 try! localFileSystem.removeFileTree(path.appending(component: "checkouts-state.json"))
                 manager = RepositoryManager(path: path, provider: provider, delegate: delegate)
                 let dummyRepo = RepositorySpecifier(url: "dummy")
 
+                delegate.willFetchGroup?.enter()
+                delegate.didFetchGroup?.enter()
                 _ = try manager.lookup(repository: dummyRepo)
 
                 XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
@@ -374,7 +452,7 @@ class RepositoryManagerTests: XCTestCase {
             var set = Set<Int>()
             let numLookups = 1000
 
-            for i in 0..<numLookups {
+            for i in 0 ..< numLookups {
                 manager.lookup(repository: dummyRepo, on: .global()) { _ in
                     doneCondition.whileLocked {
                         set.insert(i)
@@ -400,17 +478,28 @@ class RepositoryManagerTests: XCTestCase {
             let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
+            delegate.willFetchGroup = DispatchGroup()
+            delegate.didFetchGroup = DispatchGroup()
+            delegate.willUpdateGroup = DispatchGroup()
+            delegate.didUpdateGroup = DispatchGroup()
+
             try localFileSystem.createDirectory(repos, recursive: true)
 
             let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
 
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
             XCTAssertEqual(delegate.willUpdate.count, 0)
             XCTAssertEqual(delegate.didUpdate.count, 0)
 
+            delegate.willUpdateGroup?.enter()
+            delegate.willUpdateGroup?.enter()
+            delegate.didUpdateGroup?.enter()
+            delegate.didUpdateGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.willFetch.count, 1)
@@ -432,11 +521,16 @@ class RepositoryManagerTests: XCTestCase {
             let repos = path.appending(component: "repo")
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
+            delegate.willFetchGroup = DispatchGroup()
+            delegate.didFetchGroup = DispatchGroup()
+
             try localFileSystem.createDirectory(repos, recursive: true)
             let manager = RepositoryManager(path: repos, provider: provider, delegate: delegate)
             let dummyRepo = RepositorySpecifier(url: "dummy")
 
             // Perform a lookup.
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 1)
 
@@ -445,12 +539,16 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.removeFileTree(stateFile)
 
             // We should refetch the repository since we lost the state file.
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 2)
 
             // This time remove the entire repository directory and expect that
             // to work as well.
             try localFileSystem.removeFileTree(repos)
+            delegate.willFetchGroup?.enter()
+            delegate.didFetchGroup?.enter()
             _ = try manager.lookup(repository: dummyRepo)
             XCTAssertEqual(delegate.didFetch.count, 3)
         }
