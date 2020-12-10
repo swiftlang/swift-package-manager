@@ -981,7 +981,8 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let stdoutOutput = try result.utf8Output()
-                XCTAssert(stdoutOutput.contains("Created /private/tmp/Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
+                XCTAssert(stdoutOutput.hasPrefix("Created /"), #"actual: "\#(stdoutOutput)""#)
+                XCTAssert(stdoutOutput.contains("Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
             }
 
             // Running without arguments or options in non-package directory
@@ -995,14 +996,14 @@ final class PackageToolTests: XCTestCase {
 
             // Runnning with output as absolute path to existing directory
             do {
-                let destination = AbsolutePath("/private/tmp")
+                let destination = AbsolutePath.root
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()
                 XCTAssert(
                     stderrOutput.contains("error: Couldn’t create an archive:") &&
-                        stderrOutput.contains("fatal: could not create archive file '/private/tmp': Is a directory"),
+                        stderrOutput.contains("fatal: could not create archive file '/': Is a directory"),
                     #"actual: "\#(stderrOutput)""#
                 )
             }
