@@ -637,7 +637,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = try ManifestLoader(manifestResources: resources)
+        let loader = ManifestLoader(manifestResources: resources)
         let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
         return workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
     }

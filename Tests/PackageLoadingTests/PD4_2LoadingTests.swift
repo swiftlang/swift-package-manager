@@ -464,7 +464,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = try ManifestLoader(
+            let manifestLoader = ManifestLoader(
                 manifestResources: Resources.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
@@ -520,7 +520,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = try ManifestLoader(
+            let manifestLoader = ManifestLoader(
                 manifestResources: Resources.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
@@ -565,7 +565,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 check(loader: manifestLoader, expectCached: true)
             }
 
-            let noCacheLoader = try ManifestLoader(
+            let noCacheLoader = ManifestLoader(
                 manifestResources: Resources.default, useInMemoryCache: false, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
@@ -593,7 +593,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = try ManifestLoader(
+            let manifestLoader = ManifestLoader(
                 manifestResources: Resources.default, cacheDir: path, delegate: delegate)
 
             func check(loader: ManifestLoader) throws {

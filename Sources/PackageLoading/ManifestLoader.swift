@@ -170,7 +170,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         useInMemoryCache: Bool = true,
         delegate: ManifestLoaderDelegate? = nil,
         extraManifestFlags: [String] = []
-    ) throws {
+    ) {
         self.resources = manifestResources
         self.serializedDiagnostics = serializedDiagnostics
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
@@ -181,17 +181,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
 
         self.useInMemoryCache = useInMemoryCache
-        // Resolve symlinks since we can't use them in sandbox profiles.
-        if let cacheDir = cacheDir {
-            try? localFileSystem.createDirectory(cacheDir, recursive: true)
-        }
         self.databaseCacheDir = cacheDir.map(resolveSymlinks)
-        try self.createCacheIfNeeded()
     }
 
     @available(*, deprecated)
-    public convenience init(resources: ManifestResourceProvider, isManifestSandboxEnabled: Bool = true) throws {
-        try self.init(manifestResources: resources, isManifestSandboxEnabled: isManifestSandboxEnabled)
+    public convenience init(resources: ManifestResourceProvider, isManifestSandboxEnabled: Bool = true) {
+        self.init(manifestResources: resources, isManifestSandboxEnabled: isManifestSandboxEnabled)
     }
 
     /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
@@ -209,7 +204,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ) throws -> Manifest {
         let fileSystem = localFileSystem
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = try ManifestLoader(manifestResources: resources)
+        let loader = ManifestLoader(manifestResources: resources)
         let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: fileSystem)
         return try loader.load(
             package: packagePath,
@@ -520,6 +515,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             fileSystem: fileSystem
         )
 
+        // Resolve symlinks since we can't use them in sandbox profiles.
+        try self.createCacheIfNeeded()
         if let cache = self.databaseCache {
             result = try self.loadManifestFromCache(key: cacheKey, cache: cache)
         } else {
@@ -913,8 +910,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
         guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
             return
-
         }
+        try localFileSystem.createDirectory(self.databaseCacheDir, recursive: true)
         self.databaseCache = try SQLiteBackedPersistentCache(cacheFilePath: manifestCacheDBPath)
     }
 
