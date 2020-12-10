@@ -81,7 +81,9 @@ public final class ThreadSafeBox<Value> {
     }
 }
 
-@available(*, deprecated, message: "replace with async/await when available")
+// FIXME: mark as deprecated once async/await is available
+//@available(*, deprecated, message: "replace with async/await when available")
+@inlinable
 public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
     return try tsc_await(body)
 }
