@@ -334,12 +334,12 @@ final class PubgrubTests: XCTestCase {
         XCTAssertThrowsError(try solver1.resolve(state: state1, conflict: notRoot))
     }
 
-    func testResolverDecisionMaking() {
+    func testResolverDecisionMaking() throws {
         let solver1 = PubgrubDependencyResolver(provider: emptyProvider)
         let state1 = PubgrubDependencyResolver.State(root: rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
-        XCTAssertNil(try solver1.makeDecision(state: state1))
+        XCTAssertNil(try tsc_await { solver1.makeDecision(state: state1, completion: $0) })
 
         let a = MockContainer(name: aRef, dependenciesByVersion: [
             "0.0.0": [:],
@@ -355,7 +355,7 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 0)
 
-        let decision = try! solver2.makeDecision(state: state2)
+        let decision = try tsc_await { solver2.makeDecision(state: state2, completion: $0) }
         XCTAssertEqual(decision, .product("a", package: "a"))
 
         XCTAssertEqual(state2.incompatibilities.count, 3)
@@ -1907,6 +1907,7 @@ private func AssertError(
     }
 }
 
+// FIXME: this is not thread-safe
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)
 
@@ -1916,9 +1917,6 @@ public class MockContainer: PackageContainer {
     var dependencies: [String: [String: [Dependency]]]
 
     public var unversionedDeps: [PackageContainerConstraint] = []
-
-    /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
-    public var requestedVersions: Set<Version> = []
 
     public var identifier: PackageReference {
         return name
@@ -1969,7 +1967,6 @@ public class MockContainer: PackageContainer {
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        requestedVersions.insert(version)
         return try getDependencies(at: version.description, productFilter: productFilter)
     }
 
@@ -2064,9 +2061,10 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
+        on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>
     ) -> Void) {
-        DispatchQueue.global().async {
+        queue.async {
             completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
                 .failure(_MockLoadingError.unknownModule))
         }

@@ -71,7 +71,7 @@ public final class PackageEditor {
         } else {
             // Otherwise, first lookup the dependency.
             let spec = RepositorySpecifier(url: options.url)
-            let handle = try tsc_await{ context.repositoryManager.lookup(repository: spec, completion: $0) }
+            let handle = try temp_await{ context.repositoryManager.lookup(repository: spec, completion: $0) }
             let repo = try handle.open()
 
             // Compute the requirement.

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Dispatch
 import PackageLoading
 import PackageModel
 import SourceControl
@@ -132,6 +133,7 @@ public protocol PackageContainerProvider {
     func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
+        on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     )
 }

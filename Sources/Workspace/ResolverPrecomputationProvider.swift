@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Dispatch
 import PackageModel
 import PackageGraph
 import TSCBasic
@@ -58,37 +59,39 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
+        on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
-        // Start by searching manifests from the Workspace's resolved dependencies.
-        if let manifest = dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == identifier }) {
-            let container = LocalPackageContainer(
-                package: identifier,
-                manifest: manifest.manifest,
-                dependency: manifest.dependency,
-                mirrors: mirrors,
-                currentToolsVersion: currentToolsVersion
-            )
+        queue.async {
+            // Start by searching manifests from the Workspace's resolved dependencies.
+            if let manifest = dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == identifier }) {
+                let container = LocalPackageContainer(
+                    package: identifier,
+                    manifest: manifest.manifest,
+                    dependency: manifest.dependency,
+                    mirrors: mirrors,
+                    currentToolsVersion: currentToolsVersion
+                )
+                return completion(.success(container))
+            }
 
-            return completion(.success(container))
+            // Continue searching from the Workspace's root manifests.
+            // FIXME: We might want to use a dictionary for faster lookups.
+            if let index = dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
+                let container = LocalPackageContainer(
+                    package: identifier,
+                    manifest: dependencyManifests.root.manifests[index],
+                    dependency: nil,
+                    mirrors: mirrors,
+                    currentToolsVersion: currentToolsVersion
+                )
+
+                return completion(.success(container))
+            }
+
+            // As we don't have anything else locally, error out.
+            completion(.failure(ResolverPrecomputationError.missingPackage(package: identifier)))
         }
-
-        // Continue searching from the Workspace's root manifests.
-        // FIXME: We might want to use a dictionary for faster lookups.
-        if let index = dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
-            let container = LocalPackageContainer(
-                package: identifier,
-                manifest: dependencyManifests.root.manifests[index],
-                dependency: nil,
-                mirrors: mirrors,
-                currentToolsVersion: currentToolsVersion
-            )
-
-            return completion(.success(container))
-        }
-
-        // As we don't have anything else locally, error out.
-        completion(.failure(ResolverPrecomputationError.missingPackage(package: identifier)))
     }
 }
 
