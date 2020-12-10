@@ -53,8 +53,14 @@ public struct HTTPClient: HTTPClientProtocol {
     public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
-        // FIXME: inject platform specific implementation here
-        self.underlying = handler ?? URLSessionHTTPClient().execute
+        if let handler = handler {
+            self.underlying = handler
+        } else {
+            // FIXME: inject platform-specific implementation here
+            let client = URLSessionHTTPClient()
+            client.configuration = configuration
+            self.underlying = client.execute
+        }
     }
 
     public func execute(_ request: Request, callback: @escaping (Result<Response, Error>) -> Void) {
@@ -207,6 +213,7 @@ public struct HTTPClientConfiguration {
     public var requestTimeout: DispatchTimeInterval?
     public var retryStrategy: HTTPClientRetryStrategy?
     public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
+    public var followRedirects: Bool
     public var callbackQueue: DispatchQueue
 
     public init() {
@@ -214,6 +221,7 @@ public struct HTTPClientConfiguration {
         self.requestTimeout = .none
         self.retryStrategy = .none
         self.circuitBreakerStrategy = .none
+        self.followRedirects = true
         self.callbackQueue = .global()
     }
 }
