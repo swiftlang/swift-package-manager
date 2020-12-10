@@ -596,7 +596,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
 
         // Now load with Baz as a root package.
-        workspace.delegate.events = []
+        workspace.delegate.clear()
         workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Baz", "Foo")
@@ -2791,7 +2791,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkUpdate(roots: ["Root"]) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
-        workspace.delegate.events = []
+        workspace.delegate.clear()
 
         // Check we don't have updating Foo event.
         workspace.checkUpdate(roots: ["Root"]) { diagnostics in
@@ -4054,7 +4054,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
         XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
-        workspace.delegate.events.removeAll()
+        workspace.delegate.clear()
 
         workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)

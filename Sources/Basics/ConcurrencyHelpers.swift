@@ -47,6 +47,12 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
             self.underlying.isEmpty
         }
     }
+
+    public func contains(_ key: Key) -> Bool {
+        self.lock.withLock {
+            self.underlying.keys.contains(key)
+        }
+    }
 }
 
 /// Thread-safe value boxing  structure
