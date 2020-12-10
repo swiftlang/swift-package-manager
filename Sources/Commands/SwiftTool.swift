@@ -61,112 +61,128 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
-        stdoutStream <<< "Fetching \(repository)"
-        if let fetchDetails = fetchDetails {
-            if fetchDetails.fromCache {
-                stdoutStream <<< " from cache"
+        queue.async {
+            self.stdoutStream <<< "Fetching \(repository)"
+            if let fetchDetails = fetchDetails {
+                if fetchDetails.fromCache {
+                    self.stdoutStream <<< " from cache"
+                }
             }
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
         }
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
     }
 
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
     }
 
     func repositoryWillUpdate(_ repository: String) {
-        stdoutStream <<< "Updating \(repository)"
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
+        queue.async {
+            self.stdoutStream <<< "Updating \(repository)"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func repositoryDidUpdate(_ repository: String) {
     }
 
     func dependenciesUpToDate() {
-        stdoutStream <<< "Everything is already up-to-date"
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
+        queue.async {
+            self.stdoutStream <<< "Everything is already up-to-date"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func cloning(repository: String) {
-        stdoutStream <<< "Cloning \(repository)"
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
+        queue.async {
+            self.stdoutStream <<< "Cloning \(repository)"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
-        stdoutStream <<< "Resolving \(repository) at \(reference)"
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
+        queue.async {
+            self.stdoutStream <<< "Resolving \(repository) at \(reference)"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func removing(repository: String) {
-        stdoutStream <<< "Removing \(repository)"
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
+        queue.async {
+            self.stdoutStream <<< "Removing \(repository)"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func warning(message: String) {
         // FIXME: We should emit warnings through the diagnostic engine.
-        stdoutStream <<< "warning: " <<< message
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
+        queue.async {
+            self.stdoutStream <<< "warning: " <<< message
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func willResolveDependencies(reason: WorkspaceResolveReason) {
         guard isVerbose else { return }
 
-        stdoutStream <<< "Running resolver because "
+        queue.sync {
+            self.stdoutStream <<< "Running resolver because "
 
-        switch reason {
-        case .forced:
-            stdoutStream <<< "it was forced"
-        case .newPackages(let packages):
-            let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
-            stdoutStream <<< "the following dependencies were added: \(dependencies)"
-        case .packageRequirementChange(let package, let state, let requirement):
-            stdoutStream <<< "dependency '\(package.name)' was "
+            switch reason {
+            case .forced:
+                self.stdoutStream <<< "it was forced"
+            case .newPackages(let packages):
+                let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
+                self.stdoutStream <<< "the following dependencies were added: \(dependencies)"
+            case .packageRequirementChange(let package, let state, let requirement):
+                self.stdoutStream <<< "dependency '\(package.name)' was "
 
-            switch state {
-            case .checkout(let checkoutState)?:
-                switch checkoutState.requirement {
-                case .versionSet(.exact(let version)):
-                    stdoutStream <<< "resolved to '\(version)'"
-                case .versionSet(_):
-                    // Impossible
-                    break
-                case .revision(let revision):
-                    stdoutStream <<< "resolved to '\(revision)'"
-                case .unversioned:
-                    stdoutStream <<< "unversioned"
+                switch state {
+                case .checkout(let checkoutState)?:
+                    switch checkoutState.requirement {
+                    case .versionSet(.exact(let version)):
+                        self.stdoutStream <<< "resolved to '\(version)'"
+                    case .versionSet(_):
+                        // Impossible
+                        break
+                    case .revision(let revision):
+                        self.stdoutStream <<< "resolved to '\(revision)'"
+                    case .unversioned:
+                        self.stdoutStream <<< "unversioned"
+                    }
+                case .edited?:
+                    self.stdoutStream <<< "edited"
+                case .local?:
+                    self.stdoutStream <<< "versioned"
+                case nil:
+                    self.stdoutStream <<< "root"
                 }
-            case .edited?:
-                stdoutStream <<< "edited"
-            case .local?:
-                stdoutStream <<< "versioned"
-            case nil:
-                stdoutStream <<< "root"
+
+                self.stdoutStream <<< " but now has a "
+
+                switch requirement {
+                case .versionSet:
+                    self.stdoutStream <<< "different version-based"
+                case .revision:
+                    self.stdoutStream <<< "different revision-based"
+                case .unversioned:
+                    self.stdoutStream <<< "unversioned"
+                }
+
+                self.stdoutStream <<< " requirement."
+            default:
+                self.stdoutStream <<< " requirements have changed."
             }
 
-            stdoutStream <<< " but now has a "
-
-            switch requirement {
-            case .versionSet:
-                stdoutStream <<< "different version-based"
-            case .revision:
-                stdoutStream <<< "different revision-based"
-            case .unversioned:
-                stdoutStream <<< "unversioned"
-            }
-
-            stdoutStream <<< " requirement."
-        default:
-            stdoutStream <<< " requirements have changed."
+            self.stdoutStream <<< "\n"
+            stdoutStream.flush()
         }
-
-        stdoutStream <<< "\n"
-        stdoutStream.flush()
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import Foundation
@@ -83,10 +84,10 @@ public final class Manifest: ObjectIdentifierProtocol {
     public let providers: [SystemPackageProviderDescription]?
 
     /// Targets required for building particular product filters.
-    private var _requiredTargets: [ProductFilter: [TargetDescription]]
+    private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
     /// Dependencies required for building particular product filters.
-    private var _requiredDependencies: [ProductFilter: [PackageDependencyDescription]]
+    private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependencyDescription]>()
 
     public init(
         name: String,
@@ -125,8 +126,6 @@ public final class Manifest: ObjectIdentifierProtocol {
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
-        self._requiredTargets = [:]
-        self._requiredDependencies = [:]
     }
 
     /// Returns the targets required for a particular product filter.
@@ -344,6 +343,12 @@ extension Manifest: CustomStringConvertible {
 }
 
 extension Manifest: Codable {
+    private enum CodingKeys: CodingKey {
+         case name, path, url, version, targetMap, toolsVersion,
+              pkgConfig,providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
+              dependencies, products, targets, platforms, packageKind, revision,
+              defaultLocalization
+    }
     /// Coding user info key for dump-package command.
     ///
     /// Presence of this key will hide some keys when encoding the Manifest object.

@@ -73,7 +73,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    public private(set) var validToolsVersionsCache: [Version: Bool] = [:]
+    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
 
     init(
         identifier: PackageReference,
@@ -157,12 +157,12 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
         do {
-            return try cachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
+            return try self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
                 let revision = try repository.resolveRevision(tag: tag)
-                return try getDependencies(at: revision, version: version, productFilter: productFilter)
+                return try self.loadDependencies(at: revision, version: version, productFilter: productFilter)
             }.1
         } catch {
             throw GetDependenciesError(
@@ -172,10 +172,10 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [Constraint] {
         do {
-            return try cachedDependencies(forIdentifier: revision, productFilter: productFilter) {
+            return try self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
-                return try getDependencies(at: revision, productFilter: productFilter)
+                return try self.loadDependencies(at: revision, productFilter: productFilter)
             }.1
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
@@ -203,23 +203,23 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         }
     }
 
-    private func cachedDependencies(
+    private func getCachedDependencies(
         forIdentifier identifier: String,
         productFilter: ProductFilter,
         getDependencies: () throws -> (Manifest, [Constraint])
     ) throws -> (Manifest, [Constraint]) {
-        return try dependenciesCacheLock.withLock {
-            if let result = dependenciesCache[identifier, default: [:]][productFilter] {
-                return result
-            }
-            let result = try getDependencies()
-            dependenciesCache[identifier, default: [:]][productFilter] = result
+        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }) {
             return result
         }
+        let result = try getDependencies()
+        self.dependenciesCacheLock.withLock {
+            self.dependenciesCache[identifier, default: [:]][productFilter] = result
+        }
+        return result
     }
 
     /// Returns dependencies of a container at the given revision.
-    private func getDependencies(
+    private func loadDependencies(
         at revision: Revision,
         version: Version? = nil,
         productFilter: ProductFilter
@@ -317,9 +317,6 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     /// The tools version loader.
     let toolsVersionLoader: ToolsVersionLoaderProtocol
 
-    /// Queue for callbacks.
-    private let callbacksQueue = DispatchQueue(label: "org.swift.swiftpm.container-provider")
-
     /// Create a repository-based package provider.
     ///
     /// - Parameters:
@@ -344,11 +341,12 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     public func getContainer(
         for identifier: PackageReference,
         skipUpdate: Bool,
+        on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
         // If the container is local, just create and return a local package container.
         if identifier.kind != .remote {
-            callbacksQueue.async {
+            queue.async {
                 let container = LocalPackageContainer(identifier,
                     mirrors: self.mirrors,
                     manifestLoader: self.manifestLoader,
@@ -361,7 +359,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         }
 
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate) { result in
+        repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate, on: queue) { result in
             // Create the container wrapper.
             let container = result.tryMap { handle -> PackageContainer in
                 // Open the repository.

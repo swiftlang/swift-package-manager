@@ -542,47 +542,66 @@ public final class MockWorkspace {
 }
 
 public final class MockWorkspaceDelegate: WorkspaceDelegate {
-    public var events = [String]()
+    private let lock = Lock()
+    public var _events = [String]()
 
     public init() {}
 
     public func repositoryWillUpdate(_ repository: String) {
-        self.events.append("updating repo: \(repository)")
+        self.append("updating repo: \(repository)")
     }
 
     public func dependenciesUpToDate() {
-        self.events.append("Everything is already up-to-date")
+        self.append("Everything is already up-to-date")
     }
 
     public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
-        self.events.append("fetching repo: \(repository)")
+        self.append("fetching repo: \(repository)")
     }
 
     public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
-        self.events.append("finished fetching repo: \(repository)")
+        self.append("finished fetching repo: \(repository)")
     }
 
     public func cloning(repository: String) {
-        self.events.append("cloning repo: \(repository)")
+        self.append("cloning repo: \(repository)")
     }
 
     public func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
-        self.events.append("checking out repo: \(repository)")
+        self.append("checking out repo: \(repository)")
     }
 
     public func removing(repository: String) {
-        self.events.append("removing repo: \(repository)")
+        self.append("removing repo: \(repository)")
     }
 
     public func willResolveDependencies(reason: WorkspaceResolveReason) {
-        self.events.append("will resolve dependencies")
+        self.append("will resolve dependencies")
     }
 
     public func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
-        self.events.append("will load manifest for \(packageKind) package: \(url)")
+        self.append("will load manifest for \(packageKind) package: \(url)")
     }
 
     public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
-        self.events.append("did load manifest for \(packageKind) package: \(url)")
+        self.append("did load manifest for \(packageKind) package: \(url)")
+    }
+
+    private func append(_ event: String) {
+        self.lock.withLock {
+            self._events.append(event)
+        }
+    }
+
+    public var events: [String] {
+        self.lock.withLock {
+            self._events
+        }
+    }
+
+    public func clear() {
+        self.lock.withLock {
+            self._events = []
+        }
     }
 }
