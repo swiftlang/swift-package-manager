@@ -180,7 +180,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
-        let v = try container.versions(filter: { _ in true }).map { $0 }
+        let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
 
@@ -235,7 +235,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let provider = createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let v = try container.versions(filter: { _ in true }).map { $0 }
+            let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
             XCTAssertEqual(v, ["1.0.1"])
         }
 
@@ -244,7 +244,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try provider.getContainer(for: ref, skipUpdate: false) as! RepositoryPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
-            let v = try container.versions(filter: { _ in true }).map { $0 }
+            let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
             XCTAssertEqual(container.validToolsVersionsCache["1.0.0"], false)
             XCTAssertEqual(container.validToolsVersionsCache["1.0.1"], true)
             XCTAssertEqual(container.validToolsVersionsCache["1.0.2"], true)
@@ -256,7 +256,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let provider = createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference(identity: PackageIdentity(url: specifier.url), path: specifier.url)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let v = try container.versions(filter: { _ in true }).map { $0 }
+            let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
             XCTAssertEqual(v, [])
         }
 
@@ -312,7 +312,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         )
         let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
-        let v = try container.versions(filter: { _ in true }).map { $0 }
+        let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
 
@@ -352,7 +352,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         )
         let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
-        let v = try container.versions(filter: { _ in true }).map { $0 }
+        let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
         XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
 
