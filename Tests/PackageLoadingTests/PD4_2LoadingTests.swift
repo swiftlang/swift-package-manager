@@ -566,7 +566,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             let noCacheLoader = ManifestLoader(
-                manifestResources: Resources.default, delegate: delegate)
+                manifestResources: Resources.default, useInMemoryCache: false, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }

@@ -104,9 +104,8 @@ public struct Term: Equatable, Hashable {
         return true
     }
 
+    // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
     public func relation(with other: Term) -> SetRelation {
-        // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
-
         if self.node != other.node {
             fatalError("attempting to compute relation between different packages \(self) \(other)")
         }
