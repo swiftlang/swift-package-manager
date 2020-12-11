@@ -49,10 +49,19 @@ public protocol PackageContainer {
     /// The list will be returned in sorted order, with the latest version *first*.
     /// All versions will not be requested at once. Resolver will request the next one only
     /// if the previous one did not satisfy all constraints.
-    func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version>
+    func toolsVersionsAppropriateVersionsDescending() throws -> [Version]
+
+    /// Get the list of versions in the repository sorted in the ascending order, that is the earliest
+    /// version appears first.
+    func versionsAscending() throws -> [Version]
+
+    /// Get the list of versions in the repository sorted in the descending order, that is the latest
+    /// version appears first.
+    func versionsDescending() throws -> [Version]
 
     /// Get the list of versions in the repository sorted in the reverse order, that is the latest
     /// version appears first.
+    @available(*, deprecated, message: "use versionsDescending instead")
     func reversedVersions() throws -> [Version]
 
     // FIXME: We should perhaps define some particularly useful error codes
@@ -88,6 +97,17 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
+}
+
+extension PackageContainer {
+    @available(*, deprecated, message: "use versionsDescending instead")
+    public func reversedVersions() throws -> [Version] {
+        try self.versionsDescending()
+    }
+
+    public func versionsDescending() throws -> [Version] {
+        try self.versionsAscending().reversed()
+    }
 }
 
 // MARK: -

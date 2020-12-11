@@ -38,11 +38,11 @@ public class MockPackageContainer: PackageContainer {
     }
 
     public let _versions: [Version]
-    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
-        return AnySequence(_versions.filter(isIncluded))
+    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
+        return try self.versionsDescending()
     }
 
-    public func reversedVersions() throws -> [Version] {
+    public func versionsAscending() throws -> [Version] {
         return _versions
     }
 
@@ -98,8 +98,7 @@ public class MockPackageContainer: PackageContainer {
         dependencies: [String: [Dependency]] = [:]
     ) {
         self.name = name
-        let versions = dependencies.keys.compactMap(Version.init(string:))
-        self._versions = versions.sorted().reversed()
+        self._versions = dependencies.keys.compactMap(Version.init(string:)).sorted()
         self.dependencies = dependencies
     }
 }

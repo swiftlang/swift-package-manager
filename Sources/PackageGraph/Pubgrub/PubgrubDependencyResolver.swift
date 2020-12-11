@@ -1094,7 +1094,7 @@ private final class PubGrubPackageContainer {
         if let pinnedVersion = self.pinnedVersion, requirement.contains(pinnedVersion) {
             return 1
         }
-        return try self.underlying.reversedVersions().filter(requirement.contains).count
+        return try self.underlying.versionsDescending().filter(requirement.contains).count
     }
 
     /// Computes the bounds of the given range against the versions available in the package.
@@ -1105,7 +1105,7 @@ private final class PubGrubPackageContainer {
         var includeLowerBound = true
         var includeUpperBound = true
 
-        let versions = try self.underlying.reversedVersions()
+        let versions = try self.underlying.versionsDescending()
 
         if let last = versions.last, range.lowerBound < last {
             includeLowerBound = false
@@ -1131,13 +1131,13 @@ private final class PubGrubPackageContainer {
         }
 
         // Return the highest version that is allowed by the input requirement.
-        return try self.underlying.reversedVersions().first { versionSet.contains($0) }
+        return try self.underlying.versionsDescending().first { versionSet.contains($0) }
     }
 
     /// Compute the bounds of incompatible tools version starting from the given version.
     private func computeIncompatibleToolsVersionBounds(fromVersion: Version) throws -> VersionSetSpecifier {
         assert(!self.underlying.isToolsVersionCompatible(at: fromVersion))
-        let versions: [Version] = try self.underlying.reversedVersions().reversed()
+        let versions: [Version] = try self.underlying.versionsAscending()
 
         // This is guaranteed to be present.
         let idx = versions.firstIndex(of: fromVersion)!
@@ -1358,7 +1358,7 @@ private final class PubGrubPackageContainer {
             return result
         }
 
-        let versions: [Version] = try self.underlying.reversedVersions().reversed()
+        let versions: [Version] = try self.underlying.versionsAscending()
 
         guard let idx = versions.firstIndex(of: firstVersion) else {
             assertionFailure()

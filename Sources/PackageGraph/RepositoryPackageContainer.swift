@@ -67,7 +67,6 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     private var dependenciesCacheLock = Lock()
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
-    private var reversedVersionsCache = ThreadSafeBox<[Version]>()
     private var manifestsCache = ThreadSafeKeyValueStore<Revision, Manifest>()
     private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
 
@@ -106,17 +105,15 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             })
         }
     }
-    
-    public func reversedVersions() throws -> [Version] {
-        try self.reversedVersionsCache.memoize() {
-            [Version](try self.knownVersions().keys).sorted().reversed()
-        }
+
+    public func versionsAscending() throws -> [Version] {
+        [Version](try self.knownVersions().keys).sorted()
     }
     
     /// The available version list (in reverse order).
-    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
-        let reversedVersions = try self.reversedVersions()
-        return AnySequence(reversedVersions.filter(isIncluded).lazy.filter({
+    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
+        let reversedVersions = try self.versionsDescending()
+        return reversedVersions.lazy.filter({
             // If we have the result cached, return that.
             if let result = self.validToolsVersionsCache[$0] {
                 return result
@@ -126,7 +123,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
             self.validToolsVersionsCache[$0] = isValid
             return isValid
-        }))
+        })
     }
 
     public func getTag(for version: Version) -> String? {
