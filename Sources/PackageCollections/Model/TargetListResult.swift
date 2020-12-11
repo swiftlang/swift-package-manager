@@ -16,7 +16,7 @@ import TSCUtility
 extension PackageCollectionsModel {
     public typealias TargetListResult = [TargetListItem]
 
-    public struct TargetListItem {
+    public struct TargetListItem: Encodable {
         public typealias Package = PackageCollectionsModel.TargetListResult.Package
 
         /// Target
@@ -29,7 +29,7 @@ extension PackageCollectionsModel {
 
 extension PackageCollectionsModel.TargetListResult {
     /// Metadata of package that contains the target
-    public struct Package: Hashable {
+    public struct Package: Hashable, Encodable {
         public typealias Version = PackageCollectionsModel.TargetListResult.PackageVersion
 
         /// Package's repository address
@@ -48,7 +48,7 @@ extension PackageCollectionsModel.TargetListResult {
 
 extension PackageCollectionsModel.TargetListResult {
     /// Represents a package version
-    public struct PackageVersion: Hashable {
+    public struct PackageVersion: Hashable, Encodable {
         /// The version
         public let version: TSCUtility.Version
 
