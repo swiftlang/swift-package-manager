@@ -35,7 +35,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
@@ -87,7 +87,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "bar.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Bar",
@@ -122,7 +122,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "example.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Modules",
@@ -157,7 +157,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(packagePath.appending(component: "a.txt"), bytes: "dummy_data")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
@@ -192,7 +192,7 @@ class GenerateXcodeprojTests: XCTestCase {
             initGitRepo(packagePath, addFile: false)
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
@@ -226,7 +226,7 @@ class GenerateXcodeprojTests: XCTestCase {
             initGitRepo(packagePath, addFile: false)
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
@@ -264,7 +264,7 @@ class GenerateXcodeprojTests: XCTestCase {
             initGitRepo(packagePath, addFile: false)
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
@@ -307,7 +307,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(packagePath.appending(component: "ignored_file"), bytes: "dummy_data")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
@@ -350,7 +350,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(bar2TargetPath.appending(component: "Sources.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",

@@ -58,7 +58,7 @@ public final class LLBuildEngine {
         }
 
         func lookupRule(_ key: Key) -> Rule {
-            let ruleKey = RuleKey(key)
+            let ruleKey = try! RuleKey(key)
             return delegate.lookupRule(
                 rule: ruleKey.rule, key: Key(ruleKey.data))
         }
@@ -84,7 +84,7 @@ public final class LLBuildEngine {
         // Clear out any errors from the previous build.
         delegate.errors.removeAll()
 
-        let encodedKey = RuleKey(
+        let encodedKey = try RuleKey(
             rule: T.BuildRule.ruleName, data: try key.toKey().data).toKey()
         let value = engine.build(key: encodedKey)
 
@@ -115,7 +115,7 @@ public class LLTaskBuildEngine {
     }
 
     public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) throws {
-        let encodedKey = RuleKey(
+        let encodedKey = try RuleKey(
             rule: T.BuildRule.ruleName, data: try key.toKey().data).toKey()
         engine.taskNeedsInput(encodedKey, inputID: inputID)
     }
@@ -182,16 +182,16 @@ private struct RuleKey: Codable {
         self.data = data
     }
 
-    init(_ key: Key) {
-        self.init(key.data)
+    init(_ key: Key) throws {
+        try self.init(key.data)
     }
 
-    init(_ data: [UInt8]) {
-        self = try! fromBytes(data)
+    init(_ data: [UInt8]) throws {
+        self = try fromBytes(data)
     }
 
-    func toKey() -> Key {
-        return try! Key(toBytes(self))
+    func toKey() throws -> Key {
+        return try Key(toBytes(self))
     }
 }
 

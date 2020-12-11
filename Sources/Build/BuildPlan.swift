@@ -107,12 +107,12 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
+    public func targetTripleArgs(for target: ResolvedTarget) -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
             guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
-                throw InternalError("the target \(target) doesn't support building for macOS")
+                fatalError("the target \(target) doesn't support building for macOS")
             }
             args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
@@ -305,13 +305,13 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Builds up basic compilation arguments for this target.
-    public func basicArguments() throws -> [String] {
+    public func basicArguments() -> [String] {
         var args = [String]()
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += try buildParameters.targetTripleArgs(for: target)
+        args += buildParameters.targetTripleArgs(for: target)
         args += buildParameters.toolchain.extraCCFlags
         args += ["-g"]
         if buildParameters.triple.isWindows() {
@@ -619,9 +619,9 @@ public final class SwiftTargetBuildDescription {
     }
 
     /// The arguments needed to compile this target.
-    public func compileArguments() throws -> [String] {
+    public func compileArguments() -> [String] {
         var args = [String]()
-        args += try buildParameters.targetTripleArgs(for: target)
+        args += buildParameters.targetTripleArgs(for: target)
         args += ["-swift-version", swiftVersion.rawValue]
 
         // Enable batch mode in debug mode.
@@ -696,7 +696,7 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-output-file-map")
         // FIXME: Eliminate side effect.
-        result.append(try! writeOutputFileMap().pathString)
+        result.append(try writeOutputFileMap().pathString)
 
         switch target.type {
         case .library, .test:
@@ -720,12 +720,12 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += try self.compileArguments()
+        result += self.compileArguments()
         return result
      }
 
     /// Command-line for emitting just the Swift module.
-    public func emitModuleCommandLine() throws -> [String] {
+    public func emitModuleCommandLine() -> [String] {
         assert(buildParameters.emitSwiftModuleSeparately)
 
         var result: [String] = []
@@ -756,7 +756,7 @@ public final class SwiftTargetBuildDescription {
         result.append(buildParameters.buildPath.pathString)
 
         // FIXME: Maybe refactor these into "common args".
-        result += try buildParameters.targetTripleArgs(for: target)
+        result += buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
         result += optimizationArguments
         result += testingArguments
@@ -787,7 +787,7 @@ public final class SwiftTargetBuildDescription {
 
         result.append("-output-file-map")
         // FIXME: Eliminate side effect.
-        result.append(try! writeOutputFileMap().pathString)
+        result.append(try writeOutputFileMap().pathString)
 
         if target.type == .library || target.type == .test {
             result.append("-parse-as-library")
@@ -802,7 +802,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += try buildParameters.targetTripleArgs(for: target)
+        result += buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
 
         result += buildParameters.indexStoreArguments(for: target)
@@ -1155,7 +1155,7 @@ public final class ProductBuildDescription {
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try buildParameters.targetTripleArgs(for: product.targets[0])
+        args += buildParameters.targetTripleArgs(for: product.targets[0])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
@@ -1440,9 +1440,9 @@ public class BuildPlan {
         for buildTarget in targets {
             switch buildTarget {
             case .swift(let target):
-                try plan(swiftTarget: target)
+                try self.plan(swiftTarget: target)
             case .clang(let target):
-                plan(clangTarget: target)
+                try self.plan(clangTarget: target)
             }
         }
 
@@ -1458,7 +1458,7 @@ public class BuildPlan {
     /// Plan a product.
     private func plan(_ buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = computeDependencies(of: buildProduct.product)
+        let dependencies = try computeDependencies(of: buildProduct.product)
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -1526,7 +1526,7 @@ public class BuildPlan {
     /// Computes the dependencies of a product.
     private func computeDependencies(
         of product: ResolvedProduct
-    ) -> (
+    ) throws -> (
         dylibs: [ResolvedProduct],
         staticTargets: [ResolvedTarget],
         systemModules: [ResolvedTarget],
@@ -1535,7 +1535,7 @@ public class BuildPlan {
 
         // Sort the product targets in topological order.
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
-        let allTargets = try! topologicalSort(nodes, successors: { dependency in
+        let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
             // Include all the depenencies of a target.
             case .target(let target, _):
@@ -1604,8 +1604,8 @@ public class BuildPlan {
     }
 
     /// Plan a Clang target.
-    private func plan(clangTarget: ClangTargetBuildDescription) {
-        for case .target(let dependency, _) in clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
+    private func plan(clangTarget: ClangTargetBuildDescription) throws {
+        for case .target(let dependency, _) in try clangTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
             switch dependency.underlyingTarget {
             case is SwiftTarget:
                 if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
@@ -1643,7 +1643,7 @@ public class BuildPlan {
     private func plan(swiftTarget: SwiftTargetBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
         // depends on.
-        for case .target(let dependency, _) in swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
+        for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
             switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {

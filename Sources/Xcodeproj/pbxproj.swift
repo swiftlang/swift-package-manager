@@ -489,7 +489,7 @@ public func xcodeProject(
 
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
-        for depModule in [target] + target.recursiveTargetDependencies() {
+        for depModule in try [target] + target.recursiveTargetDependencies() {
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the target how it contributes
             // to the overall build environment for client targets, which can
@@ -640,7 +640,7 @@ public func xcodeProject(
 
         // For each target on which this one depends, add a target dependency
         // and also link against the target's product.
-        for case .target(let dependency, _) in target.recursiveDependencies() {
+        for case .target(let dependency, _) in try target.recursiveDependencies() {
             // We should never find ourself in the list of dependencies.
             assert(dependency != target)
 

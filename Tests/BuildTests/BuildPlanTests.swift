@@ -105,7 +105,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -208,7 +208,7 @@ final class BuildPlanTests: XCTestCase {
 
             // Plan package build with explicit module build
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "ExplicitTest",
@@ -268,7 +268,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -371,7 +371,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
@@ -425,7 +425,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -478,7 +478,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -524,7 +524,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=extlib",
             "-I", "/ExtPkg/Sources/extlib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
-        XCTAssertEqual(try ext.basicArguments(), args)
+        XCTAssertEqual(ext.basicArguments(), args)
         XCTAssertEqual(ext.objects, [AbsolutePath("/path/to/build/debug/extlib.build/extlib.c.o")])
         XCTAssertEqual(ext.moduleMap, AbsolutePath("/path/to/build/debug/extlib.build/module.modulemap"))
 
@@ -545,7 +545,7 @@ final class BuildPlanTests: XCTestCase {
             "-fmodule-map-file=/path/to/build/debug/extlib.build/module.modulemap",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache",
         ]
-        XCTAssertEqual(try exe.basicArguments(), args)
+        XCTAssertEqual(exe.basicArguments(), args)
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
@@ -589,7 +589,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -677,7 +677,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -738,7 +738,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -769,7 +769,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
-        XCTAssertEqual(try lib.basicArguments(), args)
+        XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -806,7 +806,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
@@ -847,7 +847,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -897,7 +897,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -958,7 +958,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -1015,7 +1015,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -1049,7 +1049,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -1142,7 +1142,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -1206,7 +1206,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -1235,18 +1235,18 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.target(for: "exe").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(try exe.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(try exe.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(exe.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
     #if os(macOS)
-        XCTAssertEqual(try lib.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #else
-        XCTAssertEqual(try lib.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
+        XCTAssertEqual(lib.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
     #endif
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
@@ -1270,7 +1270,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
@@ -1360,7 +1360,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fileSystem,
             diagnostics: diagnostics,
             manifests: [
@@ -1432,8 +1432,8 @@ final class BuildPlanTests: XCTestCase {
 
         do {
             let linuxDebug = BuildEnvironment(platform: .linux, configuration: .debug)
-            graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
-            graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
+            try graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
+            try graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
 
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: linuxDebug),
@@ -1447,8 +1447,8 @@ final class BuildPlanTests: XCTestCase {
 
         do {
             let macosDebug = BuildEnvironment(platform: .macOS, configuration: .debug)
-            graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
-            graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
+            try graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
+            try graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
 
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: macosDebug),
@@ -1462,8 +1462,8 @@ final class BuildPlanTests: XCTestCase {
 
         do {
             let androidRelease = BuildEnvironment(platform: .android, configuration: .release)
-            graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
-            graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
+            try graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
+            try graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
 
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: androidRelease),
@@ -1482,7 +1482,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -1508,7 +1508,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
@@ -1544,7 +1544,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
@@ -1580,7 +1580,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
@@ -1605,7 +1605,7 @@ final class BuildPlanTests: XCTestCase {
             "-target", "x86_64-unknown-windows-msvc", "-g", "-gcodeview", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-I", "/Pkg/Sources/lib/include"
         ]
-        XCTAssertEqual(try lib.basicArguments(), args)
+        XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -1633,7 +1633,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
@@ -1670,7 +1670,7 @@ final class BuildPlanTests: XCTestCase {
             "-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"
         ]
-        XCTAssertEqual(try lib.basicArguments(), args)
+        XCTAssertEqual(lib.basicArguments(), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -1725,7 +1725,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -1747,9 +1747,9 @@ final class BuildPlanTests: XCTestCase {
             let path = StringPattern.equal(result.plan.buildParameters.indexStore.pathString)
 
         #if os(macOS)
-            XCTAssertMatch(try lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+            XCTAssertMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
         #else
-            XCTAssertNoMatch(try lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+            XCTAssertNoMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
         #endif
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -1768,7 +1768,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "A",
@@ -1830,7 +1830,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "A",
@@ -1969,7 +1969,7 @@ final class BuildPlanTests: XCTestCase {
             ])
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [aManifest, bManifest]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -2037,7 +2037,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [aManifest]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -2062,7 +2062,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
@@ -2115,7 +2115,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
@@ -2170,7 +2170,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
@@ -2238,7 +2238,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
@@ -2306,7 +2306,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -2366,7 +2366,7 @@ final class BuildPlanTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
 
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -2425,7 +2425,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -2529,7 +2529,7 @@ final class BuildPlanTests: XCTestCase {
                 """))
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -2631,7 +2631,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",

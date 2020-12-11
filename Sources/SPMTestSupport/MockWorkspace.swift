@@ -112,7 +112,7 @@ public final class MockWorkspace {
             let repoManifestPath = AbsolutePath.root.appending(component: Manifest.filename)
             try repo.writeFileContents(repoManifestPath, bytes: "")
             try writeToolsVersion(at: .root, version: toolsVersion, fs: repo)
-            repo.commit()
+            try repo.commit()
 
             let versions: [String?] = packageKind == .remote ? package.versions : [nil]
             let manifestPath = packagePath.appending(component: Manifest.filename)
@@ -323,7 +323,7 @@ public final class MockWorkspace {
         let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
 
-        let dependencyManifests = workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
+        let dependencyManifests = try workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
 
         let result = workspace.precomputeResolution(
             root: root,
@@ -467,7 +467,7 @@ public final class MockWorkspace {
         roots: [String] = [],
         deps: [MockDependency] = [],
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
-    ) {
+    ) throws {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
@@ -476,7 +476,7 @@ public final class MockWorkspace {
         )
         let rootManifests = workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
-        let manifests = workspace.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let manifests = try workspace.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         result(manifests, diagnostics)
     }
 

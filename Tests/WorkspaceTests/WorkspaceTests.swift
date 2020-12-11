@@ -1772,7 +1772,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Check that we can compute missing dependencies.
-        workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
+        try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(manifests.missingPackageURLs().map { $0.path }.sorted(), ["/tmp/ws/pkgs/Bar", "/tmp/ws/pkgs/Foo"])
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1786,7 +1786,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that we compute the correct missing dependencies.
-        workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
+        try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(manifests.missingPackageURLs().map { $0.path }.sorted(), ["/tmp/ws/pkgs/Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1800,7 +1800,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that we compute the correct missing dependencies.
-        workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
+        try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
             XCTAssertEqual(manifests.missingPackageURLs().map { $0.path }.sorted(), [])
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1865,7 +1865,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
+        try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
             XCTAssertEqual(manifests.allDependencyManifests().map { $0.name }, ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
@@ -2221,7 +2221,7 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertTrue(fs.exists(fooPath))
 
-        workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
+        try workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
             let editedPackages = manifests.editedPackagesConstraints()
             XCTAssertEqual(editedPackages.map { $0.identifier.path }, [fooPath.pathString])
             XCTAssertNoDiagnostics(diagnostics)

@@ -584,7 +584,7 @@ public final class PackageBuilder {
             throw ModuleError.cycleDetected((cycle.path.map({ $0.name }), cycle.cycle.map({ $0.name })))
         }
         // There was no cycle so we sort the targets topologically.
-        let potentialModules = try! topologicalSort(potentialModules, successors: successors)
+        let potentialModules = try topologicalSort(potentialModules, successors: successors)
 
         // The created targets mapped to their name.
         var targets = [String: Target]()

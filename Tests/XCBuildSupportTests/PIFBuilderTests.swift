@@ -35,7 +35,7 @@ class PIFBuilderTests: XCTestCase {
             )
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: fs,
                 diagnostics: diagnostics,
                 manifests: [
@@ -107,7 +107,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -365,7 +365,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testExecutableProducts() {
+    func testExecutableProducts() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/cfoo/main.c",
@@ -377,7 +377,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -703,7 +703,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -922,7 +922,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testLibraryProducts() {
+    func testLibraryProducts() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooLib1/lib.swift",
             "/Foo/Sources/FooLib2/lib.swift",
@@ -931,7 +931,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1118,7 +1118,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testLibraryTargets() {
+    func testLibraryTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooLib1/lib.swift",
             "/Foo/Sources/FooLib2/lib.cpp",
@@ -1127,7 +1127,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1411,13 +1411,13 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testLibraryTargetsAsDylib() {
+    func testLibraryTargetsAsDylib() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Bar/Sources/BarLib/lib.c"
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1457,14 +1457,14 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testSystemLibraryTargets() {
+    func testSystemLibraryTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/SystemLib1/module.modulemap",
             "/Foo/Sources/SystemLib2/module.modulemap"
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1577,7 +1577,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1640,7 +1640,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1848,7 +1848,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -2068,7 +2068,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -2133,7 +2133,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [

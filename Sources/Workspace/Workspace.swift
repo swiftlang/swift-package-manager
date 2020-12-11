@@ -559,7 +559,7 @@ extension Workspace {
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
-        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
         guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else { return nil }
@@ -606,7 +606,7 @@ extension Workspace {
         let packageStateChanges = updateCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
 
         // Load the updated manifests.
-        let updatedDependencyManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Update the pins store.
         pinAll(
@@ -685,7 +685,7 @@ extension Workspace {
         })
 
         // Load the graph.
-        return PackageGraph.load(
+        return try PackageGraph.load(
             root: manifests.root,
             mirrors: config.mirrors,
             additionalFileRules: additionalFileRules,
@@ -1269,7 +1269,7 @@ extension Workspace {
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
+    ) throws -> DependencyManifests {
 
         // Make a copy of dependencies as we might mutate them in the for loop.
         let dependenciesToCheck = Array(state.dependencies)
@@ -1308,7 +1308,7 @@ extension Workspace {
             partial[manifest.url] = manifest
         }
 
-        let allManifestsWithPossibleDuplicates = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) })) { node in
+        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) })) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
                 let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
@@ -1673,7 +1673,7 @@ extension Workspace {
 
         // Load the pins store or abort now.
         guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }), !diagnostics.hasErrors else {
-            return loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+            return try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         }
 
         // Request all the containers to fetch them in parallel.
@@ -1723,7 +1723,7 @@ extension Workspace {
         }
         diagnostics.wrap { try state.saveState() }
 
-        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         let precomputationResult = precomputeResolution(
             root: graphRoot,
@@ -1764,7 +1764,7 @@ extension Workspace {
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
-        let currentManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else {
             return currentManifests
         }
@@ -1832,7 +1832,7 @@ extension Workspace {
         }
 
         // Update the pinsStore.
-        let updatedDependencyManifests = loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // If we still have required URLs, we probably cloned a wrong URL for
         // some package dependency.

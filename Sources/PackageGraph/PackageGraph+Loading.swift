@@ -30,7 +30,7 @@ extension PackageGraph {
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
-    ) -> PackageGraph {
+    ) throws -> PackageGraph {
 
         // Create a map of the manifests, keyed by their identity.
         //
@@ -71,7 +71,7 @@ extension PackageGraph {
             allManifests = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
         } else {
             // Sort all manifests toplogically.
-            allManifests = try! topologicalSort(inputManifests, successors: successors)
+            allManifests = try topologicalSort(inputManifests, successors: successors)
         }
         var flattenedManifests: [String: GraphLoadingNode] = [:]
         for node in allManifests {
@@ -127,7 +127,7 @@ extension PackageGraph {
         }
 
         // Resolve dependencies and create resolved packages.
-        let resolvedPackages = createResolvedPackages(
+        let resolvedPackages = try createResolvedPackages(
             allManifests: allManifests,
             mirrors: mirrors,
             manifestToPackage: manifestToPackage,
@@ -140,7 +140,7 @@ extension PackageGraph {
 
         checkAllDependenciesAreUsed(rootPackages, diagnostics)
 
-        return PackageGraph(
+        return try PackageGraph(
             rootPackages: rootPackages,
             rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) }),
             requiredDependencies: requiredDependencies
@@ -193,7 +193,7 @@ private func createResolvedPackages(
     rootManifestSet: Set<Manifest>,
     unsafeAllowedPackages: Set<PackageReference>,
     diagnostics: DiagnosticsEngine
-) -> [ResolvedPackage] {
+) throws -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
     let packageBuilders: [ResolvedPackageBuilder] = allManifests.compactMap({ node in
@@ -397,7 +397,7 @@ private func createResolvedPackages(
             }
         }
     }
-    return packageBuilders.map({ $0.construct() })
+    return try packageBuilders.map{ try $0.construct() }
 }
 
 /// A generic builder for `Resolved` models.
@@ -410,16 +410,16 @@ private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
     ///
     /// Note that once the object is constucted, future calls to
     /// this method will return the same object.
-    final func construct() -> T {
+    final func construct() throws -> T {
         if let constructedObject = _constructedObject {
             return constructedObject
         }
-        _constructedObject = constructImpl()
+        _constructedObject = try self.constructImpl()
         return _constructedObject!
     }
 
     /// The object construction implementation.
-    func constructImpl() -> T {
+    func constructImpl() throws -> T {
         fatalError("Should be implemented by subclasses")
     }
 }
@@ -441,10 +441,10 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
         self.targets = targets
     }
 
-    override func constructImpl() -> ResolvedProduct {
+    override func constructImpl() throws -> ResolvedProduct {
         return ResolvedProduct(
             product: product,
-            targets: targets.map({ $0.construct() })
+            targets: try targets.map{ try $0.construct() }
         )
     }
 }
@@ -476,9 +476,9 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         self.diagnostics = diagnostics
     }
 
-    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) {
+    func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
         // Diagnose if any target in this product uses an unsafe flag.
-        for target in product.recursiveTargetDependencies() {
+        for target in try product.recursiveTargetDependencies() {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
             for decl in declarations {
                 if BuildSettings.Declaration.unsafeSettings.contains(decl) {
@@ -489,15 +489,15 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         }
     }
 
-    override func constructImpl() -> ResolvedTarget {
-        let dependencies = self.dependencies.map { dependency -> ResolvedTarget.Dependency in
+    override func constructImpl() throws -> ResolvedTarget {
+        let dependencies = try self.dependencies.map { dependency -> ResolvedTarget.Dependency in
             switch dependency {
             case .target(let targetBuilder, let conditions):
-                return .target(targetBuilder.construct(), conditions: conditions)
+                return .target(try targetBuilder.construct(), conditions: conditions)
             case .product(let productBuilder, let conditions):
-                let product = productBuilder.construct()
+                let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
-                     diagnoseInvalidUseOfUnsafeFlags(product)
+                    try self.diagnoseInvalidUseOfUnsafeFlags(product)
                 }
                 return .product(product, conditions: conditions)
             }
@@ -533,12 +533,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
     }
 
-    override func constructImpl() -> ResolvedPackage {
+    override func constructImpl() throws -> ResolvedPackage {
         return ResolvedPackage(
             package: package,
-            dependencies: dependencies.map({ $0.construct() }),
-            targets: targets.map({ $0.construct() }),
-            products: products.map({ $0.construct() })
+            dependencies: try dependencies.map{ try $0.construct() },
+            targets: try targets.map{ try $0.construct() },
+            products: try products.map{ try  $0.construct() }
         )
     }
 }
