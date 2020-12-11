@@ -38,7 +38,7 @@ struct JSONOptions: ParsableArguments {
 
 public struct SwiftPackageCollectionsTool: ParsableCommand {
     public static var configuration = CommandConfiguration(
-        commandName: "package-collections",
+        commandName: "package-collection",
         _superCommandName: "swift",
         abstract: "Interact with package collections",
         discussion: "SEE ALSO: swift build, swift package, swift run, swift test",
@@ -202,7 +202,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             let license = optionalRow("License", version.license?.type.description)
 
             return """
-                \(version.version)
+            \(version.version)
                 Package Name: \(version.packageName)
                 Modules: \(modules)\(platforms)\(swiftVersions)\(license)
             """
@@ -222,17 +222,18 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         throw CollectionsError.invalidVersionString(versionString)
                     }
 
-                    print("Version: \(printedResult)")
+                    print("\(indent())Version: \(printedResult)")
                 } else {
                     let description = optionalRow("Description", result.package.summary)
                     let versions = result.package.versions.map { "\($0.version)" }.joined(separator: ", ")
                     let watchers = optionalRow("Watchers", result.package.watchersCount?.description)
                     let readme = optionalRow("Readme", result.package.readmeURL?.absoluteString)
                     let authors = optionalRow("Authors", result.package.authors?.map { $0.username }.joined(separator: ", "))
-                    let latestVersion = optionalRow("--------------------------------------------------------------\nLatest Version", printVersion(result.package.latestVersion))
+                    let latestVersion = optionalRow("\(String(repeating: "-", count: 60))\n\(indent())Latest Version", printVersion(result.package.latestVersion))
 
                     print("""
-                        \(description)Available Versions: \(versions)\(watchers)\(readme)\(authors)\(latestVersion)
+                        \(description)
+                        Available Versions: \(versions)\(watchers)\(readme)\(authors)\(latestVersion)
                     """)
                 }
             } catch { // assume URL is for a collection
@@ -252,24 +253,27 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 
                 let description = optionalRow("Description", collection.overview)
                 let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
-                let createdAt = DateFormatter().string(from: collection.createdAt)
-                let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n")
+                let createdAt = optionalRow("Created At", DateFormatter().string(from: collection.createdAt))
+                let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n\(indent(levels: 2))")
                 
                 print("""
                                 Name: \(collection.name)
-                                Source: \(collection.source.url)\(description)\(keywords)
-                                Created At: \(createdAt)
+                                Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
                                 Packages:
-                                \(packages)
+                                    \(packages)
                             """)
             }
         }
     }
 }
 
-private func optionalRow(_ title: String, _ contents: String?) -> String {
-    if let contents = contents {
-        return "\n\(title): \(contents)\n"
+private func indent(levels: Int = 1) -> String {
+    return String(repeating: "    ", count: levels)
+}
+
+private func optionalRow(_ title: String, _ contents: String?, indentationLevel: Int = 1) -> String {
+    if let contents = contents, !contents.isEmpty {
+        return "\n\(indent(levels: indentationLevel))\(title): \(contents)"
     } else {
         return ""
     }

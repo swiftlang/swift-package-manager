@@ -6,12 +6,12 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_executable(swift-package-collections
+add_executable(swift-package-collection
   main.swift)
-target_link_libraries(swift-package-collections PRIVATE
+target_link_libraries(swift-package-collection PRIVATE
   Commands)
 
 if(USE_CMAKE_INSTALL)
-install(TARGETS swift-package-collections
+install(TARGETS swift-package-collection
   RUNTIME DESTINATION bin)
 endif()

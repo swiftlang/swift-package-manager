@@ -193,7 +193,7 @@ let package = Package(
             dependencies: ["Commands"]),
         .target(
             /** Interacts with package collections */
-            name: "swift-package-collections",
+            name: "swift-package-collection",
             dependencies: ["Commands"]),
         .target(
             /** Shim tool to find test names on OS X */
