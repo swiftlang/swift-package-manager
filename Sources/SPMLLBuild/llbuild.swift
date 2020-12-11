@@ -210,7 +210,7 @@ public extension LLBuildKey {
             } else {
                 stringValue = String(describing: data)
             }
-            throw InternalError("Please file a bug at https://bugs.swift.org with this info -- LLBuildKey: ###\(error)### ----- ###\(stringValue)###")
+            throw InternalError("LLBuildKey: ###\(error)### ----- ###\(stringValue)###")
         }
     }
 

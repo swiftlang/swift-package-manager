@@ -639,7 +639,7 @@ extension Workspace {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
         let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
-        return try workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
+        return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -701,14 +701,30 @@ extension Workspace {
         )
     }
 
+
+    // FIXME: 12/2020 backwards compatibility for clients, remove after trasition
     @discardableResult
+    @available(*, deprecated, message: "use throwing variant instead (loadPackageGraph(rootPath:)")
     public func loadPackageGraph(
         root: AbsolutePath,
         explicitProduct: String? = nil,
         diagnostics: DiagnosticsEngine
+    ) -> PackageGraph {
+        try! self.loadPackageGraph(
+            root: PackageGraphRootInput(packages: [root], mirrors: config.mirrors),
+            explicitProduct: explicitProduct,
+            diagnostics: diagnostics
+        )
+    }
+
+    @discardableResult
+    public func loadPackageGraph(
+        rootPath: AbsolutePath,
+        explicitProduct: String? = nil,
+        diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         try self.loadPackageGraph(
-            root: PackageGraphRootInput(packages: [root], mirrors: config.mirrors),
+            root: PackageGraphRootInput(packages: [rootPath], mirrors: config.mirrors),
             explicitProduct: explicitProduct,
             diagnostics: diagnostics
         )
@@ -2412,7 +2428,7 @@ extension Workspace {
             // FIXME: this should not block
             let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0) } as! RepositoryPackageContainer
             guard let tag = container.getTag(for: version) else {
-                throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
+                throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
             }
             let revision = try container.getRevision(forTag: tag)
             checkoutState = CheckoutState(revision: revision, version: version)
@@ -2433,7 +2449,7 @@ extension Workspace {
     fileprivate func remove(package: PackageReference) throws {
 
         guard let dependency = state.dependencies[forURL: package.path] else {
-            throw InternalError("This should never happen, trying to remove \(package.name) which isn't in workspace")
+            throw InternalError("trying to remove \(package.name) which isn't in workspace")
         }
 
         // We only need to update the managed dependency structure to "remove"

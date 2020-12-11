@@ -107,7 +107,7 @@ public struct Term: Equatable, Hashable {
     // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
     public func relation(with other: Term) -> SetRelation {
         if self.node != other.node {
-            //fatalError("attempting to compute relation between different packages \(self) \(other)")
+            assertionFailure("attempting to compute relation between different packages \(self) \(other)")
             return .error
         }
 
@@ -115,7 +115,7 @@ public struct Term: Equatable, Hashable {
             if self.isPositive {
                 // If the second requirement contains all the elements of
                 // the first requirement, then it is a subset relation.
-                if other.requirement.containsAll(self.requirement) {
+                if other.requirement.containsAll(self.requirement) {    
                     return .subset
                 }
 

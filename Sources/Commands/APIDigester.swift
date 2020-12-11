@@ -96,7 +96,7 @@ struct APIDigesterBaselineDumper {
         )
 
         let graph = try workspace.loadPackageGraph(
-            root: baselinePackageRoot, diagnostics: diags)
+            rootPath: baselinePackageRoot, diagnostics: diags)
 
         // Abort if we weren't able to load the package graph.
         if diags.hasErrors {
