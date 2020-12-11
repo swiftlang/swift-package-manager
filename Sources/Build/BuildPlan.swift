@@ -502,7 +502,8 @@ public final class SwiftTargetBuildDescription {
 
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
-        return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
+        let dirPath = (target.type == .executable) ? tempsPath : buildParameters.buildPath
+        return dirPath.appending(component: target.c99name + ".swiftmodule")
     }
 
     /// The path to the wrapped swift module which is created using the modulewrap tool. This is required

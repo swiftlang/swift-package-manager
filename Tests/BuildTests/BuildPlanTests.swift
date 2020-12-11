@@ -143,7 +143,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10", "-Xlinker", "-add_ast_path",
-            "-Xlinker", "/path/to/build/debug/exe.swiftmodule", "-Xlinker", "-add_ast_path",
+            "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule", "-Xlinker", "-add_ast_path",
             "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
         ]
       #else
@@ -784,7 +784,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -994,7 +994,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.swiftmodule",
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
         ])
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -1092,7 +1092,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", "x86_64-apple-macosx10.10",
-            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.swiftmodule"
+            "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.build/Foo.swiftmodule"
         ])
 
         XCTAssertEqual(barLinkArgs, [
@@ -2339,10 +2339,10 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/exe.build/exe.swiftmodule.o":
                     tool: shell
-                    inputs: ["/path/to/build/debug/exe.swiftmodule"]
+                    inputs: ["/path/to/build/debug/exe.build/exe.swiftmodule"]
                     outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
                     description: "Wrapping AST for exe for debugging"
-                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.build/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
                 """))
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/lib.build/lib.swiftmodule.o":
