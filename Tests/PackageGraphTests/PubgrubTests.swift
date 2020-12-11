@@ -1926,20 +1926,19 @@ public class MockContainer: PackageContainer {
     var toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
     var versionsToolsVersions = [Version: ToolsVersion]()
 
-    public var _versions: [BoundVersion]
+    private var _versions: [BoundVersion]
 
-    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
+    // TODO: this does not actually do anything with the tools-version
+    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         var versions: [Version] = []
-        for version in self._versions {
+        for version in self._versions.reversed() {
             guard case .version(let v) = version else { continue }
-            if isIncluded(v) {
-                versions.append(v)
-            }
+            versions.append(v)
         }
-        return AnySequence(versions)
+        return versions
     }
 
-    public func reversedVersions() throws ->  [Version] {
+    public func versionsAscending() throws ->  [Version] {
         var versions: [Version] = []
         for version in self._versions {
             guard case .version(let v) = version else { continue }
@@ -1954,7 +1953,7 @@ public class MockContainer: PackageContainer {
             return self.toolsVersion == toolsVersion
         }
         
-        return (try? self.versions(filter: { _ in true }).contains(version)) ?? false
+        return (try? self.toolsVersionsAppropriateVersionsDescending().contains(version)) ?? false
     }
     
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
@@ -1999,6 +1998,17 @@ public class MockContainer: PackageContainer {
         return name
     }
 
+    func appendVersion(_ version: BoundVersion) {
+        self._versions.append(version)
+        self._versions = self._versions
+            .sorted(by: { lhs, rhs -> Bool in
+                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
+                    return true
+                }
+                return lv < rv
+            })
+    }
+
     public convenience init(
         name: PackageReference,
         unversionedDependencies: [(package: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)]
@@ -2038,7 +2048,6 @@ public class MockContainer: PackageContainer {
         let versions = dependencies.keys.compactMap(Version.init(string:))
         self._versions = versions
             .sorted()
-            .reversed()
             .map(BoundVersion.version)
     }
 }
@@ -2114,15 +2123,7 @@ class DependencyGraphBuilder {
             container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
         }
 
-        container._versions.append(version)
-        container._versions = container._versions
-            .sorted(by: { lhs, rhs -> Bool in
-                guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
-                    return true
-                }
-                return lv < rv
-            })
-            .reversed()
+        container.appendVersion(version)
 
         if container.dependencies[version.description] == nil {
             container.dependencies[version.description] = [:]

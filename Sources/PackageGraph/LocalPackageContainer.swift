@@ -89,11 +89,11 @@ public class LocalPackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
     
-    public func versions(filter isIncluded: (Version) -> Bool) throws -> AnySequence<Version> {
+    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         fatalError("This should never be called")
     }
     
-    public func reversedVersions() throws -> [Version] {
+    public func versionsAscending() throws -> [Version] {
         fatalError("This should never be called")
     }
     

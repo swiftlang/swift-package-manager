@@ -2391,7 +2391,7 @@ extension Workspace {
             // FIXME: this should not block
             let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0) } as! RepositoryPackageContainer
             guard let tag = container.getTag(for: version) else {
-                throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(try container.reversedVersions())")
+                throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
             }
             let revision = try container.getRevision(forTag: tag)
             checkoutState = CheckoutState(revision: revision, version: version)
