@@ -40,7 +40,7 @@ public struct SymbolGraphExtract {
         for target in targets {
             var args = [String]()
             args += ["-module-name", target.c99name]
-            args += buildParameters.targetTripleArgs(for: target)
+            args += try buildParameters.targetTripleArgs(for: target)
 
             // FIXME: We should rename this to common Swift tools args or something.
             args += buildPlan.createAPIDigesterArgs()

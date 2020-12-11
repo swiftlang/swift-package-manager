@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import PackageModel
@@ -106,12 +107,12 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    public func targetTripleArgs(for target: ResolvedTarget) -> [String] {
+    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
             guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
-                fatalError("the target \(target) doesn't support building for macOS")
+                throw InternalError("the target \(target) doesn't support building for macOS")
             }
             args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
@@ -304,13 +305,13 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Builds up basic compilation arguments for this target.
-    public func basicArguments() -> [String] {
+    public func basicArguments() throws -> [String] {
         var args = [String]()
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += buildParameters.targetTripleArgs(for: target)
+        args += try buildParameters.targetTripleArgs(for: target)
         args += buildParameters.toolchain.extraCCFlags
         args += ["-g"]
         if buildParameters.triple.isWindows() {
@@ -618,9 +619,9 @@ public final class SwiftTargetBuildDescription {
     }
 
     /// The arguments needed to compile this target.
-    public func compileArguments() -> [String] {
+    public func compileArguments() throws -> [String] {
         var args = [String]()
-        args += buildParameters.targetTripleArgs(for: target)
+        args += try buildParameters.targetTripleArgs(for: target)
         args += ["-swift-version", swiftVersion.rawValue]
 
         // Enable batch mode in debug mode.
@@ -679,7 +680,7 @@ public final class SwiftTargetBuildDescription {
         return args
     }
 
-    public func emitCommandLine() -> [String] {
+    public func emitCommandLine() throws -> [String] {
         var result: [String] = []
         result.append(buildParameters.toolchain.swiftCompiler.pathString)
 
@@ -719,12 +720,12 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += compileArguments()
+        result += try self.compileArguments()
         return result
      }
 
     /// Command-line for emitting just the Swift module.
-    public func emitModuleCommandLine() -> [String] {
+    public func emitModuleCommandLine() throws -> [String] {
         assert(buildParameters.emitSwiftModuleSeparately)
 
         var result: [String] = []
@@ -755,7 +756,7 @@ public final class SwiftTargetBuildDescription {
         result.append(buildParameters.buildPath.pathString)
 
         // FIXME: Maybe refactor these into "common args".
-        result += buildParameters.targetTripleArgs(for: target)
+        result += try buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
         result += optimizationArguments
         result += testingArguments
@@ -773,7 +774,7 @@ public final class SwiftTargetBuildDescription {
     /// Command-line for emitting the object files.
     ///
     /// Note: This doesn't emit the module.
-    public func emitObjectsCommandLine() -> [String] {
+    public func emitObjectsCommandLine() throws -> [String] {
         assert(buildParameters.emitSwiftModuleSeparately)
 
         var result: [String] = []
@@ -801,7 +802,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += buildParameters.targetTripleArgs(for: target)
+        result += try buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
 
         result += buildParameters.indexStoreArguments(for: target)
@@ -1056,7 +1057,7 @@ public final class ProductBuildDescription {
     }
 
     /// The arguments to link and create this product.
-    public func linkArguments() -> [String] {
+    public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.pathString]
         args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.sanitizers.linkSwiftFlags()
@@ -1154,7 +1155,7 @@ public final class ProductBuildDescription {
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += buildParameters.targetTripleArgs(for: product.targets[0])
+        args += try buildParameters.targetTripleArgs(for: product.targets[0])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()

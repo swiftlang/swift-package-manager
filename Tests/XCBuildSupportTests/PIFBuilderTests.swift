@@ -23,7 +23,7 @@ class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
   #if os(macOS)
-    func testOrdering() {
+    func testOrdering() throws {
         // Repeat multiple times to detect non-deterministic shuffling due to sets.
         for _ in 0..<10 {
             let fs = InMemoryFileSystem(emptyFiles:
@@ -75,7 +75,7 @@ class PIFBuilderTests: XCTestCase {
             )
 
             let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-            let pif = builder.construct()
+            let pif = try builder.construct()
 
             XCTAssertNoDiagnostics(diagnostics)
 
@@ -149,7 +149,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-        let pif = builder.construct()
+        let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(diagnostics)
 
@@ -430,7 +430,7 @@ class PIFBuilderTests: XCTestCase {
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-            pif = builder.construct()
+            pif = try builder.construct()
         }
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -757,7 +757,7 @@ class PIFBuilderTests: XCTestCase {
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-            pif = builder.construct()
+            pif = try builder.construct()
         }
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -977,7 +977,7 @@ class PIFBuilderTests: XCTestCase {
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-            pif = builder.construct()
+            pif = try builder.construct()
         }
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -1169,7 +1169,7 @@ class PIFBuilderTests: XCTestCase {
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-            pif = builder.construct()
+            pif = try builder.construct()
         }
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -1441,7 +1441,7 @@ class PIFBuilderTests: XCTestCase {
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(graph: graph, parameters: .mock(shouldCreateDylibForDynamicProducts: true), diagnostics: diagnostics)
-            pif = builder.construct()
+            pif = try builder.construct()
         }
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -1486,7 +1486,7 @@ class PIFBuilderTests: XCTestCase {
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-            pif = builder.construct()
+            pif = try builder.construct()
         }
 
         XCTAssertNoDiagnostics(diagnostics)
@@ -1568,7 +1568,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testBinaryTargets() {
+    func testBinaryTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/FooLib/lib.swift",
@@ -1601,7 +1601,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-        let pif = builder.construct()
+        let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(diagnostics)
 
@@ -1626,7 +1626,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testResources() {
+    func testResources() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/foo/Resources/Data.plist",
@@ -1669,7 +1669,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-        let pif = builder.construct()
+        let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(diagnostics)
 
@@ -1840,7 +1840,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testBuildSettings() {
+    func testBuildSettings() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/FooLib/lib.swift",
@@ -1931,7 +1931,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-        let pif = builder.construct()
+        let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(diagnostics)
 
@@ -2059,7 +2059,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testConditionalDependencies() {
+    func testConditionalDependencies() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/FooLib1/lib.swift",
@@ -2096,7 +2096,7 @@ class PIFBuilderTests: XCTestCase {
             graph: graph,
             parameters: .mock(),
             diagnostics: diagnostics)
-        let pif = builder.construct()
+        let pif = try builder.construct()
 
         let expectedFilters: [PIF.GUID: [PIF.PlatformFilter]] = [
             "PACKAGE-TARGET:FooLib1": PIF.PlatformFilter.macOSFilters,
@@ -2127,7 +2127,7 @@ class PIFBuilderTests: XCTestCase {
         }
     }
 
-    func testSDKOptions() {
+    func testSDKOptions() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift"
         )
@@ -2154,7 +2154,7 @@ class PIFBuilderTests: XCTestCase {
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
-        let pif = builder.construct()
+        let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(diagnostics)
 

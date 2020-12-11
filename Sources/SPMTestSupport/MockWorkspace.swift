@@ -226,8 +226,10 @@ public final class MockWorkspace {
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
-        workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
-        result(diagnostics)
+        diagnostics.wrap {
+            try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
+            result(diagnostics)
+        }
     }
 
     public func checkClean(_ result: (DiagnosticsEngine) -> Void) {
@@ -256,8 +258,10 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
-        result(diagnostics)
+        diagnostics.wrap {
+            try workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
+            result(diagnostics)
+        }
     }
 
     public func checkUpdateDryRun(
@@ -271,8 +275,10 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        let changes = workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
-        result(changes, diagnostics)
+        diagnostics.wrap {
+            let changes = try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
+            result(changes, diagnostics)
+        }
     }
 
     public func checkPackageGraph(
@@ -295,10 +301,12 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        let graph = workspace.loadPackageGraph(
-            root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
-        )
-        result(graph, diagnostics)
+        diagnostics.wrap {
+            let graph = try workspace.loadPackageGraph(
+                root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
+            )
+            result(graph, diagnostics)
+        }
     }
 
     public struct ResolutionPrecomputationResult {

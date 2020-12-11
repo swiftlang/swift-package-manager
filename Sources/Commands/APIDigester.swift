@@ -95,7 +95,7 @@ struct APIDigesterBaselineDumper {
             repositoryManager: repositoryManager
         )
 
-        let graph = workspace.loadPackageGraph(
+        let graph = try workspace.loadPackageGraph(
             root: baselinePackageRoot, diagnostics: diags)
 
         // Abort if we weren't able to load the package graph.

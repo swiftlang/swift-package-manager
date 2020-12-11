@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@_implementationOnly import SwiftDriver
+import Basics
 import TSCBasic
 import Foundation
+@_implementationOnly import SwiftDriver
 
 final class SPMSwiftDriverExecutor: DriverExecutor {
 
@@ -61,7 +62,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
                delegate: JobExecutionDelegate,
                numParallelJobs: Int, forceResponseFiles: Bool,
                recordedInputModificationDates: [TypedVirtualPath : Date]) throws {
-    fatalError("Multi-job build plans should be lifted into the SPM build graph.")
+    throw InternalError("Multi-job build plans should be lifted into the SPM build graph.")
   }
 
   func checkNonZeroExit(args: String..., environment: [String : String]) throws -> String {

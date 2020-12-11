@@ -442,7 +442,7 @@ extension Workspace {
         branch: String? = nil,
         revision: String? = nil,
         diagnostics: DiagnosticsEngine
-    ) {
+    ) throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = state.dependencies[forNameOrIdentity: packageName] else {
             diagnostics.emit(.dependencyNotFound(packageName: packageName))
@@ -468,7 +468,7 @@ extension Workspace {
                 container: dependency.packageRef, requirement: requirement, products: .nothing)
 
         // Run the resolution.
-        _resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
+        try self._resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
     }
 
     /// Cleans the build artefacts from workspace data.
@@ -550,7 +550,7 @@ extension Workspace {
         packages: [String] = [],
         diagnostics: DiagnosticsEngine,
         dryRun: Bool = false
-    ) -> [(PackageReference, Workspace.PackageStateChange)]? {
+    ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         // Create cache directories.
         createCacheDirectories(with: diagnostics)
 
@@ -616,7 +616,7 @@ extension Workspace {
 
         // Update the binary target artifacts.
         let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
-        updateBinaryArtifacts(
+        try self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             diagnostics: diagnostics)
@@ -639,7 +639,7 @@ extension Workspace {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
         let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
-        return workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
+        return try workspace.loadPackageGraph(root: packagePath, diagnostics: diagnostics)
     }
 
     /// Fetch and load the complete package at the given path.
@@ -657,18 +657,18 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         diagnostics: DiagnosticsEngine,
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil
-    ) -> PackageGraph {
+    ) throws -> PackageGraph {
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
         if forceResolvedVersions {
-            manifests = self._resolveToResolvedVersion(
+            manifests = try self._resolveToResolvedVersion(
                 root: root,
                 explicitProduct: explicitProduct,
                 diagnostics: diagnostics
             )
         } else {
-            manifests = self._resolve(
+            manifests = try self._resolve(
                 root: root,
                 explicitProduct: explicitProduct,
                 forceResolution: false,
@@ -706,8 +706,8 @@ extension Workspace {
         root: AbsolutePath,
         explicitProduct: String? = nil,
         diagnostics: DiagnosticsEngine
-    ) -> PackageGraph {
-        return self.loadPackageGraph(
+    ) throws -> PackageGraph {
+        try self.loadPackageGraph(
             root: PackageGraphRootInput(packages: [root], mirrors: config.mirrors),
             explicitProduct: explicitProduct,
             diagnostics: diagnostics
@@ -724,8 +724,8 @@ extension Workspace {
         root: PackageGraphRootInput,
         forceResolution: Bool = false,
         diagnostics: DiagnosticsEngine
-    ) {
-        _resolve(root: root, forceResolution: forceResolution, diagnostics: diagnostics)
+    ) throws {
+        try self._resolve(root: root, forceResolution: forceResolution, diagnostics: diagnostics)
     }
 
     /// Loads and returns manifests at the given paths.
@@ -959,7 +959,7 @@ extension Workspace {
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root = root {
-            resolve(root: root, diagnostics: diagnostics)
+            try self.resolve(root: root, diagnostics: diagnostics)
         }
     }
 
@@ -1418,8 +1418,8 @@ extension Workspace {
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],
         diagnostics: DiagnosticsEngine
-    ) {
-        let updatedArtifacts = artifacts(from: manifests)
+    ) throws {
+        let updatedArtifacts = try self.artifacts(from: manifests)
 
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
@@ -1492,7 +1492,7 @@ extension Workspace {
             return
         }
 
-        download(artifactsToDownload, diagnostics: diagnostics)
+        try self.download(artifactsToDownload, diagnostics: diagnostics)
 
         for artifact in artifactsToAdd {
             state.artifacts.add(artifact)
@@ -1503,7 +1503,7 @@ extension Workspace {
         }
     }
 
-    private func artifacts(from manifests: DependencyManifests) -> [ManagedArtifact] {
+    private func artifacts(from manifests: DependencyManifests) throws -> [ManagedArtifact] {
         let packageAndManifests: [(PackageReference, Manifest)] =
             zip(manifests.root.packageRefs, manifests.root.manifests) + // Root package and manifests.
             manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
@@ -1525,7 +1525,7 @@ extension Workspace {
                         subpath: subpath)
                     artifacts.append(artifact)
                 } else {
-                    fatalError("a binary target should have either a path or a URL and a checksum")
+                    throw InternalError("a binary target should have either a path or a URL and a checksum")
                 }
             }
         }
@@ -1537,7 +1537,7 @@ extension Workspace {
         RelativePath("\(packageRef.name)/\(targetName).xcframework")
     }
 
-    private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) {
+    private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) throws {
         let group = DispatchGroup()
         let tempDiagnostics = DiagnosticsEngine()
 
@@ -1553,7 +1553,7 @@ extension Workspace {
             group.enter()
 
             guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
-                fatalError("Can't download local artifact")
+                throw InternalError("Can't download local artifact")
             }
 
             let parentDirectory = destination.parentDirectory
@@ -1635,8 +1635,8 @@ extension Workspace {
     public func resolveToResolvedVersion(
         root: PackageGraphRootInput,
         diagnostics: DiagnosticsEngine
-    ) {
-        _resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+    ) throws {
+        try self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
     }
 
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
@@ -1648,7 +1648,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         diagnostics: DiagnosticsEngine
-    ) -> DependencyManifests {
+    ) throws -> DependencyManifests {
         // Ensure the cache path exists.
         createCacheDirectories(with: diagnostics)
 
@@ -1719,7 +1719,7 @@ extension Workspace {
             diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
         }
 
-        updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], diagnostics: diagnostics)
+        try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], diagnostics: diagnostics)
 
         return currentManifests
     }
@@ -1738,7 +1738,7 @@ extension Workspace {
         extraConstraints: [PackageContainerConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true
-    ) -> DependencyManifests {
+    ) throws -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
         createCacheDirectories(with: diagnostics)
@@ -1779,7 +1779,7 @@ extension Workspace {
 
             switch result {
             case .notRequired:
-                updateBinaryArtifacts(
+                try self.updateBinaryArtifacts(
                     manifests: currentManifests,
                     addedOrUpdatedPackages: [],
                     diagnostics: diagnostics)
@@ -1832,7 +1832,7 @@ extension Workspace {
             } else if retryOnPackagePathMismatch {
                 // Retry resolution which will most likely resolve correctly now since
                 // we have the manifest files of all the dependencies.
-                return self._resolve(
+                return try self._resolve(
                     root: root,
                     explicitProduct: explicitProduct,
                     forceResolution: forceResolution,
@@ -1855,7 +1855,7 @@ extension Workspace {
         self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
 
         let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
-        updateBinaryArtifacts(
+        try self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             diagnostics: diagnostics)
@@ -2086,7 +2086,7 @@ extension Workspace {
 
             switch binding {
             case .excluded:
-                fatalError("Unexpected excluded binding")
+                throw InternalError("Unexpected excluded binding")
 
             case .unversioned:
                 // Ignore the root packages.
@@ -2433,7 +2433,7 @@ extension Workspace {
     fileprivate func remove(package: PackageReference) throws {
 
         guard let dependency = state.dependencies[forURL: package.path] else {
-            fatalError("This should never happen, trying to remove \(package.name) which isn't in workspace")
+            throw InternalError("This should never happen, trying to remove \(package.name) which isn't in workspace")
         }
 
         // We only need to update the managed dependency structure to "remove"

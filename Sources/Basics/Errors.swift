@@ -11,6 +11,7 @@
 public struct InternalError: Error {
     private let description: String
     public init(_ description: String) {
+        assertionFailure(description)
         self.description = description
     }
 }
