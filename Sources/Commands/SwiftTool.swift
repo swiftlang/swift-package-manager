@@ -538,7 +538,7 @@ public class SwiftTool {
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
-                root: getWorkspaceRoot(),
+                rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,

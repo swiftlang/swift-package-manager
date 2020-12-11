@@ -303,7 +303,7 @@ public final class MockWorkspace {
         )
         diagnostics.wrap {
             let graph = try workspace.loadPackageGraph(
-                root: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
+                rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
             )
             result(graph, diagnostics)
         }

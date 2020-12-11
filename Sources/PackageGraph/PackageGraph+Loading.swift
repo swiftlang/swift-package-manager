@@ -136,14 +136,14 @@ extension PackageGraph {
             diagnostics: diagnostics
         )
 
-        let rootPackages = resolvedPackages.filter({ rootManifestSet.contains($0.manifest) })
+        let rootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
 
         checkAllDependenciesAreUsed(rootPackages, diagnostics)
 
         return try PackageGraph(
             rootPackages: rootPackages,
-            rootDependencies: resolvedPackages.filter({ rootDependencies.contains($0.manifest) }),
-            requiredDependencies: requiredDependencies
+            rootDependencies: resolvedPackages.filter{ rootDependencies.contains($0.manifest) },
+            dependencies: requiredDependencies
         )
     }
 }

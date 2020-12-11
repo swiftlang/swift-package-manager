@@ -648,9 +648,30 @@ extension Workspace {
     /// working checkouts to be resolved, cloned, and checked out.
     ///
     /// - Returns: The loaded package graph.
+    // FIXME: deprecated 12/2020, remove once clients migrate
+    @available(*, deprecated, message: "use throwing variant instead (loadPackageGraph(input:)")
     @discardableResult
     public func loadPackageGraph(
         root: PackageGraphRootInput,
+        explicitProduct: String? = nil,
+        createMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false,
+        forceResolvedVersions: Bool = false,
+        diagnostics: DiagnosticsEngine,
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil
+    ) -> PackageGraph {
+        try! self.loadPackageGraph(rootInput: root,
+                                   explicitProduct: explicitProduct,
+                                   createMultipleTestProducts: createMultipleTestProducts,
+                                   createREPLProduct: createREPLProduct,
+                                   forceResolvedVersions: forceResolvedVersions,
+                                   diagnostics: diagnostics,
+                                   xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets)
+    }
+
+    @discardableResult
+    public func loadPackageGraph(
+        rootInput root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
@@ -702,7 +723,7 @@ extension Workspace {
     }
 
 
-    // FIXME: 12/2020 backwards compatibility for clients, remove after trasition
+    // FIXME: deprecated 12/2020, remove once clients migrate
     @discardableResult
     @available(*, deprecated, message: "use throwing variant instead (loadPackageGraph(rootPath:)")
     public func loadPackageGraph(
@@ -711,7 +732,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> PackageGraph {
         try! self.loadPackageGraph(
-            root: PackageGraphRootInput(packages: [root], mirrors: config.mirrors),
+            rootInput: PackageGraphRootInput(packages: [root], mirrors: config.mirrors),
             explicitProduct: explicitProduct,
             diagnostics: diagnostics
         )
@@ -724,7 +745,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         try self.loadPackageGraph(
-            root: PackageGraphRootInput(packages: [rootPath], mirrors: config.mirrors),
+            rootInput: PackageGraphRootInput(packages: [rootPath], mirrors: config.mirrors),
             explicitProduct: explicitProduct,
             diagnostics: diagnostics
         )
