@@ -70,7 +70,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             }
 
             if jsonOptions.json {
-                try JSONEncoder().print(collections)
+                try JSONEncoder.makeWithDefaults().print(collections)
             } else {
                 collections.forEach {
                     print("\($0.name) - \($0.source.url)")
@@ -159,9 +159,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 let results = try with { collections in
                     return try tsc_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
                 }
-
-                results.items.forEach {
-                    print("\($0.package.repository.url): \($0.package.summary ?? "")")
+                
+                if jsonOptions.json {
+                    try JSONEncoder.makeWithDefaults().print(results.items)
+                } else {
+                    results.items.forEach {
+                        print("\($0.package.repository.url): \($0.package.summary ?? "")")
+                    }
                 }
 
             case .module:
@@ -170,8 +174,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 }
 
                 let packages = Set(results.items.flatMap { $0.packages })
-                packages.forEach {
-                    print("\($0.repository.url): \($0.summary ?? "")")
+                if jsonOptions.json {
+                    try JSONEncoder.makeWithDefaults().print(packages)
+                } else {
+                    packages.forEach {
+                        print("\($0.repository.url): \($0.summary ?? "")")
+                    }
                 }
             }
         }
@@ -221,8 +229,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     guard let version = TSCUtility.Version(string: versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
                         throw CollectionsError.invalidVersionString(versionString)
                     }
-
-                    print("\(indent())Version: \(printedResult)")
+                    
+                    if jsonOptions.json {
+                        try JSONEncoder.makeWithDefaults().print(result)
+                    } else {
+                        print("\(indent())Version: \(printedResult)")
+                    }
                 } else {
                     let description = optionalRow("Description", result.package.summary)
                     let versions = result.package.versions.map { "\($0.version)" }.joined(separator: ", ")
@@ -231,10 +243,14 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     let authors = optionalRow("Authors", result.package.authors?.map { $0.username }.joined(separator: ", "))
                     let latestVersion = optionalRow("\(String(repeating: "-", count: 60))\n\(indent())Latest Version", printVersion(result.package.latestVersion))
 
-                    print("""
-                        \(description)
-                        Available Versions: \(versions)\(watchers)\(readme)\(authors)\(latestVersion)
-                    """)
+                    if jsonOptions.json {
+                        try JSONEncoder.makeWithDefaults().print(result.package)
+                    } else {
+                        print("""
+                            \(description)
+                            Available Versions: \(versions)\(watchers)\(readme)\(authors)\(latestVersion)
+                        """)
+                    }
                 }
             } catch { // assume URL is for a collection
                 // If a version argument was given, we do not perform the fallback.
@@ -256,12 +272,16 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 let createdAt = optionalRow("Created At", DateFormatter().string(from: collection.createdAt))
                 let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n\(indent(levels: 2))")
                 
-                print("""
-                                Name: \(collection.name)
-                                Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
-                                Packages:
-                                    \(packages)
-                            """)
+                if jsonOptions.json {
+                    try JSONEncoder.makeWithDefaults().print(collection)
+                } else {
+                    print("""
+                                    Name: \(collection.name)
+                                    Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
+                                    Packages:
+                                        \(packages)
+                                """)
+                }
             }
         }
     }
@@ -281,10 +301,6 @@ private func optionalRow(_ title: String, _ contents: String?, indentationLevel:
 
 private extension JSONEncoder {
     func print<T>(_ value: T) throws where T : Encodable {
-        if #available(macOS 10.15, *) {
-            self.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        }
-
         let jsonData = try self.encode(value)
         let jsonString = String(data: jsonData, encoding: .utf8)!
         Swift.print(jsonString)
