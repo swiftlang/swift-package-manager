@@ -257,6 +257,8 @@ public class Workspace {
 
     fileprivate let additionalFileRules: [FileRuleDescription]
 
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.workspace", attributes: .concurrent)
+
     /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -731,9 +733,20 @@ extension Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
-        let rootManifests = packages.compactMap({ package -> Manifest? in
-            loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics)
-        })
+
+        let lock = Lock()
+        let sync = DispatchGroup()
+        var rootManifests = [Manifest]()
+        packages.forEach { package in
+            self.queue.async(group: sync) {
+                if let manifest = self.loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics) {
+                    lock.withLock {
+                        rootManifests.append(manifest)
+                    }
+                }
+            }
+        }
+        sync.wait()
 
         // Check for duplicate root packages.
         let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
@@ -843,7 +856,7 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let handle = try temp_await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .global(), completion: $0)
+                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: self.queue, completion: $0)
             }
             let repo = try handle.open()
 
@@ -1634,7 +1647,7 @@ extension Workspace {
         let pins = pinsStore.pins.map({ $0 })
         DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
             _ = try? temp_await {
-                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: .global(), completion: $0)
+                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: self.queue, completion: $0)
             }
         }
 
@@ -2077,7 +2090,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 let container = try temp_await {
-                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: .global(), completion: $0)
+                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: self.queue, completion: $0)
                 } as! RepositoryPackageContainer
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
@@ -2305,7 +2318,7 @@ extension Workspace {
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
         let handle = try temp_await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .global(), completion: $0)
+            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: self.queue, completion: $0)
         }
 
         // Clone the repository into the checkouts.
@@ -2376,7 +2389,7 @@ extension Workspace {
             // annoying. Maybe we should make an SPI on the provider for
             // this?
             // FIXME: this should not block
-            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: .global(), completion: $0) } as! RepositoryPackageContainer
+            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0) } as! RepositoryPackageContainer
             guard let tag = container.getTag(for: version) else {
                 throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(try container.reversedVersions())")
             }
