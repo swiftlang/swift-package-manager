@@ -15,7 +15,7 @@ extension PackageCollectionsModel {
         public let items: [Item]
 
         /// Represents a search result item
-        public struct Item {
+        public struct Item: Encodable {
             // Merged package metadata from across collections
             /// The matching package
             public let package: PackageCollectionsModel.Package

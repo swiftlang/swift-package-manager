@@ -174,7 +174,7 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -190,6 +190,10 @@ let package = Package(
         .target(
             /** Runs an executable product */
             name: "swift-run",
+            dependencies: ["Commands"]),
+        .target(
+            /** Interacts with package collections */
+            name: "swift-package-collection",
             dependencies: ["Commands"]),
         .target(
             /** Shim tool to find test names on OS X */
