@@ -35,7 +35,7 @@ class PkgConfigTests: XCTestCase {
         // No pkgConfig name.
         do {
             let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), diagnostics: diagnostics)
-            XCTAssertNil(result)
+            XCTAssertTrue(result.isEmpty)
         }
 
         // No pc file.
@@ -48,52 +48,55 @@ class PkgConfigTests: XCTestCase {
                     .yum(["libFoo-devel"])
                 ]
             )
-            let result = pkgConfigArgs(for: target, diagnostics: diagnostics)!
-            XCTAssertEqual(result.pkgConfigName, "Foo")
-            XCTAssertEqual(result.cFlags, [])
-            XCTAssertEqual(result.libs, [])
-            switch result.provider {
-            case .brew(let names)?:
-                XCTAssertEqual(names, ["libFoo"])
-            case .apt(let names)?:
-                XCTAssertEqual(names, ["libFoo-dev"])
-            case .yum(let names)?:
-                XCTAssertEqual(names, ["libFoo-devel"])
-            case nil:
-                XCTFail("Expected a provider here")
-            }
-            XCTAssertTrue(result.couldNotFindConfigFile)
-            switch result.error {
+            for result in pkgConfigArgs(for: target, diagnostics: diagnostics) {
+                XCTAssertEqual(result.pkgConfigName, "Foo")
+                XCTAssertEqual(result.cFlags, [])
+                XCTAssertEqual(result.libs, [])
+                switch result.provider {
+                case .brew(let names)?:
+                    XCTAssertEqual(names, ["libFoo"])
+                case .apt(let names)?:
+                    XCTAssertEqual(names, ["libFoo-dev"])
+                case .yum(let names)?:
+                    XCTAssertEqual(names, ["libFoo-devel"])
+                case nil:
+                    XCTFail("Expected a provider here")
+                }
+                XCTAssertTrue(result.couldNotFindConfigFile)
+                switch result.error {
                 case PkgConfigError.couldNotFindConfigFile?: break
                 default:
-                XCTFail("Unexpected error \(String(describing: result.error))")
+                    XCTFail("Unexpected error \(String(describing: result.error))")
+                }
             }
         }
 
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: diagnostics)!
-            XCTAssertEqual(result.pkgConfigName, "Foo")
-            XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
-            XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
-            XCTAssertNil(result.provider)
-            XCTAssertNil(result.error)
-            XCTAssertFalse(result.couldNotFindConfigFile)
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: diagnostics) {
+                XCTAssertEqual(result.pkgConfigName, "Foo")
+                XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
+                XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
+                XCTAssertNil(result.provider)
+                XCTAssertNil(result.error)
+                XCTAssertFalse(result.couldNotFindConfigFile)
+            }
         }
 
         // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics)!
-            XCTAssertEqual(result.pkgConfigName, "Bar")
-            XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
-            XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
-            XCTAssertNil(result.provider)
-            XCTAssertFalse(result.couldNotFindConfigFile)
-            switch result.error {
-            case PkgConfigError.prohibitedFlags(let desc)?:
-                XCTAssertEqual(desc, "-DDenyListed")
-            default:
-                XCTFail("unexpected error \(result.error.debugDescription)")
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: diagnostics) {
+                XCTAssertEqual(result.pkgConfigName, "Bar")
+                XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
+                XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
+                XCTAssertNil(result.provider)
+                XCTAssertFalse(result.couldNotFindConfigFile)
+                switch result.error {
+                case PkgConfigError.prohibitedFlags(let desc)?:
+                    XCTAssertEqual(desc, "-DDenyListed")
+                default:
+                    XCTFail("unexpected error \(result.error.debugDescription)")
+                }
             }
         }
     }
