@@ -55,45 +55,49 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> PkgConfigResult? {
+public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> [PkgConfigResult] {
     // If there is no pkg config name defined, we're done.
-    guard let pkgConfigName = target.pkgConfig else { return nil }
+    guard let pkgConfigNames = target.pkgConfig else { return [] }
 
     // Compute additional search paths for the provider, if any.
     let provider = target.providers?.first { $0.isAvailable }
     let additionalSearchPaths = provider?.pkgConfigSearchPath(brewPrefixOverride: brewPrefix) ?? []
 
+   var ret: [PkgConfigResult] = []
     // Get the pkg config flags.
-    do {
-        let pkgConfig = try PkgConfig(
-            name: pkgConfigName,
-            additionalSearchPaths: additionalSearchPaths,
-            diagnostics: diagnostics,
-            fileSystem: fileSystem,
-            brewPrefix: brewPrefix)
+    for pkgConfigName in pkgConfigNames.components(separatedBy: " ") {
+        do {
+            let pkgConfig = try PkgConfig(
+                    name: pkgConfigName,
+                    additionalSearchPaths: additionalSearchPaths,
+                    diagnostics: diagnostics,
+                    fileSystem: fileSystem,
+                    brewPrefix: brewPrefix)
 
-        // Run the allow list checker.
-        let filtered = allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+            // Run the allow list checker.
+            let filtered = allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
 
-        // Remove any default flags which compiler adds automatically.
-        let (cFlags, libs) = removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
+            // Remove any default flags which compiler adds automatically.
+            let (cFlags, libs) = removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
 
-        // Set the error if there are any unallowed flags.
-        var error: Swift.Error?
-        if !filtered.unallowed.isEmpty {
-            error = PkgConfigError.prohibitedFlags(filtered.unallowed.joined(separator: ", "))
+            // Set the error if there are any unallowed flags.
+            var error: Swift.Error?
+            if !filtered.unallowed.isEmpty {
+                error = PkgConfigError.prohibitedFlags(filtered.unallowed.joined(separator: ", "))
+            }
+
+            ret.append(PkgConfigResult(
+                    pkgConfigName: pkgConfigName,
+                    cFlags: cFlags,
+                    libs: libs,
+                    error: error,
+                    provider: provider
+            ))
+        } catch {
+            ret.append(PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider))
         }
-
-        return PkgConfigResult(
-            pkgConfigName: pkgConfigName,
-            cFlags: cFlags,
-            libs: libs,
-            error: error,
-            provider: provider
-        )
-    } catch {
-        return PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
     }
+    return ret
 }
 
 extension SystemPackageProviderDescription {
