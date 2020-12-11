@@ -81,8 +81,12 @@ public final class PackageEditor {
             requirement = .localPackage
         } else {
             // Otherwise, first lookup the dependency.
-            let spec = RepositorySpecifier(url: options.url)
-            let handle = try temp_await{ context.repositoryManager.lookup(repository: spec, completion: $0) }
+            let spec = RepositorySpecifier(url: url)
+            let handle = try tsc_await{
+              context.repositoryManager.lookup(repository: spec,
+                                               on: .global(qos: .userInitiated),
+                                               completion: $0)
+            }
             let repo = try handle.open()
 
             // Compute the requirement.
@@ -90,7 +94,7 @@ public final class PackageEditor {
                 requirement = inputRequirement
             } else {
                 // Use the latest version or the master branch.
-                let versions = try repo.tags().compactMap{ Version(string: $0) }
+                let versions = try repo.getTags().compactMap{ Version(string: $0) }
                 let latestVersion = versions.filter({ $0.prereleaseIdentifiers.isEmpty }).max() ?? versions.max()
                 let mainExists = (try? repo.resolveRevision(identifier: "main")) != nil
                 requirement = latestVersion.map{ PackageDependencyRequirement.upToNextMajor($0.description) } ??

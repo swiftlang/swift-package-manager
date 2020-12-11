@@ -177,7 +177,7 @@ let package = Package(
             /** High-level commands */
             name: "Commands",
             dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"] + (buildPackageSyntax ? ["PackageSyntax"] : []),
-            swiftSettings: buildPackageSyntax ? [.define("DONT_BUILD_PACKAGE_SYNTAX")] : nil),
+            swiftSettings: buildPackageSyntax ? [.define("BUILD_PACKAGE_SYNTAX")] : nil),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
