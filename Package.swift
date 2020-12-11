@@ -177,9 +177,7 @@ let package = Package(
             /** High-level commands */
             name: "Commands",
             dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"] + (buildPackageSyntax ? ["PackageSyntax"] : []),
-            swiftSettings: buildPackageSyntax ?
-                [.define("DONT_BUILD_PACKAGE_SYNTAX")] :
-                [.define("DISABLE_PACKAGE_EDITOR")]), // Unnecessary, but SPM errors if swiftSettings is empty.
+            swiftSettings: buildPackageSyntax ? [.define("DONT_BUILD_PACKAGE_SYNTAX")] : nil),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -226,9 +224,7 @@ let package = Package(
         .testTarget(
             name: "CommandsTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport"],
-            swiftSettings: buildPackageSyntax ?
-                [.define("BUILD_PACKAGE_SYNTAX")] :
-                [.define("DONT_BUILD_PACKAGE_SYNTAX")]),
+            swiftSettings: buildPackageSyntax ? [.define("BUILD_PACKAGE_SYNTAX")] : nil),
         .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]),
