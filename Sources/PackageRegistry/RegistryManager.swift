@@ -219,7 +219,7 @@ public final class RegistryManager {
                     do {
                         let contents = ByteString(data)
                         let advertisedChecksum = digest.spm_dropPrefix("sha-256=")
-                        let actualChecksum = SHA256().hash(contents).hexadecimalRepresentation
+                        let actualChecksum = contents.sha256Checksum.hexadecimalRepresentation
 
                         guard (expectedChecksum?.hexadecimalRepresentation ?? actualChecksum) == actualChecksum,
                               advertisedChecksum == actualChecksum
@@ -296,5 +296,17 @@ private extension AbsolutePath {
         guard !self.isRoot else { return self }
         let `extension` = `extension`.spm_dropPrefix(".")
         return AbsolutePath(self, RelativePath("..")).appending(component: "\(basename).\(`extension`)")
+    }
+}
+
+private extension ByteString {
+    var sha256Checksum: ByteString {
+        #if canImport(CryptoKit)
+        if #available(macOS 10.15, *) {
+            return CryptoKitSHA256().hash(self)
+        }
+        #endif
+
+        return SHA256().hash(self)
     }
 }
