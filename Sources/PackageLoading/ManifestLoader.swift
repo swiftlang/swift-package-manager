@@ -156,8 +156,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private let databaseCacheDir: AbsolutePath!
     private var databaseCache: PersistentCacheProtocol?
-    private let memoryCache = ThreadSafeKeyValueStore<ManifestCacheKey, Manifest>()
+    private let databaseCacheLock = Lock()
+
     private let useInMemoryCache: Bool
+    private let memoryCache = ThreadSafeKeyValueStore<ManifestCacheKey, Manifest>()
     
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
@@ -516,8 +518,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         )
 
         // Resolve symlinks since we can't use them in sandbox profiles.
-        try self.createCacheIfNeeded()
-        if let cache = self.databaseCache {
+
+        if let cache = try self.createCacheIfNeeded() {
             result = try self.loadManifestFromCache(key: cacheKey, cache: cache)
         } else {
             result = self.parse(
@@ -903,26 +905,31 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return cacheDir.appending(component: "manifest.db")
     }
 
-    func createCacheIfNeeded() throws {
-        // Return if we have already created the cache.
-        guard self.databaseCache == nil else {
-            return
+    func createCacheIfNeeded() throws -> PersistentCacheProtocol? {
+        try self.databaseCacheLock.withLock {
+            // Return if we have already created the cache.
+            if let cache = self.databaseCache {
+                return cache
+            }
+            guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
+                return nil
+            }
+            try localFileSystem.createDirectory(self.databaseCacheDir, recursive: true)
+            self.databaseCache = try SQLiteBackedPersistentCache(cacheFilePath: manifestCacheDBPath)
+            return self.databaseCache
         }
-        guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
-            return
-        }
-        try localFileSystem.createDirectory(self.databaseCacheDir, recursive: true)
-        self.databaseCache = try SQLiteBackedPersistentCache(cacheFilePath: manifestCacheDBPath)
     }
 
     public func resetCache() throws {
         self.memoryCache.clear()
-        guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
-            return
+        try self.databaseCacheLock.withLock {
+            self.databaseCache = nil
+            // Also remove the database file from disk.
+            guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
+                return
+            }
+            try localFileSystem.removeFileTree(manifestCacheDBPath)
         }
-        self.databaseCache = nil
-        // Also remove the database file from disk.
-        try localFileSystem.removeFileTree(manifestCacheDBPath)
     }
 }
 

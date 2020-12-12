@@ -679,21 +679,77 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testConcurrency() throws {
+        try testWithTemporaryDirectory { path in
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try localFileSystem.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
+            }
+
+            let delegate = ManifestTestDelegate()
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
+
+            let sync = DispatchGroup()
+            for _ in 0 ..< 1000 {
+                DispatchQueue.global().async(group: sync) {
+                    let manifest = try? manifestLoader.load(
+                        package: manifestPath.parentDirectory,
+                        baseURL: manifestPath.pathString,
+                        toolsVersion: .v4_2,
+                        packageKind: .local
+                    )
+
+                    guard manifest != nil else {
+                        XCTFail("manifest loading failed")
+                        return
+                    }
+
+                    XCTAssertEqual(manifest?.name, "Trivial")
+                    XCTAssertEqual(manifest?.targets[0].name, "foo")
+                }
+            }
+
+            if case .timedOut = sync.wait(timeout: .now() + 60) {
+                XCTFail("timeout")
+            }
+
+            XCTAssertEqual(delegate.loaded.count, 1000)
+        }
+    }
+
     final class ManifestTestDelegate: ManifestLoaderDelegate {
+        let lock = Lock()
         var loaded: [AbsolutePath] = []
         var parsed: [AbsolutePath] = []
 
         func willLoad(manifest: AbsolutePath) {
-            loaded.append(manifest)
+            lock.withLock {
+                loaded.append(manifest)
+            }
         }
 
         func willParse(manifest: AbsolutePath) {
-            parsed.append(manifest)
+            lock.withLock {
+                parsed.append(manifest)
+            }
         }
 
         func clear() {
-            loaded.removeAll()
-            parsed.removeAll()
+            lock.withLock {
+                loaded.removeAll()
+                parsed.removeAll()
+            }
         }
     }
 }
