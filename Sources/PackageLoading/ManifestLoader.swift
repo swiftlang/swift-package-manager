@@ -148,6 +148,9 @@ public protocol ManifestLoaderDelegate {
 /// serialized form of the manifest (as implemented by `PackageDescription`'s
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
+    private static var _hostTriple = ThreadSafeBox<Triple>()
+    private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
+
     private let resources: ManifestResourceProvider
     private let serializedDiagnostics: Bool
     private let isManifestSandboxEnabled: Bool
@@ -160,7 +163,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private let useInMemoryCache: Bool
     private let memoryCache = ThreadSafeKeyValueStore<ManifestCacheKey, Manifest>()
-    
+
+    // Cache storage for computed sdk path.
+    private var sdkRootCache = ThreadSafeBox<AbsolutePath>()
+
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
 
@@ -652,9 +658,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    private static var _hostTriple: Triple?
-    private static var _packageDescriptionMinimumDeploymentTarget: String?
-
     /// Parse the manifest at the given path to JSON.
     fileprivate func parse(
         packageIdentity: PackageIdentity,
@@ -720,14 +723,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
-            if Self._hostTriple == nil {
-                Self._hostTriple = Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
+            let triple = Self._hostTriple.memoize {
+                Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
             }
-            let triple = Self._hostTriple!
-            if Self._packageDescriptionMinimumDeploymentTarget == nil {
-                Self._packageDescriptionMinimumDeploymentTarget = (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
+
+            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
+                (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
             }
-            let version = Self._packageDescriptionMinimumDeploymentTarget!
             cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
 
@@ -858,24 +860,24 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns path to the sdk, if possible.
     private func sdkRoot() -> AbsolutePath? {
-        if let sdkRoot = _sdkRoot {
+        if let sdkRoot = self.sdkRootCache.get() {
             return sdkRoot
         }
 
+        var sdkRootPath: AbsolutePath? = nil
         // Find SDKROOT on macOS using xcrun.
-      #if os(macOS)
+        #if os(macOS)
         let foundPath = try? Process.checkNonZeroExit(
             args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        _sdkRoot = AbsolutePath(sdkRoot)
-      #endif
+        sdkRootPath = AbsolutePath(sdkRoot)
+        self.sdkRootCache.put(sdkRootPath!)
+        #endif
 
-        return _sdkRoot
+        return sdkRootPath
     }
-    // Cache storage for computed sdk path.
-    private var _sdkRoot: AbsolutePath? = nil
 
     /// Returns the interpreter flags for a manifest.
     public func interpreterFlags(

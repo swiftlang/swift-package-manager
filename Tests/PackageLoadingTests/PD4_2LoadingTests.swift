@@ -720,7 +720,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 }
             }
 
-            if case .timedOut = sync.wait(timeout: .now() + 60) {
+            if case .timedOut = sync.wait(timeout: .now() + 120) {
                 XCTFail("timeout")
             }
 
@@ -729,26 +729,38 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     final class ManifestTestDelegate: ManifestLoaderDelegate {
-        let lock = Lock()
-        var loaded: [AbsolutePath] = []
-        var parsed: [AbsolutePath] = []
+        private let lock = Lock()
+        private var _loaded: [AbsolutePath] = []
+        private var _parsed: [AbsolutePath] = []
 
         func willLoad(manifest: AbsolutePath) {
-            lock.withLock {
-                loaded.append(manifest)
+            self.lock.withLock {
+                self._loaded.append(manifest)
             }
         }
 
         func willParse(manifest: AbsolutePath) {
-            lock.withLock {
-                parsed.append(manifest)
+            self.lock.withLock {
+                self._parsed.append(manifest)
             }
         }
 
         func clear() {
-            lock.withLock {
-                loaded.removeAll()
-                parsed.removeAll()
+            self.lock.withLock {
+                self._loaded.removeAll()
+                self._parsed.removeAll()
+            }
+        }
+
+        var loaded: [AbsolutePath] {
+            self.lock.withLock {
+                self._loaded
+            }
+        }
+
+        var parsed: [AbsolutePath] {
+            self.lock.withLock {
+                self._parsed
             }
         }
     }
