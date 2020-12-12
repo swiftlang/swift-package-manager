@@ -42,12 +42,6 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
         }
     }
 
-    public var count: Int {
-        self.lock.withLock {
-            self.underlying.count
-        }
-    }
-
     public var isEmpty: Bool {
         self.lock.withLock {
             self.underlying.isEmpty
@@ -59,12 +53,6 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
             self.underlying.keys.contains(key)
         }
     }
-
-    public func mapValues<T>(_ transform: (Value) throws -> T) rethrows -> [Key : T] {
-        try self.lock.withLock {
-            try self.underlying.mapValues(transform)
-        }
-    }
 }
 
 /// Thread-safe value boxing  structure
@@ -73,10 +61,6 @@ public final class ThreadSafeBox<Value> {
     private let lock = Lock()
 
     public init() {}
-
-    public init(_ seed: Value) {
-        self.underlying = seed
-    }
 
     @discardableResult
     public func memoize(body: () throws -> Value) rethrows -> Value {
@@ -99,12 +83,6 @@ public final class ThreadSafeBox<Value> {
     public func get() -> Value? {
         self.lock.withLock {
             self.underlying
-        }
-    }
-
-    public func put(_ newValue: Value) {
-        self.lock.withLock {
-            self.underlying = newValue
         }
     }
 }

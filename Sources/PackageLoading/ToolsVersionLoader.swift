@@ -104,7 +104,7 @@ extension Manifest {
     }
 }
 
-public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
+public class ToolsVersionLoader: ToolsVersionLoaderProtocol {
     
     // FIXME: Remove this property and the initializer?
     // Arbitrary tools versions are used only in `ToolsVersionLoaderTests.testVersionSpecificManifestFallbacks()`.
