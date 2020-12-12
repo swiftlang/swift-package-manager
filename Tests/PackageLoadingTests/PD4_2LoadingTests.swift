@@ -566,7 +566,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             let noCacheLoader = ManifestLoader(
-                manifestResources: Resources.default, delegate: delegate)
+                manifestResources: Resources.default, useInMemoryCache: false, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
@@ -679,21 +679,89 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testConcurrency() throws {
+        try testWithTemporaryDirectory { path in
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try localFileSystem.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    """
+            }
+
+            let delegate = ManifestTestDelegate()
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
+
+            let sync = DispatchGroup()
+            for _ in 0 ..< 1000 {
+                DispatchQueue.global().async(group: sync) {
+                    let manifest = try? manifestLoader.load(
+                        package: manifestPath.parentDirectory,
+                        baseURL: manifestPath.pathString,
+                        toolsVersion: .v4_2,
+                        packageKind: .local
+                    )
+
+                    guard manifest != nil else {
+                        XCTFail("manifest loading failed")
+                        return
+                    }
+
+                    XCTAssertEqual(manifest?.name, "Trivial")
+                    XCTAssertEqual(manifest?.targets[0].name, "foo")
+                }
+            }
+
+            if case .timedOut = sync.wait(timeout: .now() + 120) {
+                XCTFail("timeout")
+            }
+
+            XCTAssertEqual(delegate.loaded.count, 1000)
+        }
+    }
+
     final class ManifestTestDelegate: ManifestLoaderDelegate {
-        var loaded: [AbsolutePath] = []
-        var parsed: [AbsolutePath] = []
+        private let lock = Lock()
+        private var _loaded: [AbsolutePath] = []
+        private var _parsed: [AbsolutePath] = []
 
         func willLoad(manifest: AbsolutePath) {
-            loaded.append(manifest)
+            self.lock.withLock {
+                self._loaded.append(manifest)
+            }
         }
 
         func willParse(manifest: AbsolutePath) {
-            parsed.append(manifest)
+            self.lock.withLock {
+                self._parsed.append(manifest)
+            }
         }
 
         func clear() {
-            loaded.removeAll()
-            parsed.removeAll()
+            self.lock.withLock {
+                self._loaded.removeAll()
+                self._parsed.removeAll()
+            }
+        }
+
+        var loaded: [AbsolutePath] {
+            self.lock.withLock {
+                self._loaded
+            }
+        }
+
+        var parsed: [AbsolutePath] {
+            self.lock.withLock {
+                self._parsed
+            }
         }
     }
 }

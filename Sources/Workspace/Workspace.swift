@@ -257,6 +257,8 @@ public class Workspace {
 
     fileprivate let additionalFileRules: [FileRuleDescription]
 
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.workspace", attributes: .concurrent)
+
     /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -731,9 +733,10 @@ extension Workspace {
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
+
         let rootManifests = packages.compactMap({ package -> Manifest? in
-            loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics)
-        })
+             loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics)
+         })
 
         // Check for duplicate root packages.
         let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
@@ -843,7 +846,7 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let handle = try temp_await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .global(), completion: $0)
+                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: self.queue, completion: $0)
             }
             let repo = try handle.open()
 
@@ -1269,20 +1272,26 @@ extension Workspace {
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
-        let rootDependencyManifests: [Manifest] = root.dependencies.compactMap({
-            let url = config.mirrors.effectiveURL(forURL: $0.url)
-            return loadManifest(forURL: url, diagnostics: diagnostics)
-        })
+        // optimization: preload in parallel
+        let rootDependencyManifestsURLs = root.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.url) }
+        let rootDependencyManifests = self.loadManifests(forURLs: rootDependencyManifestsURLs, diagnostics: diagnostics)
+
         let inputManifests = root.manifests + rootDependencyManifests
 
         // Map of loaded manifests. We do this to avoid reloading the shared nodes.
-        var loadedManifests = [String: Manifest]()
 
         // Compute the transitive closure of available dependencies.
         struct NameAndFilter: Hashable { // Just because a raw tuple cannot be hashable.
             let name: String
             let filter: ProductFilter
         }
+
+        // optimization: preload in parallel
+        let inputDependenciesURLs = inputManifests.compactMap { $0.dependencies.compactMap{ config.mirrors.effectiveURL(forURL: $0.url) } }.flatMap { $0 }
+        var loadedManifests = self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics).reduce(into: [String: Manifest]()) { (partial, manifest) in
+            partial[manifest.url] = manifest
+        }
+
         let allManifestsWithPossibleDuplicates = try! topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) })) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
@@ -1291,6 +1300,7 @@ extension Workspace {
                 return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: NameAndFilter(name: $0.name, filter: dependency.productFilter)) })
             })
         }
+
         var deduplication: Set<String> = []
         var allManifests: [KeyedPair<(Manifest, ProductFilter), NameAndFilter>] = []
         for node in allManifestsWithPossibleDuplicates {
@@ -1341,6 +1351,31 @@ extension Workspace {
         )
     }
 
+    private func loadManifests(forURLs urls: [String], diagnostics: DiagnosticsEngine) -> [Manifest] {
+        // this is allot of boilerplate code but its is important for performance
+        let operationQueue = OperationQueue()
+        operationQueue.name = self.queue.label + "-root-manifest-loading"
+        operationQueue.maxConcurrentOperationCount = (try? ProcessEnv.vars["SWIFTPM_MANIFEST_LOADING_MAX_CONCURRENCY"].map(Int.init)) ?? 100
+
+        let lock = Lock()
+        let sync = DispatchGroup()
+        var manifests = [Manifest]()
+        urls.forEach { url in
+            sync.enter()
+            operationQueue.addOperation {
+                defer { sync.leave() }
+                if let manifest = self.loadManifest(forURL: url, diagnostics: diagnostics) {
+                    lock.withLock {
+                        manifests.append(manifest)
+                    }
+                }
+            }
+        }
+        sync.wait()
+
+        return manifests
+    }
+
     /// Load the manifest at a given path.
     ///
     /// This is just a helper wrapper to the manifest loader.
@@ -1365,7 +1400,6 @@ extension Workspace {
                     currentToolsVersion, packagePath: packagePath.pathString)
 
                 // Load the manifest.
-                // FIXME: We should have a cache for this.
                 return try manifestLoader.load(
                     package: packagePath,
                     baseURL: url,
@@ -1634,7 +1668,7 @@ extension Workspace {
         let pins = pinsStore.pins.map({ $0 })
         DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
             _ = try? temp_await {
-                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: .global(), completion: $0)
+                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: self.queue, completion: $0)
             }
         }
 
@@ -2077,7 +2111,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 let container = try temp_await {
-                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: .global(), completion: $0)
+                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: self.queue, completion: $0)
                 } as! RepositoryPackageContainer
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
@@ -2305,7 +2339,7 @@ extension Workspace {
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
         let handle = try temp_await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .global(), completion: $0)
+            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: self.queue, completion: $0)
         }
 
         // Clone the repository into the checkouts.
@@ -2376,7 +2410,7 @@ extension Workspace {
             // annoying. Maybe we should make an SPI on the provider for
             // this?
             // FIXME: this should not block
-            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: .global(), completion: $0) } as! RepositoryPackageContainer
+            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0) } as! RepositoryPackageContainer
             guard let tag = container.getTag(for: version) else {
                 throw StringError("Internal error: please file a bug at https://bugs.swift.org with this info -- unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
             }
