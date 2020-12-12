@@ -92,16 +92,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, [
-            .equal("will load manifest for root package: /tmp/ws/roots/Foo"),
-            .equal("did load manifest for root package: /tmp/ws/roots/Foo"),
-        ])
-        XCTAssertMatch(workspace.delegate.events, [
-            .equal("will load manifest for remote package: /tmp/ws/pkgs/Quix"),
-            .equal("did load manifest for remote package: /tmp/ws/pkgs/Quix"),
-            .equal("will load manifest for remote package: /tmp/ws/pkgs/Baz"),
-            .equal("did load manifest for remote package: /tmp/ws/pkgs/Baz"),
-        ])
+        XCTAssertTrue(workspace.delegate.events.contains("will load manifest for root package: /tmp/ws/roots/Foo"))
+        XCTAssertTrue(workspace.delegate.events.contains("did load manifest for root package: /tmp/ws/roots/Foo"))
+
+        XCTAssertTrue(workspace.delegate.events.contains("will load manifest for remote package: /tmp/ws/pkgs/Quix"))
+        XCTAssertTrue(workspace.delegate.events.contains("did load manifest for remote package: /tmp/ws/pkgs/Quix"))
+        XCTAssertTrue(workspace.delegate.events.contains("will load manifest for remote package: /tmp/ws/pkgs/Baz"))
+        XCTAssertTrue(workspace.delegate.events.contains("did load manifest for remote package: /tmp/ws/pkgs/Baz"))
 
         // Close and reopen workspace.
         workspace.closeWorkspace()
