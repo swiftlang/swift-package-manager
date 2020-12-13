@@ -229,6 +229,12 @@ public struct BuildDescription: Codable {
     }
 }
 
+/// A provider of advice about build errors.
+public protocol BuildErrorAdviceProvider {
+    /// Invoked after a command fails and an error message is detected in the output.  Should return a string containing advice or additional information, if any, based on the build plan.
+    func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String?
+}
+
 /// The context available during build execution.
 public final class BuildExecutionContext {
 
@@ -248,15 +254,20 @@ public final class BuildExecutionContext {
 
     /// The package structure delegate.
     let packageStructureDelegate: PackageStructureDelegate
+    
+    /// Optional provider of build error resolution advice.
+    let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
     public init(
         _ buildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
-        packageStructureDelegate: PackageStructureDelegate
+        packageStructureDelegate: PackageStructureDelegate,
+        buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
     ) {
         self.buildParameters = buildParameters
         self.buildDescription = buildDescription
         self.packageStructureDelegate = packageStructureDelegate
+        self.buildErrorAdviceProvider = buildErrorAdviceProvider
     }
 
     // MARK:- Private
@@ -346,6 +357,7 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
     public var isVerbose: Bool = false
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
+    private var errorMessagesByTarget: [String: [String]] = [:]
     
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
@@ -498,6 +510,20 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
+        if result.result == .failed {
+            // The command failed, so we queue up an asynchronous task to see if we have any error messages from the target to provide advice about.
+            queue.async {
+                guard let target = self.swiftParsers[command.name]?.targetName else { return }
+                guard let errorMessages = self.errorMessagesByTarget[target] else { return }
+                for errorMessage in errorMessages {
+                    // Emit any advice that's provided for each error message.
+                    if let adviceMessage = self.buildExecutionContext.buildErrorAdviceProvider?.provideBuildErrorAdvice(for: target, command: command.name, message: errorMessage) {
+                        self.outputStream <<< "note: " <<< adviceMessage <<< "\n"
+                        self.outputStream.flush()
+                    }
+                }
+            }
+        }
     }
 
     public func cycleDetected(rules: [BuildKey]) {
@@ -521,6 +547,12 @@ public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParser
             }
 
             if let output = message.standardOutput {
+                // Scoop out any errors from the output, so they can later be passed to the advice provider in case of failure.
+                let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
+                for match in regex.matchGroups(in: output) {
+                    self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
+                }
+                
                 if !self.isVerbose {
                     self.progressAnimation.clear()
                 }

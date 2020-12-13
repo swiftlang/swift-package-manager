@@ -17,7 +17,7 @@ import LLBuildManifest
 import SPMLLBuild
 import SPMBuildCore
 
-public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem {
+public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
     /// The build parameters.
     public let buildParameters: BuildParameters
@@ -189,7 +189,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let bctx = BuildExecutionContext(
             buildParameters,
             buildDescription: buildDescription,
-            packageStructureDelegate: self
+            packageStructureDelegate: self,
+            buildErrorAdviceProvider: self
         )
 
         // Create the build delegate.
@@ -209,9 +210,32 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             delegate: buildDelegate,
             schedulerLanes: buildParameters.jobs
         )
-        buildDelegate.onCommmandFailure = { buildSystem.cancel() }
+        buildDelegate.onCommmandFailure = {
+            buildSystem.cancel()
+        }
 
         return buildSystem
+    }
+    
+    public func provideBuildErrorAdvice(for target: String, command: String, message: String) -> String? {
+        // Find the target for which the error was emitted.  If we don't find it, we can't give any advice.
+        guard let _ = self.buildPlan?.targets.first(where: { $0.target.name == target }) else { return nil }
+        
+        // Check for cases involving modules that cannot be found.
+        if let importedModule = try? RegEx(pattern: "no such module '(.+)'").matchGroups(in: message).first?.first {
+            // A target is importing a module that can't be found.  We take a look at the build plan and see if can offer any advice.
+            
+            // Look for a target with the same module name as the one that's being imported.
+            if let importedTarget = self.buildPlan?.targets.first(where: { $0.target.c99name == importedModule }) {
+                // For the moment we just check for executables that other targets try to import.
+                if importedTarget.target.type == .executable {
+                    return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"
+                }
+                
+                // Here we can add more checks in the future.
+            }
+        }
+        return nil
     }
 
     public func packageStructureChanged() -> Bool {
