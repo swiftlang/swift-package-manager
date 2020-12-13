@@ -523,6 +523,7 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertMatch(stderr + output, .contains("Compiling Exe main.swift"))
                 XCTAssertMatch(stderr + output, .contains("Compiling ExeTests ExeTests.swift"))
                 XCTAssertMatch(stderr + output, .regex("error: no such module 'Exe'"))
+                XCTAssertMatch(stderr + output, .regex("note: module 'Exe' is the main module of an executable, and cannot be imported by tests and other targets"))
 
                 if case ProcessResult.Error.nonZeroExit(let result) = error {
                     // if our code crashes we'll get an exit code of 256
