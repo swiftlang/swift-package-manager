@@ -513,4 +513,26 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertMatch(stderr, .contains("warning: '--generate-linuxmain' option is deprecated"))
         }
     }
+    
+    func testErrorMessageWhenTestLinksExecutable() {
+        fixture(name: "Miscellaneous/ExeTest") { prefix in
+            do {
+                try executeSwiftTest(prefix)
+                XCTFail()
+            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
+                XCTAssertMatch(stderr + output, .contains("Compiling Exe main.swift"))
+                XCTAssertMatch(stderr + output, .contains("Compiling ExeTests ExeTests.swift"))
+                XCTAssertMatch(stderr + output, .regex("error: no such module 'Exe'"))
+
+                if case ProcessResult.Error.nonZeroExit(let result) = error {
+                    // if our code crashes we'll get an exit code of 256
+                    XCTAssertEqual(result.exitStatus, .terminated(code: 1))
+                } else {
+                    XCTFail("\(stderr + output)")
+                }
+            } catch {
+                XCTFail()
+            }
+        }
+    }
 }

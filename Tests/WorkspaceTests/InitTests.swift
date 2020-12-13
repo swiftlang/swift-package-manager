@@ -90,7 +90,7 @@ class InitTests: XCTestCase {
             let triple = Resources.default.toolchain.triple
             let binPath = path.appending(components: ".build", triple.tripleString, "debug")
             XCTAssertFileExists(binPath.appending(component: "Foo"))
-            XCTAssertFileExists(binPath.appending(component: "Foo.swiftmodule"))
+            XCTAssertFileExists(binPath.appending(components: "Foo.build", "Foo.swiftmodule"))
         }
     }
 
