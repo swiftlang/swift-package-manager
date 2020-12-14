@@ -498,7 +498,7 @@ public class RepositoryManager {
     /// Purges the cached repositories from the cache.
     public func purgeCache() throws {
         guard let cachePath = cachePath else { return }
-        let cachedRepositories = try fileSystem.getDirectoryContents(cachePath)
+        let cachedRepositories = try fileSystem.getDirectoryContents(cachePath).filter { !$0.hasSuffix(".lock") }
         for repoPath in cachedRepositories {
             try fileSystem.withLock(on: cachePath.appending(component: repoPath), type: .exclusive) {
                 try fileSystem.removeFileTree(cachePath.appending(component: repoPath))
