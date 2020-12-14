@@ -20,7 +20,7 @@ public enum GitProgress {
 
     public typealias Handler = (GitProgress) -> Void
 
-    /// The pattern used to match git output. Caputre groups are labled from ?<i0> to ?<i19>.
+    /// The pattern used to match git output. Capture groups are labled from <i0> to <i19>.
     static let pattern = #"""
 (?xi)
 (?:
