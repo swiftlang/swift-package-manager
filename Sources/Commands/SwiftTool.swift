@@ -511,9 +511,9 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+            try workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
         } else {
-            workspace.resolve(root: root, diagnostics: diagnostics)
+            try workspace.resolve(root: root, diagnostics: diagnostics)
         }
 
         // Throw if there were errors when loading the graph.
@@ -538,7 +538,7 @@ public class SwiftTool {
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
-                root: getWorkspaceRoot(),
+                rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,

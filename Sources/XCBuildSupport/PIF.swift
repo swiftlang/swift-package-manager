@@ -228,7 +228,7 @@ public enum PIF {
                 case "standard", "packageProduct":
                     return try targetContainer.decode(Target.self)
                 default:
-                    fatalError("unknown target type \(type)")
+                    throw InternalError("unknown target type \(type)")
                 }
             }
 
@@ -388,7 +388,7 @@ public enum PIF {
                 case FileReference.type:
                     return try childrenContainer.decode(FileReference.self)
                 default:
-                    fatalError("unknown reference type \(child.type ?? "<nil>")")
+                    throw InternalError("unknown reference type \(child.type ?? "<nil>")")
                 }
             }
 
@@ -461,7 +461,7 @@ public enum PIF {
         }
 
         public required init(from decoder: Decoder) throws {
-            fatalError("init(from:) has not been implemented")
+            throw InternalError("init(from:) has not been implemented")
         }
     }
 
@@ -522,7 +522,7 @@ public enum PIF {
 
             let buildPhases: [BuildPhase] = try untypedBuildPhases.map {
                 guard let type = $0.type else {
-                    fatalError("Expected type in build phase \($0)")
+                    throw InternalError("Expected type in build phase \($0)")
                 }
                 return try BuildPhase.decode(container: &buildPhasesContainer, type: type)
             }
@@ -657,14 +657,14 @@ public enum PIF {
 
                 buildPhases = try untypedBuildPhases.map {
                     guard let type = $0.type else {
-                        fatalError("Expected type in build phase \($0)")
+                        throw InternalError("Expected type in build phase \($0)")
                     }
                     return try BuildPhase.decode(container: &buildPhasesContainer, type: type)
                 }
 
                 impartedBuildProperties = try container.decode(BuildSettings.self, forKey: .impartedBuildProperties)
             } else {
-                fatalError("Unhandled target type \(type)")
+                throw InternalError("Unhandled target type \(type)")
             }
 
             super.init(
@@ -692,7 +692,7 @@ public enum PIF {
             case ResourcesBuildPhase.type:
                 return try container.decode(ResourcesBuildPhase.self)
             default:
-                fatalError("unknown build phase \(type)")
+                throw InternalError("unknown build phase \(type)")
             }
         }
 
@@ -823,7 +823,7 @@ public enum PIF {
                 let targetGUID = String(targetGUIDString.dropLast("\(schemaVersion)".count + 1))
                 reference = .target(guid: targetGUID)
             } else {
-                fatalError("Expected \(CodingKeys.fileReference) or \(CodingKeys.targetReference) in the keys")
+                throw InternalError("Expected \(CodingKeys.fileReference) or \(CodingKeys.targetReference) in the keys")
             }
         }
     }
@@ -1114,7 +1114,8 @@ struct StringKey: CodingKey, ExpressibleByStringInterpolation {
     }
 
     init?(intValue: Int) {
-        fatalError("does not support integer keys")
+        assertionFailure("does not support integer keys")
+        return nil
     }
 }
 

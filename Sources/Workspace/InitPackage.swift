@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import TSCBasic
 import PackageModel
 
@@ -269,23 +270,26 @@ public final class InitPackage {
         let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = moduleDir.appending(RelativePath(sourceFileName))
 
+        let content: String
+        switch packageType {
+        case .library:
+            content = """
+                struct \(typeName) {
+                    var text = "Hello, World!"
+                }
+
+                """
+        case .executable:
+            content = """
+                print("Hello, world!")
+
+                """
+        case .systemModule, .empty, .manifest:
+            throw InternalError("invalid packageType \(packageType)")
+        }
+
         try writePackageFile(sourceFile) { stream in
-            switch packageType {
-            case .library:
-                stream <<< """
-                    struct \(typeName) {
-                        var text = "Hello, World!"
-                    }
-
-                    """
-            case .executable:
-                stream <<< """
-                    print("Hello, world!")
-
-                    """
-            case .systemModule, .empty, .manifest:
-                fatalError("invalid")
-            }
+            stream.write(content)
         }
     }
 

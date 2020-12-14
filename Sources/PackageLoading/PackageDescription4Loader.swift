@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import PackageModel
@@ -246,7 +247,7 @@ extension PackageModel.ProductType {
             self = .library(libraryType)
 
         default:
-            fatalError("unexpected product type: \(json)")
+            throw InternalError("unexpected product type: \(json)")
         }
     }
 }

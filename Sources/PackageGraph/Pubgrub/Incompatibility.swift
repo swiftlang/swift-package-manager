@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import TSCBasic
 import PackageModel
 
@@ -23,12 +24,12 @@ public struct Incompatibility: Equatable, Hashable {
         self.cause = cause
     }
 
-    public init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) {
+    public init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) throws {
         let termSet = OrderedSet(terms)
-        self.init(termSet, root: root, cause: cause)
+        try self.init(termSet, root: root, cause: cause)
     }
 
-    public init(_ terms: OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) {
+    public init(_ terms: OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) throws {
         if terms.isEmpty {
             self.init(terms: terms, cause: cause)
             return
@@ -42,7 +43,7 @@ public struct Incompatibility: Equatable, Hashable {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
         }
 
-        let normalizedTerms = normalize(terms: terms.contents)
+        let normalizedTerms = try normalize(terms: terms.contents)
         assert(normalizedTerms.count > 0,
                "An incompatibility must contain at least one term after normalization.")
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)
@@ -131,10 +132,9 @@ extension Incompatibility {
 /// combination. E.g. we don't want both a^1.0.0 and a^1.5.0 to be terms in the
 /// same incompatibility, but have these combined by intersecting their version
 /// requirements to a^1.5.0.
-fileprivate func normalize(
-    terms: [Term]) -> [Term] {
+fileprivate func normalize(terms: [Term]) throws -> [Term] {
 
-    let dict = terms.reduce(into: OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
+    let dict = try terms.reduce(into: OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.node] else {
@@ -143,7 +143,7 @@ fileprivate func normalize(
         }
 
         guard let intersection = term.intersect(withRequirement: previous.req, andPolarity: previous.polarity) else {
-            fatalError("""
+            throw InternalError("""
                 Attempting to create an incompatibility with terms for \(term.node) \
                 intersecting versions \(previous) and \(term.requirement). These are \
                 mutually exclusive and can't be intersected, making this incompatibility \

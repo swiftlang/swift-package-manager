@@ -58,12 +58,12 @@ public final class SchemesGenerator {
         self.fs = fs
     }
 
-    public func buildSchemes() -> [Scheme] {
+    public func buildSchemes() throws -> [Scheme] {
         let rootPackage = graph.rootPackages[0]
 
         var schemes: [Scheme] = []
 
-        let testTargetsMap = graph.computeTestTargetsForExecutableTargets()
+        let testTargetsMap = try graph.computeTestTargetsForExecutableTargets()
 
         // Create one scheme per executable target.
         for target in rootPackage.targets where target.type == .executable {
@@ -95,7 +95,7 @@ public final class SchemesGenerator {
     }
 
     func generate() throws {
-        let schemes = buildSchemes()
+        let schemes = try self.buildSchemes()
         for scheme in schemes {
             try create(scheme)
         }

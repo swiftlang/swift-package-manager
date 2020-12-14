@@ -28,7 +28,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -89,7 +89,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -135,7 +135,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -190,7 +190,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -220,7 +220,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -264,7 +264,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -300,7 +300,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
@@ -365,7 +365,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
@@ -431,7 +431,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
@@ -501,7 +501,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -540,7 +540,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -567,7 +567,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -645,7 +645,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -686,7 +686,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -752,7 +752,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -787,7 +787,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Start",
@@ -844,7 +844,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -898,7 +898,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -955,14 +955,14 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    func testInvalidExplicitPackageDependencyName() {
+    func testInvalidExplicitPackageDependencyName() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Baar/bar.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -1009,7 +1009,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
@@ -1094,7 +1094,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(
+        _ = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [

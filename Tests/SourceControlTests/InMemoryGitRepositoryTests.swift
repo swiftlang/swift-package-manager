@@ -29,7 +29,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
         XCTAssertTrue(repo.hasUncommittedChanges())
 
-        let firstCommit = repo.commit()
+        let firstCommit = try repo.commit()
         XCTAssertTrue(!repo.hasUncommittedChanges())
 
         XCTAssertEqual(try repo.readFileContents(filePath), "one")
@@ -39,7 +39,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
         XCTAssertTrue(repo.hasUncommittedChanges())
 
-        let secondCommit = repo.commit()
+        let secondCommit = try repo.commit()
         XCTAssertTrue(!repo.hasUncommittedChanges())
         XCTAssertEqual(try repo.readFileContents(filePath), "two")
 
@@ -81,10 +81,10 @@ class InMemoryGitRepositoryTests: XCTestCase {
         try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
         let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
         try repo.writeFileContents(filePath, bytes: "one")
-        repo.commit()
+        try repo.commit()
         try repo.tag(name: v1)
         try repo.writeFileContents(filePath, bytes: "two")
-        repo.commit()
+        try repo.commit()
         try repo.tag(name: v2)
 
         let provider = InMemoryGitRepositoryProvider()

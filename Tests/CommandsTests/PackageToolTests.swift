@@ -324,7 +324,7 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testShowDependencies_dotFormat_sr12016() {
+    func testShowDependencies_dotFormat_sr12016() throws {
         // Confirm that SR-12016 is resolved.
         // See https://bugs.swift.org/browse/SR-12016
         
@@ -403,8 +403,9 @@ final class PackageToolTests: XCTestCase {
         )
         
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
-                                     manifests: [manifestA, manifestB, manifestC, manifestD])
+        let graph = try loadPackageGraph(fs: fileSystem,
+                                         diagnostics: diagnostics,
+                                         manifests: [manifestA, manifestB, manifestC, manifestD])
         XCTAssertNoDiagnostics(diagnostics)
         
         let output = BufferedOutputByteStream()
