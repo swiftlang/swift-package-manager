@@ -56,7 +56,7 @@ public struct SwiftPackageTool: ParsableCommand {
             ToolsVersionCommand.self,
             GenerateXcodeProject.self,
             ComputeChecksum.self,
-            Archive.self,
+            ArchiveSource.self,
             CompletionTool.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
@@ -541,8 +541,9 @@ extension SwiftPackageTool {
         }
     }
 
-    struct Archive: SwiftCommand {
+    struct ArchiveSource: SwiftCommand {
         static let configuration = CommandConfiguration(
+            commandName: "archive-source",
             abstract: "Create a source archive for the package"
         )
 

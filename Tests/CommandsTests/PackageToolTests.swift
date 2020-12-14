@@ -941,13 +941,13 @@ final class PackageToolTests: XCTestCase {
       #endif
     }
 
-    func testArchive() throws {
+    func testArchiveSource() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
 
             // Running without arguments or options
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive"], packagePath: packageRoot)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let stdoutOutput = try result.utf8Output()
@@ -955,7 +955,7 @@ final class PackageToolTests: XCTestCase {
 
                 // Running without arguments or options again, overwriting existing archive
                 do {
-                    let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive"], packagePath: packageRoot)
+                    let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: packageRoot)
                     XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                     let stdoutOutput = try result.utf8Output()
@@ -966,7 +966,7 @@ final class PackageToolTests: XCTestCase {
             // Runnning with output as absolute path within package root
             do {
                 let destination = packageRoot.appending(component: "Bar-1.2.3.zip")
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive", "--output", destination.pathString], packagePath: packageRoot)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let stdoutOutput = try result.utf8Output()
@@ -977,7 +977,7 @@ final class PackageToolTests: XCTestCase {
             // which in execution context is outside package root
             do {
                 let destination = RelativePath("Bar-1.2.3.zip")
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive", "--output", destination.pathString], packagePath: packageRoot)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
                 let stdoutOutput = try result.utf8Output()
@@ -987,7 +987,7 @@ final class PackageToolTests: XCTestCase {
 
             // Running without arguments or options in non-package directory
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive"], packagePath: prefix)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: prefix)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()
@@ -997,7 +997,7 @@ final class PackageToolTests: XCTestCase {
             // Runnning with output as absolute path to existing directory
             do {
                 let destination = AbsolutePath.root
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive", "--output", destination.pathString], packagePath: packageRoot)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()
