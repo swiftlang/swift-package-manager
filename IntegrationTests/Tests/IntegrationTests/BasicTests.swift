@@ -17,10 +17,9 @@ final class BasicTests: XCTestCase {
         XCTAssertMatch(try sh(swift, "--version").stdout, .contains("Swift version"))
     }
 
-    // Disabled because these packages don't use the latest runtime library which doesn't work with self-hosted builds.
-    //
-    // FIXME: We should to use XCTSkip to skip this test instead.
-    func DISABLED_testExamplePackageDealer() throws {
+    func testExamplePackageDealer() throws {
+        try XCTSkipIf(isSelfHosted, "These packages don't use the latest runtime library, which doesn't work with self-hosted builds.")
+
         try withTemporaryDirectory { dir in
             let dealerDir = dir.appending(component: "dealer")
             try sh("git", "clone", "https://github.com/apple/example-package-dealer", dealerDir)
@@ -120,8 +119,9 @@ final class BasicTests: XCTestCase {
         }
     }
 
-    // TODO: Check why this test is failing to test in Xcode and through the command line.
-    func _testSwiftPackageInitLib() throws {
+    func testSwiftPackageInitLib() throws {
+        try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
+
         try withTemporaryDirectory { dir in
             // Create a new package with an executable target.
             let projectDir = dir.appending(component: "Project")
@@ -203,6 +203,8 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftTest() throws {
+        try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
+
         try withTemporaryDirectory { dir in
             let toolDir = dir.appending(component: "swiftTest")
             try localFileSystem.createDirectory(toolDir)
@@ -234,6 +236,8 @@ final class BasicTests: XCTestCase {
     }
   
     func testSwiftTestWithResources() throws {
+        try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
+
         try withTemporaryDirectory { dir in
             let toolDir = dir.appending(component: "swiftTestResources")
             try localFileSystem.createDirectory(toolDir)

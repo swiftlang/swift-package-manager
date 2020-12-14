@@ -13,9 +13,13 @@ import TSCBasic
 import TSCTestSupport
 
 final class SwiftPMTests: XCTestCase {
-  #if os(macOS)
-    // FIXME: This is failing right now.
-    func DISABLED_testBinaryTargets() throws {
+    func testBinaryTargets() throws {
+        try XCTSkip("FIXME: ld: warning: dylib (/../BinaryTargets.6YVYK4/TestBinary/.build/x86_64-apple-macosx/debug/SwiftFramework.framework/SwiftFramework) was built for newer macOS version (10.15) than being linked (10.10)")
+
+        #if !os(macOS)
+            try XCTSkip("Test requires macOS")
+        #endif
+
         try binaryTargetsFixture { prefix in
             do {
                 let (stdout, stderr) = try sh(swiftRun, "--package-path", prefix, "exe")
@@ -46,6 +50,10 @@ final class SwiftPMTests: XCTestCase {
     }
 
     func testArchCustomization() throws {
+        #if !os(macOS)
+            try XCTSkip("Test requires macOS")
+        #endif
+
         try withTemporaryDirectory { tmpDir in
             let foo = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(foo)
@@ -55,7 +63,7 @@ final class SwiftPMTests: XCTestCase {
             try localFileSystem.writeFileContents(foo.appending(RelativePath("Sources/foo/main.m"))) {
                 $0 <<< "int main() {}"
             }
-            let archs = ["x86_64", "x86_64h"]
+            let archs = ["x86_64", "arm64"]
 
             for arch in archs {
                 try sh(swiftBuild, "--package-path", foo, "--arch", arch)
@@ -75,5 +83,4 @@ final class SwiftPMTests: XCTestCase {
             }
         }
     }
-  #endif
 }

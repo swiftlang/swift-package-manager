@@ -35,11 +35,11 @@ let toolchainPath: AbsolutePath = {
 
   #if os(macOS)
     let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout.spm_chomp())
+  #else
+    let swiftcPath = try! AbsolutePath(sh("which", "swift").stdout.spm_chomp())
+  #endif
     let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
     return toolchainPath
-  #else
-    fatalError("TOOLCHAIN_PATH environment variable required")
-  #endif
 }()
 
 let clang: AbsolutePath = {
@@ -89,7 +89,7 @@ let lldb: AbsolutePath = {
         return toolchainLLDBPath
     }
 
-    #if os(macOS)
+  #if os(macOS)
     let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout.spm_chomp())
     return lldbPath
   #else
@@ -119,6 +119,10 @@ let swiftTest: AbsolutePath = {
 
 let swiftRun: AbsolutePath = {
     return swiftpmBinaryDirectory.appending(component: "swift-run")
+}()
+
+let isSelfHosted: Bool = {
+    return ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
 }()
 
 @discardableResult
@@ -313,6 +317,6 @@ func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
     }
 }
 
-func XCTSkip() throws {
-    throw XCTSkip()
+func XCTSkip(_ message: String? = nil) throws {
+    throw XCTSkip(message)
 }
