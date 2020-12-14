@@ -37,7 +37,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The progress animation for downloads.
     private let downloadAnimation: NinjaProgressAnimation
 
-    /// The progress animation for git fetches.
+    /// The progress animation for repository fetches.
     private let fetchAnimation: NinjaProgressAnimation
 
     /// Wether the tool is in a verbose mode.
@@ -217,25 +217,16 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingGitRepository(progress: GitProgress) {
-        switch progress {
-        case .compressingObjects(_, let currentObjects, let totalObjects),
-            .countingObjects(_, let currentObjects, let totalObjects),
-            .resolvingDeltas(_, let currentObjects, let totalObjects):
-            queue.async {
+    func fetchingRepository(progress: FetchProgress) {
+        let currentObjects = progress.step
+        guard let totalObjects = progress.totalSteps else { return }
+
+        queue.async {
+            if let downloadProgress = progress.downloadProgress, let downloadSpeed = progress.downloadSpeed {
+                self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: "\(progress.message) \(downloadProgress) | \(downloadSpeed)")
+            } else {
                 self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: progress.message)
             }
-            
-        case .receivingObjects(_, let currentObjects, let totalObjects, let downloadProgress, let downloadSpeed):
-            queue.async {
-                if let downloadProgress = downloadProgress, let downloadSpeed = downloadSpeed {
-                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: "\(progress.message) \(downloadProgress) | \(downloadSpeed)")
-                } else {
-                    self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: progress.message)
-                }
-            }
-        default:
-            return
         }
     }
 }

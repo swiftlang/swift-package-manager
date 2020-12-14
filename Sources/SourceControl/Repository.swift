@@ -82,7 +82,7 @@ public protocol RepositoryProvider {
     ///   - path: The destiantion path for the fetch.
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: GitProgress.Handler?) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler?) throws
 
     /// Open the given repository.
     ///
@@ -144,7 +144,7 @@ extension RepositoryProvider {
         fatalError("Unimplemented")
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: GitProgress.Handler?) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler?) throws {
         try fetch(repository: repository, to: path)
     }
 }
@@ -192,7 +192,7 @@ public protocol Repository {
     /// Fetch and update the repository from its remote.
     ///
     /// - Throws: If an error occurs while performing the fetch operation.
-    func fetch(progress: GitProgress.Handler?) throws
+    func fetch(progress: FetchProgress.Handler?) throws
 
     /// Returns true if the given revision exists.
     func exists(revision: Revision) -> Bool
@@ -215,7 +215,7 @@ public protocol Repository {
 }
 
 extension Repository {
-    public func fetch(progress: GitProgress.Handler?) throws {
+    public func fetch(progress: FetchProgress.Handler?) throws {
         try fetch()
     }
 }
@@ -289,4 +289,16 @@ extension Revision: JSONMappable {
         }
         self.init(identifier: identifier)
     }
+}
+
+public protocol FetchProgress {
+    typealias Handler = (FetchProgress) -> Void
+
+    var message: String { get }
+    var step: Int { get }
+    var totalSteps: Int? { get }
+    /// The current download progress including the unit
+    var downloadProgress: String? { get }
+    /// The current download speed including the unit
+    var downloadSpeed: String? { get }
 }

@@ -37,8 +37,8 @@ public protocol RepositoryManagerDelegate: class {
     /// Called when a repository has finished updating from its remote.
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle)
 
-    /// Called every time the progress of the git fetch operation updates.
-    func fetchingGitRepository(progress: GitProgress)
+    /// Called every time the progress of a repository fetch operation updates.
+    func fetchingRepository(progress: FetchProgress)
 }
 
 public extension RepositoryManagerDelegate {
@@ -57,7 +57,7 @@ public extension RepositoryManagerDelegate {
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
-    func fetchingGitRepository(progress: GitProgress) {}
+    func fetchingRepository(progress: FetchProgress) {}
 }
 
 /// Manages a collection of bare repositories.
@@ -311,7 +311,9 @@ public class RepositoryManager {
                     var fetchDetails: FetchDetails? = nil
                     do {
                         // Start fetching.
-                        fetchDetails = try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath)
+                        fetchDetails = try self.fetchAndPopulateCache(handle: handle,
+                                                                      repositoryPath: repositoryPath,
+                                                                      on: queue)
 
                         // Update status to available.
                         handle.status = .available
@@ -366,9 +368,9 @@ public class RepositoryManager {
         var updatedCache = false
         var fromCache = false
 
-        func updateGitStatus(progress: GitProgress) -> Void {
-                self.delegate?.fetchingGitRepository(progress: progress)
+        func updateGitStatus(progress: FetchProgress) -> Void {
             queue.async {
+                self.delegate?.fetchingRepository(progress: progress)
             }
         }
 

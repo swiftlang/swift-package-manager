@@ -104,7 +104,7 @@ public protocol WorkspaceDelegate: class {
     func didDownloadBinaryArtifacts()
 
     /// Called every time the progress of the git fetch operation updates.
-    func fetchingGitRepository(progress: GitProgress)
+    func fetchingRepository(progress: FetchProgress)
 }
 
 public extension WorkspaceDelegate {
@@ -141,7 +141,7 @@ public extension WorkspaceDelegate {
         fetchingDidFinish(repository: repository, diagnostic: diagnostic)
     }
 
-    func fetchingGitRepository(progress: GitProgress) {}
+    func fetchingRepository(progress: FetchProgress) {}
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -172,8 +172,8 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         workspaceDelegate.repositoryDidUpdate(handle.repository.url)
     }
 
-    func fetchingGitRepository(progress: GitProgress) {
-        workspaceDelegate.fetchingGitRepository(progress: progress)
+    func fetchingRepository(progress: FetchProgress) {
+        workspaceDelegate.fetchingRepository(progress: progress)
     }
 }
 
