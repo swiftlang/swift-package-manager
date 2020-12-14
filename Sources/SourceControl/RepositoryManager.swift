@@ -358,13 +358,17 @@ public class RepositoryManager {
     /// - Throws:
     /// - Returns: Details about the performed fetch.
    @discardableResult
-    func fetchAndPopulateCache(handle: RepositoryHandle, repositoryPath: AbsolutePath) throws -> FetchDetails {
+    func fetchAndPopulateCache(
+        handle: RepositoryHandle,
+        repositoryPath: AbsolutePath,
+        on queue: DispatchQueue
+    ) throws -> FetchDetails {
         var updatedCache = false
         var fromCache = false
 
         func updateGitStatus(progress: GitProgress) -> Void {
-            self.callbacksQueue.async {
                 self.delegate?.fetchingGitRepository(progress: progress)
+            queue.async {
             }
         }
 
