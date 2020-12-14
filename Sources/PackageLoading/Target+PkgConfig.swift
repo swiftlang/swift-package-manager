@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import PackageModel
 import TSCUtility
@@ -75,10 +76,10 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
                     brewPrefix: brewPrefix)
 
             // Run the allow list checker.
-            let filtered = allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
+            let filtered = try allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
 
             // Remove any default flags which compiler adds automatically.
-            let (cFlags, libs) = removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
+            let (cFlags, libs) = try removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
 
             // Set the error if there are any unallowed flags.
             var error: Swift.Error?
@@ -177,9 +178,9 @@ extension SystemPackageProviderDescription {
 public func allowlist(
     pcFile: String,
     flags: (cFlags: [String], libs: [String])
-) -> (cFlags: [String], libs: [String], unallowed: [String]) {
+) throws -> (cFlags: [String], libs: [String], unallowed: [String]) {
     // Returns a tuple with the array of allowed flag and the array of unallowed flags.
-    func filter(flags: [String], filters: [String]) -> (allowed: [String], unallowed: [String]) {
+    func filter(flags: [String], filters: [String]) throws -> (allowed: [String], unallowed: [String]) {
         var allowed = [String]()
         var unallowed = [String]()
         var it = flags.makeIterator()
@@ -198,7 +199,7 @@ public func allowlist(
             // If the flag and its value are separated, skip next flag.
             if flag == filter && flag != "-w" {
                 guard it.next() != nil else {
-                   fatalError("Expected associated value")
+                    throw InternalError("Expected associated value")
                 }
             }
             allowed += [flag]
@@ -206,8 +207,8 @@ public func allowlist(
         return (allowed, unallowed)
     }
 
-    let filteredCFlags = filter(flags: flags.cFlags, filters: ["-I", "-F"])
-    let filteredLibs = filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
+    let filteredCFlags = try filter(flags: flags.cFlags, filters: ["-I", "-F"])
+    let filteredLibs = try filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
 
     return (filteredCFlags.allowed, filteredLibs.allowed, filteredCFlags.unallowed + filteredLibs.unallowed)
 }
@@ -216,9 +217,9 @@ public func allowlist(
 ///
 /// This behavior is similar to pkg-config cli tool and helps avoid conflicts between
 /// sdk and default search paths in macOS.
-public func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [String]) {
+public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([String], [String]) {
     /// removes a flag from given array of flags.
-    func remove(flag: (String, String), from flags: [String]) -> [String] {
+    func remove(flag: (String, String), from flags: [String]) throws -> [String] {
         var result = [String]()
         var it = flags.makeIterator()
         while let curr = it.next() {
@@ -226,7 +227,7 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [
             case flag.0:
                 // Check for <flag><space><value> style.
                 guard let val = it.next() else {
-                    fatalError("Expected associated value")
+                    throw InternalError("Expected associated value")
                 }
                 // If we found a match, don't add these flags and just skip.
                 if val == flag.1 { continue }
@@ -245,7 +246,10 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) -> ([String], [
         }
         return result
     }
-    return (remove(flag: ("-I", "/usr/include"), from: cFlags), remove(flag: ("-L", "/usr/lib"), from: libs))
+    return (
+        try remove(flag: ("-I", "/usr/include"), from: cFlags),
+        try remove(flag: ("-L", "/usr/lib"), from: libs)
+    )
 }
 
 public struct PkgConfigDiagnosticLocation: DiagnosticLocation {

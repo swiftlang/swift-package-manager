@@ -81,15 +81,26 @@ public struct PackageGraph {
     public let inputPackages: [ResolvedPackage]
 
     /// Construct a package graph directly.
+    // FIXME: deprecated 12/2020, remove once clients migrate
+    @available(*, deprecated, message: "use throwing variant instead (init(rootPackages:rootDependencies:dependencies:)")
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
         requiredDependencies: Set<PackageReference>
     ) {
+        try! self.init(rootPackages: rootPackages, rootDependencies: rootDependencies, dependencies: requiredDependencies)
+    }
+
+    /// Construct a package graph directly.
+    public init(
+        rootPackages: [ResolvedPackage],
+        rootDependencies: [ResolvedPackage] = [],
+        dependencies requiredDependencies: Set<PackageReference>
+    ) throws {
         self.rootPackages = rootPackages
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
-        self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
+        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
 
         allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
             if rootPackages.contains(package) {
@@ -114,14 +125,14 @@ public struct PackageGraph {
         // Compute the reachable targets and products.
         let inputTargets = inputPackages.flatMap { $0.targets }
         let inputProducts = inputPackages.flatMap { $0.products }
-        let recursiveDependencies = inputTargets.lazy.flatMap { $0.recursiveDependencies() }
+        let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
         self.reachableTargets = Set(inputTargets).union(recursiveDependencies.compactMap { $0.target })
         self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    public func computeTestTargetsForExecutableTargets() -> [ResolvedTarget: [ResolvedTarget]] {
+    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget: [ResolvedTarget]] {
         var result = [ResolvedTarget: [ResolvedTarget]]()
 
         let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
@@ -136,7 +147,7 @@ public struct PackageGraph {
 
         for target in rootTargets where target.type == .executable {
             // Find all dependencies of this target within its package.
-            let dependencies = try! topologicalSort(target.dependencies, successors: {
+            let dependencies = try topologicalSort(target.dependencies, successors: {
                 $0.dependencies.compactMap { $0.target }.map { .target($0, conditions: []) }
             }).compactMap({ $0.target })
 

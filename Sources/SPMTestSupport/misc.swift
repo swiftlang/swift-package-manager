@@ -71,7 +71,7 @@ public func fixture(
                 try body(dstDir)
             } else {
                 // Copy each of the package directories and construct a git repo in it.
-                for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
+                for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                     let srcDir = fixtureDir.appending(component: fileName)
                     guard localFileSystem.isDirectory(srcDir) else { continue }
                     let dstDir = tmpDirPath.appending(component: fileName)
@@ -221,14 +221,14 @@ public func loadPackageGraph(
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false
-) -> PackageGraph {
+) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind == .root }
     let externalManifests = manifests.filter { $0.packageKind != .root }
     let packages = rootManifests.map { $0.path }
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
 
-    return PackageGraph.load(
+    return try PackageGraph.load(
         root: graphRoot,
         externalManifests: externalManifests,
         diagnostics: diagnostics,

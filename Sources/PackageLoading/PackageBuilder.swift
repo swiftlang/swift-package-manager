@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import PackageModel
 import TSCUtility
@@ -583,7 +584,7 @@ public final class PackageBuilder {
             throw ModuleError.cycleDetected((cycle.path.map({ $0.name }), cycle.cycle.map({ $0.name })))
         }
         // There was no cycle so we sort the targets topologically.
-        let potentialModules = try! topologicalSort(potentialModules, successors: successors)
+        let potentialModules = try topologicalSort(potentialModules, successors: successors)
 
         // The created targets mapped to their name.
         var targets = [String: Target]()
@@ -812,7 +813,7 @@ public final class PackageBuilder {
                 case .c, .cxx:
                     decl = .HEADER_SEARCH_PATHS
                 case .swift, .linker:
-                    fatalError("unexpected tool for setting type \(setting)")
+                    throw InternalError("unexpected tool for setting type \(setting)")
                 }
 
                 // Ensure that the search path is contained within the package.
@@ -828,13 +829,13 @@ public final class PackageBuilder {
                 case .swift:
                     decl = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
                 case .linker:
-                    fatalError("unexpected tool for setting type \(setting)")
+                    throw InternalError("unexpected tool for setting type \(setting)")
                 }
 
             case .linkedLibrary:
                 switch setting.tool {
                 case .c, .cxx, .swift:
-                    fatalError("unexpected tool for setting type \(setting)")
+                    throw InternalError("unexpected tool for setting type \(setting)")
                 case .linker:
                     decl = .LINK_LIBRARIES
                 }
@@ -842,7 +843,7 @@ public final class PackageBuilder {
             case .linkedFramework:
                 switch setting.tool {
                 case .c, .cxx, .swift:
-                    fatalError("unexpected tool for setting type \(setting)")
+                    throw InternalError("unexpected tool for setting type \(setting)")
                 case .linker:
                     decl = .LINK_FRAMEWORKS
                 }

@@ -13,6 +13,7 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
+import Basics
 import PackageModel
 import PackageLoading
 import PackageGraph
@@ -91,7 +92,7 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForXCBuild] = true
         }
 
-        let topLevelObject = construct()
+        let topLevelObject = try self.construct()
 
         // Sign the pif objects before encoding it for XCBuild.
         try PIF.sign(topLevelObject.workspace)
@@ -101,13 +102,13 @@ public final class PIFBuilder {
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    public func construct() -> PIF.TopLevelObject {
-        memoize(to: &pif) {
+    public func construct() throws -> PIF.TopLevelObject {
+        try memoize(to: &pif) {
             let rootPackage = graph.rootPackages[0]
 
             let sortedPackages = graph.packages.sorted { $0.name < $1.name }
-            var projects: [PIFProjectBuilder] = sortedPackages.map { package in
-                PackagePIFProjectBuilder(
+            var projects: [PIFProjectBuilder] = try sortedPackages.map { package in
+                try PackagePIFProjectBuilder(
                     package: package,
                     parameters: parameters,
                     diagnostics: diagnostics,
@@ -121,7 +122,7 @@ public final class PIFBuilder {
                 guid: "Workspace:\(rootPackage.path.pathString)",
                 name: rootPackage.name,
                 path: rootPackage.path,
-                projects: projects.map { $0.construct() }
+                projects: try projects.map { try $0.construct() }
             )
 
             return PIF.TopLevelObject(workspace: workspace)
@@ -186,7 +187,7 @@ class PIFProjectBuilder {
         return target
     }
 
-    func construct() -> PIF.Project {
+    func construct() throws -> PIF.Project {
         let buildConfigurations = self.buildConfigurations.map { builder -> PIF.BuildConfiguration in
             builder.guid = "\(guid)::BUILDCONFIG_\(builder.name)"
             return builder.construct()
@@ -195,7 +196,7 @@ class PIFProjectBuilder {
         // Construct group tree before targets to make sure file references have GUIDs.
         groupTree.guid = "\(guid)::MAINGROUP"
         let groupTree = self.groupTree.construct() as! PIF.Group
-        let targets = self.targets.map { $0.construct() }
+        let targets = try self.targets.map { try $0.construct() }
 
         return PIF.Project(
             guid: guid,
@@ -225,7 +226,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         parameters: PIFBuilderParameters,
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
-    ) {
+    ) throws {
         self.package = package
         self.parameters = parameters
         self.diagnostics = diagnostics
@@ -321,7 +322,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         for target in package.targets.sorted(by: { $0.name < $1.name }) {
-            addTarget(for: target)
+            try self.addTarget(for: target)
         }
 
         if binaryGroup.children.isEmpty {
@@ -338,12 +339,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
-    private func addTarget(for target: ResolvedTarget) {
+    private func addTarget(for target: ResolvedTarget) throws {
         switch target.type {
         case .library:
-            addLibraryTarget(for: target)
+            try self.addLibraryTarget(for: target)
         case .systemModule:
-            addSystemTarget(for: target)
+            try self.addSystemTarget(for: target)
         case .executable, .test:
             // Skip executable module targets and test module targets (they will have been dealt with as part of the
             // products to which they belong).
@@ -533,7 +534,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         pifTarget.addBuildConfiguration(name: "Release", settings: settings)
     }
 
-    private func addLibraryTarget(for target: ResolvedTarget) {
+    private func addLibraryTarget(for target: ResolvedTarget) throws {
         let pifTarget = addTarget(
             guid: target.pifTargetGUID,
             name: target.name,
@@ -598,7 +599,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 }
                 """
         } else {
-            fatalError("unexpected target")
+            throw InternalError("unexpected target")
         }
 
         if let moduleMapFileContents = moduleMapFileContents {
@@ -644,9 +645,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         pifTarget.impartedBuildSettings = impartedSettings
     }
 
-    private func addSystemTarget(for target: ResolvedTarget) {
+    private func addSystemTarget(for target: ResolvedTarget) throws {
         guard let systemTarget = target.underlyingTarget as? SystemLibraryTarget else {
-            fatalError("unexpected target type")
+            throw InternalError("unexpected target type")
         }
 
         // Create an aggregate PIF target (which doesn't have an actual product).
@@ -1016,8 +1017,8 @@ class PIFBaseTargetBuilder {
         return builder
     }
 
-    func construct() -> PIF.BaseTarget {
-        fatalError("implement in subclass")
+    func construct() throws -> PIF.BaseTarget {
+        throw InternalError("implement in subclass")
     }
 
     /// Adds a "headers" build phase, i.e. one that copies headers into a directory of the product, after suitable
@@ -1101,22 +1102,22 @@ class PIFBaseTargetBuilder {
         }
     }
 
-    fileprivate func constructBuildPhases() -> [PIF.BuildPhase] {
-        buildPhases.enumerated().map { kvp in
+    fileprivate func constructBuildPhases() throws -> [PIF.BuildPhase] {
+        try buildPhases.enumerated().map { kvp in
             let (index, builder) = kvp
             builder.guid = "\(guid)::BUILDPHASE_\(index)"
-            return builder.construct()
+            return try builder.construct()
         }
     }
 }
 
 final class PIFAggregateTargetBuilder: PIFBaseTargetBuilder {
-    override func construct() -> PIF.BaseTarget {
+    override func construct() throws -> PIF.BaseTarget {
         return PIF.AggregateTarget(
             guid: guid,
             name: name,
             buildConfigurations: constructBuildConfigurations(),
-            buildPhases: constructBuildPhases(),
+            buildPhases: try self.constructBuildPhases(),
             dependencies: dependencies,
             impartedBuildSettings: impartedBuildSettings
         )
@@ -1134,14 +1135,14 @@ final class PIFTargetBuilder: PIFBaseTargetBuilder {
         super.init(guid: guid, name: name)
     }
 
-    override func construct() -> PIF.BaseTarget {
+    override func construct() throws -> PIF.BaseTarget {
         return PIF.Target(
             guid: guid,
             name: name,
             productType: productType,
             productName: productName,
             buildConfigurations: constructBuildConfigurations(),
-            buildPhases: constructBuildPhases(),
+            buildPhases: try self.constructBuildPhases(),
             dependencies: dependencies,
             impartedBuildSettings: impartedBuildSettings
         )
@@ -1178,8 +1179,8 @@ class PIFBuildPhaseBuilder {
         return builder
     }
 
-    func construct() -> PIF.BuildPhase {
-        fatalError("implement in subclass")
+    func construct() throws -> PIF.BuildPhase {
+        throw InternalError("implement in subclass")
     }
 
     fileprivate func constructBuildFiles() -> [PIF.BuildFile] {

@@ -60,8 +60,8 @@ let cRef = PackageReference(identity: PackageIdentity("c"), path: "")
 
 let rootRef = PackageReference(identity: PackageIdentity("root"), path: "", kind: .root)
 let rootNode = DependencyResolutionNode.root(package: rootRef)
-let rootCause = Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
-let _cause = Incompatibility("cause@0.0.0", root: rootNode)
+let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
+let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
 
 final class PubgrubTests: XCTestCase {
     func testTermInverse() {
@@ -187,8 +187,8 @@ final class PubgrubTests: XCTestCase {
         XCTAssertFalse(partiallySatisfied.isValidDecision(for: solution100_150))
     }
 
-    func testIncompatibilityNormalizeTermsOnInit() {
-        let i1 = Incompatibility(Term("a^1.0.0"), Term("a^1.5.0"), Term("¬b@1.0.0"),
+    func testIncompatibilityNormalizeTermsOnInit() throws {
+        let i1 = try Incompatibility(Term("a^1.0.0"), Term("a^1.5.0"), Term("¬b@1.0.0"),
                                  root: rootNode)
         XCTAssertEqual(i1.terms.count, 2)
         let a1 = i1.terms.first { $0.node.package == "a" }
@@ -196,7 +196,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertEqual(a1?.requirement, v1_5Range)
         XCTAssertEqual(b1?.requirement, .exact(v1))
 
-        let i2 = Incompatibility(Term("¬a^1.0.0"), Term("a^2.0.0"),
+        let i2 = try Incompatibility(Term("¬a^1.0.0"), Term("a^2.0.0"),
                                  root: rootNode)
         XCTAssertEqual(i2.terms.count, 1)
         let a2 = i2.terms.first
@@ -285,12 +285,12 @@ final class PubgrubTests: XCTestCase {
                        v1_5Range)
     }
 
-    func testResolverAddIncompatibility() {
+    func testResolverAddIncompatibility() throws {
         let state = PubgrubDependencyResolver.State(root: rootNode)
 
-        let a = Incompatibility(Term("a@1.0.0"), root: rootNode)
+        let a = try Incompatibility(Term("a@1.0.0"), root: rootNode)
         state.addIncompatibility(a, at: .topLevel)
-        let ab = Incompatibility(Term("a@1.0.0"), Term("b@2.0.0"), root: rootNode)
+        let ab = try Incompatibility(Term("a@1.0.0"), Term("b@2.0.0"), root: rootNode)
         state.addIncompatibility(ab, at: .topLevel)
 
         XCTAssertEqual(state.incompatibilities, [
@@ -323,11 +323,11 @@ final class PubgrubTests: XCTestCase {
         }
     }
 
-    func testResolverConflictResolution() {
+    func testResolverConflictResolution() throws  {
         let solver1 = PubgrubDependencyResolver(provider: emptyProvider)
         let state1 = PubgrubDependencyResolver.State(root: rootNode)
 
-        let notRoot = Incompatibility(Term(not: rootNode, .any),
+        let notRoot = try Incompatibility(Term(not: rootNode, .any),
                                       root: rootNode,
                                       cause: .root)
         state1.addIncompatibility(notRoot, at: .topLevel)
@@ -360,10 +360,10 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 3)
         XCTAssertEqual(state2.incompatibilities[.product("a", package: "a")], [
-            Incompatibility("a^1.0.0", Term(not: .product("b", package: "b"), v1Range),
+            try Incompatibility("a^1.0.0", Term(not: .product("b", package: "b"), v1Range),
                                               root: rootNode,
                                               cause: .dependency(node: .product("a", package: "a"))),
-            Incompatibility("a^1.0.0", Term(not: .empty(package: "a"), .exact("1.0.0")),
+            try Incompatibility("a^1.0.0", Term(not: .empty(package: "a"), .exact("1.0.0")),
                                               root: rootNode,
                                               cause: .dependency(node: .product("a", package: "a"))),
         ])
@@ -377,7 +377,7 @@ final class PubgrubTests: XCTestCase {
         try solver1.propagate(state: state1, node: .root(package: "root"))
 
         // even if incompatibilities are present
-        state1.addIncompatibility(Incompatibility(Term("a@1.0.0"), root: rootNode), at: .topLevel)
+        state1.addIncompatibility(try Incompatibility(Term("a@1.0.0"), root: rootNode), at: .topLevel)
         try solver1.propagate(state: state1, node: .empty(package: "a"))
         try solver1.propagate(state: state1, node: .empty(package: "a"))
         try solver1.propagate(state: state1, node: .empty(package: "a"))
@@ -390,7 +390,7 @@ final class PubgrubTests: XCTestCase {
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
         let solver2 = PubgrubDependencyResolver(provider: emptyProvider)
         let state2 = PubgrubDependencyResolver.State(root: rootNode)
-        state2.addIncompatibility(Incompatibility(Term(.root(package: "root"), .any),
+        state2.addIncompatibility(try Incompatibility(Term(.root(package: "root"), .any),
                                     Term("¬a@1.0.0"),
                                     root: rootNode), at: .topLevel)
         state2.decide(rootNode, at: v1)
@@ -406,9 +406,9 @@ final class PubgrubTests: XCTestCase {
         solution.decide(.product("a", package: aRef), at: v2)
         solution.derive("b^1.0.0", cause: _cause)
 
-        XCTAssertEqual(solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
-        XCTAssertEqual(solution.satisfier(for: Term("¬a^1.0.0")).term, "a@2.0.0")
-        XCTAssertEqual(solution.satisfier(for: Term("a^2.0.0")).term, "a@2.0.0")
+        XCTAssertEqual(try solution.satisfier(for: Term("b^1.0.0")) .term, "b^1.0.0")
+        XCTAssertEqual(try solution.satisfier(for: Term("¬a^1.0.0")).term, "a@2.0.0")
+        XCTAssertEqual(try solution.satisfier(for: Term("a^2.0.0")).term, "a@2.0.0")
     }
 
     func testResolutionNoConflicts() {

@@ -57,8 +57,8 @@ public final class PackageGraphResult {
         in environment: BuildEnvironment,
         file: StaticString = #file,
         line: UInt = #line
-    ) {
-        let targets = Set(self.reachableBuildTargets(in: environment).map({ $0.name }))
+    ) throws {
+        let targets = Set(try self.reachableBuildTargets(in: environment).map({ $0.name }))
         XCTAssertEqual(targets, Set(reachableBuildTargets), file: file, line: line)
     }
 
@@ -67,8 +67,8 @@ public final class PackageGraphResult {
         in environment: BuildEnvironment,
         file: StaticString = #file,
         line: UInt = #line
-    ) {
-        let products = Set(self.reachableBuildProducts(in: environment).map({ $0.name }))
+    ) throws {
+        let products = Set(try self.reachableBuildProducts(in: environment).map({ $0.name }))
         XCTAssertEqual(products, Set(reachableBuildProducts), file: file, line: line)
     }
 
@@ -96,19 +96,19 @@ public final class PackageGraphResult {
         return graph.allTargets.first(where: { $0.name == target })
     }
 
-    private func reachableBuildTargets(in environment: BuildEnvironment) -> Set<ResolvedTarget> {
+    private func reachableBuildTargets(in environment: BuildEnvironment) throws -> Set<ResolvedTarget> {
         let inputTargets = graph.inputPackages.lazy.flatMap { $0.targets }
-        let recursiveBuildTargetDependencies = inputTargets
-            .flatMap { $0.recursiveDependencies(satisfying: environment) }
+        let recursiveBuildTargetDependencies = try inputTargets
+            .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.target }
         return Set(inputTargets).union(recursiveBuildTargetDependencies)
     }
 
-    private func reachableBuildProducts(in environment: BuildEnvironment) -> Set<ResolvedProduct> {
-        let recursiveBuildProductDependencies = graph.inputPackages
+    private func reachableBuildProducts(in environment: BuildEnvironment) throws -> Set<ResolvedProduct> {
+        let recursiveBuildProductDependencies = try graph.inputPackages
             .lazy
             .flatMap { $0.targets }
-            .flatMap { $0.recursiveDependencies(satisfying: environment) }
+            .flatMap { try $0.recursiveDependencies(satisfying: environment) }
             .compactMap { $0.product }
         return Set(graph.inputPackages.flatMap { $0.products }).union(recursiveBuildProductDependencies)
     }

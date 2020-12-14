@@ -66,8 +66,8 @@ public final class ResolvedProduct: ObjectIdentifierProtocol {
     }
 
     /// Returns the recursive target dependencies.
-    public func recursiveTargetDependencies() -> [ResolvedTarget] {
-        let recursiveDependencies = targets.lazy.flatMap { $0.recursiveTargetDependencies() }
+    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
+        let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(Set(targets).union(recursiveDependencies))
     }
 }
