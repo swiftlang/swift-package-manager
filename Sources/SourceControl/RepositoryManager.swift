@@ -365,19 +365,21 @@ public class RepositoryManager {
         if let cachePath = cachePath, !(isLocal && !shouldCacheLocalPackages) {
             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
             do {
-                try initalizeCacheIfNeeded(cachePath: cachePath)
-                try fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
-                    // Fetch the repository into the cache.
-                    if (fileSystem.exists(cachedRepositoryPath)) {
-                        let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
-                        try repo.fetch()
-                    } else {
-                        try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
+                try fileSystem.withLock(on: cachePath, type: .shared) {
+                    try initalizeCacheIfNeeded(cachePath: cachePath)
+                    try fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
+                        // Fetch the repository into the cache.
+                        if (fileSystem.exists(cachedRepositoryPath)) {
+                            let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
+                            try repo.fetch()
+                        } else {
+                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
+                        }
+                        updatedCache = true
+                        // Copy the repository from the cache into the repository path.
+                        try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
+                        fromCache = true
                     }
-                    updatedCache = true
-                    // Copy the repository from the cache into the repository path.
-                    try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
-                    fromCache = true
                 }
             } catch {
                 // Fetch without populating the cache in the case of an error.
@@ -498,9 +500,9 @@ public class RepositoryManager {
     /// Purges the cached repositories from the cache.
     public func purgeCache() throws {
         guard let cachePath = cachePath else { return }
-        let cachedRepositories = try fileSystem.getDirectoryContents(cachePath).filter { !$0.hasSuffix(".lock") }
-        for repoPath in cachedRepositories {
-            try fileSystem.withLock(on: cachePath.appending(component: repoPath), type: .exclusive) {
+        try fileSystem.withLock(on: cachePath, type: .exclusive) {
+            let cachedRepositories = try fileSystem.getDirectoryContents(cachePath)
+            for repoPath in cachedRepositories {
                 try fileSystem.removeFileTree(cachePath.appending(component: repoPath))
             }
         }
