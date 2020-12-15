@@ -557,7 +557,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         key: ManifestCacheKey,
         cache: PersistentCacheProtocol
     ) throws -> ManifestParseResult {
-        let keyHash = try key.computeHash()
+        let keyHash = ByteString(encodingAsUTF8: key.sha256Checksum)
         let cacheHit = try keyHash.withData {
             try cache.get(key: $0)
         }.flatMap {
@@ -588,6 +588,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let toolsVersion: ToolsVersion
         let env: [String: String]
         let swiftpmVersion: String
+        let sha256Checksum: String
 
         init (packageIdentity: PackageIdentity,
               manifestPath: AbsolutePath,
@@ -596,37 +597,38 @@ public final class ManifestLoader: ManifestLoaderProtocol {
               swiftpmVersion: String,
               fileSystem: FileSystem
         ) throws {
+            let manifestContents = try fileSystem.readFileContents(manifestPath).contents
+            let sha256Checksum = try Self.computeSHA256Checksum(packageIdentity: packageIdentity, manifestContents: manifestContents, toolsVersion: toolsVersion, env: env, swiftpmVersion: swiftpmVersion)
+
             self.packageIdentity = packageIdentity
             self.manifestPath = manifestPath
-            self.manifestContents = try fileSystem.readFileContents(manifestPath).contents
+            self.manifestContents = manifestContents
             self.toolsVersion = toolsVersion
             self.env = env
             self.swiftpmVersion = swiftpmVersion
+            self.sha256Checksum = sha256Checksum
         }
 
-        // TODO: is there a way to avoid the dual hashing?
         func hash(into hasher: inout Hasher) {
-            hasher.combine(self.packageIdentity)
-            hasher.combine(self.manifestContents)
-            hasher.combine(self.toolsVersion.description)
-            for key in self.env.keys.sorted(by: >) {
-                hasher.combine(key)
-                hasher.combine(env[key]!)
-            }
-            hasher.combine(self.swiftpmVersion)
+            hasher.combine(self.sha256Checksum)
         }
 
-        // TODO: is there a way to avoid the dual hashing?
-        func computeHash() throws -> ByteString {
+        private static func computeSHA256Checksum(
+            packageIdentity: PackageIdentity,
+            manifestContents: [UInt8],
+            toolsVersion: ToolsVersion,
+            env: [String: String],
+            swiftpmVersion: String
+        ) throws -> String {
             let stream = BufferedOutputByteStream()
-            stream <<< self.packageIdentity
-            stream <<< self.manifestContents
-            stream <<< self.toolsVersion.description
-            for key in self.env.keys.sorted(by: >) {
+            stream <<< packageIdentity
+            stream <<< manifestContents
+            stream <<< toolsVersion.description
+            for key in env.keys.sorted(by: >) {
                 stream <<< key <<< env[key]!
             }
-            stream <<< self.swiftpmVersion
-            return SHA256().hash(stream.bytes)
+            stream <<< swiftpmVersion
+            return stream.bytes.sha256Checksum
         }
     }
 
