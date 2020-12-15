@@ -41,8 +41,12 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let cache = ThreadSafeKeyValueStore<Model.CollectionIdentifier, Model.Collection>()
     private let cacheLock = Lock()
     
+    // Lock helps prevent concurrency errors with transaction statements during e.g. `refreshCollections`,
+    // since only one transaction is allowed per SQLite connection. We need transactions to speed up bulk updates.
+    // TODO: we could potentially optimize this with db connection pool
     private let ftsLock = Lock()
 
+    // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
     private var targetTrieReady = ThreadSafeBox<Bool>(false)
 
@@ -97,24 +101,23 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     try statement.step()
                 }
                 
-                // Update search indices
                 try self.ftsLock.withLock {
-                    // Lock helps prevent "SQL logic error" thrown by transaction statements during `refreshCollections`,
-                    // since only one transaction is allowed per connection. Bulk updates are faster with transaction.
+                    // Update search indices
                     try self.withDB { db in
                         try db.exec(query: "BEGIN TRANSACTION;")
                         
                         // First delete existing data
                         try self.removeFromSearchIndices(identifier: collection.identifier)
                         
-                        // Then insert new data
                         let packagesStatement = try db.prepare(query: "INSERT INTO \(Self.packagesFTSName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")
                         let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSName) VALUES (?, ?, ?);")
                         
+                        // Then insert new data
                         try collection.packages.forEach { package in
                             var targets = Set<String>()
                             
                             try package.versions.forEach { version in
+                                // Packages FTS
                                 let packagesBindings: [SQLite.SQLiteValue] = [
                                     .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
                                     .string(package.reference.identity.description),
@@ -137,8 +140,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             
                             let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.reference.identity)
                             try targets.forEach { target in
+                                // Targets in-memory trie
                                 self.targetTrie.insert(word: target.lowercased(), foundIn: collectionPackage)
                                 
+                                // Targets FTS
                                 let targetsBindings: [SQLite.SQLiteValue] = [
                                     .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
                                     .string(package.repository.url),
@@ -338,6 +343,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     result[collection.identifier] = collection
                 }
                 
+                // For each package, find the containing collections
                 let packageCollections = matches.filter { collectionDict.keys.contains($0.collection) }
                     .reduce(into: [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()) { result, match in
                         var entry = result.removeValue(forKey: match.package)
@@ -435,7 +441,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
                     } catch is NotFoundError {
-                        // do nothing if no matches
+                        // Do nothing if no matches found
                     } catch {
                         return callback(.failure(error))
                     }
@@ -443,27 +449,20 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     do {
                         let targetQuery = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName) WHERE name LIKE ?;"
                         try self.executeStatement(targetQuery) { statement in
-                            try statement.bind([.string("\(query)%")])
-                            
+                            switch type {
+                            case .exactMatch:
+                                try statement.bind([.string("\(query)")])
+                            case .prefix:
+                                try statement.bind([.string("\(query)%")])
+                            }
+
                             while let row = try statement.step() {
-                                let targetName = row.string(at: 2)
-                                let match: Bool
-                                switch type {
-                                case .exactMatch:
-                                    // Cannot do case-insensitive exact-match with FTS
-                                    match = query.lowercased() == targetName.lowercased()
-                                case .prefix:
-                                    // FTS LIKE and MATCH are case-insensitive
-                                    match = true
-                                }
-                                
-                                if match,
-                                   let collectionData = Data(base64Encoded: row.string(at: 0)),
+                                if let collectionData = Data(base64Encoded: row.string(at: 0)),
                                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
                                     matches.append((
                                         collection: collection,
                                         package: PackageIdentity(url: row.string(at: 1)),
-                                        targetName: targetName
+                                        targetName: row.string(at: 2)
                                     ))
                                 }
                             }
@@ -477,6 +476,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     result[collection.identifier] = collection
                 }
 
+                // For each package, find the containing collections
                 var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
                 // For each matching target, find the containing package version(s)
                 var targetPackageVersions = [Model.Target: [PackageIdentity: Set<Model.TargetListResult.PackageVersion>]]()
