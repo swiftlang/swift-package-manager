@@ -1205,7 +1205,7 @@ extension PIF {
         func sign<T: PIFSignableObject & Encodable>(_ obj: T) throws {
             let signatureContent = try encoder.encode(obj)
             let bytes = ByteString(signatureContent)
-            obj.signature = SHA256().hash(bytes).hexadecimalRepresentation
+            obj.signature = bytes.sha256Checksum
         }
 
         let projects = workspace.projects
