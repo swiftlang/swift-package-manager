@@ -1792,9 +1792,9 @@ public class BuildPlan {
             libsCache.append(contentsOf: tuple.libs)
         }
 
-        pkgConfigCache[target] = ([String](cflagsCache), libsCache)
-
-        return pkgConfigCache[target]! // forced unwrap safe
+        let result = ([String](cflagsCache), libsCache)
+        pkgConfigCache[target] = result
+        return result
     }
 
     /// Extracts the library to building against from a XCFramework.
@@ -1824,11 +1824,13 @@ public class BuildPlan {
         }
 
         // If we don't have the library information yet, calculate it.
-        if !xcFrameworkCache.keys.contains(target) {
-            xcFrameworkCache[target] = calculateLibraryInfo()
+        if let xcFramework = xcFrameworkCache[target] {
+            return xcFramework
         }
 
-        return xcFrameworkCache[target]! // forced unwrap safe
+        let xcFramework = calculateLibraryInfo()
+        xcFrameworkCache[target] = xcFramework
+        return xcFramework
     }
 
     /// Cache for pkgConfig flags.

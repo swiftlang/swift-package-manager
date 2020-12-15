@@ -425,8 +425,9 @@ private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
         if let constructedObject = _constructedObject {
             return constructedObject
         }
-        _constructedObject = try self.constructImpl()
-        return _constructedObject! // forced unwrap safe
+        let constructedObject = try self.constructImpl()
+        _constructedObject = constructedObject
+        return constructedObject
     }
 
     /// The object construction implementation.

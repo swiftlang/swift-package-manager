@@ -877,8 +877,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        sdkRootPath = AbsolutePath(sdkRoot)
-        self.sdkRootCache.put(sdkRootPath!) // forced unwrap safe
+        let path = AbsolutePath(sdkRoot)
+        sdkRootPath = path
+        self.sdkRootCache.put(path)
         #endif
 
         return sdkRootPath
