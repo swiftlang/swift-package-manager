@@ -1493,7 +1493,9 @@ public class BuildPlan {
             switch target.underlyingTarget {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = targetMap[target]! else { fatalError() }
+                guard case .swift(let description) = targetMap[target] else {
+                    throw InternalError("unknown target \(target)")
+                }
 
                 // Based on the debugging strategy, we either need to pass swiftmodule paths to the
                 // product or link in the wrapped module object. This is required for properly debugging
@@ -1512,8 +1514,18 @@ public class BuildPlan {
         }
 
         buildProduct.staticTargets = dependencies.staticTargets
-        buildProduct.dylibs = dependencies.dylibs.map({ productMap[$0]! })
-        buildProduct.objects += dependencies.staticTargets.flatMap({ targetMap[$0]!.objects })
+        buildProduct.dylibs = try dependencies.dylibs.map{
+            guard let product = productMap[$0] else {
+                throw InternalError("unknown product \($0)")
+            }
+            return product
+        }
+        buildProduct.objects += try dependencies.staticTargets.flatMap{ targetName -> [AbsolutePath] in
+            guard let target = targetMap[targetName] else {
+                throw InternalError("unknown target \(targetName)")
+            }
+            return target.objects
+        }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
 
         // Write the link filelist file.
@@ -1782,7 +1794,7 @@ public class BuildPlan {
 
         pkgConfigCache[target] = ([String](cflagsCache), libsCache)
 
-        return pkgConfigCache[target]!
+        return pkgConfigCache[target]! // forced unwrap safe
     }
 
     /// Extracts the library to building against from a XCFramework.
@@ -1816,7 +1828,7 @@ public class BuildPlan {
             xcFrameworkCache[target] = calculateLibraryInfo()
         }
 
-        return xcFrameworkCache[target]!
+        return xcFrameworkCache[target]! // forced unwrap safe
     }
 
     /// Cache for pkgConfig flags.

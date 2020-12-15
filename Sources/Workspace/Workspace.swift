@@ -697,9 +697,12 @@ extension Workspace {
             )
         }
 
-        let remoteArtifacts = state.artifacts.compactMap({ artifact -> RemoteArtifact? in
+        let remoteArtifacts = try state.artifacts.compactMap({ artifact -> RemoteArtifact? in
             if case .remote(let url, _, _) = artifact.source {
-                return RemoteArtifact(url: url, path: path(for: artifact)!)
+                guard let path = self.path(for: artifact) else {
+                    throw InternalError("failed computing path for \(artifact)")
+                }
+                return RemoteArtifact(url: url, path: path)
             } else {
                 return nil
             }
@@ -1349,8 +1352,13 @@ extension Workspace {
             }
         }
 
-        let allDependencyManifests = allManifests.map({ $0.item }).filter({ !root.manifests.contains($0.0) })
-        let deps = allDependencyManifests.map({ ($0, state.dependencies[forURL: $0.url]!, $1) })
+        let allDependencyManifests = allManifests.map{ $0.item }.filter{ !root.manifests.contains($0.0) }
+        let deps = try allDependencyManifests.map{ manifest, productFilter -> (Manifest, ManagedDependency, ProductFilter) in
+            guard let dependency = state.dependencies[forURL: manifest.url] else {
+                throw InternalError("dependency not found for \(manifest.url)")
+            }
+            return (manifest, dependency, productFilter)
+        }
 
         return DependencyManifests(root: root, dependencies: deps, workspace: self)
     }
@@ -1602,7 +1610,9 @@ extension Workspace {
                 continue
             }
 
-            let parsedURL = URL(string: url)!
+            guard let parsedURL = URL(string: url) else {
+                throw StringError("invalid url \(url)")
+            }
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
 
 
@@ -2114,7 +2124,7 @@ extension Workspace {
                     return path(for: $0).pathString == packageRef.path
                 }) {
                     currentDependency = editedDependency
-                    let originalReference = editedDependency.basedOn!.packageRef
+                    let originalReference = editedDependency.basedOn!.packageRef // forced unwrap safe
                     packageStateChanges[originalReference.path] = (originalReference, .unchanged)
                 } else {
                     currentDependency = nil
@@ -2147,9 +2157,11 @@ extension Workspace {
             case .revision(let identifier, let branch):
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
-                let container = try temp_await {
+                guard let container = (try temp_await {
                     containerProvider.getContainer(for: packageRef, skipUpdate: true, on: self.queue, completion: $0)
-                } as! RepositoryPackageContainer
+                }) as? RepositoryPackageContainer else {
+                    throw InternalError("invalid container for \(packageRef) expected a RepositoryPackageContainer")
+                }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
 
@@ -2447,7 +2459,11 @@ extension Workspace {
             // annoying. Maybe we should make an SPI on the provider for
             // this?
             // FIXME: this should not block
-            let container = try temp_await { containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0) } as! RepositoryPackageContainer
+            guard let container = (try temp_await {
+                containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0)
+            }) as? RepositoryPackageContainer else {
+                throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
+            }
             guard let tag = container.getTag(for: version) else {
                 throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
             }
