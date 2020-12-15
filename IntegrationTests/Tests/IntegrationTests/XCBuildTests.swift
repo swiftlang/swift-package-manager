@@ -116,7 +116,7 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testTestProducts() throws {
-        try XCTSkip("Temporarily skipping failing test")
+        try XCTSkip("FIXME: /.../XCBuild_TestProducts.551ajO/Foo/.build/apple/Intermediates.noindex/GeneratedModuleMaps/macosx/FooLib.modulemap:2:12: error: header 'FooLib-Swift.h' not found")
 
         #if !os(macOS)
             try XCTSkip("Test requires macOS")
