@@ -60,7 +60,7 @@ struct Trie<Document: Hashable> {
         removeInSubTrie(root: self.root, document: document)
     }
     
-    /// Removes word occurrences found in the given document.
+    /// Removes word occurrences found in matching document(s).
     func remove(where predicate: @escaping (Document) -> Bool) {
         func removeInSubTrie(root: Node, where predicate: @escaping (Document) -> Bool) {
             if root.isTerminating {
