@@ -351,7 +351,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", toolsVersion: .v4_2, packageKind: .root, fileSystem: fs)
+            let diagnostics = DiagnosticsEngine()
+            let manifest = try manifestLoader.load(package: root, baseURL: "/foo", toolsVersion: .v4_2, packageKind: .root, fileSystem: fs, diagnostics: diagnostics)
+            XCTAssertEqual(diagnostics.diagnostics.map { $0.message.text }, ["Version-specific manifests will be deprecated soon, please use semantic versioning to support older clients."])
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -469,13 +471,16 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
+                let diagnostics = DiagnosticsEngine()
                 let manifest = try! loader.load(
                     package: manifestPath.parentDirectory,
                     baseURL: manifestPath.pathString,
                     toolsVersion: .v4_2,
-                    packageKind: .local
+                    packageKind: .local,
+                    diagnostics: diagnostics
                 )
 
+                XCTAssertTrue(diagnostics.diagnostics.isEmpty)
                 XCTAssertEqual(delegate.loaded, [manifestPath])
                 XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
                 XCTAssertEqual(manifest.name, "Trivial")

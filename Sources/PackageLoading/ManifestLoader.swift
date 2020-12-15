@@ -208,12 +208,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
-        packageKind: PackageReference.Kind
+        packageKind: PackageReference.Kind,
+        diagnostics: DiagnosticsEngine
     ) throws -> Manifest {
         let fileSystem = localFileSystem
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
-        let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: fileSystem)
+        let toolsVersion = try ToolsVersionLoader().load(at: packagePath, packageKind: packageKind, fileSystem: fileSystem, diagnostics: diagnostics)
         return try loader.load(
             package: packagePath,
             baseURL: packagePath.pathString,
@@ -234,7 +235,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
         let fileSystem = fileSystem ?? localFileSystem
-        let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
+        let manifestPath = try Manifest.path(atPackagePath: path, packageKind: packageKind, fileSystem: fileSystem, diagnostics: diagnostics)
         let packageIdentity = PackageIdentity(url: baseURL)
         let cacheKey = try ManifestCacheKey(packageIdentity: packageIdentity,
                                             manifestPath: manifestPath,

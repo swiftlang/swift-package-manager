@@ -292,7 +292,8 @@ public final class PackageBuilder {
             packagePath: packagePath,
             swiftCompiler: swiftCompiler,
             swiftCompilerFlags: swiftCompilerFlags,
-            packageKind: kind)
+            packageKind: kind,
+            diagnostics: diagnostics)
         let builder = PackageBuilder(
             manifest: manifest,
             productFilter: .everything,

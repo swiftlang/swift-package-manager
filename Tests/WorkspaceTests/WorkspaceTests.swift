@@ -3785,7 +3785,7 @@ final class WorkspaceTests: XCTestCase {
         // From here the API should be simple and straightforward:
         let diagnostics = DiagnosticsEngine()
         let manifest = try ManifestLoader.loadManifest(
-            packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], packageKind: .local
+            packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], packageKind: .local, diagnostics: diagnostics
         )
         let loadedPackage = try PackageBuilder.loadPackage(
             packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], xcTestMinimumDeploymentTargets: [:], diagnostics: diagnostics

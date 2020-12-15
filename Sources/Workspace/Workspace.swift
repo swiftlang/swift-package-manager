@@ -256,6 +256,8 @@ public class Workspace {
     fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
     fileprivate let additionalFileRules: [FileRuleDescription]
+    
+    fileprivate let diagnostics: DiagnosticsEngine?
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.workspace", attributes: .concurrent)
 
@@ -294,7 +296,8 @@ public class Workspace {
         enablePubgrubResolver: Bool = false,
         skipUpdate: Bool = false,
         enableResolverTrace: Bool = false,
-        cachePath: AbsolutePath? = nil
+        cachePath: AbsolutePath? = nil,
+        diagnostics: DiagnosticsEngine? = nil
     ) {
         self.delegate = delegate
         self.dataPath = dataPath
@@ -331,7 +334,8 @@ public class Workspace {
             mirrors: self.config.mirrors,
             manifestLoader: manifestLoader,
             currentToolsVersion: currentToolsVersion,
-            toolsVersionLoader: toolsVersionLoader
+            toolsVersionLoader: toolsVersionLoader,
+            diagnostics: diagnostics
         )
         self.fileSystem = fileSystem
 
@@ -339,6 +343,7 @@ public class Workspace {
             try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
         }
         self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
+        self.diagnostics = diagnostics
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -349,14 +354,16 @@ public class Workspace {
     public static func create(
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager? = nil
+        repositoryManager: RepositoryManager? = nil,
+        diagnostics: DiagnosticsEngine
     ) -> Workspace {
         return Workspace(
             dataPath: packagePath.appending(component: ".build"),
             editablesPath: packagePath.appending(component: "Packages"),
             pinsFile: packagePath.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+            repositoryManager: repositoryManager,
+            diagnostics: diagnostics
         )
     }
 }
@@ -638,7 +645,7 @@ extension Workspace {
     ) throws -> PackageGraph {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
-        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, diagnostics: diagnostics)
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
@@ -1274,7 +1281,7 @@ extension Workspace {
     public func interpreterFlags(for packagePath: AbsolutePath) -> [String] {
         // We ignore all failures here and return empty array.
         guard let manifestLoader = self.manifestLoader as? ManifestLoader,
-              let toolsVersion = try? toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem),
+              let toolsVersion = try? toolsVersionLoader.load(at: packagePath, packageKind: .local, fileSystem: fileSystem, diagnostics: diagnostics),
               currentToolsVersion >= toolsVersion,
               toolsVersion >= ToolsVersion.minimumRequired else {
             return []
@@ -1430,7 +1437,7 @@ extension Workspace {
             return diagnostics.wrap {
                 // Load the tools version for the package.
                 let toolsVersion = try toolsVersionLoader.load(
-                    at: packagePath, fileSystem: fileSystem)
+                    at: packagePath, packageKind: packageKind, fileSystem: fileSystem, diagnostics: nil) // intentionally pass `nil` here to avoid duplicated diagnostics.
 
                 // Validate the tools version.
                 try toolsVersion.validateToolsVersion(

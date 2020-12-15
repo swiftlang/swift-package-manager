@@ -92,7 +92,8 @@ struct APIDigesterBaselineDumper {
         let workspace = Workspace.create(
             forRootPackage: baselinePackageRoot,
             manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+            repositoryManager: repositoryManager,
+            diagnostics: diags
         )
 
         let graph = try workspace.loadPackageGraph(

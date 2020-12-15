@@ -494,7 +494,7 @@ extension SwiftPackageTool {
             switch toolsVersionMode {
             case .display:
                 let toolsVersionLoader = ToolsVersionLoader()
-                let version = try toolsVersionLoader.load(at: pkg, fileSystem: localFileSystem)
+                let version = try toolsVersionLoader.load(at: pkg, packageKind: .root, fileSystem: localFileSystem, diagnostics: swiftTool.diagnostics)
                 print("\(version)")
 
             case .set(let value):

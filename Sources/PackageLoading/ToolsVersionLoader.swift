@@ -38,9 +38,17 @@ public protocol ToolsVersionLoaderProtocol {
     /// - Parameters:
     ///   - path: The path to the package.
     ///   - fileSystem: The file system to use to read the file which contains tools version.
+    ///   - diagnostics: The diagnostics engine to use.
     /// - Returns: The tools version.
     /// - Throws: ToolsVersion.Error
-    func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion
+    func load(at path: AbsolutePath, packageKind: PackageReference.Kind, fileSystem: FileSystem, diagnostics: DiagnosticsEngine?) throws -> ToolsVersion
+}
+
+private extension DiagnosticsEngine {
+    func emitVersionSpecificManifestDiagnostic(packageKind: PackageReference.Kind) {
+        guard packageKind == .root else { return }
+        emit(.warning("Version-specific manifests will be deprecated soon, please use semantic versioning to support older clients."))
+    }
 }
 
 extension Manifest {
@@ -50,13 +58,16 @@ extension Manifest {
     /// manifest is returned.
     public static func path(
         atPackagePath packagePath: AbsolutePath,
+        packageKind: PackageReference.Kind,
         currentToolsVersion: ToolsVersion = .currentToolsVersion,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        diagnostics: DiagnosticsEngine?
     ) throws -> AbsolutePath {
         // Look for a version-specific manifest.
         for versionSpecificKey in Versioning.currentVersionSpecificKeys {
             let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
             if fileSystem.isFile(versionSpecificPath) {
+                diagnostics?.emitVersionSpecificManifestDiagnostic(packageKind: packageKind)
                 return versionSpecificPath
             }
         }
@@ -82,6 +93,10 @@ extension Manifest {
 
             return (ToolsVersion(version: Version(major, minor, patch)), file)
         }, uniquingKeysWith: { $1 })
+        
+        if !versionSpecificManifests.isEmpty {
+            diagnostics?.emitVersionSpecificManifestDiagnostic(packageKind: packageKind)
+        }
 
         let regularManifest = packagePath.appending(component: filename)
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
@@ -320,9 +335,9 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         }
     }
 
-    public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
+    public func load(at path: AbsolutePath, packageKind: PackageReference.Kind = .local, fileSystem: FileSystem, diagnostics: DiagnosticsEngine? = nil) throws -> ToolsVersion {
         // The file which contains the tools version.
-        let file = try Manifest.path(atPackagePath: path, currentToolsVersion: currentToolsVersion, fileSystem: fileSystem)
+        let file = try Manifest.path(atPackagePath: path, packageKind: packageKind, currentToolsVersion: currentToolsVersion, fileSystem: fileSystem, diagnostics: diagnostics)
         guard fileSystem.isFile(file) else {
             // FIXME: We should return an error from here but Workspace tests rely on this in order to work.
             // This doesn't really cause issues (yet) in practice though.

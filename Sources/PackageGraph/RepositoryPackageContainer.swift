@@ -61,6 +61,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
+    private let diagnostics: DiagnosticsEngine?
 
     /// The cached dependency information.
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]] ()
@@ -80,7 +81,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
-        currentToolsVersion: ToolsVersion
+        currentToolsVersion: ToolsVersion,
+        diagnostics: DiagnosticsEngine? = nil
     ) {
         self.identifier = identifier
         self.mirrors = mirrors
@@ -88,6 +90,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
+        self.diagnostics = diagnostics
     }
     
     // Compute the map of known versions.
@@ -148,7 +151,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
             let revision = try repository.resolveRevision(tag: tag)
             let fs = try repository.openFileView(revision: revision)
-            return try toolsVersionLoader.load(at: .root, fileSystem: fs)
+            return try toolsVersionLoader.load(at: .root, packageKind: .remote, fileSystem: fs, diagnostics: diagnostics)
         }
     }
 
@@ -272,7 +275,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             let packageURL = identifier.repository.url
 
             // Load the tools version.
-            let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+            let toolsVersion = try toolsVersionLoader.load(at: .root, packageKind: .remote, fileSystem: fs, diagnostics: diagnostics)
 
             // Validate the tools version.
             try toolsVersion.validateToolsVersion(
@@ -306,6 +309,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
     let mirrors: DependencyMirrors
+    let diagnostics: DiagnosticsEngine?
 
     /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
     /// the container.
@@ -326,13 +330,15 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         mirrors: DependencyMirrors = [:],
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
+        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
+        diagnostics: DiagnosticsEngine? = nil
     ) {
         self.repositoryManager = repositoryManager
         self.mirrors = mirrors
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
+        self.diagnostics = diagnostics
     }
 
     public func getContainer(
@@ -349,7 +355,8 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
-                    fs: self.repositoryManager.fileSystem)
+                    fs: self.repositoryManager.fileSystem,
+                    diagnostics: self.diagnostics)
                 completion(.success(container))
             }
         }
@@ -369,7 +376,8 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                         repository: repository,
                         manifestLoader: self.manifestLoader,
                         toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion
+                        currentToolsVersion: self.currentToolsVersion,
+                        diagnostics: self.diagnostics
                     )
                 }
                 completion(result)
