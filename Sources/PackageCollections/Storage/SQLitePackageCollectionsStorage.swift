@@ -44,8 +44,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let ftsLock = Lock()
 
     private let targetTrie = Trie<CollectionPackage>()
-    private var targetTrieReady = false
-    private let targetTrieReadyLock = Lock()
+    private var targetTrieReady = ThreadSafeBox<Bool>(false)
 
     init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
@@ -421,7 +420,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             case .success(let collections):
                 var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, targetName: String)]()
                 // Trie is more performant for target search; use it if available
-                if self.targetTrieReadyLock.withLock({ self.targetTrieReady }) {
+                if self.targetTrieReady.get() ?? false {
                     do {
                         switch type {
                         case .exactMatch:
@@ -643,10 +642,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
                     }
                 }
-                self.targetTrieReadyLock.withLock { self.targetTrieReady = true }
+                self.targetTrieReady.put(true)
                 callback(.success(()))
             } catch {
-                self.targetTrieReadyLock.withLock { self.targetTrieReady = false }
+                self.targetTrieReady.put(false)
                 callback(.failure(error))
             }
         }
