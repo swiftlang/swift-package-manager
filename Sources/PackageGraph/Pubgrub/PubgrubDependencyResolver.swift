@@ -1253,11 +1253,11 @@ private final class PubGrubPackageContainer {
 
         // FIXME: make timeout configurable
         let computeBoundsTimeout = DispatchTimeInterval.seconds(60)
-        let (lowerBounds, upperBounds) = try computeBounds(for: node,
-                                                           constraints: constraints,
-                                                           startingWith: version,
-                                                           products: node.productFilter,
-                                                           timeout: computeBoundsTimeout)
+        let (lowerBounds, upperBounds) = try self.computeBounds(for: node,
+                                                                constraints: constraints,
+                                                                startingWith: version,
+                                                                products: node.productFilter,
+                                                                timeout: computeBoundsTimeout)
 
         return try constraints.map { constraint in
             var terms: OrderedSet<Term> = []
@@ -1392,7 +1392,7 @@ private final class PubGrubPackageContainer {
 /// by using the list of URLs from the Package.resolved file.
 private final class ContainerProvider {
     /// The actual package container provider.
-    private let provider: PackageContainerProvider
+    private let underlying: PackageContainerProvider
 
     /// Wheather to perform update (git fetch) on existing cloned repositories or not.
     private let skipUpdate: Bool
@@ -1409,8 +1409,8 @@ private final class ContainerProvider {
     //// Store prefetches synchronization
     private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
 
-    init(provider: PackageContainerProvider, queue: DispatchQueue, skipUpdate: Bool, pinsMap: PinsStore.PinsMap) {
-        self.provider = provider
+    init(provider underlying: PackageContainerProvider, queue: DispatchQueue, skipUpdate: Bool, pinsMap: PinsStore.PinsMap) {
+        self.underlying = underlying
         self.queue = queue
         self.skipUpdate = skipUpdate
         self.pinsMap = pinsMap
@@ -1433,9 +1433,7 @@ private final class ContainerProvider {
 
         if let prefetchSync = self.prefetches[identifier] {
             // If this container is already being prefetched, wait for that to complete
-            self.queue.async {
-                prefetchSync.wait()
-
+            prefetchSync.notify(queue: self.queue) {
                 if let container = self.containersCache[identifier] {
                     // should be in the cache once prefetch completed
                     return completion(.success(container))
@@ -1447,16 +1445,14 @@ private final class ContainerProvider {
             }
         } else {
             // Otherwise, fetch the container from the provider
-            self.provider.getContainer(for: identifier, skipUpdate: skipUpdate, on: self.queue) { result in
-                switch result {
-                case .failure(let error):
-                    return completion(.failure(error))
-                case .success(let container):
-                    // only cache positive results
+            self.underlying.getContainer(for: identifier, skipUpdate: skipUpdate, on: self.queue) { result in
+                let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap, queue: self.queue)
+                    // only cache positive results
                     self.containersCache[identifier] = pubGrubContainer
-                    return completion(.success(pubGrubContainer))
+                    return pubGrubContainer
                 }
+                completion(result)
             }
         }
     }
@@ -1465,16 +1461,20 @@ private final class ContainerProvider {
     func prefetch(containers identifiers: [PackageReference]) {
         // Process each container.
         for identifier in identifiers {
-            if self.prefetches[identifier] != nil {
-                continue
+            var needsFetching = false
+            self.prefetches.memoize(identifier) {
+                let group = DispatchGroup()
+                group.enter()
+                needsFetching = true
+                return group
             }
-            self.prefetches[identifier] = DispatchGroup()
-            self.prefetches[identifier]?.enter()
-            self.provider.getContainer(for: identifier, skipUpdate: skipUpdate, on: self.queue) { result in
-                defer { self.prefetches[identifier]?.leave() }
-                // only cache positive results
-                if case .success(let container) = result {
-                    self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap, queue: self.queue)
+            if needsFetching {
+                self.underlying.getContainer(for: identifier, skipUpdate: skipUpdate, on: self.queue) { result in
+                    defer { self.prefetches[identifier]?.leave() }
+                    // only cache positive results
+                    if case .success(let container) = result {
+                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap, queue: self.queue)
+                    }
                 }
             }
         }

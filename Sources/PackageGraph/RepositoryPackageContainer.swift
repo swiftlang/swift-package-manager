@@ -343,7 +343,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     ) {
         // If the container is local, just create and return a local package container.
         if identifier.kind != .remote {
-            queue.async {
+            return queue.async {
                 let container = LocalPackageContainer(identifier,
                     mirrors: self.mirrors,
                     manifestLoader: self.manifestLoader,
@@ -352,27 +352,28 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                     fs: self.repositoryManager.fileSystem)
                 completion(.success(container))
             }
-            return
         }
 
         // Resolve the container using the repository manager.
         repositoryManager.lookup(repository: identifier.repository, skipUpdate: skipUpdate, on: queue) { result in
-            // Create the container wrapper.
-            let container = result.tryMap { handle -> PackageContainer in
-                // Open the repository.
-                //
-                // FIXME: Do we care about holding this open for the lifetime of the container.
-                let repository = try handle.open()
-                return RepositoryPackageContainer(
-                    identifier: identifier,
-                    mirrors: self.mirrors,
-                    repository: repository,
-                    manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion
-                )
+            queue.async {
+                // Create the container wrapper.
+                let result = result.tryMap { handle -> PackageContainer in
+                    // Open the repository.
+                    //
+                    // FIXME: Do we care about holding this open for the lifetime of the container.
+                    let repository = try handle.open()
+                    return RepositoryPackageContainer(
+                        identifier: identifier,
+                        mirrors: self.mirrors,
+                        repository: repository,
+                        manifestLoader: self.manifestLoader,
+                        toolsVersionLoader: self.toolsVersionLoader,
+                        currentToolsVersion: self.currentToolsVersion
+                    )
+                }
+                completion(result)
             }
-            completion(container)
         }
     }
 }
