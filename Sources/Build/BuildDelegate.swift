@@ -97,14 +97,14 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             return path.basename == "main.swift"
         }
 
-        var mainFile: AbsolutePath?
+        var maybeMainFile: AbsolutePath?
         // Write one file for each test module.
         //
         // We could write everything in one file but that can easily run into type conflicts due
         // in complex packages with large number of test targets.
         for file in outputs {
-            if mainFile == nil && isMainFile(file) {
-                mainFile = file
+            if maybeMainFile == nil && isMainFile(file) {
+                maybeMainFile = file
                 continue 
             }
 
@@ -120,8 +120,12 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             try write(tests: tests, forModule: module, to: file)
         }
 
+        guard let mainFile = maybeMainFile else {
+            throw InternalError("unknown main file")
+        }
+
         // Write the main file.
-        let stream = try LocalFileOutputByteStream(mainFile!)
+        let stream = try LocalFileOutputByteStream(mainFile)
 
         stream <<< "import XCTest" <<< "\n\n"
         stream <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
@@ -199,15 +203,17 @@ public struct BuildDescription: Codable {
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
         copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
-    ) {
+    ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
 
-        self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
+        self.builtTestProducts = try plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             // FIXME(perf): Provide faster lookups.
-            let package = plan.graph.packages.first{ $0.products.contains(desc.product) }!
+            guard let package = (plan.graph.packages.first{ $0.products.contains(desc.product) }) else {
+                throw InternalError("package with product \(desc.product) not found")
+            }
             return BuiltTestProduct(
                 packageName: package.name,
                 productName: desc.product.name,

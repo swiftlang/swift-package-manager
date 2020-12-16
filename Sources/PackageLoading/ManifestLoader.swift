@@ -157,7 +157,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let delegate: ManifestLoaderDelegate?
     private let extraManifestFlags: [String]
 
-    private let databaseCacheDir: AbsolutePath!
+    private let databaseCacheDir: AbsolutePath?
     private var databaseCache: PersistentCacheProtocol?
     private let databaseCacheLock = Lock()
 
@@ -431,7 +431,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         if toolsVersion >= .v5_2 {
-            let duplicateDependencies = duplicateDependencyIdentities.flatMap({ dependenciesByIdentity[$0]! })
+            let duplicateDependencies = try duplicateDependencyIdentities.flatMap{ identifier -> [PackageDependencyDescription] in
+                guard let dependency = dependenciesByIdentity[identifier] else {
+                    throw InternalError("unknown dependency \(identifier)")
+                }
+                return dependency
+            }
             let duplicateDependencyNames = manifest.dependencies
                 .lazy
                 .filter({ !duplicateDependencies.contains($0) })
@@ -447,7 +452,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func validateBinaryTargets(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
         // Check that binary targets point to the right file type.
         for target in manifest.targets where target.type == .binary {
-            guard let location = URL(string: target.url ?? target.path!) else {
+            guard let location = URL(string: target.url ?? target.path ?? "") else {
                 try diagnostics.emit(.invalidBinaryLocation(targetName: target.name))
                 continue
             }
@@ -482,7 +487,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 case .product(_, let packageName, _):
                     if manifest.packageDependency(referencedBy: targetDependency) == nil {
                         try diagnostics.emit(.unknownTargetPackageDependency(
-                            packageName: packageName!,
+                            packageName: packageName ?? "unknown package name",
                             targetName: target.name,
                             validPackages: manifest.dependencies.map { $0.name }
                         ))
@@ -611,7 +616,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             hasher.combine(self.toolsVersion.description)
             for key in self.env.keys.sorted(by: >) {
                 hasher.combine(key)
-                hasher.combine(env[key]!)
+                hasher.combine(env[key]!) // forced unwrap safe
             }
             hasher.combine(self.swiftpmVersion)
         }
@@ -623,7 +628,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             stream <<< self.manifestContents
             stream <<< self.toolsVersion.description
             for key in self.env.keys.sorted(by: >) {
-                stream <<< key <<< env[key]!
+                stream <<< key <<< env[key]!  // forced unwrap safe
             }
             stream <<< self.swiftpmVersion
             return SHA256().hash(stream.bytes)
@@ -742,8 +747,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             // Add the arguments for emitting serialized diagnostics, if requested.
-            if self.serializedDiagnostics, self.databaseCacheDir != nil {
-                let diaDir = self.databaseCacheDir.appending(component: "ManifestLoading")
+            if self.serializedDiagnostics, let databaseCacheDir = self.databaseCacheDir {
+                let diaDir = databaseCacheDir.appending(component: "ManifestLoading")
                 let diagnosticFile = diaDir.appending(component: "\(packageIdentity).dia")
                 try localFileSystem.createDirectory(diaDir, recursive: true)
                 cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
@@ -872,8 +877,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
-        sdkRootPath = AbsolutePath(sdkRoot)
-        self.sdkRootCache.put(sdkRootPath!)
+        let path = AbsolutePath(sdkRoot)
+        sdkRootPath = path
+        self.sdkRootCache.put(path)
         #endif
 
         return sdkRootPath
@@ -913,10 +919,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             if let cache = self.databaseCache {
                 return cache
             }
-            guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
+            guard let databaseCacheDir = self.databaseCacheDir else {
                 return nil
             }
-            try localFileSystem.createDirectory(self.databaseCacheDir, recursive: true)
+            try localFileSystem.createDirectory(databaseCacheDir, recursive: true)
+            let manifestCacheDBPath = Self.manifestCacheDBPath(databaseCacheDir)
             self.databaseCache = try SQLiteBackedPersistentCache(cacheFilePath: manifestCacheDBPath)
             return self.databaseCache
         }
