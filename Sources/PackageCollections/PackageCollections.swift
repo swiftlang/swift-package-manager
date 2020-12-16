@@ -361,17 +361,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
                   verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
                   license: packageVersion.license)
         }
-
-        // uses TSCUtility.Version comparator
-        versions.sort(by: { lhs, rhs in lhs.version > rhs.version })
-        let latestVersion = versions.first
+        versions.sort(by: >)
 
         return .init(
             repository: package.repository,
             summary: basicMetadata?.summary ?? package.summary,
             keywords: basicMetadata?.keywords ?? package.keywords,
             versions: versions,
-            latestVersion: latestVersion,
             watchersCount: basicMetadata?.watchersCount,
             readmeURL: basicMetadata?.readmeURL ?? package.readmeURL,
             authors: basicMetadata?.authors

@@ -55,7 +55,17 @@ extension PackageCollectionsModel {
         ///     1.0.0-beta.1
         ///
         ///     Latest = 1.0.0-beta.3
-        public let latestVersion: Version?
+        public var latestVersion: Version? {
+            self.latestReleaseVersion ?? self.latestPrereleaseVersion
+        }
+        
+        public var latestReleaseVersion: Version? {
+            self.versions.latestRelease
+        }
+        
+        public var latestPrereleaseVersion: Version? {
+            self.versions.latestPrerelease
+        }
 
         /// Number of watchers
         public let watchersCount: Int?
@@ -72,7 +82,6 @@ extension PackageCollectionsModel {
             summary: String?,
             keywords: [String]?,
             versions: [Version],
-            latestVersion: Version?,
             watchersCount: Int?,
             readmeURL: URL?,
             authors: [Author]?
@@ -82,7 +91,6 @@ extension PackageCollectionsModel {
             self.summary = summary
             self.keywords = keywords
             self.versions = versions
-            self.latestVersion = latestVersion
             self.watchersCount = watchersCount
             self.readmeURL = readmeURL
             self.authors = authors
@@ -174,4 +182,26 @@ extension PackageCollectionsModel.Package {
 
 extension PackageCollectionsModel {
     public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.CollectionIdentifier])
+}
+
+// MARK: - Utilities
+
+extension PackageCollectionsModel.Package.Version: Comparable {
+    public static func < (lhs: PackageCollectionsModel.Package.Version, rhs: PackageCollectionsModel.Package.Version) -> Bool {
+        lhs.version < rhs.version
+    }
+}
+
+extension Array where Element == PackageCollectionsModel.Package.Version {
+    var latestRelease: PackageCollectionsModel.Package.Version? {
+        self.filter { $0.version.prereleaseIdentifiers.isEmpty }
+            .sorted(by: >)
+            .first
+    }
+    
+    var latestPrerelease: PackageCollectionsModel.Package.Version? {
+        self.filter { !$0.version.prereleaseIdentifiers.isEmpty }
+            .sorted(by: >)
+            .first
+    }
 }

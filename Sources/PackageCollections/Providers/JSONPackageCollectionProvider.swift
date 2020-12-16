@@ -137,7 +137,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                              summary: package.summary,
                              keywords: package.keywords,
                              versions: versions,
-                             latestVersion: versions.first,
                              watchersCount: nil,
                              readmeURL: package.readmeURL,
                              authors: nil)

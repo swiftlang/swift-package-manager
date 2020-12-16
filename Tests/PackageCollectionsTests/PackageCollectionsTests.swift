@@ -381,7 +381,6 @@ final class PackageCollectionsTests: XCTestCase {
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
-                                                          latestVersion: mockVersion,
                                                           watchersCount: nil,
                                                           readmeURL: nil,
                                                           authors: nil)
@@ -532,7 +531,6 @@ final class PackageCollectionsTests: XCTestCase {
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
-                                                          latestVersion: mockVersion,
                                                           watchersCount: nil,
                                                           readmeURL: nil,
                                                           authors: nil)
@@ -836,7 +834,6 @@ final class PackageCollectionsTests: XCTestCase {
                                                           summary: "package \(packageId) description",
                                                           keywords: [UUID().uuidString],
                                                           versions: versions,
-                                                          latestVersion: versions.first,
                                                           watchersCount: Int.random(in: 0 ... 50),
                                                           readmeURL: URL(string: "https://package-\(packageId)-readme")!,
                                                           authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) })
