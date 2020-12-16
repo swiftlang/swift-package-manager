@@ -235,13 +235,13 @@ extension JSONPackageCollectionModel.V1 {
 
     public struct License: Equatable, Codable {
         /// License name (e.g., Apache-2.0, MIT, etc.)
-        public let name: String
+        public let name: String?
 
         /// The URL of the license file.
         public let url: URL
 
         /// Creates a `License`
-        public init(name: String, url: URL) {
+        public init(name: String?, url: URL) {
             self.name = name
             self.url = url
         }

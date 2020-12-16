@@ -61,7 +61,7 @@ extension PackageCollectionsModel {
         case EPL2_0
 
         /// Other license type
-        case other(String)
+        case other(String?)
 
         public var description: String {
             switch self {
@@ -90,7 +90,7 @@ extension PackageCollectionsModel {
             case .EPL2_0:
                 return "EPL-2.0"
             case .other(let name):
-                return name
+                return name ?? "other"
             }
         }
 
@@ -102,8 +102,8 @@ extension PackageCollectionsModel {
 }
 
 extension PackageCollectionsModel.LicenseType  {
-    public init(string: String) {
-        self = Self.allCases.first { $0.description.lowercased() == string.lowercased() } ?? .other(string)
+    public init(string: String?) {
+        self = string.map { s in Self.allCases.first { $0.description.lowercased() == s.lowercased() } ?? .other(s) } ?? .other(nil)
     }
 }
 

@@ -240,6 +240,6 @@ extension PackageModel.Platform {
 
 extension Model.License {
     fileprivate init(from: JSONModel.License) {
-        self.init(type: Model.LicenseType(string: from.name.lowercased()), url: from.url)
+        self.init(type: Model.LicenseType(string: from.name), url: from.url)
     }
 }
