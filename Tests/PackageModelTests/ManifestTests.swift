@@ -56,13 +56,11 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(manifest.targetsRequired(for: .specific(["Foo", "Bar"])).map({ $0.name }).sorted(), [
                 "Bar",
                 "Baz",
                 "Foo",
             ])
-            #endif
         }
     }
 
@@ -152,13 +150,11 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.name }).sorted(), [
                 "Bar1", // Foo → Foo1 → Bar1
                 "Bar2", // Foo → Foo1 → Foo2 → Bar2
                 // (Bar3 is unreachable.)
             ])
-            #endif
         }
     }
 }

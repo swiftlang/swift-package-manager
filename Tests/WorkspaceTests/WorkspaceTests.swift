@@ -1524,11 +1524,7 @@ final class WorkspaceTests: XCTestCase {
         // Run update.
         workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"])))
-            #else
-            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
-            #endif
 
             let path = AbsolutePath("/tmp/ws/pkgs/Foo")
             let expectedChange = (
@@ -2089,13 +2085,11 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("Foo[Foo] 1.0.0..<2.0.0"), behavior: .error)
             }
         }
-        #endif
     }
 
     func testToolsVersionRootPackages() throws {
@@ -2928,11 +2922,9 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Foo")
                 result.check(targets: "Foo")
             }
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("Bar[Bar] {1.0.0..<1.5.0, 1.5.1..<2.0.0} is forbidden"), behavior: .error)
             }
-            #endif
         }
     }
 
@@ -4065,11 +4057,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTargetBasedDependency() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 

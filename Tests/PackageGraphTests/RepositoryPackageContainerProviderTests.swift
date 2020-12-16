@@ -357,11 +357,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
     }
 
     func testDependencyConstraints() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let dependencies = [
             PackageDependencyDescription(name: "Bar1", url: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
             PackageDependencyDescription(name: "Bar2", url: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
@@ -627,10 +622,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
             let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-              // If the cache overlaps (incorrectly), these will be the same.
-              XCTAssertNotEqual(forNothing, forProduct)
-            #endif
+            // If the cache overlaps (incorrectly), these will be the same.
+            XCTAssertNotEqual(forNothing, forProduct)
         }
     }
 }
