@@ -2087,7 +2087,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Foo[Foo] 1.0.0..<2.0.0"), behavior: .error)
+                result.check(diagnostic: .contains("no versions of 'Foo' match the requirement 1.0.1..<2.0.0 and 'Foo' 1.0.0 contains incompatible tools version"), behavior: .error)
             }
         }
     }
@@ -2923,7 +2923,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(targets: "Foo")
             }
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("Bar[Bar] {1.0.0..<1.5.0, 1.5.1..<2.0.0} is forbidden"), behavior: .error)
+                result.check(diagnostic: .contains("package 'bar' is required using a stable-version but 'bar' depends on an unstable-version package 'baz'."), behavior: .error)
             }
         }
     }
