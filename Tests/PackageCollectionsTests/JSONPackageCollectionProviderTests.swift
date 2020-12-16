@@ -58,6 +58,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.packageName, "PackageOne")
@@ -108,6 +109,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.packageName, "PackageOne")

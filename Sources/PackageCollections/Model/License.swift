@@ -101,6 +101,12 @@ extension PackageCollectionsModel {
     }
 }
 
+extension PackageCollectionsModel.LicenseType  {
+    public init(string: String) {
+        self = Self.allCases.first { $0.description.lowercased() == string.lowercased() } ?? .other(string)
+    }
+}
+
 extension PackageCollectionsModel.LicenseType: Codable {
     public enum DiscriminatorKeys: String, Codable {
         case Apache2_0

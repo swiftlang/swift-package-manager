@@ -47,13 +47,13 @@ extension JSONPackageCollectionModel.V1 {
         /// Creates a `Collection`
         public init(
             name: String,
-            overview: String? = nil,
-            keywords: [String]? = nil,
+            overview: String?,
+            keywords: [String]?,
             packages: [JSONPackageCollectionModel.V1.Collection.Package],
             formatVersion: JSONPackageCollectionModel.FormatVersion,
-            revision: Int? = nil,
+            revision: Int?,
             generatedAt: Date = Date(),
-            generatedBy: Author? = nil
+            generatedBy: Author?
         ) {
             precondition(formatVersion == .v1_0, "Unsupported format version: \(formatVersion)")
 
@@ -95,20 +95,25 @@ extension JSONPackageCollectionModel.V1.Collection {
 
         /// The URL of the package's README.
         public let readmeURL: Foundation.URL?
+        
+        /// The package's current license info
+        public let license: JSONPackageCollectionModel.V1.License?
 
         /// Creates a `Package`
         public init(
             url: URL,
-            summary: String? = nil,
-            keywords: [String]? = nil,
+            summary: String?,
+            keywords: [String]?,
             versions: [JSONPackageCollectionModel.V1.Collection.Package.Version],
-            readmeURL: URL? = nil
+            readmeURL: URL?,
+            license: JSONPackageCollectionModel.V1.License?
         ) {
             self.url = url
             self.summary = summary
             self.keywords = keywords
             self.versions = versions
             self.readmeURL = readmeURL
+            self.license = license
         }
     }
 }
@@ -149,10 +154,10 @@ extension JSONPackageCollectionModel.V1.Collection.Package {
             targets: [JSONPackageCollectionModel.V1.Target],
             products: [JSONPackageCollectionModel.V1.Product],
             toolsVersion: String,
-            minimumPlatformVersions: [JSONPackageCollectionModel.V1.PlatformVersion]? = nil,
-            verifiedPlatforms: [JSONPackageCollectionModel.V1.Platform]? = nil,
-            verifiedSwiftVersions: [String]? = nil,
-            license: JSONPackageCollectionModel.V1.License? = nil
+            minimumPlatformVersions: [JSONPackageCollectionModel.V1.PlatformVersion]?,
+            verifiedPlatforms: [JSONPackageCollectionModel.V1.Platform]?,
+            verifiedSwiftVersions: [String]?,
+            license: JSONPackageCollectionModel.V1.License?
         ) {
             self.version = version
             self.packageName = packageName
@@ -176,7 +181,7 @@ extension JSONPackageCollectionModel.V1 {
         public let moduleName: String?
 
         /// Creates a `Target`
-        public init(name: String, moduleName: String? = nil) {
+        public init(name: String, moduleName: String?) {
             self.name = name
             self.moduleName = moduleName
         }

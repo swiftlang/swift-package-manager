@@ -73,6 +73,9 @@ extension PackageCollectionsModel {
         /// URL of the package's README
         public let readmeURL: URL?
 
+        /// The package's current license info
+        public let license: License?
+
         /// Package authors
         public let authors: [Author]?
 
@@ -84,6 +87,7 @@ extension PackageCollectionsModel {
             versions: [Version],
             watchersCount: Int?,
             readmeURL: URL?,
+            license: License?,
             authors: [Author]?
         ) {
             self.reference = .init(repository: repository)
@@ -93,6 +97,7 @@ extension PackageCollectionsModel {
             self.versions = versions
             self.watchersCount = watchersCount
             self.readmeURL = readmeURL
+            self.license = license
             self.authors = authors
         }
     }

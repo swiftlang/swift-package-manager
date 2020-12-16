@@ -73,6 +73,12 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     callback(.success(.init(statusCode: 200,
                                             headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                             body: data)))
+                case (.get, apiURL.appendingPathComponent("license")):
+                    let path = directoryPath.appending(components: "GitHub", "license.json")
+                    let data = Data(try! localFileSystem.readFileContents(path).contents)
+                    callback(.success(.init(statusCode: 200,
+                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                            body: data)))
                 default:
                     XCTFail("method and url should match")
                 }
@@ -91,6 +97,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                                                                                      url: URL(string: "https://api.github.com/users/octocat")!,
                                                                                      service: .init(name: "GitHub"))])
             XCTAssertEqual(metadata.readmeURL, URL(string: "https://raw.githubusercontent.com/octokit/octokit.rb/master/README.md"))
+            XCTAssertEqual(metadata.license?.type, PackageCollectionsModel.LicenseType.MIT)
+            XCTAssertEqual(metadata.license?.url, URL(string: "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true"))
             XCTAssertEqual(metadata.watchersCount, 80)
         }
     }
@@ -277,6 +285,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             XCTAssertNotNil(metadata)
             XCTAssert(metadata.versions.count > 0)
             XCTAssert(metadata.keywords!.count > 0)
+            XCTAssertNotNil(metadata.license)
             XCTAssert(metadata.authors!.count > 0)
         }
     }

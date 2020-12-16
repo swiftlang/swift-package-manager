@@ -363,13 +363,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
         versions.sort(by: >)
 
-        return .init(
+        return Model.Package(
             repository: package.repository,
             summary: basicMetadata?.summary ?? package.summary,
             keywords: basicMetadata?.keywords ?? package.keywords,
             versions: versions,
             watchersCount: basicMetadata?.watchersCount,
             readmeURL: basicMetadata?.readmeURL ?? package.readmeURL,
+            license: basicMetadata?.license ?? package.license,
             authors: basicMetadata?.authors
         )
     }

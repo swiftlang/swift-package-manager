@@ -36,7 +36,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!,
+                license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
             ),
         ]
         let collection = Model.Collection(
@@ -74,7 +75,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -133,7 +135,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: nil,
+                license: nil
             ),
             Model.Collection.Package(
                 url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
@@ -152,7 +155,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -206,7 +210,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -259,7 +264,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: nil,
+                license: nil
             )
         ]
         let collection = Model.Collection(
@@ -313,7 +319,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: nil,
+                license: nil
             ),
             Model.Collection.Package(
                 url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
@@ -343,7 +350,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -391,7 +399,8 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: nil,
+                license: nil
             )
         ]
         let collection = Model.Collection(

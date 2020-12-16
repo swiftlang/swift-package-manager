@@ -139,6 +139,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                              versions: versions,
                              watchersCount: nil,
                              readmeURL: package.readmeURL,
+                             license: package.license.flatMap { Model.License(from: $0) },
                              authors: nil)
             }
 
@@ -239,7 +240,6 @@ extension PackageModel.Platform {
 
 extension Model.License {
     fileprivate init(from: JSONModel.License) {
-        let type = Model.LicenseType.allCases.first { $0.description.lowercased() == from.name.lowercased() } ?? .other(from.name)
-        self.init(type: type, url: from.url)
+        self.init(type: Model.LicenseType(string: from.name.lowercased()), url: from.url)
     }
 }
