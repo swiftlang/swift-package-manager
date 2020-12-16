@@ -135,7 +135,11 @@ func sh(
     let result = try _sh(arguments, env: env, file: file, line: line)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
-    XCTAssertEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
+
+    if result.exitStatus != .terminated(code: 0) {
+        XCTFail("Command failed with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)", file: file, line: line)
+    }
+
     return (stdout, stderr)
 }
 
@@ -149,7 +153,11 @@ func shFails(
     let result = try _sh(arguments, env: env, file: file, line: line)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
-    XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
+
+    if result.exitStatus == .terminated(code: 0) {
+        XCTFail("Command unexpectedly succeeded with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)", file: file, line: line)
+    }
+
     return (stdout, stderr)
 }
 
@@ -319,4 +327,18 @@ func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
 
 func XCTSkip(_ message: String? = nil) throws {
     throw XCTSkip(message)
+}
+
+extension ProcessResult {
+    var integrationTests_debugDescription: String {
+        return """
+        command: \(arguments.map { $0.description }.joined(separator: " "))
+
+        stdout:
+        \((try? utf8Output()) ?? "")
+
+        stderr:
+        \((try? utf8stderrOutput()) ?? "")
+        """
+    }
 }
