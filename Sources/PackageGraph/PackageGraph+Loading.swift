@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import TSCBasic
 import SourceControl
 import PackageLoading
@@ -254,10 +255,13 @@ private func createResolvedPackages(
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
         let targetMap = targetBuilders.spm_createDictionary({ ($0.target, $0) })
         for targetBuilder in targetBuilders {
-            targetBuilder.dependencies += targetBuilder.target.dependencies.compactMap { dependency in
+            targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
                 switch dependency {
-                case .target(let target, let conditions):
-                    return .target(targetMap[target]!, conditions: conditions)
+                case .target(let targetName, let conditions):
+                    guard let target = targetMap[targetName] else {
+                        throw InternalError("unknown target \(targetName)")
+                    }
+                    return .target(target, conditions: conditions)
                 case .product:
                     return nil
                 }
@@ -265,9 +269,14 @@ private func createResolvedPackages(
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
-        packageBuilder.products = package.products.map({
-            ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map({ targetMap[$0]! }))
-        })
+        packageBuilder.products = try package.products.map{
+            try ResolvedProductBuilder(product: $0, packageBuilder: packageBuilder, targets: $0.targets.map {
+                guard let target = targetMap[$0] else {
+                    throw InternalError("unknown target \($0)")
+                }
+                return target
+            })
+        }
     }
 
     // Find duplicate products in the package graph.
@@ -361,11 +370,13 @@ private func createResolvedPackages(
                     // we can provide a more detailed diagnostic here.
                     let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
                     let referencedPackageIdentity = PackageIdentity(url: referencedPackageURL)
-                    let packageDependency = packageBuilder.package.manifest.dependencies.first { package in
+                    guard let packageDependency = (packageBuilder.package.manifest.dependencies.first { package in
                         let packageURL = mirrors.effectiveURL(forURL: package.url)
                         let packageIdentity = PackageIdentity(url: packageURL)
                         return packageIdentity == referencedPackageIdentity
-                    }!
+                    }) else {
+                        throw InternalError("dependency reference for \(referencedPackageURL) not found")
+                    }
 
                     let packageName = product.packageBuilder.package.name
                     if productRef.name != packageDependency.name || packageDependency.name != packageName {
@@ -414,8 +425,9 @@ private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
         if let constructedObject = _constructedObject {
             return constructedObject
         }
-        _constructedObject = try self.constructImpl()
-        return _constructedObject!
+        let constructedObject = try self.constructImpl()
+        _constructedObject = constructedObject
+        return constructedObject
     }
 
     /// The object construction implementation.
@@ -561,7 +573,7 @@ fileprivate func findCycle(
     ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
         // If this node is already in the current path then we have found a cycle.
         if !path.append(node.manifest) {
-            let index = path.firstIndex(of: node.manifest)!
+            let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }
 

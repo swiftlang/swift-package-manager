@@ -265,7 +265,7 @@ extension BuildDescription {
         let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
 
         // Create the build description.
-        let buildDescription = BuildDescription(
+        let buildDescription = try BuildDescription(
             plan: plan,
             swiftCommands: swiftCommands,
             swiftFrontendCommands: swiftFrontendCommands,
