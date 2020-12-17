@@ -34,7 +34,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         public let url: String
         public let version: Version?
 
-        public init(url: String, version: Version? = nil) {
+        fileprivate init(url: String, version: Version? = nil) {
             self.url = url
             self.version = version
         }
@@ -42,8 +42,13 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
 
     public var manifests: [Key: Manifest]
 
-    public init(manifests: [Key: Manifest]) {
-        self.manifests = manifests
+    public init(keyedManifests: [Key: Manifest]) {
+        self.manifests = keyedManifests
+    }
+
+    public init(manifests: [Manifest] = []) {
+        self.manifests = [:]
+        manifests.forEach{ self.manifests[Self.makeKey(manifest: $0)] = $0 }
     }
 
     public func load(
@@ -56,10 +61,23 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?
     ) throws -> PackageModel.Manifest {
-        let key = Key(url: baseURL, version: version)
+        let key = Self.makeKey(packageKind: packageKind, url: baseURL, version: version)
         if let result = manifests[key] {
             return result
         }
         throw MockManifestLoaderError.unknownRequest("\(key)")
+    }
+
+    public static func makeKey(manifest: Manifest) -> Key {
+        self.makeKey(packageKind: manifest.packageKind, url: manifest.url, version: manifest.version)
+    }
+
+    public static func makeKey(packageKind: PackageReference.Kind, url: String, version: Version? = nil) -> Key {
+        let url = Manifest.urlFor(packageKind: packageKind, baseUrl: url)
+        return Key(url: url, version: version)
+    }
+
+    public static func makeKey(url: String, version: Version?) -> Key {
+        Key(url: url, version: version)
     }
 }

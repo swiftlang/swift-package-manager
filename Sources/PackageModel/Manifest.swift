@@ -380,3 +380,21 @@ extension Manifest: Codable {
         try container.encode(packageKind, forKey: .packageKind)
     }
 }
+
+extension Manifest {
+    fileprivate static let pid = getpid()
+
+    public static func urlFor(packageKind: PackageReference.Kind, baseUrl: String) -> String {
+        if .root != packageKind {
+            return baseUrl
+        }
+
+        // reduce collision space
+        let suffix = ".switpm_\(Self.pid)_root"
+        var url = baseUrl
+        if !url.hasSuffix(suffix) {
+            url += suffix
+        }
+        return url
+    }
+}

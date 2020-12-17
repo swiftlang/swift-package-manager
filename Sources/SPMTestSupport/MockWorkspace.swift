@@ -54,7 +54,7 @@ public final class MockWorkspace {
         self.roots = roots
         self.packages = packages
 
-        self.manifestLoader = MockManifestLoader(manifests: [:])
+        self.manifestLoader = MockManifestLoader()
         self.repoProvider = InMemoryGitRepositoryProvider()
         self.toolsVersion = toolsVersion
         self.skipUpdate = skipUpdate
@@ -92,7 +92,7 @@ public final class MockWorkspace {
         try self.fs.createDirectory(self.rootsDir)
         try self.fs.createDirectory(self.packagesDir)
 
-        var manifests: [MockManifestLoader.Key: Manifest] = [:]
+        var manifests = [Manifest]()
 
         func create(package: MockPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
@@ -118,7 +118,7 @@ public final class MockWorkspace {
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
                 let v = version.flatMap(Version.init(string:))
-                manifests[.init(url: url, version: v)] = Manifest(
+                let manifest = Manifest(
                     name: package.name,
                     platforms: package.platforms,
                     path: manifestPath,
@@ -130,6 +130,7 @@ public final class MockWorkspace {
                     products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: package.targets.map { $0.convert() }
                 )
+                manifests.append(manifest)
                 if let version = version {
                     try repo.tag(name: version)
                 }

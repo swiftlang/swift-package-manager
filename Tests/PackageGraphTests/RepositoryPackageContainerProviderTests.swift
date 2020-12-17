@@ -83,13 +83,14 @@ private class MockRepositories: RepositoryProvider {
     let manifestLoader: MockManifestLoader
 
     init(repositories repositoryList: [MockRepository]) {
-        var allManifests: [MockManifestLoader.Key: Manifest] = [:]
+        var allManifests = [Manifest]()
         var repositories: [String: MockRepository] = [:]
         for repository in repositoryList {
             assert(repositories.index(forKey: repository.url) == nil)
             repositories[repository.url] = repository
             for (version, manifest) in repository.versions {
-                allManifests[MockManifestLoader.Key(url: repository.url, version: version)] = manifest
+                XCTAssertEqual(version, manifest.version)
+                allManifests.append(manifest)
             }
         }
 
@@ -175,7 +176,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            manifestLoader: MockManifestLoader(manifests: [:])
+            manifestLoader: MockManifestLoader()
         )
 
         let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
@@ -226,7 +227,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         func createProvider(_ currentToolsVersion: ToolsVersion) -> RepositoryPackageContainerProvider {
             return RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
-                manifestLoader: MockManifestLoader(manifests: [:]),
+                manifestLoader: MockManifestLoader(),
                 currentToolsVersion: currentToolsVersion
             )
         }
@@ -308,7 +309,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            manifestLoader: MockManifestLoader(manifests: [:])
+            manifestLoader: MockManifestLoader()
         )
         let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
@@ -348,7 +349,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            manifestLoader: MockManifestLoader(manifests: [:])
+            manifestLoader: MockManifestLoader()
         )
         let ref = PackageReference(identity: PackageIdentity(path: repoPath), path: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
@@ -535,7 +536,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
+            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager,
+                                                                       manifestLoader: MockManifestLoader(manifests: [manifest]))
 
             // Get a hold of the container for the test package.
             let packageRef = PackageReference(identity: PackageIdentity(path: packageDir), path: packageDir.pathString)
@@ -592,7 +594,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 path: packageDirectory.pathString,
                 url: packageDirectory.pathString,
                 v: .v5_2,
-                packageKind: .root,
+                packageKind: .remote,
                 dependencies: [
                     PackageDependencyDescription(
                         url: "Somewhere/Dependency",
@@ -611,19 +613,14 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let containerProvider = RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
                 manifestLoader: MockManifestLoader(
-                    manifests: [.init(url: packageDirectory.pathString, version: Version(1, 0, 0)): manifest]
+                    keyedManifests: [
+                        MockManifestLoader.makeKey(packageKind: manifest.packageKind, url: manifest.url, version: version):  manifest,
+                    ]
                 )
             )
 
-            let packageReference = PackageReference(identity: PackageIdentity(path: packageDirectory), path: packageDirectory.pathString)
-            let container = try tsc_await { completion in
-                containerProvider.getContainer(
-                    for: packageReference,
-                    skipUpdate: false,
-                    on: .global(),
-                    completion: completion
-                )
-            }
+            let packageReference = PackageReference(identity: PackageIdentity(path: packageDirectory), path: packageDirectory.pathString, kind: .remote)
+            let container = try containerProvider.getContainer(for: packageReference, skipUpdate: false)
 
             let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
             let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))

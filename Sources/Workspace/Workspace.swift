@@ -774,9 +774,9 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) -> [Manifest] {
 
-        let rootManifests = packages.compactMap({ package -> Manifest? in
-             loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics)
-         })
+        let rootManifests = packages.compactMap{ package -> Manifest? in
+            self.loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics)
+         }
 
         // Check for duplicate root packages.
         let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
@@ -858,7 +858,7 @@ extension Workspace {
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            let manifest = loadManifest(
+            let manifest = self.loadManifest(
                 packagePath: destination,
                 url: dependency.packageRef.repository.url,
                 packageKind: .local,
@@ -1335,7 +1335,7 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map({ KeyedPair(($0, ProductFilter.everything), key: NameAndFilter(name: $0.name, filter: .everything)) })) { node in
             return node.item.0.dependenciesRequired(for: node.item.1).compactMap({ dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
-                let manifest = loadedManifests[url] ?? loadManifest(forURL: url, diagnostics: diagnostics)
+                let manifest = loadedManifests[url] ?? self.loadManifest(forURL: url, diagnostics: diagnostics)
                 loadedManifests[url] = manifest
                 return manifest.flatMap({ KeyedPair(($0, dependency.productFilter), key: NameAndFilter(name: $0.name, filter: dependency.productFilter)) })
             })
@@ -1437,12 +1437,16 @@ extension Workspace {
         let manifest: Manifest? = diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
             return diagnostics.wrap {
                 // Load the tools version for the package.
-                let toolsVersion = try toolsVersionLoader.load(
-                    at: packagePath, fileSystem: fileSystem)
+                let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
 
                 // Validate the tools version.
-                try toolsVersion.validateToolsVersion(
-                    currentToolsVersion, packagePath: packagePath.pathString)
+                try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: packagePath.pathString)
+
+                // FIXME: Until we replace the identity with something more unique than names
+                // we need to append a suffix to root manifests identities.
+                // This help differentiate them from dependencies with the same name as the directory in which the project resides
+                // and avoid incorrect cycle detections.
+                let url = Manifest.urlFor(packageKind: packageKind, baseUrl: url)
 
                 // Load the manifest.
                 return try manifestLoader.load(
@@ -1697,7 +1701,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws -> DependencyManifests {
         // Ensure the cache path exists.
-        createCacheDirectories(with: diagnostics)
+        self.createCacheDirectories(with: diagnostics)
 
         let rootManifests = loadRootManifests(packages: root.packages, diagnostics: diagnostics)
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)

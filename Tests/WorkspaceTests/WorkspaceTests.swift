@@ -352,8 +352,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the Bar.git package.
         do {
-            let barKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar", version: "1.0.0")
-            let barGitKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar.git", version: "1.0.0")
+            let barKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/pkgs/Bar", version: "1.0.0")
+            let barGitKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/pkgs/Bar.git", version: "1.0.0")
             let manifest = workspace.manifestLoader.manifests[barKey]!
             workspace.manifestLoader.manifests[barGitKey] = manifest.with(url: "/tmp/ws/pkgs/Bar.git")
         }
@@ -2465,8 +2465,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the edited package.
         do {
-            let barKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Bar")
-            let editedBarKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Bar")
+            let barKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/pkgs/Bar")
+            let editedBarKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/edits/Bar")
             let manifest = workspace.manifestLoader.manifests[barKey]!
             workspace.manifestLoader.manifests[editedBarKey] = manifest
         }
@@ -2646,7 +2646,7 @@ final class WorkspaceTests: XCTestCase {
         // Check that changing the requirement to 1.5.0 triggers re-resolution.
         //
         // FIXME: Find a cleaner way to change a dependency requirement.
-        let fooKey = MockManifestLoader.Key(url: "/tmp/ws/roots/Foo")
+        let fooKey = MockManifestLoader.makeKey(packageKind: .root, url: "/tmp/ws/roots/Foo")
         let manifest = workspace.manifestLoader.manifests[fooKey]!
         workspace.manifestLoader.manifests[fooKey] = Manifest(
             name: manifest.name,
@@ -2731,8 +2731,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the edited package.
         do {
-            let fooKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Foo")
-            let editedFooKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Foo")
+            let fooKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/pkgs/Foo")
+            let editedFooKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/edits/Foo")
             let manifest = workspace.manifestLoader.manifests[fooKey]!
             workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
@@ -4045,8 +4045,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Add entry for the edited package.
         do {
-            let fooKey = MockManifestLoader.Key(url: "/tmp/ws/pkgs/Foo")
-            let editedFooKey = MockManifestLoader.Key(url: "/tmp/ws/edits/Foo")
+            let fooKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/pkgs/Foo")
+            let editedFooKey = MockManifestLoader.makeKey(packageKind: .remote, url: "/tmp/ws/edits/Foo")
             let manifest = workspace.manifestLoader.manifests[fooKey]!
             workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
