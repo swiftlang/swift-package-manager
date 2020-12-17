@@ -655,7 +655,7 @@ public struct PubgrubDependencyResolver {
                 // forced unwraps safe since we are testing for count and errors above
                 let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
                 // at this point the container is cached 
-                let container = try provider.getCachedContainer(for: pkgTerm.node.package)
+                let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
                 // Get the best available version for this package.
                 guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
                     state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
@@ -687,7 +687,7 @@ public struct PubgrubDependencyResolver {
 
                 // Decide this version if there was no conflict with its dependencies.
                 if !haveConflict {
-                    log("decision: \(pkgTerm.node.package)@\(version)")
+                    self.log("decision: \(pkgTerm.node.package)@\(version)")
                     state.decide(pkgTerm.node, at: version)
                 }
 
