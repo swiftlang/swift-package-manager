@@ -129,6 +129,14 @@ extension PackageCollectionsModel.Package {
         /// The package version's supported platforms
         public let minimumPlatformVersions: [SupportedPlatform]?
         
+        // TODO: remove (replaced by verifiedCompatibility)
+        /// The package version's supported platforms verified to work
+        public var verifiedPlatforms: [PackageModel.Platform]? { nil }
+
+        // TODO: remove (replaced by verifiedCompatibility)
+        /// The package version's Swift versions verified to work
+        public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
+        
         /// An array of compatible platforms and Swift versions that has been tested and verified for.
         public let verifiedCompatibility: [PackageCollectionsModel.Compatibility]?
 
