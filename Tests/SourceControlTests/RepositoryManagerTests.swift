@@ -291,6 +291,8 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testCache() throws {
+        try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI")
+        
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let cachePath = prefix.appending(component: "cache")
             let repositoriesPath = prefix.appending(component: "repositories")
