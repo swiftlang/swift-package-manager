@@ -21,23 +21,23 @@ final class PackageCollectionsModelTests: XCTestCase {
         let versions: [PackageCollectionsModel.Package.Version] = [
             .init(
                 version: .init(stringLiteral: "1.2.0"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "2.0.1"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "2.1.0-beta.3"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "2.1.0"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "3.0.0-beta.1"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
         ]
         
@@ -52,11 +52,11 @@ final class PackageCollectionsModelTests: XCTestCase {
         let versions: [PackageCollectionsModel.Package.Version] = [
             .init(
                 version: .init(stringLiteral: "2.1.0-beta.3"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "3.0.0-beta.1"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
         ]
         
@@ -71,15 +71,15 @@ final class PackageCollectionsModelTests: XCTestCase {
         let versions: [PackageCollectionsModel.Package.Version] = [
             .init(
                 version: .init(stringLiteral: "1.2.0"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "2.0.1"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
             .init(
                 version: .init(stringLiteral: "2.1.0"), packageName: "FooBar", targets: targets, products: products,
-                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedPlatforms: nil, verifiedSwiftVersions: nil, license: nil
+                toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
         ]
         

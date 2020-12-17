@@ -373,8 +373,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   products: mockProducts,
                                                                   toolsVersion: .currentToolsVersion,
                                                                   minimumPlatformVersions: nil,
-                                                                  verifiedPlatforms: nil,
-                                                                  verifiedSwiftVersions: nil,
+                                                                  verifiedCompatibility: nil,
                                                                   license: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: .init(url: "https://packages.mock/\(UUID().uuidString)"),
@@ -524,8 +523,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   products: mockProducts,
                                                                   toolsVersion: .currentToolsVersion,
                                                                   minimumPlatformVersions: nil,
-                                                                  verifiedPlatforms: nil,
-                                                                  verifiedSwiftVersions: nil,
+                                                                  verifiedCompatibility: nil,
                                                                   license: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://packages.mock/\(UUID().uuidString)"),
@@ -827,8 +825,10 @@ final class PackageCollectionsTests: XCTestCase {
                                                     products: products,
                                                     toolsVersion: .currentToolsVersion,
                                                     minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))],
-                                                    verifiedPlatforms: [.iOS, .linux],
-                                                    verifiedSwiftVersions: SwiftLanguageVersion.knownSwiftLanguageVersions,
+                                                    verifiedCompatibility: [
+                                                        .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
+                                                        .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
+                                                    ],
                                                     license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!))
         }
 
@@ -865,8 +865,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(version.products, metadataVersion?.products, "products should match")
             XCTAssertEqual(version.toolsVersion, metadataVersion?.toolsVersion, "toolsVersion should match")
             XCTAssertEqual(version.minimumPlatformVersions, metadataVersion?.minimumPlatformVersions, "minimumPlatformVersions should match")
-            XCTAssertEqual(version.verifiedPlatforms, metadataVersion?.verifiedPlatforms, "verifiedPlatforms should match")
-            XCTAssertEqual(version.verifiedSwiftVersions, metadataVersion?.verifiedSwiftVersions, "verifiedSwiftVersions should match")
+            XCTAssertEqual(version.verifiedCompatibility, metadataVersion?.verifiedCompatibility, "verifiedCompatibility should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
         }
         XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")

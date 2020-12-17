@@ -109,12 +109,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
                         serializationOkay = false
                     }
-                    let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
-                    if verifiedPlatforms?.count != version.verifiedPlatforms?.count {
-                        serializationOkay = false
-                    }
-                    let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
-                    if verifiedSwiftVersions?.count != version.verifiedSwiftVersions?.count {
+                    let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
+                    if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
                         serializationOkay = false
                     }
                     let license = version.license.flatMap { Model.License(from: $0) }
@@ -125,8 +121,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  products: products,
                                  toolsVersion: toolsVersion,
                                  minimumPlatformVersions: minimumPlatformVersions,
-                                 verifiedPlatforms: verifiedPlatforms,
-                                 verifiedSwiftVersions: verifiedSwiftVersions,
+                                 verifiedCompatibility: verifiedCompatibility,
                                  license: license)
                 }
                 if versions.count != package.versions.count {
@@ -235,6 +230,16 @@ extension PackageModel.Platform {
         default:
             return nil
         }
+    }
+}
+
+extension Model.Compatibility {
+    fileprivate init?(from: JSONModel.Compatibility) {
+        guard let platform = PackageModel.Platform(from: from.platform),
+              let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion) else {
+            return nil
+        }
+        self.init(platform: platform, swiftVersion: swiftVersion)
     }
 }
 

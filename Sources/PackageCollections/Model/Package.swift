@@ -128,12 +128,9 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's supported platforms
         public let minimumPlatformVersions: [SupportedPlatform]?
-
-        /// The package version's supported platforms verified to work
-        public let verifiedPlatforms: [PackageModel.Platform]?
-
-        /// The package version's Swift versions verified to work
-        public let verifiedSwiftVersions: [SwiftLanguageVersion]?
+        
+        /// An array of compatible platforms and Swift versions that has been tested and verified for.
+        public let verifiedCompatibility: [PackageCollectionsModel.Compatibility]?
 
         /// The package version's license
         public let license: PackageCollectionsModel.License?
@@ -162,6 +159,17 @@ extension PackageCollectionsModel {
 
         /// The product's targets
         public let targets: [Target]
+    }
+}
+
+extension PackageCollectionsModel {
+    /// Compatible platform and Swift version.
+    public struct Compatibility: Equatable, Codable {
+        /// The platform (e.g., macOS, Linux, etc.)
+        public let platform: PackageModel.Platform
+        
+        /// The Swift version
+        public let swiftVersion: SwiftLanguageVersion
     }
 }
 

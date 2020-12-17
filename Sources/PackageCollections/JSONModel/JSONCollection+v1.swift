@@ -138,11 +138,8 @@ extension JSONPackageCollectionModel.V1.Collection.Package {
         /// An array of the package version’s supported platforms specified in `Package.swift`.
         public let minimumPlatformVersions: [JSONPackageCollectionModel.V1.PlatformVersion]?
 
-        /// An array of platforms in which the package version has been tested and verified.
-        public let verifiedPlatforms: [JSONPackageCollectionModel.V1.Platform]?
-
-        /// An array of Swift versions that the package version has been tested and verified for.
-        public let verifiedSwiftVersions: [String]?
+        /// An array of compatible platforms and Swift versions that has been tested and verified for.
+        public let verifiedCompatibility: [JSONPackageCollectionModel.V1.Compatibility]?
 
         /// The package version's license.
         public let license: JSONPackageCollectionModel.V1.License?
@@ -155,8 +152,7 @@ extension JSONPackageCollectionModel.V1.Collection.Package {
             products: [JSONPackageCollectionModel.V1.Product],
             toolsVersion: String,
             minimumPlatformVersions: [JSONPackageCollectionModel.V1.PlatformVersion]?,
-            verifiedPlatforms: [JSONPackageCollectionModel.V1.Platform]?,
-            verifiedSwiftVersions: [String]?,
+            verifiedCompatibility: [JSONPackageCollectionModel.V1.Compatibility]?,
             license: JSONPackageCollectionModel.V1.License?
         ) {
             self.version = version
@@ -165,8 +161,7 @@ extension JSONPackageCollectionModel.V1.Collection.Package {
             self.products = products
             self.toolsVersion = toolsVersion
             self.minimumPlatformVersions = minimumPlatformVersions
-            self.verifiedPlatforms = verifiedPlatforms
-            self.verifiedSwiftVersions = verifiedSwiftVersions
+            self.verifiedCompatibility = verifiedCompatibility
             self.license = license
         }
     }
@@ -231,6 +226,15 @@ extension JSONPackageCollectionModel.V1 {
         public init(name: String) {
             self.name = name
         }
+    }
+    
+    /// Compatible platform and Swift version.
+    public struct Compatibility: Equatable, Codable {
+        /// The platform (e.g., macOS, Linux, etc.)
+        public let platform: Platform
+        
+        /// The Swift version
+        public let swiftVersion: String
     }
 
     public struct License: Equatable, Codable {

@@ -44,8 +44,12 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                     targets: targets)
                 }
                 let minimumPlatformVersions = (0 ..< Int.random(in: 1 ... 2)).map { _ in supportedPlatforms.randomElement()! }
-                let verifiedPlatforms = (0 ..< Int.random(in: 1 ... 3)).map { _ in platforms.randomElement()! }
-                let verifiedSwiftVersions = (0 ..< Int.random(in: 1 ... 3)).map { _ in SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()! }
+                let verifiedCompatibility = (0 ..< Int.random(in: 1 ... 3)).map { _ in
+                    PackageCollectionsModel.Compatibility(
+                        platform: platforms.randomElement()!,
+                        swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!
+                    )
+                }
                 let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
                 let license = PackageCollectionsModel.License(type: licenseType, url: URL(string: "http://\(licenseType).license")!)
 
@@ -55,8 +59,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                                products: products,
                                                                toolsVersion: .currentToolsVersion,
                                                                minimumPlatformVersions: minimumPlatformVersions,
-                                                               verifiedPlatforms: verifiedPlatforms,
-                                                               verifiedSwiftVersions: verifiedSwiftVersions,
+                                                               verifiedCompatibility: verifiedCompatibility,
                                                                license: license)
             }
 

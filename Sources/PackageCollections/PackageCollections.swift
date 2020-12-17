@@ -357,8 +357,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                   products: packageVersion.products,
                   toolsVersion: packageVersion.toolsVersion,
                   minimumPlatformVersions: packageVersion.minimumPlatformVersions,
-                  verifiedPlatforms: packageVersion.verifiedPlatforms,
-                  verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
+                  verifiedCompatibility: packageVersion.verifiedCompatibility,
                   license: packageVersion.license)
         }
         versions.sort(by: >)
