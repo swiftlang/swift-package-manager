@@ -64,26 +64,26 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     ) {
         queue.async {
             // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == identifier }) {
+            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == identifier }) {
                 let container = LocalPackageContainer(
                     package: identifier,
                     manifest: manifest.manifest,
                     dependency: manifest.dependency,
-                    mirrors: mirrors,
-                    currentToolsVersion: currentToolsVersion
+                    mirrors: self.mirrors,
+                    currentToolsVersion: self.currentToolsVersion
                 )
                 return completion(.success(container))
             }
 
             // Continue searching from the Workspace's root manifests.
             // FIXME: We might want to use a dictionary for faster lookups.
-            if let index = dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
+            if let index = self.dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
                 let container = LocalPackageContainer(
                     package: identifier,
-                    manifest: dependencyManifests.root.manifests[index],
+                    manifest: self.dependencyManifests.root.manifests[index],
                     dependency: nil,
-                    mirrors: mirrors,
-                    currentToolsVersion: currentToolsVersion
+                    mirrors: self.mirrors,
+                    currentToolsVersion: self.currentToolsVersion
                 )
 
                 return completion(.success(container))
