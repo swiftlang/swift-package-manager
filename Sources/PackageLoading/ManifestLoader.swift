@@ -96,7 +96,7 @@ public protocol ManifestLoaderProtocol {
     )
 
     /// Reset any internal cache held by the manifest loader.
-    func resetCache() throws
+    func purgeCache() throws
 }
 
 extension ManifestLoaderProtocol {
@@ -137,8 +137,7 @@ extension ManifestLoaderProtocol {
         )
     }
 
-    public func resetCache() throws {
-    }
+    public func purgeCache() throws {}
 }
 
 public protocol ManifestLoaderDelegate {
@@ -1019,7 +1018,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    public func resetCache() throws {
+    public func purgeCache() throws {
         self.memoryCache.clear()
         try self.databaseCacheLock.withLock {
             self.databaseCache = nil

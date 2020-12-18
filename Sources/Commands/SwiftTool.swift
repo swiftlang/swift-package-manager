@@ -650,6 +650,7 @@ public class SwiftTool {
     func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
     }
+
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
             let toolchain = try self.getToolchain()
@@ -742,11 +743,12 @@ public class SwiftTool {
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
-            try ManifestLoader(
+            let cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") } ?? self.buildPath
+            return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath,
+                cacheDir: self.options.shouldDisableManifestCaching ? nil : cachePath,
                 extraManifestFlags: self.options.manifestFlags
             )
         })
