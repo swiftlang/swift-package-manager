@@ -220,8 +220,7 @@ public class RepositoryManager {
 
         self.operationQueue = OperationQueue()
         self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
-        // FIXME: make this configurable and/or compute based on CPU count
-        self.operationQueue.maxConcurrentOperationCount = 10
+        self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
 
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
