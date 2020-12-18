@@ -109,6 +109,13 @@ public final class ThreadSafeBox<Value> {
     }
 }
 
+public enum Concurrency {
+    public static var maxOperations: Int {
+        // TODO: compute this by the number of CPUs
+        return (try? ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].map(Int.init)) ?? 25
+    }
+}
+
 // FIXME: mark as deprecated once async/await is available
 //@available(*, deprecated, message: "replace with async/await when available")
 @inlinable
