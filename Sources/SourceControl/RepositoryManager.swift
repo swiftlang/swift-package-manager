@@ -362,11 +362,11 @@ public class RepositoryManager {
         let isLocal = (try? AbsolutePath(validating: handle.repository.url)) != nil
         let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
-        if let cachePath = cachePath, !(isLocal && !shouldCacheLocalPackages) {
+        if let cachePath = self.cachePath, !(isLocal && !shouldCacheLocalPackages) {
             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
             do {
+                try self.initializeCacheIfNeeded(cachePath: cachePath)
                 try fileSystem.withLock(on: cachePath, type: .shared) {
-                    try initalizeCacheIfNeeded(cachePath: cachePath)
                     try fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
                         // Fetch the repository into the cache.
                         if (fileSystem.exists(cachedRepositoryPath)) {
@@ -475,35 +475,20 @@ public class RepositoryManager {
     }
 
     /// Sets up the cache directories if they don't already exist.
-    public func initalizeCacheIfNeeded(cachePath: AbsolutePath) throws {
+    public func initializeCacheIfNeeded(cachePath: AbsolutePath) throws {
         // Create the supplied cache directory.
-        if !fileSystem.exists(cachePath) {
-            try fileSystem.createDirectory(cachePath, recursive: true)
-        }
-        // Create the default cache directory.
-        let defaultCachePath = fileSystem.swiftPMCacheDirectory.appending(component: "repositories")
-        if !fileSystem.exists(defaultCachePath) {
-            try fileSystem.createDirectory(defaultCachePath, recursive: true)
-        }
-        // Create .swiftpm directory.
-        if !fileSystem.exists(fileSystem.dotSwiftPM) {
-            try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
-        }
-        // Symlink the default cache path to .swiftpm/cache.
-        // Don't symlink the user supplied cache path since it might change.
-        let symlinkPath = fileSystem.dotSwiftPM.appending(component: "cache")
-        if !fileSystem.exists(symlinkPath, followSymlink: false) {
-            try fileSystem.createSymbolicLink(symlinkPath, pointingAt: defaultCachePath, relative: false)
+        if !self.fileSystem.exists(cachePath) {
+            try self.fileSystem.createDirectory(cachePath, recursive: true)
         }
     }
 
     /// Purges the cached repositories from the cache.
     public func purgeCache() throws {
-        guard let cachePath = cachePath else { return }
-        try fileSystem.withLock(on: cachePath, type: .exclusive) {
-            let cachedRepositories = try fileSystem.getDirectoryContents(cachePath)
+        guard let cachePath = self.cachePath else { return }
+        try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
+            let cachedRepositories = try self.fileSystem.getDirectoryContents(cachePath)
             for repoPath in cachedRepositories {
-                try fileSystem.removeFileTree(cachePath.appending(component: repoPath))
+                try self.fileSystem.removeFileTree(cachePath.appending(component: repoPath))
             }
         }
     }

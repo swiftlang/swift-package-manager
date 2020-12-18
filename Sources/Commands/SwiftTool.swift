@@ -298,6 +298,13 @@ public class SwiftTool {
     /// The stream to print standard output on.
     fileprivate(set) var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
 
+    /// Holds the currently active workspace.
+    ///
+    /// It is not initialized in init() because for some of the commands like package init , usage etc,
+    /// workspace is not needed, infact it would be an error to ask for the workspace object
+    /// for package init because the Manifest file should *not* present.
+    private var _workspace: Workspace?
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
@@ -441,6 +448,7 @@ public class SwiftTool {
     func getSwiftPMConfig() throws -> Workspace.Configuration {
         return try _swiftpmConfig.get()
     }
+
     private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
         return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
     }()
@@ -463,12 +471,24 @@ public class SwiftTool {
         return resolvedPath
     }
 
-    /// Holds the currently active workspace.
-    ///
-    /// It is not initialized in init() because for some of the commands like package init , usage etc,
-    /// workspace is not needed, infact it would be an error to ask for the workspace object
-    /// for package init because the Manifest file should *not* present.
-    private var _workspace: Workspace?
+    private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+        // Create the default cache directory.
+        let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
+        if !fileSystem.exists(idiomaticCachePath) {
+            try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
+        }
+        // Create ~/.swiftpm if necessary
+        if !fileSystem.exists(fileSystem.dotSwiftPM) {
+            try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
+        }
+        // Create ~/.swiftpm/cache symlink if necessary
+        let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
+        if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
+            try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
+        }
+
+        return options.skipCache ? nil : options.cachePath ?? idiomaticCachePath
+    }
 
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
@@ -478,8 +498,6 @@ public class SwiftTool {
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
-        let defaultCachePath = localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
-        let cachePath = !options.skipCache ? options.cachePath ?? defaultCachePath : nil
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: try editablesPath(),
@@ -493,7 +511,7 @@ public class SwiftTool {
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
-            cachePath: cachePath
+            cachePath: try self.getCachePath()
         )
         _workspace = workspace
         return workspace

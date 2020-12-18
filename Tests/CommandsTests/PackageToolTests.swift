@@ -163,15 +163,16 @@ final class PackageToolTests: XCTestCase {
     func testCache() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
-            let cachePath = prefix.appending(component: "cache")
             let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
+            let cachePath = prefix.appending(component: "cache")
+            let repositoriesCachePath = cachePath.appending(component: "repositories")
 
             // Perform an initial fetch and populate the cache
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
-            // we have to check for the prefix here since the hash value changes becasue spm sees the `prefix`
+            // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
             // directory `/var/...` as `/private/var/...`.
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
-            XCTAssert(try localFileSystem.getDirectoryContents(cachePath).contains { $0.hasPrefix("Foo-") })
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
 
             // Remove .build folder
             _ = try execute(["reset"], packagePath: packageRoot)
@@ -187,7 +188,7 @@ final class PackageToolTests: XCTestCase {
             // Perfom another fetch
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
-            XCTAssert(try localFileSystem.getDirectoryContents(cachePath).contains { $0.hasPrefix("Foo-") })
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
         }
     }
 
