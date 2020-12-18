@@ -256,7 +256,7 @@ public final class PackageBuilder {
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
-        warnAboutImplicitExecutableTargets: Bool = (ProcessEnv.vars["SWIFTPM_ENABLE_EXECUTABLE_TARGETS"] == "1"),
+        warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false
     ) {
         self.manifest = manifest
