@@ -209,9 +209,6 @@ public class Workspace {
     /// The path where packages which are put in edit mode are checked out.
     public let editablesPath: AbsolutePath
 
-    /// The path where repositories are globally cached by the `RepositoryManager`
-    private let cachePath: AbsolutePath?
-
     /// The file system on which the workspace will operate.
     fileprivate var fileSystem: FileSystem
 
@@ -314,17 +311,17 @@ public class Workspace {
         self.additionalFileRules = additionalFileRules
 
         let repositoriesPath = self.dataPath.appending(component: "repositories")
+        let repositoriesCachePath = cachePath.map { $0.appending(component: "repositories") }
         let repositoryManager = repositoryManager ?? RepositoryManager(
             path: repositoriesPath,
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             fileSystem: fileSystem,
-            cachePath: cachePath)
+            cachePath: repositoriesCachePath)
         self.repositoryManager = repositoryManager
 
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
-        self.cachePath = cachePath
 
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
