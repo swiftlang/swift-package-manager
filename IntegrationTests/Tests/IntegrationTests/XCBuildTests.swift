@@ -94,25 +94,6 @@ final class XCBuildTests: XCTestCase {
             XCTAssertFileExists(releasePath.appending(component: "bar"))
             XCTAssertNoSuchPath(releasePath.appending(component: "cbar"))
         }
-
-        fixture(name: "XCBuild/ExecutableProducts") { path in
-            let fooPath = path.appending(component: "Foo")
-            let binaryPath = fooPath.appending(components: ".build", "apple", "Products")
-
-            try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "cbar")
-            let debugPath = binaryPath.appending(component: "Debug")
-            XCTAssertNoSuchPath(debugPath.appending(component: "foo"))
-            XCTAssertNoSuchPath(debugPath.appending(component: "cfoo"))
-            XCTAssertNoSuchPath(debugPath.appending(component: "bar"))
-            XCTAssertFileExists(debugPath.appending(component: "cbar"))
-
-            try sh(swiftBuild, "--package-path", fooPath, "--build-system", "xcode", "--target", "cbar", "-c", "release")
-            let releasePath = binaryPath.appending(component: "Release")
-            XCTAssertNoSuchPath(releasePath.appending(component: "foo"))
-            XCTAssertNoSuchPath(releasePath.appending(component: "cfoo"))
-            XCTAssertNoSuchPath(releasePath.appending(component: "bar"))
-            XCTAssertFileExists(releasePath.appending(component: "cbar"))
-        }
     }
 
     func testTestProducts() throws {
