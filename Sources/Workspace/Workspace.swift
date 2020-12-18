@@ -1400,7 +1400,7 @@ extension Workspace {
         // this is allot of boilerplate code but its is important for performance
         let operationQueue = OperationQueue()
         operationQueue.name = self.queue.label + "-root-manifest-loading"
-        operationQueue.maxConcurrentOperationCount = (try? ProcessEnv.vars["SWIFTPM_MANIFEST_LOADING_MAX_CONCURRENCY"].map(Int.init)) ?? 100
+        operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
 
         let lock = Lock()
         let sync = DispatchGroup()
