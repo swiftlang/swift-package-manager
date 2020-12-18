@@ -380,9 +380,9 @@ public final class Target {
     /// Creates an executable target.
     ///
     /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
-    /// is built as an executable module that can be used as the main target of an executable product.  The target
+    /// is built as an executable module that can be used as the main target of an executable product. The target
     /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
-    ///  file that contains the `@main` keyword.
+    /// file that contains the `@main` keyword.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
