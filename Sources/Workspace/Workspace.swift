@@ -1782,7 +1782,7 @@ extension Workspace {
         extraConstraints: [PackageContainerConstraint] = [],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true,
-        removeResolvedFile: Bool = true
+        resetPinsStoreOnFailure: Bool = true
     ) throws -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
@@ -1885,15 +1885,16 @@ extension Workspace {
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
-                    removeResolvedFile: removeResolvedFile
+                    resetPinsStoreOnFailure: resetPinsStoreOnFailure
                 )
-            } else if removeResolvedFile, self.fileSystem.exists(self.resolvedFile) {
+            } else if resetPinsStoreOnFailure, !pinsStore.pinsMap.isEmpty {
                 // If we weren't able to resolve properly even after a retry, it
                 // could mean that the dependency at fault has a different
                 // version of the manifest file which contains dependencies that
                 // have also changed their package references.
-                // TODO: is there a better/safer way to reset the resolved file?
-                try self.fileSystem.removeFileTree(self.resolvedFile)
+                pinsStore.unpinAll()
+                try pinsStore.saveState()
+                // try again with pins reset
                 return try self._resolve(
                     root: root,
                     explicitProduct: explicitProduct,
@@ -1901,7 +1902,7 @@ extension Workspace {
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
-                    removeResolvedFile: false
+                    resetPinsStoreOnFailure: false
                 )
             } else {
                 // give up
