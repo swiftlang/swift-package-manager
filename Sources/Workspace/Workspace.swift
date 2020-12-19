@@ -1781,7 +1781,8 @@ extension Workspace {
         forceResolution: Bool,
         extraConstraints: [PackageContainerConstraint] = [],
         diagnostics: DiagnosticsEngine,
-        retryOnPackagePathMismatch: Bool = true
+        retryOnPackagePathMismatch: Bool = true,
+        resetPinsStoreOnFailure: Bool = true
     ) throws -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
@@ -1869,7 +1870,8 @@ extension Workspace {
         // resolved file has an outdated entry for a transitive dependency whose
         // URL was changed. For e.g., the resolved file could refer to a dependency
         // through a ssh url but its new reference is now changed to http.
-        if !updatedDependencyManifests.computePackageURLs().missing.isEmpty {
+        let missing = updatedDependencyManifests.computePackageURLs().missing
+        if !missing.isEmpty {
             // Check if an override package has a mismatching basename.
             if self.didDiagnosePackageOverrideBasenameMismatch(updatedDependencyManifests, diagnostics) {
                 return updatedDependencyManifests
@@ -1882,16 +1884,30 @@ extension Workspace {
                     forceResolution: forceResolution,
                     extraConstraints: extraConstraints,
                     diagnostics: diagnostics,
-                    retryOnPackagePathMismatch: false
+                    retryOnPackagePathMismatch: false,
+                    resetPinsStoreOnFailure: resetPinsStoreOnFailure
                 )
-            } else {
+            } else if resetPinsStoreOnFailure, !pinsStore.pinsMap.isEmpty {
                 // If we weren't able to resolve properly even after a retry, it
                 // could mean that the dependency at fault has a different
                 // version of the manifest file which contains dependencies that
                 // have also changed their package references.
-
-                diagnostics.emit(error: "the Package.resolved file is most likely severely out-of-date and is preventing correct resolution; delete the resolved file and try again")
-
+                pinsStore.unpinAll()
+                try pinsStore.saveState()
+                // try again with pins reset
+                return try self._resolve(
+                    root: root,
+                    explicitProduct: explicitProduct,
+                    forceResolution: forceResolution,
+                    extraConstraints: extraConstraints,
+                    diagnostics: diagnostics,
+                    retryOnPackagePathMismatch: false,
+                    resetPinsStoreOnFailure: false
+                )
+            } else {
+                // give up
+                let missing = missing.map{ $0.description }
+                diagnostics.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
                 return updatedDependencyManifests
             }
         }
