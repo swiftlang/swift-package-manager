@@ -774,7 +774,7 @@ extension LLBuildManifestBuilder {
 
 extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
-        let cmdName = buildProduct.product.getCommandName(config: buildConfig)
+        let cmdName = try buildProduct.product.getCommandName(config: buildConfig)
 
         // Create archive tool for static library and shell tool for rest of the products.
         if buildProduct.product.type == .library(.static) {
@@ -796,7 +796,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Create a phony node to represent the entire target.
-        let targetName = buildProduct.product.getLLBuildTargetName(config: buildConfig)
+        let targetName = try buildProduct.product.getLLBuildTargetName(config: buildConfig)
         let output: Node = .virtual(targetName)
 
         manifest.addNode(output, toTarget: targetName)
@@ -830,7 +830,7 @@ extension ResolvedTarget {
 }
 
 extension ResolvedProduct {
-    public func getLLBuildTargetName(config: String) -> String {
+    public func getLLBuildTargetName(config: String) throws -> String {
         switch type {
         case .library(.dynamic):
             return "\(name)-\(config).dylib"
@@ -839,14 +839,14 @@ extension ResolvedProduct {
         case .library(.static):
             return "\(name)-\(config).a"
         case .library(.automatic):
-            fatalError()
+            throw InternalError("automatic library not supported")
         case .executable:
             return "\(name)-\(config).exe"
         }
     }
 
-    public func getCommandName(config: String) -> String {
-        return "C." + getLLBuildTargetName(config: config)
+    public func getCommandName(config: String) throws -> String {
+        return try "C." + self.getLLBuildTargetName(config: config)
     }
 }
 

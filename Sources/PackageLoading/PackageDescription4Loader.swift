@@ -216,7 +216,7 @@ extension SystemPackageProviderDescription {
         case "apt":
             self = .apt(value)
         default:
-            fatalError()
+            throw InternalError("invalid provider \(name)")
         }
     }
 }
@@ -241,7 +241,7 @@ extension PackageModel.ProductType {
             case nil:
                 libraryType = .automatic
             default:
-                fatalError()
+                throw InternalError("invalid product type \(productType)")
             }
 
             self = .library(libraryType)
@@ -285,7 +285,7 @@ extension PackageDependencyDescription.Requirement {
             self = .localPackage
 
         default:
-            fatalError()
+            throw InternalError("invalid dependency \(type)")
         }
     }
 }
@@ -343,7 +343,7 @@ extension TargetDescription.TargetType {
         case "binary":
             self = .binary
         default:
-            fatalError()
+            throw InternalError("invalid target \(string)")
         }
     }
 }
@@ -365,7 +365,7 @@ extension TargetDescription.Dependency {
             self = try .byName(name: json.get("name"), condition: condition)
 
         default:
-            fatalError()
+            throw InternalError("invalid type \(type)")
         }
     }
 }
