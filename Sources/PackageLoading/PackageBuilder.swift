@@ -1066,7 +1066,7 @@ public final class PackageBuilder {
         })
 
         // If enabled, create one test product for each test target.
-        if shouldCreateMultipleTestProducts {
+        if self.shouldCreateMultipleTestProducts {
             for testTarget in testModules {
                 let product = Product(name: testTarget.name, type: .test, targets: [testTarget])
                 append(product)
@@ -1077,7 +1077,7 @@ public final class PackageBuilder {
             //
             // Add suffix 'PackageTests' to test product name so the target name
             // of linux executable don't collide with main package, if present.
-            let productName = manifest.name + "PackageTests"
+            let productName = self.manifest.name + "PackageTests"
             let testManifest = try self.findTestManifest(in: testModules)
 
             let product = Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
@@ -1085,7 +1085,7 @@ public final class PackageBuilder {
         }
 
         // Map containing targets mapped to their names.
-        let modulesMap = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+        let modulesMap = Dictionary(targets.map{ ($0.name, $0) }, uniquingKeysWith: { $1 })
 
         /// Helper method to get targets from target names.
         func modulesFrom(targetNames names: [String], product: String) throws -> [Target] {
@@ -1099,48 +1099,24 @@ public final class PackageBuilder {
             })
         }
 
-        // Only create implicit executables for root packages.
-        if manifest.packageKind == .root {
-            // Compute the list of targets which are being used in an
-            // executable product so we don't create implicit executables
-            // for them.
-            let executableProductTargets = manifest.products.flatMap({ product -> [String] in
-                switch product.type {
-                case .library, .test:
-                    return []
-                case .executable:
-                    return product.targets
-                }
-            })
-
-            let declaredProductsTargets = Set(executableProductTargets)
-            for target in targets where target.type == .executable {
-                // If this target already has an executable product, skip
-                // generating a product for it.
-                if declaredProductsTargets.contains(target.name) {
-                    continue
-                }
-                let product = Product(name: target.name, type: .executable, targets: [target])
-                append(product)
-            }
-        }
+        // First add explicit products.
 
         let filteredProducts: [ProductDescription]
         switch productFilter {
         case .everything:
-            filteredProducts = manifest.products
+            filteredProducts = self.manifest.products
         case .specific(let set):
-            filteredProducts = manifest.products.filter { set.contains($0.name) }
+            filteredProducts = self.manifest.products.filter { set.contains($0.name) }
         }
         for product in filteredProducts {
             let targets = try modulesFrom(targetNames: product.targets, product: product.name)
-            // Peform special validations if this product is exporting
+            // Perform special validations if this product is exporting
             // a system library target.
             if targets.contains(where: { $0 is SystemLibraryTarget }) {
                 if product.type != .library(.automatic) || targets.count != 1 {
-                    diagnostics.emit(
+                    self.diagnostics.emit(
                         .systemPackageProductValidation(product: product.name),
-                        location: diagnosticLocation()
+                        location: self.diagnosticLocation()
                     )
                     continue
                 }
@@ -1151,7 +1127,7 @@ public final class PackageBuilder {
             case .library, .test:
                 break
             case .executable:
-                guard validateExecutableProduct(product, with: targets) else {
+                guard self.validateExecutableProduct(product, with: targets) else {
                     continue
                 }
             }
@@ -1159,13 +1135,52 @@ public final class PackageBuilder {
             append(Product(name: product.name, type: product.type, targets: targets))
         }
 
+        // Add implicit executables - for root packages only.
+
+        if self.manifest.packageKind == .root {
+            // Compute the list of targets which are being used in an
+            // executable product so we don't create implicit executables
+            // for them.
+            let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
+                switch product.type {
+                case .library, .test:
+                    return []
+                case .executable:
+                    return product.targets
+                }
+            })
+
+            let productMap = products.reduce(into: [String: Product]()) { partial, iterator in
+                partial[iterator.key] = iterator.item
+            }
+
+            for target in targets where target.type == .executable {
+                if explicitProductsTargets.contains(target.name) {
+                    // If there is already an executable target with this name, skip generating a product for it
+                    continue
+                } else if let product = productMap[target.name] {
+                    // If there is already a product with this name skip generating a product for it,
+                    // but warn if that product is not executable
+                    if product.type != .executable {
+                        self.diagnostics.emit(.warning("The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists."))
+                    }
+                    continue
+                } else {
+                    // Generate an implicit product for the executable target
+                    let product = Product(name: target.name, type: .executable, targets: [target])
+                    append(product)
+                }
+            }
+        }
+
         // Create a special REPL product that contains all the library targets.
-        if createREPLProduct {
-            let libraryTargets = targets.filter({ $0.type == .library })
+
+        if self.createREPLProduct {
+            let libraryTargets = targets.filter{ $0.type == .library }
             if libraryTargets.isEmpty {
-                diagnostics.emit(
+                self.diagnostics.emit(
                     .noLibraryTargetsForREPL,
-                    location: diagnosticLocation()
+                    location: self.diagnosticLocation()
                 )
             } else {
                 let replProduct = Product(
@@ -1177,7 +1192,7 @@ public final class PackageBuilder {
             }
         }
 
-        return products.map({ $0.item })
+        return products.map{ $0.item }
     }
 
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {

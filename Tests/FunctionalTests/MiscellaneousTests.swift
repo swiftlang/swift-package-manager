@@ -536,4 +536,16 @@ class MiscellaneousTestCase: XCTestCase {
             }
         }
     }
+
+    func testExecutableTargetMismatch() {
+        fixture(name: "Miscellaneous/TargetMismatch") { path in
+            do {
+                let output = try executeSwiftBuild(path)
+                XCTAssertMatch(output.stdout, .contains("Compiling Sample main.swift"))
+                XCTAssertMatch(output.stderr, .contains("The target named 'Sample' was identified as an executable target but a non-executable product with this name already exists."))
+            } catch {
+                XCTFail("\(error)")
+            }
+        }
+    }
 }
