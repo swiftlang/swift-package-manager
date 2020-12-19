@@ -391,7 +391,7 @@ public func xcodeProject(
         case .test:
             productType = .unitTest
         case .systemModule, .binary:
-            fatalError()
+            throw InternalError("\(target.type) not supported")
         }
 
         // Warn if the target name is invalid.

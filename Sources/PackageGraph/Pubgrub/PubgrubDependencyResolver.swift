@@ -572,7 +572,7 @@ public struct PubgrubDependencyResolver {
             }
 
             guard let _mostRecentSatisfier = mostRecentSatisfier else {
-                fatalError()
+                throw InternalError("mostRecentSatisfier not set")
             }
 
             if previousSatisfierLevel < _mostRecentSatisfier.decisionLevel || _mostRecentSatisfier.cause == nil {

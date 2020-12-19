@@ -305,7 +305,9 @@ extension BuildSubset {
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
-            return product.getLLBuildTargetName(config: config)
+            return diagnostics.wrap {
+                try product.getLLBuildTargetName(config: config)
+            }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 diagnostics.emit(error: "no target named '\(targetName)'")
