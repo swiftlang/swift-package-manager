@@ -1099,7 +1099,7 @@ public final class PackageBuilder {
             })
         }
 
-        // First add explicit product first
+        // First add explicit products.
 
         let filteredProducts: [ProductDescription]
         switch productFilter {
@@ -1159,14 +1159,14 @@ public final class PackageBuilder {
                     // If there is already an executable target with this name, skip generating a product for it
                     continue
                 } else if let product = productMap[target.name] {
-                    // If there is already a product with this name skip generating a product for it.
-                    // But warn if that product is not executable
+                    // If there is already a product with this name skip generating a product for it,
+                    // but warn if that product is not executable
                     if product.type != .executable {
                         self.diagnostics.emit(.warning("The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists."))
                     }
                     continue
                 } else {
-                    // generating an implicit product for the executable target
+                    // Generate an implicit product for the executable target
                     let product = Product(name: target.name, type: .executable, targets: [target])
                     append(product)
                 }
