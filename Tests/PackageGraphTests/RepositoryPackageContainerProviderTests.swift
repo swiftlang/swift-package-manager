@@ -616,14 +616,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
 
             let packageReference = PackageReference(identity: PackageIdentity(path: packageDirectory), path: packageDirectory.pathString)
-            let container = try tsc_await { completion in
-                containerProvider.getContainer(
-                    for: packageReference,
-                    skipUpdate: false,
-                    on: .global(),
-                    completion: completion
-                )
-            }
+            let container = try containerProvider.getContainer(for: packageReference, skipUpdate: false)
 
             let forNothing = try container.getDependencies(at: version, productFilter: .specific([]))
             let forProduct = try container.getDependencies(at: version, productFilter: .specific(["Product"]))

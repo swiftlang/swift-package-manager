@@ -60,7 +60,7 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
         }
     }
 
-    public func mapValues<T>(_ transform: (Value) throws -> T) rethrows -> [Key : T] {
+    public func mapValues<T>(_ transform: (Value) throws -> T) rethrows -> [Key: T] {
         try self.lock.withLock {
             try self.underlying.mapValues(transform)
         }
@@ -117,8 +117,15 @@ public enum Concurrency {
 }
 
 // FIXME: mark as deprecated once async/await is available
-//@available(*, deprecated, message: "replace with async/await when available")
+// @available(*, deprecated, message: "replace with async/await when available")
 @inlinable
 public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -> Void) -> Void) throws -> T {
     return try tsc_await(body)
+}
+
+// FIXME: mark as deprecated once async/await is available
+// @available(*, deprecated, message: "replace with async/await when available")
+@inlinable
+public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
+    return tsc_await(body)
 }

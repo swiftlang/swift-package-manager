@@ -107,7 +107,7 @@ public struct HTTPClient: HTTPClientProtocol {
                 if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
                     self.diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
                     // TODO: dedicated retry queue?
-                    return DispatchQueue.global().asyncAfter(deadline: .now() + retryDelay) {
+                    return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
                         self._execute(request: request, requestNumber: requestNumber + 1, callback: callback)
                     }
                 }
@@ -239,8 +239,7 @@ public struct HTTPClientRequest {
                 url: URL,
                 headers: HTTPClientHeaders = .init(),
                 body: Data? = nil,
-                options: Options = .init())
-    {
+                options: Options = .init()) {
         self.method = method
         self.url = url
         self.headers = headers
@@ -286,8 +285,7 @@ public struct HTTPClientResponse {
     public init(statusCode: Int,
                 statusText: String? = nil,
                 headers: HTTPClientHeaders = .init(),
-                body: Data? = nil)
-    {
+                body: Data? = nil) {
         self.statusCode = statusCode
         self.statusText = statusText
         self.headers = headers

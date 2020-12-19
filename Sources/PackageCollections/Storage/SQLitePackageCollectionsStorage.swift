@@ -189,19 +189,17 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 // decoding is a performance bottleneck (10+s for 1000 collections)
                 // workaround is to decode in parallel if list is large enough to justify it
+                let sync = DispatchGroup()
                 var collections: [Model.Collection]
-                if blobs.count < 50 {
+                if blobs.count < Self.batchSize {
                     collections = blobs.compactMap { data -> Model.Collection? in
                         try? self.decoder.decode(Model.Collection.self, from: data)
                     }
                 } else {
                     let lock = Lock()
-                    let sync = DispatchGroup()
                     collections = [Model.Collection]()
                     blobs.forEach { data in
-                        sync.enter()
-                        self.queue.async {
-                            defer { sync.leave() }
+                        self.queue.async(group: sync) {
                             if let collection = try? self.decoder.decode(Model.Collection.self, from: data) {
                                 lock.withLock {
                                     collections.append(collection)
@@ -209,14 +207,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
                     }
-                    sync.wait()
                 }
 
-                if collections.count != blobs.count {
-                    self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
+                sync.notify(queue: self.queue) {
+                    if collections.count != blobs.count {
+                        self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
+                    }
+                    callback(.success(collections))
                 }
 
-                callback(.success(collections))
             } catch {
                 callback(.failure(error))
             }

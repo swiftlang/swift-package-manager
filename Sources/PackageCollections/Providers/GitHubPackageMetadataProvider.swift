@@ -110,38 +110,38 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 }
             }
         }
-        sync.wait()
 
         // process results
+        sync.notify(queue: self.httpClient.configuration.callbackQueue) {
+            do {
+                // check for main request error state
+                switch results[metadataURL] {
+                case .none:
+                    throw Errors.invalidResponse(metadataURL, "Response missing")
+                case .some(.failure(let error)):
+                    throw error
+                case .some(.success(let metadataResponse)):
+                    guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
+                        throw Errors.invalidResponse(metadataURL, "Empty body")
+                    }
+                    let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
+                    let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
+                    let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
 
-        do {
-            // check for main request error state
-            switch results[metadataURL] {
-            case .none:
-                throw Errors.invalidResponse(metadataURL, "Response missing")
-            case .some(.failure(let error)):
-                throw error
-            case .some(.success(let metadataResponse)):
-                guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
-                    throw Errors.invalidResponse(metadataURL, "Empty body")
+                    callback(.success(.init(
+                        summary: metadata.description,
+                        keywords: metadata.topics,
+                        // filters out non-semantic versioned tags
+                        versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
+                        watchersCount: metadata.watchersCount,
+                        readmeURL: readme?.downloadURL,
+                        authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
+                        processedAt: Date()
+                    )))
                 }
-                let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
-                let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
-                let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
-
-                callback(.success(.init(
-                    summary: metadata.description,
-                    keywords: metadata.topics,
-                    // filters out non-semantic versioned tags
-                    versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
-                    watchersCount: metadata.watchersCount,
-                    readmeURL: readme?.downloadURL,
-                    authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
-                    processedAt: Date()
-                )))
+            } catch {
+                return callback(.failure(error))
             }
-        } catch {
-            return callback(.failure(error))
         }
     }
 

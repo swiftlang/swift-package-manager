@@ -9,8 +9,9 @@
 */
 
 import Basics
-import TSCBasic
+import Dispatch
 import PackageModel
+import TSCBasic
 import TSCUtility
 
 /// An error in the structure or layout of a package.
@@ -272,6 +273,28 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
 
+    // FIXME: deprecated 12/2020, remove once clients migrate
+    @available(*, deprecated, message: "use non-blocking version instead")
+    public static func loadPackage(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+        diagnostics: DiagnosticsEngine,
+        kind: PackageReference.Kind = .root
+    ) throws -> Package {
+        return try temp_await {
+            Self.loadPackage(packagePath: packagePath,
+                             swiftCompiler: swiftCompiler,
+                             swiftCompilerFlags: swiftCompilerFlags,
+                             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                             diagnostics: diagnostics,
+                             kind: kind,
+                             on: .global(),
+                             completion: $0)
+        }
+    }
     /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
@@ -286,20 +309,26 @@ public final class PackageBuilder {
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
             = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         diagnostics: DiagnosticsEngine,
-        kind: PackageReference.Kind = .root
-    ) throws -> Package {
-        let manifest = try ManifestLoader.loadManifest(
-            packagePath: packagePath,
-            swiftCompiler: swiftCompiler,
-            swiftCompilerFlags: swiftCompilerFlags,
-            packageKind: kind)
-        let builder = PackageBuilder(
-            manifest: manifest,
-            productFilter: .everything,
-            path: packagePath,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-            diagnostics: diagnostics)
-        return try builder.construct()
+        kind: PackageReference.Kind = .root,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Package, Error>) -> Void
+    ) {
+        ManifestLoader.loadManifest(packagePath: packagePath,
+                                    swiftCompiler: swiftCompiler,
+                                    swiftCompilerFlags: swiftCompilerFlags,
+                                    packageKind: kind,
+                                    on: queue) { result in
+            let result = result.tryMap { manifest -> Package in
+                let builder = PackageBuilder(
+                    manifest: manifest,
+                    productFilter: .everything,
+                    path: packagePath,
+                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    diagnostics: diagnostics)
+                return try builder.construct()
+            }
+            completion(result)
+        }
     }
 
     /// Build a new package following the conventions.

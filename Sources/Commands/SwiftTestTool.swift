@@ -224,7 +224,9 @@ public struct SwiftTestTool: SwiftCommand {
         case .codeCovPath:
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            let rootManifest = workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics)[0]
+            let rootManifest = try temp_await {
+                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)                
+            }[0]
             let buildParameters = try swiftTool.buildParametersForTest()
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
 
