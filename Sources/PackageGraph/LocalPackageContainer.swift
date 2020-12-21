@@ -10,6 +10,7 @@
 
 import Dispatch
 
+import Basics
 import TSCBasic
 import PackageLoading
 import PackageModel
@@ -22,36 +23,40 @@ import TSCUtility
 /// There is no need to perform any git operations on such packages and they
 /// should be used as-is. Infact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-public class LocalPackageContainer: PackageContainer {
+public final class LocalPackageContainer: PackageContainer {
     public let identifier: PackageReference
     private let mirrors: DependencyMirrors
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
+
     /// The file system that shoud be used to load this package.
-    let fs: FileSystem
+    private let fs: FileSystem
 
-    private var _manifest: Manifest? = nil
+    /// cached version of the manifest
+    private let manifest = ThreadSafeBox<Manifest>()
+
     private func loadManifest() throws -> Manifest {
-        if let manifest = _manifest {
-            return manifest
+        try manifest.memoize() {
+            // Load the tools version.
+            let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
+
+            // Validate the tools version.
+            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: identifier.path)
+
+            // Load the manifest.
+            // FIXME: this should not block
+            return try temp_await {
+                manifestLoader.load(package: AbsolutePath(identifier.path),
+                                    baseURL: identifier.path,
+                                    version: nil,
+                                    toolsVersion: toolsVersion,
+                                    packageKind: identifier.kind,
+                                    fileSystem: fs,
+                                    on: .global(),
+                                    completion: $0)
+            }
         }
-
-        // Load the tools version.
-        let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
-
-        // Validate the tools version.
-        try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: identifier.path)
-
-        // Load the manifest.
-        _manifest = try manifestLoader.load(
-            package: AbsolutePath(identifier.path),
-            baseURL: identifier.path,
-            version: nil,
-            toolsVersion: toolsVersion,
-            packageKind: identifier.kind,
-            fileSystem: fs)
-        return _manifest!
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {

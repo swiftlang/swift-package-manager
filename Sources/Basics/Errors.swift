@@ -12,6 +12,6 @@ public struct InternalError: Error {
     private let description: String
     public init(_ description: String) {
         assertionFailure(description)
-        self.description = "Internal error. Please file a bug at https://bugs.swift.org with this info. \(description)" 
+        self.description = "Internal error. Please file a bug at https://bugs.swift.org with this info. \(description)"
     }
 }

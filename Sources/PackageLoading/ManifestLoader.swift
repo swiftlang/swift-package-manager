@@ -90,8 +90,10 @@ public protocol ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,
-        diagnostics: DiagnosticsEngine?
-    ) throws -> Manifest
+        diagnostics: DiagnosticsEngine?,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    )
 
     /// Reset any internal cache held by the manifest loader.
     func resetCache() throws
@@ -117,9 +119,11 @@ extension ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
-        diagnostics: DiagnosticsEngine? = nil
-    ) throws -> Manifest {
-        return try load(
+        diagnostics: DiagnosticsEngine? = nil,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        self.load(
             packagePath: path,
             baseURL: baseURL,
             version: version,
@@ -127,7 +131,9 @@ extension ManifestLoaderProtocol {
             toolsVersion: toolsVersion,
             packageKind: packageKind,
             fileSystem: fileSystem,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            on: queue,
+            completion: completion
         )
     }
 
@@ -170,6 +176,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
 
+    private let operationQueue: OperationQueue
+
     public init(
         manifestResources: ManifestResourceProvider,
         serializedDiagnostics: Bool = false,
@@ -190,11 +198,34 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         self.useInMemoryCache = useInMemoryCache
         self.databaseCacheDir = cacheDir.map(resolveSymlinks)
+
+        self.operationQueue = OperationQueue()
+        self.operationQueue.name = "org.swift.swiftpm.manifest-loader"
+        self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
+    // FIXME: deprecated before 12/2020, remove once clients migrate
     @available(*, deprecated)
     public convenience init(resources: ManifestResourceProvider, isManifestSandboxEnabled: Bool = true) {
         self.init(manifestResources: resources, isManifestSandboxEnabled: isManifestSandboxEnabled)
+    }
+
+    // FIXME: deprecated 12/2020, remove once clients migrate
+    @available(*, deprecated, message: "use non-blocking version instead")
+    public static func loadManifest(
+        packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        packageKind: PackageReference.Kind
+    ) throws -> Manifest {
+        try temp_await{
+            Self.loadManifest(packagePath: packagePath,
+                              swiftCompiler: swiftCompiler,
+                              swiftCompilerFlags: swiftCompilerFlags,
+                              packageKind: packageKind,
+                              on: .global(),
+                              completion: $0)
+        }
     }
 
     /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
@@ -208,21 +239,31 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
-        packageKind: PackageReference.Kind
-    ) throws -> Manifest {
-        let fileSystem = localFileSystem
-        let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = ManifestLoader(manifestResources: resources)
-        let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: fileSystem)
-        return try loader.load(
-            package: packagePath,
-            baseURL: packagePath.pathString,
-            toolsVersion: toolsVersion,
-            packageKind: packageKind,
-            fileSystem: fileSystem
-        )
+        packageKind: PackageReference.Kind,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        do {
+            let fileSystem = localFileSystem
+            let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+            let loader = ManifestLoader(manifestResources: resources)
+            let toolsVersion = try ToolsVersionLoader().load(at: packagePath, fileSystem: fileSystem)
+            loader.load(
+                package: packagePath,
+                baseURL: packagePath.pathString,
+                toolsVersion: toolsVersion,
+                packageKind: packageKind,
+                fileSystem: fileSystem,
+                on: queue,
+                completion: completion
+            )
+        } catch {
+            return completion(.failure(error))
+        }
     }
 
+    // FIXME: deprecated 12/2020, remove once clients migrate
+    @available(*, deprecated, message: "use non-blocking version instead")
     public func load(
         packagePath path: AbsolutePath,
         baseURL: String,
@@ -233,39 +274,70 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
-        let fileSystem = fileSystem ?? localFileSystem
-        let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
-        let packageIdentity = PackageIdentity(url: baseURL)
-        let cacheKey = try ManifestCacheKey(packageIdentity: packageIdentity,
-                                            manifestPath: manifestPath,
-                                            toolsVersion: toolsVersion,
-                                            env: ProcessEnv.vars,
-                                            swiftpmVersion: Versioning.currentVersion.displayString,
-                                            fileSystem: fileSystem)
-
-        if self.useInMemoryCache, let manifest = self.memoryCache[cacheKey] {
-            // Inform the delegate (backwards compatibility)
-            self.delegate?.willLoad(manifest: manifestPath)
-            return manifest
+        try temp_await{
+            self.load(packagePath: path,
+                      baseURL: baseURL,
+                      version: version,
+                      revision: revision,
+                      toolsVersion: toolsVersion,
+                      packageKind: packageKind,
+                      fileSystem: fileSystem,
+                      diagnostics: diagnostics,
+                      on: .global(),
+                      completion: $0)
         }
+    }
 
-        let manifest = try self.loadFile(
-            manifestPath: manifestPath,
-            baseURL: baseURL,
-            version: version,
-            revision: revision,
-            toolsVersion: toolsVersion,
-            packageIdentity: packageIdentity,
-            packageKind: packageKind,
-            fileSystem: fileSystem,
-            diagnostics: diagnostics
-        )
+    public func load(
+        packagePath path: AbsolutePath,
+        baseURL: String,
+        version: Version?,
+        revision: String?,
+        toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
+        fileSystem: FileSystem? = nil,
+        diagnostics: DiagnosticsEngine? = nil,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        do {
+            let fileSystem = fileSystem ?? localFileSystem
+            let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
+            let packageIdentity = PackageIdentity(url: baseURL)
+            let cacheKey = try ManifestCacheKey(packageIdentity: packageIdentity,
+                                                manifestPath: manifestPath,
+                                                toolsVersion: toolsVersion,
+                                                env: ProcessEnv.vars,
+                                                swiftpmVersion: Versioning.currentVersion.displayString,
+                                                fileSystem: fileSystem)
 
-        if self.useInMemoryCache {
-            self.memoryCache[cacheKey] = manifest
+            if self.useInMemoryCache, let manifest = self.memoryCache[cacheKey] {
+                // Inform the delegate (backwards compatibility)
+                self.delegate?.willLoad(manifest: manifestPath)
+                return completion(.success(manifest))
+            }
+
+            self.loadFile(manifestPath: manifestPath,
+                          baseURL: baseURL,
+                          version: version,
+                          revision: revision,
+                          toolsVersion: toolsVersion,
+                          packageIdentity: packageIdentity,
+                          packageKind: packageKind,
+                          fileSystem: fileSystem,
+                          diagnostics: diagnostics,
+                          on: queue) { result in
+
+                // cache positive results
+                if self.useInMemoryCache, case .success(let manifest) = result {
+                    self.memoryCache[cacheKey] = manifest
+                }
+
+                completion(result)
+            }
+        } catch {
+            return completion(.failure(error))
         }
-
-        return manifest
     }
 
     /// Create a manifest by loading a specific manifest file from the given `path`.
@@ -286,87 +358,101 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine? = nil
-    ) throws -> Manifest {
-        // Inform the delegate.
-        self.delegate?.willLoad(manifest: manifestPath)
+        diagnostics: DiagnosticsEngine? = nil,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        self.operationQueue.addOperation {
+            do {
+                // Inform the delegate.
+                queue.async {
+                    self.delegate?.willLoad(manifest: manifestPath)
+                }
 
-        // Validate that the file exists.
-        guard fileSystem.isFile(manifestPath) else {
-            throw PackageModel.Package.Error.noManifest(
-                baseURL: baseURL, version: version?.description)
+                // Validate that the file exists.
+                guard fileSystem.isFile(manifestPath) else {
+                    throw PackageModel.Package.Error.noManifest(
+                        baseURL: baseURL, version: version?.description)
+                }
+
+                // Get the JSON string for the manifest.
+
+                let jsonString = try self.loadJSONString(
+                    path: manifestPath,
+                    toolsVersion: toolsVersion,
+                    packageIdentity: packageIdentity,
+                    fileSystem: fileSystem,
+                    diagnostics: diagnostics
+                )
+
+                // Load the manifest from JSON.
+                let json = try JSON(string: jsonString)
+                var manifestBuilder = ManifestBuilder(
+                    toolsVersion: toolsVersion,
+                    baseURL: baseURL,
+                    fileSystem: fileSystem
+                )
+                try manifestBuilder.build(v4: json, toolsVersion: toolsVersion)
+
+                // Throw if we encountered any runtime errors.
+                guard manifestBuilder.errors.isEmpty else {
+                    throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
+                }
+
+                // Convert legacy system packages to the current target‐based model.
+                var products =  manifestBuilder.products
+                var targets = manifestBuilder.targets
+                if products.isEmpty, targets.isEmpty,
+                    fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
+                        products.append(ProductDescription(
+                        name: manifestBuilder.name,
+                        type: .library(.automatic),
+                        targets: [manifestBuilder.name])
+                    )
+                    targets.append(TargetDescription(
+                        name: manifestBuilder.name,
+                        path: "",
+                        type: .system,
+                        pkgConfig: manifestBuilder.pkgConfig,
+                        providers: manifestBuilder.providers
+                    ))
+                }
+
+                let manifest = Manifest(
+                    name: manifestBuilder.name,
+                    defaultLocalization: manifestBuilder.defaultLocalization,
+                    platforms: manifestBuilder.platforms,
+                    path: manifestPath,
+                    url: baseURL,
+                    version: version,
+                    revision: revision,
+                    toolsVersion: toolsVersion,
+                    packageKind: packageKind,
+                    pkgConfig: manifestBuilder.pkgConfig,
+                    providers: manifestBuilder.providers,
+                    cLanguageStandard: manifestBuilder.cLanguageStandard,
+                    cxxLanguageStandard: manifestBuilder.cxxLanguageStandard,
+                    swiftLanguageVersions: manifestBuilder.swiftLanguageVersions,
+                    dependencies: manifestBuilder.dependencies,
+                    products: products,
+                    targets: targets
+                )
+
+                try self.validate(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)
+
+                if let diagnostics = diagnostics, diagnostics.hasErrors {
+                    throw Diagnostics.fatalError
+                }
+
+                queue.async {
+                    completion(.success(manifest))
+                }
+            } catch {
+                queue.async {
+                    completion(.failure(error))
+                }
+            }
         }
-
-        // Get the JSON string for the manifest.
-
-        let jsonString = try self.loadJSONString(
-            path: manifestPath,
-            toolsVersion: toolsVersion,
-            packageIdentity: packageIdentity,
-            fileSystem: fileSystem,
-            diagnostics: diagnostics
-        )
-
-        // Load the manifest from JSON.
-        let json = try JSON(string: jsonString)
-        var manifestBuilder = ManifestBuilder(
-            toolsVersion: toolsVersion,
-            baseURL: baseURL,
-            fileSystem: fileSystem
-        )
-        try manifestBuilder.build(v4: json, toolsVersion: toolsVersion)
-
-        // Throw if we encountered any runtime errors.
-        guard manifestBuilder.errors.isEmpty else {
-            throw ManifestParseError.runtimeManifestErrors(manifestBuilder.errors)
-        }
-
-        // Convert legacy system packages to the current target‐based model.
-        var products =  manifestBuilder.products
-        var targets = manifestBuilder.targets
-        if products.isEmpty, targets.isEmpty,
-            fileSystem.isFile(manifestPath.parentDirectory.appending(component: moduleMapFilename)) {
-                products.append(ProductDescription(
-                name: manifestBuilder.name,
-                type: .library(.automatic),
-                targets: [manifestBuilder.name])
-            )
-            targets.append(TargetDescription(
-                name: manifestBuilder.name,
-                path: "",
-                type: .system,
-                pkgConfig: manifestBuilder.pkgConfig,
-                providers: manifestBuilder.providers
-            ))
-        }
-
-        let manifest = Manifest(
-            name: manifestBuilder.name,
-            defaultLocalization: manifestBuilder.defaultLocalization,
-            platforms: manifestBuilder.platforms,
-            path: manifestPath,
-            url: baseURL,
-            version: version,
-            revision: revision,
-            toolsVersion: toolsVersion,
-            packageKind: packageKind,
-            pkgConfig: manifestBuilder.pkgConfig,
-            providers: manifestBuilder.providers,
-            cLanguageStandard: manifestBuilder.cLanguageStandard,
-            cxxLanguageStandard: manifestBuilder.cxxLanguageStandard,
-            swiftLanguageVersions: manifestBuilder.swiftLanguageVersions,
-            dependencies: manifestBuilder.dependencies,
-            products: products,
-            targets: targets
-        )
-
-        try self.validate(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)
-
-        if let diagnostics = diagnostics, diagnostics.hasErrors {
-            throw Diagnostics.fatalError
-        }
-
-        return manifest
     }
 
     /// Validate the provided manifest.

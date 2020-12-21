@@ -702,21 +702,21 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let sync = DispatchGroup()
             for _ in 0 ..< 1000 {
-                DispatchQueue.global().async(group: sync) {
-                    let manifest = try? manifestLoader.load(
-                        package: manifestPath.parentDirectory,
-                        baseURL: manifestPath.pathString,
-                        toolsVersion: .v4_2,
-                        packageKind: .local
-                    )
+                sync.enter()
+                manifestLoader.load(package: manifestPath.parentDirectory,
+                                    baseURL: manifestPath.pathString,
+                                    toolsVersion: .v4_2,
+                                    packageKind: .local,
+                                    on: .global()) { result in
+                    defer { sync.leave() }
 
-                    guard manifest != nil else {
-                        XCTFail("manifest loading failed")
-                        return
+                    switch result {
+                    case .failure(let error):
+                        XCTFail("\(error)")
+                    case .success(let manifest):
+                        XCTAssertEqual(manifest.name, "Trivial")
+                        XCTAssertEqual(manifest.targets[0].name, "foo")
                     }
-
-                    XCTAssertEqual(manifest?.name, "Trivial")
-                    XCTAssertEqual(manifest?.targets[0].name, "foo")
                 }
             }
 
