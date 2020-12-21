@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import PackageModel
 import TSCBasic
 
@@ -100,12 +101,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if sources.isEmpty {
                     return callback(.success([]))
                 }
-                let lock = Lock()
-                var refreshResults = [Result<Model.Collection, Error>]()
+                let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
                 sources.forEach { source in
                     self.refreshCollectionFromSource(source: source) { refreshResult in
-                        lock.withLock { refreshResults.append(refreshResult) }
-                        if refreshResults.count == (lock.withLock { sources.count }) {
+                        refreshResults.append(refreshResult)
+                        if refreshResults.count == sources.count {
                             let errors = refreshResults.compactMap { $0.failure }
                             callback(errors.isEmpty ? .success(sources) : .failure(MultipleErrors(errors)))
                         }
