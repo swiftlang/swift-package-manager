@@ -942,4 +942,27 @@ final class PackageToolTests: XCTestCase {
         }
       #endif
     }
+
+    func testInterpreterSupport() throws {
+        fixture(name: "DependencyResolution/External/Complex") { path in
+            try testWithTemporaryDirectory { tmpdir in
+                do {
+                    let outputPath = tmpdir.appending(component: "args.resp")
+                    try execute(["build-interpreter-product",
+                                 "--response-file-path", outputPath.pathString],
+                                packagePath: path.appending(component: "deck-of-playing-cards"))
+                    let args = try localFileSystem.readFileContents(outputPath)
+                        .validDescription?
+                        .split(separator: "\n")
+                    XCTAssertEqual(args?.count, 3)
+                    XCTAssertTrue(args![0].hasPrefix("-I"))
+                    XCTAssertTrue(args![1].hasPrefix("-L"))
+                    XCTAssertTrue(args![2].hasPrefix("-l"))
+                    XCTAssertTrue(args![2].hasSuffix("__REPL"))
+                } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
+                    XCTFail(stdout + "\n" + stderr)
+                }
+            }
+        }
+    }
 }

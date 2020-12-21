@@ -57,6 +57,7 @@ public struct SwiftPackageTool: ParsableCommand {
             GenerateXcodeProject.self,
             ComputeChecksum.self,
             CompletionTool.self,
+            BuildInterpreterProduct.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
@@ -884,6 +885,53 @@ extension SwiftPackageTool {
         }
     }
 }
+
+extension SwiftPackageTool {
+    struct BuildInterpreterProduct: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Build interpreter product"
+        )
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Option
+        var responseFilePath: AbsolutePath
+
+        func run(_ swiftTool: SwiftTool) throws {
+            // Load a custom package graph which has a special product for REPL.
+            let graphLoader = {
+                try swiftTool.loadPackageGraph(createREPLProduct: true)
+            }
+            let buildParameters = try swiftTool.buildParameters()
+
+            // Construct the build operation.
+            let buildOp = BuildOperation(
+                buildParameters: buildParameters,
+                useBuildManifestCaching: false,
+                packageGraphLoader: graphLoader,
+                diagnostics: swiftTool.diagnostics,
+                stdoutStream: swiftTool.stdoutStream
+            )
+
+            // Save the instance so it can be cancelled from the int handler.
+            swiftTool.buildSystemRef.buildSystem = buildOp
+
+            // Perform build.
+            try buildOp.build()
+
+            // Collect the arguments needed to link the special product and write
+            // them to the specified path so the driver can use them as a response file.
+            let arguments = buildOp.buildPlan!.createREPLArguments()
+            try localFileSystem.writeFileContents(responseFilePath) {
+                for arg in arguments {
+                    $0 <<< arg <<< "\n"
+                }
+            }
+        }
+    }
+}
+
 
 private extension Diagnostic.Message {
     static var missingRequiredSubcommand: Diagnostic.Message {
