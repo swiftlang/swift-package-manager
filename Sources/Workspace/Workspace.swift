@@ -37,7 +37,7 @@ public enum WorkspaceResolveReason: Equatable {
 }
 
 /// The delegate interface used by the workspace to report status information.
-public protocol WorkspaceDelegate: class {
+public protocol WorkspaceDelegate: AnyObject {
 
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
