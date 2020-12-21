@@ -163,14 +163,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let extraManifestFlags: [String]
 
     private let databaseCacheDir: AbsolutePath?
-    //private var databaseCache: SQLiteBackedPersistentCache?
-    //private let databaseCacheLock = Lock()
 
     private let useInMemoryCache: Bool
     private let memoryCache = ThreadSafeKeyValueStore<ManifestCacheKey, Manifest>()
 
-    // Cache storage for computed sdk path.
-    private var sdkRootCache = ThreadSafeBox<AbsolutePath>()
+    private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
     private let operationQueue: OperationQueue
 
@@ -1161,9 +1158,9 @@ private final class SQLiteManifestCache: Closable {
 
     private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
         let createDB = { () throws -> SQLite in
-            // FIXME: fix TSC as its mixing milliseconds with seconds
+            // see https://www.sqlite.org/c3ref/busy_timeout.html
             var configuration = SQLite.Configuration()
-            configuration.busyTimeoutSeconds = 1000
+            configuration.busyTimeoutMilliseconds = 5000
             let db = try SQLite(location: self.location, configuration: configuration)
             try self.createSchemaIfNecessary(db: db)
             return db
