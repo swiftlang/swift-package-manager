@@ -22,13 +22,13 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
             let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-            let manifest = try manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root)
+            let manifest = try tsc_await { manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root, on: .global(), completion: $0) }
 
             // Generate source code for the loaded manifest, write it out to replace the manifest file contents, and load it again.
             let newContents = manifest.generatedManifestFileContents
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
             print(newContents)
-            let newManifest = try manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root)
+            let newManifest = try tsc_await { manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root, on: .global(), completion: $0) }
             
             // Check that all the relevant properties survived.
             XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion)

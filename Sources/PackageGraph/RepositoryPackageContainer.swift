@@ -279,13 +279,17 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                 self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
 
             // Load the manifest.
-            return try manifestLoader.load(
-                package: AbsolutePath.root,
-                baseURL: packageURL,
-                version: version,
-                toolsVersion: toolsVersion,
-                packageKind: identifier.kind,
-                fileSystem: fs)
+            // FIXME: this should not block
+            return try temp_await {
+                manifestLoader.load(package: AbsolutePath.root,
+                                    baseURL: packageURL,
+                                    version: version,
+                                    toolsVersion: toolsVersion,
+                                    packageKind: identifier.kind,
+                                    fileSystem: fs,
+                                    on: .global(),
+                                    completion: $0)
+            }
         }
     }
 

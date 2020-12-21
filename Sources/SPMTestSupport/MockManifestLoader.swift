@@ -9,7 +9,9 @@
 */
 
 import func XCTest.XCTFail
+import Dispatch
 
+import Basics
 import TSCBasic
 import PackageModel
 import PackageLoading
@@ -40,10 +42,10 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    public var manifests: [Key: Manifest]
+    public let manifests: ThreadSafeKeyValueStore<Key, Manifest>
 
     public init(manifests: [Key: Manifest]) {
-        self.manifests = manifests
+        self.manifests = ThreadSafeKeyValueStore<Key, Manifest>(manifests)
     }
 
     public func load(
@@ -54,12 +56,29 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,
-        diagnostics: DiagnosticsEngine?
-    ) throws -> PackageModel.Manifest {
-        let key = Key(url: baseURL, version: version)
-        if let result = manifests[key] {
-            return result
+        diagnostics: DiagnosticsEngine?,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        queue.async {
+            let key = Key(url: baseURL, version: version)
+            if let result = self.manifests[key] {
+                return completion(.success(result))
+            } else {
+                return completion(.failure(MockManifestLoaderError.unknownRequest("\(key)")))
+            }
         }
-        throw MockManifestLoaderError.unknownRequest("\(key)")
+    }
+}
+
+extension ManifestLoader {
+    public func load(package path: TSCBasic.AbsolutePath,
+              baseURL: String,
+              toolsVersion: PackageModel.ToolsVersion,
+              packageKind: PackageModel.PackageReference.Kind,
+              fileSystem: PackageLoading.FileSystem? = nil,
+              diagnostics: TSCBasic.DiagnosticsEngine? = nil
+    ) throws -> Manifest{
+        try tsc_await { self.load(package: path, baseURL: baseURL, toolsVersion: toolsVersion, packageKind: packageKind, fileSystem: fileSystem, diagnostics: diagnostics, on: .global(), completion: $0) }
     }
 }

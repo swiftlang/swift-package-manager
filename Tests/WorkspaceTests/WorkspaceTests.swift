@@ -3784,12 +3784,14 @@ final class WorkspaceTests: XCTestCase {
 
         // From here the API should be simple and straightforward:
         let diagnostics = DiagnosticsEngine()
-        let manifest = try ManifestLoader.loadManifest(
-            packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], packageKind: .local
-        )
-        let loadedPackage = try PackageBuilder.loadPackage(
-            packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], xcTestMinimumDeploymentTargets: [:], diagnostics: diagnostics
-        )
+        let manifest = try tsc_await {
+            ManifestLoader.loadManifest(packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], packageKind: .local, on: .global(), completion: $0)
+        }
+
+        let loadedPackage = try tsc_await {
+            PackageBuilder.loadPackage(packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], xcTestMinimumDeploymentTargets: [:], diagnostics: diagnostics, on: .global(), completion: $0)
+        }
+
         let graph = try Workspace.loadGraph(
             packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], diagnostics: diagnostics
         )
