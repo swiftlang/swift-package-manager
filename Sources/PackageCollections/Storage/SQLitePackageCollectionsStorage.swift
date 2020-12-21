@@ -34,8 +34,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var state = State.idle
     private let stateLock = Lock()
 
-    private var cache = [Model.CollectionIdentifier: Model.Collection]()
-    private let cacheLock = Lock()
+    private let cache = ThreadSafeKeyValueStore<Model.CollectionIdentifier, Model.Collection>()
 
     init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
@@ -86,9 +85,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     try statement.step()
                 }
                 // write to cache
-                self.cacheLock.withLock {
-                    self.cache[collection.identifier] = collection
-                }
+                self.cache[collection.identifier] = collection
                 callback(.success(collection))
             } catch {
                 callback(.failure(error))
@@ -110,9 +107,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     try statement.step()
                 }
                 // write to cache
-                self.cacheLock.withLock {
-                    self.cache[identifier] = nil
-                }
+                self.cache[identifier] = nil
                 callback(.success(()))
             } catch {
                 callback(.failure(error))
@@ -123,7 +118,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func get(identifier: Model.CollectionIdentifier,
              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         // try read to cache
-        if let collection = (self.cacheLock.withLock { self.cache[identifier] }) {
+        if let collection = self.cache[identifier] {
             return callback(.success(collection))
         }
 
@@ -152,11 +147,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func list(identifiers: [Model.CollectionIdentifier]? = nil,
               callback: @escaping (Result<[Model.Collection], Error>) -> Void) {
         // try read to cache
-        let cached = self.cacheLock.withLock {
-            identifiers?.compactMap { identifier in
-                self.cache[identifier]
-            }
-        }
+        let cached = identifiers?.compactMap { self.cache[$0] }
         if let cached = cached, cached.count > 0, cached.count == identifiers?.count {
             return callback(.success(cached))
         }
@@ -190,20 +181,17 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 // decoding is a performance bottleneck (10+s for 1000 collections)
                 // workaround is to decode in parallel if list is large enough to justify it
                 let sync = DispatchGroup()
-                var collections: [Model.Collection]
+                let collections: ThreadSafeArrayStore<Model.Collection>
                 if blobs.count < Self.batchSize {
-                    collections = blobs.compactMap { data -> Model.Collection? in
+                    collections = .init(blobs.compactMap { data -> Model.Collection? in
                         try? self.decoder.decode(Model.Collection.self, from: data)
-                    }
+                    })
                 } else {
-                    let lock = Lock()
-                    collections = [Model.Collection]()
+                    collections = .init()
                     blobs.forEach { data in
                         self.queue.async(group: sync) {
                             if let collection = try? self.decoder.decode(Model.Collection.self, from: data) {
-                                lock.withLock {
-                                    collections.append(collection)
-                                }
+                                collections.append(collection)
                             }
                         }
                     }
@@ -213,7 +201,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     if collections.count != blobs.count {
                         self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                     }
-                    callback(.success(collections))
+                    callback(.success(collections.get()))
                 }
 
             } catch {
@@ -370,9 +358,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // for testing
     internal func resetCache() {
-        self.cacheLock.withLock {
-            self.cache = [:]
-        }
+        self.cache.clear()
     }
 
     // MARK: -  Private

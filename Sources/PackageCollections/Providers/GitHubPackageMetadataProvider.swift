@@ -48,8 +48,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         let readmeURL = baseURL.appendingPathComponent("readme")
 
         let sync = DispatchGroup()
-        var results = [URL: Result<HTTPClientResponse, Error>]()
-        let resultsLock = Lock()
+        let results = ThreadSafeKeyValueStore<URL, Result<HTTPClientResponse, Error>>()
 
         // get the main data
         sync.enter()
@@ -58,34 +57,22 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         let metadataOptions = self.makeRequestOptions(validResponseCodes: [200, 401, 403, 404])
         httpClient.get(metadataURL, headers: metadataHeaders, options: metadataOptions) { result in
             defer { sync.leave() }
-            resultsLock.withLock {
-                results[metadataURL] = result
-            }
+            results[metadataURL] = result
             if case .success(let response) = result {
                 let apiLimit = response.headers.get("X-RateLimit-Limit").first.flatMap(Int.init) ?? -1
                 let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
                 switch (response.statusCode, metadataHeaders.contains("Authorization"), apiRemaining) {
                 case (_, _, 0):
                     self.diagnosticsEngine?.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
-                    }
+                    results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
                 case (401, true, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
-                    }
+                    results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
                 case (401, false, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
-                    }
+                    results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
                 case (403, _, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
-                    }
+                    results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
                 case (404, _, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
-                    }
+                    results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
                 case (200, _, _):
                     if apiRemaining < self.configuration.apiLimitWarningThreshold {
                         self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
@@ -98,15 +85,11 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         let options = self.makeRequestOptions(validResponseCodes: [200])
                         self.httpClient.get(url, headers: headers, options: options) { result in
                             defer { sync.leave() }
-                            resultsLock.withLock {
-                                results[url] = result
-                            }
+                            results[url] = result
                         }
                     }
                 default:
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
-                    }
+                    results[metadataURL] = .failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
                 }
             }
         }

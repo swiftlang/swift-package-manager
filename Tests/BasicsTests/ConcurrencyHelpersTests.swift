@@ -51,6 +51,40 @@ final class ConcurrencyHelpersTest: XCTestCase {
         }
     }
 
+    func testThreadSafeArrayStore() {
+        for _ in 0 ..< 100 {
+            let sync = DispatchGroup()
+
+            var expected = [Int]()
+            let lock = Lock()
+
+            let serial = DispatchQueue(label: "testThreadSafeArrayStore")
+
+            let cache = ThreadSafeArrayStore<Int>()
+            for _ in 0 ..< 1000 {
+                self.queue.async(group: sync) {
+                    usleep(UInt32.random(in: 100 ... 300))
+                    let value = Int.random(in: Int.min ..< Int.max)
+                    serial.async {
+                        lock.withLock {
+                            expected.append(value)
+                        }
+                        cache.append(value)
+                    }
+                }
+            }
+
+            switch sync.wait(timeout: .now() + 1) {
+            case .timedOut:
+                XCTFail("timeout")
+            case .success:
+                expected.enumerated().forEach { index, value in
+                    XCTAssertEqual(cache[index], value)
+                }
+            }
+        }
+    }
+
     func testThreadSafeBox() {
         for _ in 0 ..< 100 {
             let sync = DispatchGroup()
