@@ -1456,6 +1456,57 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
+  
+    func testLibraryTargetWithModuleMap() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Bar/Sources/BarLib/lib.c",
+            "/Bar/Sources/BarLib/module.modulemap"
+        )
+        
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    url: "/Bar",
+                    v: .v4_2,
+                    packageKind: .root,
+                    cLanguageStandard: "c11",
+                    swiftLanguageVersions: [.v4_2],
+                    products: [
+                        .init(name: "BarLib", type: .library(.dynamic), targets: ["BarLib"]),
+                    ],
+                    targets: [
+                        .init(name: "BarLib"),
+                    ]),
+            ]
+        )
+        
+        var pif: PIF.TopLevelObject!
+        try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+            let builder = PIFBuilder(graph: graph, parameters: .mock(shouldCreateDylibForDynamicProducts: true), diagnostics: diagnostics)
+            pif = try builder.construct()
+        }
+        
+        XCTAssertNoDiagnostics(diagnostics)
+        
+        PIFTester(pif) { workspace in
+            workspace.checkProject("PACKAGE:/Bar") { project in
+                project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
+                    XCTAssertEqual(target.name, "BarLib")
+                    
+                    target.checkBuildConfiguration("Debug") { configuration in
+                        configuration.checkBuildSettings { settings in
+                            XCTAssertNil(settings[.MODULEMAP_FILE_CONTENTS])
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     func testSystemLibraryTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
