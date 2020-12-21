@@ -248,14 +248,14 @@ extension JSONPackageCollectionModel.V1 {
 extension JSONPackageCollectionModel.V1 {
     public struct Validator {
         public let configuration: Configuration
-        
+
         public init(configuration: Configuration = .init()) {
             self.configuration = configuration
         }
-        
+
         public func validate(collection: Collection) -> [ValidationMessage]? {
             var messages = [ValidationMessage]()
-            
+
             let packages = collection.packages
             // Stop validating if collection doesn't pass basic checks
             if packages.isEmpty {
@@ -265,24 +265,24 @@ extension JSONPackageCollectionModel.V1 {
             } else {
                 packages.forEach { self.validate(package: $0, messages: &messages) }
             }
-            
+
             guard messages.isEmpty else {
                 return messages
             }
-            
+
             return nil
         }
-        
+
         // TODO: validate package url?
         private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
             let packageID = PackageIdentity(url: package.url.absoluteString).description
-            
+
             // Check for duplicate versions
             let nonUniqueVersions = Dictionary(grouping: package.versions, by: { $0.version }).filter { $1.count > 1 }.keys
             if !nonUniqueVersions.isEmpty {
                 messages.append(.error("Duplicate version(s) found in package \(packageID): \(nonUniqueVersions).", property: "package.versions"))
             }
-            
+
             var nonSemanticVersions = [String]()
             let semanticVersions: [TSCUtility.Version] = package.versions.compactMap {
                 let semver = TSCUtility.Version(string: $0.version)
@@ -291,15 +291,15 @@ extension JSONPackageCollectionModel.V1 {
                 }
                 return semver
             }
-            
+
             guard nonSemanticVersions.isEmpty else {
                 messages.append(.error("Non semantic version(s) found in package \(packageID): \(nonSemanticVersions).", property: "package.versions"))
                 // The next part of validation requires sorting the semvers. Cannot continue if non-semver.
                 return
             }
-            
+
             let sortedVersions = semanticVersions.sorted(by: >)
-            
+
             var currentMajor: Int?
             var majorCount = 0
             var minorCount = 0
@@ -322,7 +322,7 @@ extension JSONPackageCollectionModel.V1 {
 
                 minorCount += 1
             }
-            
+
             package.versions.forEach { version in
                 if version.products.isEmpty {
                     messages.append(.error("Package \(packageID) version \(version.version) does not contain any products.", property: "version.products"))
@@ -332,13 +332,13 @@ extension JSONPackageCollectionModel.V1 {
                         messages.append(.error("Product \(product.name) of package \(packageID) version \(version.version) does not contain any targets.", property: "product.targets"))
                     }
                 }
-                
+
                 if version.targets.isEmpty {
                     messages.append(.error("Package \(packageID) version \(version.version) does not contain any targets.", property: "version.targets"))
                 }
             }
         }
-        
+
         public struct Configuration {
             public var maximumPackageCount: Int
             public var maximumMajorVersionCount: Int
