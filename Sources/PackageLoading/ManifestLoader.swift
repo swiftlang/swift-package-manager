@@ -665,8 +665,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: key.toolsVersion
         )
 
-        try keyHash.withData {
-            try cache.put(key: $0, value: self.jsonEncoder.encode(result))
+        // only cache successfully parsed manifests,
+        // this is important for swift-pm development
+        if !result.hasErrors {
+            try keyHash.withData {
+                try cache.put(key: $0, value: self.jsonEncoder.encode(result))
+            }
         }
 
         return result
