@@ -54,9 +54,9 @@ extension PackageCollectionsModel.TargetListResult {
 
         /// Package name
         public let packageName: String
-        
+
         public static func < (lhs: PackageVersion, rhs: PackageVersion) -> Bool {
-             lhs.version < rhs.version
-         }
+            lhs.version < rhs.version
+        }
     }
 }
