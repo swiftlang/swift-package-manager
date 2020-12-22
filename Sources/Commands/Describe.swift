@@ -62,15 +62,19 @@ fileprivate struct DescribedPackage: Encodable {
         self.dependencies = package.manifest.dependencies.map { DescribedPackageDependency(from: $0) }
         self.defaultLocalization = package.manifest.defaultLocalization
         self.platforms = package.manifest.platforms.map { DescribedPlatformRestriction(from: $0) }
-        self.products = package.products.map {
+        // SwiftPM considers tests to be products, which is not how things are presented in the manifest.
+        let nonTestProducts = package.products.filter{ $0.type != .test }
+        self.products = nonTestProducts.map {
             DescribedProduct(from: $0, in: package)
         }
         // Create a mapping from the targets to the products to which they contribute directly.  This excludes any
         // contributions that occur through `.product()` dependencies, but since those targets are still part of a
         // product of the package, the set of targets that contribute to products still accurately represents the
         // set of targets reachable from external clients.
-        let targetProductPairs = package.products.flatMap{ p in transitiveClosure(p.targets, successors: {
-            $0.dependencies.compactMap{ $0.target } }).map{ t in (t, p) }
+        let targetProductPairs = nonTestProducts.flatMap{ p in
+            transitiveClosure(p.targets, successors: {
+                $0.dependencies.compactMap{ $0.target }
+            }).union(p.targets).map{ t in (t, p) }
         }
         let targetsToProducts = Dictionary(targetProductPairs.map{ ($0.0, [$0.1]) }, uniquingKeysWith: { $0 + $1 })
         self.targets = package.targets.map {

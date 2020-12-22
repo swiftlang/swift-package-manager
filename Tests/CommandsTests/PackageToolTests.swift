@@ -193,6 +193,21 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testDescribe() throws {
+        
+        fixture(name: "Miscellaneous/ExeTest") { prefix in
+            // Generate the JSON description.
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonOutput = try jsonResult.utf8Output()
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+
+            // Check that tests don't appear in the product memberships.
+            XCTAssertEqual(json["name"]?.string, "ExeTest")
+            let jsonTarget0 = try XCTUnwrap(json["targets"]?.array?[0])
+            XCTAssertNil(jsonTarget0["product_memberships"])
+            let jsonTarget1 = try XCTUnwrap(json["targets"]?.array?[1])
+            XCTAssertEqual(jsonTarget1["product_memberships"]?.array?[0].stringValue, "Exe")
+        }
+
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             // Generate the JSON description.
             let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
@@ -214,11 +229,13 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(jsonTarget1["c99name"]?.stringValue, "SeaExec")
             XCTAssertEqual(jsonTarget1["type"]?.stringValue, "executable")
             XCTAssertEqual(jsonTarget1["module_type"]?.stringValue, "SwiftTarget")
+            XCTAssertEqual(jsonTarget1["product_memberships"]?.array?[0].stringValue, "SeaExec")
             let jsonTarget2 = try XCTUnwrap(json["targets"]?.array?[2])
             XCTAssertEqual(jsonTarget2["name"]?.stringValue, "CExec")
             XCTAssertEqual(jsonTarget2["c99name"]?.stringValue, "CExec")
             XCTAssertEqual(jsonTarget2["type"]?.stringValue, "executable")
             XCTAssertEqual(jsonTarget2["module_type"]?.stringValue, "ClangTarget")
+            XCTAssertEqual(jsonTarget2["product_memberships"]?.array?[0].stringValue, "CExec")
 
             // Generate the text description.
             let textResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=text"], packagePath: prefix)
