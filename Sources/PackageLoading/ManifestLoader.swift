@@ -1117,7 +1117,7 @@ private final class SQLiteManifestCache: Closable {
             let keyHash = try key.computeHash()
             let data = try self.jsonEncoder.encode(manifest)
             let bindings: [SQLite.SQLiteValue] = [
-                .string(keyHash.cString),
+                .string(keyHash.hexadecimalRepresentation),
                 .blob(data),
             ]
             try statement.bind(bindings)
@@ -1129,7 +1129,7 @@ private final class SQLiteManifestCache: Closable {
         let query = "SELECT value FROM MANIFEST_CACHE WHERE key == ? LIMIT 1;"
         return try self.executeStatement(query) { statement ->  ManifestLoader.ManifestParseResult? in
             let keyHash = try key.computeHash()
-            try statement.bind([.string(keyHash.cString)])
+            try statement.bind([.string(keyHash.hexadecimalRepresentation)])
             let data = try statement.step()?.blob(at: 0)
             return try data.flatMap {
                 try self.jsonDecoder.decode(ManifestLoader.ManifestParseResult.self, from: $0)

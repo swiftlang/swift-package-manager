@@ -416,6 +416,10 @@ public class SwiftTool {
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
+
+        if options.shouldDisableManifestCaching {
+            diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+        }
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -743,12 +747,23 @@ public class SwiftTool {
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
-            let cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") } ?? self.buildPath
+            let cachePath: AbsolutePath?
+            switch (options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+            case (true, _):
+                // backwards compatibility
+                cachePath = nil
+            case (false, .none):
+                cachePath = nil
+            case (false,.local):
+                cachePath = self.buildPath
+            case (false, .system):
+                cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
+            }
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: self.options.shouldDisableManifestCaching ? nil : cachePath,
+                cacheDir: cachePath,
                 extraManifestFlags: self.options.manifestFlags
             )
         })
