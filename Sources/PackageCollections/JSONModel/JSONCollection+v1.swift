@@ -95,7 +95,7 @@ extension JSONPackageCollectionModel.V1.Collection {
 
         /// The URL of the package's README.
         public let readmeURL: Foundation.URL?
-        
+
         /// The package's current license info
         public let license: JSONPackageCollectionModel.V1.License?
 
@@ -227,12 +227,12 @@ extension JSONPackageCollectionModel.V1 {
             self.name = name
         }
     }
-    
+
     /// Compatible platform and Swift version.
     public struct Compatibility: Equatable, Codable {
         /// The platform (e.g., macOS, Linux, etc.)
         public let platform: Platform
-        
+
         /// The Swift version
         public let swiftVersion: String
     }

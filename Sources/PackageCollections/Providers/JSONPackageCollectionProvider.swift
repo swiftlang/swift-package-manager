@@ -236,7 +236,7 @@ extension PackageModel.Platform {
 extension Model.Compatibility {
     fileprivate init?(from: JSONModel.Compatibility) {
         guard let platform = PackageModel.Platform(from: from.platform),
-              let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion) else {
+            let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion) else {
             return nil
         }
         self.init(platform: platform, swiftVersion: swiftVersion)

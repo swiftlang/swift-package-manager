@@ -101,7 +101,7 @@ extension PackageCollectionsModel {
     }
 }
 
-extension PackageCollectionsModel.LicenseType  {
+extension PackageCollectionsModel.LicenseType {
     public init(string: String?) {
         self = string.map { s in Self.allCases.first { $0.description.lowercased() == s.lowercased() } ?? .other(s) } ?? .other(nil)
     }

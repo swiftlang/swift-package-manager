@@ -269,24 +269,24 @@ extension GitHubPackageMetadataProvider {
             case downloadURL = "download_url"
         }
     }
-    
+
     fileprivate struct License: Codable {
         let url: Foundation.URL
         let htmlURL: Foundation.URL
         let downloadURL: Foundation.URL
         let license: License
-        
+
         private enum CodingKeys: String, CodingKey {
             case url
             case htmlURL = "html_url"
             case downloadURL = "download_url"
             case license
         }
-        
+
         fileprivate struct License: Codable {
             let name: String
             let spdxID: String
-            
+
             private enum CodingKeys: String, CodingKey {
                 case name
                 case spdxID = "spdx_id"
