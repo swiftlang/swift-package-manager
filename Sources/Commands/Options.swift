@@ -175,12 +175,12 @@ public struct SwiftToolOptions: ParsableArguments {
 
     /// Disables manifest caching.
     @Option(name: .customLong("manifest-caching"), help: "Caching of Package.swift manifests")
-    var manifestCachingMode: ManifestCachingMode = .system
+    var manifestCachingMode: ManifestCachingMode = .shared
 
     enum ManifestCachingMode: String, ExpressibleByArgument {
         case none
         case local
-        case system
+        case shared
 
         init?(argument: String) {
             self.init(rawValue: argument)

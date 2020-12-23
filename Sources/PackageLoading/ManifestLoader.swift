@@ -96,6 +96,9 @@ public protocol ManifestLoaderProtocol {
     )
 
     /// Reset any internal cache held by the manifest loader.
+    func resetCache() throws
+
+    /// Reset any internal cache held by the manifest loader and purge any entries in a shared cache
     func purgeCache() throws
 }
 
@@ -136,8 +139,6 @@ extension ManifestLoaderProtocol {
             completion: completion
         )
     }
-
-    public func purgeCache() throws {}
 }
 
 public protocol ManifestLoaderDelegate {
@@ -627,7 +628,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             return SQLiteManifestCache(location: .path(path), diagnosticsEngine: diagnostics)
         }
 
-        // FIXME
+        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         defer { try? cache?.close() }
 
         if let result = try cache?.get(key: key) {
@@ -975,8 +976,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return cacheDir.appending(component: "manifest.db")
     }
 
-    public func purgeCache() throws {
+
+    /// reset internal cache
+    public func resetCache() throws {
         self.memoryCache.clear()
+    }
+
+    /// reset internal state and purge shared cache
+    public func purgeCache() throws {
+        try self.resetCache()
         if let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         }
@@ -1097,8 +1105,12 @@ private final class SQLiteManifestCache: Closable {
     }
 
     deinit {
-        guard case .disconnected = (self.stateLock.withLock { self.state }) else {
-            return assertionFailure("db should be closed")
+        self.stateLock.withLock {
+            if case .connected(let db) = self.state {
+                assertionFailure("db should be closed")
+                // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+                try? db.close()
+            }
         }
     }
 
@@ -1210,6 +1222,5 @@ private final class SQLiteManifestCache: Closable {
         case idle
         case connected(SQLite)
         case disconnected
-        case error
     }
 }

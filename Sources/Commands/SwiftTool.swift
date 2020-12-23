@@ -754,9 +754,9 @@ public class SwiftTool {
                 cachePath = nil
             case (false, .none):
                 cachePath = nil
-            case (false,.local):
+            case (false, .local):
                 cachePath = self.buildPath
-            case (false, .system):
+            case (false, .shared):
                 cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
             }
             return try ManifestLoader(
