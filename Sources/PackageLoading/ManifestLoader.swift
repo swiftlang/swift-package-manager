@@ -976,7 +976,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return cacheDir.appending(component: "manifest.db")
     }
 
-
     /// reset internal cache
     public func resetCache() throws {
         self.memoryCache.clear()
@@ -1172,7 +1171,7 @@ private final class SQLiteManifestCache: Closable {
         let createDB = { () throws -> SQLite in
             // see https://www.sqlite.org/c3ref/busy_timeout.html
             var configuration = SQLite.Configuration()
-            configuration.busyTimeoutMilliseconds = 5000
+            configuration.busyTimeoutMilliseconds = 10_000
             let db = try SQLite(location: self.location, configuration: configuration)
             try self.createSchemaIfNecessary(db: db)
             return db
