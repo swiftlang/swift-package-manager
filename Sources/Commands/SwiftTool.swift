@@ -472,6 +472,14 @@ public class SwiftTool {
     }
 
     private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+        if options.skipCache {
+            return nil
+        }
+
+        if let explicitCachePath = options.cachePath {
+            return explicitCachePath
+        }
+
         // Create the default cache directory.
         let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
         if !fileSystem.exists(idiomaticCachePath) {
@@ -487,7 +495,7 @@ public class SwiftTool {
             try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
         }
 
-        return options.skipCache ? nil : options.cachePath ?? idiomaticCachePath
+        return idiomaticCachePath
     }
 
     /// Returns the currently active workspace.
