@@ -553,7 +553,7 @@ static func target(
 ///   - cxxSettings: The C++ settings for this target.
 ///   - swiftSettings: The Swift settings for this target.
 ///   - linkerSettings: The linker settings for this target.
-static func target(
+static func executableTarget(
     name: String,
     dependencies: [Target.Dependency] = [],
     path: String? = nil,
@@ -1056,35 +1056,48 @@ The supported C language standard to use for compiling C sources in the package.
 enum CLanguageStandard {
     case c89
     case c90
-    case iso9899_1990
-    case iso9899_199409
+    case c99
+    case c11
+    case c17
+    case c18
+    case c2x
     case gnu89
     case gnu90
-    case c99
-    case iso9899_1999
     case gnu99
-    case c11
-    case iso9899_2011
     case gnu11
+    case gnu17
+    case gnu18
+    case gnu2x
+    case iso9899_1990 = "iso9899:1990"
+    case iso9899_199409 = "iso9899:199409"
+    case iso9899_1999 = "iso9899:1999"
+    case iso9899_2011 = "iso9899:2011"
+    case iso9899_2017 = "iso9899:2017"
+    case iso9899_2018 = "iso9899:2018"
 }
 ```
+
 # CXXLanguageStandard
 
 `enum CXXLanguageStandard`
 
-The supported C++ language standards to use for compiling C++ sources in the package.
+The supported C++ language standard to use for compiling C++ sources in the package.
 
 ```swift
 enum CXXLanguageStandard {
     case cxx98 = "c++98"
     case cxx03 = "c++03"
+    case cxx11 = "c++11"
+    case cxx14 = "c++14"
+    case cxx17 = "c++17"
+    case cxx1z = "c++1z"
+    case cxx20 = "c++20"
     case gnucxx98 = "gnu++98"
     case gnucxx03 = "gnu++03"
-    case cxx11 = "c++11"
     case gnucxx11 = "gnu++11"
-    case cxx14 = "c++14"
     case gnucxx14 = "gnu++14"
-    case cxx1z = "c++1z"
+    case gnucxx17 = "gnu++17"
     case gnucxx1z = "gnu++1z"
+    case gnucxx20 = "gnu++20"
 }
 ```
