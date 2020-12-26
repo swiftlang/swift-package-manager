@@ -346,14 +346,16 @@ public class Workspace {
     public static func create(
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager? = nil
+        repositoryManager: RepositoryManager? = nil,
+        delegate: WorkspaceDelegate? = nil
     ) -> Workspace {
         return Workspace(
             dataPath: packagePath.appending(component: ".build"),
             editablesPath: packagePath.appending(component: "Packages"),
             pinsFile: packagePath.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+            repositoryManager: repositoryManager,
+            delegate: delegate
         )
     }
 }
