@@ -183,7 +183,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 /// This class does *not* support concurrent operations.
 public class Workspace {
     /// The delegate interface.
-    public let delegate: WorkspaceDelegate?
+    public weak var delegate: WorkspaceDelegate?
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
