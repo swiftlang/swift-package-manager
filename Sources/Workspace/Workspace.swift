@@ -1619,7 +1619,13 @@ extension Workspace {
             group.enter()
 
             guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
+                group.leave()
                 throw InternalError("Can't download local artifact")
+            }
+
+            guard let parsedURL = URL(string: url) else {
+                group.leave()
+                throw StringError("invalid url \(url)")
             }
 
             let parentDirectory = destination.parentDirectory
@@ -1628,14 +1634,11 @@ extension Workspace {
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
             } catch {
                 tempDiagnostics.emit(error)
+                group.leave()
                 continue
             }
 
-            guard let parsedURL = URL(string: url) else {
-                throw StringError("invalid url \(url)")
-            }
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
-
 
             downloader.downloadFile(
                 at: parsedURL,
@@ -1666,7 +1669,6 @@ extension Workspace {
                                 if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
                                     tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: expectedPath.basename))
                                 }
-                                break
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                                 tempDiagnostics.emit(.artifactFailedExtraction(targetName: artifact.targetName, reason: reason))
