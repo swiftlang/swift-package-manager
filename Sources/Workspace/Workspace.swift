@@ -1608,6 +1608,7 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
 
         var authProvider: AuthorizationProviding? = nil
+        var didDownloadAnyArtifact = false
         #if os(macOS)
         // Netrc feature currently only supported on macOS 10.13+ due to dependency
         // on NSTextCheckingResult.range(with:)
@@ -1636,7 +1637,7 @@ extension Workspace {
             }
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
 
-
+            didDownloadAnyArtifact = true
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
@@ -1684,7 +1685,10 @@ extension Workspace {
         }
 
         group.wait()
-        delegate?.didDownloadBinaryArtifacts()
+
+        if didDownloadAnyArtifact {
+            delegate?.didDownloadBinaryArtifacts()
+        }
 
         for diagnostic in tempDiagnostics.diagnostics {
             diagnostics.emit(diagnostic.message, location: diagnostic.location)
