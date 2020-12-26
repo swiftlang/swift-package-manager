@@ -480,22 +480,26 @@ public class SwiftTool {
             return explicitCachePath
         }
 
-        // Create the default cache directory.
-        let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
-        if !fileSystem.exists(idiomaticCachePath) {
-            try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
+        do {
+            // Create the default cache directory.
+            let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
+            if !fileSystem.exists(idiomaticCachePath) {
+                try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
+            }
+            // Create ~/.swiftpm if necessary
+            if !fileSystem.exists(fileSystem.dotSwiftPM) {
+                try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
+            }
+            // Create ~/.swiftpm/cache symlink if necessary
+            let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
+            if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
+                try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
+            }
+            return idiomaticCachePath
+        } catch {
+            self.diagnostics.emit(warning: "Failed creating default cache locations, \(error)")
+            return nil
         }
-        // Create ~/.swiftpm if necessary
-        if !fileSystem.exists(fileSystem.dotSwiftPM) {
-            try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
-        }
-        // Create ~/.swiftpm/cache symlink if necessary
-        let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
-        if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
-            try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
-        }
-
-        return idiomaticCachePath
     }
 
     /// Returns the currently active workspace.
