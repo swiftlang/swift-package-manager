@@ -1617,14 +1617,13 @@ extension Workspace {
         #endif
         for artifact in artifacts {
             group.enter()
+            defer { group.leave() }
 
             guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
-                group.leave()
                 throw InternalError("Can't download local artifact")
             }
 
             guard let parsedURL = URL(string: url) else {
-                group.leave()
                 throw StringError("invalid url \(url)")
             }
 
@@ -1634,12 +1633,12 @@ extension Workspace {
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
             } catch {
                 tempDiagnostics.emit(error)
-                group.leave()
                 continue
             }
 
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
 
+            group.enter()
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
@@ -1651,6 +1650,8 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
+                    defer { group.leave() }
+
                     switch downloadResult {
                     case .success:
                         let archiveChecksum = self.checksum(
@@ -1659,10 +1660,10 @@ extension Workspace {
                         guard archiveChecksum == checksum else {
                             tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: checksum, actualChecksum: archiveChecksum))
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
-                            group.leave()
                             return
                         }
 
+                        group.enter()
                         self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
                             switch extractResult {
                             case .success:
@@ -1680,7 +1681,6 @@ extension Workspace {
                     case .failure(let error):
                         let reason = error.errorDescription ?? error.localizedDescription
                         tempDiagnostics.emit(.artifactFailedDownload(targetName: artifact.targetName, reason: reason))
-                        group.leave()
                     }
                 })
         }
