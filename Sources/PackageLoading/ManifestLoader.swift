@@ -1051,7 +1051,7 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
         stream <<< "(allow sysctl*)" <<< "\n"
         // Allow writing in temporary locations.
         stream <<< "(allow file-write*" <<< "\n"
-        for directory in Platform.darwinCacheDirectories() {
+        for directory in Platform.threadSafeDarwinCacheDirectories.get() {
             stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
         }
         for directory in cacheDirectories {
@@ -1061,6 +1061,10 @@ private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [Absol
     }
 
     return stream.bytes.description
+}
+
+extension TSCUtility.Platform {
+    internal static let threadSafeDarwinCacheDirectories = ThreadSafeArrayStore<AbsolutePath>(Self.darwinCacheDirectories())
 }
 
 extension TSCBasic.Diagnostic.Message {
