@@ -134,6 +134,6 @@ extension DependencyResolutionNode: Hashable {
 
 extension DependencyResolutionNode: CustomStringConvertible {
     public var description: String {
-        return "\(package.name)\(productFilter)"
+        return "\(self.package.identity)\(productFilter)"
     }
 }

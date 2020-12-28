@@ -116,6 +116,7 @@ final class PinsStoreTests: XCTestCase {
                     "pins": [
                       {
                         "package": "Clang_C",
+                        "name": "Clang_C_2",
                         "repositoryURL": "https://github.com/something/Clang_C.git",
                         "state": {
                           "branch": null,
@@ -143,6 +144,45 @@ final class PinsStoreTests: XCTestCase {
         XCTAssertEqual(store.pinsMap.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
     }
 
+    func testLoadingSchema2() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+
+        try fs.writeFileContents(pinsFile) {
+            $0 <<< """
+                {
+                  "object": {
+                    "pins": [
+                      {
+                        "identity": "clang_c",
+                        "alternate_identity": "clang_c_2",
+                        "location": "https://github.com/something/Clang_C.git",
+                        "state": {
+                          "branch": null,
+                          "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                          "version": "1.0.2",
+                        }
+                      },
+                      {
+                        "identity": "commandant",
+                        "location": "https://github.com/something/Commandant.git",
+                        "state": {
+                          "branch": null,
+                          "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                          "version": "0.12.0"
+                        }
+                      }
+                    ]
+                  },
+                  "version": 1
+                }
+                """
+        }
+
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        XCTAssertEqual(store.pinsMap.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
+    }
+    
     func testEmptyPins() throws {
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")

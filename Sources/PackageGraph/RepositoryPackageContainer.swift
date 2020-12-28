@@ -248,7 +248,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         }
 
         let manifest = try self.loadManifest(at: revision, version: version)
-        return self.identifier.with(newName: manifest.name)
+        return self.identifier.with(alternateIdentity: PackageIdentity(name: manifest.name))
     }
 
     /// Returns true if the tools version is valid and can be used by this

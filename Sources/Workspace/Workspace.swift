@@ -544,7 +544,7 @@ extension Workspace {
     @discardableResult
     public func updateDependencies(
         root: PackageGraphRootInput,
-        packages: [String] = [],
+        packages filter: [String] = [],
         diagnostics: DiagnosticsEngine,
         dryRun: Bool = false
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
@@ -572,13 +572,14 @@ extension Workspace {
         updateConstraints += graphRoot.constraints(mirrors: config.mirrors)
 
         let pinsMap: PinsStore.PinsMap
-        if packages.isEmpty {
+        if filter.isEmpty {
             // No input packages so we have to do a full update. Set pins map to empty.
             pinsMap = [:]
         } else {
             // We have input packages so we have to partially update the package graph. Remove
             // the pins for the input packages so only those packages are updated.
-            pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
+            let filter = filter.map { PackageIdentity(name: $0) }
+            pinsMap = pinsStore.pinsMap.filter{ !filter.contains($0.key) }
         }
         
         // Resolve the dependencies.
@@ -837,9 +838,9 @@ extension Workspace {
         case .checkout(let checkoutState):
             return checkoutState
         case .edited:
-            diagnostics.emit(error: "dependency '\(dependency.packageRef.name)' already in edit mode")
+            diagnostics.emit(error: "dependency '\(dependency.packageRef.identity)' already in edit mode")
         case .local:
-            diagnostics.emit(error: "local dependency '\(dependency.packageRef.name)' can't be edited")
+            diagnostics.emit(error: "local dependency '\(dependency.packageRef.identity)' can't be edited")
         }
         return nil
     }
@@ -966,7 +967,7 @@ extension Workspace {
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout, .local:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.name)
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependency: dependency.packageRef.identity)
 
         case .edited(let path):
             if path != nil {
@@ -1582,7 +1583,7 @@ extension Workspace {
                     let artifact = ManagedArtifact.local(packageRef: packageRef, targetName: target.name, path: path)
                     artifacts.append(artifact)
                 } else if let url = target.url, let checksum = target.checksum {
-                    let subpath = artifactSubpath(packageRef: packageRef, targetName: target.name)
+                    let subpath = self.artifactSubpath(packageRef: packageRef, targetName: target.name)
                     let artifact = ManagedArtifact.remote(
                         packageRef: packageRef,
                         targetName: target.name,
@@ -1600,7 +1601,7 @@ extension Workspace {
     }
 
     private func artifactSubpath(packageRef: PackageReference, targetName: String) -> RelativePath {
-        RelativePath("\(packageRef.name)/\(targetName).xcframework")
+        RelativePath("\(packageRef.identity)/\(targetName).xcframework")
     }
 
     private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) throws {
@@ -1841,7 +1842,7 @@ extension Workspace {
         } else if !extraConstraints.isEmpty || forceResolution {
             delegate?.willResolveDependencies(reason: .forced)
         } else {
-            let result = precomputeResolution(
+            let result = self.precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
@@ -2311,7 +2312,7 @@ extension Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, clone it again.
                     _ = try clone(package: dependency.packageRef, at: checkoutState)
-                    diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.name))
+                    diagnostics.emit(.checkedOutDependencyMissing(package: dependency.packageRef.identity))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -2321,7 +2322,7 @@ extension Workspace {
                     // of some other resolve operation (i.e. resolve, update, etc).
                     try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
-                    diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
+                    diagnostics.emit(.editedDependencyMissing(package: dependency.packageRef.identity))
 
                 case .local:
                     state.dependencies.remove(forURL: dependency.packageRef.path)
@@ -2526,7 +2527,7 @@ extension Workspace {
     fileprivate func remove(package: PackageReference) throws {
 
         guard let dependency = state.dependencies[forURL: package.path] else {
-            throw InternalError("trying to remove \(package.name) which isn't in workspace")
+            throw InternalError("trying to remove \(package.identity) which isn't in workspace")
         }
 
         // We only need to update the managed dependency structure to "remove"

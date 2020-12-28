@@ -66,7 +66,7 @@ public final class LocalPackageContainer: PackageContainer {
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
         let manifest = try loadManifest()
-        return identifier.with(newName: manifest.name)
+        return identifier.with(alternateIdentity: PackageIdentity(name: manifest.name))
     }
 
     public init(

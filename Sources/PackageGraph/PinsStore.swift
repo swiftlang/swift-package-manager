@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
+import PackageModel
+import SourceControl
 import TSCBasic
 import TSCUtility
-import SourceControl
-import PackageModel
 
 public final class PinsStore {
     public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
@@ -133,21 +134,47 @@ extension PinsStore: JSONSerializable {
 extension PinsStore.Pin: JSONMappable, JSONSerializable {
     /// Create an instance from JSON data.
     public init(json: JSON) throws {
-        let name: String? = json.get("package")
-        let url: String = try json.get("repositoryURL")
-        let identity = PackageIdentity(url: url)
-        let ref = PackageReference(identity: identity, path: url)
-        self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
+        // backwards compatibility 12/2020
+        let location: String
+        if let value: String = json.get("location") {
+            location = value
+        } else if let value: String = json.get("repositoryURL") {
+            location = value
+        } else {
+            throw InternalError("unknown location")
+        }
+
+        // backwards compatibility 12/2020
+        let identity: PackageIdentity
+        if let value: PackageIdentity = json.get("identity") {
+            identity = value
+        } else {
+            identity = PackageIdentity(url: location)
+        }
+
+        // backwards compatibility 12/2020
+        var alternateIdentity: PackageIdentity? = nil
+        if let value: PackageIdentity = json.get("alternate_identity") {
+            alternateIdentity = value
+        } else if let value: String = json.get("name") {
+            alternateIdentity = PackageIdentity(name: value)
+        }
+        let package = PackageReference(identity: identity, path: location)
+        self.packageRef = alternateIdentity.map{ package.with(alternateIdentity: $0) } ?? package
         self.state = try json.get("state")
     }
 
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
-        return .init([
-            "package": packageRef.name.toJSON(),
-            "repositoryURL": packageRef.path,
+        var map: [String: JSONSerializable] = [
+            "identity": packageRef.identity,
+            "location": packageRef.path,
             "state": state
-        ])
+        ]
+        if let alternateIdentity = packageRef.alternateIdentity {
+            map["alternate_identity"] = alternateIdentity
+        }
+        return .init(map)
     }
 }
 
@@ -155,6 +182,6 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
 
 extension PinsStore: SimplePersistanceProtocol {
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
+        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.identity)\"") })
     }
 }

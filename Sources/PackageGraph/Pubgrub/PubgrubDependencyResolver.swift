@@ -152,11 +152,9 @@ public struct PubgrubDependencyResolver {
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
     public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
-        let root = DependencyResolutionNode.root(package: PackageReference(
+        let root = DependencyResolutionNode.root(package: .root(
             identity: PackageIdentity(url: "<synthesized-root>"),
-            path: "<synthesized-root-path>",
-            name: nil,
-            kind: .root
+            path: AbsolutePath("/synthesized-root-path")
         ))
 
         do {
@@ -248,7 +246,7 @@ public struct PubgrubDependencyResolver {
             }
         }
         var finalAssignments: [DependencyResolver.Binding]
-            = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
+            = flattenedAssignments.keys.sorted(by: { $0.identity < $1.identity }).map { package in
                 let details = flattenedAssignments[package]!
                 return (container: package, binding: details.binding, products: details.products)
             }
@@ -400,8 +398,8 @@ public struct PubgrubDependencyResolver {
                         constraints.append(dependency)
                     case .unversioned:
                         throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                            dependency: package.name,
-                            localPackage: dependency.identifier.name
+                            dependency: package.identity,
+                            localPackage: dependency.identifier.identity
                         )
                     }
                 }
@@ -1364,7 +1362,7 @@ private final class PubGrubPackageContainer {
         let versions: [Version] = try self.underlying.versionsAscending()
 
         guard let idx = versions.firstIndex(of: firstVersion) else {
-            throw InternalError("from version \(firstVersion) not found in \(node.package.name)")
+            throw InternalError("from version \(firstVersion) not found in \(node.package.identity)")
         }
 
         let sync = DispatchGroup()
@@ -1380,7 +1378,7 @@ private final class PubGrubPackageContainer {
         }
 
         guard case .success = sync.wait(timeout: .now() + timeout) else {
-            throw StringError("timeout computing \(node.package.name) bounds")
+            throw StringError("timeout computing \(node.package.identity) bounds")
         }
 
         return (lowerBounds, upperBounds)
@@ -1419,7 +1417,7 @@ private final class ContainerProvider {
     /// Get a cached container for the given identifier, asserting / throwing if not found.
     func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
         guard let container = self.containersCache[package] else {
-            throw InternalError("container for \(package.name) expected to be cached")
+            throw InternalError("container for \(package.identity) expected to be cached")
         }
         return container
     }
@@ -1564,6 +1562,6 @@ private extension PackageRequirement {
 
 private extension DependencyResolutionNode {
     var nameForDiagnostics: String {
-        return "'\(package.name)'"
+        return "'\(self.package.identity)'"
     }
 }

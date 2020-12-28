@@ -13,7 +13,7 @@ import PackageModel
 
 public enum DependencyResolverError: Error, Equatable {
      /// A revision-based dependency contains a local package dependency.
-    case revisionDependencyContainsLocalPackage(dependency: String, localPackage: String)
+    case revisionDependencyContainsLocalPackage(dependency: PackageIdentity, localPackage: PackageIdentity)
 }
 
 public class DependencyResolver {

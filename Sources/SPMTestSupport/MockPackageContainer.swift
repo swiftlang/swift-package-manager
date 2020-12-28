@@ -89,7 +89,7 @@ public class MockPackageContainer: PackageContainer {
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
-        let ref = PackageReference(identity: PackageIdentity(url: name), path: "/\(name)")
+        let ref = PackageReference(identity: PackageIdentity(name: name), path: "/\(name)")
         self.init(name: ref, dependencies: dependencies)
     }
 

@@ -141,7 +141,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
                 let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
                 self.stdoutStream <<< "the following dependencies were added: \(dependencies)"
             case .packageRequirementChange(let package, let state, let requirement):
-                self.stdoutStream <<< "dependency '\(package.name)' was "
+                self.stdoutStream <<< "dependency '\(package.identity)' was "
 
                 switch state {
                 case .checkout(let checkoutState)?:

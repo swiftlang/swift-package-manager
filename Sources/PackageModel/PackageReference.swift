@@ -27,41 +27,8 @@ public struct PackageReference: Codable {
         case remote
     }
 
-    /// Compute the default name of a package given its URL.
-    public static func computeDefaultName(fromURL url: String) -> String {
-      #if os(Windows)
-        let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
-      #else
-        let isSeparator : (Character) -> Bool = { $0 == "/" }
-      #endif
-
-        // Get the last path component of the URL.
-        // Drop the last character in case it's a trailing slash.
-        var endIndex = url.endIndex
-        if let lastCharacter = url.last, isSeparator(lastCharacter) {
-            endIndex = url.index(before: endIndex)
-        }
-
-        let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
-        let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
-        var lastComponent = url[startIndex..<endIndex]
-
-        // Strip `.git` suffix if present.
-        if lastComponent.hasSuffix(".git") {
-            lastComponent = lastComponent.dropLast(4)
-        }
-
-        return String(lastComponent)
-    }
-
     /// The identity of the package.
     public let identity: PackageIdentity
-
-    /// The name of the package, if available.
-    public var name: String {
-        _name ?? Self.computeDefaultName(fromURL: path)
-    }
-    private let _name: String?
 
     /// The path of the package.
     ///
@@ -71,17 +38,52 @@ public struct PackageReference: Codable {
     /// The kind of package: root, local, or remote.
     public let kind: Kind
 
+    // FIXME
+    /// An alternate identity of the package.
+    /// This would be deprecated when identity refactoring is complete.
+    /// Right now, there is a way to "override" the identity of
+    /// the package from the name in the manifest, this is a crutch until we remove
+    /// the name from the manifest all together
+    private let _alternateIdentity: PackageIdentity?
+
+    public var alternateIdentity: PackageIdentity? {
+        get {
+            self._alternateIdentity
+        }
+    }
+
     /// Create a package reference given its identity and repository.
-    public init(identity: PackageIdentity, path: String, name: String? = nil, kind: Kind = .remote) {
-        self._name = name
+    public init(identity: PackageIdentity, path: String, kind: Kind = .remote) {
         self.identity = identity
         self.path = path
         self.kind = kind
+        self._alternateIdentity = nil
     }
 
-    /// Create a new package reference object with the given name.
-    public func with(newName: String) -> PackageReference {
-        return PackageReference(identity: identity, path: path, name: newName, kind: kind)
+    private init(identity: PackageIdentity, path: String, kind: Kind = .remote, alternateIdentity: PackageIdentity?) {
+        self.identity = identity
+        self.path = path
+        self.kind = kind
+        self._alternateIdentity = alternateIdentity != identity ? alternateIdentity : nil
+    }
+
+    // FIXME: the purpose of this is to allow identity override based on the identity in the manifest which is hacky
+    // this should be removed when we remove name from manifest
+    /// Create a new package reference object with the given identity.
+    public func with(alternateIdentity: PackageIdentity) -> PackageReference {
+        return PackageReference(identity: identity, path: path, kind: kind, alternateIdentity: alternateIdentity)
+    }
+
+    public static func root(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+        PackageReference(identity: identity, path: path.pathString, kind: .root)
+    }
+
+    public static func local(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+        PackageReference(identity: identity, path: path.pathString, kind: .local)
+    }
+
+    public static func remote(identity: PackageIdentity, url: String) -> PackageReference {
+        PackageReference(identity: identity, path: url, kind: .remote)
     }
 }
 
@@ -105,24 +107,35 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
-        self._name = json.get("name")
         self.identity = try json.get("identity")
         self.path = try json.get("path")
 
         // Support previous version of PackageReference that contained an `isLocal` property.
         if let isLocal: Bool = json.get("isLocal") {
-            kind = isLocal ? .local : .remote
+            self.kind = isLocal ? .local : .remote
         } else {
-            kind = try Kind(rawValue: json.get("kind"))!
+            self.kind = try Kind(rawValue: json.get("kind"))!
+        }
+
+        // backwards compatibility 12/2020
+        if let identity: PackageIdentity = json.get("alternateIdentity") {
+            self._alternateIdentity = identity
+        } else if let identity: PackageIdentity = json.get("name") {
+            self._alternateIdentity = identity
+        } else {
+            self._alternateIdentity = nil
         }
     }
 
     public func toJSON() -> JSON {
-        return .init([
-            "name": name.toJSON(),
-            "identity": identity,
-            "path": path,
-            "kind": kind.rawValue,
-        ])
+        var map: [String: JSONSerializable] = [
+            "identity": self.identity,
+            "path": self.path,
+            "kind": self.kind.rawValue
+        ]
+        if let identity = self._alternateIdentity {
+            map["alternateIdentity"] = identity
+        }
+        return .init(map)
     }
 }

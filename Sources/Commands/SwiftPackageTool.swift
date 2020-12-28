@@ -910,11 +910,11 @@ fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.Packag
         let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
         switch change {
         case let .added(state):
-            stream <<< "+ \(package.name) \(state.requirement.prettyPrinted)"
+            stream <<< "+ \(package.identity) \(state.requirement.prettyPrinted)"
         case let .updated(state):
-            stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(state.requirement.prettyPrinted)"
+            stream <<< "~ \(package.identity) \(currentVersion) -> \(package.identity) \(state.requirement.prettyPrinted)"
         case .removed:
-            stream <<< "- \(package.name) \(currentVersion)"
+            stream <<< "- \(package.identity) \(currentVersion)"
         case .unchanged:
             continue
         }

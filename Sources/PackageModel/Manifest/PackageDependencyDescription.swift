@@ -30,10 +30,12 @@ public struct PackageDependencyDescription: Equatable, Codable {
         }
     }
 
+    // FIXME: remove this and use identity instead
     /// The name of the package dependency explicitly defined in the manifest, if any.
     public let explicitName: String?
 
-    /// The name of the packagedependency,
+    // FIXME: remove this and use identity instead
+    /// The name of the package dependency,
     /// either explicitly defined in the manifest,
     /// or derived from the URL.
     ///
@@ -57,6 +59,7 @@ public struct PackageDependencyDescription: Equatable, Codable {
         requirement: Requirement,
         productFilter: ProductFilter = .everything
     ) {
+        // FIXME: remove this / move elsewhere. need a better model for location instead of string URL for both AbsolutePath and URLs
         // FIXME: SwiftPM can't handle file URLs with file:// scheme so we need to
         // strip that. We need to design a URL data structure for SwiftPM.
         let filePrefix = "file://"
@@ -68,7 +71,7 @@ public struct PackageDependencyDescription: Equatable, Codable {
         }
 
         self.explicitName = name
-        self.name = name ?? PackageReference.computeDefaultName(fromURL: normalizedURL)
+        self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: normalizedURL)
         self.url = normalizedURL
         self.requirement = requirement
         self.productFilter = productFilter

@@ -89,14 +89,14 @@ extension ManagedArtifact: JSONMappable, JSONSerializable, CustomStringConvertib
 
     public func toJSON() -> JSON {
         return .init([
-            "packageRef": packageRef,
-            "targetName": targetName,
-            "source": source,
+            "packageRef": self.packageRef,
+            "targetName": self.targetName,
+            "source": self.source,
         ])
     }
 
     public var description: String {
-        return "<ManagedArtifact: \(packageRef.name).\(targetName) \(source)>"
+        return "<ManagedArtifact: \(self.packageRef.identity).\(targetName) \(source)>"
     }
 }
 
@@ -148,6 +148,7 @@ extension ManagedArtifact.Source: JSONMappable, JSONSerializable, CustomStringCo
 /// A collection of managed artifacts which have been downloaded.
 public final class ManagedArtifacts {
 
+    // FIXME: map by PackageIdentity?
     /// A mapping from package url, to target name, to ManagedArtifact.
     private var artifactMap: [String: [String: ManagedArtifact]]
 
@@ -164,7 +165,11 @@ public final class ManagedArtifacts {
     }
 
     public subscript(packageName packageName: String, targetName targetName: String) -> ManagedArtifact? {
-        artifacts.first(where: { $0.packageRef.name == packageName && $0.targetName == targetName })
+        let identity = PackageIdentity(name: packageName)
+        return artifacts.first(where: {
+            $0.targetName == targetName &&
+            ($0.packageRef.identity == identity || $0.packageRef.alternateIdentity == identity)
+        })
     }
 
     public func add(_ artifact: ManagedArtifact) {

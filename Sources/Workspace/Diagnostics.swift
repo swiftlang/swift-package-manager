@@ -82,10 +82,10 @@ public enum WorkspaceDiagnostics {
     /// is not in edit mode.
     public struct DependencyNotInEditMode: DiagnosticData, Swift.Error {
         /// The name of the dependency being unedited.
-        public let dependencyName: String
+        public let dependency: PackageIdentity
 
         public var description: String {
-            return "dependency '\(dependencyName)' not in edit mode"
+            return "dependency '\(dependency)' not in edit mode"
         }
     }
 
@@ -125,12 +125,12 @@ extension Diagnostic.Message {
         .warning("dependency '\(packageName)' already exists at the edit destination; not using revision '\(revisionIdentifier)'")
     }
 
-    static func editedDependencyMissing(packageName: String) -> Diagnostic.Message {
-        .warning("dependency '\(packageName)' was being edited but is missing; falling back to original checkout")
+    static func editedDependencyMissing(package: PackageIdentity) -> Diagnostic.Message {
+        .warning("dependency '\(package)' was being edited but is missing; falling back to original checkout")
     }
 
-    static func checkedOutDependencyMissing(packageName: String) -> Diagnostic.Message {
-        .warning("dependency '\(packageName)' is missing; cloning again")
+    static func checkedOutDependencyMissing(package: PackageIdentity) -> Diagnostic.Message {
+        .warning("dependency '\(package)' is missing; cloning again")
     }
 
     static func artifactChecksumChanged(targetName: String) -> Diagnostic.Message {

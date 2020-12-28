@@ -149,15 +149,15 @@ extension ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvert
 
     public func toJSON() -> JSON {
         return .init([
-            "packageRef": packageRef.toJSON(),
-            "subpath": subpath,
-            "basedOn": basedOn.toJSON(),
-            "state": state
+            "packageRef": self.packageRef,
+            "subpath": self.subpath,
+            "basedOn": self.basedOn.toJSON(),
+            "state": self.state
         ])
     }
 
     public var description: String {
-        return "<ManagedDependency: \(packageRef.name) \(state)>"
+        return "<ManagedDependency: \(self.packageRef.identity) \(state)>"
     }
 }
 
@@ -213,6 +213,7 @@ extension ManagedDependency.State: JSONMappable, JSONSerializable {
 /// A collection of managed dependencies.
 public final class ManagedDependencies {
 
+    // FIXME: should this key off of PackageIdentity?
     /// The dependencies keyed by the package URL.
     private var dependencyMap: [String: ManagedDependency]
 
@@ -221,26 +222,26 @@ public final class ManagedDependencies {
     }
 
     public subscript(forURL url: String) -> ManagedDependency? {
-        dependencyMap[url]
+        self.dependencyMap[url]
     }
 
     public subscript(forIdentity identity: PackageIdentity) -> ManagedDependency? {
-        dependencyMap.values.first(where: { $0.packageRef.identity == identity })
+        self.dependencyMap.values.first(where: { $0.packageRef.identity == identity })
     }
 
     public subscript(forNameOrIdentity nameOrIdentity: String) -> ManagedDependency? {
-        let lowercasedNameOrIdentity = nameOrIdentity.lowercased()
-        return dependencyMap.values.first(where: {
-            $0.packageRef.name == nameOrIdentity || $0.packageRef.identity.description == lowercasedNameOrIdentity
+        let identity = PackageIdentity(name: nameOrIdentity)
+        return self.dependencyMap.values.first(where: {
+            $0.packageRef.identity == identity || $0.packageRef.alternateIdentity == identity
         })
     }
 
     public func add(_ dependency: ManagedDependency) {
-        dependencyMap[dependency.packageRef.path] = dependency
+        self.dependencyMap[dependency.packageRef.path] = dependency
     }
 
     public func remove(forURL url: String) {
-        dependencyMap[url] = nil
+        self.dependencyMap[url] = nil
     }
 }
 
@@ -249,19 +250,19 @@ extension ManagedDependencies: Collection {
     public typealias Element = ManagedDependency
 
     public var startIndex: Index {
-        dependencyMap.startIndex
+        self.dependencyMap.startIndex
     }
 
     public var endIndex: Index {
-        dependencyMap.endIndex
+        self.dependencyMap.endIndex
     }
 
     public subscript(index: Index) -> Element {
-        dependencyMap[index].value
+        self.dependencyMap[index].value
     }
 
     public func index(after index: Index) -> Index {
-        dependencyMap.index(after: index)
+        self.dependencyMap.index(after: index)
     }
 }
 
@@ -273,12 +274,12 @@ extension ManagedDependencies: JSONMappable, JSONSerializable {
     }
 
     public func toJSON() -> JSON {
-        dependencyMap.values.toJSON()
+        self.dependencyMap.values.toJSON()
     }
 }
 
 extension ManagedDependencies: CustomStringConvertible {
     public var description: String {
-        "<ManagedDependencies: \(Array(dependencyMap.values))>"
+        "<ManagedDependencies: \(Array(self.dependencyMap.values))>"
     }
 }
