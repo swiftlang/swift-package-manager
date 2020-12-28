@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 
@@ -33,7 +34,7 @@ public struct PackageReference: Codable {
     /// The path of the package.
     ///
     /// This could be a remote repository, local repository or local package.
-    public let path: String
+    public let location: String
 
     /// The kind of package: root, local, or remote.
     public let kind: Kind
@@ -53,37 +54,38 @@ public struct PackageReference: Codable {
     }
 
     /// Create a package reference given its identity and repository.
-    public init(identity: PackageIdentity, path: String, kind: Kind = .remote) {
-        self.identity = identity
-        self.path = path
-        self.kind = kind
-        self._alternateIdentity = nil
+    public init(identity: PackageIdentity, kind: Kind, location: String) {
+        self.init(identity: identity, kind: kind, location: location, alternateIdentity: nil)
     }
 
-    private init(identity: PackageIdentity, path: String, kind: Kind = .remote, alternateIdentity: PackageIdentity?) {
+    private init(identity: PackageIdentity, kind: Kind, location: String, alternateIdentity: PackageIdentity?) {
         self.identity = identity
-        self.path = path
+        self.location = location
         self.kind = kind
-        self._alternateIdentity = alternateIdentity != identity ? alternateIdentity : nil
+        if let alternateIdentity = alternateIdentity, alternateIdentity != identity {
+            self._alternateIdentity = alternateIdentity
+        } else {
+            self._alternateIdentity = nil
+        }
     }
 
     // FIXME: the purpose of this is to allow identity override based on the identity in the manifest which is hacky
     // this should be removed when we remove name from manifest
     /// Create a new package reference object with the given identity.
     public func with(alternateIdentity: PackageIdentity) -> PackageReference {
-        return PackageReference(identity: identity, path: path, kind: kind, alternateIdentity: alternateIdentity)
+        return PackageReference(identity: self.identity, kind: self.kind, location: self.location, alternateIdentity: alternateIdentity)
     }
 
     public static func root(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
-        PackageReference(identity: identity, path: path.pathString, kind: .root)
+        PackageReference(identity: identity, kind: .root, location: path.pathString)
     }
 
     public static func local(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
-        PackageReference(identity: identity, path: path.pathString, kind: .local)
+        PackageReference(identity: identity, kind: .local, location: path.pathString)
     }
 
-    public static func remote(identity: PackageIdentity, url: String) -> PackageReference {
-        PackageReference(identity: identity, path: url, kind: .remote)
+    public static func remote(identity: PackageIdentity, location: String) -> PackageReference {
+        PackageReference(identity: identity, kind: .remote, location: location)
     }
 }
 
@@ -101,14 +103,22 @@ extension PackageReference: Hashable {
 
 extension PackageReference: CustomStringConvertible {
     public var description: String {
-        return "\(identity)\(path.isEmpty ? "" : "[\(path)]")"
+        return "\(self.identity)\(self.location.isEmpty ? "" : "[\(self.location)]")"
     }
 }
 
 extension PackageReference: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
         self.identity = try json.get("identity")
-        self.path = try json.get("path")
+
+        // backwards compatibility 12/2020
+        if let location: String = json.get("location") {
+            self.location = location
+        } else if let path: String = json.get("path") {
+            self.location = path
+        } else {
+            throw InternalError("unknown package reference location")
+        }
 
         // Support previous version of PackageReference that contained an `isLocal` property.
         if let isLocal: Bool = json.get("isLocal") {
@@ -130,7 +140,7 @@ extension PackageReference: JSONMappable, JSONSerializable {
     public func toJSON() -> JSON {
         var map: [String: JSONSerializable] = [
             "identity": self.identity,
-            "path": self.path,
+            "location": self.location,
             "kind": self.kind.rawValue
         ]
         if let identity = self._alternateIdentity {

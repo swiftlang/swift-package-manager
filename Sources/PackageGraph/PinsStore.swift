@@ -159,7 +159,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
         } else if let value: String = json.get("name") {
             alternateIdentity = PackageIdentity(name: value)
         }
-        let package = PackageReference(identity: identity, path: location)
+        let package = PackageReference.remote(identity: identity, location: location)
         self.packageRef = alternateIdentity.map{ package.with(alternateIdentity: $0) } ?? package
         self.state = try json.get("state")
     }
@@ -167,11 +167,11 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
         var map: [String: JSONSerializable] = [
-            "identity": packageRef.identity,
-            "location": packageRef.path,
-            "state": state
+            "identity": self.packageRef.identity,
+            "location": self.packageRef.location,
+            "state": self.state
         ]
-        if let alternateIdentity = packageRef.alternateIdentity {
+        if let alternateIdentity = self.packageRef.alternateIdentity {
             map["alternate_identity"] = alternateIdentity
         }
         return .init(map)

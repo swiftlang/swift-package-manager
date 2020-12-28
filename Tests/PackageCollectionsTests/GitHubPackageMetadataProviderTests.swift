@@ -237,7 +237,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider()
             let reference = PackageReference(repository: RepositorySpecifier(url: UUID().uuidString))
             XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(reference.path))
+                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(reference.location))
             }
         }
     }
@@ -245,7 +245,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
     func testInvalidRef() throws {
         fixture(name: "Collections") { _ in
             let provider = GitHubPackageMetadataProvider()
-            let reference = PackageReference(identity: .init(path: AbsolutePath("/")), path: "/", kind: .local)
+            let reference = PackageReference.local(identity: .init(name: "test"), path:AbsolutePath("/"))
             XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
                 XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidReferenceType(reference))
             }

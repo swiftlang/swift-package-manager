@@ -24,14 +24,14 @@ import TSCUtility
 /// should be used as-is. Infact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
 public final class LocalPackageContainer: PackageContainer {
-    public let identifier: PackageReference
+    public let package: PackageReference
     private let mirrors: DependencyMirrors
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
     /// The file system that shoud be used to load this package.
-    private let fs: FileSystem
+    private let fileSystem: FileSystem
 
     /// cached version of the manifest
     private let manifest = ThreadSafeBox<Manifest>()
@@ -39,20 +39,20 @@ public final class LocalPackageContainer: PackageContainer {
     private func loadManifest() throws -> Manifest {
         try manifest.memoize() {
             // Load the tools version.
-            let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(identifier.path), fileSystem: fs)
+            let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(self.package.location), fileSystem: self.fileSystem)
 
             // Validate the tools version.
-            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: identifier.path)
+            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: self.package.location)
 
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
-                manifestLoader.load(package: AbsolutePath(identifier.path),
-                                    baseURL: identifier.path,
+                manifestLoader.load(package: AbsolutePath(self.package.location),
+                                    baseURL: self.package.location,
                                     version: nil,
                                     toolsVersion: toolsVersion,
-                                    packageKind: identifier.kind,
-                                    fileSystem: fs,
+                                    packageKind: self.package.kind,
+                                    fileSystem: self.fileSystem,
                                     on: .global(),
                                     completion: $0)
             }
@@ -60,30 +60,30 @@ public final class LocalPackageContainer: PackageContainer {
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+        return try self.loadManifest().dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
     }
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
-        let manifest = try loadManifest()
-        return identifier.with(alternateIdentity: PackageIdentity(name: manifest.name))
+        let manifest = try self.loadManifest()
+        return self.package.with(alternateIdentity: PackageIdentity(name: manifest.name))
     }
 
     public init(
-        _ identifier: PackageReference,
+        package: PackageReference,
         mirrors: DependencyMirrors,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
-        fs: FileSystem = localFileSystem
+        fileSystem: FileSystem = localFileSystem
     ) {
-        assert(URL.scheme(identifier.path) == nil, "unexpected scheme \(URL.scheme(identifier.path)!) in \(identifier.path)")
-        self.identifier = identifier
+        assert(URL.scheme(package.location) == nil, "unexpected scheme \(URL.scheme(package.location)!) in \(package.location)")
+        self.package = package
         self.mirrors = mirrors
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
-        self.fs = fs
+        self.fileSystem = fileSystem
     }
     
     public func isToolsVersionCompatible(at version: Version) -> Bool {
@@ -113,6 +113,6 @@ public final class LocalPackageContainer: PackageContainer {
 
 extension LocalPackageContainer: CustomStringConvertible  {
     public var description: String {
-        return "LocalPackageContainer(\(identifier.path))"
+        return "LocalPackageContainer(\(self.package.location))"
     }
 }

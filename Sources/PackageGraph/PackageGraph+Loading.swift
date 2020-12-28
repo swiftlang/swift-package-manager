@@ -201,7 +201,7 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
-        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.path == package.manifest.url }
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.url }
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,

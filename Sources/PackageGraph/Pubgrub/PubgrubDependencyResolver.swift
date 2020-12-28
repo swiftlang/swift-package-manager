@@ -294,12 +294,12 @@ public struct PubgrubDependencyResolver {
             constraints.remove(constraint)
 
             // Mark the package as overridden.
-            if var existing = overriddenPackages[constraint.identifier] {
-                assert(existing.version == .unversioned, "Overridden package is not unversioned: \(constraint.identifier)@\(existing.version)")
+            if var existing = overriddenPackages[constraint.package] {
+                assert(existing.version == .unversioned, "Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
                 existing.products.formUnion(constraint.products)
-                overriddenPackages[constraint.identifier] = existing
+                overriddenPackages[constraint.package] = existing
             } else {
-                overriddenPackages[constraint.identifier] = (version: .unversioned, products: constraint.products)
+                overriddenPackages[constraint.package] = (version: .unversioned, products: constraint.products)
             }
 
             for node in constraint.nodes() {
@@ -315,7 +315,7 @@ public struct PubgrubDependencyResolver {
                         for constraint in versionedBasedConstraints {
                             versionBasedDependencies[node, default: []].append(constraint)
                         }
-                    } else if !overriddenPackages.keys.contains(dependency.identifier) {
+                    } else if !overriddenPackages.keys.contains(dependency.package) {
                         // Add the constraint if its not already present. This will ensure we don't
                         // end up looping infinitely due to a cycle (which are diagnosed seperately).
                         constraints.append(dependency)
@@ -332,7 +332,7 @@ public struct PubgrubDependencyResolver {
                 throw InternalError("Expected revision requirement")
             }
             constraints.remove(constraint)
-            let package = constraint.identifier
+            let package = constraint.package
 
             // Check if there is an existing value for this package in the overridden packages.
             switch overriddenPackages[package]?.version {
@@ -346,7 +346,7 @@ public struct PubgrubDependencyResolver {
                 // If this branch-based package was encountered before, ensure the references match.
                 if (branch ?? existingRevision) != revision {
                     // FIXME: Improve diagnostics here.
-                    let lastPathComponent = String(package.path.split(separator: "/").last!).spm_dropGitSuffix()
+                    let lastPathComponent = String(package.location.split(separator: "/").last!).spm_dropGitSuffix()
                     throw PubgrubError.unresolvable("\(lastPathComponent) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
                 } else {
                     // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
@@ -399,7 +399,7 @@ public struct PubgrubDependencyResolver {
                     case .unversioned:
                         throw DependencyResolverError.revisionDependencyContainsLocalPackage(
                             dependency: package.identity,
-                            localPackage: dependency.identifier.identity
+                            localPackage: dependency.package.identity
                         )
                     }
                 }
@@ -1081,12 +1081,12 @@ private final class PubGrubPackageContainer {
     }
 
     var package: PackageReference {
-        self.underlying.identifier
+        self.underlying.package
     }
 
     /// Returns the pinned version for this package, if any.
     var pinnedVersion: Version? {
-        return self.pinsMap[self.underlying.identifier.identity]?.state.version
+        return self.pinsMap[self.underlying.package.identity]?.state.version
     }
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.
@@ -1207,19 +1207,19 @@ private final class PubGrubPackageContainer {
             guard case .versionSet = dep.requirement else {
                 let cause: Incompatibility.Cause = .versionBasedDependencyContainsUnversionedDependency(
                     versionedDependency: package,
-                    unversionedDependency: dep.identifier
+                    unversionedDependency: dep.package
                 )
                 return [try Incompatibility(Term(node, .exact(version)), root: root, cause: cause)]
             }
 
             // Skip if this package is overriden.
-            if overriddenPackages.keys.contains(dep.identifier) {
+            if overriddenPackages.keys.contains(dep.package) {
                 continue
             }
 
             // Skip if we already emitted incompatibilities for this dependency such that the selected
             // falls within the previously computed bounds.
-            if emittedIncompatibilities[dep.identifier]?.contains(version) != true {
+            if emittedIncompatibilities[dep.package]?.contains(version) != true {
                 constraints.append(dep)
             }
         }
@@ -1259,8 +1259,8 @@ private final class PubGrubPackageContainer {
 
         return try constraints.map { constraint in
             var terms: OrderedSet<Term> = []
-            let lowerBound = lowerBounds[constraint.identifier] ?? "0.0.0"
-            let upperBound = upperBounds[constraint.identifier] ?? Version(version.major + 1, 0, 0)
+            let lowerBound = lowerBounds[constraint.package] ?? "0.0.0"
+            let upperBound = upperBounds[constraint.package] ?? Version(version.major + 1, 0, 0)
             assert(lowerBound < upperBound)
 
             // We only have version-based requirements at this point.
@@ -1274,7 +1274,7 @@ private final class PubGrubPackageContainer {
                 terms.append(Term(not: constraintNode, vs))
 
                 // Make a record for this dependency so we don't have to recompute the bounds when the selected version falls within the bounds.
-                self.emittedIncompatibilities[constraint.identifier] = requirement.union(emittedIncompatibilities[constraint.identifier] ?? .empty)
+                self.emittedIncompatibilities[constraint.package] = requirement.union(emittedIncompatibilities[constraint.package] ?? .empty)
             }
 
             return try Incompatibility(terms, root: root, cause: .dependency(node: node))
@@ -1332,17 +1332,17 @@ private final class PubGrubPackageContainer {
                 let bound = upperBound ? version : previousVersion
                 
                 let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
-                for constraint in constraints where !result.keys.contains(constraint.identifier) {
+                for constraint in constraints where !result.keys.contains(constraint.package) {
                     // If we hit a version which doesn't have a compatible tools version then that's the boundary.
                     // Record the bound if the tools version isn't compatible at the current version.
                     if !isToolsVersionCompatible {
-                        result[constraint.identifier] = bound
+                        result[constraint.package] = bound
                     } else {
                         // Get the dependencies at this version.
                         if let currentDependencies = try? self.underlying.getDependencies(at: version, productFilter: products) {
                             // Record this version as the bound for our list of dependencies, if appropriate.
-                            if currentDependencies.first(where: { $0.identifier == constraint.identifier }) != constraint {
-                                result[constraint.identifier] = bound
+                            if currentDependencies.first(where: { $0.package == constraint.package }) != constraint {
+                                result[constraint.package] = bound
                             }
                         }
                     }

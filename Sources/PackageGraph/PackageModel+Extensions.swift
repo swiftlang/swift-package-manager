@@ -27,8 +27,8 @@ extension PackageDependencyDescription {
         
         return PackageReference(
             identity: identity,
-            path: effectiveURL,
-            kind: requirement == .localPackage ? .local : .remote
+            kind: requirement == .localPackage ? .local : .remote,
+            location: effectiveURL
         )
     }
 }
@@ -38,7 +38,7 @@ extension Manifest {
     public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
         return dependenciesRequired(for: productFilter).map({
             return PackageContainerConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
+                package: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter)
         })
@@ -49,7 +49,7 @@ extension PackageContainerConstraint {
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
-            return [.root(package: identifier)]
+            return [.root(package: self.package)]
         case .specific:
             switch products {
             case .everything:
@@ -57,9 +57,9 @@ extension PackageContainerConstraint {
                 return []
             case .specific(let set):
                 if set.isEmpty { // Pointing at the package without a particular product.
-                    return [.empty(package: identifier)]
+                    return [.empty(package: self.package)]
                 } else {
-                    return set.sorted().map { .product($0, package: identifier) }
+                    return set.sorted().map { .product($0, package: self.package) }
                 }
             }
         }
@@ -72,6 +72,6 @@ extension PackageReference {
     /// This should only be accessed when the reference is not local.
     public var repository: RepositorySpecifier {
         precondition(kind == .remote)
-        return RepositorySpecifier(url: path)
+        return RepositorySpecifier(url: self.location)
     }
 }

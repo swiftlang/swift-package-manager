@@ -99,7 +99,7 @@ public enum DependencyResolutionNode {
         // Don’t create a version lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
-            container: package,
+            package: package,
             versionRequirement: .exact(version),
             products: .specific([])
         )
@@ -112,7 +112,7 @@ public enum DependencyResolutionNode {
         // Don’t create a revision lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
-            container: package,
+            package: self.package,
             requirement: .revision(revision),
             products: .specific([])
         )
@@ -127,13 +127,13 @@ extension DependencyResolutionNode: Equatable {
 
 extension DependencyResolutionNode: Hashable {
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(package)
-        hasher.combine(specificProduct)
+        hasher.combine(self.package)
+        hasher.combine(self.specificProduct)
     }
 }
 
 extension DependencyResolutionNode: CustomStringConvertible {
     public var description: String {
-        return "\(self.package.identity)\(productFilter)"
+        return "\(self.package.identity)\(self.productFilter)"
     }
 }

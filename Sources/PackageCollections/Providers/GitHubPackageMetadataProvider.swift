@@ -38,8 +38,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         guard reference.kind == .remote else {
             return callback(.failure(Errors.invalidReferenceType(reference)))
         }
-        guard let baseURL = self.apiURL(reference.path) else {
-            return callback(.failure(Errors.invalidGitURL(reference.path)))
+        guard let baseURL = self.apiURL(reference.location) else {
+            return callback(.failure(Errors.invalidGitURL(reference.location)))
         }
 
         let metadataURL = baseURL

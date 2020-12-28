@@ -537,7 +537,7 @@ public final class MockWorkspace {
                 return
             }
 
-            XCTAssertEqual(pin.packageRef.path, url, file: file, line: line)
+            XCTAssertEqual(pin.packageRef.location, url, file: file, line: line)
         }
     }
 

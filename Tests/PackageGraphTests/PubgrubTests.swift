@@ -54,11 +54,11 @@ private let v1_5Range: VersionSetSpecifier = .range(v1_5..<v2)
 private let v1to3Range: VersionSetSpecifier = .range(v1..<v3)
 private let v2Range: VersionSetSpecifier = .range(v2..<v3)
 
-let aRef = PackageReference(identity: PackageIdentity(name: "a"), path: "")
-let bRef = PackageReference(identity: PackageIdentity(name: "b"), path: "")
-let cRef = PackageReference(identity: PackageIdentity(name: "c"), path: "")
+let aRef = PackageReference.local(identity: PackageIdentity(name: "a"), path: AbsolutePath("/"))
+let bRef = PackageReference.local(identity: PackageIdentity(name: "b"), path: AbsolutePath("/"))
+let cRef = PackageReference.local(identity: PackageIdentity(name: "c"), path: AbsolutePath("/"))
 
-let rootRef = PackageReference(identity: PackageIdentity(name: "root"), path: "", kind: .root)
+let rootRef = PackageReference.root(identity: PackageIdentity(name: "root"), path: AbsolutePath("/"))
 let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
@@ -301,7 +301,7 @@ final class PubgrubTests: XCTestCase {
 
     func testUpdatePackageIdentifierAfterResolution() {
         let fooURL = "https://example.com/foo"
-        let fooRef = PackageReference(identity: PackageIdentity(url: fooURL), path: fooURL)
+        let fooRef = PackageReference.remote(identity: PackageIdentity(url: fooURL), location: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.updatedPackage = "bar"
 
@@ -395,7 +395,7 @@ final class PubgrubTests: XCTestCase {
                                     root: rootNode), at: .topLevel)
         state2.decide(rootNode, at: v1)
         XCTAssertEqual(state2.solution.assignments.count, 1)
-        try solver2.propagate(state: state2, node: .root(package: PackageReference(identity: PackageIdentity(name: "root"), path: "")))
+        try solver2.propagate(state: state2, node: .root(package: .root(identity: PackageIdentity(name: "root"), path: AbsolutePath("/"))))
         XCTAssertEqual(state2.solution.assignments.count, 2)
     }
 
@@ -1911,16 +1911,12 @@ private func AssertError(
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)
 
-    var package: PackageReference
+    public var package: PackageReference
     var updatedPackage: PackageReference?
 
     var dependencies: [String: [String: [Dependency]]]
 
     public var unversionedDeps: [PackageContainerConstraint] = []
-
-    public var identifier: PackageReference {
-        return package
-    }
 
     /// The list of versions that have incompatible tools version.
     var toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
@@ -1978,8 +1974,8 @@ public class MockContainer: PackageContainer {
             filteredDependencies.append(contentsOf: productDependencies)
         }
         return filteredDependencies.map({ value in
-            let (name, requirement, filter) = value
-            return PackageContainerConstraint(container: name, requirement: requirement, products: filter)
+            let (package, requirement, filter) = value
+            return PackageContainerConstraint(package: package, requirement: requirement, products: filter)
         })
     }
 
@@ -2015,7 +2011,7 @@ public class MockContainer: PackageContainer {
         ) {
         self.init(package: package)
         self.unversionedDeps = unversionedDependencies
-            .map { PackageContainerConstraint(container: $0.package, requirement: $0.requirement, products: $0.productFilter) }
+            .map { PackageContainerConstraint(package: $0.package, requirement: $0.requirement, products: $0.productFilter) }
     }
 
     public convenience init(
@@ -2064,7 +2060,7 @@ public struct MockProvider: PackageContainerProvider {
 
     public init(containers: [MockContainer]) {
         self.containers = containers
-        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.identifier, $0) }))
+        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.package, $0) }))
     }
 
     public func getContainer(
@@ -2088,7 +2084,7 @@ class DependencyGraphBuilder {
         if let reference = self.references[packageName] {
             return reference
         }
-        let newReference = PackageReference(identity: PackageIdentity(name: packageName), path: "/\(packageName)")
+        let newReference = PackageReference.remote(identity: PackageIdentity(name: packageName), location: "/\(packageName)")
         self.references[packageName] = newReference
         return newReference
     }
@@ -2097,7 +2093,7 @@ class DependencyGraphBuilder {
         dependencies: OrderedDictionary<String, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
         return dependencies.map {
-            PackageContainerConstraint(container: reference(for: $0), requirement: $1.0, products: $1.1)
+            PackageContainerConstraint(package: reference(for: $0), requirement: $1.0, products: $1.1)
         }
     }
 
@@ -2194,7 +2190,7 @@ extension Term: ExpressibleByStringLiteral {
         }
 
         let name = components[0]
-        let packageReference = PackageReference(identity: PackageIdentity(name: name), path: "")
+        let packageReference = PackageReference.remote(identity: PackageIdentity(name: name), location: "")
 
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
@@ -2207,12 +2203,12 @@ extension Term: ExpressibleByStringLiteral {
 
 extension PackageReference: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        let ref = PackageReference(identity: PackageIdentity(name: value), path: "")
+        let ref = PackageReference.remote(identity: PackageIdentity(name: value), location: "")
         self = ref
     }
 
     init(_ name: String) {
-        self.init(identity: PackageIdentity(name: name), path: "")
+        self = Self.remote(identity: PackageIdentity(name: name), location: "")
     }
 }
 extension Result where Success == [DependencyResolver.Binding] {
