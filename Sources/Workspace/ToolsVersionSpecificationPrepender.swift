@@ -37,32 +37,11 @@ import TSCUtility
 /// - Throws: A `FileSystemError` instance, if the manifest file is unable to be located, read from, or written to..
 public func prependToolsVersionSpecification(toDefaultManifestIn manifestDirectoryPath: AbsolutePath, specifying toolsVersion: ToolsVersion, fileSystem: FileSystem) throws {
     let manifestFilePath = manifestDirectoryPath.appending(component: Manifest.filename)
-    try prependToolsVersionSpecification(toManifestAt: manifestFilePath, specifying: toolsVersion, fileSystem: fileSystem)
-}
-
-// FIXME: Throw an error if the specified version is greater than the version-specific manifest's version?
-// For example, if the manifest file is Package@swift-4.0.swift and the given version to specify is 5.0.
-/// Prepends a Swift tools version specification to the specified manifest file.
-///
-/// If the main manifest file already contains a valid tools version specification (ignoring the validity of the version specifier and that of everything following it), then the existing specification is replaced by this new one.
-///
-/// The version specifier in the specification does not contain any build metadata or pre-release identifier. The patch version is included if and only if it's not zero.
-///
-/// A `FileSystemError` is thrown if the manifest file is unable to be located, read from, or written to.
-///
-/// - Precondition: `manifestFilePath` must be a valid path to a file.
-///
-/// - Parameters:
-///   - manifestFilePath: The absolute path to the specified manifest file.
-///   - toolsVersion: The Swift tools version to specify as the lowest supported version.
-///   - fileSystem: The filesystem to read/write the manifest file on.
-///
-/// - Throws: A `FileSystemError` instance, if the manifest file is unable to be read from or written to..
-public func prependToolsVersionSpecification(toManifestAt manifestFilePath: AbsolutePath, specifying toolsVersion: ToolsVersion, fileSystem: FileSystem) throws {
     // FIXME: Throw a `FileSystemError` instead?
     // The only problem is that there doesn't seem to be a `FileSystemError.Kind` case that describes this kind of error.
     // Or, we can revert it back to an assert, and let `fileSystem.readFileContents(manifestFilePath)` throw an error if the file can't be found.
     precondition(fileSystem.isFile(manifestFilePath), "cannot locate the manifest file at \(manifestFilePath)")
+    
     /// The current contents of the file.
     let contents = try fileSystem.readFileContents(manifestFilePath)
     
