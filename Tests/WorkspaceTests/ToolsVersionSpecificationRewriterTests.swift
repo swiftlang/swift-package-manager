@@ -1,4 +1,4 @@
-// WorkspaceTests/ToolsVersionSpecificationPrependerTests.swift
+// WorkspaceTests/ToolsVersionSpecificationRewriterTests.swift
 //
 // This source file is part of the Swift.org open source project
 //
@@ -10,7 +10,7 @@
 //
 // -----------------------------------------------------------------------------
 ///
-/// This file tests global functions `prependToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)` and `prependToolsVersionSpecification(toManifestAt:specifying:fileSystem:)`.
+/// This file tests `Workspace.rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
 ///
 // -----------------------------------------------------------------------------
 
@@ -20,16 +20,16 @@ import TSCBasic
 import PackageModel
 import Workspace
 
-/// Test cases for `prependToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)` and `prependToolsVersionSpecification(toManifestAt:specifying:fileSystem:)`.
-class ToolsVersionSpecificationPrependerTests: XCTestCase {
+/// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`
+class ToolsVersionSpecificationRewriterTests: XCTestCase {
     
-    /// Tests `prependToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
+    /// Tests `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
     func testNonVersionSpecificManifests() throws {
         // Empty file.
         var stream = BufferedOutputByteStream()
         stream <<< ""
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n")
         }
 
@@ -37,7 +37,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "\n"
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n\n")
         }
 
@@ -45,7 +45,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "let package = ... \n"
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
         }
 
@@ -54,7 +54,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream <<< "// swift-tools-version:3.1.2\n"
         stream <<< "..."
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
@@ -63,7 +63,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream <<< "// swift-tools-version:3.1.2\n"
         stream <<< "..."
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream, version: ToolsVersion(version: "2.1.0")) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream, version: ToolsVersion(version: "2.1.0")) { result in
             XCTAssertEqual(result, "// swift-tools-version:2.1\n...")
         }
 
@@ -72,7 +72,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream <<< "// swift-tool-version:3.1.2\n"
         stream <<< "..."
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n...")
         }
 
@@ -81,7 +81,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream <<< "// swift-tools-version:-3.1.2\n"
         stream <<< "..."
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
 
@@ -90,7 +90,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream <<< "// swift-tools-version:-3.1.2;hello\n"
         stream <<< "..."
 
-        prependToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
+        rewriteToolsVersionSpecificationToDefaultManifest(stream: stream) { result in
             // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
             XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
         }
@@ -101,7 +101,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         stream = BufferedOutputByteStream()
         stream <<< "let package = ... \n"
         
-        prependToolsVersionSpecificationToDefaultManifest(
+        rewriteToolsVersionSpecificationToDefaultManifest(
             stream: stream,
             version: toolsVersion
         ) { result in
@@ -120,12 +120,12 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
         XCTAssertEqual(ToolsVersion(version: "6.0.129").zeroedPatch.description, "6.0.0")
     }
     
-    /// Does the boilerplate filesystem preparations, then calls `prependToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`, for `testNonVersionSpecificManifests()`.
+    /// Does the boilerplate filesystem preparations, then calls `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`, for `testNonVersionSpecificManifests()`.
     /// - Parameters:
     ///   - stream: The stream to read from and write to the filesystem.
     ///   - version: The Swift tools version to specify.
     ///   - resultHandler: The result handler.
-    func prependToolsVersionSpecificationToDefaultManifest(
+    func rewriteToolsVersionSpecificationToDefaultManifest(
         stream: BufferedOutputByteStream,
         version: ToolsVersion = ToolsVersion(version: "4.1.2"),
         resultHandler: (ByteString) -> Void
@@ -138,7 +138,7 @@ class ToolsVersionSpecificationPrependerTests: XCTestCase {
             try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
             try inMemoryFileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)
 
-            try prependToolsVersionSpecification(
+            try rewriteToolsVersionSpecification(
                 toDefaultManifestIn: manifestFilePath.parentDirectory, specifying: version, fileSystem: inMemoryFileSystem)
 
             resultHandler(try inMemoryFileSystem.readFileContents(manifestFilePath))

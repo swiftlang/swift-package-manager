@@ -1,4 +1,4 @@
-// Workspace/ToolsVersionSpecificationPrepender.swift - Prepends/replaces Swift tools version specifications in manifest files.
+// Workspace/ToolsVersionSpecificationRewriter.swift - Prepends/replaces Swift tools version specifications in manifest files.
 //
 // This source file is part of the Swift.org open source project
 //
@@ -10,7 +10,7 @@
 //
 // -----------------------------------------------------------------------------
 ///
-/// This file implements global functions that prepend any given manifest file with a Swift tools version specification.
+/// This file implements a global function that rewrite the Swift tools version specification of a manifest file.
 ///
 // -----------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ import PackageModel
 import PackageLoading
 import TSCUtility
 
-/// Prepends a Swift tools version specification to the non-version-specific manifest file (`Package.swift`) in the given directory.
+/// Rewrites Swift tools version specification to the non-version-specific manifest file (`Package.swift`) in the given directory.
 ///
 /// If the main manifest file already contains a valid tools version specification (ignoring the validity of the version specifier and that of everything following it), then the existing specification is replaced by this new one.
 ///
@@ -35,7 +35,7 @@ import TSCUtility
 ///   - fileSystem: The filesystem to read/write the manifest file on.
 ///
 /// - Throws: A `FileSystemError` instance, if the manifest file is unable to be located, read from, or written to..
-public func prependToolsVersionSpecification(toDefaultManifestIn manifestDirectoryPath: AbsolutePath, specifying toolsVersion: ToolsVersion, fileSystem: FileSystem) throws {
+public func rewriteToolsVersionSpecification(toDefaultManifestIn manifestDirectoryPath: AbsolutePath, specifying toolsVersion: ToolsVersion, fileSystem: FileSystem) throws {
     let manifestFilePath = manifestDirectoryPath.appending(component: Manifest.filename)
     // FIXME: Throw a `FileSystemError` instead?
     // The only problem is that there doesn't seem to be a `FileSystemError.Kind` case that describes this kind of error.

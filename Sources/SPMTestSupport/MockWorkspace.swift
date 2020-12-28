@@ -114,7 +114,7 @@ public final class MockWorkspace {
             let toolsVersion = package.toolsVersion ?? .currentToolsVersion
             let repoManifestPath = AbsolutePath.root.appending(component: Manifest.filename)
             try repo.writeFileContents(repoManifestPath, bytes: "")
-            try prependToolsVersionSpecification(toDefaultManifestIn: .root, specifying: toolsVersion, fileSystem: repo)
+            try rewriteToolsVersionSpecification(toDefaultManifestIn: .root, specifying: toolsVersion, fileSystem: repo)
             try repo.commit()
 
             let versions: [String?] = packageKind == .remote ? package.versions : [nil]
