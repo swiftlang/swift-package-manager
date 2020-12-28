@@ -27,7 +27,7 @@ extension Manifest {
         /// tools version, since the patch version doesn't change semantics.
         /// We leave out the spacer if the tools version doesn't support it.
         return """
-            \(toolsVersion.specification(resolution: .minor))
+            \(toolsVersion.specification(roundedTo: .minor))
             import PackageDescription
 
             let package = \(SourceCodeFragment(from: self).generateSourceCode())

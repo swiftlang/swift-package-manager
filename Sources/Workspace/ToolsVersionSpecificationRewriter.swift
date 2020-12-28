@@ -47,7 +47,7 @@ public func rewriteToolsVersionSpecification(toDefaultManifestIn manifestDirecto
     
     let stream = BufferedOutputByteStream()
     // Write out the tools version specification, including the patch version if and only if it's not zero.
-    stream <<< toolsVersion.specification(resolution: .automatic) <<< "\n"
+    stream <<< toolsVersion.specification(roundedTo: .automatic) <<< "\n"
     
     // The following lines up to line 77 append the file contents except for the Swift tools version specification line.
     

@@ -23,20 +23,20 @@ class ToolsVersionSpecificationGenerationTests: XCTestCase {
     func testToolsVersionSpecificationGeneration() throws {
         let versionWithNonZeroPatch = ToolsVersion(version: Version(4, 3, 2))
         XCTAssertEqual(versionWithNonZeroPatch.specification(), "// swift-tools-version:4.3.2")
-        XCTAssertEqual(versionWithNonZeroPatch.specification(resolution: .automatic), "// swift-tools-version:4.3.2")
-        XCTAssertEqual(versionWithNonZeroPatch.specification(resolution: .minor), "// swift-tools-version:4.3")
-        XCTAssertEqual(versionWithNonZeroPatch.specification(resolution: .patch), "// swift-tools-version:4.3.2")
+        XCTAssertEqual(versionWithNonZeroPatch.specification(roundedTo: .automatic), "// swift-tools-version:4.3.2")
+        XCTAssertEqual(versionWithNonZeroPatch.specification(roundedTo: .minor), "// swift-tools-version:4.3")
+        XCTAssertEqual(versionWithNonZeroPatch.specification(roundedTo: .patch), "// swift-tools-version:4.3.2")
         
         let versionWithZeroPatch = ToolsVersion.v5_3 // 5.3.0
         XCTAssertEqual(versionWithZeroPatch.specification(), "// swift-tools-version:5.3")
-        XCTAssertEqual(versionWithZeroPatch.specification(resolution: .automatic), "// swift-tools-version:5.3")
-        XCTAssertEqual(versionWithZeroPatch.specification(resolution: .minor), "// swift-tools-version:5.3")
-        XCTAssertEqual(versionWithZeroPatch.specification(resolution: .patch), "// swift-tools-version:5.3.0")
+        XCTAssertEqual(versionWithZeroPatch.specification(roundedTo: .automatic), "// swift-tools-version:5.3")
+        XCTAssertEqual(versionWithZeroPatch.specification(roundedTo: .minor), "// swift-tools-version:5.3")
+        XCTAssertEqual(versionWithZeroPatch.specification(roundedTo: .patch), "// swift-tools-version:5.3.0")
         
         let newMajorVersion = ToolsVersion.v5 // 5.0.0
         XCTAssertEqual(newMajorVersion.specification(), "// swift-tools-version:5.0")
-        XCTAssertEqual(newMajorVersion.specification(resolution: .automatic), "// swift-tools-version:5.0")
-        XCTAssertEqual(newMajorVersion.specification(resolution: .minor), "// swift-tools-version:5.0")
-        XCTAssertEqual(newMajorVersion.specification(resolution: .patch), "// swift-tools-version:5.0.0")
+        XCTAssertEqual(newMajorVersion.specification(roundedTo: .automatic), "// swift-tools-version:5.0")
+        XCTAssertEqual(newMajorVersion.specification(roundedTo: .minor), "// swift-tools-version:5.0")
+        XCTAssertEqual(newMajorVersion.specification(roundedTo: .patch), "// swift-tools-version:5.0.0")
     }
 }

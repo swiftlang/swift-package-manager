@@ -17,13 +17,13 @@
 extension ToolsVersion {
     // TODO: Add options for whitespace styles.
     /// Returns a Swift tools version specification specifying the version to the given precision.
-    /// - Parameter resolution: The precision to which the version specifier follows the version.
+    /// - Parameter leastSignificantVersion: The precision to which the version specifier follows the version.
     /// - Returns: A  Swift tools version specification specifying the version to the given precision.
-    public func specification(resolution: SpecifierResolution = .automatic) -> String {
+    public func specification(roundedTo leastSignificantVersion: LeastSignificantVersion = .automatic) -> String {
         var versionSpecifier = "\(major).\(minor)"
-        switch resolution {
+        switch leastSignificantVersion {
         case .automatic:
-            // If the patch version is not zero, then the resolution is at patch version.
+            // If the patch version is not zero, then it's included in the Swift tools version specification.
             if patch != 0 { fallthrough }
         case .patch:
             versionSpecifier = "\(versionSpecifier).\(patch)"
@@ -33,13 +33,13 @@ extension ToolsVersion {
         return "// swift-tools-version:\(self < .v5_4 ? "" : " ")\(versionSpecifier)"
     }
     
-    /// The precision to which a version specifier follows the version it describes.
-    public enum SpecifierResolution {
-        /// The patch version is included if and only if it's not zero.
+    /// The least significant version to round to.
+    public enum LeastSignificantVersion {
+        /// The patch version is the least significant if and only if it's not zero. Otherwise, the minor version is the least significant.
         case automatic
-        /// The version specifier includes only the major and minor versions.
+        /// The minor version is the least significant.
         case minor
-        /// The version specifier includes the major, minor, and patch versions.
+        /// The patch version is the least significant.
         case patch
         // Although `ToolsVersion` uses `Version` as its backing store, it discards all pre-release and build metadata.
         // The versioning information ends at the patch version.
