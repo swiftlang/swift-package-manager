@@ -17,6 +17,7 @@ We’ve designed the system to make it really easy to share packages on services
     * [Dependency Hell](#dependency-hell)
 * [Usage](Usage.md)
 * [PackageDescription API](PackageDescription.md)
+* [Continous Integration](ContinousIntegration.md)
 * [libSwiftPM](libSwiftPM.md)
 * [Resources](Resources.md)
 
