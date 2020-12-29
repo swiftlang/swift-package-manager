@@ -19,6 +19,48 @@ import PackageModel
 import PackageLoading
 import TSCUtility
 
+/// An error that causes the access to a manifest to fails.
+public struct ManifestAccessError: Error, CustomStringConvertible {
+    public init(_ kind: Kind, at path: AbsolutePath) {
+        self.kind = kind
+        self.path = path
+    }
+    
+    /// The kind of the error being raised.
+    public enum Kind: Equatable {
+        /// A component of a specified pathname did not exist, or the pathname was an empty string.
+        ///
+        /// This error is equivalent to `TSCBasic.FileSystemError.Kind.noEntry` and corresponds to the POSIX ENOENT error code, but is specialised for manifest access.
+        case noSuchFileOrDirectory
+        /// The path points to a directory.
+        ///
+        /// This error is equivalent to `TSCBasic.FileSystemError.Kind.isDirectory` and corresponds to rhe POSIX EISDIR error code, but is specialised for manifest access.
+        case isADirectory
+        /// The manifest cannot be accessed for an unknown reason.
+        case unknown
+    }
+    
+    /// The kind of the error being raised.
+    public let kind: Kind
+    
+    /// The absolute path where the error occurred.
+    public let path: AbsolutePath
+    
+    public var description: String {
+        var reason: String {
+            switch kind {
+            case .noSuchFileOrDirectory:
+                return "a component of the path does not exist, or the path is an empty string"
+            case .isADirectory:
+                return "the path is a directory; a file is expected"
+            case .unknown:
+                return "an unknown error occurred"
+            }
+        }
+        return "no accessible Swift Package Manager manifest file found at '\(path)'; \(reason)"
+    }
+}
+
 /// Rewrites Swift tools version specification to the non-version-specific manifest file (`Package.swift`) in the given directory.
 ///
 /// If the main manifest file already contains a valid tools version specification (ignoring the validity of the version specifier and that of everything following it), then the existing specification is replaced by this new one.
@@ -33,14 +75,18 @@ import TSCUtility
 ///   - manifestDirectoryPath: The absolute path to the given directory.
 ///   - toolsVersion: The Swift tools version to specify as the lowest supported version.
 ///   - fileSystem: The filesystem to read/write the manifest file on.
-///
-/// - Throws: A `FileSystemError` instance, if the manifest file is unable to be located, read from, or written to..
 public func rewriteToolsVersionSpecification(toDefaultManifestIn manifestDirectoryPath: AbsolutePath, specifying toolsVersion: ToolsVersion, fileSystem: FileSystem) throws {
     let manifestFilePath = manifestDirectoryPath.appending(component: Manifest.filename)
-    // FIXME: Throw a `FileSystemError` instead?
-    // The only problem is that there doesn't seem to be a `FileSystemError.Kind` case that describes this kind of error.
-    // Or, we can revert it back to an assert, and let `fileSystem.readFileContents(manifestFilePath)` throw an error if the file can't be found.
-    precondition(fileSystem.isFile(manifestFilePath), "cannot locate the manifest file at \(manifestFilePath)")
+    
+    guard fileSystem.isFile(manifestFilePath) else {
+        guard fileSystem.exists(manifestFilePath) else {
+            throw ManifestAccessError(.noSuchFileOrDirectory, at: manifestFilePath)
+        }
+        guard !fileSystem.isDirectory(manifestFilePath) else {
+            throw ManifestAccessError(.isADirectory, at: manifestFilePath)
+        }
+        throw ManifestAccessError(.unknown, at: manifestFilePath)
+    }
     
     /// The current contents of the file.
     let contents = try fileSystem.readFileContents(manifestFilePath)

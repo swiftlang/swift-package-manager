@@ -109,6 +109,62 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         }
     }
     
+    func testManifestAccessFailures() throws {
+        let toolsVersion = ToolsVersion.v5_3
+        
+        let inMemoryFileSystem = InMemoryFileSystem()
+        let manifestFilePath = AbsolutePath("/pkg/Package.swift/Package.swift")
+        try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true) // /pkg/Package.swift/
+        
+        // Test `ManifestAccessError.Kind.isADirectory`
+        XCTAssertThrowsError(
+            try rewriteToolsVersionSpecification(
+                toDefaultManifestIn: manifestFilePath.parentDirectory.parentDirectory, // /pkg/
+                specifying: toolsVersion,
+                fileSystem: inMemoryFileSystem
+            ),
+            "'/pkg/Package.swift' is a directory, and an error should've been thrown"
+        ) { error in
+            guard let error = error as? ManifestAccessError else {
+                XCTFail("a ManifestAccessError should've been thrown")
+                return
+            }
+            XCTAssertEqual(
+                error.kind,
+                .isADirectory
+            )
+            XCTAssertEqual(
+                error.description,
+                "no accessible Swift Package Manager manifest file found at '\(manifestFilePath.parentDirectory)'; the path is a directory; a file is expected" // /pkg/Package.swift/
+            )
+        }
+        
+        // Test `ManifestAccessError.Kind.noSuchFileOrDirectory`
+        XCTAssertThrowsError(
+            try rewriteToolsVersionSpecification(
+                toDefaultManifestIn: manifestFilePath.parentDirectory, // /pkg/Package.swift/
+                specifying: toolsVersion,
+                fileSystem: inMemoryFileSystem
+            ),
+            "'/pkg/Package.swift' is a directory, and an error should've been thrown"
+        ) { error in
+            guard let error = error as? ManifestAccessError else {
+                XCTFail("a ManifestAccessError should've been thrown")
+                return
+            }
+            XCTAssertEqual(
+                error.kind,
+                .noSuchFileOrDirectory
+            )
+            XCTAssertEqual(
+                error.description,
+                "no accessible Swift Package Manager manifest file found at '\(manifestFilePath)'; a component of the path does not exist, or the path is an empty string" // /pkg/Package.swift/Package.swift
+            )
+        }
+        
+        // TODO: Test `ManifestAccessError.Kind.unknown`
+    }
+    
     // Private functions are not run in tests.
     private func testVersionSpecificManifests() throws {
         // TODO: Add the functionality and tests for version-specific manifests too.
@@ -131,7 +187,7 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
         resultHandler: (ByteString) -> Void
     ) {
         do {
-            let inMemoryFileSystem: FileSystem = InMemoryFileSystem()
+            let inMemoryFileSystem = InMemoryFileSystem()
 
             let manifestFilePath = AbsolutePath("/pkg/Package.swift")
 
@@ -139,7 +195,10 @@ class ToolsVersionSpecificationRewriterTests: XCTestCase {
             try inMemoryFileSystem.writeFileContents(manifestFilePath, bytes: stream.bytes)
 
             try rewriteToolsVersionSpecification(
-                toDefaultManifestIn: manifestFilePath.parentDirectory, specifying: version, fileSystem: inMemoryFileSystem)
+                toDefaultManifestIn: manifestFilePath.parentDirectory,
+                specifying: version,
+                fileSystem: inMemoryFileSystem
+            )
 
             resultHandler(try inMemoryFileSystem.readFileContents(manifestFilePath))
         } catch {
