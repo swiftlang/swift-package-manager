@@ -581,7 +581,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-	func testCustomTargetPaths() {
+    func testCustomTargetPaths() {
         let fs = InMemoryFileSystem(emptyFiles:
             "/mah/target/exe/swift/exe/main.swift",
             "/mah/target/exe/swift/exe/foo.swift",
