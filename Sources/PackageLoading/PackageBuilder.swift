@@ -295,13 +295,9 @@ public final class PackageBuilder {
                              completion: $0)
         }
     }
-    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - packagePath: The absolute path of the package root.
-    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
-    ///         Its associated resources will be used by the loader.
-    ///     - kind: The kind of package.
+
+    // FIXME: deprecated 12/2020, remove once clients migrate
+    @available(*, deprecated, message: "use at:kind:... version instead")
     public static func loadPackage(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -313,16 +309,44 @@ public final class PackageBuilder {
         on queue: DispatchQueue,
         completion: @escaping (Result<Package, Error>) -> Void
     ) {
-        ManifestLoader.loadManifest(packagePath: packagePath,
+        Self.loadPackage(at: packagePath,
+                         kind: kind,
+                         swiftCompiler: swiftCompiler,
+                         swiftCompilerFlags: swiftCompilerFlags,
+                         xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                         diagnostics: diagnostics,
+                         on: queue,
+                         completion: completion)
+    }
+
+    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - at: The absolute path of the package root.
+    ///     - kind: The kind of package.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    public static func loadPackage(
+        at path: AbsolutePath,
+        kind: PackageReference.Kind = .root,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+        diagnostics: DiagnosticsEngine,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Package, Error>) -> Void
+    ) {
+        ManifestLoader.loadManifest(at: path,
+                                    kind: kind,
                                     swiftCompiler: swiftCompiler,
                                     swiftCompilerFlags: swiftCompilerFlags,
-                                    packageKind: kind,
                                     on: queue) { result in
             let result = result.tryMap { manifest -> Package in
                 let builder = PackageBuilder(
                     manifest: manifest,
                     productFilter: .everything,
-                    path: packagePath,
+                    path: path,
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     diagnostics: diagnostics)
                 return try builder.construct()

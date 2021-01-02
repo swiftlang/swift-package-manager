@@ -49,19 +49,19 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
     }
 
     public func load(
-        packagePath path: TSCBasic.AbsolutePath,
-        baseURL: String,
+        at path: AbsolutePath,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
         version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
-        fileSystem: FileSystem?,
+        fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine?,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         queue.async {
-            let key = Key(url: baseURL, version: version)
+            let key = Key(url: packageLocation, version: version)
             if let result = self.manifests[key] {
                 return completion(.success(result))
             } else {
@@ -69,16 +69,30 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
             }
         }
     }
+
+    public func resetCache() throws {}
 }
 
 extension ManifestLoader {
-    public func load(package path: TSCBasic.AbsolutePath,
-              baseURL: String,
-              toolsVersion: PackageModel.ToolsVersion,
-              packageKind: PackageModel.PackageReference.Kind,
-              fileSystem: PackageLoading.FileSystem? = nil,
-              diagnostics: TSCBasic.DiagnosticsEngine? = nil
+    public func load(
+        at path: AbsolutePath,
+        packageKind: PackageModel.PackageReference.Kind,
+        packageLocation: String,
+        toolsVersion: PackageModel.ToolsVersion,
+        fileSystem: PackageLoading.FileSystem,
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest{
-        try tsc_await { self.load(package: path, baseURL: baseURL, toolsVersion: toolsVersion, packageKind: packageKind, fileSystem: fileSystem, diagnostics: diagnostics, on: .global(), completion: $0) }
+        try tsc_await {
+            self.load(at: path,
+                      packageKind: packageKind,
+                      packageLocation: packageLocation,
+                      version: nil,
+                      revision: nil,
+                      toolsVersion: toolsVersion,
+                      fileSystem: fileSystem,
+                      diagnostics: diagnostics,
+                      on: .global(),
+                      completion: $0)
+        }
     }
 }

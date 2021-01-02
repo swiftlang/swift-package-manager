@@ -356,9 +356,9 @@ final class PackageToolTests: XCTestCase {
         let manifestA = Manifest.createManifest(
             name: "PackageA",
             path: "/PackageA",
-            url: "/PackageA",
-            v: .currentToolsVersion,
             packageKind: .root,
+            packageLocation: "/PackageA",
+            v: .currentToolsVersion,
             dependencies: [
                 .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
                 .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
@@ -374,9 +374,9 @@ final class PackageToolTests: XCTestCase {
         let manifestB = Manifest.createManifest(
             name: "PackageB",
             path: "/PackageB",
-            url: "/PackageB",
-            v: .currentToolsVersion,
             packageKind: .local,
+            packageLocation: "/PackageB",
+            v: .currentToolsVersion,
             dependencies: [
                 .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
                 .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
@@ -392,9 +392,9 @@ final class PackageToolTests: XCTestCase {
         let manifestC = Manifest.createManifest(
             name: "PackageC",
             path: "/PackageC",
-            url: "/PackageC",
-            v: .currentToolsVersion,
             packageKind: .local,
+            packageLocation: "/PackageC",
+            v: .currentToolsVersion,
             dependencies: [
                 .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
             ],
@@ -409,9 +409,9 @@ final class PackageToolTests: XCTestCase {
         let manifestD = Manifest.createManifest(
             name: "PackageD",
             path: "/PackageD",
-            url: "/PackageD",
-            v: .currentToolsVersion,
             packageKind: .local,
+            packageLocation: "/PackageD",
+            v: .currentToolsVersion,
             products: [
                 .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],

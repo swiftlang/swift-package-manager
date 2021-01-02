@@ -42,7 +42,7 @@ import TSCUtility
 /// 5. A loaded package, as in #4, for which the targets have also been
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
-public final class Package: ObjectIdentifierProtocol, Codable {
+public final class Package: ObjectIdentifierProtocol, Encodable {
     /// The manifest describing the package.
     public let manifest: Manifest
 
@@ -88,7 +88,7 @@ public final class Package: ObjectIdentifierProtocol, Codable {
     }
 
     public enum Error: Swift.Error, Equatable {
-        case noManifest(baseURL: String, version: String?)
+        case noManifest(at: AbsolutePath, version: String?)
     }
 }
 

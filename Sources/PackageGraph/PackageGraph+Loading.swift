@@ -39,7 +39,7 @@ extension PackageGraph {
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageIdentity(url: $0.url), $0) })
+        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageIdentity(url: $0.packageLocation), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
@@ -201,7 +201,7 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
-        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.url }
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.packageLocation }
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
@@ -211,7 +211,7 @@ private func createResolvedPackages(
 
     // Create a map of package builders keyed by the package identity.
     let packageMapByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
-        let identity = PackageIdentity(url: $0.package.manifest.url)
+        let identity = PackageIdentity(url: $0.package.manifest.packageLocation)
         return (identity, $0)
     }
     let packageMapByName: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{ ($0.package.name, $0) }
@@ -368,7 +368,7 @@ private func createResolvedPackages(
                     // explicitly reference the package containing the product, or for the product, package and
                     // dependency to share the same name. We don't check this in manifest loading for root-packages so
                     // we can provide a more detailed diagnostic here.
-                    let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
+                    let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.packageLocation)
                     let referencedPackageIdentity = PackageIdentity(url: referencedPackageURL)
                     guard let packageDependency = (packageBuilder.package.manifest.dependencies.first { package in
                         let packageURL = mirrors.effectiveURL(forURL: package.url)

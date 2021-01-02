@@ -1276,7 +1276,7 @@ final class PIFBuildConfigurationBuilder {
 // PIF target and a PIF product can have the same name (as they often do).
 
 extension ResolvedPackage {
-    var pifProjectGUID: PIF.GUID { "PACKAGE:\(manifest.url)" }
+    var pifProjectGUID: PIF.GUID { "PACKAGE:\(manifest.packageLocation)" }
 }
 
 extension ResolvedProduct {

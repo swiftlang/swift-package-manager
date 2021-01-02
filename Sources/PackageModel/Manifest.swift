@@ -23,6 +23,9 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// The standard basename for the manifest.
     public static let basename = "Package"
 
+    /// The name of the package.
+    public let name: String
+
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
     // to the repository state, it shouldn't matter where it is.
     //
@@ -33,7 +36,17 @@ public final class Manifest: ObjectIdentifierProtocol {
     // to the repository state, it shouldn't matter where it is.
     //
     /// The repository URL the manifest was loaded from.
-    public let url: String
+    public let packageLocation: String
+
+    @available(*, deprecated)
+    public var url: String {
+        get {
+            self.packageLocation
+        }
+    }
+
+    /// Whether kind of package this manifest is from.
+    public let packageKind: PackageReference.Kind
 
     /// The version this package was loaded from, if known.
     public let version: Version?
@@ -44,14 +57,8 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// The tools version declared in the manifest.
     public let toolsVersion: ToolsVersion
 
-    /// The name of the package.
-    public let name: String
-
     /// The default localization for resources.
     public let defaultLocalization: String?
-
-    /// Whether kind of package this manifest is from.
-    public let packageKind: PackageReference.Kind
 
     /// The declared platforms in the manifest.
     public let platforms: [PlatformDescription]
@@ -91,14 +98,14 @@ public final class Manifest: ObjectIdentifierProtocol {
 
     public init(
         name: String,
+        path: AbsolutePath,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription],
-        path: AbsolutePath,
-        url: String,
         version: TSCUtility.Version? = nil,
         revision: String? = nil,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -109,14 +116,14 @@ public final class Manifest: ObjectIdentifierProtocol {
         targets: [TargetDescription] = []
     ) {
         self.name = name
+        self.path = path
+        self.packageKind = packageKind
+        self.packageLocation = packageLocation
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
-        self.path = path
-        self.url = url
         self.version = version
         self.revision = revision
         self.toolsVersion = toolsVersion
-        self.packageKind = packageKind
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.cLanguageStandard = cLanguageStandard
@@ -342,7 +349,7 @@ extension Manifest: CustomStringConvertible {
     }
 }
 
-extension Manifest: Codable {
+extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
          case name, path, url, version, targetMap, toolsVersion,
               pkgConfig,providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
@@ -356,27 +363,27 @@ extension Manifest: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
+        try container.encode(self.name, forKey: .name)
 
         // Hide the keys that users shouldn't see when
         // we're encoding for the dump-package command.
         if encoder.userInfo[Manifest.dumpPackageKey] == nil {
-            try container.encode(path, forKey: .path)
-            try container.encode(url, forKey: .url)
-            try container.encode(version, forKey: .version)
-            try container.encode(targetMap, forKey: .targetMap)
+            try container.encode(self.path, forKey: .path)
+            try container.encode(self.packageLocation, forKey: .url)
+            try container.encode(self.version, forKey: .version)
+            try container.encode(self.targetMap, forKey: .targetMap)
         }
 
-        try container.encode(toolsVersion, forKey: .toolsVersion)
-        try container.encode(pkgConfig, forKey: .pkgConfig)
-        try container.encode(providers, forKey: .providers)
-        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
-        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
-        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
-        try container.encode(dependencies, forKey: .dependencies)
-        try container.encode(products, forKey: .products)
-        try container.encode(targets, forKey: .targets)
-        try container.encode(platforms, forKey: .platforms)
-        try container.encode(packageKind, forKey: .packageKind)
+        try container.encode(self.toolsVersion, forKey: .toolsVersion)
+        try container.encode(self.pkgConfig, forKey: .pkgConfig)
+        try container.encode(self.providers, forKey: .providers)
+        try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(self.cxxLanguageStandard, forKey: .cxxLanguageStandard)
+        try container.encode(self.swiftLanguageVersions, forKey: .swiftLanguageVersions)
+        try container.encode(self.dependencies, forKey: .dependencies)
+        try container.encode(self.products, forKey: .products)
+        try container.encode(self.targets, forKey: .targets)
+        try container.encode(self.platforms, forKey: .platforms)
+        try container.encode(self.packageKind, forKey: .packageKind)
     }
 }

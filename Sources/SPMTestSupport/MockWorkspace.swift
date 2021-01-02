@@ -120,12 +120,12 @@ public final class MockWorkspace {
                 let v = version.flatMap(Version.init(string:))
                 manifests[.init(url: url, version: v)] = Manifest(
                     name: package.name,
-                    platforms: package.platforms,
                     path: manifestPath,
-                    url: url,
+                    packageKind: packageKind,
+                    packageLocation: url,
+                    platforms: package.platforms,
                     version: v,
                     toolsVersion: toolsVersion,
-                    packageKind: packageKind,
                     dependencies: package.dependencies.map { $0.convert(baseURL: packagesDir) },
                     products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: package.targets.map { $0.convert() }

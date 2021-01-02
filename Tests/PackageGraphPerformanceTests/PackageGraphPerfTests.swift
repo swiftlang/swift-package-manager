@@ -45,12 +45,12 @@ class PackageGraphPerfTests: XCTestCasePerf {
             let isRoot = pkg == 1
             let manifest = Manifest(
                 name: name,
-                platforms: [],
                 path: AbsolutePath(url).appending(component: Manifest.filename),
-                url: url,
+                packageKind: isRoot ? .root : .remote,
+                packageLocation: url,
+                platforms: [],
                 version: "1.0.0",
                 toolsVersion: .v4_2,
-                packageKind: isRoot ? .root : .remote,
                 dependencies: dependencies,
                 products: [
                     ProductDescription(name: name, type: .library(.automatic), targets: [name])

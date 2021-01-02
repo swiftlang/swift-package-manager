@@ -347,10 +347,11 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             do {
                 _ = try loader.load(
-                    package: manifestPath.parentDirectory,
-                    baseURL: manifestPath.pathString,
+                    at: manifestPath.parentDirectory,
+                    packageKind: .local,
+                    packageLocation: manifestPath.pathString,
                     toolsVersion: .v5,
-                    packageKind: .local
+                    fileSystem: fs
                 )
             } catch ManifestParseError.invalidManifestFormat(let error, let diagnosticFile) {
                 XCTAssertMatch(error, .contains("expected expression in container literal"))
@@ -377,10 +378,11 @@ class PackageDescription5LoadingTests: PackageDescriptionLoadingTests {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loader.load(
-                package: manifestPath.parentDirectory,
-                baseURL: manifestPath.pathString,
-                toolsVersion: .v5,
+                at: manifestPath.parentDirectory,
                 packageKind: .local,
+                packageLocation: manifestPath.pathString,
+                toolsVersion: .v5,
+                fileSystem: fs,
                 diagnostics: diagnostics
             )
 

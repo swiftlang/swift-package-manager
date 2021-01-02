@@ -47,12 +47,14 @@ public final class LocalPackageContainer: PackageContainer {
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
-                manifestLoader.load(package: AbsolutePath(self.package.location),
-                                    baseURL: self.package.location,
-                                    version: nil,
-                                    toolsVersion: toolsVersion,
+                manifestLoader.load(at: AbsolutePath(self.package.location),
                                     packageKind: self.package.kind,
+                                    packageLocation: self.package.location,
+                                    version: nil,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
                                     fileSystem: self.fileSystem,
+                                    diagnostics: nil,
                                     on: .global(),
                                     completion: $0)
             }
