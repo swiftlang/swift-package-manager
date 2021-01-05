@@ -304,6 +304,7 @@ public class SwiftTool {
     /// workspace is not needed, infact it would be an error to ask for the workspace object
     /// for package init because the Manifest file should *not* present.
     private var _workspace: Workspace?
+    private var _workspaceDelegate: ToolWorkspaceDelegate?
 
     /// Create an instance of this tool.
     ///
@@ -514,6 +515,7 @@ public class SwiftTool {
             cachePath: try self.getCachePath()
         )
         _workspace = workspace
+        _workspaceDelegate = delegate
         return workspace
     }
 
