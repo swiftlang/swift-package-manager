@@ -188,7 +188,7 @@ public class Workspace {
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
 
-    /// The swiftpm config.
+    /// The SwiftPM config.
     fileprivate let config: Workspace.Configuration
 
     /// The current persisted state of the workspace.
@@ -999,10 +999,10 @@ extension Workspace {
         }
 
         if let checkoutState = dependency.basedOn?.checkoutState {
-                // Restore the original checkout.
-                //
-                // The clone method will automatically update the managed dependency state.
-                _ = try clone(package: dependency.packageRef, at: checkoutState)
+            // Restore the original checkout.
+            //
+            // The clone method will automatically update the managed dependency state.
+            _ = try clone(package: dependency.packageRef, at: checkoutState)
         } else {
             // The original dependency was removed, update the managed dependency state.
             state.dependencies.remove(forURL: dependency.packageRef.path)
@@ -1029,7 +1029,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) {
         // Reset the pinsStore and start pinning the required dependencies.
-		pinsStore.unpinAll()
+        pinsStore.unpinAll()
 
         let requiredURLs = dependencyManifests.computePackageURLs().required
 
@@ -1271,7 +1271,7 @@ extension Workspace {
             return checkoutsPath.appending(dependency.subpath)
         case .edited(let path):
             return path ?? editablesPath.appending(dependency.subpath)
-		case .local:
+        case .local:
             return AbsolutePath(dependency.packageRef.path)
         }
     }
@@ -1466,10 +1466,10 @@ extension Workspace {
                                     on: self.queue) { result in
 
                     switch result {
-                    case .failure(let error):
-                        diagnostics.emit(error)
-                    case .success(let manifest):
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: url, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestDiagnostics.diagnostics)
+                        case .failure(let error):
+                            diagnostics.emit(error)
+                        case .success(let manifest):
+                            self.delegate?.didLoadManifest(packagePath: packagePath, url: url, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestDiagnostics.diagnostics)
                     }
                     completion(result)
                 }
@@ -1609,11 +1609,11 @@ extension Workspace {
 
         var authProvider: AuthorizationProviding? = nil
         #if os(macOS)
-        // Netrc feature currently only supported on macOS 10.13+ due to dependency
-        // on NSTextCheckingResult.range(with:)
-        if #available(macOS 10.13, *) {
-            authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
-        }
+            // Netrc feature currently only supported on macOS 10.13+ due to dependency
+            // on NSTextCheckingResult.range(with:)
+            if #available(macOS 10.13, *) {
+                authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
+            }
         #endif
         for artifact in artifacts {
             group.enter()
@@ -2030,7 +2030,7 @@ extension Workspace {
             return
         }
 
-		let pins = pinsStore.pinsMap.keys
+        let pins = pinsStore.pinsMap.keys
         let requiredURLs = dependencyManifests.computePackageURLs().required
 
         for dependency in state.dependencies {

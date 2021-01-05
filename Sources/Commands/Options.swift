@@ -77,7 +77,7 @@ extension AbsolutePath: ExpressibleByArgument {
             self = path
         }
     }
-  
+
     public static var defaultCompletionKind: CompletionKind {
         // This type is most commonly used to select a directory, not a file.
         // Specify '.file()' in an argument declaration when necessary.
@@ -114,7 +114,7 @@ public extension Sanitizer {
 public struct SwiftToolOptions: ParsableArguments {
     @OptionGroup()
     var buildFlagsGroup: BuildFlagsGroup
-    
+
     /// Custom arguments to pass to C compiler, swift compiler and the linker.
     var buildFlags: BuildFlags {
         buildFlagsGroup.buildFlags
@@ -214,7 +214,7 @@ public struct SwiftToolOptions: ParsableArguments {
     var enabledSanitizers: EnabledSanitizers {
         EnabledSanitizers(Set(sanitizers))
     }
-    
+
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
@@ -222,20 +222,20 @@ public struct SwiftToolOptions: ParsableArguments {
     var shouldEnableCodeCoverage: Bool = false
 
     // TODO: Does disable-automatic-resolution alias force-resolved-versions?
-    
+
     /// Use Package.resolved file for resolving dependencies.
     @Flag(name: [.long, .customLong("disable-automatic-resolution")], help: "Disable automatic resolution if Package.resolved file is out-of-date")
     var forceResolvedVersions: Bool = false
 
     @Flag(name: .customLong("index-store"), inversion: .prefixedEnableDisable, help: "Enable or disable  indexing-while-building feature")
     var indexStoreEnable: Bool?
-    
+
     /// The mode to use for indexing-while-building feature.
     var indexStore: BuildParameters.IndexStoreMode {
         guard let enable = indexStoreEnable else { return .auto }
         return enable ? .on : .off
     }
-    
+
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     var shouldEnableParseableModuleInterfaces: Bool = false
@@ -283,21 +283,21 @@ public struct SwiftToolOptions: ParsableArguments {
         // Force the Xcode build system if we want to build more than one arch.
         archs.count > 1 ? .xcode : _buildSystem
     }
-    
+
     /// Tells `Workspace` to attempt to locate .netrc file at `NSHomeDirectory`.
     @Flag()
     var netrc: Bool = false
-    
+
     /// Similar to `--netrc`, but this option makes the .netrc usage optional and not mandatory as with the `--netrc` option.
     @Flag(name: .customLong("netrc-optional"))
     var netrcOptional: Bool = false
-    
+
     /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.
     /// Similar to `--netrc`, except that you also provide the path to the actual file to use.
     /// This is useful when you want to provide the information in another directory or with another file name.
     ///  - important: Respects `--netrcOptional` option.
     @Option(name: .customLong("netrc-file"), completion: .file())
     var netrcFilePath: AbsolutePath?
-    
+
     public init() {}
 }

@@ -4,26 +4,33 @@ import PackageDescription
 let package = Package(
     name: "ModuleMapGenerationCases",
     targets: [
-		.target(
+        .target(
             name: "Baz",
-            dependencies: ["FlatInclude", "NonModuleDirectoryInclude", "UmbrellaHeader", "UmbrellaDirectoryInclude", "UmbrellaHeaderFlat"]),
-		.target(
+            dependencies: ["FlatInclude", "NonModuleDirectoryInclude", "UmbrellaHeader", "UmbrellaDirectoryInclude", "UmbrellaHeaderFlat"]
+        ),
+        .target(
             name: "FlatInclude",
-            dependencies: []),
-		.target(
+            dependencies: []
+        ),
+        .target(
             name: "NoIncludeDir",
-            dependencies: []),
-		.target(
+            dependencies: []
+        ),
+        .target(
             name: "NonModuleDirectoryInclude",
-            dependencies: []),
-		.target(
+            dependencies: []
+        ),
+        .target(
             name: "UmbrellaDirectoryInclude",
-            dependencies: []),
-		.target(
+            dependencies: []
+        ),
+        .target(
             name: "UmbrellaHeader",
-            dependencies: []),
-		.target(
+            dependencies: []
+        ),
+        .target(
             name: "UmbrellaHeaderFlat",
-            dependencies: []),
+            dependencies: []
+        ),
     ]
 )

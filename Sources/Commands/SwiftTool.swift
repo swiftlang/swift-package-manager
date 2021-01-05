@@ -228,7 +228,7 @@ private final class DiagnosticsEngineHandler {
 
 protocol SwiftCommand: ParsableCommand {
     var swiftOptions: SwiftToolOptions { get }
-  
+
     func run(_ swiftTool: SwiftTool) throws
 }
 
@@ -319,16 +319,16 @@ public class SwiftTool {
         do {
             try Self.postprocessArgParserResult(options: options, diagnostics: diagnostics)
             self.options = options
-            
+
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 try ProcessEnv.chdir(packagePath)
             }
 
             // Force building with the native build system on other platforms than macOS.
-          #if !os(macOS)
-            self.options._buildSystem = .native
-          #endif
+            #if !os(macOS)
+                self.options._buildSystem = .native
+            #endif
 
             let processSet = ProcessSet()
             let buildSystemRef = BuildSystemRef()
@@ -337,29 +337,29 @@ public class SwiftTool {
                 processSet.terminate()
                 buildSystemRef.buildSystem?.cancel()
 
-              #if os(Windows)
-                // Exit as if by signal()
-                TerminateProcess(GetCurrentProcess(), 3)
-              #elseif os(macOS)
-                // Install the default signal handler.
-                var action = sigaction()
-                action.__sigaction_u.__sa_handler = SIG_DFL
-                sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
-              #elseif os(Android)
-                // Install the default signal handler.
-                var action = sigaction()
-                action.sa_handler = SIG_DFL
-                sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
-              #else
-                var action = sigaction()
-                action.__sigaction_handler = unsafeBitCast(
-                    SIG_DFL,
-                    to: sigaction.__Unnamed_union___sigaction_handler.self)
-                sigaction(SIGINT, &action, nil)
-                kill(getpid(), SIGINT)
-              #endif
+                #if os(Windows)
+                    // Exit as if by signal()
+                    TerminateProcess(GetCurrentProcess(), 3)
+                #elseif os(macOS)
+                    // Install the default signal handler.
+                    var action = sigaction()
+                    action.__sigaction_u.__sa_handler = SIG_DFL
+                    sigaction(SIGINT, &action, nil)
+                    kill(getpid(), SIGINT)
+                #elseif os(Android)
+                    // Install the default signal handler.
+                    var action = sigaction()
+                    action.sa_handler = SIG_DFL
+                    sigaction(SIGINT, &action, nil)
+                    kill(getpid(), SIGINT)
+                #else
+                    var action = sigaction()
+                    action.__sigaction_handler = unsafeBitCast(
+                        SIG_DFL,
+                        to: sigaction.__Unnamed_union___sigaction_handler.self)
+                    sigaction(SIGINT, &action, nil)
+                    kill(getpid(), SIGINT)
+                #endif
             }
             self.processSet = processSet
             self.buildSystemRef = buildSystemRef
@@ -377,42 +377,42 @@ public class SwiftTool {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
             customBuildPath ??
             (packageRoot ?? cwd).appending(component: ".build")
-        
+
         // Setup the globals.
         verbosity = Verbosity(rawValue: options.verbosity)
         Process.verbose = verbosity != .concise
     }
-    
+
     static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
         if options.chdir != nil {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
-        
+
         if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
-        
+
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
             diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
-        
+
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
-        
+
         if options.netrcFilePath != nil {
             // --netrc-file option only supported on macOS >=10.13
             #if os(macOS)
-            if #available(macOS 10.13, *) {
-                // ok, check succeeds
-            } else {
-                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
-            }
+                if #available(macOS 10.13, *) {
+                    // ok, check succeeds
+                } else {
+                    diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
+                }
             #else
-            diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
+                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
             #endif
         }
-        
+
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }

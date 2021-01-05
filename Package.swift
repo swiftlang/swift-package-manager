@@ -91,7 +91,7 @@ let package = Package(
     targets: [
         // The `PackageDescription` targets define the API which is available to
         // the `Package.swift` manifest files. We build the latest API version
-        // here which is used when building and running swiftpm without the
+        // here which is used when building and running SwiftPM without the
         // bootstrap script.
         .target(
             /** Package Definition API */
@@ -274,8 +274,8 @@ let package = Package(
 
 // Add package dependency on llbuild when not bootstrapping.
 //
-// When bootstrapping SwiftPM, we can't use llbuild as a package dependency it
-// will provided by whatever build system (SwiftCI, bootstrap script) is driving
+// When bootstrapping SwiftPM, we can't use llbuild as a package dependency.
+// It will be provided by whatever build system (SwiftCI, bootstrap script) is driving
 // the build process. So, we only add these dependencies if SwiftPM is being
 // built directly using SwiftPM. It is a bit unfortunate that we've add the
 // package dependency like this but there is no other good way of expressing
@@ -300,7 +300,7 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(url: "https://github.com/apple/swift-tools-support-core.git", .branch("main")),
-        // The 'swift-argument-parser' version declared here must match that
+        // The 'swift-argument-parser' version declared here must match the one
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(

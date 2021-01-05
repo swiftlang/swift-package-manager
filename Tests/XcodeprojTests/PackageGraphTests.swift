@@ -256,23 +256,23 @@ class PackageGraphTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-		let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
-		XcodeProjectTester(project) { result in
-      	    result.check(target: "swift") { targetResult in
-      	        XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
-      	            "$(inherited)", "-Xcc",
-      	            "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
-      	        ])
-      	        XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
-      	            "$(inherited)",
-      	            "$(SRCROOT)/Sources/Sea2/include",
-      	            "$(SRCROOT)/Sources/Sea/include",
-      	        ])
-      	    }
-      	    result.check(target: "Sea") { targetResult in
-      	        XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, nil)
-      	    }
-      	}
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+        XcodeProjectTester(project) { result in
+            result.check(target: "swift") { targetResult in
+                XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
+                    "$(inherited)", "-Xcc",
+                    "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
+                ])
+                XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
+                    "$(inherited)",
+                    "$(SRCROOT)/Sources/Sea2/include",
+                    "$(SRCROOT)/Sources/Sea/include",
+                ])
+            }
+            result.check(target: "Sea") { targetResult in
+                XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, nil)
+            }
+        }
     }
 
     func testModuleLinkage() throws {
@@ -332,18 +332,18 @@ class PackageGraphTests: XCTestCase {
 
     func testSchemes() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-      	    "/Foo/Sources/a/main.swift",
-      	    "/Foo/Sources/b/main.swift",
-      	    "/Foo/Sources/c/main.swift",
-      	    "/Foo/Sources/d/main.swift",
-      	    "/Foo/Sources/libd/libd.swift",
+            "/Foo/Sources/a/main.swift",
+            "/Foo/Sources/b/main.swift",
+            "/Foo/Sources/c/main.swift",
+            "/Foo/Sources/d/main.swift",
+            "/Foo/Sources/libd/libd.swift",
 
-      	    "/Foo/Tests/aTests/fooTests.swift",
-      	    "/Foo/Tests/bcTests/fooTests.swift",
-      	    "/Foo/Tests/dTests/fooTests.swift",
-      	    "/Foo/Tests/libdTests/fooTests.swift",
-      	    "/end"
-      	)
+            "/Foo/Tests/aTests/fooTests.swift",
+            "/Foo/Tests/bcTests/fooTests.swift",
+            "/Foo/Tests/dTests/fooTests.swift",
+            "/Foo/Tests/libdTests/fooTests.swift",
+            "/end"
+        )
 
         let diagnostics = DiagnosticsEngine()
         let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,

@@ -113,11 +113,11 @@ extension Package.Dependency {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        return .init(name: nil, url: url, requirement: .rangeItem(range))
-      #else
-        return .init(name: nil, url: url, requirement: ._rangeItem(range))
-      #endif
+        #if PACKAGE_DESCRIPTION_4
+            return .init(name: nil, url: url, requirement: .rangeItem(range))
+        #else
+            return .init(name: nil, url: url, requirement: ._rangeItem(range))
+        #endif
     }
 
     /// Adds a package dependency starting with a specific minimum version, up to
@@ -138,11 +138,11 @@ extension Package.Dependency {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        return .init(name: name, url: url, requirement: .rangeItem(range))
-      #else
-        return .init(name: name, url: url, requirement: ._rangeItem(range))
-      #endif
+        #if PACKAGE_DESCRIPTION_4
+            return .init(name: name, url: url, requirement: .rangeItem(range))
+        #else
+            return .init(name: name, url: url, requirement: ._rangeItem(range))
+        #endif
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -168,11 +168,11 @@ extension Package.Dependency {
             upper.major, upper.minor, upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
             buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
-      #if PACKAGE_DESCRIPTION_4
-        return .init(name: nil, url: url, requirement: .rangeItem(range.lowerBound..<upperBound))
-      #else
-        return .init(name: nil, url: url, requirement: ._rangeItem(range.lowerBound..<upperBound))
-      #endif
+        #if PACKAGE_DESCRIPTION_4
+            return .init(name: nil, url: url, requirement: .rangeItem(range.lowerBound..<upperBound))
+        #else
+            return .init(name: nil, url: url, requirement: ._rangeItem(range.lowerBound..<upperBound))
+        #endif
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -199,47 +199,47 @@ extension Package.Dependency {
             upper.major, upper.minor, upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
             buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
-      #if PACKAGE_DESCRIPTION_4
-        return .init(name: name, url: url, requirement: .rangeItem(range.lowerBound..<upperBound))
-      #else
-        return .init(name: name, url: url, requirement: ._rangeItem(range.lowerBound..<upperBound))
-      #endif
+        #if PACKAGE_DESCRIPTION_4
+            return .init(name: name, url: url, requirement: .rangeItem(range.lowerBound..<upperBound))
+        #else
+            return .init(name: name, url: url, requirement: ._rangeItem(range.lowerBound..<upperBound))
+        #endif
     }
 
-  #if !PACKAGE_DESCRIPTION_4
-    /// Adds a package dependency to a local package on the filesystem.
-    ///
-    /// The Swift Package Manager uses the package dependency as-is
-    /// and does not perform any source control access. Local package dependencies
-    /// are especially useful during development of a new package or when working
-    /// on multiple tightly coupled packages.
-    ///
-    /// - Parameter path: The path of the package.
-    @available(_PackageDescription, obsoleted: 5.2)
-    public static func package(
-        path: String
-    ) -> Package.Dependency {
-        return .init(name: nil, url: path, requirement: ._localPackageItem)
-    }
+    #if !PACKAGE_DESCRIPTION_4
+        /// Adds a package dependency to a local package on the filesystem.
+        ///
+        /// The Swift Package Manager uses the package dependency as-is
+        /// and does not perform any source control access. Local package dependencies
+        /// are especially useful during development of a new package or when working
+        /// on multiple tightly coupled packages.
+        ///
+        /// - Parameter path: The path of the package.
+        @available(_PackageDescription, obsoleted: 5.2)
+        public static func package(
+            path: String
+        ) -> Package.Dependency {
+            return .init(name: nil, url: path, requirement: ._localPackageItem)
+        }
 
-    /// Adds a package dependency to a local package on the filesystem.
-    ///
-    /// The Swift Package Manager uses the package dependency as-is
-    /// and doesn't perform any source control access. Local package dependencies
-    /// are especially useful during development of a new package or when working
-    /// on multiple tightly coupled packages.
-    ///
-    /// - Parameters
-    ///   - name: The name of the Swift package or `nil` to deduce the name from path.
-    ///   - path: The local path to the package.
-    @available(_PackageDescription, introduced: 5.2)
-    public static func package(
-        name: String? = nil,
-        path: String
-    ) -> Package.Dependency {
-        return .init(name: name, url: path, requirement: ._localPackageItem)
-    }
-  #endif
+        /// Adds a package dependency to a local package on the filesystem.
+        ///
+        /// The Swift Package Manager uses the package dependency as-is
+        /// and doesn't perform any source control access. Local package dependencies
+        /// are especially useful during development of a new package or when working
+        /// on multiple tightly coupled packages.
+        ///
+        /// - Parameters
+        ///   - name: The name of the Swift package or `nil` to deduce the name from path.
+        ///   - path: The local path to the package.
+        @available(_PackageDescription, introduced: 5.2)
+        public static func package(
+            name: String? = nil,
+            path: String
+        ) -> Package.Dependency {
+            return .init(name: name, url: path, requirement: ._localPackageItem)
+        }
+    #endif
 }
 
 // Mark common APIs used by mistake as unavailable to provide better error messages.

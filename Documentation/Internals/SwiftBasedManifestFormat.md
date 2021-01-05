@@ -39,7 +39,7 @@ We propose to use the Swift language itself to write the manifest. An example of
 ```swift 
 // This imports the API for declaring packages.
 import PackageDescription
-    
+
 // This declares the package.
 let package = Package(
     // The name of the package (defaults to source root directory name).
@@ -55,7 +55,7 @@ let package = Package(
             // Declare that this target is a published product of the package
             // (as opposed to an internal library or tool).
             published: true),
-        
+
         // Add information on a support library "CoreFoo" (as found by the
         // convention based system in CoreFoo/**/*.swift).
         Target(
@@ -63,18 +63,18 @@ let package = Package(
             depends: [
                 // The library always depends on the "Utils" target.
                 "Utils",
-                
+
                 // This library depends on "AccessibilityUtils" on Linux.
                 .Conditional(name: "AccessibilityUtils", platforms: [.Linux])
             ]),
-    
+
         // NOTE: There is a "Utils" target inferred by the convention based
         // system, but we don't need to modify it at all because the defaults
         // were fine.
-    
+
         // Declare that the "AccessibilityUtils" target is Linux-specific.
         Target(name: "AccessibilityUtils", platforms: [.Linux])
-	])
+  ])
 ```
 
 *NOTE: this example is for expository purposes, the exact APIs are subject to change.*

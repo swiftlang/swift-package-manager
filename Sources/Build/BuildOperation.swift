@@ -88,7 +88,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
                 } catch {
                     // Silently regnerate the build description if we failed to decode (which could happen
-                    // because the existing file was created by different version of swiftpm).
+                    // because the existing file was created by different version of SwiftPM).
                     if !(error is DecodingError) {
                         diagnostics.emit(warning: "failed to load the build description; running build planning: \(error)")
                     }

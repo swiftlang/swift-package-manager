@@ -27,7 +27,7 @@ extension AbsolutePath {
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
-        // FIXME: We use this hack to let swiftpm's functional test use shared
+        // FIXME: We use this hack to let SwiftPM's functional test use shared
         // cache so it doesn't become painfully slow.
         if let path = ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] {
             return AbsolutePath(path)

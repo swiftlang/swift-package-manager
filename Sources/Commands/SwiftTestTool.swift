@@ -61,11 +61,11 @@ struct TestToolOptions: ParsableArguments {
 
         return .runSerial
     }
-    
+
     @Flag(name: .customLong("skip-build"),
           help: "Skip building the test target")
     var shouldSkipBuilding: Bool = false
-    
+
     /// If the test target should be built before testing.
     var shouldBuildTests: Bool {
         !shouldSkipBuilding
@@ -99,7 +99,7 @@ struct TestToolOptions: ParsableArguments {
         if !filter.isEmpty {
             return .regex(filter)
         }
-        
+
         return _testCaseSpecifier.map { .specific($0) } ?? .none
     }
 
@@ -117,7 +117,7 @@ struct TestToolOptions: ParsableArguments {
         if let override = testCaseSkipOverride() {
             return override
         }
-      
+
         return _testCaseSkip.isEmpty
             ? .none
             : .skip(_testCaseSkip)
@@ -482,12 +482,12 @@ public struct SwiftTestTool: SwiftCommand {
             return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
       #else
-        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
-        let args = [path.description, "--dump-tests-json"]
-        let data = try Process.checkNonZeroExit(arguments: args, environment: env)
+            let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
+            let args = [path.description, "--dump-tests-json"]
+            let data = try Process.checkNonZeroExit(arguments: args, environment: env)
       #endif
-        // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
+            // Parse json and return TestSuites.
+            return try TestSuite.parse(jsonString: data)
     }
 
     /// Private function that validates the commands arguments
@@ -644,10 +644,10 @@ final class TestRunner {
             switch result.exitStatus {
             case .terminated(code: 0):
                 success = true
-#if !os(Windows)
-            case .signalled(let signal):
-                output += "\n" + exitSignalText(code: signal)
-#endif
+            #if !os(Windows)
+                case .signalled(let signal):
+                    output += "\n" + exitSignalText(code: signal)
+            #endif
             default: break
             }
         } catch {
@@ -667,10 +667,10 @@ final class TestRunner {
             switch result.exitStatus {
             case .terminated(code: 0):
                 return true
-#if !os(Windows)
-            case .signalled(let signal):
-                print(exitSignalText(code: signal))
-#endif
+            #if !os(Windows)
+                case .signalled(let signal):
+                    print(exitSignalText(code: signal))
+            #endif
             default: break
             }
         } catch {
@@ -1015,32 +1015,32 @@ fileprivate func constructTestEnvironment(
         env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
     }
 
-  #if !os(macOS)
-#if os(Windows)
-    if let location = toolchain.manifestResources.xctestLocation {
-      env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
-    }
-#endif
-    return env
-  #else
-    // Fast path when no sanitizers are enabled.
-    if options.sanitizers.isEmpty {
-        return env
-    }
+    #if !os(macOS)
+        #if os(Windows)
+            if let location = toolchain.manifestResources.xctestLocation {
+                env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
+            }
+        #endif
+            return env
+        #else
+            // Fast path when no sanitizers are enabled.
+            if options.sanitizers.isEmpty {
+                return env
+            }
 
-    // Get the runtime libraries.
-    var runtimes = try options.sanitizers.map({ sanitizer in
-        return try toolchain.runtimeLibrary(for: sanitizer).pathString
-    })
+            // Get the runtime libraries.
+            var runtimes = try options.sanitizers.map({ sanitizer in
+                return try toolchain.runtimeLibrary(for: sanitizer).pathString
+            })
 
-    // Append any existing value to the front.
-    if let existingValue = env["DYLD_INSERT_LIBRARIES"], !existingValue.isEmpty {
-        runtimes.insert(existingValue, at: 0)
-    }
+            // Append any existing value to the front.
+            if let existingValue = env["DYLD_INSERT_LIBRARIES"], !existingValue.isEmpty {
+                runtimes.insert(existingValue, at: 0)
+            }
 
-    env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
-    return env
-  #endif
+            env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
+            return env
+    #endif
 }
 
 /// xUnit XML file generator for a swift-test run.
@@ -1081,7 +1081,6 @@ final class XUnitGenerator {
             let test = result.unitTest
             stream <<< """
                 <testcase classname="\(test.testCase)" name="\(test.name)" time="0.0">
-
                 """
 
             if !result.success {

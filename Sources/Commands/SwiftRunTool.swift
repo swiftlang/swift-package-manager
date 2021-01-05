@@ -54,7 +54,7 @@ struct RunToolOptions: ParsableArguments {
         }
         return .run
     }
-    
+
     /// If the executable product should be built before running.
     @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
     var shouldSkipBuild: Bool = false
@@ -153,7 +153,7 @@ public struct SwiftRunTool: SwiftCommand {
             // Redirect stdout to stderr because swift-run clients usually want
             // to ignore swiftpm's output and only care about the tool's output.
             swiftTool.redirectStdoutToStderr()
-            
+
             do {
                 let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
@@ -162,7 +162,7 @@ public struct SwiftRunTool: SwiftCommand {
                 } else if options.shouldBuild {
                     try buildSystem.build(subset: .product(productName))
                 }
-            
+
                 let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
                 try run(executablePath,
                         originalWorkingDirectory: swiftTool.originalWorkingDirectory,
@@ -234,7 +234,7 @@ public struct SwiftRunTool: SwiftCommand {
         }
         return localFileSystem.isFile(absolutePath)
     }
-    
+
     public init() {}
 }
 
