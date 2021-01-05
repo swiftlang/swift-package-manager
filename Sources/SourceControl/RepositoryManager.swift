@@ -16,7 +16,7 @@ import TSCUtility
 import Basics
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
-public protocol RepositoryManagerDelegate: class {
+public protocol RepositoryManagerDelegate: AnyObject {
     /// Called when a repository is about to be fetched.
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?)
 

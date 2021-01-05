@@ -124,7 +124,7 @@ public enum XCBuildMessage {
 }
 
 /// Protocol for the parser delegate to get notified of parsing events.
-public protocol XCBuildOutputParserDelegate: class {
+public protocol XCBuildOutputParserDelegate: AnyObject {
 
     /// Called for each message parsed.
     func xcBuildOutputParser(_ parser: XCBuildOutputParser, didParse message: XCBuildMessage)
