@@ -477,6 +477,10 @@ public class SwiftTool {
         }
 
         if let explicitCachePath = options.cachePath {
+            // Create the explicit cache path if necessary
+            if !fileSystem.exists(explicitCachePath) {
+                try fileSystem.createDirectory(explicitCachePath, recursive: true)
+            }
             return explicitCachePath
         }
 
