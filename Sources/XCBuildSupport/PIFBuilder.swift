@@ -894,7 +894,7 @@ final class AggregatePIFProjectBuilder: PIFProjectBuilder {
     }
 }
 
-protocol PIFReferenceBuilder: class {
+protocol PIFReferenceBuilder: AnyObject {
     var guid: String { get set }
 
     func construct() -> PIF.Reference

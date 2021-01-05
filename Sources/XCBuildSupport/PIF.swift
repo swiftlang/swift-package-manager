@@ -1190,7 +1190,7 @@ private struct UntypedTarget: Decodable {
     let contents: TargetContents
 }
 
-protocol PIFSignableObject: class {
+protocol PIFSignableObject: AnyObject {
     var signature: String? { get set }
 }
 extension PIF.Workspace: PIFSignableObject {}
