@@ -511,7 +511,10 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func purgeCache(with diagnostics: DiagnosticsEngine) {
-        diagnostics.wrap { try repositoryManager.purgeCache() }
+        diagnostics.wrap {
+            try repositoryManager.purgeCache()
+            try manifestLoader.purgeCache()
+        }
     }
 
     /// Resets the entire workspace by removing the data directory.
@@ -520,14 +523,13 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
-        let removed = diagnostics.wrap({
+        let removed = diagnostics.wrap {
             try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
             // Reset state.
             try state.reset()
-        })
+        }
 
         guard removed else { return }
-
         repositoryManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(dataPath)

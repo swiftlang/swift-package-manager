@@ -170,8 +170,22 @@ public struct SwiftToolOptions: ParsableArguments {
     var shouldDisableSandbox: Bool = false
 
     /// Disables manifest caching.
-    @Flag(name: .customLong("disable-package-manifest-caching"), help: "Disable caching Package.swift manifests")
+    @Flag(name: .customLong("disable-package-manifest-caching"), help: .hidden)
     var shouldDisableManifestCaching: Bool = false
+
+    /// Disables manifest caching.
+    @Option(name: .customLong("manifest-caching"), help: "Caching of Package.swift manifests")
+    var manifestCachingMode: ManifestCachingMode = .shared
+
+    enum ManifestCachingMode: String, ExpressibleByArgument {
+        case none
+        case local
+        case shared
+
+        init?(argument: String) {
+            self.init(rawValue: argument)
+        }
+    }
 
     /// Path to the compilation destination describing JSON file.
     @Option(name: .customLong("destination"), completion: .file())

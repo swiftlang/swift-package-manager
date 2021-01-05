@@ -97,6 +97,9 @@ public protocol ManifestLoaderProtocol {
 
     /// Reset any internal cache held by the manifest loader.
     func resetCache() throws
+
+    /// Reset any internal cache held by the manifest loader and purge any entries in a shared cache
+    func purgeCache() throws
 }
 
 extension ManifestLoaderProtocol {
@@ -136,9 +139,6 @@ extension ManifestLoaderProtocol {
             completion: completion
         )
     }
-
-    public func resetCache() throws {
-    }
 }
 
 public protocol ManifestLoaderDelegate {
@@ -164,17 +164,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let extraManifestFlags: [String]
 
     private let databaseCacheDir: AbsolutePath?
-    private var databaseCache: PersistentCacheProtocol?
-    private let databaseCacheLock = Lock()
 
     private let useInMemoryCache: Bool
     private let memoryCache = ThreadSafeKeyValueStore<ManifestCacheKey, Manifest>()
 
-    // Cache storage for computed sdk path.
-    private var sdkRootCache = ThreadSafeBox<AbsolutePath>()
-
-    private let jsonEncoder: JSONEncoder
-    private let jsonDecoder: JSONDecoder
+    private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
     private let operationQueue: OperationQueue
 
@@ -192,9 +186,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.delegate = delegate
         self.extraManifestFlags = extraManifestFlags
-
-        self.jsonEncoder = JSONEncoder.makeWithDefaults()
-        self.jsonDecoder = JSONDecoder.makeWithDefaults()
 
         self.useInMemoryCache = useInMemoryCache
         self.databaseCacheDir = cacheDir.map(resolveSymlinks)
@@ -376,7 +367,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
 
                 // Get the JSON string for the manifest.
-
                 let jsonString = try self.loadJSONString(
                     path: manifestPath,
                     toolsVersion: toolsVersion,
@@ -601,9 +591,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         packageIdentity: PackageIdentity,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine? = nil
+        diagnostics: DiagnosticsEngine?
     ) throws -> String {
-        let result: ManifestParseResult
 
         let cacheKey = try ManifestCacheKey(
             packageIdentity: packageIdentity,
@@ -614,18 +603,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             fileSystem: fileSystem
         )
 
-        // Resolve symlinks since we can't use them in sandbox profiles.
-
-        if let cache = try self.createCacheIfNeeded() {
-            result = try self.loadManifestFromCache(key: cacheKey, cache: cache)
-        } else {
-            result = self.parse(
-                packageIdentity: packageIdentity,
-                manifestPath: cacheKey.manifestPath,
-                manifestContents: cacheKey.manifestContents,
-                toolsVersion: toolsVersion)
-        }
-
+        let result = try self.parseAndCacheManifest(key: cacheKey, diagnostics: diagnostics)
         // Throw now if we weren't able to parse the manifest.
         guard let parsedManifest = result.parsedManifest else {
             let errors = result.errorOutput ?? result.compilerOutput ?? "Unknown error parsing manifest for \(packageIdentity)"
@@ -644,33 +622,28 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return parsedManifest
     }
 
-    fileprivate func loadManifestFromCache(
-        key: ManifestCacheKey,
-        cache: PersistentCacheProtocol
-    ) throws -> ManifestParseResult {
-        let keyHash = try key.computeHash()
-        let cacheHit = try keyHash.withData {
-            try cache.get(key: $0)
-        }.flatMap {
-            try? self.jsonDecoder.decode(ManifestParseResult.self, from: $0)
+    fileprivate func parseAndCacheManifest(key: ManifestCacheKey, diagnostics: DiagnosticsEngine?) throws -> ManifestParseResult {
+        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteManifestCache in
+            let path = Self.manifestCacheDBPath(cacheDir)
+            return SQLiteManifestCache(location: .path(path), diagnosticsEngine: diagnostics)
         }
-        if let result = cacheHit {
+
+        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+        defer { try? cache?.close() }
+
+        if let result = try cache?.get(key: key) {
             return result
         }
 
-        let result = self.parse(
-            packageIdentity: key.packageIdentity,
-            manifestPath: key.manifestPath,
-            manifestContents: key.manifestContents,
-            toolsVersion: key.toolsVersion
-        )
+        let result = self.parse(packageIdentity: key.packageIdentity,
+                                manifestPath: key.manifestPath,
+                                manifestContents: key.manifestContents,
+                                toolsVersion: key.toolsVersion)
 
         // only cache successfully parsed manifests,
         // this is important for swift-pm development
         if !result.hasErrors {
-            try keyHash.withData {
-                try cache.put(key: $0, value: self.jsonEncoder.encode(result))
-            }
+            try cache?.put(key: key, manifest: result)
         }
 
         return result
@@ -1003,30 +976,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return cacheDir.appending(component: "manifest.db")
     }
 
-    func createCacheIfNeeded() throws -> PersistentCacheProtocol? {
-        try self.databaseCacheLock.withLock {
-            // Return if we have already created the cache.
-            if let cache = self.databaseCache {
-                return cache
-            }
-            guard let databaseCacheDir = self.databaseCacheDir else {
-                return nil
-            }
-            try localFileSystem.createDirectory(databaseCacheDir, recursive: true)
-            let manifestCacheDBPath = Self.manifestCacheDBPath(databaseCacheDir)
-            self.databaseCache = try SQLiteBackedPersistentCache(cacheFilePath: manifestCacheDBPath)
-            return self.databaseCache
-        }
-    }
-
+    /// reset internal cache
     public func resetCache() throws {
         self.memoryCache.clear()
-        try self.databaseCacheLock.withLock {
-            self.databaseCache = nil
-            // Also remove the database file from disk.
-            guard let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) else {
-                return
-            }
+    }
+
+    /// reset internal state and purge shared cache
+    public func purgeCache() throws {
+        try self.resetCache()
+        if let manifestCacheDBPath = self.databaseCacheDir.flatMap({ Self.manifestCacheDBPath($0) }) {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         }
     }
@@ -1117,5 +1075,155 @@ extension TSCBasic.Diagnostic.Message {
             invalid language tag '\(languageTag)'; the pattern for language tags is groups of latin characters and \
             digits separated by hyphens
             """)
+    }
+}
+
+/// SQLite backed persistent cache.
+private final class SQLiteManifestCache: Closable {
+    let fileSystem: FileSystem
+    let location: SQLite.Location
+
+    private var state = State.idle
+    private let stateLock = Lock()
+
+    private let diagnosticsEngine: DiagnosticsEngine?
+    private let jsonEncoder: JSONEncoder
+    private let jsonDecoder: JSONDecoder
+
+    init(location: SQLite.Location, diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.location = location
+        switch self.location {
+        case .path, .temporary:
+            self.fileSystem = localFileSystem
+        case .memory:
+            self.fileSystem = InMemoryFileSystem()
+        }
+        self.diagnosticsEngine = diagnosticsEngine
+        self.jsonEncoder = JSONEncoder.makeWithDefaults()
+        self.jsonDecoder = JSONDecoder.makeWithDefaults()
+    }
+
+    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.init(location: .path(path), diagnosticsEngine: diagnosticsEngine)
+    }
+
+    deinit {
+        self.stateLock.withLock {
+            if case .connected(let db) = self.state {
+                assertionFailure("db should be closed")
+                // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+                try? db.close()
+            }
+        }
+    }
+
+    func close() throws {
+        try self.stateLock.withLock {
+            if case .connected(let db) = self.state {
+                try db.close()
+            }
+            self.state = .disconnected
+        }
+    }
+
+    func put(key: ManifestLoader.ManifestCacheKey, manifest: ManifestLoader.ManifestParseResult) throws {
+        let query = "INSERT OR IGNORE INTO MANIFEST_CACHE VALUES (?, ?);"        
+        try self.executeStatement(query) { statement -> Void in
+            let keyHash = try key.computeHash()
+            let data = try self.jsonEncoder.encode(manifest)
+            let bindings: [SQLite.SQLiteValue] = [
+                .string(keyHash.hexadecimalRepresentation),
+                .blob(data),
+            ]
+            try statement.bind(bindings)
+            try statement.step()
+        }
+    }
+
+    func get(key: ManifestLoader.ManifestCacheKey) throws -> ManifestLoader.ManifestParseResult? {
+        let query = "SELECT value FROM MANIFEST_CACHE WHERE key == ? LIMIT 1;"
+        return try self.executeStatement(query) { statement ->  ManifestLoader.ManifestParseResult? in
+            let keyHash = try key.computeHash()
+            try statement.bind([.string(keyHash.hexadecimalRepresentation)])
+            let data = try statement.step()?.blob(at: 0)
+            return try data.flatMap {
+                try self.jsonDecoder.decode(ManifestLoader.ManifestParseResult.self, from: $0)
+            }
+        }
+    }
+
+    private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
+        try self.withDB { db in
+            let result: Result<T, Error>
+            let statement = try db.prepare(query: query)
+            do {
+                result = .success(try body(statement))
+            } catch {
+                result = .failure(error)
+            }
+            try statement.finalize()
+            switch result {
+            case .failure(let error):
+                throw error
+            case .success(let value):
+                return value
+            }
+        }
+    }
+
+    private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
+        let createDB = { () throws -> SQLite in
+            // see https://www.sqlite.org/c3ref/busy_timeout.html
+            var configuration = SQLite.Configuration()
+            configuration.busyTimeoutMilliseconds = 10_000
+            let db = try SQLite(location: self.location, configuration: configuration)
+            try self.createSchemaIfNecessary(db: db)
+            return db
+        }
+
+        let db = try stateLock.withLock { () -> SQLite in
+            let db: SQLite
+            switch (self.location, self.state) {
+            case (.path(let path), .connected(let database)):
+                if self.fileSystem.exists(path) {
+                    db = database
+                } else {
+                    try database.close()
+                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
+                    db = try createDB()
+                }
+            case (.path(let path), _):
+                if !self.fileSystem.exists(path) {
+                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
+                }
+                db = try createDB()
+            case (_, .connected(let database)):
+                db = database
+            case (_, _):
+                db = try createDB()
+            }
+            self.state = .connected(db)
+            return db
+        }
+
+        return try body(db)
+    }
+
+    private func createSchemaIfNecessary(db: SQLite) throws {
+        let table = """
+            CREATE TABLE IF NOT EXISTS MANIFEST_CACHE (
+                key STRING PRIMARY KEY NOT NULL,
+                value BLOB NOT NULL
+            );
+        """
+
+        try db.exec(query: table)
+        try db.exec(query: "PRAGMA journal_mode=WAL;")
+    }
+
+    private enum State {
+        case idle
+        case connected(SQLite)
+        case disconnected
     }
 }
