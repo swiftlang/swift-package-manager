@@ -304,6 +304,7 @@ public class SwiftTool {
     /// workspace is not needed, infact it would be an error to ask for the workspace object
     /// for package init because the Manifest file should *not* present.
     private var _workspace: Workspace?
+    private var _workspaceDelegate: ToolWorkspaceDelegate?
 
     /// Create an instance of this tool.
     ///
@@ -416,6 +417,10 @@ public class SwiftTool {
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
+
+        if options.shouldDisableManifestCaching {
+            diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+        }
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -514,6 +519,7 @@ public class SwiftTool {
             cachePath: try self.getCachePath()
         )
         _workspace = workspace
+        _workspaceDelegate = delegate
         return workspace
     }
 
@@ -650,6 +656,7 @@ public class SwiftTool {
     func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
     }
+
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
             let toolchain = try self.getToolchain()
@@ -742,11 +749,23 @@ public class SwiftTool {
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
-            try ManifestLoader(
+            let cachePath: AbsolutePath?
+            switch (options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+            case (true, _):
+                // backwards compatibility
+                cachePath = nil
+            case (false, .none):
+                cachePath = nil
+            case (false, .local):
+                cachePath = self.buildPath
+            case (false, .shared):
+                cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
+            }
+            return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath,
+                cacheDir: cachePath,
                 extraManifestFlags: self.options.manifestFlags
             )
         })

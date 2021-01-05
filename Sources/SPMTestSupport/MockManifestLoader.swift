@@ -69,6 +69,9 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
             }
         }
     }
+
+    public func resetCache() throws {}
+    public func purgeCache() throws {}
 }
 
 extension ManifestLoader {

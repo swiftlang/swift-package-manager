@@ -84,7 +84,7 @@ public struct SwiftCompilerMessage {
 }
 
 /// Protocol for the parser delegate to get notified of parsing events.
-public protocol SwiftCompilerOutputParserDelegate: class {
+public protocol SwiftCompilerOutputParserDelegate: AnyObject {
 
     /// Called for each message parsed.
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage)

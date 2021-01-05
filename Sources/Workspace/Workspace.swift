@@ -183,7 +183,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
 /// This class does *not* support concurrent operations.
 public class Workspace {
     /// The delegate interface.
-    public let delegate: WorkspaceDelegate?
+    public weak var delegate: WorkspaceDelegate?
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
@@ -346,14 +346,16 @@ public class Workspace {
     public static func create(
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager? = nil
+        repositoryManager: RepositoryManager? = nil,
+        delegate: WorkspaceDelegate? = nil
     ) -> Workspace {
         return Workspace(
             dataPath: packagePath.appending(component: ".build"),
             editablesPath: packagePath.appending(component: "Packages"),
             pinsFile: packagePath.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+            repositoryManager: repositoryManager,
+            delegate: delegate
         )
     }
 }
@@ -509,7 +511,10 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func purgeCache(with diagnostics: DiagnosticsEngine) {
-        diagnostics.wrap { try repositoryManager.purgeCache() }
+        diagnostics.wrap {
+            try repositoryManager.purgeCache()
+            try manifestLoader.purgeCache()
+        }
     }
 
     /// Resets the entire workspace by removing the data directory.
@@ -518,14 +523,13 @@ extension Workspace {
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
-        let removed = diagnostics.wrap({
+        let removed = diagnostics.wrap {
             try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
             // Reset state.
             try state.reset()
-        })
+        }
 
         guard removed else { return }
-
         repositoryManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(dataPath)
@@ -1608,6 +1612,7 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
 
         var authProvider: AuthorizationProviding? = nil
+        var didDownloadAnyArtifact = false
         #if os(macOS)
         // Netrc feature currently only supported on macOS 10.13+ due to dependency
         // on NSTextCheckingResult.range(with:)
@@ -1639,6 +1644,7 @@ extension Workspace {
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
 
             group.enter()
+            didDownloadAnyArtifact = true
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
@@ -1686,7 +1692,10 @@ extension Workspace {
         }
 
         group.wait()
-        delegate?.didDownloadBinaryArtifacts()
+
+        if didDownloadAnyArtifact {
+            delegate?.didDownloadBinaryArtifacts()
+        }
 
         for diagnostic in tempDiagnostics.diagnostics {
             diagnostics.emit(diagnostic.message, location: diagnostic.location)

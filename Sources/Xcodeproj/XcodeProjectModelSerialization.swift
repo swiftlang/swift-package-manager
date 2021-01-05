@@ -571,7 +571,7 @@ fileprivate class PropertyListSerializer {
     }
 }
 
-fileprivate protocol PropertyListSerializable: class {
+fileprivate protocol PropertyListSerializable: AnyObject {
     /// Called by the Serializer to construct and return a dictionary for a
     /// serializable object.  The entries in the dictionary should represent
     /// the receiver's attributes and relationships, as PropertyList values.
