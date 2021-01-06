@@ -1622,9 +1622,14 @@ extension Workspace {
         #endif
         for artifact in artifacts {
             group.enter()
+            defer { group.leave() }
 
             guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
                 throw InternalError("Can't download local artifact")
+            }
+
+            guard let parsedURL = URL(string: url) else {
+                throw StringError("invalid url \(url)")
             }
 
             let parentDirectory = destination.parentDirectory
@@ -1636,11 +1641,9 @@ extension Workspace {
                 continue
             }
 
-            guard let parsedURL = URL(string: url) else {
-                throw StringError("invalid url \(url)")
-            }
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
 
+            group.enter()
             didDownloadAnyArtifact = true
             downloader.downloadFile(
                 at: parsedURL,
@@ -1653,6 +1656,8 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
+                    defer { group.leave() }
+
                     switch downloadResult {
                     case .success:
                         let archiveChecksum = self.checksum(
@@ -1661,29 +1666,28 @@ extension Workspace {
                         guard archiveChecksum == checksum else {
                             tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: checksum, actualChecksum: archiveChecksum))
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
-                            group.leave()
                             return
                         }
 
+                        group.enter()
                         self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
+                            defer { group.leave() }
+
                             switch extractResult {
                             case .success:
                                 if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
                                     tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: expectedPath.basename))
                                 }
-                                break
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                                 tempDiagnostics.emit(.artifactFailedExtraction(targetName: artifact.targetName, reason: reason))
                             }
 
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
-                            group.leave()
                         })
                     case .failure(let error):
                         let reason = error.errorDescription ?? error.localizedDescription
                         tempDiagnostics.emit(.artifactFailedDownload(targetName: artifact.targetName, reason: reason))
-                        group.leave()
                     }
                 })
         }
