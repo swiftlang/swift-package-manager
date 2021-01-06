@@ -740,8 +740,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertEqual(delegate.loaded.count, total+1)
-            XCTAssertFalse(diagnostics.hasWarnings)
-            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertFalse(diagnostics.hasWarnings, diagnostics.description)
+            XCTAssertFalse(diagnostics.hasErrors, diagnostics.description)
         }
     }
 
@@ -799,8 +799,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertEqual(delegate.loaded.count, total)
-            XCTAssertFalse(diagnostics.hasWarnings)
-            XCTAssertFalse(diagnostics.hasErrors)
+            XCTAssertFalse(diagnostics.hasWarnings, diagnostics.description)
+            XCTAssertFalse(diagnostics.hasErrors, diagnostics.description)
         }
     }
 
