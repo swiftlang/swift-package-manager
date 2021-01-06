@@ -78,14 +78,14 @@ class CFamilyTargetTestCase: XCTestCase {
         // <rdar://problem/70382477> Fix and re-enable tests which run `swift test` on newly created packages
         try XCTSkipIf(true)
 
-      #if os(macOS)
-        fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in
-            // Build the package.
-            XCTAssertBuilds(prefix)
-            XCTAssertDirectoryContainsFile(dir: prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug"), filename: "HelloWorldExample.m.o")
-            // Run swift-test on package.
-            XCTAssertSwiftTest(prefix)
-        }
-      #endif
+        #if os(macOS)
+            fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in
+                // Build the package.
+                XCTAssertBuilds(prefix)
+                XCTAssertDirectoryContainsFile(dir: prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug"), filename: "HelloWorldExample.m.o")
+                // Run swift-test on package.
+                XCTAssertSwiftTest(prefix)
+            }
+        #endif
     }
 }

@@ -87,7 +87,7 @@ public final class PIFBuilder {
         preservePIFModelStructure: Bool = false
     ) throws -> String {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
-        
+
         if !preservePIFModelStructure {
             encoder.userInfo[.encodeForXCBuild] = true
         }
@@ -1527,12 +1527,12 @@ extension PIF.PlatformFilter {
 private extension PIF.BuildSettings.Platform {
     static func from(platform: PackageModel.Platform) -> PIF.BuildSettings.Platform? {
         switch platform {
-        case .iOS: return .iOS
-        case .linux: return .linux
-        case .macOS: return .macOS
-        case .tvOS: return .tvOS
-        case .watchOS: return .watchOS
-        default: return nil
+            case .iOS: return .iOS
+            case .linux: return .linux
+            case .macOS: return .macOS
+            case .tvOS: return .tvOS
+            case .watchOS: return .watchOS
+            default: return nil
         }
     }
 }

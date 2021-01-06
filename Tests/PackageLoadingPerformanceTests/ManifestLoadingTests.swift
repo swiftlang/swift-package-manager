@@ -26,56 +26,56 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
     }
 
     func testTrivialManifestLoading_X1() throws {
-      #if os(macOS)
-        let N = 1
-        let trivialManifest = ByteString(encodingAsUTF8: ("""
-            import PackageDescription
-            let package = Package(name: "Trivial")
-            """))
-        try write(trivialManifest) { path in
-            measure {
-                for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(
-                        package: path,
-                        baseURL: "/Trivial",
-                        toolsVersion: .v4_2,
-                        packageKind: .root)
-                    XCTAssertEqual(manifest.name, "Trivial")
+        #if os(macOS)
+            let N = 1
+            let trivialManifest = ByteString(encodingAsUTF8: ("""
+                import PackageDescription
+                let package = Package(name: "Trivial")
+                """))
+            try write(trivialManifest) { path in
+                measure {
+                    for _ in 0..<N {
+                        let manifest = try! self.manifestLoader.load(
+                            package: path,
+                            baseURL: "/Trivial",
+                            toolsVersion: .v4_2,
+                            packageKind: .root)
+                        XCTAssertEqual(manifest.name, "Trivial")
+                    }
                 }
             }
-        }
-      #endif
+        #endif
     }
 
     func testNonTrivialManifestLoading_X1() throws {
-      #if os(macOS)
-        let N = 1
-        let manifest = ByteString(encodingAsUTF8: """
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                dependencies: [
-                    .package(url: "https://example.com/example", from: "1.0.0")
-                ],
-                targets: [
-                    .target(name: "sys", dependencies: ["libc"]),
-                    .target(name: "dep", dependencies: ["sys", "libc"])
-                ]
-            )
-            """)
+        #if os(macOS)
+            let N = 1
+            let manifest = ByteString(encodingAsUTF8: """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    dependencies: [
+                        .package(url: "https://example.com/example", from: "1.0.0")
+                    ],
+                    targets: [
+                        .target(name: "sys", dependencies: ["libc"]),
+                        .target(name: "dep", dependencies: ["sys", "libc"])
+                    ]
+                )
+                """)
 
-        try write(manifest) { path in
-            measure {
-                for _ in 0..<N {
-                    let manifest = try! self.manifestLoader.load(
-                        package: path,
-                        baseURL: "/Trivial",
-                        toolsVersion: .v4_2,
-                        packageKind: .root)
-                    XCTAssertEqual(manifest.name, "Foo")
+            try write(manifest) { path in
+                measure {
+                    for _ in 0..<N {
+                        let manifest = try! self.manifestLoader.load(
+                            package: path,
+                            baseURL: "/Trivial",
+                            toolsVersion: .v4_2,
+                            packageKind: .root)
+                        XCTAssertEqual(manifest.name, "Foo")
+                    }
                 }
             }
-        }
-      #endif
+        #endif
     }
 }

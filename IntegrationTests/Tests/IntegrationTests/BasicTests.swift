@@ -234,7 +234,7 @@ final class BasicTests: XCTestCase {
             }
         }
     }
-  
+
     func testSwiftTestWithResources() throws {
         try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
 
@@ -301,7 +301,7 @@ final class BasicTests: XCTestCase {
                         }
                     }
                     """))
-          
+
             let testOutput = try sh(swiftTest, "--package-path", toolDir, "--filter", "MyTests.*").stderr
 
 //             Check the test log.

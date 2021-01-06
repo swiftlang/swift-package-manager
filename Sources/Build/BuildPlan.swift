@@ -18,10 +18,10 @@ import Foundation
 import SPMBuildCore
 
 extension AbsolutePath {
-  fileprivate var asSwiftStringLiteralConstant: String {
-    return self.pathString.unicodeScalars
-              .reduce("", { $0 + $1.escaped(asASCII: false) })
-  }
+    fileprivate var asSwiftStringLiteralConstant: String {
+        return self.pathString.unicodeScalars
+                .reduce("", { $0 + $1.escaped(asASCII: false) })
+    }
 }
 
 extension BuildParameters {

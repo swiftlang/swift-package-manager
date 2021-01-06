@@ -14,37 +14,37 @@ import XCTest
 @testable import PackageLoading
 
 class MinimumDeploymentTargetTests: XCTestCase {
-#if os(macOS) // these tests eventually call `xcrun`.
-    func testDoesNotAssertWithNoOutput() throws {
-        let result = ProcessResult(arguments: [],
-                                   environment: [:],
-                                   exitStatus: .terminated(code: 0),
-                                   output: "".asResult,
-                                   stderrOutput: "xcodebuild: error: SDK \"macosx\" cannot be located.".asResult)
+    #if os(macOS) // these tests eventually call `xcrun`.
+        func testDoesNotAssertWithNoOutput() throws {
+            let result = ProcessResult(arguments: [],
+                                    environment: [:],
+                                    exitStatus: .terminated(code: 0),
+                                    output: "".asResult,
+                                    stderrOutput: "xcodebuild: error: SDK \"macosx\" cannot be located.".asResult)
 
-        XCTAssertNil(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result))
-    }
+            XCTAssertNil(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result))
+        }
 
-    func testThrowsWithNonPathOutput() throws {
-        let result = ProcessResult(arguments: [],
-                                   environment: [:],
-                                   exitStatus: .terminated(code: 0),
-                                   output: "some string".asResult,
-                                   stderrOutput: "".asResult)
+        func testThrowsWithNonPathOutput() throws {
+            let result = ProcessResult(arguments: [],
+                                    environment: [:],
+                                    exitStatus: .terminated(code: 0),
+                                    output: "some string".asResult,
+                                    stderrOutput: "".asResult)
 
-        XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result))
-    }
+            XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result))
+        }
 
-    func testThrowsWithErrorForOutput() throws {
-        let result = ProcessResult(arguments: [],
-                                   environment: [:],
-                                   exitStatus: .terminated(code: 0),
-                                   output: .failure(DummyError()),
-                                   stderrOutput: "".asResult)
+        func testThrowsWithErrorForOutput() throws {
+            let result = ProcessResult(arguments: [],
+                                    environment: [:],
+                                    exitStatus: .terminated(code: 0),
+                                    output: .failure(DummyError()),
+                                    stderrOutput: "".asResult)
 
-        XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result))
-    }
-#endif
+            XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result))
+        }
+    #endif
 }
 
 private struct DummyError: Error {

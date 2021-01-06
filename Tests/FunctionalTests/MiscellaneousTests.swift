@@ -201,15 +201,15 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSecondBuildIsNullInModulemapGen() throws {
         // This has been failing on the Swift CI sometimes, need to investigate.
-      #if false
-        // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
-        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
-            var output = try executeSwiftBuild(prefix)
-            XCTAssertFalse(output.isEmpty, output)
-            output = try executeSwiftBuild(prefix)
-            XCTAssertTrue(output.isEmpty, output)
-        }
-      #endif
+        #if false
+            // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
+            fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
+                var output = try executeSwiftBuild(prefix)
+                XCTAssertFalse(output.isEmpty, output)
+                output = try executeSwiftBuild(prefix)
+                XCTAssertTrue(output.isEmpty, output)
+            }
+        #endif
     }
 
     func testSwiftTestParallel() throws {
@@ -217,46 +217,46 @@ class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(true)
 
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-          // First try normal serial testing.
-          do {
-            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
-            #if os(macOS)
-              XCTAssertTrue(stderr.contains("Executed 2 tests"))
-            #else
-              XCTAssertTrue(output.contains("Executed 2 tests"))
-            #endif
-          }
+            // First try normal serial testing.
+            do {
+                _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
+            } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
+                #if os(macOS)
+                    XCTAssertTrue(stderr.contains("Executed 2 tests"))
+                #else
+                    XCTAssertTrue(output.contains("Executed 2 tests"))
+                #endif
+            }
 
-          do {
-            // Run tests in parallel.
-            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, let output, _) {
-            XCTAssert(output.contains("testExample1"))
-            XCTAssert(output.contains("testExample2"))
-            XCTAssert(!output.contains("'ParallelTestsTests' passed"))
-            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
-            XCTAssert(output.contains("[3/3]"))
-          }
+            do {
+                // Run tests in parallel.
+                _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
+            } catch SwiftPMProductError.executionFailure(_, let output, _) {
+                XCTAssert(output.contains("testExample1"))
+                XCTAssert(output.contains("testExample2"))
+                XCTAssert(!output.contains("'ParallelTestsTests' passed"))
+                XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
+                XCTAssert(output.contains("[3/3]"))
+            }
 
-          let xUnitOutput = prefix.appending(component: "result.xml")
-          do {
-            // Run tests in parallel with verbose output.
-            _ = try SwiftPMProduct.SwiftTest.execute(
-                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
-                packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, let output, _) {
-            XCTAssert(output.contains("testExample1"))
-            XCTAssert(output.contains("testExample2"))
-            XCTAssert(output.contains("'ParallelTestsTests' passed"))
-            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
-            XCTAssert(output.contains("[3/3]"))
-          }
+            let xUnitOutput = prefix.appending(component: "result.xml")
+            do {
+                // Run tests in parallel with verbose output.
+                _ = try SwiftPMProduct.SwiftTest.execute(
+                    ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
+                    packagePath: prefix)
+            } catch SwiftPMProductError.executionFailure(_, let output, _) {
+                XCTAssert(output.contains("testExample1"))
+                XCTAssert(output.contains("testExample2"))
+                XCTAssert(output.contains("'ParallelTestsTests' passed"))
+                XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
+                XCTAssert(output.contains("[3/3]"))
+            }
 
-          // Check the xUnit output.
-          XCTAssertTrue(localFileSystem.exists(xUnitOutput))
-          let contents = try localFileSystem.readFileContents(xUnitOutput).description
-          XCTAssertTrue(contents.contains("tests=\"3\" failures=\"1\""))
+            // Check the xUnit output.
+            XCTAssertTrue(localFileSystem.exists(xUnitOutput))
+            let contents = try localFileSystem.readFileContents(xUnitOutput).description
+            XCTAssertTrue(contents.contains("tests=\"3\" failures=\"1\""))
         }
     }
 
@@ -307,11 +307,11 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testOverridingSwiftcArguments() throws {
-      #if os(macOS)
-        fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
-            try executeSwiftBuild(prefix, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
-        }
-      #endif
+        #if os(macOS)
+            fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
+                try executeSwiftBuild(prefix, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
+            }
+        #endif
     }
 
     func testPkgConfigCFamilyTargets() throws {
@@ -351,57 +351,57 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testCanKillSubprocessOnSigInt() throws {
         // <rdar://problem/31890371> swift-pm: Spurious? failures of MiscellaneousTestCase.testCanKillSubprocessOnSigInt on linux
-      #if false
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
+        #if false
+            fixture(name: "DependencyResolution/External/Simple") { prefix in
 
-            let fakeGit = prefix.appending(components: "bin", "git")
-            let waitFile = prefix.appending(components: "waitfile")
+                let fakeGit = prefix.appending(components: "bin", "git")
+                let waitFile = prefix.appending(components: "waitfile")
 
-            try localFileSystem.createDirectory(fakeGit.parentDirectory)
+                try localFileSystem.createDirectory(fakeGit.parentDirectory)
 
-            // Write out fake git.
-            let stream = BufferedOutputByteStream()
-            stream <<< """
-                #!/bin/sh
-                set -e
-                printf "$$" >> \(waitFile)
-                while true; do sleep 1; done
+                // Write out fake git.
+                let stream = BufferedOutputByteStream()
+                stream <<< """
+                    #!/bin/sh
+                    set -e
+                    printf "$$" >> \(waitFile)
+                    while true; do sleep 1; done
 
-                """
-            try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
+                    """
+                try localFileSystem.writeFileContents(fakeGit, bytes: stream.bytes)
 
-            // Make it executable.
-            _ = try Process.popen(args: "chmod", "+x", fakeGit.description)
+                // Make it executable.
+                _ = try Process.popen(args: "chmod", "+x", fakeGit.description)
 
-            // Put fake git in PATH.
-            var env = ProcessInfo.processInfo.environment
-            let oldPath = env["PATH"]
-            env["PATH"] = fakeGit.parentDirectory.description
-            if let oldPath = oldPath {
-                env["PATH"] = env["PATH"]! + ":" + oldPath
+                // Put fake git in PATH.
+                var env = ProcessInfo.processInfo.environment
+                let oldPath = env["PATH"]
+                env["PATH"] = fakeGit.parentDirectory.description
+                if let oldPath = oldPath {
+                    env["PATH"] = env["PATH"]! + ":" + oldPath
+                }
+
+                // Launch swift-build.
+                let app = prefix.appending(component: "Bar")
+                let process = Process(args: SwiftPMProduct.SwiftBuild.path.description, "--package-path", app.description, environment: env)
+                try process.launch()
+
+                guard waitForFile(waitFile) else {
+                    return XCTFail("Couldn't launch the process")
+                }
+                // Interrupt the process.
+                process.signal(SIGINT)
+                let result = try process.waitUntilExit()
+
+                // We should not have exited with zero.
+                XCTAssert(result.exitStatus != .terminated(code: 0))
+
+                // Process and subprocesses should be dead.
+                let contents = try localFileSystem.readFileContents(waitFile).description
+                XCTAssertFalse(try Process.running(process.processID))
+                XCTAssertFalse(try Process.running(ProcessID(contents)!))
             }
-
-            // Launch swift-build.
-            let app = prefix.appending(component: "Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.description, "--package-path", app.description, environment: env)
-            try process.launch()
-
-            guard waitForFile(waitFile) else {
-                return XCTFail("Couldn't launch the process")
-            }
-            // Interrupt the process.
-            process.signal(SIGINT)
-            let result = try process.waitUntilExit()
-
-            // We should not have exited with zero.
-            XCTAssert(result.exitStatus != .terminated(code: 0))
-
-            // Process and subprocesses should be dead.
-            let contents = try localFileSystem.readFileContents(waitFile).description
-            XCTAssertFalse(try Process.running(process.processID))
-            XCTAssertFalse(try Process.running(ProcessID(contents)!))
-        }
-      #endif
+        #endif
     }
 
     func testReportingErrorFromGitCommand() throws {
@@ -424,37 +424,37 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testUnicode() {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
-        fixture(name: "Miscellaneous/Unicode") { prefix in
-            // See the fixture manifest for an explanation of this string.
-            let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
-            let verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{1F1EE}\u{1F1F1}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
-            XCTAssert(
-                complicatedString.unicodeScalars.elementsEqual(verify.unicodeScalars),
-                "\(complicatedString) ≠ \(verify)")
+            fixture(name: "Miscellaneous/Unicode") { prefix in
+                // See the fixture manifest for an explanation of this string.
+                let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
+                let verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{1F1EE}\u{1F1F1}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
+                XCTAssert(
+                    complicatedString.unicodeScalars.elementsEqual(verify.unicodeScalars),
+                    "\(complicatedString) ≠ \(verify)")
 
-            // ••••• Set up dependency.
-            let dependencyName = "UnicodeDependency‐\(complicatedString)"
-            let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
-                .appending(component: "Fixtures")
-                .appending(component: "Miscellaneous")
-                .appending(component: dependencyName)
-            let dependencyDestination = prefix.parentDirectory.appending(component: dependencyName)
-            try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
-            defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
-            try FileManager.default.copyItem(
-                atPath: dependencyOrigin.pathString,
-                toPath: dependencyDestination.pathString)
-            let dependency = GitRepository(path: dependencyDestination)
-            try dependency.create()
-            try dependency.stageEverything()
-            try dependency.commit()
-            try dependency.tag(name: "1.0.0")
-            // •••••
+                // ••••• Set up dependency.
+                let dependencyName = "UnicodeDependency‐\(complicatedString)"
+                let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+                    .appending(component: "Fixtures")
+                    .appending(component: "Miscellaneous")
+                    .appending(component: dependencyName)
+                let dependencyDestination = prefix.parentDirectory.appending(component: dependencyName)
+                try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
+                defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
+                try FileManager.default.copyItem(
+                    atPath: dependencyOrigin.pathString,
+                    toPath: dependencyDestination.pathString)
+                let dependency = GitRepository(path: dependencyDestination)
+                try dependency.create()
+                try dependency.stageEverything()
+                try dependency.commit()
+                try dependency.tag(name: "1.0.0")
+                // •••••
 
-            // Attempt several operations.
-            try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
-            try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: prefix)
-        }
+                // Attempt several operations.
+                try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
+                try SwiftPMProduct.SwiftRun.execute([complicatedString + "‐tool"], packagePath: prefix)
+            }
         #endif
     }
 

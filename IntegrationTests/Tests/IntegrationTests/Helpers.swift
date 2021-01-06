@@ -19,13 +19,13 @@ let sdkRoot: AbsolutePath? = {
         return AbsolutePath(environmentPath)
     }
 
-  #if os(macOS)
-    let result = try! Process.popen(arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
-    let sdkRoot = try! AbsolutePath(result.utf8Output().spm_chomp())
-    return sdkRoot
-  #else
-    return nil
-  #endif
+    #if os(macOS)
+        let result = try! Process.popen(arguments: ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
+        let sdkRoot = try! AbsolutePath(result.utf8Output().spm_chomp())
+        return sdkRoot
+    #else
+        return nil
+    #endif
 }()
 
 let toolchainPath: AbsolutePath = {
@@ -33,13 +33,13 @@ let toolchainPath: AbsolutePath = {
         return AbsolutePath(environmentPath)
     }
 
-  #if os(macOS)
-    let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout.spm_chomp())
-  #else
-    let swiftcPath = try! AbsolutePath(sh("which", "swift").stdout.spm_chomp())
-  #endif
-    let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
-    return toolchainPath
+    #if os(macOS)
+        let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout.spm_chomp())
+    #else
+        let swiftcPath = try! AbsolutePath(sh("which", "swift").stdout.spm_chomp())
+    #endif
+        let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
+        return toolchainPath
 }()
 
 let clang: AbsolutePath = {
@@ -53,10 +53,10 @@ let clang: AbsolutePath = {
 
 let xcodebuild: AbsolutePath = {
     #if os(macOS)
-      let xcodebuildPath = try! AbsolutePath(sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp())
-      return xcodebuildPath
+        let xcodebuildPath = try! AbsolutePath(sh("xcrun", "--find", "xcodebuild").stdout.spm_chomp())
+        return xcodebuildPath
     #else
-      fatalError("should not be used on other platforms than macOS")
+        fatalError("should not be used on other platforms than macOS")
     #endif
 }()
 
@@ -89,12 +89,12 @@ let lldb: AbsolutePath = {
         return toolchainLLDBPath
     }
 
-  #if os(macOS)
-    let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout.spm_chomp())
-    return lldbPath
-  #else
-    fatalError("LLDB_PATH environment variable required")
-  #endif
+    #if os(macOS)
+        let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout.spm_chomp())
+        return lldbPath
+    #else
+        fatalError("LLDB_PATH environment variable required")
+    #endif
 }()
 
 let swiftpmBinaryDirectory: AbsolutePath = {

@@ -28,27 +28,27 @@ class BuildPerfTests: XCTestCasePerf {
     }
 
     func testTrivialPackageFullBuild() {
-      #if os(macOS)
-        runFullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
-      #endif
+        #if os(macOS)
+            runFullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
+        #endif
     }
 
     func testTrivialPackageNullBuild() {
-      #if os(macOS)
-        runNullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
-      #endif
+        #if os(macOS)
+            runNullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
+        #endif
     }
 
     func testComplexPackageFullBuild() {
-      #if os(macOS)
-        runFullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
-      #endif
+        #if os(macOS)
+            runFullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
+        #endif
     }
 
     func testComplexPackageNullBuild() {
-      #if os(macOS)
-        runNullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
-      #endif
+        #if os(macOS)
+            runNullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
+        #endif
     }
 
     func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) {

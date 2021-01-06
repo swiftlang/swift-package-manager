@@ -16,7 +16,7 @@ At a high level, the primary purpose of this manifest is to:
 * Complement the convention based system.
 
   The manifest complements the convention based system, by being the one definitive place to add any project metadata that would otherwise require the project to use a custom configuration. The goal is that 80%+ of projects should be able to use only a manifest and the convention based layout.
-    
+
   By allowing the manifest to extend and override a few key, carefully picked details of the convention based system, then we allow many more projects to use the system without needing to define complex conventions.
 
 * Provide package information in a standard format.
@@ -36,7 +36,7 @@ At a high level, the primary purpose of this manifest is to:
 
 We propose to use the Swift language itself to write the manifest. An example of a proposed manifest for a small cross-platform project with several libraries might look something like this:
 
-```swift 
+```swift
 // This imports the API for declaring packages.
 import PackageDescription
     
@@ -55,7 +55,7 @@ let package = Package(
             // Declare that this target is a published product of the package
             // (as opposed to an internal library or tool).
             published: true),
-        
+
         // Add information on a support library "CoreFoo" (as found by the
         // convention based system in CoreFoo/**/*.swift).
         Target(
@@ -63,18 +63,18 @@ let package = Package(
             depends: [
                 // The library always depends on the "Utils" target.
                 "Utils",
-                
+
                 // This library depends on "AccessibilityUtils" on Linux.
                 .Conditional(name: "AccessibilityUtils", platforms: [.Linux])
             ]),
-    
+
         // NOTE: There is a "Utils" target inferred by the convention based
         // system, but we don't need to modify it at all because the defaults
         // were fine.
-    
+
         // Declare that the "AccessibilityUtils" target is Linux-specific.
         Target(name: "AccessibilityUtils", platforms: [.Linux])
-	])
+    ])
 ```
 
 *NOTE: this example is for expository purposes, the exact APIs are subject to change.*

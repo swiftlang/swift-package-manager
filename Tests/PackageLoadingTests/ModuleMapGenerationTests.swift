@@ -150,7 +150,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     let diagnostics = DiagnosticsEngine()
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
     let moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
-    
+
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
     diagnostics.wrap {
@@ -158,7 +158,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
             try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
         }
     }
-    
+
     // Invoke the closure to check the results.
     let result = ModuleMapResult(diagnostics: diagnostics, path: generatedModuleMapPath, fs: fileSystem)
     body(result)
