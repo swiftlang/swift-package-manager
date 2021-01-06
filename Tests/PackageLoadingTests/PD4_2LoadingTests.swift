@@ -699,6 +699,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     """
             }
 
+            let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
 
@@ -720,6 +721,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     baseURL: manifestPath.pathString,
                                     toolsVersion: .v4_2,
                                     packageKind: .local,
+                                    diagnostics: diagnostics,
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -738,6 +740,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertEqual(delegate.loaded.count, total+1)
+            XCTAssertFalse(diagnostics.hasWarnings)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
     }
 
@@ -746,6 +750,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         let total = 1000
         try testWithTemporaryDirectory { path in
 
+            let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
 
@@ -773,6 +778,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     baseURL: manifestPath.pathString,
                                     toolsVersion: .v4_2,
                                     packageKind: .local,
+                                    diagnostics: diagnostics,
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -791,6 +797,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertEqual(delegate.loaded.count, total)
+            XCTAssertFalse(diagnostics.hasWarnings)
+            XCTAssertFalse(diagnostics.hasErrors)
         }
     }
 
@@ -829,5 +837,11 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 self._parsed
             }
         }
+    }
+}
+
+extension DiagnosticsEngine {
+    public var hasWarnings: Bool {
+        return diagnostics.contains(where: { $0.message.behavior == .warning })
     }
 }
