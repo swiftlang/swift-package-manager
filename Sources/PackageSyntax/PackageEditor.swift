@@ -377,13 +377,17 @@ public final class PackageEditorContext {
 
         let toolsVersion = try ToolsVersionLoader().load(
             at: path, fileSystem: fs)
-        return try manifestLoader.load(
-            package: path,
-            baseURL: path.pathString,
-            toolsVersion: toolsVersion,
-            packageKind: .local,
-            fileSystem: fs
-        )
+        return try tsc_await {
+            manifestLoader.load(
+                package: path,
+                baseURL: path.pathString,
+                toolsVersion: toolsVersion,
+                packageKind: .local,
+                fileSystem: fs,
+                on: .global(),
+                completion: $0
+            )
+        }
     }
 }
 

@@ -63,7 +63,7 @@ final class PackageEditorTests: XCTestCase {
 
         let package = Package(name: "repo")
         """))
-        repo.commit()
+        try repo.commit()
         try repo.tag(name: "1.1.1")
         provider.add(specifier: .init(url: "http://www.githost.com/repo"), repository: repo)
         
@@ -425,7 +425,7 @@ final class PackageEditorTests: XCTestCase {
 
         let package = Package(name: "repo")
         """))
-        repo.commit()
+        try repo.commit()
         try repo.tag(name: "1.1.1")
         provider.add(specifier: .init(url: "http://www.githost.com/repo"), repository: repo)
 
