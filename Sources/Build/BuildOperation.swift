@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
-
+import Basics
+import LLBuildManifest
 import PackageGraph
 import PackageModel
-import LLBuildManifest
-import SPMLLBuild
 import SPMBuildCore
+import SPMLLBuild
+import TSCBasic
+import TSCUtility
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
@@ -35,7 +35,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private var buildSystem: SPMLLBuild.BuildSystem?
 
     /// If build manifest caching should be enabled.
-    public let useBuildManifestCaching: Bool
+    public let cacheBuildManifest: Bool
 
     /// The build plan that was computed, if any.
     public private(set) var buildPlan: BuildPlan?
@@ -55,13 +55,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public init(
         buildParameters: BuildParameters,
-        useBuildManifestCaching: Bool,
+        cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
-        self.useBuildManifestCaching = useBuildManifestCaching
+        self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
@@ -73,30 +73,31 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
 
-    /// Compute and return the latest build descroption.
+    /// Compute and return the latest build description.
     ///
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
     public func getBuildDescription() throws -> BuildDescription {
         try memoize(to: &buildDescription) {
-            if useBuildManifestCaching {
-                try buildPackageStructure()
-
-                // Return the build description that's on disk. We trust the above build to
-                // update the build description when needed.
+            if self.cacheBuildManifest {
                 do {
-                    return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-                } catch {
-                    // Silently regnerate the build description if we failed to decode (which could happen
-                    // because the existing file was created by different version of swiftpm).
-                    if !(error is DecodingError) {
-                        diagnostics.emit(warning: "failed to load the build description; running build planning: \(error)")
+                    try self.buildPackageStructure()
+                    // confirm the step above created the build description as expected
+                    // we trust it to update the build description when needed
+                    let buildDescriptionPath = self.buildParameters.buildDescriptionPath
+                    guard localFileSystem.exists(buildDescriptionPath) else {
+                        throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                     }
+                    // return the build description that's on disk.
+                    return try BuildDescription.load(from: buildDescriptionPath)
+                } catch {
+                    // since caching is an optimization, warn about failing to load the cached version
+                    diagnostics.emit(warning: "failed to load the cached build description: \(error)")
                 }
             }
 
             // We need to perform actual planning if we reach here.
-            return try plan()
+            return try self.plan()
         }
     }
 
@@ -164,7 +165,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Build the package structure target.
     private func buildPackageStructure() throws {
-        let buildSystem = try createBuildSystem(with: nil)
+        let buildSystem = try self.createBuildSystem(with: nil)
         self.buildSystem = buildSystem
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.

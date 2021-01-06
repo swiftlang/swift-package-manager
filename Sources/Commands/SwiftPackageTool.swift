@@ -297,7 +297,7 @@ extension SwiftPackageTool {
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try swiftTool.createBuildOperation(useBuildManifestCaching: false)
+            let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
             // Dump JSON for the current package.
@@ -343,7 +343,7 @@ extension SwiftPackageTool {
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try swiftTool.createBuildOperation(useBuildManifestCaching: false)
+            let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
             try symbolGraphExtract.dumpSymbolGraph(
