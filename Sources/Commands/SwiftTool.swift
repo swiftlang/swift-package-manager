@@ -477,22 +477,38 @@ public class SwiftTool {
     }
 
     private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
-        // Create the default cache directory.
-        let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
-        if !fileSystem.exists(idiomaticCachePath) {
-            try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
-        }
-        // Create ~/.swiftpm if necessary
-        if !fileSystem.exists(fileSystem.dotSwiftPM) {
-            try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
-        }
-        // Create ~/.swiftpm/cache symlink if necessary
-        let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
-        if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
-            try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
+        if options.skipCache {
+            return nil
         }
 
-        return options.skipCache ? nil : options.cachePath ?? idiomaticCachePath
+        if let explicitCachePath = options.cachePath {
+            // Create the explicit cache path if necessary
+            if !fileSystem.exists(explicitCachePath) {
+                try fileSystem.createDirectory(explicitCachePath, recursive: true)
+            }
+            return explicitCachePath
+        }
+
+        do {
+            // Create the default cache directory.
+            let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
+            if !fileSystem.exists(idiomaticCachePath) {
+                try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
+            }
+            // Create ~/.swiftpm if necessary
+            if !fileSystem.exists(fileSystem.dotSwiftPM) {
+                try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
+            }
+            // Create ~/.swiftpm/cache symlink if necessary
+            let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
+            if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
+                try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
+            }
+            return idiomaticCachePath
+        } catch {
+            self.diagnostics.emit(warning: "Failed creating default cache locations, \(error)")
+            return nil
+        }
     }
 
     /// Returns the currently active workspace.
