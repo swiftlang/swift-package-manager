@@ -7,6 +7,7 @@
  */
 
 import TSCBasic
+import class Foundation.ProcessInfo
 
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
@@ -169,8 +170,7 @@ public final class ThreadSafeBox<Value> {
 
 public enum Concurrency {
     public static var maxOperations: Int {
-        // TODO: compute this by the number of CPUs
-        return (try? ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].map(Int.init)) ?? 25
+        return (try? ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].map(Int.init)) ?? ProcessInfo.processInfo.activeProcessorCount
     }
 }
 

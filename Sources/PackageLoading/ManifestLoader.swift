@@ -1108,17 +1108,17 @@ private final class SQLiteManifestCache: Closable {
     }
 
     deinit {
-        self.stateLock.withLock {
+        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+        try? self.withStateLock {
             if case .connected(let db) = self.state {
                 assertionFailure("db should be closed")
-                // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-                try? db.close()
+                try db.close()
             }
         }
     }
 
     func close() throws {
-        try self.stateLock.withLock {
+        try self.withStateLock {
             if case .connected(let db) = self.state {
                 try db.close()
             }
@@ -1175,13 +1175,13 @@ private final class SQLiteManifestCache: Closable {
         let createDB = { () throws -> SQLite in
             // see https://www.sqlite.org/c3ref/busy_timeout.html
             var configuration = SQLite.Configuration()
-            configuration.busyTimeoutMilliseconds = 10_000
+            configuration.busyTimeoutMilliseconds = 1_000
             let db = try SQLite(location: self.location, configuration: configuration)
             try self.createSchemaIfNecessary(db: db)
             return db
         }
 
-        let db = try stateLock.withLock { () -> SQLite in
+        let db = try self.withStateLock { () -> SQLite in
             let db: SQLite
             switch (self.location, self.state) {
             case (.path(let path), .connected(let database)):
@@ -1219,6 +1219,15 @@ private final class SQLiteManifestCache: Closable {
 
         try db.exec(query: table)
         try db.exec(query: "PRAGMA journal_mode=WAL;")
+    }
+
+    private func withStateLock<T>(_ body: () throws -> T) throws -> T {
+        switch self.location {
+        case .path(let path):
+            return try self.fileSystem.withLock(on: path, type: .exclusive, body)
+        case .memory, .temporary:
+            return try self.stateLock.withLock(body)
+        }
     }
 
     private enum State {
