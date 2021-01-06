@@ -603,7 +603,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             fileSystem: fileSystem
         )
 
-        let result = try self.parseAndCacheManifest(key: cacheKey, diagnostics: diagnostics)
+        let result = self.parseAndCacheManifest(key: cacheKey, diagnostics: diagnostics)
         // Throw now if we weren't able to parse the manifest.
         guard let parsedManifest = result.parsedManifest else {
             let errors = result.errorOutput ?? result.compilerOutput ?? "Unknown error parsing manifest for \(packageIdentity)"
@@ -622,7 +622,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return parsedManifest
     }
 
-    fileprivate func parseAndCacheManifest(key: ManifestCacheKey, diagnostics: DiagnosticsEngine?) throws -> ManifestParseResult {
+    fileprivate func parseAndCacheManifest(key: ManifestCacheKey, diagnostics: DiagnosticsEngine?) -> ManifestParseResult {
         let cache = self.databaseCacheDir.map { cacheDir -> SQLiteManifestCache in
             let path = Self.manifestCacheDBPath(cacheDir)
             return SQLiteManifestCache(location: .path(path), diagnosticsEngine: diagnostics)
@@ -631,8 +631,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         defer { try? cache?.close() }
 
-        if let result = try cache?.get(key: key) {
-            return result
+        do {
+            if let result = try cache?.get(key: key) {
+                return result
+            }
+        } catch  {
+            diagnostics?.emit(.warning("failed loading manifest for '\(key.packageIdentity)' from cache: \(error)"))
         }
 
         let result = self.parse(packageIdentity: key.packageIdentity,
@@ -643,7 +647,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // only cache successfully parsed manifests,
         // this is important for swift-pm development
         if !result.hasErrors {
-            try cache?.put(key: key, manifest: result)
+            do {
+                try cache?.put(key: key, manifest: result)
+            } catch {
+                diagnostics?.emit(.warning("failed storing manifest for '\(key.packageIdentity)' in cache: \(error)"))
+            }
         }
 
         return result
@@ -1108,17 +1116,17 @@ private final class SQLiteManifestCache: Closable {
     }
 
     deinit {
-        self.stateLock.withLock {
+        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+        try? self.withStateLock {
             if case .connected(let db) = self.state {
                 assertionFailure("db should be closed")
-                // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-                try? db.close()
+                try db.close()
             }
         }
     }
 
     func close() throws {
-        try self.stateLock.withLock {
+        try self.withStateLock {
             if case .connected(let db) = self.state {
                 try db.close()
             }
@@ -1175,13 +1183,13 @@ private final class SQLiteManifestCache: Closable {
         let createDB = { () throws -> SQLite in
             // see https://www.sqlite.org/c3ref/busy_timeout.html
             var configuration = SQLite.Configuration()
-            configuration.busyTimeoutMilliseconds = 10_000
+            configuration.busyTimeoutMilliseconds = 1_000
             let db = try SQLite(location: self.location, configuration: configuration)
             try self.createSchemaIfNecessary(db: db)
             return db
         }
 
-        let db = try stateLock.withLock { () -> SQLite in
+        let db = try self.withStateLock { () -> SQLite in
             let db: SQLite
             switch (self.location, self.state) {
             case (.path(let path), .connected(let database)):
@@ -1206,7 +1214,14 @@ private final class SQLiteManifestCache: Closable {
             return db
         }
 
+        // FIXME: workaround linux sqlite concurrency issues causing CI failures
+        #if os(Linux)
+        return try self.withStateLock {
+            return try body(db)
+        }
+        #else
         return try body(db)
+        #endif
     }
 
     private func createSchemaIfNecessary(db: SQLite) throws {
@@ -1219,6 +1234,18 @@ private final class SQLiteManifestCache: Closable {
 
         try db.exec(query: table)
         try db.exec(query: "PRAGMA journal_mode=WAL;")
+    }
+
+    private func withStateLock<T>(_ body: () throws -> T) throws -> T {
+        switch self.location {
+        case .path(let path):
+            if !self.fileSystem.exists(path.parentDirectory) {
+                try self.fileSystem.createDirectory(path.parentDirectory)
+            }
+            return try self.fileSystem.withLock(on: path, type: .exclusive, body)
+        case .memory, .temporary:
+            return try self.stateLock.withLock(body)
+        }
     }
 
     private enum State {

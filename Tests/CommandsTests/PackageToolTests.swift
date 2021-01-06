@@ -177,7 +177,7 @@ final class PackageToolTests: XCTestCase {
             // Remove .build folder
             _ = try execute(["reset"], packagePath: packageRoot)
 
-            // Perfom another cache this time from the cache
+            // Perform another cache this time from the cache
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
 

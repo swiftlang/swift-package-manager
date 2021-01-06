@@ -679,7 +679,9 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testConcurrency() throws {
+    // run this with TSAN/ASAN to detect concurrency issues
+    func testConcurrencyWithWarmup() throws {
+        let total = 1000
         try testWithTemporaryDirectory { path in
 
             let manifestPath = path.appending(components: "pkg", "Package.swift")
@@ -697,16 +699,29 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     """
             }
 
+            let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
 
+            // warm up caches
+            let manifest = try tsc_await { manifestLoader.load(package: manifestPath.parentDirectory,
+                                                               baseURL: manifestPath.pathString,
+                                                               toolsVersion: .v4_2,
+                                                               packageKind: .local,
+                                                               on: .global(),
+                                                               completion: $0) }
+            XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.targets[0].name, "foo")
+
+
             let sync = DispatchGroup()
-            for _ in 0 ..< 1000 {
+            for _ in 0 ..< total {
                 sync.enter()
                 manifestLoader.load(package: manifestPath.parentDirectory,
                                     baseURL: manifestPath.pathString,
                                     toolsVersion: .v4_2,
                                     packageKind: .local,
+                                    diagnostics: diagnostics,
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -720,11 +735,71 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 }
             }
 
-            if case .timedOut = sync.wait(timeout: .now() + 120) {
+            if case .timedOut = sync.wait(timeout: .now() + 30) {
                 XCTFail("timeout")
             }
 
-            XCTAssertEqual(delegate.loaded.count, 1000)
+            XCTAssertEqual(delegate.loaded.count, total+1)
+            XCTAssertFalse(diagnostics.hasWarnings, diagnostics.description)
+            XCTAssertFalse(diagnostics.hasErrors, diagnostics.description)
+        }
+    }
+
+    // run this with TSAN/ASAN to detect concurrency issues
+    func testConcurrencyNoWarmUp() throws {
+        let total = 1000
+        try testWithTemporaryDirectory { path in
+
+            let diagnostics = DiagnosticsEngine()
+            let delegate = ManifestTestDelegate()
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
+
+            let sync = DispatchGroup()
+            for _ in 0 ..< total {
+                let random = Int.random(in: 0 ... total / 4)
+                let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
+                if !localFileSystem.exists(manifestPath) {
+                    try localFileSystem.writeFileContents(manifestPath) { stream in
+                        stream <<< """
+                            import PackageDescription
+                            let package = Package(
+                                name: "Trivial-\(random)",
+                                targets: [
+                                    .target(
+                                        name: "foo-\(random)",
+                                        dependencies: []),
+                                ]
+                            )
+                            """
+                    }
+                }
+
+                sync.enter()
+                manifestLoader.load(package: manifestPath.parentDirectory,
+                                    baseURL: manifestPath.pathString,
+                                    toolsVersion: .v4_2,
+                                    packageKind: .local,
+                                    diagnostics: diagnostics,
+                                    on: .global()) { result in
+                    defer { sync.leave() }
+
+                    switch result {
+                    case .failure(let error):
+                        XCTFail("\(error)")
+                    case .success(let manifest):
+                        XCTAssertEqual(manifest.name, "Trivial-\(random)")
+                        XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
+                    }
+                }
+            }
+
+            if case .timedOut = sync.wait(timeout: .now() + 600) {
+                XCTFail("timeout")
+            }
+
+            XCTAssertEqual(delegate.loaded.count, total)
+            XCTAssertFalse(diagnostics.hasWarnings, diagnostics.description)
+            XCTAssertFalse(diagnostics.hasErrors, diagnostics.description)
         }
     }
 
@@ -763,5 +838,11 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 self._parsed
             }
         }
+    }
+}
+
+extension DiagnosticsEngine {
+    public var hasWarnings: Bool {
+        return diagnostics.contains(where: { $0.message.behavior == .warning })
     }
 }
