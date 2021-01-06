@@ -1671,6 +1671,8 @@ extension Workspace {
 
                         group.enter()
                         self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
+                            defer { group.leave() }
+
                             switch extractResult {
                             case .success:
                                 if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
@@ -1682,7 +1684,6 @@ extension Workspace {
                             }
 
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
-                            group.leave()
                         })
                     case .failure(let error):
                         let reason = error.errorDescription ?? error.localizedDescription
