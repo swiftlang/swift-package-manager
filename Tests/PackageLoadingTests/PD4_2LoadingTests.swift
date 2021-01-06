@@ -759,18 +759,20 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
                 let random = Int.random(in: 0 ... total / 4)
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
-                try localFileSystem.writeFileContents(manifestPath) { stream in
-                    stream <<< """
-                        import PackageDescription
-                        let package = Package(
-                            name: "Trivial-\(random)",
-                            targets: [
-                                .target(
-                                    name: "foo-\(random)",
-                                    dependencies: []),
-                            ]
-                        )
-                        """
+                if !localFileSystem.exists(manifestPath) {
+                    try localFileSystem.writeFileContents(manifestPath) { stream in
+                        stream <<< """
+                            import PackageDescription
+                            let package = Package(
+                                name: "Trivial-\(random)",
+                                targets: [
+                                    .target(
+                                        name: "foo-\(random)",
+                                        dependencies: []),
+                                ]
+                            )
+                            """
+                    }
                 }
 
                 sync.enter()
