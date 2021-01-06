@@ -756,7 +756,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
-
                 let random = Int.random(in: 0 ... total / 4)
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
                 if !localFileSystem.exists(manifestPath) {

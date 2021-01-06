@@ -1214,7 +1214,14 @@ private final class SQLiteManifestCache: Closable {
             return db
         }
 
+        // FIXME: workaround linux sqlite concurrency issues causing CI failures
+        #if os(Linux)
+        return try self.withStateLock {
+            return try body(db)
+        }
+        #else
         return try body(db)
+        #endif
     }
 
     private func createSchemaIfNecessary(db: SQLite) throws {
