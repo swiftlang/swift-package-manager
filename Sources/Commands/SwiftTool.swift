@@ -477,10 +477,6 @@ public class SwiftTool {
     }
 
     private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
-        if options.skipCache {
-            return nil
-        }
-
         if let explicitCachePath = options.cachePath {
             // Create the explicit cache path if necessary
             if !fileSystem.exists(explicitCachePath) {
@@ -516,9 +512,11 @@ public class SwiftTool {
         if let workspace = _workspace {
             return workspace
         }
+
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
+        let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: try editablesPath(),
@@ -532,7 +530,7 @@ public class SwiftTool {
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
-            cachePath: try self.getCachePath()
+            cachePath: cachePath
         )
         _workspace = workspace
         _workspaceDelegate = delegate
@@ -766,7 +764,7 @@ public class SwiftTool {
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
             let cachePath: AbsolutePath?
-            switch (options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+            switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
             case (true, _):
                 // backwards compatibility
                 cachePath = nil
