@@ -148,12 +148,13 @@ public final class Manifest: ObjectIdentifierProtocol {
             return targets
         }
         #else
-        return self.targets
+        return packageKind == .root ? self.targets : targetsRequired(for: products)
         #endif
     }
 
     /// Returns the package dependencies required for a particular products filter.
     public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependencyDescription] {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calcualted it, returned the cached value.
         if let dependencies = _requiredDependencies[productFilter] {
             return dependencies
@@ -163,6 +164,23 @@ public final class Manifest: ObjectIdentifierProtocol {
             _requiredDependencies[productFilter] = dependencies
             return dependencies
         }
+        #else
+        guard toolsVersion >= .v5_2 && productFilter != .everything else {
+            return dependencies
+        }
+
+        var requiredDependencies: Set<PackageDependencyDescription> = []
+
+        for target in targetsRequired(for: products) {
+            for targetDependency in target.dependencies {
+                if let dependency = packageDependency(referencedBy: targetDependency) {
+                    requiredDependencies.insert(dependency)
+                }
+            }
+        }
+
+        return Array(requiredDependencies)
+        #endif
     }
 
     /// Returns the targets required for building the provided products.
@@ -190,7 +208,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// Returns the package dependencies required for building the provided targets.
     ///
     /// The returned dependencies have their particular product filters registered. (To determine product filters without removing any dependencies from the list, specify `keepUnused: true`.)
-    public func dependenciesRequired(
+    private func dependenciesRequired(
         for targets: [TargetDescription],
         keepUnused: Bool = false
     ) -> [PackageDependencyDescription] {

@@ -11,7 +11,7 @@
 import TSCBasic
 
 /// Represents a package dependency.
-public struct PackageDependencyDescription: Equatable, Codable {
+public struct PackageDependencyDescription: Equatable, Codable, Hashable {
 
     /// The dependency requirement.
     public enum Requirement: Equatable, Hashable {
