@@ -1344,7 +1344,7 @@ extension Workspace {
         // Compute the transitive closure of available dependencies.
         struct URLAndFilter: Hashable { // Just because a raw tuple cannot be hashable.
             let url: String
-            let filter: ProductFilter
+            let productFilter: ProductFilter
         }
 
         // optimization: preload manifest we know about in parallel
@@ -1353,28 +1353,28 @@ extension Workspace {
         var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.url, $0) }
 
         // continue to load the rest of the manifest for this graph
-        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.url, filter: .everything)) }) { node in
-            return node.item.dependenciesRequired(for: node.key.filter).compactMap{ dependency in
+        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.url, productFilter: .everything)) }) { node in
+            return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
                 // FIXME: this should not block
                 // note: loadManifest emits diagnostics in case it fails
                 let manifest = loadedManifests[url] ?? temp_await { self.loadManifest(forURL: url, diagnostics: diagnostics, completion: $0) }
                 loadedManifests[url] = manifest
-                return manifest.flatMap({ KeyedPair($0, key: URLAndFilter(url: $0.url, filter: dependency.productFilter)) })
+                return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.url, productFilter: dependency.productFilter)) }
             }
         }
 
-        // remove duplicates of the same manifest
-        // FIXME: this drops duplicates with different filters but filter is not in use in this case. we should clean this API up
-        var deduplication: Set<PackageIdentity> = []
+        // remove duplicates of the same manifest (by identity)
+        var deduplication = [PackageIdentity: Int]()
         var allManifests = [(manifest: Manifest, productFilter: ProductFilter)]()
         for node in allManifestsWithPossibleDuplicates {
             let identity = PackageIdentity(url: node.item.url)
-            if deduplication.contains(identity) {
-                continue // A duplicate.
+            if let index = deduplication[identity]  {
+                let productFilter = allManifests[index].productFilter.merge(node.key.productFilter)
+                allManifests[index] = (node.item, productFilter)
             } else {
-                allManifests.append((node.item, node.key.filter))
-                deduplication.insert(identity)
+                deduplication[identity] = allManifests.count
+                allManifests.append((node.item, node.key.productFilter))
             }
         }
 
@@ -1401,7 +1401,7 @@ extension Workspace {
     /// Loads the given manifest, if it is present in the managed dependencies.
     fileprivate func loadManifest(forURL packageURL: String, diagnostics: DiagnosticsEngine, completion: @escaping (Manifest?) -> Void) {
         // Check if this dependency is available.
-        guard let managedDependency = state.dependencies[forURL: packageURL] else {
+        guard let managedDependency = self.state.dependencies[forURL: packageURL] else {
             return completion(nil)
         }
 
