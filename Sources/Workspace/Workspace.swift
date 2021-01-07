@@ -311,7 +311,6 @@ public class Workspace {
         }
         #endif
         self.checksumAlgorithm = checksumAlgorithm
-
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
         self.skipUpdate = skipUpdate
         self.enableResolverTrace = enableResolverTrace
