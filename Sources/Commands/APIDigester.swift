@@ -110,7 +110,7 @@ struct APIDigesterBaselineDumper {
         // Build the baseline module.
         let buildOp = BuildOperation(
             buildParameters: buildParameters,
-            useBuildManifestCaching: false,
+            cacheBuildManifest: false,
             packageGraphLoader: { graph },
             diagnostics: diags,
             stdoutStream: stdoutStream

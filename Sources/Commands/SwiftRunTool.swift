@@ -115,7 +115,7 @@ public struct SwiftRunTool: SwiftCommand {
             // Construct the build operation.
             let buildOp = BuildOperation(
                 buildParameters: buildParameters,
-                useBuildManifestCaching: false,
+                cacheBuildManifest: false,
                 packageGraphLoader: graphLoader,
                 diagnostics: swiftTool.diagnostics,
                 stdoutStream: swiftTool.stdoutStream

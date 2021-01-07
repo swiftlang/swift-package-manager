@@ -268,8 +268,8 @@ public struct SwiftToolOptions: ParsableArguments {
     var enableTestDiscovery: Bool = false
 
     /// Whether to enable llbuild manifest caching.
-    @Flag()
-    var enableBuildManifestCaching: Bool = false
+    @Flag(name: .customLong("build-manifest-caching"), inversion: .prefixedEnableDisable)
+    var cacheBuildManifest: Bool = true
 
     /// Emit the Swift module separately from the object files.
     @Flag()

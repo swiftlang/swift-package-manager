@@ -604,30 +604,39 @@ public class SwiftTool {
         return try _manifestLoader.get()
     }
 
-    private func canUseBuildManifestCaching() throws -> Bool {
+    private func canUseCachedBuildManifest() throws -> Bool {
+        if !self.options.cacheBuildManifest {
+            return false
+        }
+
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-        localFileSystem.exists(buildParameters.llbuildManifest) &&
-        localFileSystem.exists(buildParameters.buildDescriptionPath)
+            localFileSystem.exists(buildParameters.llbuildManifest) &&
+            localFileSystem.exists(buildParameters.buildDescriptionPath)
+
+        if !haveBuildManifestAndDescription {
+            return false
+        }
 
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        if hasEditedPackages {
+            return false
+        }
 
-        let enableBuildManifestCaching = ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_BUILD_MANIFEST_CACHING") || options.enableBuildManifestCaching
-
-        return enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
+        return true
     }
 
-    func createBuildOperation(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildOperation {
+    func createBuildOperation(explicitProduct: String? = nil, cacheBuildManifest: Bool = true) throws -> BuildOperation {
         // Load a custom package graph which has a special product for REPL.
         let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
         let buildOp = try BuildOperation(
             buildParameters: buildParameters(),
-            useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+            cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             diagnostics: diagnostics,
             stdoutStream: self.stdoutStream
@@ -638,14 +647,15 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
+    func createBuildSystem(explicitProduct: String? = nil, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
+        print("createBuildSystem \(try self.canUseCachedBuildManifest())")
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
-                useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+                cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
