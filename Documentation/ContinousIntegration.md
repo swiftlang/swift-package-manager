@@ -15,28 +15,13 @@ SwiftPM records the result of dependency resolution in `Package.resolved` (at th
 ## Provide Credentials
 
 To resolve package dependencies that require authentication, or private packages, you need to provide credentials to your CI setup.
+Use SSH–based Git URLs for your packages and configure your SSH credentials. Set up your known_hosts file in the ~/.ssh directory of the user that runs your CI tasks. SwiftPM honors your SSH configuration - there's no additional setup required.
+If your SSH keys are password-protected, add them to the SSH agent before invoking SwiftPM by modifying the SSH configuration file.
 
-* Use the SSH–based Git URL for your packages URL:
-```
-dependencies: [
-  .package(url: "git@github.com:{username}/{packageRepository}.git"),
-  .package(url: "git@github.com:{username}/{package2Repository}.git")
-]
-```
-* Create a `.ssh` directory into the root folder of your package (at the same level of Package.swift file).
-* Inside the `.ssh` directory, generate a new SSH key:
-```
-ssh-keygen -b 4096 -t rsa -N "" -f {keyName}
-```
-* Inside the `.ssh` directory, add a file called `config` and add to it:
-```
-Host github.com
-  HostName github.com
-  User {yourGithubEmail}
-  IdentityFile ./.ssh/{keyName}
-```
-* Copy the SSH key to your clipboard:
-```
-pbcopy < {keyName}.pub
-```
-* Add the copied in your Github Account Settings.
+CI services like [Jenkins](https://www.jenkins.io/doc/book/using/using-credentials), [Github Action](https://docs.github.com/en/free-pro-team@latest/actions/reference/authentication-in-a-workflow), [TravisCI](https://docs.travis-ci.com/user/private-dependencies), [CircleCI](https://circleci.com/docs/2.0/gh-bb-integration/#security), are providing ways to set up credentials.
+
+## Using xcodebuild
+When building on macOS based CI hosts you can use the command-line tool `xcodebuild`.
+`xcodebuild` uses Xcode's built-in Git tooling to connect to repositories.  In many cases, you don't need to make changes to how xcodebuild connects to them. However, some use cases require you use the configuration you set for your Mac's Git installation (Some examples: URL remapping, Proxy configurations, Advanced SSH configurations).
+
+For more information on using xcodebuild, visit [this link](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
