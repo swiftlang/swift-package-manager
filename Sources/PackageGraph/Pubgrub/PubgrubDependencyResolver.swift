@@ -166,10 +166,10 @@ public struct PubgrubDependencyResolver {
             var error = error
 
             // If version solving failing, build the user-facing diagnostic.
-            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let state = pubGrubError.state {
+            if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
                 var builder = DiagnosticReportBuilder(
                     root: root,
-                    incompatibilities: state.incompatibilities,
+                    incompatibilities: incompatibilities,
                     provider: self.provider
                 )
 
@@ -605,7 +605,7 @@ public struct PubgrubDependencyResolver {
         }
 
         log("failed: \(incompatibility)")
-        throw PubgrubError._unresolvable(incompatibility, state)
+        throw PubgrubError._unresolvable(incompatibility, state.incompatibilities)
     }
 
     /// Does a given incompatibility specify that version solving has entirely
@@ -1489,8 +1489,8 @@ internal enum LogLocation: String {
 }
 
 extension PubgrubDependencyResolver {
-    internal enum PubgrubError: Swift.Error, CustomStringConvertible {
-        case _unresolvable(Incompatibility, State)
+    public enum PubgrubError: Swift.Error, CustomStringConvertible {
+        case _unresolvable(Incompatibility, [DependencyResolutionNode: [Incompatibility]])
         case unresolvable(String)
 
         public var description: String {
@@ -1511,10 +1511,10 @@ extension PubgrubDependencyResolver {
             }
         }
 
-        var state: State? {
+        var incompatibilities: [DependencyResolutionNode: [Incompatibility]]? {
             switch self {
-            case ._unresolvable(_, let state):
-                return state
+            case ._unresolvable(_, let incompatibilities):
+                return incompatibilities
             case .unresolvable:
                 return nil
             }
