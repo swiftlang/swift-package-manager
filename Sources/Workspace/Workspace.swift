@@ -303,6 +303,13 @@ public class Workspace {
         self.downloader = downloader
         self.netrcFilePath = netrcFilePath
         self.archiver = archiver
+
+        var checksumAlgorithm = checksumAlgorithm
+        #if canImport(CryptoKit)
+        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
+            checksumAlgorithm = CryptoKitSHA256()
+        }
+        #endif
         self.checksumAlgorithm = checksumAlgorithm
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
         self.skipUpdate = skipUpdate
