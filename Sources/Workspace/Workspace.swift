@@ -1162,6 +1162,7 @@ extension Workspace {
                 return node
             })
 
+            // FIXME: this is dropping legitimate packages with equal identities and should be revised as part of the identity work
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap({ dependency in
