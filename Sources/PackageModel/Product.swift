@@ -118,6 +118,17 @@ public enum ProductFilter: Equatable, Hashable {
             return set.contains(product)
         }
     }
+
+    public func merge(_ other: ProductFilter) -> ProductFilter {
+        switch (self, other) {
+        case (.everything, _):
+            return .everything
+        case (_, .everything):
+            return .everything
+        case (.specific(let mine), .specific(let other)):
+            return .specific(mine.union(other))
+        }
+    }
 }
 
 

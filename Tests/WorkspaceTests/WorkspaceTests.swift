@@ -3894,7 +3894,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraph(roots: ["Overridden/bazzz-master"], deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-                result.check(diagnostic: .equal("unable to override package 'Baz' because its basename 'bazzz' doesn't match directory name 'bazzz-master'"), behavior: .error)
+                result.check(diagnostic: .equal("unable to override package 'Baz' because its identity 'bazzz' doesn't match override's identity (directory name) 'bazzz-master'"), behavior: .error)
             }
         }
     }
