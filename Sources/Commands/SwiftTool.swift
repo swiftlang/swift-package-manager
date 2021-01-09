@@ -648,7 +648,6 @@ public class SwiftTool {
     }
 
     func createBuildSystem(explicitProduct: String? = nil, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
-        print("createBuildSystem \(try self.canUseCachedBuildManifest())")
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
