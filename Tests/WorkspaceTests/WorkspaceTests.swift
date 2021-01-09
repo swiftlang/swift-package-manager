@@ -4067,13 +4067,16 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTargetBasedDependency() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        
+        let barProducts: [MockProduct]
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        barProducts = [MockProduct(name: "Bar", targets: ["Bar"]), MockProduct(name: "BarUnused", targets: ["BarUnused"])]
+        #else
+        // Whether a product is being used does not affect dependency resolution in this case, so we omit the unused product.
+        barProducts = [MockProduct(name: "Bar", targets: ["Bar"])]
+        #endif
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -4119,10 +4122,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(name: "BarUnused", dependencies: ["Biz"]),
                         MockTarget(name: "BarTests", dependencies: ["TestHelper2"], type: .test),
                     ],
-                    products: [
-                        MockProduct(name: "Bar", targets: ["Bar"]),
-                        MockProduct(name: "BarUnused", targets: ["BarUnused"]),
-                    ],
+                    products: barProducts,
                     dependencies: [
                         MockDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
                         MockDependency(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
