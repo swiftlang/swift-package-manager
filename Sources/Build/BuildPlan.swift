@@ -259,7 +259,8 @@ public final class ClangTargetBuildDescription {
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
-        if target.type == .library {
+        // FIXME: Adding .executable here is probably not right, but is needed in order to test Clang executables.
+        if target.type == .library || target.type == .executable {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path
@@ -503,8 +504,7 @@ public final class SwiftTargetBuildDescription {
 
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
-        let dirPath = (target.type == .executable) ? tempsPath : buildParameters.buildPath
-        return dirPath.appending(component: target.c99name + ".swiftmodule")
+        return buildParameters.buildPath.appending(component: target.c99name + ".swiftmodule")
     }
 
     /// The path to the wrapped swift module which is created using the modulewrap tool. This is required
@@ -1003,7 +1003,7 @@ public final class ProductBuildDescription {
         return buildParameters.binaryPath(for: product)
     }
 
-    /// The objects in this product.
+    /// All object files to link into this product.
     ///
     // Computed during build planning.
     public fileprivate(set) var objects = SortedArray<AbsolutePath>()
@@ -1021,6 +1021,10 @@ public final class ProductBuildDescription {
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     fileprivate var swiftASTs: SortedArray<AbsolutePath> = .init()
 
+    /// Ordered mapping of any mainless object files used by the product to the originals in the executable
+    /// targets that produce them.
+    public fileprivate(set) var executableObjects: OrderedDictionary<AbsolutePath, AbsolutePath> = .init()
+
     /// Paths to the binary libraries the product depends on.
     fileprivate var libraryBinaryPaths: Set<AbsolutePath> = []
 
@@ -1032,6 +1036,11 @@ public final class ProductBuildDescription {
     /// Path to the link filelist file.
     var linkFileListPath: AbsolutePath {
         return tempsPath.appending(component: "Objects.LinkFileList")
+    }
+
+    /// Path to the symbol removal list file (list of symbols to remove from any objects linked into this product).
+    var mainSymbolRemovalListFilePath: AbsolutePath {
+        return tempsPath.appending(component: "MainSymbol.SymbolList")
     }
 
     /// Diagnostics Engine for emitting diagnostics.
@@ -1189,6 +1198,16 @@ public final class ProductBuildDescription {
 
         try fs.createDirectory(linkFileListPath.parentDirectory, recursive: true)
         try fs.writeFileContents(linkFileListPath, bytes: stream.bytes)
+    }
+
+    /// Writes symbol removal list file to the filesystem.
+    func writeMainSymbolRemovalListFile(_ fs: FileSystem) throws {
+        let stream = BufferedOutputByteStream()
+        
+        stream <<< "_main\n"
+
+        try fs.createDirectory(mainSymbolRemovalListFilePath.parentDirectory, recursive: true)
+        try fs.writeFileContents(mainSymbolRemovalListFilePath, bytes: stream.bytes)
     }
 
     /// Returns the build flags from the declared build settings.
@@ -1482,14 +1501,14 @@ public class BuildPlan {
 
         // Link C++ if needed.
         // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
+        for target in dependencies.staticTargets + dependencies.executableTargets {
             if case let target as ClangTarget = target.underlyingTarget, target.isCXX {
                 buildProduct.additionalFlags += self.buildParameters.toolchain.extraCPPFlags
                 break
             }
         }
 
-        for target in dependencies.staticTargets {
+        for target in dependencies.staticTargets + dependencies.executableTargets {
             switch target.underlyingTarget {
             case is SwiftTarget:
                 // Swift targets are guaranteed to have a corresponding Swift description.
@@ -1513,7 +1532,7 @@ public class BuildPlan {
             }
         }
 
-        buildProduct.staticTargets = dependencies.staticTargets
+        buildProduct.staticTargets = dependencies.staticTargets + dependencies.executableTargets
         buildProduct.dylibs = try dependencies.dylibs.map{
             guard let product = productMap[$0] else {
                 throw InternalError("unknown product \($0)")
@@ -1527,6 +1546,25 @@ public class BuildPlan {
             return target.objects
         }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
+        
+        // If we're linking against any executable targets, we need to create versions of the .o files from those
+        // targets that elide the `_main` symbol.  We should look into whether linker options can be added to specify
+        // this on the command line.
+        if !dependencies.executableTargets.isEmpty {
+            // Creating a mapping from each .o file in each executable target to a corresponding modified .o file in
+            // our product directory.  This duplicates work if an executable is tested by more than one test product
+            // but has the advantage of keeping the executable target clean unless it's being used by a test target.
+            for target in dependencies.executableTargets.map({ targetMap[$0]! }) {
+                for object in target.objects {
+                    // FIXME: Plenty of opportunity for collisions here — how is this handled for regular object files?
+                    let mainlessObject = buildProduct.tempsPath.appending(components: "LinkedExecutableObjects", "\(target.target.c99name)_\(object.basename)")
+                    buildProduct.executableObjects[mainlessObject] = object
+                    buildProduct.objects.insert(mainlessObject)
+                }
+            }
+            // The symbol removal tool on some platforms requires a separate file list in the file system.
+            try buildProduct.writeMainSymbolRemovalListFile(fileSystem)
+        }
 
         // Write the link filelist file.
         //
@@ -1541,6 +1579,7 @@ public class BuildPlan {
     ) throws -> (
         dylibs: [ResolvedProduct],
         staticTargets: [ResolvedTarget],
+        executableTargets: [ResolvedTarget],
         systemModules: [ResolvedTarget],
         libraryBinaryPaths: Set<AbsolutePath>
     ) {
@@ -1568,6 +1607,7 @@ public class BuildPlan {
         // Create empty arrays to collect our results.
         var linkLibraries = [ResolvedProduct]()
         var staticTargets = [ResolvedTarget]()
+        var executableTargets = [ResolvedTarget]()
         var systemModules = [ResolvedTarget]()
         var libraryBinaryPaths: Set<AbsolutePath> = []
 
@@ -1577,7 +1617,14 @@ public class BuildPlan {
                 switch target.type {
                 // Include executable and tests only if they're top level contents
                 // of the product. Otherwise they are just build time dependency.
-                case .executable, .test:
+                case .executable:
+                    if product.targets.contains(target) {
+                        staticTargets.append(target)
+                    }
+                    else {
+                        executableTargets.append(target)
+                    }
+                case .test:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     }
@@ -1612,7 +1659,7 @@ public class BuildPlan {
             }
         }
 
-        return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths)
+        return (linkLibraries, staticTargets, executableTargets, systemModules, libraryBinaryPaths)
     }
 
     /// Plan a Clang target.
@@ -1657,7 +1704,8 @@ public class BuildPlan {
         // depends on.
         for case .target(let dependency, _) in try swiftTarget.target.recursiveDependencies(satisfying: buildEnvironment) {
             switch dependency.underlyingTarget {
-            case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
+            // FIXME: Adding .executable here is probably not right, but is needed in order to test Clang executables.
+            case let underlyingTarget as ClangTarget where underlyingTarget.type == .library || underlyingTarget.type == .executable:
                 guard case let .clang(target)? = targetMap[dependency] else {
                     fatalError("unexpected clang target \(underlyingTarget)")
                 }

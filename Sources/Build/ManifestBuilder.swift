@@ -624,6 +624,40 @@ extension LLBuildManifestBuilder {
             outputs: [.file(target.wrappedModuleOutputPath)],
             args: moduleWrapArgs)
     }
+
+    /// Add a command to produce a new .o file that removes (or hides) the `_main` symbol from a compiled .o file.
+    /// This is used to modify .o files produced by executables so they can be linked into unit test products.  The
+    /// symbol list file is expected to only contain the symbol `_main` and is only needed because `nmedit` needs a
+    /// file with the names of the symbols.
+    private func addMainSymbolRemovalCmd(toolchain: Toolchain,
+                                         inputFile: AbsolutePath, outputFile: AbsolutePath,
+                                         mainSymbolListFile: AbsolutePath) {
+        let args: [String]
+        #if canImport(Darwin)
+            // On Darwin systems, use `nmedit` to remove the `main` symbol.
+            args = [
+                // FIXME: The toolchain should provide the path of the `nmedit` tool.
+                toolchain.swiftCompiler.parentDirectory.appending(component: "nmedit").pathString,
+                "-R", mainSymbolListFile.pathString,
+                inputFile.pathString,
+                "-o", outputFile.pathString
+            ]
+        #else
+            // On non-Darwin systems, use `objcopy` from `binutils` to mark the `main` symbol as local.
+            args = [
+                "objcopy",
+                "-L", "main",
+                inputFile.pathString,
+                outputFile.pathString
+            ]
+        #endif
+        manifest.addShellCmd(
+            name: outputFile.pathString,
+            description: "Eliding symbols from \(outputFile.basename)",
+            inputs: [.file(inputFile)],  // Note: we don't add the symbol file as an input since it's a constant
+            outputs: [.file(outputFile)],
+            args: args)
+    }
 }
 
 // MARK:- Compile C-family
@@ -793,6 +827,11 @@ extension LLBuildManifestBuilder {
                 outputs: [.file(buildProduct.binary)],
                 args: try buildProduct.linkArguments()
             )
+            
+            // Add a separate command to remove the main symbol.
+            for (mainlessObject, object) in buildProduct.executableObjects {
+                addMainSymbolRemovalCmd(toolchain: buildProduct.buildParameters.toolchain, inputFile: object, outputFile: mainlessObject, mainSymbolListFile: buildProduct.mainSymbolRemovalListFilePath)
+            }
         }
 
         // Create a phony node to represent the entire target.

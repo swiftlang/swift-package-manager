@@ -514,23 +514,14 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
     
-    func testErrorMessageWhenTestLinksExecutable() {
+    func testTestsCanLinkAgainstExecutable() {
         fixture(name: "Miscellaneous/ExeTest") { prefix in
             do {
-                try executeSwiftTest(prefix)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
-                XCTAssertMatch(stderr + output, .contains("Compiling Exe main.swift"))
-                XCTAssertMatch(stderr + output, .contains("Compiling ExeTests ExeTests.swift"))
-                XCTAssertMatch(stderr + output, .regex("error: no such module 'Exe'"))
-                XCTAssertMatch(stderr + output, .regex("note: module 'Exe' is the main module of an executable, and cannot be imported by tests and other targets"))
-
-                if case ProcessResult.Error.nonZeroExit(let result) = error {
-                    // if our code crashes we'll get an exit code of 256
-                    XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                } else {
-                    XCTFail("\(stderr + output)")
-                }
+                let (stdout, _) = try executeSwiftTest(prefix)
+                XCTAssertMatch(stdout, .contains("Compiling Exe main.swift"))
+                XCTAssertMatch(stdout, .contains("Compiling ExeTests ExeTests.swift"))
+                XCTAssertMatch(stdout, .contains("Eliding symbols from Exe_main.swift.o"))
+                XCTAssertMatch(stdout, .contains("Linking ExeTestPackageTests"))
             } catch {
                 XCTFail()
             }
