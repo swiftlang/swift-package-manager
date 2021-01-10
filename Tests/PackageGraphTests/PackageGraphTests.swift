@@ -1047,7 +1047,7 @@ class PackageGraphTests: XCTestCase {
                     'Foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
                     """,
                 behavior: .error,
-                location: "'Foo' /Foo"
+                location: "/Foo/Package.swift:dependency(Baar)"
             )
         }
     }

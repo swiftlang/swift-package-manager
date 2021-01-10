@@ -16,6 +16,10 @@ import TSCUtility
 import func TSCLibc.exit
 import Workspace
 
+#if BUILD_PACKAGE_SYNTAX
+import PackageSyntax
+#endif
+
 enum Error: Swift.Error {
     /// Couldn't find all tools needed by the package manager.
     case invalidToolchain(problem: String)
@@ -63,7 +67,18 @@ func print(diagnostic: Diagnostic, stdoutStream: OutputByteStream) {
     let writer = InteractiveWriter.stderr
 
     if !(diagnostic.location is UnknownLocation) {
+        #if BUILD_PACKAGE_SYNTAX
+        if let resolvedLocation = (diagnostic.location as? ManifestSourceLocation)?.resolveToSourceLocation(),
+           let file = resolvedLocation.file,
+           let line = resolvedLocation.line,
+           let column = resolvedLocation.column {
+            writer.write("\(file):\(line):\(column)")
+        } else {
+            writer.write(diagnostic.location.description)
+        }
+        #else
         writer.write(diagnostic.location.description)
+        #endif
         writer.write(": ")
     }
 

@@ -134,7 +134,8 @@ extension PackageGraph {
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
             unsafeAllowedPackages: unsafeAllowedPackages,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            fileSystem: fileSystem
         )
 
         let rootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
@@ -193,7 +194,8 @@ private func createResolvedPackages(
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
     unsafeAllowedPackages: Set<PackageReference>,
-    diagnostics: DiagnosticsEngine
+    diagnostics: DiagnosticsEngine,
+    fileSystem: FileSystem
 ) throws -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
@@ -277,7 +279,9 @@ private func createResolvedPackages(
                             dependencyURL: dependencyURL,
                             resolvedPackageName: resolvedPackage.package.name,
                             resolvedPackageURL: resolvedPackage.package.manifest.url)
-                        let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
+                        let diagnosticLocation = DependencyDeclSourceLoc(manifest: package.manifest,
+                                                                         dependency: dependency,
+                                                                         fileSystem: fileSystem)
                         return diagnostics.emit(error, location: diagnosticLocation)
                     }
                 }
