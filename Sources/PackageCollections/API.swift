@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,7 @@ import PackageModel
 import SourceControl
 
 public protocol PackageCollectionsProtocol {
-    // MARK: - Package set APIs
+    // MARK: - Package collection APIs
 
     /// Returns packages organized into collections.
     ///
@@ -33,16 +33,28 @@ public protocol PackageCollectionsProtocol {
     ///   - callback: The closure to invoke after triggering a refresh for the configured package collections.
     func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
 
+    /// Refreshes a package collection.
+    ///
+    /// - Parameters:
+    ///   - source: The package collection to be refreshed
+    ///   - callback: The closure to invoke with the refreshed `PackageCollection`
+    func refreshCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
+    )
+
     /// Adds a package collection.
     ///
     /// - Parameters:
     ///   - source: The package collection's source
     ///   - order: Optional. The order that the `PackageCollection` should take after being added to the list.
     ///            By default the new collection is appended to the end (i.e., the least relevant order).
-    ///   - callback: The closure to invoke with the updated `PackageCollection`s
+    ///   - trustConfirmationProvider: The closure to invoke when the collection is not signed and user confirmation is required to proceed
+    ///   - callback: The closure to invoke with the newly added `PackageCollection`
     func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         order: Int?,
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     )
 
@@ -50,7 +62,7 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - source: The package collection's source
-    ///   - callback: The closure to invoke with the updated `PackageCollection`s
+    ///   - callback: The closure to invoke with the result becomes available
     func removeCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<Void, Error>) -> Void
@@ -59,13 +71,23 @@ public protocol PackageCollectionsProtocol {
     /// Moves a package collection to a different order.
     ///
     /// - Parameters:
-    ///   - id: The identifier of the `PackageCollection` to be moved
+    ///   - source: The source of the `PackageCollection` to be reordered
     ///   - order: The new order that the `PackageCollection` should be positioned after the move
-    ///   - callback: The closure to invoke with the updated `PackageCollection`s
+    ///   - callback: The closure to invoke with the result becomes available
     func moveCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         to order: Int,
         callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// Updates settings of a `PackageCollection` source (e.g., if it is trusted or not).
+    ///
+    /// - Parameters:
+    ///   - source: The `PackageCollection` source to be updated
+    ///   - callback: The closure to invoke when result becomes available
+    func updateCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     )
 
     /// Returns information about a package collection. The collection is not required to be in the configured list. If
@@ -144,4 +166,12 @@ public protocol PackageCollectionsProtocol {
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
     )
+}
+
+public enum PackageCollectionError: Equatable, Error {
+    /// Package collection is not signed and there is no record of user's trust selection
+    case trustConfirmationRequired
+
+    /// Package collection is not signed and user explicitly marks it untrusted
+    case untrusted
 }

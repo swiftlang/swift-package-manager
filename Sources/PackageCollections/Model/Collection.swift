@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -54,6 +54,9 @@ extension PackageCollectionsModel {
         /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
+        /// Indicates if the collection is signed
+        public let isSigned: Bool
+
         /// Initializes a `Collection`
         init(
             source: Source,
@@ -63,7 +66,8 @@ extension PackageCollectionsModel {
             packages: [Package],
             createdAt: Date,
             createdBy: Author?,
-            lastProcessedAt: Date = Date()
+            lastProcessedAt: Date = Date(),
+            isSigned: Bool
         ) {
             self.identifier = .init(from: source)
             self.source = source
@@ -74,6 +78,7 @@ extension PackageCollectionsModel {
             self.createdAt = createdAt
             self.createdBy = createdBy
             self.lastProcessedAt = lastProcessedAt
+            self.isSigned = isSigned
         }
     }
 }
@@ -87,18 +92,26 @@ extension PackageCollectionsModel {
         /// URL of the source file
         public let url: URL
 
+        /// Indicates if the source is explicitly trusted or untrusted by the user
+        public var isTrusted: Bool?
+
         /// The source's absolute file system path, if its URL is of 'file' scheme.
         let absolutePath: AbsolutePath?
 
-        public init(type: CollectionSourceType, url: URL) {
+        public init(type: CollectionSourceType, url: URL, isTrusted: Bool? = nil) {
             self.type = type
             self.url = url
+            self.isTrusted = isTrusted
 
             if url.scheme?.lowercased() == "file", let absolutePath = try? AbsolutePath(validating: url.path) {
                 self.absolutePath = absolutePath
             } else {
                 self.absolutePath = nil
             }
+        }
+
+        public static func == (lhs: CollectionSource, rhs: CollectionSource) -> Bool {
+            lhs.type == rhs.type && lhs.url == rhs.url
         }
     }
 

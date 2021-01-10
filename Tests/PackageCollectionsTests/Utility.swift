@@ -18,12 +18,13 @@ import TSCBasic
 import TSCUtility
 
 func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {
+    let isTrusted: [Bool?] = [true, false, nil]
     return (0 ..< count).map { index in
-        .init(type: .json, url: URL(string: "https://source-\(index)")!)
+        .init(type: .json, url: URL(string: "https://source-\(index)")!, isTrusted: isTrusted.randomElement()!)
     }
 }
 
-func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: Int = 50) -> [PackageCollectionsModel.Collection] {
+func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: Int = 50, signed: Bool = true) -> [PackageCollectionsModel.Collection] {
     let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi]
     let supportedPlatforms: [PackageModel.SupportedPlatform] = [
         .init(platform: .macOS, version: .init("10.15")),
@@ -79,7 +80,8 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                   keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                   packages: packages,
                                                   createdAt: Date(),
-                                                  createdBy: PackageCollectionsModel.Collection.Author(name: "Jane Doe"))
+                                                  createdBy: PackageCollectionsModel.Collection.Author(name: "Jane Doe"),
+                                                  isSigned: signed)
     }
 }
 

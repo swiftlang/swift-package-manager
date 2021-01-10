@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -117,6 +117,24 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
         }
     }
 
+    func update(source: PackageCollectionsModel.CollectionSource,
+                callback: @escaping (Result<Void, Error>) -> Void) {
+        self.queue.async {
+            do {
+                try self.withLock {
+                    var sources = try self.loadFromDisk()
+                    if let index = sources.firstIndex(where: { $0 == source }) {
+                        sources[index] = source
+                        try self.saveToDisk(sources)
+                    }
+                }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
     private func loadFromDisk() throws -> [Model.CollectionSource] {
         guard self.fileSystem.exists(self.path) else {
             return .init()
@@ -168,6 +186,7 @@ private enum StorageModel {
     struct Source: Codable {
         let type: String
         let value: String
+        let isTrusted: Bool?
     }
 
     enum SourceType: String {
@@ -185,7 +204,7 @@ private extension Model.CollectionSource {
 
         switch from.type {
         case StorageModel.SourceType.json.rawValue:
-            self.init(type: .json, url: url)
+            self.init(type: .json, url: url, isTrusted: from.isTrusted)
         default:
             throw SerializationError.unknownType(from.type)
         }
@@ -194,7 +213,7 @@ private extension Model.CollectionSource {
     func source() -> StorageModel.Source {
         switch self.type {
         case .json:
-            return .init(type: StorageModel.SourceType.json.rawValue, value: self.url.absoluteString)
+            return .init(type: StorageModel.SourceType.json.rawValue, value: self.url.absoluteString, isTrusted: self.isTrusted)
         }
     }
 }

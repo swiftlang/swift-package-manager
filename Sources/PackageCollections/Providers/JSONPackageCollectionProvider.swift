@@ -108,6 +108,13 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 
     private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource) -> Result<Model.Collection, Error> {
+        // TODO: Check collection's signature
+        // 1. If signed and signature is
+        //      a. valid: process the collection; set isSigned=true
+        //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
+        // 2. If unsigned, process the collection; set isSigned=false.
+        let isSigned = true
+
         var serializationOkay = true
         let packages = collection.packages.map { package -> Model.Package in
             let versions = package.versions.compactMap { version -> Model.Package.Version? in
@@ -170,7 +177,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                               packages: packages,
                               createdAt: collection.generatedAt,
                               createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
-                              lastProcessedAt: Date()))
+                              lastProcessedAt: Date(),
+                              isSigned: isSigned))
     }
 
     private func makeRequestOptions(validResponseCodes: [Int]) -> HTTPClientRequest.Options {

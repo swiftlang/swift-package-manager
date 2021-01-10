@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2020 Apple Inc. and the Swift project authors
+ Copyright 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -98,6 +98,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         @Option(name: .long, help: "Sort order for the added collection")
         var order: Int?
+        
+        @Option(name: .long, help: "Trust the collection even if it is unsigned")
+        var trustUnsigned: Bool?
 
         mutating func run() throws {
             guard let collectionUrl = URL(string: collectionUrl) else {
@@ -106,7 +109,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
             let collection = try with { collections in
-                return try tsc_await { collections.addCollection(source, order: order, callback: $0) }
+                try tsc_await {
+                    collections.addCollection(
+                        source,
+                        order: order,
+                        trustConfirmationProvider: trustUnsigned.map { userTrusted in { _, callback in callback(userTrusted) } },
+                        callback: $0
+                    ) }
             }
 
             print("Added \"\(collection.name)\" to your package collections.")
