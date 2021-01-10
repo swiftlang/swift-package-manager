@@ -625,7 +625,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     fileprivate func parseAndCacheManifest(key: ManifestCacheKey, diagnostics: DiagnosticsEngine?) -> ManifestParseResult {
         let cache = self.databaseCacheDir.map { cacheDir -> SQLiteManifestCache in
             let path = Self.manifestCacheDBPath(cacheDir)
-            return SQLiteManifestCache(location: .path(path), diagnosticsEngine: diagnostics)
+            var configuration = SQLiteManifestCache.Configuration()
+            // FIXME: expose as user-facing configuration
+            configuration.maxSizeInMegabytes = 100
+            return SQLiteManifestCache(location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
@@ -657,7 +660,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return result
     }
 
-    fileprivate struct ManifestCacheKey: Hashable {
+    internal struct ManifestCacheKey: Hashable {
         let packageIdentity: PackageIdentity
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
@@ -708,7 +711,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    fileprivate struct ManifestParseResult: Codable {
+    internal struct ManifestParseResult: Codable {
         var hasErrors: Bool {
             return parsedManifest == nil
         }
@@ -1089,9 +1092,10 @@ extension TSCBasic.Diagnostic.Message {
 }
 
 /// SQLite backed persistent cache.
-private final class SQLiteManifestCache: Closable {
+internal final class SQLiteManifestCache: Closable {
     let fileSystem: FileSystem
     let location: SQLite.Location
+    let configuration: Configuration
 
     private var state = State.idle
     private let stateLock = Lock()
@@ -1100,7 +1104,7 @@ private final class SQLiteManifestCache: Closable {
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
 
-    init(location: SQLite.Location, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(location: SQLite.Location, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location
         switch self.location {
         case .path, .temporary:
@@ -1108,13 +1112,14 @@ private final class SQLiteManifestCache: Closable {
         case .memory:
             self.fileSystem = InMemoryFileSystem()
         }
+        self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.jsonEncoder = JSONEncoder.makeWithDefaults()
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
-    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(location: .path(path), diagnosticsEngine: diagnosticsEngine)
+    convenience init(path: AbsolutePath, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.init(location: .path(path), configuration: configuration, diagnosticsEngine: diagnosticsEngine)
     }
 
     deinit {
@@ -1137,15 +1142,28 @@ private final class SQLiteManifestCache: Closable {
     }
 
     func put(key: ManifestLoader.ManifestCacheKey, manifest: ManifestLoader.ManifestParseResult) throws {
-        let query = "INSERT OR IGNORE INTO MANIFEST_CACHE VALUES (?, ?);"
-        try self.executeStatement(query) { statement -> Void in
-            let data = try self.jsonEncoder.encode(manifest)
-            let bindings: [SQLite.SQLiteValue] = [
-                .string(key.sha256Checksum),
-                .blob(data),
-            ]
-            try statement.bind(bindings)
-            try statement.step()
+        do {
+            let query = "INSERT OR IGNORE INTO MANIFEST_CACHE VALUES (?, ?);"
+            try self.executeStatement(query) { statement -> Void in
+                let data = try self.jsonEncoder.encode(manifest)
+                let bindings: [SQLite.SQLiteValue] = [
+                    .string(key.sha256Checksum),
+                    .blob(data),
+                ]
+                try statement.bind(bindings)
+                try statement.step()
+            }
+        } catch (let error as StringError) where error.description == "database or disk is full" {
+            if self.configuration.truncateWhenFull {
+                try self.executeStatement("DELETE FROM MANIFEST_CACHE;") { statement -> Void in
+                    try statement.step()
+                }
+                try self.put(key: key, manifest: manifest)
+            } else {
+                throw Errors.databaseFull
+            }
+        } catch {
+            throw error
         }
     }
 
@@ -1234,6 +1252,9 @@ private final class SQLiteManifestCache: Closable {
 
         try db.exec(query: table)
         try db.exec(query: "PRAGMA journal_mode=WAL;")
+        if let maxPageCount = self.configuration.maxPageCount {
+            try db.exec(query: "PRAGMA max_page_count=\(maxPageCount);")
+        }
     }
 
     private func withStateLock<T>(_ body: () throws -> T) throws -> T {
@@ -1252,5 +1273,30 @@ private final class SQLiteManifestCache: Closable {
         case idle
         case connected(SQLite)
         case disconnected
+    }
+
+    struct Configuration {
+        var maxSizeInBytes: Int? = .none
+        var truncateWhenFull: Bool = true
+
+        // https://www.sqlite.org/pgszchng2016.html
+        private let defaultPageSizeInBytes = 1024
+
+        var maxSizeInMegabytes: Int? {
+            get {
+                self.maxSizeInBytes.map { $0 / (1024 * 1024) }
+            }
+            set {
+                self.maxSizeInBytes = newValue.map { $0 * 1024 * 1024 }
+            }
+        }
+
+        var maxPageCount: Int? {
+            self.maxSizeInBytes.map { $0 / self.defaultPageSizeInBytes }
+        }
+    }
+
+    enum Errors: Error, Equatable {
+        case databaseFull
     }
 }
