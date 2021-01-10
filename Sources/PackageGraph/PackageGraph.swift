@@ -19,13 +19,19 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(name: String, target: String)
+    case productDependencyNotFound(dependencyProductName: String, dependencyPackageName: String?, packageName: String, targetName: String)
 
     /// The product dependency was found but the package name did not match.
     case productDependencyIncorrectPackage(name: String, package: String)
 
-    /// The package dependency name does not match the package name.w
-    case incorrectPackageDependencyName(dependencyName: String, dependencyURL: String, packageName: String)
+    /// The package dependency name does not match the package name.
+    case incorrectPackageDependencyName(dependencyPackageName: String, dependencyName: String, dependencyURL: String, resolvedPackageName: String, resolvedPackageURL: String)
+
+    /// The package dependency already satisfied by a different dependency package
+    case dependencyAlreadySatisfiedByIdentifier(dependencyPackageName: String, dependencyURL: String, otherDependencyURL: String, identity: PackageIdentity)
+
+    /// The package dependency already satisfied by a different dependency package
+    case dependencyAlreadySatisfiedByName(dependencyPackageName: String, dependencyURL: String, otherDependencyURL: String, name: String)
 
     /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
     case productDependencyMissingPackage(
@@ -175,17 +181,23 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let name, let target):
-            return "product '\(name)' not found. It is required by target '\(target)'."
+        case .productDependencyNotFound(let dependencyProductName, let dependencyPackageName, let packageName, let targetName):
+            return "product '\(dependencyProductName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found"). it is required by package '\(packageName)' target '\(targetName)'."
 
         case .productDependencyIncorrectPackage(let name, let package):
             return "product dependency '\(name)' in package '\(package)' not found"
 
-        case .incorrectPackageDependencyName(let dependencyName, let dependencyURL, let packageName):
+        case .incorrectPackageDependencyName(let dependencyPackageName, let dependencyName, let dependencyURL, let resolvedPackageName, let resolvedPackageURL):
             return """
-                declared name '\(dependencyName)' for package dependency '\(dependencyURL)' does not match the actual \
-                package name '\(packageName)'
+                '\(dependencyPackageName)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \
+                name '\(resolvedPackageName)' set for '\(resolvedPackageURL)'
                 """
+
+        case .dependencyAlreadySatisfiedByIdentifier(let dependencyPackageName, let dependencyURL, let otherDependencyURL, let identity):
+            return "'\(dependencyPackageName)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
+
+        case .dependencyAlreadySatisfiedByName(let dependencyPackageName, let dependencyURL, let otherDependencyURL, let name):
+            return "'\(dependencyPackageName)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"
 
         case .productDependencyMissingPackage(
                 let productName,

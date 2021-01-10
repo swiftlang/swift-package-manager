@@ -536,7 +536,7 @@ class PackageGraphTests: XCTestCase {
 
     func testProductDependencyNotFound() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift"
+            "/Foo/Sources/FooTarget/foo.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
@@ -548,13 +548,65 @@ class PackageGraphTests: XCTestCase {
                     url: "/Foo",
                     packageKind: .root,
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Barx"]),
+                        TargetDescription(name: "FooTarget", dependencies: ["Barx"]),
                     ]),
             ]
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' not found. It is required by target 'Foo'.", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "product 'Barx' not found. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+        }
+    }
+
+    func testProductDependencyNotFoundWithName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/FooTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    toolsVersion: .v5_2,
+                    packageKind: .root,
+                    targets: [
+                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx", package: "Bar")]),
+                    ]
+                )
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' not found in package 'Bar'. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+        }
+    }
+
+    func testProductDependencyNotFoundWithNoName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/FooTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    url: "/Foo",
+                    toolsVersion: .v5_2,
+                    packageKind: .root,
+                    targets: [
+                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")]),
+                    ]
+                )
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' not found. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -992,7 +1044,7 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
-                    declared name 'Baar' for package dependency '/Bar' does not match the actual package name 'Bar'
+                    'Foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
                     """,
                 behavior: .error,
                 location: "'Foo' /Foo"
