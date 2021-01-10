@@ -355,6 +355,24 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
+    
+    // Check that ancient `Package@swift-3.swift` manifests are properly treated as 3.1 even without a tools-version comment.
+    func testVersionSpecificLoadingOfVersion3Manifest() throws {
+        // Create a temporary FS to hold the package manifests.
+        let fs = InMemoryFileSystem()
+        // Write a regular manifest with a tools version comment, and a `Package@swift-3.swift` manifest without one.
+        let packageDir = AbsolutePath.root
+        let manifestContents = "import PackageDescription\nlet package = Package(name: \"Trivial\")"
+        try fs.writeFileContents(
+            packageDir.appending(component: Manifest.basename + ".swift"),
+            bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
+        try fs.writeFileContents(
+            packageDir.appending(component: Manifest.basename + "@swift-3.swift"),
+            bytes: ByteString(encodingAsUTF8: manifestContents))
+        // Check we can load the manifest.
+        let manifest = try manifestLoader.load(package: packageDir, baseURL: "/foo", toolsVersion: .v4_2, packageKind: .root, fileSystem: fs)
+        XCTAssertEqual(manifest.name, "Trivial")
+    }
 
     func testRuntimeManifestErrors() throws {
         let stream = BufferedOutputByteStream()

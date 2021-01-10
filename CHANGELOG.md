@@ -21,8 +21,6 @@ Swift Next
   * Source Breakages for Swift Packages
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
-    
-    The package manager no longer silently falls back to using Swift 3.1 as the lowest supported version. Instead, a descriptive error is thrown for each misspelling or malformation in the manifest file.
 
 Swift 4.2
 ---------

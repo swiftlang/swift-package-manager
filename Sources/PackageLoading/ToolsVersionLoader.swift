@@ -86,15 +86,24 @@ extension Manifest {
         let regularManifest = packagePath.appending(component: filename)
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
 
-        // Find the version-specific manifest that satisfies the current tools version.
+        // Find the newest version-specific manifest that is compatible with the the current tools version.
         if let versionSpecificCandidate = versionSpecificManifests.keys.sorted(by: >).first(where: { $0 <= currentToolsVersion }) {
             let versionSpecificManifest = packagePath.appending(component: versionSpecificManifests[versionSpecificCandidate]!)
+            
+            // SwiftPM 4 introduced tools-version designations; earlier packages default to tools version 3.1.0.
+            // See https://swift.org/blog/swift-package-manager-manifest-api-redesign.
+            let versionSpecificManifestToolsVersion: ToolsVersion
+            if versionSpecificCandidate < .v4 {
+                versionSpecificManifestToolsVersion = .v3
+            }
+            else {
+                versionSpecificManifestToolsVersion = try toolsVersionLoader.load(file: versionSpecificManifest, fileSystem: fileSystem)
+            }
+            let regularManifestToolsVersion = try toolsVersionLoader.load(file: regularManifest, fileSystem: fileSystem)
 
             // Compare the tools version of this manifest with the regular
             // manifest and use the version-specific manifest if it has
             // a greater tools version.
-            let versionSpecificManifestToolsVersion = try toolsVersionLoader.load(file: versionSpecificManifest, fileSystem: fileSystem)
-            let regularManifestToolsVersion = try toolsVersionLoader.load(file: regularManifest, fileSystem: fileSystem)
             if versionSpecificManifestToolsVersion > regularManifestToolsVersion {
                 return versionSpecificManifest
             }
