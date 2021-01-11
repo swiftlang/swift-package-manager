@@ -169,6 +169,22 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
+/// * Normalizing Windows local file system paths, when applicable:
+///   ```
+///   c:\user\mona\LinkedList → /user/mona/LinkedList
+///   ```
+/// * Normalizing Windows Universal Naming Convention (UNC) paths, when applicable:
+///   ```
+///   \\user\mona\LinkedList → /user/mona/LinkedList
+///   ```
+/// * Normalizing "long" Windows Universal Naming Convention (UNC) paths, when applicable:
+///   ```
+///   \\?\C:\user\mona\LinkedList → /user/mona/LinkedList
+///   ```
+/// * Normalizing Windows NT Object Manager paths, when applicable:
+///   ```
+///   \\??\C:\user\mona\LinkedList → /user/mona/LinkedList
+///   ```
 struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
     /// A textual representation of this instance.
     public let description: String
@@ -176,6 +192,9 @@ struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
     /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {
         var description = string.precomposedStringWithCanonicalMapping.lowercased()
+
+        // Normalize Windows path prefix, if present
+        let isWindowsPath = description.normalizeWindowsPathPrefixIfPresent()
 
         // Remove the scheme component, if present.
         let detectedScheme = description.dropSchemeComponentPrefixIfPresent()
@@ -213,7 +232,7 @@ struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
         description = components.joined(separator: "/")
 
         // Prepend a leading slash for file URLs and paths
-        if detectedScheme == "file" || string.first.flatMap({ $0.isSeparator }) ?? false {
+        if isWindowsPath || detectedScheme == "file" || string.first.flatMap({ $0.isSeparator }) ?? false {
             description.insert("/", at: description.startIndex)
         }
 
@@ -253,6 +272,27 @@ private extension String {
         guard hasSuffix(suffix) else { return false }
         removeLast(suffix.count)
         return true
+    }
+
+    @discardableResult
+    mutating func normalizeWindowsPathPrefixIfPresent() -> Bool {
+        var normalized = removePrefixIfPresent(#"\\?\"#) || removePrefixIfPresent(#"\\??\"#)
+
+        // Remove drive letter prefix (for example, "C:"
+        if let first = first,
+           first.isLetter,
+           let secondIndex = index(startIndex, offsetBy: 1, limitedBy: endIndex),
+           self[secondIndex] == ":"
+        {
+            self.removeSubrange(...secondIndex)
+            normalized = true
+        }
+
+        if normalized {
+            insert("/", at: startIndex)
+        }
+
+        return normalized
     }
 
     @discardableResult

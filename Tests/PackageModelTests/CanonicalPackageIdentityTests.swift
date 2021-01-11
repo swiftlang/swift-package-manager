@@ -62,6 +62,34 @@ final class CanonicalPackageIdentityTests: XCTestCase {
         )
     }
 
+    func testImplicitFileSchemeWithWindowsLocalFileSystemPath() {
+        XCTAssertEqual(
+            CanonicalPackageIdentity(#"c:\user\mona\LinkedList"#).description,
+            "/user/mona/linkedlist"
+        )
+    }
+
+    func testImplicitFileSchemeWithWindowsUniversalNamingConventionPath() {
+        XCTAssertEqual(
+            CanonicalPackageIdentity(#"\\user\mona\LinkedList"#).description,
+            "/user/mona/linkedlist"
+        )
+    }
+
+    func testImplicitFileSchemeWithWindowsLongDevicePath() {
+        XCTAssertEqual(
+            CanonicalPackageIdentity(#"\\?\C:\USER\MONA\LINKEDLIST"#).description,
+            "/user/mona/linkedlist"
+        )
+    }
+
+    func testImplicitFileSchemeWithWindowsNTObjectManagerPath() {
+        XCTAssertEqual(
+            CanonicalPackageIdentity(#"\\??\C:\USER\MONA\LINKEDLIST"#).description,
+            "/user/mona/linkedlist"
+        )
+    }
+
     // MARK: - FTP / FTPS
 
     func testFTPScheme() {
