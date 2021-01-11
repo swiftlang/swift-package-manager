@@ -628,6 +628,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             var configuration = SQLiteManifestCache.Configuration()
             // FIXME: expose as user-facing configuration
             configuration.maxSizeInMegabytes = 100
+            configuration.truncateWhenFull = true
             return SQLiteManifestCache(location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
         }
 
@@ -1153,15 +1154,15 @@ internal final class SQLiteManifestCache: Closable {
                 try statement.bind(bindings)
                 try statement.step()
             }
-        } catch (let error as StringError) where error.description == "database or disk is full" {
-            if self.configuration.truncateWhenFull {
-                try self.executeStatement("DELETE FROM MANIFEST_CACHE;") { statement -> Void in
-                    try statement.step()
-                }
-                try self.put(key: key, manifest: manifest)
-            } else {
-                throw Errors.databaseFull
+        } catch (let error as SQLite.Errors) where error == .databaseFull {
+            if !self.configuration.truncateWhenFull {
+                throw error
             }
+            self.diagnosticsEngine?.emit(.warning("truncating manifest cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
+            try self.executeStatement("DELETE FROM MANIFEST_CACHE;") { statement -> Void in
+                try statement.step()
+            }
+            try self.put(key: key, manifest: manifest)
         } catch {
             throw error
         }
@@ -1199,10 +1200,7 @@ internal final class SQLiteManifestCache: Closable {
 
     private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
         let createDB = { () throws -> SQLite in
-            // see https://www.sqlite.org/c3ref/busy_timeout.html
-            var configuration = SQLite.Configuration()
-            configuration.busyTimeoutMilliseconds = 1_000
-            let db = try SQLite(location: self.location, configuration: configuration)
+            let db = try SQLite(location: self.location, configuration: self.configuration.underlying)
             try self.createSchemaIfNecessary(db: db)
             return db
         }
@@ -1252,9 +1250,6 @@ internal final class SQLiteManifestCache: Closable {
 
         try db.exec(query: table)
         try db.exec(query: "PRAGMA journal_mode=WAL;")
-        if let maxPageCount = self.configuration.maxPageCount {
-            try db.exec(query: "PRAGMA max_page_count=\(maxPageCount);")
-        }
     }
 
     private func withStateLock<T>(_ body: () throws -> T) throws -> T {
@@ -1276,27 +1271,43 @@ internal final class SQLiteManifestCache: Closable {
     }
 
     struct Configuration {
-        var maxSizeInBytes: Int? = .none
-        var truncateWhenFull: Bool = true
+        var truncateWhenFull: Bool
 
-        // https://www.sqlite.org/pgszchng2016.html
-        private let defaultPageSizeInBytes = 1024
+        fileprivate var underlying: SQLite.Configuration
+
+        init() {
+            self.underlying = .init()
+            self.truncateWhenFull = true
+            self.maxSizeInMegabytes = 100
+            // see https://www.sqlite.org/c3ref/busy_timeout.html
+            self.busyTimeoutMilliseconds = 1_000
+        }
 
         var maxSizeInMegabytes: Int? {
             get {
-                self.maxSizeInBytes.map { $0 / (1024 * 1024) }
+                self.underlying.maxSizeInMegabytes
             }
             set {
-                self.maxSizeInBytes = newValue.map { $0 * 1024 * 1024 }
+                self.underlying.maxSizeInMegabytes = newValue
             }
         }
 
-        var maxPageCount: Int? {
-            self.maxSizeInBytes.map { $0 / self.defaultPageSizeInBytes }
+        var maxSizeInBytes: Int? {
+            get {
+                self.underlying.maxSizeInBytes
+            }
+            set {
+                self.underlying.maxSizeInBytes = newValue
+            }
         }
-    }
 
-    enum Errors: Error, Equatable {
-        case databaseFull
+        var busyTimeoutMilliseconds: Int32 {
+            get {
+                self.underlying.busyTimeoutMilliseconds
+            }
+            set {
+                self.underlying.busyTimeoutMilliseconds = newValue
+            }
+        }
     }
 }

@@ -117,19 +117,21 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
     func testMaxSizeNotHandled() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let configuration = SQLiteManifestCache.Configuration(maxSizeInBytes: 1024, truncateWhenFull: false)
+            var configuration = SQLiteManifestCache.Configuration()
+            configuration.maxSizeInBytes = 1024 * 3
+            configuration.truncateWhenFull = false
             let storage = SQLiteManifestCache(location: .path(path), configuration: configuration)
             defer { XCTAssertNoThrow(try storage.close()) }
 
             func create() throws {
-                let mockManifests = try makeMockManifests(fileSystem: localFileSystem, rootPath: tmpPath, count: 1024)
+                let mockManifests = try makeMockManifests(fileSystem: localFileSystem, rootPath: tmpPath, count: 50)
                 try mockManifests.forEach {  key, manifest in
                     _ = try storage.put(key: key, manifest: manifest)
                 }
             }
 
             XCTAssertThrowsError(try create(), "expected error", { error in
-                XCTAssertEqual(error as? SQLiteManifestCache.Errors, .databaseFull, "Expected 'database or disk is full' error")
+                XCTAssertEqual(error as? SQLite.Errors, .databaseFull, "Expected 'databaseFull' error")
             })
         }
     }
@@ -137,12 +139,14 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
     func testMaxSizeHandled() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let configuration = SQLiteManifestCache.Configuration(maxSizeInBytes: 1024, truncateWhenFull: true)
+            var configuration = SQLiteManifestCache.Configuration()
+            configuration.maxSizeInBytes = 1024 * 3
+            configuration.truncateWhenFull = true
             let storage = SQLiteManifestCache(location: .path(path), configuration: configuration)
             defer { XCTAssertNoThrow(try storage.close()) }
 
             var keys = [ManifestLoader.ManifestCacheKey]()
-            let mockManifests = try makeMockManifests(fileSystem: localFileSystem, rootPath: tmpPath, count: 1024)
+            let mockManifests = try makeMockManifests(fileSystem: localFileSystem, rootPath: tmpPath, count: 50)
             try mockManifests.forEach { key, manifest in
                 _ = try storage.put(key: key, manifest: manifest)
                 keys.append(key)
