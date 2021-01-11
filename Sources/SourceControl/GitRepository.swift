@@ -447,6 +447,19 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func archive(to path: AbsolutePath) throws {
+        precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
+
+        try self.queue.sync(flags: .barrier) {
+            try callGit("archive",
+                        "--format", "zip",
+                        "--output", path.pathString,
+                        "HEAD",
+                        failureMessage: "Couldn’t create an archive")
+            return
+        }
+    }
+
     /// Returns true if there is an alternative object store in the repository and it is valid.
     public func isAlternateObjectStoreValid() -> Bool {
         let objectStoreFile = self.path.appending(components: ".git", "objects", "info", "alternates")

@@ -56,6 +56,7 @@ public struct SwiftPackageTool: ParsableCommand {
             ToolsVersionCommand.self,
             GenerateXcodeProject.self,
             ComputeChecksum.self,
+            ArchiveSource.self,
             CompletionTool.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
@@ -551,6 +552,47 @@ extension SwiftPackageTool {
             }
 
             stdoutStream <<< checksum <<< "\n"
+            stdoutStream.flush()
+        }
+    }
+
+    struct ArchiveSource: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "archive-source",
+            abstract: "Create a source archive for the package"
+        )
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Option(
+            name: [.short, .long],
+            help: "The absolute or relative path for the generated source archive"
+        )
+        var output: AbsolutePath?
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let packageRoot = try swiftOptions.packagePath ?? swiftTool.getPackageRoot()
+            let repository = GitRepository(path: packageRoot)
+
+            let destination: AbsolutePath
+            if let output = output {
+                destination = output
+            } else {
+                let graph = try swiftTool.loadPackageGraph()
+                let packageName = graph.rootPackages[0].name
+                destination = packageRoot.appending(component: "\(packageName).zip")
+            }
+
+            try repository.archive(to: destination)
+
+            if destination.contains(packageRoot) {
+                let relativePath = destination.relative(to: packageRoot)
+                stdoutStream <<< "Created \(relativePath.pathString)" <<< "\n"
+            } else {
+                stdoutStream <<< "Created \(destination.pathString)" <<< "\n"
+            }
+
             stdoutStream.flush()
         }
     }
