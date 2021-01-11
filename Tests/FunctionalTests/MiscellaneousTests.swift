@@ -523,7 +523,7 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertMatch(stdout, .contains("Eliding symbols from Exe_main.swift.o"))
                 XCTAssertMatch(stdout, .contains("Linking ExeTestPackageTests"))
             } catch {
-                XCTFail()
+                XCTFail("\(error)")
             }
         }
     }
