@@ -5068,7 +5068,8 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         MockDependency(name: nil, path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5
                 ),
                 MockPackage(
                     name: "BarPackage",
@@ -5084,7 +5085,8 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         MockDependency(name: nil, path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    toolsVersion: .v5
                 ),
                 // this package never gets loaded since its identity is the same as "FooPackage"
                 MockPackage(
