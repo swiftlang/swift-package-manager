@@ -103,7 +103,7 @@ final class CanonicalPackageIdentityTests: XCTestCase {
 
     func testHTTPSSchemeWithUserAndPassword() {
         XCTAssertEqual(
-            CanonicalPackageIdentity("https://user:sw0rdf1sh!@example.com/mona/LinkedList").description,
+            CanonicalPackageIdentity("https://user:sw0rdf:sh!@@example.com/mona/LinkedList").description,
             "example.com/mona/linkedlist"
         )
     }

@@ -271,7 +271,7 @@ private extension String {
 
     @discardableResult
     mutating func dropUserinfoSubcomponentPrefixIfPresent() -> (user: String, password: String?)? {
-        if let indexOfAtSign = firstIndex(of: "@"),
+        if let indexOfAtSign = lastIndex(of: "@"),
            let indexOfFirstPathComponent = firstIndex(where: { $0.isSeparator }),
            indexOfAtSign < indexOfFirstPathComponent
         {
