@@ -145,6 +145,12 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 ///   ```
 ///   ssh://mona@example.com/~/LinkedList.git → example.com/~mona/LinkedList
 ///   ```
+/// * Transcoding internationalized domain names using Punycode
+///   and prepending the ASCII Compatible Encoding (ACE) prefix, "xn--",
+///   if applicable:
+///   ```
+///   schlüssel.tld/mona/LinkedList → xn--schlssel-95a.tld/mona/LinkedList
+///   ```
 /// * Removing percent-encoding from the path component, if applicable:
 ///   ```
 ///   example.com/mona/%F0%9F%94%97List → example.com/mona/🔗List
@@ -235,6 +241,9 @@ struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
         if isWindowsPath || detectedScheme == "file" || string.first.flatMap({ $0.isSeparator }) ?? false {
             description.insert("/", at: description.startIndex)
         }
+
+        // TODO: Implement PunyCode transcoding
+        assert(description.prefix(while: { $0 != "/" }).allSatisfy({ $0.isLetter || $0.isDigit || $0 == "-" || $0 == "." }), "canonical package identities must not contain internationalized domain name characters")
 
         self.description = description
     }

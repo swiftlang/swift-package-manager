@@ -239,8 +239,8 @@ final class CanonicalPackageIdentityTests: XCTestCase {
         try XCTSkipIf(true, "internationalized domain names aren't yet supported")
 
         XCTAssertEqual(
-            CanonicalPackageIdentity("https://xn--schlssel-95a.tld/mona/LinkedList").description,
-            "schlüssel.tld/mona/LinkedList"
+            CanonicalPackageIdentity("https://schlüssel.tld/mona/LinkedList").description,
+            "xn--schlssel-95a.tld/mona/LinkedList"
         )
     }
 
