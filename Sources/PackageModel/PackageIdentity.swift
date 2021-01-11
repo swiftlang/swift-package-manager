@@ -202,7 +202,7 @@ struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
 
         // Split the remaining string into path components,
         // filtering out empty path components and removing valid percent encodings.
-        var components = description.split(omittingEmptySubsequences: true, whereSeparator: isSeparator)
+        var components = description.split(omittingEmptySubsequences: true, whereSeparator: { $0.isSeparator })
             .compactMap { $0.removingPercentEncoding ?? String($0) }
 
         // Remove the `.git` suffix from the last path component.
@@ -213,7 +213,7 @@ struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
         description = components.joined(separator: "/")
 
         // Prepend a leading slash for file URLs and paths
-        if detectedScheme == "file" || string.first.flatMap(isSeparator) ?? false {
+        if detectedScheme == "file" || string.first.flatMap({ $0.isSeparator }) ?? false {
             description.insert("/", at: description.startIndex)
         }
 
@@ -221,13 +221,11 @@ struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
     }
 }
 
-#if os(Windows)
-fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" || $0 == "\\" }
-#else
-fileprivate let isSeparator: (Character) -> Bool = { $0 == "/" }
-#endif
-
 private extension Character {
+    var isSeparator: Bool {
+        return self == "/" || self == #"\"#
+    }
+
     var isDigit: Bool {
         switch self {
         case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
@@ -274,7 +272,7 @@ private extension String {
     @discardableResult
     mutating func dropUserinfoSubcomponentPrefixIfPresent() -> (user: String, password: String?)? {
         if let indexOfAtSign = firstIndex(of: "@"),
-           let indexOfFirstPathComponent = firstIndex(where: isSeparator),
+           let indexOfFirstPathComponent = firstIndex(where: { $0.isSeparator }),
            indexOfAtSign < indexOfFirstPathComponent
         {
             defer { self.removeSubrange(...indexOfAtSign) }
@@ -293,7 +291,7 @@ private extension String {
 
     @discardableResult
     mutating func removePortComponentIfPresent() -> Bool {
-        if let indexOfFirstPathComponent = firstIndex(where: isSeparator),
+        if let indexOfFirstPathComponent = firstIndex(where: { $0.isSeparator }),
            let startIndexOfPort = firstIndex(of: ":"),
            startIndexOfPort < endIndex,
            let endIndexOfPort = self[index(after: startIndexOfPort)...].lastIndex(where: { $0.isDigit }),
