@@ -66,7 +66,7 @@ class ToolsVersionLoaderTests: XCTestCase {
             "// swift-tools-version:3.1.2;x;x;x;x;x;"   : (3, 1, 2, "3.1.2"),
             "// swift-toolS-version:3.5.2;hello"        : (3, 5, 2, "3.5.2"),
             "// sWiFt-tOoLs-vErSiOn:3.5.2\nkkk\n"       : (3, 5, 2, "3.5.2"),
-            // leading line feeds (U+000A) before the specification, and 1 space (U+0020) before, and no spacing after the label:
+            // leading line feeds (U+000A) before the specification, and 1 space (U+0020) before and no space after the label for Swift ≥ 5.4:
             "\n// swift-tools-version:6.1"                            : (6, 1, 0, "6.1.0"),
             "\n\n// swift-tools-version:6.2-dev"                      : (6, 2, 0, "6.2.0"),
             "\n\n\n// swift-tools-version:5.8.0"                      : (5, 8, 0, "5.8.0"),
