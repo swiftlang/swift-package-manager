@@ -29,7 +29,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let packageGraphLoader: () throws -> PackageGraph
 
     /// The build delegate reference.
-    private var buildDelegate: BuildDelegate?
+    private var buildDelegate: BuildOperationDelegate?
 
     /// The build system reference.
     private var buildSystem: SPMLLBuild.BuildSystem?
@@ -195,7 +195,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Create the build delegate.
-        let buildDelegate = BuildDelegate(
+        let buildDelegate = BuildOperationDelegate(
             bctx: bctx,
             diagnostics: diagnostics,
             outputStream: self.stdoutStream,

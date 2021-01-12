@@ -355,7 +355,7 @@ final class CopyCommand: CustomLLBuildCommand {
     }
 }
 
-public final class BuildDelegate: BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
+final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
     public var outputStream: ThreadSafeOutputByteStream
     public var progressAnimation: ProgressAnimationProtocol
