@@ -20,10 +20,10 @@ class ManifestTests: XCTestCase {
         ]
 
         let targets = [
-            TargetDescription(name: "Foo", dependencies: ["Bar"]),
-            TargetDescription(name: "Bar", dependencies: ["Baz"]),
-            TargetDescription(name: "Baz", dependencies: []),
-            TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+            try TargetDescription(name: "Baz", dependencies: []),
+            try TargetDescription(name: "FooBar", dependencies: []),
         ]
 
         do {
@@ -78,9 +78,9 @@ class ManifestTests: XCTestCase {
         ]
 
         let targets = [
-            TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
-            TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
-            TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
+            try TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
+            try TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
+            try TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
         ]
 
         do {
