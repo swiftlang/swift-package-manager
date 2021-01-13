@@ -40,11 +40,11 @@ final class PackageCollectionsModelTests: XCTestCase {
                 toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
         ]
-        
+
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
         XCTAssertEqual("3.0.0-beta.1", versions.latestPrerelease?.version.description)
     }
-    
+
     func testNoLatestReleaseVersion() {
         let targets = [PackageCollectionsModel.Target(name: "Foo", moduleName: "Foo")]
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
@@ -59,11 +59,11 @@ final class PackageCollectionsModelTests: XCTestCase {
                 toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
         ]
-        
+
         XCTAssertNil(versions.latestRelease)
         XCTAssertEqual("3.0.0-beta.1", versions.latestPrerelease?.version.description)
     }
-    
+
     func testNoLatestPrereleaseVersion() {
         let targets = [PackageCollectionsModel.Target(name: "Foo", moduleName: "Foo")]
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
@@ -82,7 +82,7 @@ final class PackageCollectionsModelTests: XCTestCase {
                 toolsVersion: toolsVersion, minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
             ),
         ]
-        
+
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
         XCTAssertNil(versions.latestPrerelease)
     }

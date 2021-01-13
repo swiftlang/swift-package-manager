@@ -255,7 +255,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
-                callback(.success(.init(statusCode: 200)))
+                callback(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "1")]))))
             case .get:
                 callback(.success(.init(statusCode: statusCode)))
             default:
@@ -280,7 +280,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
-                callback(.success(.init(statusCode: 200)))
+                callback(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
             case .get:
                 callback(.success(.init(statusCode: 200,
                                         headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
