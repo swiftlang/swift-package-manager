@@ -10,7 +10,6 @@
 
 import struct Foundation.Date
 import struct Foundation.URL
-import TSCUtility
 
 import PackageModel
 
