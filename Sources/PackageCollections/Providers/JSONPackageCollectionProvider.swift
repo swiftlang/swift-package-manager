@@ -13,6 +13,7 @@ import Dispatch
 import struct Foundation.Date
 import class Foundation.JSONDecoder
 import struct Foundation.URL
+import PackageCollectionModel
 import PackageModel
 import SourceControl
 import TSCBasic
@@ -200,9 +201,35 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 extension Model.Product {
     fileprivate init(from: JSONModel.Product, packageTargets: [Model.Target]) {
         let targets = packageTargets.filter { from.targets.map { $0.lowercased() }.contains($0.name.lowercased()) }
-        self = .init(name: from.name, type: from.type, targets: targets)
+        self = .init(name: from.name, type: .init(from: from.type), targets: targets)
     }
 }
+
+extension ProductType {
+     fileprivate init(from: JSONModel.ProductType) {
+         switch from {
+             case .executable:
+                 self = .executable
+             case let .library(value):
+                 self = .library(.init(from: value))
+             case .test:
+                 self = .test
+         }
+     }
+ }
+
+ extension ProductType.LibraryType {
+     fileprivate init(from: JSONModel.ProductType.LibraryType) {
+         switch from {
+             case .automatic:
+                 self = .automatic
+             case .dynamic:
+                 self = .dynamic
+             case .static:
+                 self = .static
+         }
+     }
+ }
 
 extension PackageModel.SupportedPlatform {
     fileprivate init?(from: JSONModel.PlatformVersion) {

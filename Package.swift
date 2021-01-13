@@ -88,6 +88,9 @@ let package = Package(
             targets: ["PackageDescription"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/finestructure/swift-package-collection-model.git", from: "0.0.5")
+    ],
     targets: [
         // The `PackageDescription` targets define the API which is available to
         // the `Package.swift` manifest files. We build the latest API version
@@ -143,7 +146,7 @@ let package = Package(
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionModel"]),
 
         // MARK: Package Manager Functionality
 

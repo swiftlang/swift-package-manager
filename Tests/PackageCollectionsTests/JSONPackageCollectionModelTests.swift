@@ -9,6 +9,7 @@
  */
 
 import Foundation
+import PackageCollectionModel
 import XCTest
 
 @testable import PackageCollections
