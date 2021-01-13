@@ -19,6 +19,8 @@ import TSCUtility
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
+    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
+
     /// The build parameters.
     public let buildParameters: BuildParameters
 
@@ -205,7 +207,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildDelegate.isVerbose = isVerbose
 
         let databasePath = buildParameters.dataPath.appending(component: "build.db").pathString
-        let buildSystem = BuildSystem(
+        let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: buildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
             delegate: buildDelegate,

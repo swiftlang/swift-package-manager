@@ -355,12 +355,13 @@ final class CopyCommand: CustomLLBuildCommand {
     }
 }
 
+/// Convenient llbuild system delegate implementation
 final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
-    public var outputStream: ThreadSafeOutputByteStream
-    public var progressAnimation: ProgressAnimationProtocol
-    public var onCommmandFailure: (() -> Void)?
-    public var isVerbose: Bool = false
+    var outputStream: ThreadSafeOutputByteStream
+    var progressAnimation: ProgressAnimationProtocol
+    var onCommmandFailure: (() -> Void)?
+    var isVerbose: Bool = false
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
     private var errorMessagesByTarget: [String: [String]] = [:]
@@ -371,7 +372,7 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
     /// The build execution context.
     private let buildExecutionContext: BuildExecutionContext
 
-    public init(
+    init(
         bctx: BuildExecutionContext,
         diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
@@ -390,11 +391,11 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         self.swiftParsers = swiftParsers
     }
 
-    public var fs: SPMLLBuild.FileSystem? {
+    var fs: SPMLLBuild.FileSystem? {
         return nil
     }
 
-    public func lookupTool(_ name: String) -> Tool? {
+    func lookupTool(_ name: String) -> Tool? {
         switch name {
         case TestDiscoveryTool.name:
             return InProcessTool(buildExecutionContext, type: TestDiscoveryCommand.self)
@@ -407,11 +408,11 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func hadCommandFailure() {
+    func hadCommandFailure() {
         onCommmandFailure?()
     }
 
-    public func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
+    func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
         switch diagnostic.kind {
         case .note:
             diagnostics.emit(note: diagnostic.message)
@@ -424,7 +425,7 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
+    func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
         guard !isVerbose else { return }
         guard command.shouldShowStatus else { return }
         guard !swiftParsers.keys.contains(command.name) else { return }
@@ -435,10 +436,10 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func commandPreparing(_ command: SPMLLBuild.Command) {
+    func commandPreparing(_ command: SPMLLBuild.Command) {
     }
 
-    public func commandStarted(_ command: SPMLLBuild.Command) {
+    func commandStarted(_ command: SPMLLBuild.Command) {
         guard command.shouldShowStatus else { return }
 
         queue.async {
@@ -449,11 +450,11 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func shouldCommandStart(_ command: SPMLLBuild.Command) -> Bool {
+    func shouldCommandStart(_ command: SPMLLBuild.Command) -> Bool {
         return true
     }
 
-    public func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
+    func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
         guard !isVerbose else { return }
         guard command.shouldShowStatus else { return }
         guard !swiftParsers.keys.contains(command.name) else { return }
@@ -465,20 +466,20 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func commandHadError(_ command: SPMLLBuild.Command, message: String) {
+    func commandHadError(_ command: SPMLLBuild.Command, message: String) {
         diagnostics.emit(error: message)
     }
 
-    public func commandHadNote(_ command: SPMLLBuild.Command, message: String) {
+    func commandHadNote(_ command: SPMLLBuild.Command, message: String) {
         // FIXME: This is wrong.
         diagnostics.emit(warning: message)
     }
 
-    public func commandHadWarning(_ command: SPMLLBuild.Command, message: String) {
+    func commandHadWarning(_ command: SPMLLBuild.Command, message: String) {
         diagnostics.emit(warning: message)
     }
 
-    public func commandCannotBuildOutputDueToMissingInputs(
+    func commandCannotBuildOutputDueToMissingInputs(
         _ command: SPMLLBuild.Command,
         output: BuildKey,
         inputs: [BuildKey]
@@ -486,18 +487,18 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         diagnostics.emit(.missingInputs(output: output, inputs: inputs))
     }
 
-    public func cannotBuildNodeDueToMultipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) {
+    func cannotBuildNodeDueToMultipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) {
         diagnostics.emit(.multipleProducers(output: output, commands: commands))
     }
 
-    public func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
+    func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
     }
 
-    public func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
+    func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
         diagnostics.emit(.commandError(command: command, message: message))
     }
 
-    public func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
+    func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
         guard command.shouldShowStatus else { return }
 
         if let swiftParser = swiftParsers[command.name] {
@@ -511,7 +512,7 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func commandProcessFinished(
+    func commandProcessFinished(
         _ command: SPMLLBuild.Command,
         process: ProcessHandle,
         result: CommandExtendedResult
@@ -532,15 +533,15 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func cycleDetected(rules: [BuildKey]) {
+    func cycleDetected(rules: [BuildKey]) {
         diagnostics.emit(.cycleError(rules: rules))
     }
 
-    public func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
+    func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
         return false
     }
 
-    public func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
         queue.async {
             if self.isVerbose {
                 if let text = message.verboseProgressText {
@@ -569,7 +570,7 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         }
     }
 
-    public func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
+    func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         diagnostics.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()
