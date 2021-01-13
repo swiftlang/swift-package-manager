@@ -41,11 +41,11 @@ public struct MockPackage {
         self.toolsVersion = toolsVersion
     }
 
-    public static func genericPackage1(named name: String) -> MockPackage {
+    public static func genericPackage1(named name: String) throws -> MockPackage {
         return MockPackage(
             name: name,
             targets: [
-                MockTarget(name: name),
+                try MockTarget(name: name),
             ],
             products: [
                 MockProduct(name: name, targets: [name]),

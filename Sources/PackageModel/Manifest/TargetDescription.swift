@@ -123,37 +123,31 @@ public struct TargetDescription: Equatable, Codable {
         providers: [SystemPackageProviderDescription]? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil
-    ) {
+    ) throws {
         switch type {
         case .regular, .executable, .test:
-            precondition(
-                url == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                checksum == nil
-            )
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .system:
-            precondition(
-                dependencies.isEmpty &&
-                exclude.isEmpty &&
-                sources == nil &&
-                resources.isEmpty &&
-                publicHeadersPath == nil &&
-                settings.isEmpty &&
-                checksum == nil
-            )
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .binary:
-            precondition(path != nil || url != nil)
-            precondition(
-                dependencies.isEmpty &&
-                exclude.isEmpty &&
-                sources == nil &&
-                resources.isEmpty &&
-                publicHeadersPath == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                settings.isEmpty
-            )
+            if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
         }
 
         self.name = name
@@ -225,5 +219,21 @@ extension TargetDescription.Dependency: Codable {
 extension TargetDescription.Dependency: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self = .byName(name: value, condition: nil)
+    }
+}
+
+import protocol Foundation.LocalizedError
+
+private enum Error: LocalizedError, Equatable {
+    case binaryTargetRequiresEitherPathOrURL(targetName: String)
+    case disallowedPropertyInTarget(targetName: String, propertyName: String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .binaryTargetRequiresEitherPathOrURL(let targetName):
+            return "binary target '\(targetName)' neither defines neither path nor URL for its artifacts"
+        case .disallowedPropertyInTarget(let targetName, let propertyName):
+            return "target '\(targetName)' contains a value for disallowed property '\(propertyName)'"
+        }
     }
 }

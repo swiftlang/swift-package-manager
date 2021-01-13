@@ -17,7 +17,7 @@ import PackageLoading
 
 class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
-        let target = TargetDescription(
+        let target = try TargetDescription(
             name: "Foo",
             path: nil,
             exclude: ["some2"],
@@ -72,7 +72,7 @@ class TargetSourcesBuilderTests: XCTestCase {
     }
 
     func testDirectoryWithExt() throws {
-        let target = TargetDescription(
+        let target = try TargetDescription(
             name: "Foo",
             path: nil,
             exclude: ["some2"],
@@ -110,7 +110,7 @@ class TargetSourcesBuilderTests: XCTestCase {
     }
 
     func testBasicRuleApplication() throws {
-        let target = TargetDescription(
+        let target = try TargetDescription(
             name: "Foo",
             path: nil,
             exclude: ["some2"],
@@ -152,7 +152,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         // Conflict between processed resources.
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .process, path: "Resources")
             ])
 
@@ -171,7 +171,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         // Conflict between processed and copied resources.
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .process, path: "Processed"),
                 .init(rule: .copy, path: "Copied/foo.txt"),
             ])
@@ -191,7 +191,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         // No conflict between processed and copied in sub-path resources.
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .process, path: "Processed"),
                 .init(rule: .copy, path: "Copied"),
             ])
@@ -209,7 +209,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         // Conflict between copied directory resources.
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "A/Copy"),
                 .init(rule: .copy, path: "B/Copy"),
             ])
@@ -229,7 +229,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         // Conflict between processed localizations.
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .process, path: "A"),
                 .init(rule: .process, path: "B"),
             ])
@@ -249,7 +249,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         // Conflict between processed localizations and copied resources.
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .process, path: "A"),
                 .init(rule: .copy, path: "B/en.lproj"),
             ])
@@ -265,8 +265,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testLocalizationDirectoryIgnoredOn5_2() {
-        let target = TargetDescription(name: "Foo")
+    func testLocalizationDirectoryIgnoredOn5_2() throws {
+        let target = try TargetDescription(name: "Foo")
 
         let fs = InMemoryFileSystem(emptyFiles:
             "/en.lproj/Localizable.strings"
@@ -278,8 +278,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testLocalizationDirectorySubDirectory() {
-        let target = TargetDescription(name: "Foo", resources: [
+    func testLocalizationDirectorySubDirectory() throws {
+        let target = try TargetDescription(name: "Foo", resources: [
             .init(rule: .process, path: "Processed"),
             .init(rule: .copy, path: "Copied")
         ])
@@ -294,8 +294,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testExplicitLocalizationInLocalizationDirectory() {
-        let target = TargetDescription(name: "Foo", resources: [
+    func testExplicitLocalizationInLocalizationDirectory() throws {
+        let target = try TargetDescription(name: "Foo", resources: [
             .init(rule: .process, path: "Resources", localization: .base),
         ])
 
@@ -313,8 +313,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testMissingDefaultLocalization() {
-        let target = TargetDescription(name: "Foo", resources: [
+    func testMissingDefaultLocalization() throws {
+        let target = try TargetDescription(name: "Foo", resources: [
             .init(rule: .process, path: "Resources"),
             .init(rule: .process, path: "Image.png", localization: .default),
             .init(rule: .process, path: "Icon.png", localization: .base),
@@ -337,8 +337,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testLocalizedAndUnlocalizedResources() {
-        let target = TargetDescription(name: "Foo", resources: [
+    func testLocalizedAndUnlocalizedResources() throws {
+        let target = try TargetDescription(name: "Foo", resources: [
             .init(rule: .process, path: "Resources"),
             .init(rule: .process, path: "Image.png", localization: .default),
             .init(rule: .process, path: "Icon.png", localization: .base),
@@ -371,8 +371,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testLocalizedResources() {
-        let target = TargetDescription(name: "Foo", resources: [
+    func testLocalizedResources() throws {
+        let target = try TargetDescription(name: "Foo", resources: [
             .init(rule: .process, path: "Processed"),
             .init(rule: .copy, path: "Copied"),
             .init(rule: .process, path: "Other/Launch.storyboard", localization: .base),
@@ -406,13 +406,13 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testLocalizedImage() {
+    func testLocalizedImage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/fr.lproj/Image.png",
             "/Foo/es.lproj/Image.png"
         )
 
-        build(target: TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
+        build(target: try TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
             XCTAssertEqual(Set(resources), [
                 Resource(rule: .process, path: AbsolutePath("/Foo/fr.lproj/Image.png"), localization: "fr"),
                 Resource(rule: .process, path: AbsolutePath("/Foo/es.lproj/Image.png"), localization: "es"),
@@ -420,9 +420,9 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    func testInfoPlistResource() {
+    func testInfoPlistResource() throws {
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .process, path: "Resources"),
             ])
 
@@ -438,7 +438,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
 
         do {
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "Resources/Copied/Info.plist"),
             ])
 
