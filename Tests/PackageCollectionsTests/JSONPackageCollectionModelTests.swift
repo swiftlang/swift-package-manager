@@ -54,7 +54,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let decoded = try JSONDecoder().decode(Model.Collection.self, from: data)
         XCTAssertEqual(collection, decoded)
     }
-    
+
     func test_validationOK() throws {
         let packages = [
             Model.Collection.Package(
@@ -91,7 +91,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         XCTAssertNil(validator.validate(collection: collection))
     }
-    
+
     func test_validationFailed_noPackages() throws {
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -107,13 +107,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertTrue(messages[0].message.contains("contain at least one package"))
     }
-    
+
     func test_validationFailed_tooManyPackages() throws {
         let packages = [
             Model.Collection.Package(
@@ -169,13 +169,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator(configuration: .init(maximumPackageCount: 1))
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .warning = messages[0].level else {
             return XCTFail("Expected .warning")
         }
         XCTAssertNotNil(messages[0].message.range(of: "more than the recommended", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_duplicateVersions_emptyProductsAndTargets() throws {
         let packages = [
             Model.Collection.Package(
@@ -222,23 +222,23 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(3, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[0].message.range(of: "duplicate version(s)", options: .caseInsensitive))
-        
+
         guard case .error = messages[1].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[1].message.range(of: "does not contain any products", options: .caseInsensitive))
-        
+
         guard case .error = messages[2].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[2].message.range(of: "does not contain any targets", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_nonSemanticVersion() throws {
         let packages = [
             Model.Collection.Package(
@@ -259,7 +259,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
                 ],
                 readmeURL: nil,
                 license: nil
-            )
+            ),
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -275,13 +275,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[0].message.range(of: "non semantic version(s)", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_tooManyMajorsAndMinors() throws {
         let packages = [
             Model.Collection.Package(
@@ -357,18 +357,18 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator(configuration: .init(maximumMajorVersionCount: 1, maximumMinorVersionCount: 1))
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(2, messages.count)
-        
+
         guard case .warning = messages[0].level else {
             return XCTFail("Expected .warning")
         }
         XCTAssertNotNil(messages[0].message.range(of: "too many major versions", options: .caseInsensitive))
-        
+
         guard case .warning = messages[1].level else {
             return XCTFail("Expected .warning")
         }
         XCTAssertNotNil(messages[1].message.range(of: "too many minor versions", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_versionProductNoTargets() throws {
         let packages = [
             Model.Collection.Package(
@@ -389,7 +389,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
                 ],
                 readmeURL: nil,
                 license: nil
-            )
+            ),
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -405,7 +405,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }

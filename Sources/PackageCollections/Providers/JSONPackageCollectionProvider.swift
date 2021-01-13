@@ -43,18 +43,21 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
         // first do a head request to check content size compared to the maximumSizeInBytes constraint
         let headOptions = self.makeRequestOptions(validResponseCodes: [200])
-        self.httpClient.head(source.url, options: headOptions) { result in
+        let headers = self.makeRequestHeaders()
+        self.httpClient.head(source.url, headers: headers, options: headOptions) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let response):
-                if let contentLength = response.headers.get("Content-Length").first.flatMap(Int.init),
-                    contentLength >= self.configuration.maximumSizeInBytes {
+                guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int.init) else {
+                    return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
+                }
+                guard contentLength <= self.configuration.maximumSizeInBytes else {
                     return callback(.failure(Errors.responseTooLarge(contentLength)))
                 }
                 // next do a get request to get the actual content
                 let getOptions = self.makeRequestOptions(validResponseCodes: [200])
-                self.httpClient.get(source.url, options: getOptions) { result in
+                self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
                     switch result {
                     case .failure(let error):
                         callback(.failure(error))
@@ -158,6 +161,13 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
         return options
+    }
+
+    private func makeRequestHeaders() -> HTTPClientHeaders {
+        var headers = HTTPClientHeaders()
+        // Include "Accept-Encoding" header so we receive "Content-Length" header in the response
+        headers.add(name: "Accept-Encoding", value: "*")
+        return headers
     }
 
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {

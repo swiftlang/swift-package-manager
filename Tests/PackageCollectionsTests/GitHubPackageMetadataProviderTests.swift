@@ -23,7 +23,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")
         let provider = GitHubPackageMetadataProvider()
-        
+
         do {
             let sshURLRetVal = provider.apiURL("git@github.com:octocat/Hello-World.git")
             XCTAssertEqual(apiURL, sshURLRetVal)
@@ -33,7 +33,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World.git")
             XCTAssertEqual(apiURL, httpsURLRetVal)
         }
-        
+
         do {
             let httpsURLRetVal = provider.apiURL("https://github.com/octocat/Hello-World")
             XCTAssertEqual(apiURL, httpsURLRetVal)

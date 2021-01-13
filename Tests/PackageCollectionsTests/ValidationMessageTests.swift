@@ -18,13 +18,13 @@ class ValidationMessageTests: XCTestCase {
         let warning = ValidationMessage.warning("warning")
         let errorWithProperty = ValidationMessage.error("error with property", property: "bar")
         let error = ValidationMessage.error("error")
-        
+
         let messages = [warningWithProperty, errorWithProperty, warning, error]
-        
+
         do {
             let errors = messages.errors(include: [.warning])!
             XCTAssertEqual(2, errors.count)
-            
+
             guard case .property(_, let m0) = errors[0], m0 == warningWithProperty.message else {
                 return XCTFail("Expected .property error")
             }
@@ -32,11 +32,11 @@ class ValidationMessageTests: XCTestCase {
                 return XCTFail("Expected .other error")
             }
         }
-        
+
         do {
             let errors = messages.errors(include: [.error])!
             XCTAssertEqual(2, errors.count)
-            
+
             guard case .property(_, let m0) = errors[0], m0 == errorWithProperty.message else {
                 return XCTFail("Expected .property error")
             }
@@ -44,7 +44,7 @@ class ValidationMessageTests: XCTestCase {
                 return XCTFail("Expected .other error")
             }
         }
-        
+
         do {
             let errors = messages.errors(include: [.warning, .error])!
             XCTAssertEqual(4, errors.count)
