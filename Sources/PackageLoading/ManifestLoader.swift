@@ -1183,7 +1183,9 @@ private final class SQLiteManifestCache: Closable {
         let createDB = { () throws -> SQLite in
             // see https://www.sqlite.org/c3ref/busy_timeout.html
             var configuration = SQLite.Configuration()
-            configuration.busyTimeoutMilliseconds = 1_000
+            // Value of type 'SQLite.Configuration' has no member 'busyTimeoutMilliseconds' ??
+            //  configuration.busyTimeoutMilliseconds = 1_000
+            configuration.busyTimeoutSeconds = 1
             let db = try SQLite(location: self.location, configuration: configuration)
             try self.createSchemaIfNecessary(db: db)
             return db
