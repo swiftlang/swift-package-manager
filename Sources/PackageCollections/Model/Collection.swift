@@ -13,6 +13,7 @@ import struct Foundation.URL
 
 import PackageModel
 import SourceControl
+import TSCBasic
 import TSCUtility
 
 public enum PackageCollectionsModel {}
@@ -95,6 +96,16 @@ extension PackageCollectionsModel {
     /// Represents the source type of a `Collection`
     public enum CollectionSourceType: String, Codable, CaseIterable {
         case json
+    }
+}
+
+extension PackageCollectionsModel.CollectionSource {
+    /// Returns the source's absolute file system path, if its URL is of 'file' scheme.
+    var absolutePath: AbsolutePath? {
+        guard self.url.scheme?.lowercased() == "file" else {
+            return nil
+        }
+        return try? AbsolutePath(validating: self.url.path)
     }
 }
 

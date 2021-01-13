@@ -26,9 +26,15 @@ extension Model.CollectionSource {
         case .json:
             let scheme = url.scheme?.lowercased() ?? ""
             if !allowedSchemes.contains(scheme) {
-                appendMessage(.error("Schema not allowed: \(url.absoluteString)"))
-            } else if scheme == "file", !localFileSystem.exists(AbsolutePath(self.url.path)) {
-                appendMessage(.error("Non-local files not allowed: \(url.absoluteString)"))
+                appendMessage(.error("Scheme (\"\(scheme)\") not allowed: \(url.absoluteString). Must be one of \(allowedSchemes)."))
+            } else if scheme == "file" {
+                let absolutePath = self.absolutePath
+
+                if absolutePath == nil {
+                    appendMessage(.error("Invalid file path: \(self.url.path). It must be an absolute file system path."))
+                } else if let absolutePath = absolutePath, !localFileSystem.exists(absolutePath) {
+                    appendMessage(.error("Non-local files not allowed: \(self.url.path)"))
+                }
             }
         }
 
