@@ -58,6 +58,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.packageName, "PackageOne")
@@ -65,8 +66,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
             XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
             XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
-            XCTAssertEqual(version.verifiedSwiftVersions, [SwiftLanguageVersion(string: "5.1")!])
-            XCTAssertEqual(version.verifiedPlatforms, [.macOS, .iOS, .linux])
+            XCTAssertEqual(version.verifiedCompatibility?.count, 3)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
         }
     }
@@ -108,6 +110,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.packageName, "PackageOne")
@@ -115,8 +118,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
             XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
             XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
-            XCTAssertEqual(version.verifiedSwiftVersions, [SwiftLanguageVersion(string: "5.1")!])
-            XCTAssertEqual(version.verifiedPlatforms, [.macOS, .iOS, .linux])
+            XCTAssertEqual(version.verifiedCompatibility?.count, 3)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
         }
     }

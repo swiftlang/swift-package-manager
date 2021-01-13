@@ -33,6 +33,7 @@ extension Model {
         let versions: [TSCUtility.Version]
         let watchersCount: Int?
         let readmeURL: Foundation.URL?
+        let license: PackageCollectionsModel.License?
         let authors: [PackageCollectionsModel.Package.Author]?
         let processedAt: Date
     }

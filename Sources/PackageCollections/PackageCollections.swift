@@ -357,23 +357,19 @@ public struct PackageCollections: PackageCollectionsProtocol {
                   products: packageVersion.products,
                   toolsVersion: packageVersion.toolsVersion,
                   minimumPlatformVersions: packageVersion.minimumPlatformVersions,
-                  verifiedPlatforms: packageVersion.verifiedPlatforms,
-                  verifiedSwiftVersions: packageVersion.verifiedSwiftVersions,
+                  verifiedCompatibility: packageVersion.verifiedCompatibility,
                   license: packageVersion.license)
         }
+        versions.sort(by: >)
 
-        // uses TSCUtility.Version comparator
-        versions.sort(by: { lhs, rhs in lhs.version > rhs.version })
-        let latestVersion = versions.first
-
-        return .init(
+        return Model.Package(
             repository: package.repository,
             summary: basicMetadata?.summary ?? package.summary,
             keywords: basicMetadata?.keywords ?? package.keywords,
             versions: versions,
-            latestVersion: latestVersion,
             watchersCount: basicMetadata?.watchersCount,
             readmeURL: basicMetadata?.readmeURL ?? package.readmeURL,
+            license: basicMetadata?.license ?? package.license,
             authors: basicMetadata?.authors
         )
     }

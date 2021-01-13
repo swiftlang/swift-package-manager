@@ -46,6 +46,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         let tagsURL = baseURL.appendingPathComponent("tags")
         let contributorsURL = baseURL.appendingPathComponent("contributors")
         let readmeURL = baseURL.appendingPathComponent("readme")
+        let licenseURL = baseURL.appendingPathComponent("license")
 
         let sync = DispatchGroup()
         let results = ThreadSafeKeyValueStore<URL, Result<HTTPClientResponse, Error>>()
@@ -78,7 +79,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
-                    [tagsURL, contributorsURL, readmeURL].forEach { url in
+                    [tagsURL, contributorsURL, readmeURL, licenseURL].forEach { url in
                         sync.enter()
                         var headers = self.makeRequestHeaders(url)
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
@@ -110,6 +111,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
                     let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
+                    let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
 
                     callback(.success(.init(
                         summary: metadata.description,
@@ -118,6 +120,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
+                        license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
                         authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
                         processedAt: Date()
                     )))
@@ -208,7 +211,6 @@ extension GitHubPackageMetadataProvider {
         let tagsURL: Foundation.URL
         let contributorsURL: Foundation.URL
         let language: String?
-        let license: License?
         let watchersCount: Int
         let forksCount: Int
 
@@ -226,7 +228,6 @@ extension GitHubPackageMetadataProvider {
             case tagsURL = "tags_url"
             case contributorsURL = "contributors_url"
             case language
-            case license
             case watchersCount = "watchers_count"
             case forksCount = "forks_count"
         }
@@ -234,11 +235,6 @@ extension GitHubPackageMetadataProvider {
 }
 
 extension GitHubPackageMetadataProvider {
-    fileprivate struct License: Codable {
-        let key: String
-        let name: String
-    }
-
     fileprivate struct Tag: Codable {
         let name: String
         let tarballURL: Foundation.URL
@@ -271,6 +267,30 @@ extension GitHubPackageMetadataProvider {
             case url
             case htmlURL = "html_url"
             case downloadURL = "download_url"
+        }
+    }
+
+    fileprivate struct License: Codable {
+        let url: Foundation.URL
+        let htmlURL: Foundation.URL
+        let downloadURL: Foundation.URL
+        let license: License
+
+        private enum CodingKeys: String, CodingKey {
+            case url
+            case htmlURL = "html_url"
+            case downloadURL = "download_url"
+            case license
+        }
+
+        fileprivate struct License: Codable {
+            let name: String
+            let spdxID: String
+
+            private enum CodingKeys: String, CodingKey {
+                case name
+                case spdxID = "spdx_id"
+            }
         }
     }
 }

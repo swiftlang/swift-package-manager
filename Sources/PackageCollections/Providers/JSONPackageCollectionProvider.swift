@@ -109,12 +109,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
                         serializationOkay = false
                     }
-                    let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
-                    if verifiedPlatforms?.count != version.verifiedPlatforms?.count {
-                        serializationOkay = false
-                    }
-                    let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
-                    if verifiedSwiftVersions?.count != version.verifiedSwiftVersions?.count {
+                    let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
+                    if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
                         serializationOkay = false
                     }
                     let license = version.license.flatMap { Model.License(from: $0) }
@@ -125,8 +121,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                  products: products,
                                  toolsVersion: toolsVersion,
                                  minimumPlatformVersions: minimumPlatformVersions,
-                                 verifiedPlatforms: verifiedPlatforms,
-                                 verifiedSwiftVersions: verifiedSwiftVersions,
+                                 verifiedCompatibility: verifiedCompatibility,
                                  license: license)
                 }
                 if versions.count != package.versions.count {
@@ -137,9 +132,9 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                              summary: package.summary,
                              keywords: package.keywords,
                              versions: versions,
-                             latestVersion: versions.first,
                              watchersCount: nil,
                              readmeURL: package.readmeURL,
+                             license: package.license.flatMap { Model.License(from: $0) },
                              authors: nil)
             }
 
@@ -238,9 +233,18 @@ extension PackageModel.Platform {
     }
 }
 
+extension Model.Compatibility {
+    fileprivate init?(from: JSONModel.Compatibility) {
+        guard let platform = PackageModel.Platform(from: from.platform),
+            let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion) else {
+            return nil
+        }
+        self.init(platform: platform, swiftVersion: swiftVersion)
+    }
+}
+
 extension Model.License {
     fileprivate init(from: JSONModel.License) {
-        let type = Model.LicenseType.allCases.first { $0.description.lowercased() == from.name.lowercased() } ?? .other(from.name)
-        self.init(type: type, url: from.url)
+        self.init(type: Model.LicenseType(string: from.name), url: from.url)
     }
 }

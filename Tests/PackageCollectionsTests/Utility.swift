@@ -44,8 +44,12 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                     targets: targets)
                 }
                 let minimumPlatformVersions = (0 ..< Int.random(in: 1 ... 2)).map { _ in supportedPlatforms.randomElement()! }
-                let verifiedPlatforms = (0 ..< Int.random(in: 1 ... 3)).map { _ in platforms.randomElement()! }
-                let verifiedSwiftVersions = (0 ..< Int.random(in: 1 ... 3)).map { _ in SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()! }
+                let verifiedCompatibility = (0 ..< Int.random(in: 1 ... 3)).map { _ in
+                    PackageCollectionsModel.Compatibility(
+                        platform: platforms.randomElement()!,
+                        swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!
+                    )
+                }
                 let licenseType = PackageCollectionsModel.LicenseType.allCases.randomElement()!
                 let license = PackageCollectionsModel.License(type: licenseType, url: URL(string: "http://\(licenseType).license")!)
 
@@ -55,8 +59,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                                products: products,
                                                                toolsVersion: .currentToolsVersion,
                                                                minimumPlatformVersions: minimumPlatformVersions,
-                                                               verifiedPlatforms: verifiedPlatforms,
-                                                               verifiedSwiftVersions: verifiedSwiftVersions,
+                                                               verifiedCompatibility: verifiedCompatibility,
                                                                license: license)
             }
 
@@ -64,9 +67,9 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                    summary: "package \(packageIndex) description",
                                                    keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                    versions: versions,
-                                                   latestVersion: versions.first,
                                                    watchersCount: Int.random(in: 1 ... 1000),
                                                    readmeURL: URL(string: "https://package-\(packageIndex)-readme")!,
+                                                   license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "https://\(packageIndex).license")!),
                                                    authors: nil)
         }
 
@@ -86,6 +89,7 @@ func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetad
                  versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: URL(string: "https://package-readme")!,
+                 license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "https://package-license")!),
                  authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
                  processedAt: Date())
 }
