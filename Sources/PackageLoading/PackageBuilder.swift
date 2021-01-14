@@ -225,7 +225,7 @@ public final class PackageBuilder {
     /// If set to true, one test product will be created for each test target.
     private let shouldCreateMultipleTestProducts: Bool
 
-    /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is vNext
+    /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
     /// Create the special REPL product for this package.
@@ -773,8 +773,8 @@ public final class PackageBuilder {
             targetType = .executable
         default:
             targetType = sources.computeTargetType()
-            if targetType == .executable && manifest.toolsVersion >= .vNext && warnAboutImplicitExecutableTargets {
-                diagnostics.emit(warning: "in tools version \(ToolsVersion.vNext) and later, use 'executableTarget()' to declare executable targets")
+            if targetType == .executable && manifest.toolsVersion >= .v5_4 && warnAboutImplicitExecutableTargets {
+                diagnostics.emit(warning: "in tools version \(ToolsVersion.v5_4) and later, use 'executableTarget()' to declare executable targets")
             }
         }
         

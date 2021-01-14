@@ -482,7 +482,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "in tools version 999.0.0 and later, use 'executableTarget()' to declare executable targets", behavior: .warning)
+            diagnostics.check(diagnostic: "in tools version 5.4.0 and later, use 'executableTarget()' to declare executable targets", behavior: .warning)
             package.checkModule("lib") { _ in }
             package.checkModule("exec2") { _ in }
             package.checkProduct("exec2") { product in
