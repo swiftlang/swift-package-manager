@@ -205,6 +205,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             }
 
             let modules = version.targets.compactMap { $0.moduleName }.joined(separator: ", ")
+            let products = optionalRow("Products", version.products.isEmpty ? nil : version.products.compactMap { $0.name }.joined(separator: ", "))
             let compatibility = optionalRow(
                 "Verified Compatibility (Platform, Swift Version)",
                 version.verifiedCompatibility?.map { "(\($0.platform.name), \($0.swiftVersion.rawValue))" }.joined(separator: ", ")
@@ -214,7 +215,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             return """
             \(version.version)
                 Package Name: \(version.packageName)
-                Modules: \(modules)\(compatibility)\(license)
+                Modules: \(modules)\(products)\(compatibility)\(license)
             """
         }
 
