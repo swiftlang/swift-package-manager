@@ -18,9 +18,11 @@ public protocol BuildSystemDelegate: AnyObject {
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem)
 
     func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool)
+    func buildSystemDidCancel(_ buildSystem: BuildSystem)
 }
 
 extension BuildSystemDelegate {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem) { }
+    func buildSystemDidCancel(_ buildSystem: BuildSystem) { }
 }

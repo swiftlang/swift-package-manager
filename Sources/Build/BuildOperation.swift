@@ -221,6 +221,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         buildSystemDelegate.onCommmandFailure = {
             buildSystem.cancel()
+            self.delegate?.buildSystemDidCancel(self)
         }
 
         return buildSystem
