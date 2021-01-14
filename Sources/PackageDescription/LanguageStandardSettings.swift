@@ -30,15 +30,15 @@ public enum CLanguageStandard: String, Encodable {
     case c11
 
     /// ISO C 2017.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case c17
 
     /// ISO C 2017.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case c18
 
     /// Working Draft for ISO C2x.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case c2x
 
     /// ISO C 1990 with GNU extensions.
@@ -54,15 +54,15 @@ public enum CLanguageStandard: String, Encodable {
     case gnu11
 
     /// ISO C 2017 with GNU extensions.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case gnu17
 
     /// ISO C 2017 with GNU extensions.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case gnu18
 
     /// Working Draft for ISO C2x with GNU extensions.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case gnu2x
 
     /// ISO C 1990.
@@ -78,11 +78,11 @@ public enum CLanguageStandard: String, Encodable {
     case iso9899_2011 = "iso9899:2011"
 
     /// ISO C 2017.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case iso9899_2017 = "iso9899:2017"
 
     /// ISO C 2017.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case iso9899_2018 = "iso9899:2018"
 }
 
@@ -108,15 +108,15 @@ public enum CXXLanguageStandard: String, Encodable {
     case cxx14 = "c++14"
 
     /// ISO C++ 2017 with amendments.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case cxx17 = "c++17"
 
     /// ISO C++ 2017 with amendments.
-    @available(_PackageDescription, introduced: 4, deprecated: 999.0, renamed: "cxx17")
+    @available(_PackageDescription, introduced: 4, deprecated: 5.4, renamed: "cxx17")
     case cxx1z = "c++1z"
 
     /// ISO C++ 2020 DIS.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case cxx20 = "c++20"
 
     /// ISO C++ 1998 with amendments and GNU extensions.
@@ -132,15 +132,15 @@ public enum CXXLanguageStandard: String, Encodable {
     case gnucxx14 = "gnu++14"
 
     /// ISO C++ 2017 with amendments and GNU extensions.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case gnucxx17 = "gnu++17"
 
     /// ISO C++ 2017 with amendments and GNU extensions.
-    @available(_PackageDescription, introduced: 4, deprecated: 999.0, renamed: "gnucxx17")
+    @available(_PackageDescription, introduced: 4, deprecated: 5.4, renamed: "gnucxx17")
     case gnucxx1z = "gnu++1z"
 
     /// ISO C++ 2020 DIS with GNU extensions.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     case gnucxx20 = "gnu++20"
 }
 
