@@ -165,21 +165,21 @@ public final class Manifest: ObjectIdentifierProtocol {
             return dependencies
         }
         #else
-        guard toolsVersion >= .v5_2 && productFilter != .everything else {
+        guard toolsVersion >= .v5_2 && packageKind != .root else {
             return dependencies
         }
-
-        var requiredDependencies: Set<PackageDependencyDescription> = []
-
+        
+        var requiredDependencyURLs: Set<String> = []
+        
         for target in targetsRequired(for: products) {
             for targetDependency in target.dependencies {
                 if let dependency = packageDependency(referencedBy: targetDependency) {
-                    requiredDependencies.insert(dependency)
+                    requiredDependencyURLs.insert(dependency.url)
                 }
             }
         }
-
-        return Array(requiredDependencies)
+        
+        return dependencies.filter { requiredDependencyURLs.contains($0.url) }
         #endif
     }
 
@@ -233,7 +233,6 @@ public final class Manifest: ObjectIdentifierProtocol {
         }
 
         return dependencies.compactMap { dependency in
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             if let filter = associations[dependency.name] {
                 return dependency.filtered(by: filter)
             } else if keepUnused {
@@ -243,9 +242,6 @@ public final class Manifest: ObjectIdentifierProtocol {
                 // Dependencies known to not have any relevant products are discarded.
                 return nil
             }
-            #else
-            return dependency.filtered(by: .everything)
-            #endif
         }
     }
 
