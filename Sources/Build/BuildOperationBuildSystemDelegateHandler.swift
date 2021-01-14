@@ -363,6 +363,7 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     var onCommmandFailure: (() -> Void)?
     var isVerbose: Bool = false
     weak var delegate: SPMBuildCore.BuildSystemDelegate?
+    private let buildSystem: SPMBuildCore.BuildSystem
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
     private var errorMessagesByTarget: [String: [String]] = [:]
@@ -374,6 +375,7 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     private let buildExecutionContext: BuildExecutionContext
 
     init(
+        buildSystem: SPMBuildCore.BuildSystem,
         bctx: BuildExecutionContext,
         diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
@@ -387,6 +389,7 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
         self.delegate = delegate
+        self.buildSystem = buildSystem
 
         let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
@@ -442,9 +445,12 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     }
 
     func commandPreparing(_ command: SPMLLBuild.Command) {
+        delegate?.buildSystem(buildSystem, willStartCommand: BuildSystemCommand(command))
     }
 
     func commandStarted(_ command: SPMLLBuild.Command) {
+        delegate?.buildSystem(buildSystem, didStartCommand: BuildSystemCommand(command))
+
         guard command.shouldShowStatus else { return }
 
         queue.async {
@@ -460,6 +466,8 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     }
 
     func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
+        delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(command))
+
         guard !isVerbose else { return }
         guard command.shouldShowStatus else { return }
         guard !swiftParsers.keys.contains(command.name) else { return }
@@ -476,8 +484,7 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     }
 
     func commandHadNote(_ command: SPMLLBuild.Command, message: String) {
-        // FIXME: This is wrong.
-        diagnostics.emit(warning: message)
+        diagnostics.emit(note: message)
     }
 
     func commandHadWarning(_ command: SPMLLBuild.Command, message: String) {
@@ -540,6 +547,7 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
 
     func cycleDetected(rules: [BuildKey]) {
         diagnostics.emit(.cycleError(rules: rules))
+        delegate?.buildSystemDidDetectCycleInRules(buildSystem)
     }
 
     func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
@@ -608,10 +616,8 @@ fileprivate struct CommandTaskTracker {
         switch kind {
         case .isScanning:
             totalCount += 1
-            break
         case .isUpToDate:
             totalCount -= 1
-            break
         case .isComplete:
             if (totalCount == finishedCount) {
                 let latestOutput: String? = latestFinishedText
@@ -620,7 +626,6 @@ fileprivate struct CommandTaskTracker {
                 * Build Completed!
                 """
             }
-            break
         @unknown default:
             assertionFailure("unhandled command status kind \(kind) for command \(command)")
             break
@@ -747,5 +752,15 @@ private extension Diagnostic.Message {
 
     static func swiftCompilerOutputParsingError(_ error: String) -> Diagnostic.Message {
         .error("failed parsing the Swift compiler output: \(error)")
+    }
+}
+
+private extension BuildSystemCommand {
+    init(_ command: SPMLLBuild.Command) {
+        self.init(
+            name: command.name,
+            description: command.description,
+            verboseDescription: command.verboseDescription
+        )
     }
 }

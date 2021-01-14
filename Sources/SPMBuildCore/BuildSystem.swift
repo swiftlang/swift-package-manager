@@ -54,18 +54,3 @@ extension BuildSystem {
         try build(subset: .allExcludingTests)
     }
 }
-
-public protocol BuildSystemDelegate: AnyObject {
-    func buildSystem(_ buildSystem: BuildSystem, commandWillStart command: Any)
-    func buildSystem(_ buildSystem: BuildSystem, commandDidStart command: Any)
-    func buildSystem(_ buildSystem: BuildSystem, commandDidFinish command: Any)
-
-    func buildSystem(_ buildSystem: BuildSystem, hadNote node: Any)
-    func buildSystem(_ buildSystem: BuildSystem, hadError error: Any)
-    func buildSystem(_ buildSystem: BuildSystem, hadWarning warning: Any)
-    func buildSystem(_ buildSystem: BuildSystem, emitDiagnostic diagnostic: Any)
-
-    func buildSystem(_ buildSystem: BuildSystem, didDetectCycleInRules rules: Any)
-
-    func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult result: Any)
-}

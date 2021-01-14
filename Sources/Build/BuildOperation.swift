@@ -122,6 +122,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let success = buildSystem.build(target: llbuildTarget)
 
         buildSystemDelegate?.progressAnimation.complete(success: success)
+        delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibilty symlink to old build path.
@@ -201,6 +202,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build delegate.
         let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
+            buildSystem: self,
             bctx: bctx,
             diagnostics: diagnostics,
             outputStream: self.stdoutStream,
