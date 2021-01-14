@@ -87,25 +87,24 @@ extension PackageCollectionsModel {
         /// URL of the source file
         public let url: URL
 
+        /// The source's absolute file system path, if its URL is of 'file' scheme.
+        let absolutePath: AbsolutePath?
+
         public init(type: CollectionSourceType, url: URL) {
             self.type = type
             self.url = url
+
+            if url.scheme?.lowercased() == "file", let absolutePath = try? AbsolutePath(validating: url.path) {
+                self.absolutePath = absolutePath
+            } else {
+                self.absolutePath = nil
+            }
         }
     }
 
     /// Represents the source type of a `Collection`
     public enum CollectionSourceType: String, Codable, CaseIterable {
         case json
-    }
-}
-
-extension PackageCollectionsModel.CollectionSource {
-    /// Returns the source's absolute file system path, if its URL is of 'file' scheme.
-    var absolutePath: AbsolutePath? {
-        guard self.url.scheme?.lowercased() == "file" else {
-            return nil
-        }
-        return try? AbsolutePath(validating: self.url.path)
     }
 }
 

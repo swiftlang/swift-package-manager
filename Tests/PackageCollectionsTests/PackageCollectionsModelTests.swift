@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import SPMTestSupport
 import XCTest
 
 @testable import PackageCollections
@@ -85,5 +86,36 @@ final class PackageCollectionsModelTests: XCTestCase {
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
         XCTAssertNil(versions.latestPrerelease)
+    }
+
+    func test_sourceOK() throws {
+        do {
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://package-collection-tests.com/test.json")!)
+            XCTAssertNil(source.validate())
+        }
+
+        do {
+            fixture(name: "Collections") { directoryPath in
+                // File must exist in local FS
+                let path = directoryPath.appending(components: "JSON", "good.json")
+
+                let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
+                XCTAssertNil(source.validate())
+            }
+        }
+    }
+
+    func test_source_localFileDoesNotExist() throws {
+        do {
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(fileURLWithPath: "/foo/bar"))
+
+            let messages = source.validate()!
+            XCTAssertEqual(1, messages.count)
+
+            guard case .error = messages[0].level else {
+                return XCTFail("Expected .error")
+            }
+            XCTAssertNotNil(messages[0].message.range(of: "non-local files not allowed", options: .caseInsensitive))
+        }
     }
 }

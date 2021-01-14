@@ -182,10 +182,10 @@ private extension Model.CollectionSource {
         guard let url = URL(string: from.value) else {
             throw SerializationError.invalidURL(from.value)
         }
-        self.url = url
+
         switch from.type {
         case StorageModel.SourceType.json.rawValue:
-            self.type = .json
+            self.init(type: .json, url: url)
         default:
             throw SerializationError.unknownType(from.type)
         }
