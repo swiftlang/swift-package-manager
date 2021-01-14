@@ -128,7 +128,7 @@ extension ManifestBuilder {
         let exclude: [String] = try json.get("exclude")
         try exclude.forEach{ _ = try RelativePath(validating: $0) }
 
-        return TargetDescription(
+        return try TargetDescription(
             name: try json.get("name"),
             dependencies: dependencies,
             path: json.get("path"),

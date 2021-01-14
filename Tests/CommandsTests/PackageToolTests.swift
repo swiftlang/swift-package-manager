@@ -367,7 +367,7 @@ final class PackageToolTests: XCTestCase {
                 .init(name: "exe", type: .executable, targets: ["TargetA"])
             ],
             targets: [
-                .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
+                try .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
             ]
         )
         
@@ -385,7 +385,7 @@ final class PackageToolTests: XCTestCase {
                 .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
             ],
             targets: [
-                .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
+                try .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
             ]
         )
         
@@ -402,7 +402,7 @@ final class PackageToolTests: XCTestCase {
                 .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
             ],
             targets: [
-                .init(name: "TargetC", dependencies: ["PackageD"])
+                try .init(name: "TargetC", dependencies: ["PackageD"])
             ]
         )
         
@@ -416,7 +416,7 @@ final class PackageToolTests: XCTestCase {
                 .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],
             targets: [
-                .init(name: "TargetD")
+                try .init(name: "TargetD")
             ]
         )
         
