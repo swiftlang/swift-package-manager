@@ -356,7 +356,7 @@ final class CopyCommand: CustomLLBuildCommand {
 }
 
 /// Convenient llbuild build system delegate implementation
-final class BuildOperationBuildSystemDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
+final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
     var outputStream: ThreadSafeOutputByteStream
     var progressAnimation: ProgressAnimationProtocol
@@ -393,6 +393,8 @@ final class BuildOperationBuildSystemDelegate: llbuildSwift.BuildSystemDelegate,
         } ?? [:]
         self.swiftParsers = swiftParsers
     }
+
+    // MARK: llbuildSwift.BuildSystemDelegate
 
     var fs: SPMLLBuild.FileSystem? {
         return nil
@@ -544,6 +546,8 @@ final class BuildOperationBuildSystemDelegate: llbuildSwift.BuildSystemDelegate,
         return false
     }
 
+    // MARK: SwiftCompilerOutputParserDelegate
+
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
         queue.async {
             if self.isVerbose {
@@ -578,6 +582,8 @@ final class BuildOperationBuildSystemDelegate: llbuildSwift.BuildSystemDelegate,
         diagnostics.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()
     }
+
+    // MARK: Private
 
     private func updateProgress() {
         if let progressText = taskTracker.latestFinishedText {
