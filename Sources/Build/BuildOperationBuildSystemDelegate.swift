@@ -355,13 +355,14 @@ final class CopyCommand: CustomLLBuildCommand {
     }
 }
 
-/// Convenient llbuild system delegate implementation
-final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
+/// Convenient llbuild build system delegate implementation
+final class BuildOperationBuildSystemDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
     var outputStream: ThreadSafeOutputByteStream
     var progressAnimation: ProgressAnimationProtocol
     var onCommmandFailure: (() -> Void)?
     var isVerbose: Bool = false
+    weak var delegate: SPMBuildCore.BuildSystemDelegate?
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
     private var errorMessagesByTarget: [String: [String]] = [:]
@@ -376,7 +377,8 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         bctx: BuildExecutionContext,
         diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
-        progressAnimation: ProgressAnimationProtocol
+        progressAnimation: ProgressAnimationProtocol,
+        delegate: SPMBuildCore.BuildSystemDelegate?
     ) {
         self.diagnostics = diagnostics
         // FIXME: Implement a class convenience initializer that does this once they are supported
@@ -384,6 +386,7 @@ final class BuildOperationDelegate: llbuildSwift.BuildSystemDelegate, SwiftCompi
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
         self.buildExecutionContext = bctx
+        self.delegate = delegate
 
         let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)

@@ -56,5 +56,5 @@ extension BuildSystem {
 }
 
 public protocol BuildSystemDelegate: AnyObject {
-    
+    func buildDidFail(buildSystem: BuildSystem)
 }
