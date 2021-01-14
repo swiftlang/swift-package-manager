@@ -31,12 +31,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: [.init(name: "macOS", version: "10.15")],
-                        verifiedPlatforms: [.init(name: "macOS")],
-                        verifiedSwiftVersions: ["5.2"],
+                        verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!,
+                license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
             ),
         ]
         let collection = Model.Collection(
@@ -54,7 +54,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let decoded = try JSONDecoder().decode(Model.Collection.self, from: data)
         XCTAssertEqual(collection, decoded)
     }
-    
+
     func test_validationOK() throws {
         let packages = [
             Model.Collection.Package(
@@ -69,12 +69,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -91,7 +91,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         XCTAssertNil(validator.validate(collection: collection))
     }
-    
+
     func test_validationFailed_noPackages() throws {
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -107,13 +107,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertTrue(messages[0].message.contains("contain at least one package"))
     }
-    
+
     func test_validationFailed_tooManyPackages() throws {
         let packages = [
             Model.Collection.Package(
@@ -128,12 +128,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: nil,
+                license: nil
             ),
             Model.Collection.Package(
                 url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
@@ -147,12 +147,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -169,13 +169,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator(configuration: .init(maximumPackageCount: 1))
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .warning = messages[0].level else {
             return XCTFail("Expected .warning")
         }
         XCTAssertNotNil(messages[0].message.range(of: "more than the recommended", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_duplicateVersions_emptyProductsAndTargets() throws {
         let packages = [
             Model.Collection.Package(
@@ -190,8 +190,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                     Model.Collection.Package.Version(
@@ -201,12 +200,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -223,23 +222,23 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(3, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[0].message.range(of: "duplicate version(s)", options: .caseInsensitive))
-        
+
         guard case .error = messages[1].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[1].message.range(of: "does not contain any products", options: .caseInsensitive))
-        
+
         guard case .error = messages[2].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[2].message.range(of: "does not contain any targets", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_nonSemanticVersion() throws {
         let packages = [
             Model.Collection.Package(
@@ -254,13 +253,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
-            )
+                readmeURL: nil,
+                license: nil
+            ),
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -276,13 +275,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }
         XCTAssertNotNil(messages[0].message.range(of: "non semantic version(s)", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_tooManyMajorsAndMinors() throws {
         let packages = [
             Model.Collection.Package(
@@ -297,8 +296,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                     Model.Collection.Package.Version(
@@ -308,12 +306,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
+                readmeURL: nil,
+                license: nil
             ),
             Model.Collection.Package(
                 url: URL(string: "https://package-collection-tests.com/repos/foobaz.git")!,
@@ -327,8 +325,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                     Model.Collection.Package.Version(
@@ -338,12 +335,12 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: nil
+                readmeURL: nil,
+                license: nil
             ),
         ]
         let collection = Model.Collection(
@@ -360,18 +357,18 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator(configuration: .init(maximumMajorVersionCount: 1, maximumMinorVersionCount: 1))
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(2, messages.count)
-        
+
         guard case .warning = messages[0].level else {
             return XCTFail("Expected .warning")
         }
         XCTAssertNotNil(messages[0].message.range(of: "too many major versions", options: .caseInsensitive))
-        
+
         guard case .warning = messages[1].level else {
             return XCTFail("Expected .warning")
         }
         XCTAssertNotNil(messages[1].message.range(of: "too many minor versions", options: .caseInsensitive))
     }
-    
+
     func test_validationFailed_versionProductNoTargets() throws {
         let packages = [
             Model.Collection.Package(
@@ -386,13 +383,13 @@ class JSONPackageCollectionModelTests: XCTestCase {
                         products: [.init(name: "Bar", type: .library(.automatic), targets: [])],
                         toolsVersion: "5.2",
                         minimumPlatformVersions: nil,
-                        verifiedPlatforms: nil,
-                        verifiedSwiftVersions: nil,
+                        verifiedCompatibility: nil,
                         license: nil
                     ),
                 ],
-                readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!
-            )
+                readmeURL: nil,
+                license: nil
+            ),
         ]
         let collection = Model.Collection(
             name: "Test Package Collection",
@@ -408,7 +405,7 @@ class JSONPackageCollectionModelTests: XCTestCase {
         let validator = Model.Validator()
         let messages = validator.validate(collection: collection)!
         XCTAssertEqual(1, messages.count)
-        
+
         guard case .error = messages[0].level else {
             return XCTFail("Expected .error")
         }

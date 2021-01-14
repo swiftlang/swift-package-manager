@@ -373,9 +373,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
 
         let targets = [
-            TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
-            TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
-            TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
+            try TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
+            try TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
+            try TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
         ]
 
         let mirrors: DependencyMirrors = [:]
@@ -532,7 +532,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 url: packageDir.pathString,
                 packageKind: .root,
                 targets: [
-                    TargetDescription(name: packageDir.basename, path: packageDir.pathString),
+                    try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
             let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
@@ -602,7 +602,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 ],
                 products: [ProductDescription(name: "Product", type: .library(.automatic), targets: ["Target"])],
                 targets: [
-                    TargetDescription(
+                    try TargetDescription(
                         name: "Target",
                         dependencies: [.product(name: "DependencyProduct", package: "Dependency")]
                     ),

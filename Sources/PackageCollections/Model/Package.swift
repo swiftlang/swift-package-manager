@@ -55,13 +55,26 @@ extension PackageCollectionsModel {
         ///     1.0.0-beta.1
         ///
         ///     Latest = 1.0.0-beta.3
-        public let latestVersion: Version?
+        public var latestVersion: Version? {
+            self.latestReleaseVersion ?? self.latestPrereleaseVersion
+        }
+
+        public var latestReleaseVersion: Version? {
+            self.versions.latestRelease
+        }
+
+        public var latestPrereleaseVersion: Version? {
+            self.versions.latestPrerelease
+        }
 
         /// Number of watchers
         public let watchersCount: Int?
 
         /// URL of the package's README
         public let readmeURL: URL?
+
+        /// The package's current license info
+        public let license: License?
 
         /// Package authors
         public let authors: [Author]?
@@ -72,9 +85,9 @@ extension PackageCollectionsModel {
             summary: String?,
             keywords: [String]?,
             versions: [Version],
-            latestVersion: Version?,
             watchersCount: Int?,
             readmeURL: URL?,
+            license: License?,
             authors: [Author]?
         ) {
             self.reference = .init(repository: repository)
@@ -82,9 +95,9 @@ extension PackageCollectionsModel {
             self.summary = summary
             self.keywords = keywords
             self.versions = versions
-            self.latestVersion = latestVersion
             self.watchersCount = watchersCount
             self.readmeURL = readmeURL
+            self.license = license
             self.authors = authors
         }
     }
@@ -116,11 +129,16 @@ extension PackageCollectionsModel.Package {
         /// The package version's supported platforms
         public let minimumPlatformVersions: [SupportedPlatform]?
 
+        // TODO: remove (replaced by verifiedCompatibility)
         /// The package version's supported platforms verified to work
-        public let verifiedPlatforms: [PackageModel.Platform]?
+        public var verifiedPlatforms: [PackageModel.Platform]? { nil }
 
+        // TODO: remove (replaced by verifiedCompatibility)
         /// The package version's Swift versions verified to work
-        public let verifiedSwiftVersions: [SwiftLanguageVersion]?
+        public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
+
+        /// An array of compatible platforms and Swift versions that has been tested and verified for.
+        public let verifiedCompatibility: [PackageCollectionsModel.Compatibility]?
 
         /// The package version's license
         public let license: PackageCollectionsModel.License?
@@ -152,6 +170,17 @@ extension PackageCollectionsModel {
     }
 }
 
+extension PackageCollectionsModel {
+    /// Compatible platform and Swift version.
+    public struct Compatibility: Equatable, Codable {
+        /// The platform (e.g., macOS, Linux, etc.)
+        public let platform: PackageModel.Platform
+
+        /// The Swift version
+        public let swiftVersion: SwiftLanguageVersion
+    }
+}
+
 extension PackageCollectionsModel.Package {
     /// A representation of package author
     public struct Author: Equatable, Codable {
@@ -174,4 +203,26 @@ extension PackageCollectionsModel.Package {
 
 extension PackageCollectionsModel {
     public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.CollectionIdentifier])
+}
+
+// MARK: - Utilities
+
+extension PackageCollectionsModel.Package.Version: Comparable {
+    public static func < (lhs: PackageCollectionsModel.Package.Version, rhs: PackageCollectionsModel.Package.Version) -> Bool {
+        lhs.version < rhs.version
+    }
+}
+
+extension Array where Element == PackageCollectionsModel.Package.Version {
+    var latestRelease: PackageCollectionsModel.Package.Version? {
+        self.filter { $0.version.prereleaseIdentifiers.isEmpty }
+            .sorted(by: >)
+            .first
+    }
+
+    var latestPrerelease: PackageCollectionsModel.Package.Version? {
+        self.filter { !$0.version.prereleaseIdentifiers.isEmpty }
+            .sorted(by: >)
+            .first
+    }
 }

@@ -58,6 +58,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.packageName, "PackageOne")
@@ -65,8 +66,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
             XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
             XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
-            XCTAssertEqual(version.verifiedSwiftVersions, [SwiftLanguageVersion(string: "5.1")!])
-            XCTAssertEqual(version.verifiedPlatforms, [.macOS, .iOS, .linux])
+            XCTAssertEqual(version.verifiedCompatibility?.count, 3)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
         }
     }
@@ -74,24 +76,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testLocalFile() throws {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good.json")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
 
-            let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
-                XCTAssertEqual(request.url, path.asURL, "url should match")
-                switch request.method {
-                case .head:
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
-                case .get:
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
-                default:
-                    XCTFail("method should match")
-                }
-            }
-
-            var httpClient = HTTPClient(handler: handler)
+            var httpClient = HTTPClient(handler: { (_, _) -> Void in fatalError("should not be called") })
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
             let provider = JSONPackageCollectionProvider(httpClient: httpClient)
@@ -108,6 +94,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
             XCTAssertEqual(version.packageName, "PackageOne")
@@ -115,8 +102,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
             XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
             XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
-            XCTAssertEqual(version.verifiedSwiftVersions, [SwiftLanguageVersion(string: "5.1")!])
-            XCTAssertEqual(version.verifiedPlatforms, [.macOS, .iOS, .linux])
+            XCTAssertEqual(version.verifiedCompatibility?.count, 3)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
         }
     }
@@ -132,7 +120,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             guard let internalError = (error as? MultipleErrors)?.errors.first else {
                 return XCTFail("invalid error \(error)")
             }
-            XCTAssertEqual(internalError as? ValidationError, ValidationError.other(message: "Schema not allowed: \(url.absoluteString)"))
+            guard let validationError = internalError as? ValidationError, case .other(let message) = validationError else {
+                return XCTFail("invalid error \(error)")
+            }
+            XCTAssertTrue(message.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
         })
     }
 
@@ -251,7 +242,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
-                callback(.success(.init(statusCode: 200)))
+                callback(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "1")]))))
             case .get:
                 callback(.success(.init(statusCode: statusCode)))
             default:
@@ -276,7 +267,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(request.url, url, "url should match")
             switch request.method {
             case .head:
-                callback(.success(.init(statusCode: 200)))
+                callback(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
             case .get:
                 callback(.success(.init(statusCode: 200,
                                         headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),

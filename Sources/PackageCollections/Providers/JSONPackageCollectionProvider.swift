@@ -41,20 +41,40 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             return callback(.failure(MultipleErrors(errors)))
         }
 
+        // Source is a local file
+        if let absolutePath = source.absolutePath {
+            do {
+                let fileContents = try localFileSystem.readFileContents(absolutePath)
+                let collection: JSONModel.Collection = try fileContents.withData { data in
+                    do {
+                        return try self.decoder.decode(JSONModel.Collection.self, from: data)
+                    } catch {
+                        throw Errors.invalidJSON(error)
+                    }
+                }
+                return callback(self.makeCollection(from: collection, source: source))
+            } catch {
+                return callback(.failure(error))
+            }
+        }
+
         // first do a head request to check content size compared to the maximumSizeInBytes constraint
         let headOptions = self.makeRequestOptions(validResponseCodes: [200])
-        self.httpClient.head(source.url, options: headOptions) { result in
+        let headers = self.makeRequestHeaders()
+        self.httpClient.head(source.url, headers: headers, options: headOptions) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let response):
-                if let contentLength = response.headers.get("Content-Length").first.flatMap(Int.init),
-                    contentLength >= self.configuration.maximumSizeInBytes {
+                guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int.init) else {
+                    return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
+                }
+                guard contentLength <= self.configuration.maximumSizeInBytes else {
                     return callback(.failure(Errors.responseTooLarge(contentLength)))
                 }
                 // next do a get request to get the actual content
                 let getOptions = self.makeRequestOptions(validResponseCodes: [200])
-                self.httpClient.get(source.url, options: getOptions) { result in
+                self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
                     switch result {
                     case .failure(let error):
                         callback(.failure(error))
@@ -68,94 +88,87 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                         guard contentLength < self.configuration.maximumSizeInBytes else {
                             return callback(.failure(Errors.responseTooLarge(contentLength)))
                         }
-                        // construct result
-                        callback(makeCollection(response))
+
+                        do {
+                            // parse json
+                            guard let collection = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
+                                return callback(.failure(Errors.invalidResponse("Invalid body")))
+                            }
+                            // construct result
+                            callback(self.makeCollection(from: collection, source: source))
+                        } catch {
+                            callback(.failure(Errors.invalidJSON(error)))
+                        }
                     }
                 }
             }
         }
+    }
 
-        func makeCollection(_ response: HTTPClientResponse) -> Result<Model.Collection, Error> {
-            let collection: JSONModel.Collection
-            do {
-                // parse json
-                guard let decoded = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
-                    throw Errors.invalidResponse("Invalid body")
+    private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource) -> Result<Model.Collection, Error> {
+        var serializationOkay = true
+        let packages = collection.packages.map { package -> Model.Package in
+            let versions = package.versions.compactMap { version -> Model.Package.Version? in
+                // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
+                guard let parsedVersion = TSCUtility.Version(string: version.version) else {
+                    return nil
                 }
-                collection = decoded
-            } catch {
-                return .failure(Errors.invalidJSON(error))
-            }
-
-            var serializationOkay = true
-            let packages = collection.packages.map { package -> Model.Package in
-                let versions = package.versions.compactMap { version -> Model.Package.Version? in
-                    // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
-                    guard let parsedVersion = TSCUtility.Version(string: version.version) else {
-                        return nil
-                    }
-                    guard let toolsVersion = ToolsVersion(string: version.toolsVersion) else {
-                        return nil
-                    }
-                    let targets = version.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
-                    if targets.count != version.targets.count {
-                        serializationOkay = false
-                    }
-                    let products = version.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
-                    if products.count != version.products.count {
-                        serializationOkay = false
-                    }
-                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
-                    if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
-                        serializationOkay = false
-                    }
-                    let verifiedPlatforms: [PackageModel.Platform]? = version.verifiedPlatforms?.compactMap { PackageModel.Platform(from: $0) }
-                    if verifiedPlatforms?.count != version.verifiedPlatforms?.count {
-                        serializationOkay = false
-                    }
-                    let verifiedSwiftVersions = version.verifiedSwiftVersions?.compactMap { SwiftLanguageVersion(string: $0) }
-                    if verifiedSwiftVersions?.count != version.verifiedSwiftVersions?.count {
-                        serializationOkay = false
-                    }
-                    let license = version.license.flatMap { Model.License(from: $0) }
-
-                    return .init(version: parsedVersion,
-                                 packageName: version.packageName,
-                                 targets: targets,
-                                 products: products,
-                                 toolsVersion: toolsVersion,
-                                 minimumPlatformVersions: minimumPlatformVersions,
-                                 verifiedPlatforms: verifiedPlatforms,
-                                 verifiedSwiftVersions: verifiedSwiftVersions,
-                                 license: license)
+                guard let toolsVersion = ToolsVersion(string: version.toolsVersion) else {
+                    return nil
                 }
-                if versions.count != package.versions.count {
+                let targets = version.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                if targets.count != version.targets.count {
                     serializationOkay = false
                 }
+                let products = version.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
+                if products.count != version.products.count {
+                    serializationOkay = false
+                }
+                let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
+                if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
+                    serializationOkay = false
+                }
+                let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
+                if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
+                    serializationOkay = false
+                }
+                let license = version.license.flatMap { Model.License(from: $0) }
 
-                return .init(repository: RepositorySpecifier(url: package.url.absoluteString),
-                             summary: package.summary,
-                             keywords: package.keywords,
-                             versions: versions,
-                             latestVersion: versions.first,
-                             watchersCount: nil,
-                             readmeURL: package.readmeURL,
-                             authors: nil)
+                return .init(version: parsedVersion,
+                             packageName: version.packageName,
+                             targets: targets,
+                             products: products,
+                             toolsVersion: toolsVersion,
+                             minimumPlatformVersions: minimumPlatformVersions,
+                             verifiedCompatibility: verifiedCompatibility,
+                             license: license)
+            }
+            if versions.count != package.versions.count {
+                serializationOkay = false
             }
 
-            if !serializationOkay {
-                self.diagnosticsEngine?.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
-            }
-
-            return .success(.init(source: source,
-                                  name: collection.name,
-                                  overview: collection.overview,
-                                  keywords: collection.keywords,
-                                  packages: packages,
-                                  createdAt: collection.generatedAt,
-                                  createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
-                                  lastProcessedAt: Date()))
+            return .init(repository: RepositorySpecifier(url: package.url.absoluteString),
+                         summary: package.summary,
+                         keywords: package.keywords,
+                         versions: versions,
+                         watchersCount: nil,
+                         readmeURL: package.readmeURL,
+                         license: package.license.flatMap { Model.License(from: $0) },
+                         authors: nil)
         }
+
+        if !serializationOkay {
+            self.diagnosticsEngine?.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+        }
+
+        return .success(.init(source: source,
+                              name: collection.name,
+                              overview: collection.overview,
+                              keywords: collection.keywords,
+                              packages: packages,
+                              createdAt: collection.generatedAt,
+                              createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
+                              lastProcessedAt: Date()))
     }
 
     private func makeRequestOptions(validResponseCodes: [Int]) -> HTTPClientRequest.Options {
@@ -163,6 +176,13 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
         return options
+    }
+
+    private func makeRequestHeaders() -> HTTPClientHeaders {
+        var headers = HTTPClientHeaders()
+        // Include "Accept-Encoding" header so we receive "Content-Length" header in the response
+        headers.add(name: "Accept-Encoding", value: "*")
+        return headers
     }
 
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
@@ -238,9 +258,18 @@ extension PackageModel.Platform {
     }
 }
 
+extension Model.Compatibility {
+    fileprivate init?(from: JSONModel.Compatibility) {
+        guard let platform = PackageModel.Platform(from: from.platform),
+            let swiftVersion = SwiftLanguageVersion(string: from.swiftVersion) else {
+            return nil
+        }
+        self.init(platform: platform, swiftVersion: swiftVersion)
+    }
+}
+
 extension Model.License {
     fileprivate init(from: JSONModel.License) {
-        let type = Model.LicenseType.allCases.first { $0.description.lowercased() == from.name.lowercased() } ?? .other(from.name)
-        self.init(type: type, url: from.url)
+        self.init(type: Model.LicenseType(string: from.name), url: from.url)
     }
 }

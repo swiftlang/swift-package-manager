@@ -399,7 +399,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         type: .library(.automatic),
                         targets: [manifestBuilder.name])
                     )
-                    targets.append(TargetDescription(
+                    targets.append(try TargetDescription(
                         name: manifestBuilder.name,
                         path: "",
                         type: .system,

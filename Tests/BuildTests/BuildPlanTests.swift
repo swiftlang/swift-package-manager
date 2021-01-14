@@ -1908,7 +1908,7 @@ final class BuildPlanTests: XCTestCase {
                 PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "cbar",
                     settings: [
                     .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
@@ -1921,7 +1921,7 @@ final class BuildPlanTests: XCTestCase {
                     .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
                     ]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "bar", dependencies: ["cbar", "Dep"],
                     settings: [
                     .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
@@ -1930,7 +1930,7 @@ final class BuildPlanTests: XCTestCase {
                     .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
                     ]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "exe", dependencies: ["bar"],
                     settings: [
                     .init(tool: .swift, name: .define, value: ["FOO"]),
@@ -1953,14 +1953,14 @@ final class BuildPlanTests: XCTestCase {
                 ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
             ],
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "t1",
                     settings: [
                         .init(tool: .swift, name: .define, value: ["DEP"]),
                         .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
                     ]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "t2",
                     settings: [
                         .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
@@ -2032,7 +2032,7 @@ final class BuildPlanTests: XCTestCase {
             v: .v5,
             packageKind: .root,
             targets: [
-                TargetDescription(name: "exe", dependencies: []),
+                try TargetDescription(name: "exe", dependencies: []),
             ]
         )
 

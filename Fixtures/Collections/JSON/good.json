@@ -14,6 +14,10 @@
       "summary": "Package One",
       "keywords": ["sample package"],
       "readmeURL": "https://www.example.com/repos/RepoOne/README",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.example.com/repos/RepoOne/LICENSE"
+      },
       "versions": [
         {
           "version": "0.1.0",
@@ -37,12 +41,20 @@
           "minimumPlatformVersions": [
             { "name": "macOS", "version": "10.15" }
           ],
-          "verifiedPlatforms": [
-            { "name": "macOS" },
-            { "name": "iOS" },
-            { "name": "Linux" }
+          "verifiedCompatibility": [
+            {
+              "platform": { "name": "macOS" },
+              "swiftVersion": "5.1"
+            },
+            {
+              "platform": { "name": "iOS" },
+              "swiftVersion": "5.1"
+            },
+            {
+              "platform": { "name": "Linux" },
+              "swiftVersion": "5.1"
+            }
           ],
-          "verifiedSwiftVersions": ["5.1"],
           "license": {
             "name": "Apache-2.0",
             "url": "https://www.example.com/repos/RepoOne/LICENSE"
