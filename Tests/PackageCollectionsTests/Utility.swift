@@ -57,7 +57,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                                packageName: "package-\(packageIndex)",
                                                                targets: targets,
                                                                products: products,
-                                                               toolsVersion: .v5_3,
+                                                               toolsVersion: .currentToolsVersion,
                                                                minimumPlatformVersions: minimumPlatformVersions,
                                                                verifiedCompatibility: verifiedCompatibility,
                                                                license: license)
