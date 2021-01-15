@@ -371,7 +371,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   packageName: UUID().uuidString,
                                                                   targets: mockTargets,
                                                                   products: mockProducts,
-                                                                  toolsVersion: .currentToolsVersion,
+                                                                  toolsVersion: .v5_3,
                                                                   minimumPlatformVersions: nil,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
@@ -521,7 +521,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   packageName: UUID().uuidString,
                                                                   targets: mockTargets,
                                                                   products: mockProducts,
-                                                                  toolsVersion: .currentToolsVersion,
+                                                                  toolsVersion: .v5_3,
                                                                   minimumPlatformVersions: nil,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
@@ -823,7 +823,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                     packageName: "package-\(packageId)",
                                                     targets: targets,
                                                     products: products,
-                                                    toolsVersion: .currentToolsVersion,
+                                                    toolsVersion: .v5_3,
                                                     minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))],
                                                     verifiedCompatibility: [
                                                         .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
