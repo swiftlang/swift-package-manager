@@ -357,7 +357,7 @@ final class PackageToolTests: XCTestCase {
             name: "PackageA",
             path: "/PackageA",
             url: "/PackageA",
-            v: .currentToolsVersion,
+            v: .v5_3,
             packageKind: .root,
             dependencies: [
                 .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
@@ -375,7 +375,7 @@ final class PackageToolTests: XCTestCase {
             name: "PackageB",
             path: "/PackageB",
             url: "/PackageB",
-            v: .currentToolsVersion,
+            v: .v5_3,
             packageKind: .local,
             dependencies: [
                 .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
@@ -393,7 +393,7 @@ final class PackageToolTests: XCTestCase {
             name: "PackageC",
             path: "/PackageC",
             url: "/PackageC",
-            v: .currentToolsVersion,
+            v: .v5_3,
             packageKind: .local,
             dependencies: [
                 .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
@@ -410,7 +410,7 @@ final class PackageToolTests: XCTestCase {
             name: "PackageD",
             path: "/PackageD",
             url: "/PackageD",
-            v: .currentToolsVersion,
+            v: .v5_3,
             packageKind: .local,
             products: [
                 .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
