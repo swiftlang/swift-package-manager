@@ -87,6 +87,11 @@ let package = Package(
             type: .dynamic,
             targets: ["PackageDescription"]
         ),
+        
+        .library(
+            name: "PackageCollectionJSONModel",
+            targets: ["PackageCollectionJSONModel"]
+        ),
     ],
     targets: [
         // The `PackageDescription` targets define the API which is available to
@@ -139,11 +144,16 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
 
         // MARK: Package Collections
+        
+        .target(
+            /** JSON models for package collections */
+            name: "PackageCollectionJSONModel",
+            dependencies: []),
 
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionJSONModel"]),
 
         // MARK: Package Manager Functionality
 
@@ -249,6 +259,9 @@ let package = Package(
         .testTarget(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]),
+        .testTarget(
+            name: "PackageCollectionJSONModelTests",
+            dependencies: ["PackageCollectionJSONModel"]),
         .testTarget(
             name: "PackageCollectionsTests",
             dependencies: ["SPMTestSupport", "PackageCollections"]),
