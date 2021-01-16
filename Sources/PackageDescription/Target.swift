@@ -113,9 +113,9 @@ public final class Target {
 
     /// The `pkgconfig` name to use for a system library target.
     ///
-    /// If present, the Swift Package Manager tries to
-    /// search for the `<name>.pc` file to get the additional flags needed for the
-    /// system target.
+    /// If present, the Swift Package Manager tries for every pkg-config 
+    /// name separated by a space to search for the `<name>.pc` file 
+    /// to get the additional flags needed for the system target.
     public let pkgConfig: String?
 
     /// The providers array for a system library target.
