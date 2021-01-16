@@ -401,7 +401,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.4)
     public static func executableTarget(
        name: String,
        dependencies: [Dependency] = [],
