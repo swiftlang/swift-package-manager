@@ -357,7 +357,7 @@ final class PackageToolTests: XCTestCase {
             name: "PackageA",
             path: "/PackageA",
             url: "/PackageA",
-            v: .currentToolsVersion,
+            v: .v5_3,
             packageKind: .root,
             dependencies: [
                 .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
