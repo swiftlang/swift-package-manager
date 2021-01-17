@@ -330,5 +330,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-tools-support-core"),
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
+        .package(path: "../swift-crypto"),
     ]
 }

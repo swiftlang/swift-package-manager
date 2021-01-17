@@ -47,6 +47,7 @@ if(FIND_PM_DEPS)
   endif()
 
   find_package(ArgumentParser CONFIG REQUIRED)
+  find_package(Crypto CONFIG REQUIRED)
   find_package(SwiftDriver CONFIG REQUIRED)
 endif()
 
