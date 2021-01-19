@@ -232,6 +232,12 @@ extension JSONPackageCollectionModel.V1 {
 
         /// The Swift version
         public let swiftVersion: String
+
+        /// Creates a `Compatibility`
+        public init(platform: Platform, swiftVersion: String) {
+            self.platform = platform
+            self.swiftVersion = swiftVersion
+        }
     }
 
     public struct License: Equatable, Codable {
@@ -246,6 +252,27 @@ extension JSONPackageCollectionModel.V1 {
             self.name = name
             self.url = url
         }
+    }
+}
+
+extension JSONPackageCollectionModel.V1.Platform: Hashable {
+    public var hashValue: Int { name.hashValue }
+
+    public func hash(into hasher: inout Hasher) {
+        name.hash(into: &hasher)
+    }
+}
+
+extension JSONPackageCollectionModel.V1.Platform: Comparable {
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.name < rhs.name
+    }
+}
+
+extension JSONPackageCollectionModel.V1.Compatibility: Comparable {
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        if lhs.platform != rhs.platform { return lhs.platform < rhs.platform }
+        return lhs.swiftVersion < rhs.swiftVersion
     }
 }
 
