@@ -10,7 +10,7 @@
 
 import TSCBasic
 
-import PackageCollectionJSONModel
+import PackageCollectionsModel
 import PackageModel
 
 // MARK: - Model validations

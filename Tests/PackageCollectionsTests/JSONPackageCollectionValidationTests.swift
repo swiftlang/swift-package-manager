@@ -11,7 +11,7 @@
 import Foundation
 import XCTest
 
-@testable import PackageCollectionJSONModel
+@testable import PackageCollectionsModel
 @testable import PackageCollections
 import PackageModel
 

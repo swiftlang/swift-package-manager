@@ -14,7 +14,7 @@ import struct Foundation.Date
 import class Foundation.JSONDecoder
 import struct Foundation.URL
 
-import PackageCollectionJSONModel
+import PackageCollectionsModel
 import PackageModel
 import SourceControl
 import TSCBasic

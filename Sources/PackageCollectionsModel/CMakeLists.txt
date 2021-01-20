@@ -6,17 +6,17 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(PackageCollectionJSONModel
+add_library(PackageCollectionsModel
   JSONPackageCollection.swift
   JSONPackageCollection+v1.swift)
 
-set_target_properties(PackageCollectionJSONModel PROPERTIES
+set_target_properties(PackageCollectionsModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
 if(USE_CMAKE_INSTALL)
-install(TARGETS PackageCollectionJSONModel
+install(TARGETS PackageCollectionsModel
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 endif()
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageCollectionJSONModel)
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageCollectionsModel)

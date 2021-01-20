@@ -11,7 +11,7 @@
 import Foundation
 import XCTest
 
-@testable import PackageCollectionJSONModel
+@testable import PackageCollectionsModel
 
 class JSONPackageCollectionModelTests: XCTestCase {
     typealias Model = JSONPackageCollectionModel.V1

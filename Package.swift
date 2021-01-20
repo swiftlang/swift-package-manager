@@ -38,8 +38,8 @@ let package = Package(
             targets: [
                 "SourceControl",
                 "SPMLLBuild",
-                "PackageCollectionJSONModel",
                 "PackageCollections",
+                "PackageCollectionsModel",
                 "LLBuildManifest",
                 "PackageModel",
                 "PackageLoading",
@@ -55,8 +55,8 @@ let package = Package(
                 "SourceControl",
                 "SPMLLBuild",
                 "LLBuildManifest",
-                "PackageCollectionJSONModel",
                 "PackageCollections",
+                "PackageCollectionsModel",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -70,8 +70,8 @@ let package = Package(
             type: .dynamic,
             targets: [
                 "SourceControl",
-                "PackageCollectionJSONModel",
                 "PackageCollections",
+                "PackageCollectionsModel",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -92,8 +92,8 @@ let package = Package(
         ),
         
         .library(
-            name: "PackageCollectionJSONModel",
-            targets: ["PackageCollectionJSONModel"]
+            name: "PackageCollectionsModel",
+            targets: ["PackageCollectionsModel"]
         ),
     ],
     targets: [
@@ -149,14 +149,14 @@ let package = Package(
         // MARK: Package Collections
         
         .target(
-            /** JSON models for package collections */
-            name: "PackageCollectionJSONModel",
+            /** Package collections models */
+            name: "PackageCollectionsModel",
             dependencies: []),
 
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionJSONModel"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionsModel"]),
 
         // MARK: Package Manager Functionality
 
@@ -263,8 +263,8 @@ let package = Package(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]),
         .testTarget(
-            name: "PackageCollectionJSONModelTests",
-            dependencies: ["PackageCollectionJSONModel"]),
+            name: "PackageCollectionsModelTests",
+            dependencies: ["PackageCollectionsModel"]),
         .testTarget(
             name: "PackageCollectionsTests",
             dependencies: ["SPMTestSupport", "PackageCollections"]),
