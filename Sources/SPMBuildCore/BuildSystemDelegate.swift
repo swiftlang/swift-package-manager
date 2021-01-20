@@ -14,6 +14,7 @@ public protocol BuildSystemDelegate: AnyObject {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand)
     func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand)
     func buildSystem(_ buildSystem: BuildSystem, didFinishCommand command: BuildSystemCommand)
+    func buildSystem(_ buildSystem: BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int)
 
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem)
 

@@ -595,6 +595,7 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
 
     private func updateProgress() {
         if let progressText = taskTracker.latestFinishedText {
+            delegate?.buildSystem(buildSystem, didUpdateProgressWithText: progressText, finishedCount: taskTracker.finishedCount, totalCount: taskTracker.totalCount)
             progressAnimation.update(
                 step: taskTracker.finishedCount,
                 total: taskTracker.totalCount,
