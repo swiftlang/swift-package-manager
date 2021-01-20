@@ -14,14 +14,13 @@ SwiftPM records the result of dependency resolution in `Package.resolved` (at th
 
 ## Provide Credentials
 
-To resolve package dependencies that require authentication, or private packages, you need to provide credentials to your CI setup.
-Use SSH–based Git URLs for your packages and configure your SSH credentials. Set up your known_hosts file in the ~/.ssh directory of the user that runs your CI tasks. SwiftPM honors your SSH configuration - there's no additional setup required.
-If your SSH keys are password-protected, add them to the SSH agent before invoking SwiftPM by modifying the SSH configuration file.
+To resolve package dependencies that require authentication, such as private packages, you need to provide credentials to your CI setup.
+SwiftPM honors the machine's SSH configuration - there's no additional setup required on SwiftPM side. For private package, use the SSH-based Git URLs and configure SSH credentials. You may also need to set up a known_hosts file in the ~/.ssh directory of the user that runs your CI tasks.
 
-CI services like [Jenkins](https://www.jenkins.io/doc/book/using/using-credentials), [Github Action](https://docs.github.com/en/free-pro-team@latest/actions/reference/authentication-in-a-workflow), [TravisCI](https://docs.travis-ci.com/user/private-dependencies), [CircleCI](https://circleci.com/docs/2.0/gh-bb-integration/#security), are providing ways to set up credentials.
+CI services like [Jenkins](https://www.jenkins.io/doc/book/using/using-credentials), [Github Action](https://docs.github.com/en/free-pro-team@latest/actions/reference/authentication-in-a-workflow), [TravisCI](https://docs.travis-ci.com/user/private-dependencies), [CircleCI](https://circleci.com/docs/2.0/gh-bb-integration/#security) provide ways to set up SSH keys or other techniques to access private repositories.  Since SwiftPM uses git to clone the repositories there's no additional setup required on SwiftPM side, and SwiftPM will honor the machine's SSH and Git configuration.
 
 ## Using xcodebuild
 When building on macOS based CI hosts you can use the command-line tool `xcodebuild`.
-`xcodebuild` uses Xcode's built-in Git tooling to connect to repositories.  In many cases, you don't need to make changes to how xcodebuild connects to them. However, some use cases require you use the configuration you set for your Mac's Git installation (Some examples: URL remapping, Proxy configurations, Advanced SSH configurations).
+`xcodebuild` uses Xcode's built-in Git tooling to connect to repositories.  In many cases, you don't need to make changes to how xcodebuild connects to them.  However, some use cases require you use the configuration you set for your Mac's Git installation (Some examples: URL remapping, Proxy configurations, Advanced SSH configurations).  To have xcodebuild use your Mac's Git installation and configuration instead of Xcode's built-in Git tooling, pass `-scmProvider system` to the xcodebuild command.
 
-For more information on using xcodebuild, visit [this link](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
+For more information on using xcodebuild in continuous integration workflows, visit [this link](https://developer.apple.com/documentation/swift_packages/building_swift_packages_or_apps_that_use_them_in_continuous_integration_workflows).
