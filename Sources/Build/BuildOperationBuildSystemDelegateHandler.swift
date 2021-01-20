@@ -397,7 +397,9 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
         self.swiftParsers = swiftParsers
 
         self.taskTracker.onTaskProgressUpdateText = { progressText, targetName in
-            self.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: progressText, targetName: targetName)
+            self.queue.async {
+                self.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: progressText, targetName: targetName)
+            }
         }
     }
 
@@ -449,15 +451,16 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     }
 
     func commandPreparing(_ command: SPMLLBuild.Command) {
-        delegate?.buildSystem(buildSystem, willStartCommand: BuildSystemCommand(command))
+        queue.async {
+            self.delegate?.buildSystem(self.buildSystem, willStartCommand: BuildSystemCommand(command))
+        }
     }
 
     func commandStarted(_ command: SPMLLBuild.Command) {
-        delegate?.buildSystem(buildSystem, didStartCommand: BuildSystemCommand(command))
-
         guard command.shouldShowStatus else { return }
 
         queue.async {
+            self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(command))
             if self.isVerbose {
                 self.outputStream <<< command.verboseDescription <<< "\n"
                 self.outputStream.flush()
@@ -470,16 +473,17 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
     }
 
     func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult) {
-        delegate?.buildSystem(buildSystem, didFinishCommand: BuildSystemCommand(command))
-
-        guard !isVerbose else { return }
         guard command.shouldShowStatus else { return }
         guard !swiftParsers.keys.contains(command.name) else { return }
 
         queue.async {
-            let targetName = self.swiftParsers[command.name]?.targetName
-            self.taskTracker.commandFinished(command, result: result, targetName: targetName)
-            self.updateProgress()
+            self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
+            
+            if !self.isVerbose {
+                let targetName = self.swiftParsers[command.name]?.targetName
+                self.taskTracker.commandFinished(command, result: result, targetName: targetName)
+                self.updateProgress()
+            }
         }
     }
 
@@ -551,7 +555,10 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
 
     func cycleDetected(rules: [BuildKey]) {
         diagnostics.emit(.cycleError(rules: rules))
-        delegate?.buildSystemDidDetectCycleInRules(buildSystem)
+
+        queue.async {
+            self.delegate?.buildSystemDidDetectCycleInRules(self.buildSystem)
+        }
     }
 
     func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
