@@ -20,7 +20,7 @@ import TSCUtility
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
     /// The delegate used by the build system.
-    public private(set) weak var delegate: SPMBuildCore.BuildSystemDelegate?
+    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     /// The build parameters.
     public let buildParameters: BuildParameters
@@ -61,15 +61,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         diagnostics: DiagnosticsEngine,
-        stdoutStream: OutputByteStream,
-        delegate: SPMBuildCore.BuildSystemDelegate? = nil
+        stdoutStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
-        self.delegate = delegate
     }
 
     public func getPackageGraph() throws -> PackageGraph {
