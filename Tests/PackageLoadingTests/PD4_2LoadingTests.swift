@@ -360,6 +360,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     func testVersionSpecificLoadingOfVersion3Manifest() throws {
         // Create a temporary FS to hold the package manifests.
         let fs = InMemoryFileSystem()
+        
         // Write a regular manifest with a tools version comment, and a `Package@swift-3.swift` manifest without one.
         let packageDir = AbsolutePath.root
         let manifestContents = "import PackageDescription\nlet package = Package(name: \"Trivial\")"
@@ -372,6 +373,17 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         // Check we can load the manifest.
         let manifest = try manifestLoader.load(package: packageDir, baseURL: "/foo", toolsVersion: .v4_2, packageKind: .root, fileSystem: fs)
         XCTAssertEqual(manifest.name, "Trivial")
+        
+        // Switch it around so that the main manifest is now the one that doesn't have a comment.
+        try fs.writeFileContents(
+            packageDir.appending(component: Manifest.basename + ".swift"),
+            bytes: ByteString(encodingAsUTF8: manifestContents))
+        try fs.writeFileContents(
+            packageDir.appending(component: Manifest.basename + "@swift-4.swift"),
+            bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
+        // Check we can load the manifest.
+        let manifest2 = try manifestLoader.load(package: packageDir, baseURL: "/foo", toolsVersion: .v4_2, packageKind: .root, fileSystem: fs)
+        XCTAssertEqual(manifest2.name, "Trivial")
     }
 
     func testRuntimeManifestErrors() throws {
