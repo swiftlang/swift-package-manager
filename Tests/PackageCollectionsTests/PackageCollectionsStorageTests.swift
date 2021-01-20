@@ -196,4 +196,37 @@ class PackageCollectionsStorageTests: XCTestCase {
         _ = try tsc_await { callback in storage.put(collection: mockCollections.last!, callback: callback) }
         XCTAssertEqual(list.count, mockCollections.count)
     }
+    
+    func testPopulateTargetTrie() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let path = tmpPath.appending(component: "test.db")
+            let storage = SQLitePackageCollectionsStorage(path: path)
+            defer { XCTAssertNoThrow(try storage.close()) }
+
+            let mockCollections = makeMockCollections(count: 3)
+            try mockCollections.forEach { collection in
+                _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
+            }
+
+            let targetName = mockCollections.last!.packages.last!.versions.last!.targets.last!.name
+            
+            do {
+                let searchResult = try tsc_await { callback in storage.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
+                XCTAssert(searchResult.items.count > 0, "should get results")
+            }
+            
+            // Create another instance, which should read existing data and populate target trie with it.
+            // Since we are not calling `storage2.put`, there is no other way for target trie to get populated.
+            let storage2 = SQLitePackageCollectionsStorage(path: path)
+            defer { XCTAssertNoThrow(try storage2.close()) }
+            
+            // populateTargetTrie is called in `.init`; call it again explicitly so we know when it's finished
+            try tsc_await { callback in storage2.populateTargetTrie(callback: callback) }
+            
+            do {
+                let searchResult = try tsc_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
+                XCTAssert(searchResult.items.count > 0, "should get results")
+            }
+        }
+    }
 }
