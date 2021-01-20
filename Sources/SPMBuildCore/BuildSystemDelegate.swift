@@ -11,22 +11,22 @@
 import Foundation
 
 public protocol BuildSystemDelegate: AnyObject {
-    func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand)
-    func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand)
-    func buildSystem(_ buildSystem: BuildSystem, didFinishCommand command: BuildSystemCommand)
-    func buildSystem(_ buildSystem: BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int)
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, willStartCommand command: BuildSystemCommand)
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, didStartCommand command: BuildSystemCommand)
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, didFinishCommand command: BuildSystemCommand)
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int)
 
-    func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem)
+    func buildSystemDidDetectCycleInRules(_ buildSystem: SPMBuildCore.BuildSystem)
 
-    func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool)
-    func buildSystemDidCancel(_ buildSystem: BuildSystem)
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, didFinishWithResult success: Bool)
+    func buildSystemDidCancel(_ buildSystem: SPMBuildCore.BuildSystem)
 }
 
 public extension BuildSystemDelegate {
-    func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, willStartCommand command: BuildSystemCommand) { }
 
-    func buildSystem(_ buildSystem: BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int) { }
+    func buildSystem(_ buildSystem: SPMBuildCore.BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int) { }
 
-    func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem) { }
-    func buildSystemDidCancel(_ buildSystem: BuildSystem) { }
+    func buildSystemDidDetectCycleInRules(_ buildSystem: SPMBuildCore.BuildSystem) { }
+    func buildSystemDidCancel(_ buildSystem: SPMBuildCore.BuildSystem) { }
 }
