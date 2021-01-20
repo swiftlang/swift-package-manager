@@ -158,6 +158,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             ? VerboseProgressAnimation(stream: stdoutStream)
             : MultiLinePercentProgressAnimation(stream: stdoutStream, header: "")
         let delegate = XCBuildDelegate(
+            buildSystem: self,
             diagnostics: diagnostics,
             outputStream: stdoutStream,
             progressAnimation: progressAnimation)

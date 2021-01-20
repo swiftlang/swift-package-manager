@@ -396,9 +396,9 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
         } ?? [:]
         self.swiftParsers = swiftParsers
 
-        self.taskTracker.onTaskProgressUpdateText = { progressText, targetName in
+        self.taskTracker.onTaskProgressUpdateText = { progressText, _ in
             self.queue.async {
-                self.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: progressText, targetName: targetName)
+                self.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: progressText)
             }
         }
     }

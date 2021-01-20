@@ -19,7 +19,7 @@ public protocol BuildSystemDelegate: AnyObject {
     func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand)
 
     /// Called when build task did update progress.
-    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String, targetName: String?)
+    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String)
 
     /// Called when build command did finish.
     func buildSystem(_ buildSystem: BuildSystem, didFinishCommand command: BuildSystemCommand)
@@ -35,7 +35,7 @@ public protocol BuildSystemDelegate: AnyObject {
 
 public extension BuildSystemDelegate {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
-    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String, targetName: String?) { }
+    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String) { }
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem) { }
     func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) { }
     func buildSystemDidCancel(_ buildSystem: BuildSystem) { }

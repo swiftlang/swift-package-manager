@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-public struct BuildSystemCommand {
+public struct BuildSystemCommand: Hashable {
     public let name: String
     public let description: String
-    public let verboseDescription: String
+    public let verboseDescription: String?
 
-    public init(name: String, description: String, verboseDescription: String) {
+    public init(name: String, description: String, verboseDescription: String? = nil) {
         self.name = name
         self.description = description
         self.verboseDescription = verboseDescription
