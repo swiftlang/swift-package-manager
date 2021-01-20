@@ -126,7 +126,7 @@ public final class ThreadSafeArrayStore<Value> {
     }
 }
 
-/// Thread-safe value boxing structure
+/// Thread-safe value boxing  structure
 public final class ThreadSafeBox<Value> {
     private var underlying: Value?
     private let lock = Lock()

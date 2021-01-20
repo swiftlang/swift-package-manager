@@ -23,7 +23,6 @@ add_library(PackageCollections
   Storage/PackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsStorage.swift
   Storage/SQLitePackageCollectionsStorage.swift
-  Storage/Trie.swift
   API.swift
   PackageCollections.swift
   PackageCollections+Configuration.swift
