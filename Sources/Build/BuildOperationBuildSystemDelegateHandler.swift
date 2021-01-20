@@ -395,6 +395,10 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
         } ?? [:]
         self.swiftParsers = swiftParsers
+
+        self.taskTracker.onTaskProgressUpdateText = { progressText, targetName in
+            self.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: progressText, targetName: targetName)
+        }
     }
 
     // MARK: llbuildSwift.BuildSystemDelegate
@@ -595,7 +599,6 @@ final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDe
 
     private func updateProgress() {
         if let progressText = taskTracker.latestFinishedText {
-            delegate?.buildSystem(buildSystem, didUpdateProgressWithText: progressText, finishedCount: taskTracker.finishedCount, totalCount: taskTracker.totalCount)
             progressAnimation.update(
                 step: taskTracker.finishedCount,
                 total: taskTracker.totalCount,
@@ -612,6 +615,8 @@ fileprivate struct CommandTaskTracker {
 
     /// The last task text before the task list was emptied.
     private(set) var latestFinishedText: String?
+
+    var onTaskProgressUpdateText: ((_ text: String, _ targetName: String?) -> Void)?
 
     mutating func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
         switch kind {
@@ -634,7 +639,10 @@ fileprivate struct CommandTaskTracker {
     }
     
     mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
-        latestFinishedText = progressText(of: command, targetName: targetName)
+        let progressTextValue = progressText(of: command, targetName: targetName)
+        onTaskProgressUpdateText?(progressTextValue, targetName)
+
+        latestFinishedText = progressTextValue
 
         switch result {
         case .succeeded, .skipped:
@@ -651,6 +659,7 @@ fileprivate struct CommandTaskTracker {
         case .began(let info):
             if let text = progressText(of: message, targetName: targetName) {
                 swiftTaskProgressTexts[info.pid] = text
+                onTaskProgressUpdateText?(text, targetName)
             }
 
             totalCount += 1

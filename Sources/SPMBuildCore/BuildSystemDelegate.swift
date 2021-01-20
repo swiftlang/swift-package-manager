@@ -10,23 +10,33 @@
 
 import Foundation
 
+/// BuildSystem delegate
 public protocol BuildSystemDelegate: AnyObject {
+    ///Called when build command is about to start.
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand)
+
+    /// Called when build command did start.
     func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand)
+
+    /// Called when build task did update progress.
+    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String, targetName: String?)
+
+    /// Called when build command did finish.
     func buildSystem(_ buildSystem: BuildSystem, didFinishCommand command: BuildSystemCommand)
-    func buildSystem(_ buildSystem: BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int)
 
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem)
 
+    /// Called when build did finish.
     func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool)
+
+    /// Called when build did cancel
     func buildSystemDidCancel(_ buildSystem: BuildSystem)
 }
 
 public extension BuildSystemDelegate {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
-
-    func buildSystem(_ buildSystem: BuildSystem, didUpdateProgressWithText: String, finishedCount: Int, totalCount: Int) { }
-
+    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String, targetName: String?) { }
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem) { }
+    func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) { }
     func buildSystemDidCancel(_ buildSystem: BuildSystem) { }
 }
