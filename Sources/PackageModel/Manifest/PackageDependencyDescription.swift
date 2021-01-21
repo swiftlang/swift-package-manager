@@ -68,7 +68,7 @@ public struct PackageDependencyDescription: Equatable, Codable, Hashable {
         }
 
         self.explicitName = name
-        self.name = name ?? PackageReference.computeDefaultName(fromURL: normalizedURL)
+        self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: normalizedURL)
         self.url = normalizedURL
         self.requirement = requirement
         self.productFilter = productFilter

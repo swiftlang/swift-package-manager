@@ -95,7 +95,7 @@ public enum DependencyResolutionNode {
         // Don’t create a version lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
-            container: package,
+            package: package,
             versionRequirement: .exact(version),
             products: .specific([])
         )
@@ -108,7 +108,7 @@ public enum DependencyResolutionNode {
         // Don’t create a revision lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
-            container: package,
+            package: package,
             requirement: .revision(revision),
             products: .specific([])
         )

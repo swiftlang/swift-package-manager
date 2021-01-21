@@ -94,7 +94,34 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 
     /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {
-        self.description = PackageReference.computeDefaultName(fromURL: string).lowercased()
+        self.description = Self.computeDefaultName(fromURL: string).lowercased()
+    }
+
+    /// Compute the default name of a package given its URL.
+    public static func computeDefaultName(fromURL url: String) -> String {
+        #if os(Windows)
+        let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
+        #else
+        let isSeparator : (Character) -> Bool = { $0 == "/" }
+        #endif
+
+        // Get the last path component of the URL.
+        // Drop the last character in case it's a trailing slash.
+        var endIndex = url.endIndex
+        if let lastCharacter = url.last, isSeparator(lastCharacter) {
+            endIndex = url.index(before: endIndex)
+        }
+
+        let separatorIndex = url[..<endIndex].lastIndex(where: isSeparator)
+        let startIndex = separatorIndex.map { url.index(after: $0) } ?? url.startIndex
+        var lastComponent = url[startIndex..<endIndex]
+
+        // Strip `.git` suffix if present.
+        if lastComponent.hasSuffix(".git") {
+            lastComponent = lastComponent.dropLast(4)
+        }
+
+        return String(lastComponent)
     }
 }
 

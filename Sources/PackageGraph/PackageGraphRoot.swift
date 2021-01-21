@@ -49,7 +49,7 @@ public struct PackageGraphRoot {
     public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
         self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
             let identity = PackageIdentity(url: manifest.url)
-            return PackageReference(identity: identity, path: path.pathString, kind: .root)
+            return .root(identity: identity, path: path)
         }
         self.manifests = manifests
 
@@ -73,11 +73,11 @@ public struct PackageGraphRoot {
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
         let constraints = packageRefs.map({
-            PackageContainerConstraint(container: $0, requirement: .unversioned, products: .everything)
+            PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
         })
         return constraints + dependencies.map({
             PackageContainerConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
+                package: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
                 products: $0.productFilter
             )

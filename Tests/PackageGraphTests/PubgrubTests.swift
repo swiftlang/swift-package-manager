@@ -54,11 +54,11 @@ private let v1_5Range: VersionSetSpecifier = .range(v1_5..<v2)
 private let v1to3Range: VersionSetSpecifier = .range(v1..<v3)
 private let v2Range: VersionSetSpecifier = .range(v2..<v3)
 
-let aRef = PackageReference(identity: PackageIdentity("a"), path: "")
-let bRef = PackageReference(identity: PackageIdentity("b"), path: "")
-let cRef = PackageReference(identity: PackageIdentity("c"), path: "")
+let aRef = PackageReference.remote(identity: PackageIdentity("a"), location: "")
+let bRef = PackageReference.remote(identity: PackageIdentity("b"), location: "")
+let cRef = PackageReference.remote(identity: PackageIdentity("c"), location: "")
 
-let rootRef = PackageReference(identity: PackageIdentity("root"), path: "", kind: .root)
+let rootRef = PackageReference.root(identity: PackageIdentity("root"), path: .root)
 let rootNode = DependencyResolutionNode.root(package: rootRef)
 let rootCause = try! Incompatibility(Term(rootNode, .exact(v1)), root: rootNode)
 let _cause = try! Incompatibility("cause@0.0.0", root: rootNode)
@@ -301,8 +301,8 @@ final class PubgrubTests: XCTestCase {
 
     func testUpdatePackageIdentifierAfterResolution() {
         let fooURL = "https://example.com/foo"
-        let fooRef = PackageReference(identity: PackageIdentity(url: fooURL), path: fooURL)
-        let foo = MockContainer(name: fooRef, dependenciesByVersion: [v1: [:]])
+        let fooRef = PackageReference.remote(identity: PackageIdentity(url: fooURL), location: fooURL)
+        let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
 
         let provider = MockProvider(containers: [foo])
@@ -341,7 +341,7 @@ final class PubgrubTests: XCTestCase {
         // No decision can be made if no unsatisfied terms are available.
         XCTAssertNil(try tsc_await { solver1.makeDecision(state: state1, completion: $0) })
 
-        let a = MockContainer(name: aRef, dependenciesByVersion: [
+        let a = MockContainer(package: aRef, dependenciesByVersion: [
             "0.0.0": [:],
             v1: ["a": [(package: bRef, requirement: v1Range, productFilter: .specific(["b"]))]]
         ])
@@ -395,7 +395,7 @@ final class PubgrubTests: XCTestCase {
                                     root: rootNode), at: .topLevel)
         state2.decide(rootNode, at: v1)
         XCTAssertEqual(state2.solution.assignments.count, 1)
-        try solver2.propagate(state: state2, node: .root(package: PackageReference(identity: PackageIdentity("root"), path: "")))
+        try solver2.propagate(state: state2, node: .root(package: .root(identity: PackageIdentity("root"), path: .root)))
         XCTAssertEqual(state2.solution.assignments.count, 2)
     }
 
@@ -1911,16 +1911,12 @@ private func AssertError(
 public class MockContainer: PackageContainer {
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)
 
-    var name: PackageReference
+    public var package: PackageReference
     var manifestName: PackageReference?
 
     var dependencies: [String: [String: [Dependency]]]
 
     public var unversionedDeps: [PackageContainerConstraint] = []
-
-    public var identifier: PackageReference {
-        return name
-    }
 
     /// The list of versions that have incompatible tools version.
     var toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
@@ -1978,8 +1974,8 @@ public class MockContainer: PackageContainer {
             filteredDependencies.append(contentsOf: productDependencies)
         }
         return filteredDependencies.map({ value in
-            let (name, requirement, filter) = value
-            return PackageContainerConstraint(container: name, requirement: requirement, products: filter)
+            let (package, requirement, filter) = value
+            return PackageContainerConstraint(package: package, requirement: requirement, products: filter)
         })
     }
 
@@ -1993,9 +1989,9 @@ public class MockContainer: PackageContainer {
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
         if let manifestName = manifestName {
-            name = name.with(newName: manifestName.identity.description)
+            self.package = self.package.with(newName: manifestName.identity.description)
         }
-        return name
+        return self.package
     }
 
     func appendVersion(_ version: BoundVersion) {
@@ -2010,16 +2006,16 @@ public class MockContainer: PackageContainer {
     }
 
     public convenience init(
-        name: PackageReference,
+        package: PackageReference,
         unversionedDependencies: [(package: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)]
-        ) {
-        self.init(name: name)
+    ) {
+        self.init(package: package)
         self.unversionedDeps = unversionedDependencies
-            .map { PackageContainerConstraint(container: $0.package, requirement: $0.requirement, products: $0.productFilter) }
+            .map { PackageContainerConstraint(package: $0.package, requirement: $0.requirement, products: $0.productFilter) }
     }
 
     public convenience init(
-        name: PackageReference,
+        package: PackageReference,
         dependenciesByVersion: [Version: [String: [(
             package: PackageReference,
             requirement: VersionSetSpecifier,
@@ -2036,14 +2032,14 @@ public class MockContainer: PackageContainer {
                 })
             }
         }
-        self.init(name: name, dependencies: dependencies)
+        self.init(package: package, dependencies: dependencies)
     }
 
     public init(
-        name: PackageReference,
+        package: PackageReference,
         dependencies: [String: [String: [Dependency]]] = [:]
-        ) {
-        self.name = name
+    ) {
+        self.package = package
         self.dependencies = dependencies
         let versions = dependencies.keys.compactMap(Version.init(string:))
         self._versions = versions
@@ -2064,17 +2060,17 @@ public struct MockProvider: PackageContainerProvider {
 
     public init(containers: [MockContainer]) {
         self.containers = containers
-        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.identifier, $0) }))
+        self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.package, $0) }))
     }
 
     public func getContainer(
-        for identifier: PackageReference,
+        for package: PackageReference,
         skipUpdate: Bool,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>
     ) -> Void) {
         queue.async {
-            completion(self.containersByIdentifier[identifier].map{ .success($0) } ??
+            completion(self.containersByIdentifier[package].map{ .success($0) } ??
                 .failure(_MockLoadingError.unknownModule))
         }
     }
@@ -2088,7 +2084,7 @@ class DependencyGraphBuilder {
         if let reference = self.references[packageName] {
             return reference
         }
-        let newReference = PackageReference(identity: PackageIdentity(packageName), path: "/\(packageName)")
+        let newReference = PackageReference.remote(identity: PackageIdentity(packageName), location: "/\(packageName)")
         self.references[packageName] = newReference
         return newReference
     }
@@ -2097,7 +2093,7 @@ class DependencyGraphBuilder {
         dependencies: OrderedDictionary<String, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
         return dependencies.map {
-            PackageContainerConstraint(container: reference(for: $0), requirement: $1.0, products: $1.1)
+            PackageContainerConstraint(package: reference(for: $0), requirement: $1.0, products: $1.1)
         }
     }
 
@@ -2117,7 +2113,7 @@ class DependencyGraphBuilder {
         with dependencies: OrderedDictionary<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
-        let container = self.containers[package] ?? MockContainer(name: packageReference)
+        let container = self.containers[package] ?? MockContainer(package: packageReference)
 
         if case .version(let v) = version {
             container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
@@ -2193,7 +2189,7 @@ extension Term: ExpressibleByStringLiteral {
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
         }
 
-        let packageReference = PackageReference(identity: PackageIdentity(components[0]), path: "", name: components[0])
+        let packageReference = PackageReference(identity: PackageIdentity(components[0]), kind: .remote, location: "", name: components[0])
 
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
@@ -2206,12 +2202,12 @@ extension Term: ExpressibleByStringLiteral {
 
 extension PackageReference: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        let ref = PackageReference(identity: PackageIdentity(value), path: "")
+        let ref = PackageReference.remote(identity: PackageIdentity(value), location: "")
         self = ref
     }
 
     init(_ name: String) {
-        self.init(identity: PackageIdentity(name), path: "")
+        self.init(identity: PackageIdentity(name), kind: .remote, location: "")
     }
 }
 extension Result where Success == [DependencyResolver.Binding] {
