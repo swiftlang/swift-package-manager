@@ -99,7 +99,21 @@ extension Manifest {
             else {
                 versionSpecificManifestToolsVersion = try toolsVersionLoader.load(file: versionSpecificManifest, fileSystem: fileSystem)
             }
-            let regularManifestToolsVersion = try toolsVersionLoader.load(file: regularManifest, fileSystem: fileSystem)
+
+            // Try to get the tools version of the regular manifest.  At the comment marker is missing, we default to
+            // tools version 3.1.0 (as documented).
+            let regularManifestToolsVersion: ToolsVersion
+            do {
+                regularManifestToolsVersion = try toolsVersionLoader.load(file: regularManifest, fileSystem: fileSystem)
+            }
+            catch {
+                if case ToolsVersionLoader.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error {
+                    regularManifestToolsVersion = .v3
+                }
+                else {
+                    throw error
+                }
+            }
 
             // Compare the tools version of this manifest with the regular
             // manifest and use the version-specific manifest if it has
