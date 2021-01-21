@@ -684,26 +684,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
             useSearchIndices.put(true)
         } catch {
-            // These DDL statements work but queries yield different results when run on different
+            // We can use FTS3 tables but queries yield different results when run on different
             // platforms. This could be because of SQLite version perhaps? But since we can't get
             // consistent results we will not fallback to FTS3 and just give up if FTS4 is not available.
-            /*
-             let ftsPackages = """
-                 CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.packagesFTSName) USING fts3(
-                     collection_id_blob_base64, id, version, name, repository_url, summary, keywords, products, targets,
-                     tokenize=simple
-                 );
-             """
-             try db.exec(query: ftsPackages)
-
-             let ftsTargets = """
-                 CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.targetsFTSName) USING fts3(
-                     collection_id_blob_base64, package_repository_url, name,
-                     tokenize=porter
-                 );
-             """
-             try db.exec(query: ftsTargets)
-             */
             useSearchIndices.put(false)
         }
 
