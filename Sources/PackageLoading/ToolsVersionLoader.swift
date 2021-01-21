@@ -8,23 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-// FIXME: Be careful when replacing "Next" with a concrete version number.
-// "Next" in `ToolsVersionLoader` and `ToolsVersionLoaderTests` can not be replaced using a simple text-level search-and-replace. Please consider the following suggestions:
-// Assuming that Swift Next is Swift 5.4, then
-// 1. If "Next" is in a symbol such as a type or variable name, then it should be replaced by "5_4".
-// 2. If "Next" is not in a symbol, then it can be replaced by "5.4".
-// 3. If "Next" is in a string, it's likely an error message, so it must be replaced in tandem with its corresponding assertions in `ToolsVersionTests`.
-// 4. If "Next" is in a comment, then make sure no chart is misaligned after the replacement.
-// 5. Swift Next is assumed to be Swift 5.4, so some comments use version strings like "5:4:0" or "5-4-1" to illustrate misspelt versions. If it Swift Next turns out to be a different version, such as Swift 5.3.2 or Swift 6, then those version strings in comments need to be changed.
-// Alternatively, it might be easier to revert the commit (not the merge commit) that this comment is from, then do the following in both `ToolsVersionLoader` and `ToolsVersionLoaderTests`:
-// Assuming that Swift Next is Swift 5.4, then
-// 1. Replace all occurrences of "5_3_1" with "5_4".
-// 2. Replace all occurrences of "≤ 5.3" with "< 5.4".
-// 3. Replace all occurrences of "> 5.3" with "≥ 5.4".
-// 4. Replace all occurrences of "5.3.1" with "5.4".
-// 5. Replace version strings such as "5:3:1" and "5-3-1" with "5:4:1" and "5-4-1".
-// 6. Maintain alignments in charts in some comments.
-
 import TSCBasic
 import PackageModel
 import TSCUtility
@@ -175,17 +158,17 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
             case unidentified
         }
         
-        /// Details of backward-incompatible contents with Swift tools version < Next.
+        /// Details of backward-incompatible contents with Swift tools version < 5.4.
         ///
         /// A backward-incompatibility is not necessarily a malformation.
-        public enum BackwardIncompatibilityPreNext {
+        public enum BackwardIncompatibilityPre5_4 {
             /// The whitespace at the start of the manifest is not all `U+000A`.
             case leadingWhitespace(_ whitespace: String)
-            /// The horizontal spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift < Next.
+            /// The horizontal spacing between "//" and  "swift-tools-version" either is empty or uses whitespace characters unsupported by Swift < 5.4.
             case spacingAfterCommentMarker(_ spacing: String)
             /// There is a non-empty spacing between the label part of the Swift tools version specification and the version specifier.
             case spacingAfterLabel(_ spacing: String)
-            /// There is an unidentifiable backward-incompatibility with Swift tools version < Next within the manifest.
+            /// There is an unidentifiable backward-incompatibility with Swift tools version < 5.4 within the manifest.
             case unidentified
         }
         
@@ -197,8 +180,8 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         case nonUTF8EncodedManifest(path: AbsolutePath)
         /// Malformed tools version specification.
         case malformedToolsVersionSpecification(_ malformationLocation: ToolsVersionSpecificationMalformationLocation)
-        /// Backward-incompatible contents with Swift tools version < Next.
-        case backwardIncompatiblePreNext(_ incompatibility: BackwardIncompatibilityPreNext, specifiedVersion: ToolsVersion)
+        /// Backward-incompatible contents with Swift tools version < 5.4.
+        case backwardIncompatiblePre5_4(_ incompatibility: BackwardIncompatibilityPre5_4, specifiedVersion: ToolsVersion)
 
         public var description: String {
             
@@ -254,16 +237,16 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .unidentified:
                     return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
-            case let .backwardIncompatiblePreNext(incompatibility, specifiedVersion):
+            case let .backwardIncompatiblePre5_4(incompatibility, specifiedVersion):
                 switch incompatibility {
                 case .leadingWhitespace(let whitespace):
-                    return "leading whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: whitespace)) in manifest is supported by only Swift ≥ Next; the specified version \(specifiedVersion) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
+                    return "leading whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: whitespace)) in manifest is supported by only Swift ≥ 5.4; the specified version \(specifiedVersion) supports only line feeds (U+000A) preceding the Swift tools version specification; consider moving the Swift tools version specification to the first line of the manifest"
                 case .spacingAfterCommentMarker(let spacing):
-                    return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift ≥ Next; consider replacing the sequence with a single space (U+0020) for Swift \(specifiedVersion)"
+                    return "\(spacing.isEmpty ? "zero spacing" : "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing))") between '//' and 'swift-tools-version' is supported by only Swift ≥ 5.4; consider replacing the sequence with a single space (U+0020) for Swift \(specifiedVersion)"
                 case .spacingAfterLabel(let spacing):
-                    return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift ≥ Next; consider removing the sequence for Swift \(specifiedVersion)"
+                    return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift ≥ 5.4; consider removing the sequence for Swift \(specifiedVersion)"
                 case .unidentified:
-                    return "the manifest is backward-incompatible with Swift < Next, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '// swift-tools-version:\(specifiedVersion)' to specify Swift \(specifiedVersion) as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
+                    return "the manifest is backward-incompatible with Swift < 5.4, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '// swift-tools-version:\(specifiedVersion)' to specify Swift \(specifiedVersion) as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             }
             
@@ -278,9 +261,9 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         public let toolsVersionSpecificationComponents: ToolsVersionSpecificationComponents
         /// The remaining contents of the manifest that follows right after the tools version specification line.
         public let contentsAfterToolsVersionSpecification: Substring
-        /// A Boolean value indicating whether the manifest represented in its constituent parts is backward-compatible with Swift < Next.
-        public var isCompatibleWithPreSwiftNext: Bool {
-            leadingWhitespace.allSatisfy { $0 == "\n" } && toolsVersionSpecificationComponents.isCompatibleWithPreSwiftNext
+        /// A Boolean value indicating whether the manifest represented in its constituent parts is backward-compatible with Swift < 5.4.
+        public var isCompatibleWithPreSwift5_4: Bool {
+            leadingWhitespace.allSatisfy { $0 == "\n" } && toolsVersionSpecificationComponents.isCompatibleWithPreSwift5_4
         }
     }
     
@@ -288,8 +271,8 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
     ///
     /// A Swift tools version specification consists of the following parts:
     ///
-    ///     //  swift-tools-version:  Next
-    ///     ⌃~⌃~⌃~~~~~~~~~~~~~~~~~~~⌃~⌃~~~
+    ///     //  swift-tools-version:  5.4
+    ///     ⌃~⌃~⌃~~~~~~~~~~~~~~~~~~~⌃~⌃~~
     ///     │ │ └ label             │ └ version specifier
     ///     │ └ spacing             └ spacing
     ///     └ comment marker
@@ -304,7 +287,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         ///
         /// In a well-formed Swift tools version specification, the spacing after the comment marker is a continuous sequence of horizontal whitespace characters.
         ///
-        /// For Swift < Next, the spacing after the comment marker must be a single `U+0020`.
+        /// For Swift < 5.4, the spacing after the comment marker must be a single `U+0020`.
         public let spacingAfterCommentMarker: Substring
         
         /// The label part of the Swift tools version specification.
@@ -316,7 +299,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         ///
         /// In a well-formed Swift tools version specification, the spacing after the label is a continuous sequence of horizontal whitespace characters.
         ///
-        /// For Swift < Next, no spacing is allowed after the label.
+        /// For Swift < 5.4, no spacing is allowed after the label.
         public let spacingAfterLabel: Substring
         
         /// The version specifier.
@@ -337,8 +320,8 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
             commentMarker == "//" && label.lowercased() == "swift-tools-version:"
         }
         
-        /// A Boolean value indicating whether the Swift tools version specification represented in its constituent parts is backward-compatible with Swift < Next.
-        public var isCompatibleWithPreSwiftNext: Bool {
+        /// A Boolean value indicating whether the Swift tools version specification represented in its constituent parts is backward-compatible with Swift < 5.4.
+        public var isCompatibleWithPreSwift5_4: Bool {
             everythingUpToVersionSpecifierIsWellFormed && spacingAfterCommentMarker == "\u{20}" && spacingAfterLabel.isEmpty
         }
     }
@@ -366,7 +349,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         // FIXME: This is doubly inefficient.
         // `contents`'s value comes from `FileSystem.readFileContents(_)`, which is [inefficient](https://github.com/apple/swift-tools-support-core/blob/8f9838e5d4fefa0e12267a1ff87d67c40c6d4214/Sources/TSCBasic/FileSystem.swift#L167). Calling `ByteString.validDescription` on `contents` is also [inefficient, and possibly incorrect](https://github.com/apple/swift-tools-support-core/blob/8f9838e5d4fefa0e12267a1ff87d67c40c6d4214/Sources/TSCBasic/ByteString.swift#L121). However, this is a one-time thing for each package manifest, and almost necessary in order to work with all Unicode line-terminators. We probably can improve its efficiency and correctness by using `URL` for the file's path, and get is content via `Foundation.String(contentsOf:encoding:)`. Swift System's [`FilePath`](https://github.com/apple/swift-system/blob/8ffa04c0a0592e6f4f9c30926dedd8fa1c5371f9/Sources/System/FilePath.swift) and friends might help as well.
         // This is source-breaking.
-        // A manifest that has an [invalid byte sequence](https://en.wikipedia.org/wiki/UTF-8#Invalid_sequences_and_error_handling) (such as `0x7F8F`) after the tools version specification line could work in Swift < Next, but results in an error since Swift Next.
+        // A manifest that has an [invalid byte sequence](https://en.wikipedia.org/wiki/UTF-8#Invalid_sequences_and_error_handling) (such as `0x7F8F`) after the tools version specification line could work in Swift < 5.4, but results in an error since Swift 5.4.
         guard let manifestContentsDecodedWithUTF8 = manifestContents.validDescription else {
             throw Error.nonUTF8EncodedManifest(path: file)
         }
@@ -380,7 +363,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         //
         // 1. Check that the comment marker, the label, and the version specifier in the Swift tools version specification are not missing (empty).
         //
-        // 2. Check that everything in the Swift tools version specification up to the version specifier is formatted correctly according to the relaxed rules since Swift Next. Backward-compatibility is not considered here, because the user-specified version is unknown yet.
+        // 2. Check that everything in the Swift tools version specification up to the version specifier is formatted correctly according to the relaxed rules since Swift 5.4. Backward-compatibility is not considered here, because the user-specified version is unknown yet.
         //
         //    1. Check that the comment marker is formatted correctly.
         //
@@ -390,13 +373,13 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         //
         // 3. Check that the version spicier is formatted correctly.
         //
-        // 4. Check that the manifest is formatted backward-compatibly, if the user-specified version is < Next. Backward-compatibility checks are now possible, because the user-specified version has become known since the previous step.
+        // 4. Check that the manifest is formatted backward-compatibly, if the user-specified version is < 5.4. Backward-compatibility checks are now possible, because the user-specified version has become known since the previous step.
         //
-        //    1. Check that the manifest's leading whitespace is backward-compatible with Swift < Next.
+        //    1. Check that the manifest's leading whitespace is backward-compatible with Swift < 5.4.
         //
-        //    2. Check that the spacing after the comment marker in the Swift tools version specification is backward-compatible with Swift < Next.
+        //    2. Check that the spacing after the comment marker in the Swift tools version specification is backward-compatible with Swift < 5.4.
         //
-        //    3. Check that the spacing after the label in the Swift tools version specification is backward-compatible with Swift < Next.
+        //    3. Check that the spacing after the label in the Swift tools version specification is backward-compatible with Swift < 5.4.
         //
         // This order is based on the general idea that a manifest's readability should come before its validity when being diagnosed. The package manager must first understand what is written in the manifest before it can tell if anything is wrong. This idea is manifested (no pun intended) in 2 areas of the diagnosis process:
         //
@@ -447,25 +430,25 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
             throw Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(String(versionSpecifier))))
         }
         
-        guard version > .vNext || manifestComponents.isCompatibleWithPreSwiftNext else {
+        guard version >= .v5_4 || manifestComponents.isCompatibleWithPreSwift5_4 else {
             let manifestLeadingWhitespace = manifestComponents.leadingWhitespace
             if !manifestLeadingWhitespace.allSatisfy({ $0 == "\n" }) {
-                throw Error.backwardIncompatiblePreNext(.leadingWhitespace(String(manifestLeadingWhitespace)), specifiedVersion: version)
+                throw Error.backwardIncompatiblePre5_4(.leadingWhitespace(String(manifestLeadingWhitespace)), specifiedVersion: version)
             }
             
             let spacingAfterCommentMarker = toolsVersionSpecificationComponents.spacingAfterCommentMarker
             if spacingAfterCommentMarker != "\u{20}" {
-                throw Error.backwardIncompatiblePreNext(.spacingAfterCommentMarker(String(spacingAfterCommentMarker)), specifiedVersion: version)
+                throw Error.backwardIncompatiblePre5_4(.spacingAfterCommentMarker(String(spacingAfterCommentMarker)), specifiedVersion: version)
             }
             
             let spacingAfterLabel = toolsVersionSpecificationComponents.spacingAfterLabel
             if !spacingAfterLabel.isEmpty {
-                throw Error.backwardIncompatiblePreNext(.spacingAfterLabel(String(spacingAfterLabel)), specifiedVersion: version)
+                throw Error.backwardIncompatiblePre5_4(.spacingAfterLabel(String(spacingAfterLabel)), specifiedVersion: version)
             }
             
-            // The above If-statements should have covered all possible backward incompatibilities with Swift < Next.
+            // The above If-statements should have covered all possible backward incompatibilities with Swift < 5.4.
             // If you changed the logic in this file, and this fatal error is triggered, then you need to re-check the logic, and make sure all possible error conditions are covered in the Else-block.
-            throw Error.backwardIncompatiblePreNext(.unidentified, specifiedVersion: version)
+            throw Error.backwardIncompatiblePre5_4(.unidentified, specifiedVersion: version)
         }
         
         return version
@@ -475,26 +458,26 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
     ///
     /// A manifest consists of the following parts:
     ///
-    ///                                                      ⎫
-    ///                                                      ⎪
-    ///                                                      ⎬ leading whitespace-only lines
-    ///                                                      ⎪
-    ///                                                      ⎭
+    ///                                                    ⎫
+    ///                                                    ⎪
+    ///                                                    ⎬ leading whitespace-only lines
+    ///                                                    ⎪
+    ///                                                    ⎭
     ///       ┌ Swift tools version specification
-    ///       │                             ┌ ignored trailing contents
-    ///       ⌄~~~~~~~~~~~~~~~~~~~~~~~~~~~~~⌄~~~~~~~~~~
-    ///       //  swift-tools-version:  Next;2020-09-16     } the Swift tools version specification line
-    ///     ⌃~⌃~⌃~⌃~~~~~~~~~~~~~~~~~~~⌃~⌃~~~⌃⌃~~~~~~~~~
-    ///     │ │ │ └ label             │ │   │└ trailing comment segment including a trailing line terminator, if any (not returned by this function)
-    ///     │ │ └ spacing             │ │   └ specification terminator (not returned by this function)
+    ///       │                            ┌ ignored trailing contents
+    ///       ⌄~~~~~~~~~~~~~~~~~~~~~~~~~~~~⌄~~~~~~~~~~
+    ///       //  swift-tools-version:  5.4;2020-09-16     } the Swift tools version specification line
+    ///     ⌃~⌃~⌃~⌃~~~~~~~~~~~~~~~~~~~⌃~⌃~~⌃⌃~~~~~~~~~
+    ///     │ │ │ └ label             │ │  │└ trailing comment segment including a trailing line terminator, if any (not returned by this function)
+    ///     │ │ └ spacing             │ │  └ specification terminator (not returned by this function)
     ///     │ └ comment marker        │ └ version specifier
     ///     │                         └ spacing
     ///     └ additional leading whitespace
-    ///                                                      ⎫
-    ///                                                      ┇
-    ///                                                      ⎬ the rest of the manifest's contents
-    ///                                                      ┇
-    ///                                                      ⎭
+    ///                                                    ⎫
+    ///                                                    ┇
+    ///                                                    ⎬ the rest of the manifest's contents
+    ///                                                    ┇
+    ///                                                    ⎭
     ///
     /// - Note: The splitting mostly assumes that the manifest is well-formed. A malformed component may lead to incorrect identification of other components.
     ///
@@ -560,28 +543,28 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         //
         // 1. A well-formatted Swift tools version specification
         //
-        //        // swift-tools-version: Next
+        //        // swift-tools-version: 5.4
         //
         //    The `endIndex` of the label can be clearly identified with the first ":", and the `startIndex` of the version specifier can be clearly identified with the first digit "5".
         //
         // 2. A misspelt label with a digit within:
         //
-        //        // swift-too1s-version: Next
+        //        // swift-too1s-version: 5.4
         //    The `endIndex` of the label can be identified with the first ":"; the `startIndex` of the version specifier can be identified with the digit "5", if and only if the search for the first ":" takes precedence.
         //
         // 3. A misspelt label with a colon and a digit within:
         //
-        //        // sw:ft-too1s-version: Next
+        //        // sw:ft-too1s-version: 5.4
         //
         //    The `endIndex` of the label can be identified with the last ":";  the `startIndex` of the version specifier can be identified with the digit "5", if and only if the search for the last ":" takes precedence.
         //
         // Between example 2 and 3, the rules are already conflicting. Although the examples above are purposely constructed to illustrate the ineffectiveness of using ":" and digits to locate the label and the version specifier, it's undeniable a human can flawlessly point out where the labels and version specifiers are at a glance. There are more examples that shows it's even harder to find a one-size-fits-all landmark-based rule than illustrated above:
         //
-        //     // swift-too1s-version:-Next
+        //     // swift-too1s-version:-5.4
         //     // swift-too1s-version 5:4:0
         //     // swift tools version 5-4-1
         //     // swift-tools-version: S.A.I
-        //     // swift-tools-version::Next
+        //     // swift-tools-version::5.4
         //     ...
         //
         // One useful information we can glean from these examples is that using both ":" and digits as landmarks doesn't work, so it's better to stick with just one of them and ignore the other. Because the version specifier is the more important component than the label is, the current implementation of this function searches for the first numerical character in the sequence to prioritize the identification of the version specifier. The ":"-first approach isn't completely abandoned, either: If the sequence is prefixed with "swift-tools-version:" (case-insensitive), then we can be mostly certain that the user has provided a well-formatted label, and use the position past that of the first ":" in the sequence as the `startIndex` of the label. There are still countless label misspellings that begin with "swift-tools-version:", but since for all of them, the misspelt part comes after the well-formed part, in the interest of keeping the logic relatively straightforward, the labels' misspellings in this sort of situation are carried over as the version specifiers'.
@@ -617,18 +600,18 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
             // `Character.isNumber` is true for more than just decimal characters (e.g. ㊅ and 𝟘), but `CharacterSet.contains(_:)` works only on Unicode scalars.
             startIndexOfVersionSpecifier = specificationSnippetFromLabelToLineTerminator.firstIndex(where: \.isNumber) ?? specificationWithIgnoredTrailingContents.endIndex
             /// The label part of the Swift tools version specification with the whitespace sequence between the label and the version specifier.
-            /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: Next"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label with no spacing following it.
+            /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.4"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label with no spacing following it.
             let labelWithTrailingWhitespace = specificationWithIgnoredTrailingContents[startIndexOfLabel..<startIndexOfVersionSpecifier]
             // Because there is no whitespace within the label, and because the spacing consists of only horizontal whitespace characters, the end index of the label is the same as the position of the first whitespace character between the beginning of the label and the beginning of the version specifier. If no such whitespace character exists, then there is no spacing, and so this position is the `endIndex` of these sequence of characters (i.e. the starting position of the version specifier).
             endIndexOfLabel = labelWithTrailingWhitespace.firstIndex(where: \.isWhitespace) ?? startIndexOfVersionSpecifier
         }
         
         /// The label part of the Swift tools version specification.
-        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: Next"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label.
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.4"`, the label stops at the second `"o"`, so only `"swift-too"` is recognised as the label.
         let label = specificationSnippetFromLabelToLineTerminator[startIndexOfLabel..<endIndexOfLabel]
         
         /// The spacing between the label part of the Swift tools version specification and the version specifier.
-        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: Next"`, the label stops at the second `"o"`, and the version specifier starts from the first `"1"`, so no spacing is recognised.
+        /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version: 5.4"`, the label stops at the second `"o"`, and the version specifier starts from the first `"1"`, so no spacing is recognised.
         let spacingAfterLabel = specificationSnippetFromLabelToLineTerminator[endIndexOfLabel..<startIndexOfVersionSpecifier]
         
         /// The position of the version specifier's terminator.
@@ -638,7 +621,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         //                                                                                                                                          ☝️
         // Technically, this is looking for the position of the first ";" only, not the first line terminator. However, because the Swift tools version specification does not contain any line terminator, we can safely search just the first ";".
         
-        // If the label doesn't start with "// swift-too1s-version: Next", the version specifier and its terminator together are first found by locating the first numeric character in the specification line, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the line has no numeric characters, then the specification's ignored trailing contents are empty too. Basically, if the version specifier is empty, then the specification has no ignored trailing contents. This is only true for when the label doesn't start with "// swift-too1s-version: Next".
+        // If the label doesn't start with "// swift-too1s-version: 5.4", the version specifier and its terminator together are first found by locating the first numeric character in the specification line, and the version specifier starts with that first numeric character. So, if the version specifier is empty, then the line has no numeric characters, then the specification's ignored trailing contents are empty too. Basically, if the version specifier is empty, then the specification has no ignored trailing contents. This is only true for when the label doesn't start with "// swift-too1s-version: 5.4".
         
         /// The version specifier.
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
