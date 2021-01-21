@@ -1668,7 +1668,7 @@ public class BuildPlan {
                 guard let moduleMap = target.moduleMap else { break }
                 swiftTarget.additionalFlags += [
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
-                    "-I", target.clangTarget.includeDir.pathString,
+                    "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
             case let target as SystemLibraryTarget:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
@@ -1676,7 +1676,7 @@ public class BuildPlan {
             case let target as BinaryTarget:
                 if let library = xcFrameworkLibrary(for: target) {
                     if let headersPath = library.headersPath {
-                        swiftTarget.additionalFlags += ["-I", headersPath.pathString]
+                        swiftTarget.additionalFlags += ["-Xcc", "-I", "-Xcc", headersPath.pathString]
                     }
                     swiftTarget.libraryBinaryPaths.insert(library.binaryPath)
                 }
