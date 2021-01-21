@@ -530,7 +530,8 @@ public class SwiftTool {
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
-            cachePath: cachePath
+            cachePath: cachePath,
+            verbosity: isVerbose ? .verbose : .concise
         )
         _workspace = workspace
         _workspaceDelegate = delegate
@@ -638,7 +639,7 @@ public class SwiftTool {
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
-            isVerbose: TSCUtility.verbosity != .concise,
+            verbosity: TSCUtility.verbosity,
             diagnostics: diagnostics,
             stdoutStream: self.stdoutStream
         )
@@ -657,7 +658,7 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
-                isVerbose: TSCUtility.verbosity != .concise,
+                verbosity: TSCUtility.verbosity,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
             )
@@ -666,7 +667,7 @@ public class SwiftTool {
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
-                isVerbose: TSCUtility.verbosity != .concise,
+                verbosity: TSCUtility.verbosity,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
             )

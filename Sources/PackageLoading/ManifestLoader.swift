@@ -91,8 +91,8 @@ public protocol ManifestLoaderProtocol {
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?,
-        on queue: DispatchQueue,
         verbosity: Verbosity,
+        on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     )
 
@@ -124,8 +124,8 @@ extension ManifestLoaderProtocol {
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil,
+        verbosity: Verbosity,
         on queue: DispatchQueue,
-        verbosity: Verbosity = TSCUtility.verbosity,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         self.load(
@@ -137,8 +137,8 @@ extension ManifestLoaderProtocol {
             packageKind: packageKind,
             fileSystem: fileSystem,
             diagnostics: diagnostics,
-            on: queue,
             verbosity: verbosity,
+            on: queue,
             completion: completion
         )
     }
@@ -217,6 +217,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                               swiftCompiler: swiftCompiler,
                               swiftCompilerFlags: swiftCompilerFlags,
                               packageKind: packageKind,
+                              verbosity: TSCUtility.verbosity,
                               on: .global(),
                               completion: $0)
         }
@@ -234,6 +235,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
         packageKind: PackageReference.Kind,
+        verbosity: Verbosity,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -248,6 +250,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 toolsVersion: toolsVersion,
                 packageKind: packageKind,
                 fileSystem: fileSystem,
+                verbosity: verbosity,
                 on: queue,
                 completion: completion
             )
@@ -266,8 +269,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
-        diagnostics: DiagnosticsEngine? = nil,
-        verbosity: Verbosity = TSCUtility.verbosity
+        diagnostics: DiagnosticsEngine? = nil
     ) throws -> Manifest {
         try temp_await{
             self.load(packagePath: path,
@@ -278,8 +280,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                       packageKind: packageKind,
                       fileSystem: fileSystem,
                       diagnostics: diagnostics,
+                      verbosity: TSCUtility.verbosity,
                       on: .global(),
-                      verbosity: verbosity,
                       completion: $0)
         }
     }
@@ -293,8 +295,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageKind: PackageReference.Kind,
         fileSystem: FileSystem? = nil,
         diagnostics: DiagnosticsEngine? = nil,
+        verbosity: Verbosity,
         on queue: DispatchQueue,
-        verbosity: Verbosity = TSCUtility.verbosity,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         do {

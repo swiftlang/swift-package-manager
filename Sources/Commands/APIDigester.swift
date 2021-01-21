@@ -92,7 +92,8 @@ struct APIDigesterBaselineDumper {
         let workspace = Workspace.create(
             forRootPackage: baselinePackageRoot,
             manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+            repositoryManager: repositoryManager,
+            verbosity: TSCUtility.verbosity
         )
 
         let graph = try workspace.loadPackageGraph(
@@ -112,7 +113,7 @@ struct APIDigesterBaselineDumper {
             buildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
-            isVerbose: TSCUtility.verbosity != .concise,
+            verbosity: TSCUtility.verbosity,
             diagnostics: diags,
             stdoutStream: stdoutStream
         )

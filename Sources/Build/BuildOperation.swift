@@ -49,7 +49,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let stdoutStream: OutputByteStream
 
     /// Wether the build is in a verbose mode.
-    private let isVerbose: Bool
+    private let verbosity: Verbosity
 
     public var builtTestProducts: [BuiltTestProduct] {
         (try? getBuildDescription())?.builtTestProducts ?? []
@@ -59,7 +59,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        isVerbose: Bool = false,
+        verbosity: Verbosity,
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) {
@@ -68,7 +68,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.packageGraphLoader = packageGraphLoader
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
-        self.isVerbose = isVerbose
+        self.verbosity = verbosity
     }
 
     public func getPackageGraph() throws -> PackageGraph {
@@ -186,7 +186,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         with buildDescription: BuildDescription?
     ) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
-        let progressAnimation: ProgressAnimationProtocol = self.isVerbose
+        let progressAnimation: ProgressAnimationProtocol = self.verbosity != .concise
             ? MultiLineNinjaProgressAnimation(stream: self.stdoutStream)
             : NinjaProgressAnimation(stream: self.stdoutStream)
 
@@ -205,7 +205,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             progressAnimation: progressAnimation
         )
         self.buildDelegate = buildDelegate
-        buildDelegate.isVerbose = isVerbose
+        buildDelegate.isVerbose = verbosity != .concise
 
         let databasePath = buildParameters.dataPath.appending(component: "build.db").pathString
         let buildSystem = BuildSystem(
