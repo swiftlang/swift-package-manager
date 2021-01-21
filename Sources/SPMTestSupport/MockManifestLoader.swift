@@ -58,6 +58,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem?,
         diagnostics: DiagnosticsEngine?,
         on queue: DispatchQueue,
+        verbosity: Verbosity = TSCUtility.verbosity,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         queue.async {

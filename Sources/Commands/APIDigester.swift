@@ -112,6 +112,7 @@ struct APIDigesterBaselineDumper {
             buildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
+            isVerbose: TSCUtility.verbosity != .concise,
             diagnostics: diags,
             stdoutStream: stdoutStream
         )
@@ -178,7 +179,7 @@ public struct SwiftAPIDigester {
         let process = Process(
             arguments: arguments,
             outputRedirection: .none,
-            verbose: verbosity != .concise
+            verbose: TSCUtility.verbosity != .concise
         )
         try process.launch()
         try process.waitUntilExit()

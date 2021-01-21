@@ -380,8 +380,8 @@ public class SwiftTool {
             (packageRoot ?? cwd).appending(component: ".build")
         
         // Setup the globals.
-        verbosity = Verbosity(rawValue: options.verbosity)
-        Process.verbose = verbosity != .concise
+        TSCUtility.verbosity = Verbosity(rawValue: options.verbosity)
+        Process.verbose = TSCUtility.verbosity != .concise
     }
     
     static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
@@ -638,6 +638,7 @@ public class SwiftTool {
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
+            isVerbose: TSCUtility.verbosity != .concise,
             diagnostics: diagnostics,
             stdoutStream: self.stdoutStream
         )
@@ -656,6 +657,7 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
+                isVerbose: TSCUtility.verbosity != .concise,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
             )
@@ -664,7 +666,7 @@ public class SwiftTool {
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
-                isVerbose: verbosity != .concise,
+                isVerbose: TSCUtility.verbosity != .concise,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
             )

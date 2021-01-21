@@ -52,7 +52,7 @@ public final class XcodeBuildSystem: BuildSystem {
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        isVerbose: Bool,
+        isVerbose: Bool = false,
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) throws {
