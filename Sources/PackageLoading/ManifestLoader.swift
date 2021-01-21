@@ -326,8 +326,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                           fileSystem: fileSystem,
                           diagnostics: diagnostics,
                           on: queue,
-                          verbosity: verbosity
-                          ) { result in
+                          verbosity: verbosity) { result in
 
                 // cache positive results
                 if self.useInMemoryCache, case .success(let manifest) = result {
