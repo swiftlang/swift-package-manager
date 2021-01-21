@@ -53,7 +53,7 @@ public protocol PackageCollectionsStorage {
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
 
-    /// Returns `PackageSearchResult.Item` for the given package identity.
+    /// Returns optional `PackageSearchResult.Item` for the given package identity.
     ///
     /// - Parameters:
     ///   - identifier: The package identifier

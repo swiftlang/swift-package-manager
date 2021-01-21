@@ -48,15 +48,11 @@ extension PackageCollectionsModel.TargetListResult {
 
 extension PackageCollectionsModel.TargetListResult {
     /// Represents a package version
-    public struct PackageVersion: Hashable, Encodable, Comparable {
+    public struct PackageVersion: Hashable, Encodable {
         /// The version
         public let version: TSCUtility.Version
 
         /// Package name
         public let packageName: String
-
-        public static func < (lhs: PackageVersion, rhs: PackageVersion) -> Bool {
-            lhs.version < rhs.version
-        }
     }
 }
