@@ -10,6 +10,7 @@ add_library(Commands
   APIDigester.swift
   Describe.swift
   Error.swift
+  GenerateLinuxMain.swift
   MultiRootSupport.swift
   Options.swift
   show-dependencies.swift
