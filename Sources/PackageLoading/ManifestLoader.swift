@@ -302,7 +302,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                                                 swiftpmVersion: Versioning.currentVersion.displayString,
                                                 fileSystem: fileSystem)
 
-            if self.useInMemoryCache, let manifest = self.memoryCache[cacheKey] {
+            if self.useInMemoryCache, let manifest = self.memoryCache[cacheKey], manifest.url == baseURL {
                 // Inform the delegate (backwards compatibility)
                 self.delegate?.willLoad(manifest: manifestPath)
                 return completion(.success(manifest))
