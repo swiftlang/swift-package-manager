@@ -27,8 +27,7 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: [String: String] = Git.environment) throws -> String
-    {
+    func run(_ args: [String], environment: [String: String] = Git.environment) throws -> String {
         let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: .collect)
         let result: ProcessResult
         do {
