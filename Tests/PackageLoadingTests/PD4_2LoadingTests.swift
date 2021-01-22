@@ -596,7 +596,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             let noCacheLoader = ManifestLoader(
-                manifestResources: Resources.default, useInMemoryCache: false, delegate: delegate)
+                manifestResources: Resources.default, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
@@ -731,7 +731,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, delegate: delegate)
 
             // warm up caches
             let manifest = try tsc_await { manifestLoader.load(package: manifestPath.parentDirectory,
@@ -782,7 +782,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, useInMemoryCache: true, delegate: delegate)
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default, cacheDir: path, delegate: delegate)
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
