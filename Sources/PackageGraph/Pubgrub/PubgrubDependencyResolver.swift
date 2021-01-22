@@ -1251,13 +1251,10 @@ private final class PubGrubPackageContainer {
             }.joined())
         }
 
-        // FIXME: make timeout configurable
-        let computeBoundsTimeout = DispatchTimeInterval.seconds(60)
         let (lowerBounds, upperBounds) = try self.computeBounds(for: node,
                                                                 constraints: constraints,
                                                                 startingWith: version,
-                                                                products: node.productFilter,
-                                                                timeout: computeBoundsTimeout)
+                                                                products: node.productFilter)
 
         return try constraints.map { constraint in
             var terms: OrderedSet<Term> = []
@@ -1293,8 +1290,7 @@ private final class PubGrubPackageContainer {
         for node: DependencyResolutionNode,
         constraints: [PackageContainerConstraint],
         startingWith firstVersion: Version,
-        products: ProductFilter,
-        timeout: DispatchTimeInterval
+        products: ProductFilter
     ) throws -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
         let preloadCount = 3
 
@@ -1312,8 +1308,7 @@ private final class PubGrubPackageContainer {
                     }
                 }
             }
-            // not throwing here since its only an optimization
-            _ = sync.wait(timeout: .now() + timeout)
+            sync.wait()
         }
         
         func compute(_ versions: [Version], upperBound: Bool) -> [PackageReference: Version] {
@@ -1379,8 +1374,10 @@ private final class PubGrubPackageContainer {
             lowerBounds = compute(Array(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
         }
 
+        // timeout is a function of # of versions since we need to make several git operations per tag/version
+        let timeout = DispatchTimeInterval.seconds(60 + versions.count)
         guard case .success = sync.wait(timeout: .now() + timeout) else {
-            throw StringError("timeout computing \(node.package.name) bounds")
+            throw StringError("timeout computing '\(node.package.name)' bounds")
         }
 
         return (lowerBounds, upperBounds)
