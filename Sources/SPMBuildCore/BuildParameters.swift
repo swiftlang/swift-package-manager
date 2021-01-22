@@ -193,7 +193,7 @@ public struct BuildParameters: Encodable {
         printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        verbosity: Verbosity = TSCUtility.verbosity
+        verbosity: Verbosity
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
 
