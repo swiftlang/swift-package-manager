@@ -7,8 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageCollectionsModel
-  JSONPackageCollection.swift
-  JSONPackageCollection+v1.swift)
+  PackageCollectionModel.swift
+  PackageCollectionModel+v1.swift)
 
 set_target_properties(PackageCollectionsModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

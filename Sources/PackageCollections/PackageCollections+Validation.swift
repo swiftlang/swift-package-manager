@@ -49,7 +49,7 @@ extension Model.CollectionSource {
 
 // MARK: - JSON model validations
 
-extension JSONPackageCollectionModel.V1 {
+extension PackageCollectionModel.V1 {
     public struct Validator {
         public let configuration: Configuration
 

@@ -10,10 +10,11 @@
 
 import Foundation
 
-public enum JSONPackageCollectionModel {}
+// Models used for creating and publishing package collections
+public enum PackageCollectionModel {}
 
-extension JSONPackageCollectionModel {
-    /// Representation of package collection JSON schema version
+extension PackageCollectionModel {
+    /// Representation of package collection (JSON) schema version
     public enum FormatVersion: String, Codable {
         case v1_0 = "1.0"
     }

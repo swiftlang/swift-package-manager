@@ -11,11 +11,11 @@
 import struct Foundation.Date
 import struct Foundation.URL
 
-extension JSONPackageCollectionModel {
+extension PackageCollectionModel {
     public enum V1 {}
 }
 
-extension JSONPackageCollectionModel.V1 {
+extension PackageCollectionModel.V1 {
     public struct Collection: Equatable, Codable {
         /// The name of the package collection, for display purposes only.
         public let name: String
@@ -27,10 +27,10 @@ extension JSONPackageCollectionModel.V1 {
         public let keywords: [String]?
 
         /// An array of package metadata objects
-        public let packages: [JSONPackageCollectionModel.V1.Collection.Package]
+        public let packages: [PackageCollectionModel.V1.Collection.Package]
 
         /// The version of the format to which the collection conforms.
-        public let formatVersion: JSONPackageCollectionModel.FormatVersion
+        public let formatVersion: PackageCollectionModel.FormatVersion
 
         /// The revision number of this package collection.
         public let revision: Int?
@@ -46,8 +46,8 @@ extension JSONPackageCollectionModel.V1 {
             name: String,
             overview: String?,
             keywords: [String]?,
-            packages: [JSONPackageCollectionModel.V1.Collection.Package],
-            formatVersion: JSONPackageCollectionModel.FormatVersion,
+            packages: [PackageCollectionModel.V1.Collection.Package],
+            formatVersion: PackageCollectionModel.FormatVersion,
             revision: Int?,
             generatedAt: Date = Date(),
             generatedBy: Author?
@@ -76,7 +76,7 @@ extension JSONPackageCollectionModel.V1 {
     }
 }
 
-extension JSONPackageCollectionModel.V1.Collection {
+extension PackageCollectionModel.V1.Collection {
     public struct Package: Equatable, Codable {
         /// The URL of the package. Currently only Git repository URLs are supported.
         public let url: Foundation.URL
@@ -88,22 +88,22 @@ extension JSONPackageCollectionModel.V1.Collection {
         public let keywords: [String]?
 
         /// An array of version objects representing the most recent and/or relevant releases of the package.
-        public let versions: [JSONPackageCollectionModel.V1.Collection.Package.Version]
+        public let versions: [PackageCollectionModel.V1.Collection.Package.Version]
 
         /// The URL of the package's README.
         public let readmeURL: Foundation.URL?
 
         /// The package's current license info
-        public let license: JSONPackageCollectionModel.V1.License?
+        public let license: PackageCollectionModel.V1.License?
 
         /// Creates a `Package`
         public init(
             url: URL,
             summary: String?,
             keywords: [String]?,
-            versions: [JSONPackageCollectionModel.V1.Collection.Package.Version],
+            versions: [PackageCollectionModel.V1.Collection.Package.Version],
             readmeURL: URL?,
-            license: JSONPackageCollectionModel.V1.License?
+            license: PackageCollectionModel.V1.License?
         ) {
             self.url = url
             self.summary = summary
@@ -115,7 +115,7 @@ extension JSONPackageCollectionModel.V1.Collection {
     }
 }
 
-extension JSONPackageCollectionModel.V1.Collection.Package {
+extension PackageCollectionModel.V1.Collection.Package {
     public struct Version: Equatable, Codable {
         /// The semantic version string.
         public let version: String
@@ -124,33 +124,33 @@ extension JSONPackageCollectionModel.V1.Collection.Package {
         public let packageName: String
 
         /// An array of the package version's targets.
-        public let targets: [JSONPackageCollectionModel.V1.Target]
+        public let targets: [PackageCollectionModel.V1.Target]
 
         /// An array of the package version's products.
-        public let products: [JSONPackageCollectionModel.V1.Product]
+        public let products: [PackageCollectionModel.V1.Product]
 
         /// The tools (semantic) version specified in `Package.swift`.
         public let toolsVersion: String
 
         /// An array of the package version’s supported platforms specified in `Package.swift`.
-        public let minimumPlatformVersions: [JSONPackageCollectionModel.V1.PlatformVersion]?
+        public let minimumPlatformVersions: [PackageCollectionModel.V1.PlatformVersion]?
 
         /// An array of compatible platforms and Swift versions that has been tested and verified for.
-        public let verifiedCompatibility: [JSONPackageCollectionModel.V1.Compatibility]?
+        public let verifiedCompatibility: [PackageCollectionModel.V1.Compatibility]?
 
         /// The package version's license.
-        public let license: JSONPackageCollectionModel.V1.License?
+        public let license: PackageCollectionModel.V1.License?
 
         /// Creates a `Version`
         public init(
             version: String,
             packageName: String,
-            targets: [JSONPackageCollectionModel.V1.Target],
-            products: [JSONPackageCollectionModel.V1.Product],
+            targets: [PackageCollectionModel.V1.Target],
+            products: [PackageCollectionModel.V1.Product],
             toolsVersion: String,
-            minimumPlatformVersions: [JSONPackageCollectionModel.V1.PlatformVersion]?,
-            verifiedCompatibility: [JSONPackageCollectionModel.V1.Compatibility]?,
-            license: JSONPackageCollectionModel.V1.License?
+            minimumPlatformVersions: [PackageCollectionModel.V1.PlatformVersion]?,
+            verifiedCompatibility: [PackageCollectionModel.V1.Compatibility]?,
+            license: PackageCollectionModel.V1.License?
         ) {
             self.version = version
             self.packageName = packageName
@@ -164,7 +164,7 @@ extension JSONPackageCollectionModel.V1.Collection.Package {
     }
 }
 
-extension JSONPackageCollectionModel.V1 {
+extension PackageCollectionModel.V1 {
     public struct Target: Equatable, Codable {
         /// The target name.
         public let name: String
@@ -255,7 +255,7 @@ extension JSONPackageCollectionModel.V1 {
     }
 }
 
-extension JSONPackageCollectionModel.V1.Platform: Hashable {
+extension PackageCollectionModel.V1.Platform: Hashable {
     public var hashValue: Int { name.hashValue }
 
     public func hash(into hasher: inout Hasher) {
@@ -263,13 +263,13 @@ extension JSONPackageCollectionModel.V1.Platform: Hashable {
     }
 }
 
-extension JSONPackageCollectionModel.V1.Platform: Comparable {
+extension PackageCollectionModel.V1.Platform: Comparable {
     public static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.name < rhs.name
     }
 }
 
-extension JSONPackageCollectionModel.V1.Compatibility: Comparable {
+extension PackageCollectionModel.V1.Compatibility: Comparable {
     public static func < (lhs: Self, rhs: Self) -> Bool {
         if lhs.platform != rhs.platform { return lhs.platform < rhs.platform }
         return lhs.swiftVersion < rhs.swiftVersion
@@ -278,7 +278,7 @@ extension JSONPackageCollectionModel.V1.Compatibility: Comparable {
 
 // MARK: -  Copy `PackageModel.ProductType` to minimize the module's dependencies
 
-extension JSONPackageCollectionModel.V1 {
+extension PackageCollectionModel.V1 {
     /// The type of product.
     public enum ProductType: Equatable {
         /// The type of library.
@@ -304,7 +304,7 @@ extension JSONPackageCollectionModel.V1 {
     }
 }
 
-extension JSONPackageCollectionModel.V1.ProductType: Codable {
+extension PackageCollectionModel.V1.ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
         case library, executable, test
     }
@@ -330,7 +330,7 @@ extension JSONPackageCollectionModel.V1.ProductType: Codable {
         switch key {
         case .library:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(JSONPackageCollectionModel.V1.ProductType.LibraryType.self)
+            let a1 = try unkeyedValues.decode(PackageCollectionModel.V1.ProductType.LibraryType.self)
             self = .library(a1)
         case .test:
             self = .test

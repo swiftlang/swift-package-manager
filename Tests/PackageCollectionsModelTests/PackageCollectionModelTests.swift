@@ -13,8 +13,8 @@ import XCTest
 
 @testable import PackageCollectionsModel
 
-class JSONPackageCollectionModelTests: XCTestCase {
-    typealias Model = JSONPackageCollectionModel.V1
+class PackageCollectionModelTests: XCTestCase {
+    typealias Model = PackageCollectionModel.V1
 
     func testCodable() throws {
         let packages = [

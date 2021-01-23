@@ -11,12 +11,12 @@
 import Foundation
 import XCTest
 
-@testable import PackageCollectionsModel
 @testable import PackageCollections
+@testable import PackageCollectionsModel
 import PackageModel
 
-class JSONPackageCollectionValidationTests: XCTestCase {
-    typealias Model = JSONPackageCollectionModel.V1
+class PackageCollectionValidationTests: XCTestCase {
+    typealias Model = PackageCollectionModel.V1
 
     func test_validationOK() throws {
         let packages = [
