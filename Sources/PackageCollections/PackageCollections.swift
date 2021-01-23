@@ -141,7 +141,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     switch collectionResult {
                     case .failure(let error):
                         // Don't delete the source if we are either pending user confirmation or have recorded user's preference
-                        if let error = error as? PackageCollectionError, .trustConfirmationRequired == error || .untrusted == error {
+                        if let error = error as? PackageCollectionError, error == .trustConfirmationRequired || error == .untrusted {
                             return callback(.failure(error))
                         }
                         // Otherwise remove source since it fails to be fetched

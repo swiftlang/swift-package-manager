@@ -53,7 +53,7 @@ public protocol PackageCollectionsSourcesStorage {
     func exists(source: PackageCollectionsModel.CollectionSource,
                 callback: @escaping (Result<Bool, Error>) -> Void)
 
-    /// Updates or inserts the given source.
+    /// Updates the given source.
     ///
     /// - Parameters:
     ///   - source: The `PackageCollectionSource` to update

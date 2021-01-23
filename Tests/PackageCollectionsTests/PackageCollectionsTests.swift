@@ -129,6 +129,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(sources.count, 0, "sources should be empty")
         }
 
+        // add fails because collection is not found
         guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
             return XCTFail("expected error")
         }
@@ -139,6 +140,38 @@ final class PackageCollectionsTests: XCTestCase {
 
             let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
             XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+    }
+
+    func testCollectionPendingTrustConfirmIsKeptOnAdd() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1, signed: false).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+            return XCTFail("expected error")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 1, "sources should match")
         }
     }
 
