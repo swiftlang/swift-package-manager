@@ -118,17 +118,15 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     }
 
     func update(source: PackageCollectionsModel.CollectionSource,
-                order: Int?,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         self.queue.async {
             do {
                 try self.withLock {
                     var sources = try self.loadFromDisk()
-                    let index = sources.firstIndex { $0 == source }
-                    sources = sources.filter { $0 != source }
-                    let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? (index ?? sources.endIndex)
-                    sources.insert(source, at: order)
-                    try self.saveToDisk(sources)
+                    if let index = sources.firstIndex(where: { $0 == source }) {
+                        sources[index] = source
+                        try self.saveToDisk(sources)
+                    }
                 }
                 callback(.success(()))
             } catch {

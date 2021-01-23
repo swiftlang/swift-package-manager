@@ -103,7 +103,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 }
                 let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
                 sources.forEach { source in
-                    self.refreshCollectionFromSource(source: source, order: nil, trustConfirmationProvider: nil) { refreshResult in
+                    self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
                         refreshResults.append(refreshResult)
                         if refreshResults.count == sources.count {
                             let errors = refreshResults.compactMap { $0.failure }
@@ -119,7 +119,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     ) {
-        self.refreshCollectionFromSource(source: source, order: nil, trustConfirmationProvider: nil, callback: callback)
+        self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil, callback: callback)
     }
 
     public func addCollection(_ source: PackageCollectionsModel.CollectionSource,
@@ -137,7 +137,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 callback(.failure(error))
             case .success:
                 // next try to fetch the collection from the network and store it locally so future operations dont need to access the network
-                self.refreshCollectionFromSource(source: source, order: order, trustConfirmationProvider: trustConfirmationProvider) { collectionResult in
+                self.refreshCollectionFromSource(source: source, trustConfirmationProvider: trustConfirmationProvider) { collectionResult in
                     switch collectionResult {
                     case .failure(let error):
                         // Don't delete the source if we are either pending user confirmation or have recorded user's preference
@@ -176,14 +176,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     public func updateCollection(_ source: PackageCollectionsModel.CollectionSource,
-                                 order: Int? = nil,
                                  callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
-        self.storage.sources.update(source: source, order: order) { result in
+        self.storage.sources.update(source: source) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success:
-                self.refreshCollectionFromSource(source: source, order: order, trustConfirmationProvider: nil, callback: callback)
+                self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil, callback: callback)
             }
         }
     }
@@ -311,7 +310,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // Fetch the collection from the network and store it in local storage
     // This helps avoid network access in normal operations
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
-                                             order: Int?,
                                              trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
                                              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         if let errors = source.validate()?.errors() {
@@ -355,7 +353,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     var source = source
                     source.isTrusted = userTrusted
                     // Record user preference then save collection to storage
-                    self.storage.sources.update(source: source, order: order) { updateSourceResult in
+                    self.storage.sources.update(source: source) { updateSourceResult in
                         switch updateSourceResult {
                         case .failure(let error):
                             callback(.failure(error))

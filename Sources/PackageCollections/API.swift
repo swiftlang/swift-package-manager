@@ -84,11 +84,9 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - source: The `PackageCollection` source to be updated
-    ///   - order: Optional. The order that the `PackageCollection` should be moved to.
     ///   - callback: The closure to invoke when result becomes available
     func updateCollection(
         _ source: PackageCollectionsModel.CollectionSource,
-        order: Int?,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     )
 
