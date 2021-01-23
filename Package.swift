@@ -39,6 +39,7 @@ let package = Package(
                 "SourceControl",
                 "SPMLLBuild",
                 "PackageCollections",
+                "PackageCollectionsModel",
                 "LLBuildManifest",
                 "PackageModel",
                 "PackageLoading",
@@ -55,6 +56,7 @@ let package = Package(
                 "SPMLLBuild",
                 "LLBuildManifest",
                 "PackageCollections",
+                "PackageCollectionsModel",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -69,6 +71,7 @@ let package = Package(
             targets: [
                 "SourceControl",
                 "PackageCollections",
+                "PackageCollectionsModel",
                 "PackageModel",
                 "PackageLoading",
                 "PackageGraph",
@@ -86,6 +89,11 @@ let package = Package(
             name: "PackageDescription",
             type: .dynamic,
             targets: ["PackageDescription"]
+        ),
+        
+        .library(
+            name: "PackageCollectionsModel",
+            targets: ["PackageCollectionsModel"]
         ),
     ],
     targets: [
@@ -139,11 +147,16 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
 
         // MARK: Package Collections
+        
+        .target(
+            /** Package collections models */
+            name: "PackageCollectionsModel",
+            dependencies: []),
 
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionsModel"]),
 
         // MARK: Package Manager Functionality
 
@@ -249,6 +262,9 @@ let package = Package(
         .testTarget(
             name: "PackageGraphPerformanceTests",
             dependencies: ["PackageGraph", "SPMTestSupport"]),
+        .testTarget(
+            name: "PackageCollectionsModelTests",
+            dependencies: ["PackageCollectionsModel"]),
         .testTarget(
             name: "PackageCollectionsTests",
             dependencies: ["SPMTestSupport", "PackageCollections"]),
