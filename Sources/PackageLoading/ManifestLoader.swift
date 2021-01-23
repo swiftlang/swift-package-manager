@@ -165,9 +165,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private let databaseCacheDir: AbsolutePath?
 
-    private let useInMemoryCache: Bool
-    private let memoryCache = ThreadSafeKeyValueStore<ManifestCacheKey, Manifest>()
-
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
     private let operationQueue: OperationQueue
@@ -177,7 +174,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
-        useInMemoryCache: Bool = true,
         delegate: ManifestLoaderDelegate? = nil,
         extraManifestFlags: [String] = []
     ) {
@@ -187,7 +183,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.delegate = delegate
         self.extraManifestFlags = extraManifestFlags
 
-        self.useInMemoryCache = useInMemoryCache
         self.databaseCacheDir = cacheDir.map(resolveSymlinks)
 
         self.operationQueue = OperationQueue()
@@ -295,19 +290,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let fileSystem = fileSystem ?? localFileSystem
             let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
             let packageIdentity = PackageIdentity(url: baseURL)
-            let cacheKey = try ManifestCacheKey(packageIdentity: packageIdentity,
-                                                manifestPath: manifestPath,
-                                                toolsVersion: toolsVersion,
-                                                env: ProcessEnv.vars,
-                                                swiftpmVersion: Versioning.currentVersion.displayString,
-                                                fileSystem: fileSystem)
-
-            if self.useInMemoryCache, let manifest = self.memoryCache[cacheKey] {
-                // Inform the delegate (backwards compatibility)
-                self.delegate?.willLoad(manifest: manifestPath)
-                return completion(.success(manifest))
-            }
-
             self.loadFile(manifestPath: manifestPath,
                           baseURL: baseURL,
                           version: version,
@@ -318,11 +300,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                           fileSystem: fileSystem,
                           diagnostics: diagnostics,
                           on: queue) { result in
-
-                // cache positive results
-                if self.useInMemoryCache, case .success(let manifest) = result {
-                    self.memoryCache[cacheKey] = manifest
-                }
 
                 completion(result)
             }
@@ -992,7 +969,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// reset internal cache
     public func resetCache() throws {
-        self.memoryCache.clear()
+        // nothing needed at this point
     }
 
     /// reset internal state and purge shared cache
