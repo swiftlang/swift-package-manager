@@ -48,7 +48,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
         do {
             let list = try tsc_await { callback in storage.list(callback: callback) }
-            XCTAssertEqual(list.count, sources.count, "collections should match")
+            XCTAssertEqual(list.count, sources.count, "sources should match")
         }
 
         let remove = sources.enumerated().filter { index, _ in index % 2 == 0 }.map { $1 }
@@ -58,7 +58,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
         do {
             let list = try tsc_await { callback in storage.list(callback: callback) }
-            XCTAssertEqual(list.count, sources.count - remove.count, "collections should match")
+            XCTAssertEqual(list.count, sources.count - remove.count, "sources should match")
         }
 
         let remaining = sources.filter { !remove.contains($0) }
@@ -69,15 +69,24 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         do {
             _ = try tsc_await { callback in storage.move(source: remaining.last!, to: 0, callback: callback) }
             let list = try tsc_await { callback in storage.list(callback: callback) }
-            XCTAssertEqual(list.count, remaining.count, "collections should match")
+            XCTAssertEqual(list.count, remaining.count, "sources should match")
             XCTAssertEqual(list.first, remaining.last, "item should match")
         }
 
         do {
             _ = try tsc_await { callback in storage.move(source: remaining.last!, to: remaining.count - 1, callback: callback) }
             let list = try tsc_await { callback in storage.list(callback: callback) }
-            XCTAssertEqual(list.count, remaining.count, "collections should match")
+            XCTAssertEqual(list.count, remaining.count, "sources should match")
             XCTAssertEqual(list.last, remaining.last, "item should match")
+        }
+
+        do {
+            let list = try tsc_await { callback in storage.list(callback: callback) }
+            var source = list.first!
+            source.isTrusted = !(source.isTrusted ?? false)
+            _ = try tsc_await { callback in storage.update(source: source, callback: callback) }
+            let listAfter = try tsc_await { callback in storage.list(callback: callback) }
+            XCTAssertEqual(source.isTrusted, listAfter.first!.isTrusted, "item should match")
         }
     }
 
