@@ -384,6 +384,8 @@ public class RepositoryManager {
             } catch {
                 // Fetch without populating the cache in the case of an error.
                 print("Skipping cache due to an error: \(error)")
+                // It is possible that we already created the directory before failing, so clear leftover data if present.
+                try fileSystem.removeFileTree(repositoryPath)
                 try self.provider.fetch(repository: handle.repository, to: repositoryPath)
                 fromCache = false
             }
