@@ -120,17 +120,8 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// The semantic version string.
         public let version: String
 
-        /// The name of the package.
-        public let packageName: String
-
-        /// An array of the package version's targets.
-        public let targets: [PackageCollectionModel.V1.Target]
-
-        /// An array of the package version's products.
-        public let products: [PackageCollectionModel.V1.Product]
-
-        /// The tools (semantic) version specified in `Package.swift`.
-        public let toolsVersion: String
+        /// Manifests by tools version.
+        public let manifestsByToolsVersion: [String: Manifest]
 
         /// An array of the package version’s supported platforms specified in `Package.swift`.
         public let minimumPlatformVersions: [PackageCollectionModel.V1.PlatformVersion]?
@@ -144,22 +135,43 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// Creates a `Version`
         public init(
             version: String,
-            packageName: String,
-            targets: [PackageCollectionModel.V1.Target],
-            products: [PackageCollectionModel.V1.Product],
-            toolsVersion: String,
+            manifestsByToolsVersion: [String: Manifest],
             minimumPlatformVersions: [PackageCollectionModel.V1.PlatformVersion]?,
             verifiedCompatibility: [PackageCollectionModel.V1.Compatibility]?,
             license: PackageCollectionModel.V1.License?
         ) {
             self.version = version
-            self.packageName = packageName
-            self.targets = targets
-            self.products = products
-            self.toolsVersion = toolsVersion
+            self.manifestsByToolsVersion = manifestsByToolsVersion
             self.minimumPlatformVersions = minimumPlatformVersions
             self.verifiedCompatibility = verifiedCompatibility
             self.license = license
+        }
+        
+        public struct Manifest: Equatable, Codable {
+            /// The tools (semantic) version specified in `Package.swift`.
+            public let toolsVersion: String
+            
+            /// The name of the package.
+            public let packageName: String
+
+            /// An array of the package version's targets.
+            public let targets: [PackageCollectionModel.V1.Target]
+
+            /// An array of the package version's products.
+            public let products: [PackageCollectionModel.V1.Product]
+
+            /// Creates a `Manifest`
+            public init(
+                toolsVersion: String,
+                packageName: String,
+                targets: [PackageCollectionModel.V1.Target],
+                products: [PackageCollectionModel.V1.Product]
+            ) {
+                self.toolsVersion = toolsVersion
+                self.packageName = packageName
+                self.targets = targets
+                self.products = products
+            }
         }
     }
 }

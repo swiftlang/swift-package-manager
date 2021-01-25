@@ -112,19 +112,8 @@ extension PackageCollectionsModel.Package {
         /// The version
         public let version: TSCUtility.Version
 
-        /// The package name
-        public let packageName: String
-
-        // Custom instead of `PackageModel.Target` because we don't need the additional details
-        /// The package version's targets
-        public let targets: [Target]
-
-        // Custom instead of `PackageModel.Product` because of the simplified `Target`
-        /// The package version's products
-        public let products: [Product]
-
-        /// The package version's Swift tools version
-        public let toolsVersion: ToolsVersion
+        /// Manifests by tools version
+        public let manifests: [ToolsVersion: Manifest]
 
         /// The package version's supported platforms
         public let minimumPlatformVersions: [SupportedPlatform]?
@@ -142,6 +131,22 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's license
         public let license: PackageCollectionsModel.License?
+        
+        public struct Manifest: Equatable, Codable {
+            /// The Swift tools version specified in `Package.swift` or filename
+            public let toolsVersion: ToolsVersion
+            
+            /// The package name
+            public let packageName: String
+
+            // Custom instead of `PackageModel.Target` because we don't need the additional details
+            /// The package version's targets
+            public let targets: [Target]
+
+            // Custom instead of `PackageModel.Product` because of the simplified `Target`
+            /// The package version's products
+            public let products: [Product]
+        }
     }
 }
 
