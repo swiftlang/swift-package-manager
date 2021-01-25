@@ -11,11 +11,15 @@
 import PackageModel
 import SourceControl
 
-struct MultipleErrors: Error {
+struct MultipleErrors: Error, CustomStringConvertible {
     let errors: [Error]
 
     init(_ errors: [Error]) {
         self.errors = errors
+    }
+
+    var description: String {
+        "\(self.errors)"
     }
 }
 

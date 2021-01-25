@@ -61,10 +61,11 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
-            XCTAssertEqual(version.packageName, "PackageOne")
-            XCTAssertEqual(version.targets, [.init(name: "Foo", moduleName: "Foo")])
-            XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
-            XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
+            let manifest = version.manifests.values.first!
+            XCTAssertEqual(manifest.packageName, "PackageOne")
+            XCTAssertEqual(manifest.targets, [.init(name: "Foo", moduleName: "Foo")])
+            XCTAssertEqual(manifest.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
+            XCTAssertEqual(manifest.toolsVersion, ToolsVersion(string: "5.1")!)
             XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
@@ -115,10 +116,11 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
-            XCTAssertEqual(version.packageName, "PackageOne")
-            XCTAssertEqual(version.targets, [.init(name: "Foo", moduleName: "Foo")])
-            XCTAssertEqual(version.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
-            XCTAssertEqual(version.toolsVersion, ToolsVersion(string: "5.1")!)
+            let manifest = version.manifests.values.first!
+            XCTAssertEqual(manifest.packageName, "PackageOne")
+            XCTAssertEqual(manifest.targets, [.init(name: "Foo", moduleName: "Foo")])
+            XCTAssertEqual(manifest.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
+            XCTAssertEqual(manifest.toolsVersion, ToolsVersion(string: "5.1")!)
             XCTAssertEqual(version.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
             XCTAssertEqual(version.verifiedCompatibility?.count, 3)
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)

@@ -129,17 +129,33 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 guard let parsedVersion = TSCUtility.Version(string: version.version) else {
                     return nil
                 }
-                guard let toolsVersion = ToolsVersion(string: version.toolsVersion) else {
-                    return nil
-                }
-                let targets = version.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
-                if targets.count != version.targets.count {
+
+                let manifests = [ToolsVersion: Model.Package.Version.Manifest](uniqueKeysWithValues: version.manifests.compactMap { key, value in
+                    guard let keyToolsVersion = ToolsVersion(string: key), let manifestToolsVersion = ToolsVersion(string: value.toolsVersion) else {
+                        return nil
+                    }
+
+                    let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                    if targets.count != value.targets.count {
+                        serializationOkay = false
+                    }
+                    let products = value.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
+                    if products.count != value.products.count {
+                        serializationOkay = false
+                    }
+
+                    let manifest = Model.Package.Version.Manifest(
+                        toolsVersion: manifestToolsVersion,
+                        packageName: value.packageName,
+                        targets: targets,
+                        products: products
+                    )
+                    return (keyToolsVersion, manifest)
+                })
+                if manifests.count != version.manifests.count {
                     serializationOkay = false
                 }
-                let products = version.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
-                if products.count != version.products.count {
-                    serializationOkay = false
-                }
+
                 let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
                 if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
                     serializationOkay = false
@@ -151,10 +167,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 let license = version.license.flatMap { Model.License(from: $0) }
 
                 return .init(version: parsedVersion,
-                             packageName: version.packageName,
-                             targets: targets,
-                             products: products,
-                             toolsVersion: toolsVersion,
+                             manifests: manifests,
                              minimumPlatformVersions: minimumPlatformVersions,
                              verifiedCompatibility: verifiedCompatibility,
                              license: license)

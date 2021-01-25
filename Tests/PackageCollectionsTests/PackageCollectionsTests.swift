@@ -521,12 +521,16 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
                             PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let toolsVersion = ToolsVersion(string: "5.2")!
+        let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
+            toolsVersion: toolsVersion,
+            packageName: UUID().uuidString,
+            targets: mockTargets,
+            products: mockProducts
+        )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  packageName: UUID().uuidString,
-                                                                  targets: mockTargets,
-                                                                  products: mockProducts,
-                                                                  toolsVersion: .currentToolsVersion,
+                                                                  manifests: [toolsVersion: mockManifest],
                                                                   minimumPlatformVersions: nil,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
@@ -573,7 +577,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         do {
             // search by package name
-            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockVersion.packageName, callback: callback) }
+            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockManifest.packageName, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
             XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "list count should match")
         }
@@ -673,12 +677,16 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
                             PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let toolsVersion = ToolsVersion(string: "5.2")!
+        let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
+            toolsVersion: toolsVersion,
+            packageName: UUID().uuidString,
+            targets: mockTargets,
+            products: mockProducts
+        )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  packageName: UUID().uuidString,
-                                                                  targets: mockTargets,
-                                                                  products: mockProducts,
-                                                                  toolsVersion: .currentToolsVersion,
+                                                                  manifests: [toolsVersion: mockManifest],
                                                                   minimumPlatformVersions: nil,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
@@ -772,7 +780,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         // search by target name
         let start = Date()
-        let targetName = mockCollections.last!.packages.last!.versions.last!.targets.last!.name
+        let targetName = mockCollections.last!.packages.last!.versions.last!.manifests.default!.targets.last!.name
         let searchResult = try tsc_await { callback in packageCollections.findTargets(targetName, searchType: .exactMatch, callback: callback) }
         XCTAssert(searchResult.items.count > 0, "should get results")
         let delta = Date().timeIntervalSince(start)
@@ -914,11 +922,11 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         let targetsList = try tsc_await { callback in packageCollections.listTargets(callback: callback) }
-        let expectedTargets = Set(mockCollections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.targets.map { $0.name } } } })
+        let expectedTargets = Set(mockCollections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.manifests.default!.targets.map { $0.name } } } })
         XCTAssertEqual(Set(targetsList.map { $0.target.name }), expectedTargets, "targets should match")
 
         let targetsPackagesList = Set(targetsList.flatMap { $0.packages })
-        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
+        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.manifests.default!.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
         XCTAssertEqual(targetsPackagesList.count, expectedPackages.count, "pacakges should match")
 
         let targetsCollectionsList = Set(targetsList.flatMap { $0.packages.flatMap { $0.collections } })
@@ -1002,13 +1010,17 @@ final class PackageCollectionsTests: XCTestCase {
         let products = (0 ..< Int.random(in: 1 ... 3)).map {
             PackageCollectionsModel.Product(name: "product-\($0)", type: .executable, targets: targets)
         }
+        let toolsVersion = ToolsVersion(string: "5.2")!
+        let manifest = PackageCollectionsModel.Package.Version.Manifest(
+            toolsVersion: toolsVersion,
+            packageName: "package-\(packageId)",
+            targets: targets,
+            products: products
+        )
 
         let versions = (0 ... 3).map {
             PackageCollectionsModel.Package.Version(version: TSCUtility.Version($0, 0, 0),
-                                                    packageName: "package-\(packageId)",
-                                                    targets: targets,
-                                                    products: products,
-                                                    toolsVersion: .currentToolsVersion,
+                                                    manifests: [toolsVersion: manifest],
                                                     minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))],
                                                     verifiedCompatibility: [
                                                         .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
@@ -1045,10 +1057,12 @@ final class PackageCollectionsTests: XCTestCase {
             let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
             XCTAssertNotNil(metadataVersion)
 
-            XCTAssertEqual(version.packageName, metadataVersion?.packageName, "packageName should match")
-            XCTAssertEqual(version.targets, metadataVersion?.targets, "targets should match")
-            XCTAssertEqual(version.products, metadataVersion?.products, "products should match")
-            XCTAssertEqual(version.toolsVersion, metadataVersion?.toolsVersion, "toolsVersion should match")
+            let manifest = version.manifests.default!
+            let metadataManifest = metadataVersion?.manifests.default
+            XCTAssertEqual(manifest.packageName, metadataManifest?.packageName, "packageName should match")
+            XCTAssertEqual(manifest.targets, metadataManifest?.targets, "targets should match")
+            XCTAssertEqual(manifest.products, metadataManifest?.products, "products should match")
+            XCTAssertEqual(manifest.toolsVersion, metadataManifest?.toolsVersion, "toolsVersion should match")
             XCTAssertEqual(version.minimumPlatformVersions, metadataVersion?.minimumPlatformVersions, "minimumPlatformVersions should match")
             XCTAssertEqual(version.verifiedCompatibility, metadataVersion?.verifiedCompatibility, "verifiedCompatibility should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")

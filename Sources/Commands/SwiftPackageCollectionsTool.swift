@@ -210,9 +210,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             guard let version = version else {
                 return nil
             }
+            // FIXME: do we want to display all manifests?
+            guard let manifest = version.manifests.default else {
+                return nil
+            }
 
-            let modules = version.targets.compactMap { $0.moduleName }.joined(separator: ", ")
-            let products = optionalRow("Products", version.products.isEmpty ? nil : version.products.compactMap { $0.name }.joined(separator: ", "))
+            let modules = manifest.targets.compactMap { $0.moduleName }.joined(separator: ", ")
+            let products = optionalRow("Products", manifest.products.isEmpty ? nil : manifest.products.compactMap { $0.name }.joined(separator: ", "))
             let compatibility = optionalRow(
                 "Verified Compatibility (Platform, Swift Version)",
                 version.verifiedCompatibility?.map { "(\($0.platform.name), \($0.swiftVersion.rawValue))" }.joined(separator: ", ")
@@ -221,7 +225,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
             return """
             \(version.version)
-                Package Name: \(version.packageName)
+                Package Name: \(manifest.packageName)
                 Modules: \(modules)\(products)\(compatibility)\(license)
             """
         }
