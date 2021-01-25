@@ -9,6 +9,8 @@
 add_library(PackageCollectionsModel
   PackageCollectionModel.swift
   PackageCollectionModel+v1.swift)
+target_link_libraries(PackageCollectionsModel PUBLIC
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 
 set_target_properties(PackageCollectionsModel PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
