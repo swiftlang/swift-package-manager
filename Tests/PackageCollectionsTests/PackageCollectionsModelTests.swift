@@ -88,12 +88,27 @@ final class PackageCollectionsModelTests: XCTestCase {
         XCTAssertNil(versions.latestPrerelease)
     }
 
-    func test_sourceOK() throws {
-        do {
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://package-collection-tests.com/test.json")!)
-            XCTAssertNil(source.validate())
-        }
+    func testSourceValidation() throws {
+        let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed.mock.io")!)
+        XCTAssertNil(httpsSource.validate(), "not expecting errors")
 
+        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HTTPS://feed.mock.io")!)
+        XCTAssertNil(httpsSource2.validate(), "not expecting errors")
+
+        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HttpS://feed.mock.io")!)
+        XCTAssertNil(httpsSource3.validate(), "not expecting errors")
+
+        let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "http://feed.mock.io")!)
+        XCTAssertEqual(httpSource.validate()?.count, 1, "expecting errors")
+
+        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "ftp://feed.mock.io")!)
+        XCTAssertEqual(otherProtocolSource.validate()?.count, 1, "expecting errors")
+
+        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "blah")!)
+        XCTAssertEqual(brokenUrlSource.validate()?.count, 1, "expecting errors")
+    }
+
+    func testSourceValidation_localFile() throws {
         do {
             fixture(name: "Collections") { directoryPath in
                 // File must exist in local FS
@@ -105,7 +120,7 @@ final class PackageCollectionsModelTests: XCTestCase {
         }
     }
 
-    func test_source_localFileDoesNotExist() throws {
+    func testSourceValidation_localFileDoesNotExist() throws {
         do {
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(fileURLWithPath: "/foo/bar"))
 

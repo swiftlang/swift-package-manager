@@ -137,7 +137,22 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 callback(.failure(error))
             case .success:
                 // next try to fetch the collection from the network and store it locally so future operations dont need to access the network
-                self.refreshCollectionFromSource(source: source, trustConfirmationProvider: trustConfirmationProvider, callback: callback)
+                self.refreshCollectionFromSource(source: source, trustConfirmationProvider: trustConfirmationProvider) { collectionResult in
+                    switch collectionResult {
+                    case .failure(let error):
+                        // Don't delete the source if we are either pending user confirmation or have recorded user's preference
+                        if let error = error as? PackageCollectionError, error == .trustConfirmationRequired || error == .untrusted {
+                            return callback(.failure(error))
+                        }
+                        // Otherwise remove source since it fails to be fetched
+                        self.storage.sources.remove(source: source) { _ in
+                            // Whether removal succeeds or not, return the refresh error
+                            callback(.failure(error))
+                        }
+                    case .success(let collection):
+                        callback(.success(collection))
+                    }
+                }
             }
         }
     }

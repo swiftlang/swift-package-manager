@@ -110,6 +110,71 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
+    func testInvalidCollectionNotAdded() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        // add fails because collection is not found
+        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+            return XCTFail("expected error")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+    }
+
+    func testCollectionPendingTrustConfirmIsKeptOnAdd() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1, signed: false).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+            return XCTFail("expected error")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 1, "sources should match")
+        }
+    }
+
     func testDelete() throws {
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1114,25 +1179,5 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertNotNil(metadata)
         let delta = Date().timeIntervalSince(start)
         XCTAssert(delta < 1.0, "should fetch quickly, took \(delta)")
-    }
-
-    func testSourceValidation() throws {
-        let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed.mock.io")!)
-        XCTAssertNil(httpsSource.validate(), "not expecting errors")
-
-        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HTTPS://feed.mock.io")!)
-        XCTAssertNil(httpsSource2.validate(), "not expecting errors")
-
-        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HttpS://feed.mock.io")!)
-        XCTAssertNil(httpsSource3.validate(), "not expecting errors")
-
-        let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "http://feed.mock.io")!)
-        XCTAssertEqual(httpSource.validate()?.count, 1, "expecting errors")
-
-        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "ftp://feed.mock.io")!)
-        XCTAssertEqual(otherProtocolSource.validate()?.count, 1, "expecting errors")
-
-        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "blah")!)
-        XCTAssertEqual(brokenUrlSource.validate()?.count, 1, "expecting errors")
     }
 }
