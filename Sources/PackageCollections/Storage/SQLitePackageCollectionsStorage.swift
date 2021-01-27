@@ -83,33 +83,74 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         // Signal long-running operation (e.g., populateTargetTrie) to stop
         self.isShuttingdown.put(true)
 
+        func retryClose(db: SQLite, exponentialBackoff: inout ExponentialBackoff) throws {
+            let semaphore = DispatchSemaphore(value: 0)
+            let callback = { (result: Result<Void, Error>) in
+                // If it has failed, the semaphore will timeout in which case we will retry
+                if case .success = result {
+                    semaphore.signal()
+                }
+            }
+
+            // This throws error if we have exhausted our attempts
+            let delay = try exponentialBackoff.nextDelay()
+            self.queue.asyncAfter(deadline: .now() + delay) {
+                do {
+                    try db.close()
+                    callback(.success(()))
+                } catch {
+                    callback(.failure(error))
+                }
+            }
+            // Add some buffer to allow `asyncAfter` to run
+            guard case .success = semaphore.wait(timeout: .now() + delay + .milliseconds(50)) else {
+                return try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+            }
+        }
+
         try self.stateLock.withLock {
             if case .connected(let db) = self.state {
                 do {
                     try db.close()
                 } catch {
-                    // This could be because another operation is still running. Wait a bit then try again.
-                    let semaphore = DispatchSemaphore(value: 0)
-                    let callback = { (result: Result<Void, Error>) in
-                        // If second attempt fails as well, semaphore will timeout in which case we will throw error.
-                        if case .success = result {
-                            semaphore.signal()
-                        }
-                    }
-                    self.queue.asyncAfter(deadline: .now() + .milliseconds(200)) {
-                        do {
-                            try db.close()
-                            callback(.success(()))
-                        } catch {
-                            callback(.failure(error))
-                        }
-                    }
-                    guard case .success = semaphore.wait(timeout: .now() + .milliseconds(300)) else {
+                    var exponentialBackoff = ExponentialBackoff()
+                    do {
+                        try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+                    } catch {
                         throw StringError("Failed to close database")
                     }
                 }
             }
             self.state = .disconnected
+        }
+    }
+
+    private struct ExponentialBackoff {
+        let intervalInMilliseconds: Int
+        let randomizationFactor: Int
+        let maximumAttempts: Int
+
+        var attempts: Int = 0
+
+        var canRetry: Bool {
+            self.attempts < self.maximumAttempts
+        }
+
+        init(intervalInMilliseconds: Int = 100, randomizationFactor: Int = 100, maximumAttempts: Int = 3) {
+            self.intervalInMilliseconds = intervalInMilliseconds
+            self.randomizationFactor = randomizationFactor
+            self.maximumAttempts = maximumAttempts
+        }
+
+        mutating func nextDelay() throws -> DispatchTimeInterval {
+            guard self.canRetry else {
+                print("exhausted: \(attempts)")
+                throw StringError("Maximum attempts reached")
+            }
+            let delay = Int(pow(2.0, Double(self.attempts))) * intervalInMilliseconds
+            let jitter = Int.random(in: 0 ... self.randomizationFactor)
+            self.attempts += 1
+            return .milliseconds(delay + jitter)
         }
     }
 
