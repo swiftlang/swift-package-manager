@@ -41,6 +41,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let cache = ThreadSafeKeyValueStore<Model.CollectionIdentifier, Model.Collection>()
     private let cacheLock = Lock()
 
+    private let isShuttingdown = ThreadSafeBox<Bool>()
+
     // Lock helps prevent concurrency errors with transaction statements during e.g. `refreshCollections`,
     // since only one transaction is allowed per SQLite connection. We need transactions to speed up bulk updates.
     // TODO: we could potentially optimize this with db connection pool
@@ -50,7 +52,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
-    private var targetTrieReady = ThreadSafeBox<Bool>(false)
+    private var targetTrieReady = ThreadSafeBox<Bool>()
 
     init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
@@ -78,11 +80,78 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func close() throws {
+        // Signal long-running operation (e.g., populateTargetTrie) to stop
+        self.isShuttingdown.put(true)
+
+        func retryClose(db: SQLite, exponentialBackoff: inout ExponentialBackoff) throws {
+            let semaphore = DispatchSemaphore(value: 0)
+            let callback = { (result: Result<Void, Error>) in
+                // If it has failed, the semaphore will timeout in which case we will retry
+                if case .success = result {
+                    semaphore.signal()
+                }
+            }
+
+            // This throws error if we have exhausted our attempts
+            let delay = try exponentialBackoff.nextDelay()
+            self.queue.asyncAfter(deadline: .now() + delay) {
+                do {
+                    try db.close()
+                    callback(.success(()))
+                } catch {
+                    callback(.failure(error))
+                }
+            }
+            // Add some buffer to allow `asyncAfter` to run
+            guard case .success = semaphore.wait(timeout: .now() + delay + .milliseconds(50)) else {
+                return try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+            }
+        }
+
         try self.stateLock.withLock {
             if case .connected(let db) = self.state {
-                try db.close()
+                do {
+                    try db.close()
+                } catch {
+                    var exponentialBackoff = ExponentialBackoff()
+                    do {
+                        try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+                    } catch {
+                        throw StringError("Failed to close database")
+                    }
+                }
             }
             self.state = .disconnected
+        }
+    }
+
+    private struct ExponentialBackoff {
+        let intervalInMilliseconds: Int
+        let randomizationFactor: Int
+        let maximumAttempts: Int
+
+        var attempts: Int = 0
+        var multipler: Int = 1
+
+        var canRetry: Bool {
+            self.attempts < self.maximumAttempts
+        }
+
+        init(intervalInMilliseconds: Int = 100, randomizationFactor: Int = 100, maximumAttempts: Int = 3) {
+            self.intervalInMilliseconds = intervalInMilliseconds
+            self.randomizationFactor = randomizationFactor
+            self.maximumAttempts = maximumAttempts
+        }
+
+        mutating func nextDelay() throws -> DispatchTimeInterval {
+            guard self.canRetry else {
+                throw StringError("Maximum attempts reached")
+            }
+            let delay = self.multipler * intervalInMilliseconds
+            let jitter = Int.random(in: 0 ... self.randomizationFactor)
+            self.attempts += 1
+            self.multipler *= 2
+            return .milliseconds(delay + jitter)
         }
     }
 
@@ -756,25 +825,29 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
         self.queue.async {
-            do {
-                // Use FTS to build the trie
-                let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
-                try self.executeStatement(query) { statement in
-                    while let row = try statement.step() {
-                        let targetName = row.string(at: 2)
+            self.targetTrieReady.memoize {
+                do {
+                    // Use FTS to build the trie
+                    let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
+                    try self.executeStatement(query) { statement in
+                        while let row = try statement.step() {
+                            if self.isShuttingdown.get() ?? false { return }
 
-                        if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                            let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                            let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
-                            self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
+                            let targetName = row.string(at: 2)
+
+                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
+                                self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
+                            }
                         }
                     }
+                    callback(.success(()))
+                    return true
+                } catch {
+                    callback(.failure(error))
+                    return false
                 }
-                self.targetTrieReady.put(true)
-                callback(.success(()))
-            } catch {
-                self.targetTrieReady.put(false)
-                callback(.failure(error))
             }
         }
     }
