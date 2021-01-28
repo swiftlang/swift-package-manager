@@ -3,7 +3,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -323,7 +323,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.3.1")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMajor(from: "1.1.0")),
+        .package(url: "https://github.com/apple/swift-crypto.git", .branch(relatedDependenciesBranch)),
     ]
 } else {
     package.dependencies += [
