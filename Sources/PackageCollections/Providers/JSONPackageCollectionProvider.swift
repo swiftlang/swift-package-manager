@@ -143,12 +143,17 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     if products.count != value.products.count {
                         serializationOkay = false
                     }
+                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
+                    if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
+                        serializationOkay = false
+                    }
 
                     let manifest = Model.Package.Version.Manifest(
                         toolsVersion: manifestToolsVersion,
                         packageName: value.packageName,
                         targets: targets,
-                        products: products
+                        products: products,
+                        minimumPlatformVersions: minimumPlatformVersions
                     )
                     return (keyToolsVersion, manifest)
                 })
@@ -156,10 +161,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     serializationOkay = false
                 }
 
-                let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
-                if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
-                    serializationOkay = false
-                }
                 let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
                 if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
                     serializationOkay = false
@@ -168,7 +169,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
                 return .init(version: parsedVersion,
                              manifests: manifests,
-                             minimumPlatformVersions: minimumPlatformVersions,
                              verifiedCompatibility: verifiedCompatibility,
                              license: license)
             }

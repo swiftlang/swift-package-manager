@@ -32,10 +32,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -95,10 +95,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -118,10 +118,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobaz",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -165,10 +165,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [],
-                                products: []
+                                products: [],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -179,10 +179,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -236,10 +236,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -283,10 +283,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -297,10 +297,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -320,10 +320,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobaz",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -334,10 +334,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobaz",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Baz", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -382,7 +382,6 @@ class PackageCollectionValidationTests: XCTestCase {
                     Model.Collection.Package.Version(
                         version: "1.3.2",
                         manifests: [:],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -426,10 +425,10 @@ class PackageCollectionValidationTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: [])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: [])],
+                                minimumPlatformVersions: nil
                             ),
                         ],
-                        minimumPlatformVersions: nil,
                         verifiedCompatibility: nil,
                         license: nil
                     ),

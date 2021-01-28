@@ -443,7 +443,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             .init(version: packageVersion.version,
                   manifests: packageVersion.manifests,
-                  minimumPlatformVersions: packageVersion.minimumPlatformVersions,
                   verifiedCompatibility: packageVersion.verifiedCompatibility,
                   license: packageVersion.license)
         }

@@ -115,9 +115,6 @@ extension PackageCollectionsModel.Package {
         /// Manifests by tools version
         public let manifests: [ToolsVersion: Manifest]
 
-        /// The package version's supported platforms
-        public let minimumPlatformVersions: [SupportedPlatform]?
-
         // TODO: remove (replaced by verifiedCompatibility)
         /// The package version's supported platforms verified to work
         public var verifiedPlatforms: [PackageModel.Platform]? { nil }
@@ -146,6 +143,9 @@ extension PackageCollectionsModel.Package {
             // Custom instead of `PackageModel.Product` because of the simplified `Target`
             /// The package version's products
             public let products: [Product]
+
+            /// The package version's supported platforms
+            public let minimumPlatformVersions: [SupportedPlatform]?
         }
     }
 }

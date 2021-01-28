@@ -20,29 +20,14 @@ final class PackageCollectionsModelTests: XCTestCase {
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products
+            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(
-                version: .init(stringLiteral: "1.2.0"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "2.0.1"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "2.1.0-beta.3"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "2.1.0"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "3.0.0-beta.1"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
+            .init(version: .init(stringLiteral: "1.2.0"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "2.0.1"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "2.1.0-beta.3"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "2.1.0"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "3.0.0-beta.1"), manifests: manifests, verifiedCompatibility: nil, license: nil),
         ]
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
@@ -54,17 +39,11 @@ final class PackageCollectionsModelTests: XCTestCase {
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products
+            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(
-                version: .init(stringLiteral: "2.1.0-beta.3"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "3.0.0-beta.1"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
+            .init(version: .init(stringLiteral: "2.1.0-beta.3"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "3.0.0-beta.1"), manifests: manifests, verifiedCompatibility: nil, license: nil),
         ]
 
         XCTAssertNil(versions.latestRelease)
@@ -76,21 +55,12 @@ final class PackageCollectionsModelTests: XCTestCase {
         let products = [PackageCollectionsModel.Product(name: "Foo", type: .library(.automatic), targets: targets)]
         let toolsVersion = ToolsVersion(string: "5.2")!
         let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
-            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products
+            toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(
-                version: .init(stringLiteral: "1.2.0"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "2.0.1"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
-            .init(
-                version: .init(stringLiteral: "2.1.0"), manifests: manifests,
-                minimumPlatformVersions: nil, verifiedCompatibility: nil, license: nil
-            ),
+            .init(version: .init(stringLiteral: "1.2.0"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "2.0.1"), manifests: manifests, verifiedCompatibility: nil, license: nil),
+            .init(version: .init(stringLiteral: "2.1.0"), manifests: manifests, verifiedCompatibility: nil, license: nil),
         ]
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)

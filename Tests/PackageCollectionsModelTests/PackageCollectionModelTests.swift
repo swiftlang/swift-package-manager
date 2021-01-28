@@ -30,10 +30,10 @@ class PackageCollectionModelTests: XCTestCase {
                                 toolsVersion: "5.2",
                                 packageName: "Foobar",
                                 targets: [.init(name: "Foo", moduleName: "Foo")],
-                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])]
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
                             ),
                         ],
-                        minimumPlatformVersions: [.init(name: "macOS", version: "10.15")],
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),

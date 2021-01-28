@@ -39,12 +39,12 @@
                   },
                   "targets": ["Foo"]
                 }
+              ],
+              "minimumPlatformVersions": [
+                { "name": "macOS", "version": "10.15" }
               ]
             }
           },
-          "minimumPlatformVersions": [
-            { "name": "macOS", "version": "10.15" }
-          ],
           "verifiedCompatibility": [
             {
               "platform": { "name": "macOS" },

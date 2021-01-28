@@ -526,12 +526,12 @@ final class PackageCollectionsTests: XCTestCase {
             toolsVersion: toolsVersion,
             packageName: UUID().uuidString,
             targets: mockTargets,
-            products: mockProducts
+            products: mockProducts,
+            minimumPlatformVersions: nil
         )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
                                                                   manifests: [toolsVersion: mockManifest],
-                                                                  minimumPlatformVersions: nil,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
 
@@ -682,12 +682,12 @@ final class PackageCollectionsTests: XCTestCase {
             toolsVersion: toolsVersion,
             packageName: UUID().uuidString,
             targets: mockTargets,
-            products: mockProducts
+            products: mockProducts,
+            minimumPlatformVersions: nil
         )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
                                                                   manifests: [toolsVersion: mockManifest],
-                                                                  minimumPlatformVersions: nil,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
 
@@ -1015,13 +1015,13 @@ final class PackageCollectionsTests: XCTestCase {
             toolsVersion: toolsVersion,
             packageName: "package-\(packageId)",
             targets: targets,
-            products: products
+            products: products,
+            minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))]
         )
 
         let versions = (0 ... 3).map {
             PackageCollectionsModel.Package.Version(version: TSCUtility.Version($0, 0, 0),
                                                     manifests: [toolsVersion: manifest],
-                                                    minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))],
                                                     verifiedCompatibility: [
                                                         .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                         .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
@@ -1063,7 +1063,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(manifest.targets, metadataManifest?.targets, "targets should match")
             XCTAssertEqual(manifest.products, metadataManifest?.products, "products should match")
             XCTAssertEqual(manifest.toolsVersion, metadataManifest?.toolsVersion, "toolsVersion should match")
-            XCTAssertEqual(version.minimumPlatformVersions, metadataVersion?.minimumPlatformVersions, "minimumPlatformVersions should match")
+            XCTAssertEqual(manifest.minimumPlatformVersions, metadataManifest?.minimumPlatformVersions, "minimumPlatformVersions should match")
             XCTAssertEqual(version.verifiedCompatibility, metadataVersion?.verifiedCompatibility, "verifiedCompatibility should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
         }
