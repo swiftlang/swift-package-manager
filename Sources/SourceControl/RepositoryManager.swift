@@ -9,7 +9,7 @@
 */
 
 import Dispatch
-import class Foundation.OperationQueue
+import Foundation
 
 import TSCBasic
 import TSCUtility
@@ -384,6 +384,15 @@ public class RepositoryManager {
             } catch {
                 // Fetch without populating the cache in the case of an error.
                 print("Skipping cache due to an error: \(error)")
+                // It is possible that we already created the directory before failing, so clear leftover data if present.
+                do {
+                    try fileSystem.removeFileTree(repositoryPath)
+                } catch let error as NSError {
+                    // If we failed because the directory doesn't actually exist anymore, ignore the error.
+                    if !(error.domain == NSCocoaErrorDomain && error.code == NSFileNoSuchFileError) {
+                        throw error
+                    }
+                }
                 try self.provider.fetch(repository: handle.repository, to: repositoryPath)
                 fromCache = false
             }
