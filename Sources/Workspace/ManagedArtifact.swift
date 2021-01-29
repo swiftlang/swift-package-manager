@@ -168,7 +168,7 @@ public final class ManagedArtifacts {
     }
 
     public func add(_ artifact: ManagedArtifact) {
-        artifactMap[artifact.packageRef.path, default: [:]][artifact.targetName] = artifact
+        artifactMap[artifact.packageRef.location, default: [:]][artifact.targetName] = artifact
     }
 
     public func remove(packageURL: String, targetName: String) {
@@ -201,7 +201,7 @@ extension ManagedArtifacts: Collection {
 extension ManagedArtifacts: JSONMappable, JSONSerializable {
     public convenience init(json: JSON) throws {
         let artifacts = try Array<ManagedArtifact>(json: json)
-        let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.packageRef.path })
+        let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.packageRef.location })
         let artifactMap = artifactsByPackagePath.mapValues({ artifacts in
             Dictionary(uniqueKeysWithValues: artifacts.lazy.map({ ($0.targetName, $0) }))
         })

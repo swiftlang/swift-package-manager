@@ -228,7 +228,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         mutating func run() throws {
             try with { collections in
                 let identity = PackageIdentity(url: packageUrl)
-                let reference = PackageReference(identity: identity, path: packageUrl)
+                let reference = PackageReference.remote(identity: identity, location: packageUrl)
                 
                 do { // assume URL is for a package
                     let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }

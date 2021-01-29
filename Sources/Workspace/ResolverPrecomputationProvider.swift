@@ -57,16 +57,16 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     }
 
     func getContainer(
-        for identifier: PackageReference,
+        for package: PackageReference,
         skipUpdate: Bool,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
         queue.async {
             // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == identifier }) {
+            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == package }) {
                 let container = LocalPackageContainer(
-                    package: identifier,
+                    package: package,
                     manifest: manifest.manifest,
                     dependency: manifest.dependency,
                     mirrors: self.mirrors,
@@ -77,9 +77,9 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
 
             // Continue searching from the Workspace's root manifests.
             // FIXME: We might want to use a dictionary for faster lookups.
-            if let index = self.dependencyManifests.root.packageRefs.firstIndex(of: identifier) {
+            if let index = self.dependencyManifests.root.packageRefs.firstIndex(of: package) {
                 let container = LocalPackageContainer(
-                    package: identifier,
+                    package: package,
                     manifest: self.dependencyManifests.root.manifests[index],
                     dependency: nil,
                     mirrors: self.mirrors,
@@ -90,7 +90,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
             }
 
             // As we don't have anything else locally, error out.
-            completion(.failure(ResolverPrecomputationError.missingPackage(package: identifier)))
+            completion(.failure(ResolverPrecomputationError.missingPackage(package: package)))
         }
     }
 }
@@ -109,11 +109,7 @@ private struct LocalPackageContainer: PackageContainer {
             return identifier
         } else {
             let identity = PackageIdentity(url: manifest.url)
-            return PackageReference(
-                identity: identity,
-                path: manifest.path.pathString,
-                kind: .root
-            )
+            return .root(identity: identity, path: manifest.path)
         }
     }
 

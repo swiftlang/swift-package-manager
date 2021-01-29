@@ -138,7 +138,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             case .forced:
                 self.stdoutStream <<< "it was forced"
             case .newPackages(let packages):
-                let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
+                let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
                 self.stdoutStream <<< "the following dependencies were added: \(dependencies)"
             case .packageRequirementChange(let package, let state, let requirement):
                 self.stdoutStream <<< "dependency '\(package.name)' was "

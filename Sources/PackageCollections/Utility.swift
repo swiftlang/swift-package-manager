@@ -54,8 +54,8 @@ extension PackageReference {
     init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
         self.init(
             identity: PackageIdentity(url: repository.url),
-            path: repository.url,
-            kind: kind
+            kind: kind,
+            location: repository.url
         )
     }
 }
