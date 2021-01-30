@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -547,7 +547,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 packages: [mockPackage],
                                                                 createdAt: Date(),
                                                                 createdBy: nil,
-                                                                isSigned: true)
+                                                                signature: nil)
 
         let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
@@ -556,7 +556,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                  packages: [mockPackage],
                                                                  createdAt: Date(),
                                                                  createdBy: nil,
-                                                                 isSigned: true)
+                                                                 signature: nil)
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -568,7 +568,7 @@ final class PackageCollectionsTests: XCTestCase {
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, callback: callback) }
+            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
 
         do {
@@ -699,7 +699,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 packages: [mockPackage],
                                                                 createdAt: Date(),
                                                                 createdBy: nil,
-                                                                isSigned: true)
+                                                                signature: nil)
 
         let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
@@ -708,7 +708,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                  packages: [mockPackage],
                                                                  createdAt: Date(),
                                                                  createdBy: nil,
-                                                                 isSigned: true)
+                                                                 signature: nil)
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -720,7 +720,7 @@ final class PackageCollectionsTests: XCTestCase {
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, callback: callback) }
+            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
 
         do {
@@ -813,7 +813,13 @@ final class PackageCollectionsTests: XCTestCase {
                 if self.brokenSources.contains(source) {
                     callback(.failure(self.error))
                 } else {
-                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, isSigned: true)))
+                    let signature = PackageCollectionsModel.SignatureData(
+                        certificate: PackageCollectionsModel.SignatureData.Certificate(
+                            subject: .init(commonName: ""),
+                            issuer: .init(commonName: "")
+                        )
+                    )
+                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, signature: signature)))
                 }
             }
         }
