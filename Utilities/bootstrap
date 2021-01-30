@@ -699,6 +699,7 @@ def get_swiftpm_env_cmd(args):
     if args.llbuild_link_framework:
         env_cmd.append("SWIFTPM_LLBUILD_FWK=1")
     env_cmd.append("SWIFTCI_USE_LOCAL_DEPS=1")
+    env_cmd.append("SPM_BUILD_PACKAGE_SYNTAX=1")
     env_cmd.append("SWIFTPM_MACOS_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     if args.bootstrap:

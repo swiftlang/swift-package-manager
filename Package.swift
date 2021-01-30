@@ -23,6 +23,8 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEP
     macOSPlatform = .macOS(.v10_15)
 }
 
+let buildPackageSyntax = ProcessInfo.processInfo.environment["SPM_BUILD_PACKAGE_SYNTAX"] != nil
+
 let package = Package(
     name: "SwiftPM",
     platforms: [macOSPlatform],
@@ -47,7 +49,7 @@ let package = Package(
                 "Build",
                 "Xcodeproj",
                 "Workspace"
-            ]
+            ] + (buildPackageSyntax ? ["PackageSyntax"] : [])
         ),
         .library(
             name: "SwiftPM-auto",
@@ -63,7 +65,7 @@ let package = Package(
                 "Build",
                 "Xcodeproj",
                 "Workspace"
-            ]
+            ] + (buildPackageSyntax ? ["PackageSyntax"] : [])
         ),
         .library(
             name: "SwiftPMDataModel",
@@ -332,4 +334,21 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
     ]
+}
+
+// SwiftSyntax relies on a matching copy of lib_InternalSwiftSyntaxParser.dylib,
+// which is part of a Swift toolchain (but can also be embedded in an app as a
+// standalone library). To ensure SwiftPM is still easy to build and test
+// independently of a full build-script invocation, only include the PackageSyntax
+// target if SPM_BUILD_PACKAGE_SYNTAX is set. See the SwiftSyntax
+// [README](https://github.com/apple/swift-syntax/blob/main/README.md) for more
+// information about using it as a dependency.
+if buildPackageSyntax {
+    package.dependencies += [.package(path: "../swift-syntax")]
+    package.targets += [
+      .target(name: "PackageSyntax",
+              dependencies: ["Workspace", "PackageModel", "PackageLoading",
+                             "SourceControl", "SwiftSyntax", "SwiftToolsSupport-auto"]),
+      .testTarget(name: "PackageSyntaxTests", dependencies: ["PackageSyntax", "SPMTestSupport", "SwiftSyntax"]),
+  ]
 }
