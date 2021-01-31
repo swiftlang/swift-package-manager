@@ -8,11 +8,21 @@
 
 add_library(PackageCollectionsSigning
   Certificate/Certificate.swift
+  Certificate/CertificatePolicy.swift
   Key/BoringSSLKey.swift
   Key/Key.swift
   Key/Key+EC.swift
   Key/Key+RSA.swift
+  PackageCollectionsSigning.swift
+  Signing/BoringSSLSigning.swift
+  Signing/Signature.swift
+  Signing/Signing.swift
+  Signing/Signing+ECKey.swift
+  Signing/Signing+RSAKey.swift
+  Utilities/Base64URL.swift
   Utilities/Utilities.swift)
+target_link_libraries(PackageCollectionsSigning PUBLIC
+  PackageCollectionsModel)
 target_link_libraries(PackageCollectionsSigning PRIVATE
   Crypto
   CCryptoBoringSSL)

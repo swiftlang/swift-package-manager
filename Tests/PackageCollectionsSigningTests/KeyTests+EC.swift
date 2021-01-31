@@ -29,16 +29,14 @@ class ECKeyTests: XCTestCase {
     func testPublicKeyFromPEM() throws {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "Signing", "ec_public.pem")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
-            XCTAssertNoThrow(try ECPublicKey(pem: String(decoding: data, as: UTF8.self)))
+            XCTAssertNoThrow(try ECPublicKey(pem: readPEM(path: path)))
         }
     }
 
     func testPrivateKeyFromPEM() throws {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "Signing", "ec_private.pem")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
-            XCTAssertNoThrow(try ECPrivateKey(pem: String(decoding: data, as: UTF8.self)))
+            XCTAssertNoThrow(try ECPrivateKey(pem: readPEM(path: path)))
         }
     }
 }
