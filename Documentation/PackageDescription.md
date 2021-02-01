@@ -740,7 +740,7 @@ For example, you don’t need to declare XIB files, storyboards, Core Data file 
 as resources in your package manifest.
 
 However, you must explicitly declare other file types—for example image files—as resources
-using the `process(_:localization:)`` or `copy(_:)`` rules.
+using the `process(_:localization:)` or `copy(_:)` rules.
 
 Alternatively, exclude resource files from a target
 by passing them to the target initializer’s `exclude` parameter.
