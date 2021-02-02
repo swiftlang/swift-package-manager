@@ -104,8 +104,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
                 sources.forEach { source in
                     self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
-                        refreshResults.append(refreshResult)
-                        if refreshResults.count == sources.count {
+                        let count = refreshResults.append(refreshResult)
+                        if count == sources.count {
                             let errors = refreshResults.compactMap { $0.failure }
                             callback(errors.isEmpty ? .success(sources) : .failure(MultipleErrors(errors)))
                         }
