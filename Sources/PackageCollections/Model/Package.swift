@@ -112,15 +112,28 @@ extension PackageCollectionsModel.Package {
         /// The version
         public let version: TSCUtility.Version
 
+        // TODO: remove (replaced by manifests)
+        public var packageName: String { self.manifests.default!.packageName }
+
+        // TODO: remove (replaced by manifests)
+        public var targets: [Target] { self.manifests.default!.targets }
+
+        // TODO: remove (replaced by manifests)
+        public var products: [Product] { self.manifests.default!.products }
+
+        // TODO: remove (replaced by manifests)
+        public var toolsVersion: ToolsVersion { self.manifests.default!.toolsVersion }
+
+        // TODO: remove (replaced by manifests)
+        public var minimumPlatformVersions: [SupportedPlatform]? { nil }
+
         /// Manifests by tools version
         public let manifests: [ToolsVersion: Manifest]
 
         // TODO: remove (replaced by verifiedCompatibility)
-        /// The package version's supported platforms verified to work
         public var verifiedPlatforms: [PackageModel.Platform]? { nil }
 
         // TODO: remove (replaced by verifiedCompatibility)
-        /// The package version's Swift versions verified to work
         public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
 
         /// An array of compatible platforms and Swift versions that has been tested and verified for.
