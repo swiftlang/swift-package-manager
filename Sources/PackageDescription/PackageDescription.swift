@@ -9,12 +9,12 @@
 */
 
 #if canImport(Glibc)
-import Glibc
+@_implementationOnly import Glibc
 #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-import Darwin.C
+@_implementationOnly import Darwin.C
 #elseif os(Windows)
-import ucrt
-import struct WinSDK.HANDLE
+@_implementationOnly import ucrt
+@_implementationOnly import struct WinSDK.HANDLE
 #endif
 import Foundation
 
