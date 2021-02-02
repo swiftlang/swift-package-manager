@@ -26,12 +26,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let diagnosticsEngine: DiagnosticsEngine?
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
+    private let validator: JSONModel.Validator
 
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.decoder = JSONDecoder.makeWithDefaults()
+        self.validator = JSONModel.Validator(configuration: configuration.validator)
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -122,6 +124,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 
     private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource, signature: Model.SignatureData?) -> Result<Model.Collection, Error> {
+        if let errors = self.validator.validate(collection: collection)?.errors() {
+            return .failure(MultipleErrors(errors))
+        }
+
         var serializationOkay = true
         let packages = collection.packages.map { package -> Model.Package in
             let versions = package.versions.compactMap { version -> Model.Package.Version? in
@@ -226,10 +232,46 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     public struct Configuration {
         public var maximumSizeInBytes: Int
+        public var validator: PackageCollectionModel.V1.Validator.Configuration
 
-        public init(maximumSizeInBytes: Int? = nil) {
+        public var maximumPackageCount: Int {
+            get {
+                self.validator.maximumPackageCount
+            }
+            set(newValue) {
+                self.validator.maximumPackageCount = newValue
+            }
+        }
+
+        public var maximumMajorVersionCount: Int {
+            get {
+                self.validator.maximumMajorVersionCount
+            }
+            set(newValue) {
+                self.validator.maximumMajorVersionCount = newValue
+            }
+        }
+
+        public var maximumMinorVersionCount: Int {
+            get {
+                self.validator.maximumMinorVersionCount
+            }
+            set(newValue) {
+                self.validator.maximumMinorVersionCount = newValue
+            }
+        }
+
+        public init(maximumSizeInBytes: Int? = nil,
+                    maximumPackageCount: Int? = nil,
+                    maximumMajorVersionCount: Int? = nil,
+                    maximumMinorVersionCount: Int? = nil) {
             // TODO: where should we read defaults from?
             self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
+            self.validator = JSONModel.Validator.Configuration(
+                maximumPackageCount: maximumPackageCount,
+                maximumMajorVersionCount: maximumMajorVersionCount,
+                maximumMinorVersionCount: maximumMinorVersionCount
+            )
         }
     }
 
