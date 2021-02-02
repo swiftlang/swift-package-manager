@@ -134,6 +134,10 @@ extension PackageCollectionModel.V1 {
                 }
 
                 version.manifests.forEach { toolsVersion, manifest in
+                    if toolsVersion != manifest.toolsVersion {
+                        messages.append(.error("Manifest tools version \(manifest.toolsVersion) does not match \(toolsVersion)", property: "version.manifest"))
+                    }
+
                     if manifest.products.isEmpty {
                         messages.append(.error("Package \(packageID) version \(version.version) tools-version \(toolsVersion) does not contain any products.", property: "version.manifest.products"))
                     }

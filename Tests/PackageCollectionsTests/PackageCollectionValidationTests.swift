@@ -457,4 +457,51 @@ class PackageCollectionValidationTests: XCTestCase {
         }
         XCTAssertNotNil(messages[0].message.range(of: "does not contain any targets", options: .caseInsensitive))
     }
+
+    func test_validationFailed_manifestToolsVersionMismatch() throws {
+        let packages = [
+            Model.Collection.Package(
+                url: URL(string: "https://package-collection-tests.com/repos/foobar.git")!,
+                summary: "Package Foobar",
+                keywords: ["test package"],
+                versions: [
+                    Model.Collection.Package.Version(
+                        version: "1.3.2",
+                        manifests: [
+                            "5.1": Model.Collection.Package.Version.Manifest(
+                                toolsVersion: "5.2",
+                                packageName: "Foobar",
+                                targets: [.init(name: "Foo", moduleName: "Foo")],
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
+                            ),
+                        ],
+                        verifiedCompatibility: nil,
+                        license: nil
+                    ),
+                ],
+                readmeURL: nil,
+                license: nil
+            ),
+        ]
+        let collection = Model.Collection(
+            name: "Test Package Collection",
+            overview: "A test package collection",
+            keywords: ["swift packages"],
+            packages: packages,
+            formatVersion: .v1_0,
+            revision: 3,
+            generatedAt: Date(),
+            generatedBy: .init(name: "Jane Doe")
+        )
+
+        let validator = Model.Validator()
+        let messages = validator.validate(collection: collection)!
+        XCTAssertEqual(1, messages.count)
+
+        guard case .error = messages[0].level else {
+            return XCTFail("Expected .error")
+        }
+        XCTAssertNotNil(messages[0].message.range(of: "manifest tools version 5.2 does not match 5.1", options: .caseInsensitive))
+    }
 }
