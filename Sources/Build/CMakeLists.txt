@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Build
-  BuildDelegate.swift
+  BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan.swift
   ManifestBuilder.swift
