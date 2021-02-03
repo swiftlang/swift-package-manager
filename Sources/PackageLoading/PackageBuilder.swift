@@ -295,6 +295,30 @@ public final class PackageBuilder {
                              completion: $0)
         }
     }
+
+    // FIXME: deprecated 2/2021, remove once clients migrate
+     @available(*, deprecated, message: "use at:kind:... version instead")
+     public static func loadPackage(
+         packagePath: AbsolutePath,
+         swiftCompiler: AbsolutePath,
+         swiftCompilerFlags: [String],
+         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+             = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+         diagnostics: DiagnosticsEngine,
+         kind: PackageReference.Kind = .root,
+         on queue: DispatchQueue,
+         completion: @escaping (Result<Package, Error>) -> Void
+     ) {
+         Self.loadPackage(at: packagePath,
+                          kind: kind,
+                          swiftCompiler: swiftCompiler,
+                          swiftCompilerFlags: swiftCompilerFlags,
+                          xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                          diagnostics: diagnostics,
+                          on: queue,
+                          completion: completion)
+     }
+
     /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
@@ -303,26 +327,26 @@ public final class PackageBuilder {
     ///         Its associated resources will be used by the loader.
     ///     - kind: The kind of package.
     public static func loadPackage(
-        packagePath: AbsolutePath,
+        at path: AbsolutePath,
+        kind: PackageReference.Kind = .root,
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
             = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         diagnostics: DiagnosticsEngine,
-        kind: PackageReference.Kind = .root,
         on queue: DispatchQueue,
         completion: @escaping (Result<Package, Error>) -> Void
     ) {
-        ManifestLoader.loadManifest(packagePath: packagePath,
+        ManifestLoader.loadManifest(at: path,
+                                    kind: kind,
                                     swiftCompiler: swiftCompiler,
                                     swiftCompilerFlags: swiftCompilerFlags,
-                                    packageKind: kind,
                                     on: queue) { result in
             let result = result.tryMap { manifest -> Package in
                 let builder = PackageBuilder(
                     manifest: manifest,
                     productFilter: .everything,
-                    path: packagePath,
+                    path: path,
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     diagnostics: diagnostics)
                 return try builder.construct()

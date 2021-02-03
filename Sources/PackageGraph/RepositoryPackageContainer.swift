@@ -269,24 +269,26 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
         try self.manifestsCache.memoize(revision) {
             let fs = try repository.openFileView(revision: revision)
-            let packageURL = package.repository.url
+            let packageLocation = package.repository.url
 
             // Load the tools version.
             let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
 
             // Validate the tools version.
             try toolsVersion.validateToolsVersion(
-                self.currentToolsVersion, version: revision.identifier, packagePath: packageURL)
+                self.currentToolsVersion, version: revision.identifier, packagePath: packageLocation)
 
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
-                manifestLoader.load(package: AbsolutePath.root,
-                                    baseURL: packageURL,
-                                    version: version,
-                                    toolsVersion: toolsVersion,
+                manifestLoader.load(at: AbsolutePath.root,
                                     packageKind: package.kind,
+                                    packageLocation: packageLocation,
+                                    version: version,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
                                     fileSystem: fs,
+                                    diagnostics: nil,
                                     on: .global(),
                                     completion: $0)
             }

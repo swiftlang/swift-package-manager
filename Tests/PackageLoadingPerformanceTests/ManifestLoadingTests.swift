@@ -36,10 +36,12 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
             measure {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
-                        package: path,
-                        baseURL: "/Trivial",
+                        at: path,
+                        packageKind: .root,
+                        packageLocation: "/Trivial",
                         toolsVersion: .v4_2,
-                        packageKind: .root)
+                        fileSystem: localFileSystem
+                    )
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
             }
@@ -68,10 +70,12 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
             measure {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
-                        package: path,
-                        baseURL: "/Trivial",
+                        at: path,
+                        packageKind: .root,
+                        packageLocation: "/Trivial",
                         toolsVersion: .v4_2,
-                        packageKind: .root)
+                        fileSystem: localFileSystem
+                    )
                     XCTAssertEqual(manifest.name, "Foo")
                 }
             }

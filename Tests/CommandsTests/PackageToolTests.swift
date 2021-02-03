@@ -356,9 +356,9 @@ final class PackageToolTests: XCTestCase {
         let manifestA = Manifest.createManifest(
             name: "PackageA",
             path: "/PackageA",
-            url: "/PackageA",
-            v: .v5_3,
             packageKind: .root,
+            packageLocation: "/PackageA",
+            v: .v5_3,
             dependencies: [
                 .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
                 .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
@@ -374,9 +374,9 @@ final class PackageToolTests: XCTestCase {
         let manifestB = Manifest.createManifest(
             name: "PackageB",
             path: "/PackageB",
-            url: "/PackageB",
-            v: .v5_3,
             packageKind: .local,
+            packageLocation: "/PackageB",
+            v: .v5_3,
             dependencies: [
                 .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
                 .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
@@ -392,9 +392,9 @@ final class PackageToolTests: XCTestCase {
         let manifestC = Manifest.createManifest(
             name: "PackageC",
             path: "/PackageC",
-            url: "/PackageC",
-            v: .v5_3,
             packageKind: .local,
+            packageLocation: "/PackageC",
+            v: .v5_3,
             dependencies: [
                 .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
             ],
@@ -409,9 +409,9 @@ final class PackageToolTests: XCTestCase {
         let manifestD = Manifest.createManifest(
             name: "PackageD",
             path: "/PackageD",
-            url: "/PackageD",
-            v: .v5_3,
             packageKind: .local,
+            packageLocation: "/PackageD",
+            v: .v5_3,
             products: [
                 .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],

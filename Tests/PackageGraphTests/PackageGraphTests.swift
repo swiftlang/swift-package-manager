@@ -33,8 +33,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .local,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -45,8 +45,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
                         PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -59,7 +59,7 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
+                    packageLocation: "/Baz",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -94,8 +94,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -105,8 +105,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
                         ProductDescription(name: "CBar", type: .library(.automatic), targets: ["CBar"]),
@@ -140,8 +140,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -151,8 +151,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     dependencies: [
                         PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -165,8 +165,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
                     packageKind: .local,
+                    packageLocation: "/Baz",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -195,8 +195,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -225,8 +225,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
                         PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -237,8 +237,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .local,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -269,8 +269,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -280,8 +280,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
@@ -305,8 +305,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
-                    url: "/Fourth",
                     packageKind: .local,
+                    packageLocation: "/Fourth",
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
@@ -316,8 +316,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Third",
                     path: "/Third",
-                    url: "/Third",
                     packageKind: .local,
+                    packageLocation: "/Third",
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"])
                     ],
@@ -327,8 +327,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Second",
                     path: "/Second",
-                    url: "/Second",
                     packageKind: .local,
+                    packageLocation: "/Second",
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"])
                     ],
@@ -338,8 +338,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "First",
                     path: "/First",
-                    url: "/First",
                     packageKind: .root,
+                    packageLocation: "/First",
                     dependencies: [
                         PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
@@ -370,8 +370,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
-                    url: "/Fourth",
                     packageKind: .local,
+                    packageLocation: "/Fourth",
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -381,8 +381,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Third",
                     path: "/Third",
-                    url: "/Third",
                     packageKind: .local,
+                    packageLocation: "/Third",
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -392,8 +392,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Second",
                     path: "/Second",
-                    url: "/Second",
                     packageKind: .local,
+                    packageLocation: "/Second",
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -403,8 +403,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "First",
                     path: "/First",
-                    url: "/First",
                     packageKind: .root,
+                    packageLocation: "/First",
                     dependencies: [
                         PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
@@ -436,8 +436,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
-                    url: "/Fourth",
                     packageKind: .local,
+                    packageLocation: "/Fourth",
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
@@ -447,8 +447,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Third",
                     path: "/Third",
-                    url: "/Third",
                     packageKind: .local,
+                    packageLocation: "/Third",
                     dependencies: [
                         PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -461,8 +461,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Second",
                     path: "/Second",
-                    url: "/Second",
                     packageKind: .local,
+                    packageLocation: "/Second",
                     dependencies: [
                         PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -475,8 +475,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "First",
                     path: "/First",
-                    url: "/First",
                     packageKind: .root,
+                    packageLocation: "/First",
                     dependencies: [
                         PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -506,8 +506,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -517,8 +517,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -545,8 +545,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: ["Barx"]),
                     ]),
@@ -569,9 +569,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    toolsVersion: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Foo",
+                    toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx", package: "Bar")]),
                     ]
@@ -595,9 +595,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    toolsVersion: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Foo",
+                    toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")]),
                     ]
@@ -624,9 +624,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
                     dependencies: [
                         PackageDependencyDescription(name: "Bar", url: "/Bar", requirement: .branch("master")),
                         PackageDependencyDescription(url: "/BizPath", requirement: .exact("1.2.3")),
@@ -638,8 +638,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .remote,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"])
                     ],
@@ -649,9 +649,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Biz",
                     path: "/BizPath",
-                    url: "/BizPath",
-                    version: "1.2.3",
                     packageKind: .remote,
+                    packageLocation: "/BizPath",
+                    version: "1.2.3",
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
@@ -661,9 +661,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Fiz",
                     path: "/FizPath",
-                    url: "/FizPath",
-                    version: "1.2.3",
                     packageKind: .remote,
+                    packageLocation: "/FizPath",
+                    version: "1.2.3",
                     products: [
                         ProductDescription(name: "FizLib", type: .library(.automatic), targets: ["FizLib"])
                     ],
@@ -702,9 +702,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
                     dependencies: [
                         PackageDependencyDescription(name: "UnBar", url: "/Bar", requirement: .branch("master")),
                     ],
@@ -714,8 +714,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "UnBar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .remote,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -743,8 +743,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
@@ -756,8 +756,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Biz",
                     path: "/Biz",
-                    url: "/Biz",
                     packageKind: .local,
+                    packageLocation: "/Biz",
                     products: [
                         ProductDescription(name: "biz", type: .executable, targets: ["Biz"])
                     ],
@@ -767,8 +767,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -778,8 +778,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
                     packageKind: .local,
+                    packageLocation: "/Baz",
                     products: [
                         ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -809,8 +809,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
                         PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -820,8 +820,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    packageKind: .local),
+                    packageKind: .local,
+                    packageLocation: "/Foo"),
             ]
         )
 
@@ -844,8 +844,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Start",
                     path: "/Start",
-                    url: "/Start",
                     packageKind: .root,
+                    packageLocation: "/Start",
                     dependencies: [
                         PackageDependencyDescription(url: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -856,8 +856,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Dep1",
                     path: "/Dep1",
-                    url: "/Dep1",
                     packageKind: .local,
+                    packageLocation: "/Dep1",
                     dependencies: [
                         PackageDependencyDescription(url: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -870,8 +870,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Dep2",
                     path: "/Dep2",
-                    url: "/Dep2",
                     packageKind: .local,
+                    packageLocation: "/Dep2",
                     products: [
                         ProductDescription(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"]),
                         ProductDescription(name: "BamLibrary", type: .library(.automatic), targets: ["Bam"]),
@@ -901,8 +901,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
@@ -913,8 +913,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -924,8 +924,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
                     packageKind: .local,
+                    packageLocation: "/Baz",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -955,8 +955,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -967,8 +967,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
                         ProductDescription(name: "TransitiveBar", type: .library(.automatic), targets: ["TransitiveBar"]),
@@ -1019,8 +1019,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(name: "Baar", url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1030,8 +1030,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Baar", type: .library(.automatic), targets: ["Baar"])
                     ],
@@ -1068,7 +1068,7 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Biz", requirement: .localPackage),
                     ],
@@ -1094,8 +1094,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Biz",
                     path: "/Biz",
-                    url: "/Biz",
                     packageKind: .remote,
+                    packageLocation: "/Biz",
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
@@ -1153,9 +1153,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Root",
                     path: "/Root",
-                    url: "/Root",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Root",
+                    v: .v5_2,
                     dependencies: [
                         PackageDependencyDescription(name: "Immediate", url: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1168,9 +1168,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Immediate",
                     path: "/Immediate",
-                    url: "/Immediate",
-                    v: .v5_2,
                     packageKind: .local,
+                    packageLocation: "/Immediate",
+                    v: .v5_2,
                     dependencies: [
                         PackageDependencyDescription(
                             name: "Transitive",
@@ -1200,9 +1200,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Transitive",
                     path: "/Transitive",
-                    url: "/Transitive",
-                    v: .v5_2,
                     packageKind: .local,
+                    packageLocation: "/Transitive",
+                    v: .v5_2,
                     dependencies: [
                         PackageDependencyDescription(
                             name: "Nonexistent",

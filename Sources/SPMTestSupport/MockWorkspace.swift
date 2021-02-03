@@ -97,8 +97,8 @@ public final class MockWorkspace {
         func create(package: MockPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
             let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
 
-            let url = (packageKind == .root ? packagePath : self.packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
-            let specifier = RepositorySpecifier(url: url)
+            let packageLocation = (packageKind == .root ? packagePath : self.packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
+            let specifier = RepositorySpecifier(url: packageLocation)
 
             // Create targets on disk.
             let repo = self.repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: self.fs as! InMemoryFileSystem)
@@ -118,14 +118,14 @@ public final class MockWorkspace {
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
                 let v = version.flatMap(Version.init(string:))
-                manifests[.init(url: url, version: v)] = Manifest(
+                manifests[.init(url: packageLocation, version: v)] = Manifest(
                     name: package.name,
-                    platforms: package.platforms,
                     path: manifestPath,
-                    url: url,
+                    packageKind: packageKind,
+                    packageLocation: packageLocation,
+                    platforms: package.platforms,
                     version: v,
                     toolsVersion: toolsVersion,
-                    packageKind: packageKind,
                     dependencies: package.dependencies.map { $0.convert(baseURL: packagesDir) },
                     products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: try package.targets.map { try $0.convert() }

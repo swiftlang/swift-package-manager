@@ -19,7 +19,7 @@ let swiftCompiler: AbsolutePath = {
 
 // We need a package to work with.
 // This assumes there is one in the current working directory:
-let package = localFileSystem.currentWorkingDirectory!
+let packagePath = localFileSystem.currentWorkingDirectory!
 
 // LOADING
 // =======
@@ -31,9 +31,9 @@ let package = localFileSystem.currentWorkingDirectory!
 // There are several levels of information available.
 // Each takes longer to load than the level above it, but provides more detail.
 let diagnostics = DiagnosticsEngine()
-let manifest = try ManifestLoader.loadManifest(packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], packageKind: .local)
-let loadedPackage = try PackageBuilder.loadPackage(packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], diagnostics: diagnostics)
-let graph = try Workspace.loadGraph(packagePath: package, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], diagnostics: diagnostics)
+let manifest = try tsc_await { ManifestLoader.loadManifest(at: packagePath, kind: .local, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], on: .global(), completion: $0) }
+let loadedPackage = try tsc_await { PackageBuilder.loadPackage(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], diagnostics: diagnostics, on: .global(), completion: $0) }
+let graph = try Workspace.loadGraph(packagePath: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], diagnostics: diagnostics)
 
 // EXAMPLES
 // ========

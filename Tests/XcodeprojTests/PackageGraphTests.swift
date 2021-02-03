@@ -39,8 +39,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .local,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -58,8 +58,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
                         PackageDependencyDescription(name: "Foo", url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -204,8 +204,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Foo"])
                     ],
@@ -245,8 +245,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     targets: [
                         TargetDescription(name: "Sea", dependencies: []),
                         TargetDescription(name: "Sea2", dependencies: []),
@@ -288,8 +288,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "HelperTool", dependencies: []),
                         TargetDescription(name: "Library", dependencies: []),
@@ -351,8 +351,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     targets: [
                         TargetDescription(name: "a"),
                         TargetDescription(name: "b", dependencies: ["a"]),
@@ -404,8 +404,8 @@ class PackageGraphTests: XCTestCase {
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: "/Foo",
-                        url: "/Foo",
                         packageKind: .root,
+                        packageLocation: "/Foo",
                         swiftLanguageVersions: [SwiftLanguageVersion(string: swiftVersion)!],
                         targets: [
                             TargetDescription(name: "a"),

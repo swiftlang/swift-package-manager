@@ -39,7 +39,7 @@ extension PackageGraph {
         // the URL but that shouldn't be needed after <rdar://problem/33693433>
         // Ensure that identity and package name are the same once we have an
         // API to specify identity in the manifest file
-        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageIdentity(url: $0.url), $0) })
+        let manifestMapSequence = (root.manifests + externalManifests).map({ (PackageIdentity(url: $0.packageLocation), $0) })
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
@@ -201,7 +201,7 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
-        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.url }
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.packageLocation }
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
@@ -211,7 +211,7 @@ private func createResolvedPackages(
 
     // Create a map of package builders keyed by the package identity.
     let packageMapByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
-        let identity = PackageIdentity(url: $0.package.manifest.url)
+        let identity = PackageIdentity(url: $0.package.manifest.packageLocation)
         return (identity, $0)
     }
     let packageMapByName: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{ ($0.package.name, $0) }
@@ -235,7 +235,7 @@ private func createResolvedPackages(
                     let error = PackageGraphError.dependencyAlreadySatisfiedByName(
                         dependencyPackageName: package.name,
                         dependencyURL: dependencyURL,
-                        otherDependencyURL: resolvedPackage.package.manifest.url,
+                        otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         name: explicitDependencyName)
                     let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
                     return diagnostics.emit(error, location: diagnosticLocation)
@@ -252,7 +252,7 @@ private func createResolvedPackages(
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         dependencyPackageName: package.name,
                         dependencyURL: dependencyURL,
-                        otherDependencyURL: resolvedPackage.package.manifest.url,
+                        otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependencyIdentity)
                     let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
                     return diagnostics.emit(error, location: diagnosticLocation)
@@ -262,11 +262,11 @@ private func createResolvedPackages(
                     // check if this resolvedPackage url is the same as the dependency one
                     // if not, this means that the dependencies share the same identity
                     // FIXME: this works but the way we find out about this is based on a side effect, need to improve it when working on identity
-                    if resolvedPackage.package.manifest.url != dependencyURL {
+                    if resolvedPackage.package.manifest.packageLocation != dependencyURL {
                         let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                             dependencyPackageName: package.name,
                             dependencyURL: dependencyURL,
-                            otherDependencyURL: resolvedPackage.package.manifest.url,
+                            otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                             identity: dependencyIdentity)
                         let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
                         return diagnostics.emit(error, location: diagnosticLocation)
@@ -276,7 +276,7 @@ private func createResolvedPackages(
                             dependencyName: explicitDependencyName,
                             dependencyURL: dependencyURL,
                             resolvedPackageName: resolvedPackage.package.name,
-                            resolvedPackageURL: resolvedPackage.package.manifest.url)
+                            resolvedPackageURL: resolvedPackage.package.manifest.packageLocation)
                         let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
                         return diagnostics.emit(error, location: diagnosticLocation)
                     }
@@ -414,7 +414,7 @@ private func createResolvedPackages(
                     // explicitly reference the package containing the product, or for the product, package and
                     // dependency to share the same name. We don't check this in manifest loading for root-packages so
                     // we can provide a more detailed diagnostic here.
-                    let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.url)
+                    let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.packageLocation)
                     let referencedPackageIdentity = PackageIdentity(url: referencedPackageURL)
                     guard let packageDependency = (packageBuilder.package.manifest.dependencies.first { package in
                         let packageURL = mirrors.effectiveURL(forURL: package.url)
