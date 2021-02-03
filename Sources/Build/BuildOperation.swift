@@ -31,10 +31,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
 
-    /// The build delegate reference.
+    /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
 
-    /// The build system reference.
+    /// The llbuild build system reference.
     private var buildSystem: SPMLLBuild.BuildSystem?
 
     /// If build manifest caching should be enabled.
