@@ -74,6 +74,16 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                    authors: nil)
         }
 
+        var signature: PackageCollectionsModel.SignatureData?
+        if signed {
+            signature = .init(
+                certificate: PackageCollectionsModel.SignatureData.Certificate(
+                    subject: .init(commonName: "subject-\(collectionIndex)"),
+                    issuer: .init(commonName: "issuer-\(collectionIndex)")
+                )
+            )
+        }
+
         return PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed-\(collectionIndex)")!),
                                                   name: "collection \(collectionIndex)",
                                                   overview: "collection \(collectionIndex) description",
@@ -81,7 +91,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                   packages: packages,
                                                   createdAt: Date(),
                                                   createdBy: PackageCollectionsModel.Collection.Author(name: "Jane Doe"),
-                                                  isSigned: signed)
+                                                  signature: signature)
     }
 }
 

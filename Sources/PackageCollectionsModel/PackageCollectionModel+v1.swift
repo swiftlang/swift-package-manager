@@ -8,8 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import struct Foundation.Date
-import struct Foundation.URL
+import Foundation
 
 extension PackageCollectionModel {
     public enum V1 {}
@@ -337,5 +336,147 @@ extension PackageCollectionModel.V1.ProductType: Codable {
         case .executable:
             self = .executable
         }
+    }
+}
+
+// MARK: - Signed package collection
+
+extension PackageCollectionModel.V1 {
+    /// A  signed packge collection. The only difference between this and `Collection`
+    /// is the presence of `signature`.
+    public struct SignedCollection: Equatable {
+        /// The package collection
+        public let collection: PackageCollectionModel.V1.Collection
+
+        /// The signature and metadata
+        public let signature: PackageCollectionModel.V1.Signature
+
+        /// Creates a `SignedCollection`
+        public init(collection: PackageCollectionModel.V1.Collection, signature: PackageCollectionModel.V1.Signature) {
+            self.collection = collection
+            self.signature = signature
+        }
+    }
+
+    /// Package collection signature and associated metadata
+    public struct Signature: Equatable, Codable {
+        /// The signature
+        public let signature: String
+
+        /// Details about the certificate used to generate the signature
+        public let certificate: Certificate
+
+        public init(signature: String, certificate: Certificate) {
+            self.signature = signature
+            self.certificate = certificate
+        }
+
+        public struct Certificate: Equatable, Codable {
+            /// Subject of the certificate
+            public let subject: Name
+
+            /// Issuer of the certificate
+            public let issuer: Name
+
+            /// Creates a `Certificate`
+            public init(subject: Name, issuer: Name) {
+                self.subject = subject
+                self.issuer = issuer
+            }
+
+            /// Generic certificate name (e.g., subject, issuer)
+            public struct Name: Equatable, Codable {
+                /// Common name
+                public let commonName: String
+
+                /// Creates a `Name`
+                public init(commonName: String) {
+                    self.commonName = commonName
+                }
+            }
+        }
+    }
+}
+
+extension PackageCollectionModel.V1.SignedCollection: Codable {
+    enum CodingKeys: String, CodingKey {
+        // Collection properties
+        case name
+        case overview
+        case keywords
+        case packages
+        case formatVersion
+        case revision
+        case generatedAt
+        case generatedBy
+
+        case signature
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.collection.name, forKey: .name)
+        try container.encodeIfPresent(self.collection.overview, forKey: .overview)
+        try container.encodeIfPresent(self.collection.keywords, forKey: .keywords)
+        try container.encode(self.collection.packages, forKey: .packages)
+        try container.encode(self.collection.formatVersion, forKey: .formatVersion)
+        try container.encodeIfPresent(self.collection.revision, forKey: .revision)
+        try container.encode(self.collection.generatedAt, forKey: .generatedAt)
+        try container.encodeIfPresent(self.collection.generatedBy, forKey: .generatedBy)
+        try container.encode(self.signature, forKey: .signature)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.collection = try PackageCollectionModel.V1.Collection(from: decoder)
+        self.signature = try container.decode(PackageCollectionModel.V1.Signature.self, forKey: .signature)
+    }
+
+    // MARK: - Extract value for single key path
+
+    static let keyPathKey = "key_path"
+
+    public static func collection(from data: Data, using decoder: JSONDecoder) throws -> PackageCollectionModel.V1.Collection {
+        guard let keyPathUserInfoKey = CodingUserInfoKey(rawValue: Self.keyPathKey) else {
+            throw KeyPathValueError.invalidUserInfo
+        }
+        decoder.userInfo[keyPathUserInfoKey] = \PackageCollectionModel.V1.SignedCollection.collection
+        return try decoder.decode(KeyPathValue<PackageCollectionModel.V1.Collection>.self, from: data).value
+    }
+
+    public static func signature(from data: Data, using decoder: JSONDecoder) throws -> PackageCollectionModel.V1.Signature {
+        guard let keyPathUserInfoKey = CodingUserInfoKey(rawValue: Self.keyPathKey) else {
+            throw KeyPathValueError.invalidUserInfo
+        }
+        decoder.userInfo[keyPathUserInfoKey] = \PackageCollectionModel.V1.SignedCollection.signature
+        return try decoder.decode(KeyPathValue<PackageCollectionModel.V1.Signature>.self, from: data).value
+    }
+
+    private struct KeyPathValue<T: Decodable>: Decodable {
+        let value: T
+
+        init(from decoder: Decoder) throws {
+            guard let keyPathUserInfoKey = CodingUserInfoKey(rawValue: PackageCollectionModel.V1.SignedCollection.keyPathKey) else {
+                throw KeyPathValueError.invalidUserInfo
+            }
+            guard let keyPath = decoder.userInfo[keyPathUserInfoKey] as? KeyPath<PackageCollectionModel.V1.SignedCollection, T> else {
+                throw KeyPathValueError.missingUserInfo
+            }
+            switch keyPath {
+            case \PackageCollectionModel.V1.SignedCollection.collection:
+                self.value = try T(from: decoder)
+            case \PackageCollectionModel.V1.SignedCollection.signature:
+                let container = try decoder.container(keyedBy: PackageCollectionModel.V1.SignedCollection.CodingKeys.self)
+                self.value = try container.decode(T.self, forKey: .signature) as T
+            default:
+                throw KeyPathValueError.unknownKeyPath
+            }
+        }
+    }
+
+    public enum KeyPathValueError: Error {
+        case invalidUserInfo
+        case missingUserInfo
+        case unknownKeyPath
     }
 }

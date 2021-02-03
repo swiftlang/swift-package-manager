@@ -54,8 +54,13 @@ extension PackageCollectionsModel {
         /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
+        /// The collection's signature metadata
+        public let signature: SignatureData?
+
         /// Indicates if the collection is signed
-        public let isSigned: Bool
+        public var isSigned: Bool {
+            self.signature != nil
+        }
 
         /// Initializes a `Collection`
         init(
@@ -66,8 +71,8 @@ extension PackageCollectionsModel {
             packages: [Package],
             createdAt: Date,
             createdBy: Author?,
-            lastProcessedAt: Date = Date(),
-            isSigned: Bool
+            signature: SignatureData?,
+            lastProcessedAt: Date = Date()
         ) {
             self.identifier = .init(from: source)
             self.source = source
@@ -77,8 +82,8 @@ extension PackageCollectionsModel {
             self.packages = packages
             self.createdAt = createdAt
             self.createdBy = createdBy
+            self.signature = signature
             self.lastProcessedAt = lastProcessedAt
-            self.isSigned = isSigned
         }
     }
 }
@@ -178,5 +183,42 @@ extension PackageCollectionsModel.Collection {
     public struct Author: Equatable, Codable {
         /// The name of the author
         public let name: String
+    }
+}
+
+extension PackageCollectionsModel {
+    /// Package collection signature metadata
+    public struct SignatureData: Equatable, Codable {
+        /// Details about the certificate used to generate the signature
+        public let certificate: Certificate
+
+        public init(certificate: Certificate) {
+            self.certificate = certificate
+        }
+
+        public struct Certificate: Equatable, Codable {
+            /// Subject of the certificate
+            public let subject: Name
+
+            /// Issuer of the certificate
+            public let issuer: Name
+
+            /// Creates a `Certificate`
+            public init(subject: Name, issuer: Name) {
+                self.subject = subject
+                self.issuer = issuer
+            }
+
+            /// Generic certificate name (e.g., subject, issuer)
+            public struct Name: Equatable, Codable {
+                /// Common name
+                public let commonName: String
+
+                /// Creates a `Name`
+                public init(commonName: String) {
+                    self.commonName = commonName
+                }
+            }
+        }
     }
 }

@@ -54,7 +54,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                         throw Errors.invalidJSON(error)
                     }
                 }
-                return callback(self.makeCollection(from: collection, source: source))
+                return callback(self.makeCollection(from: collection, source: source, signature: nil))
             } catch {
                 return callback(.failure(error))
             }
@@ -90,14 +90,28 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                         guard contentLength < self.configuration.maximumSizeInBytes else {
                             return callback(.failure(Errors.responseTooLarge(contentLength)))
                         }
+                        guard let body = response.body else {
+                            return callback(.failure(Errors.invalidResponse("Body is empty")))
+                        }
 
                         do {
-                            // parse json
-                            guard let collection = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
-                                return callback(.failure(Errors.invalidResponse("Invalid body")))
+                            // parse json and construct result
+                            do {
+                                // This fails if "signature" is missing
+                                let signature = try JSONModel.SignedCollection.signature(from: body, using: self.decoder)
+                                // TODO: Check collection's signature
+                                // If signature is
+                                //      a. valid: process the collection; set isSigned=true
+                                //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
+                                let collection = try JSONModel.SignedCollection.collection(from: body, using: self.decoder)
+                                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature)))
+                            } catch {
+                                // Collection is not signed
+                                guard let collection = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
+                                    return callback(.failure(Errors.invalidResponse("Invalid body")))
+                                }
+                                callback(self.makeCollection(from: collection, source: source, signature: nil))
                             }
-                            // construct result
-                            callback(self.makeCollection(from: collection, source: source))
                         } catch {
                             callback(.failure(Errors.invalidJSON(error)))
                         }
@@ -107,14 +121,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
     }
 
-    private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource) -> Result<Model.Collection, Error> {
-        // TODO: Check collection's signature
-        // 1. If signed and signature is
-        //      a. valid: process the collection; set isSigned=true
-        //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
-        // 2. If unsigned, process the collection; set isSigned=false.
-        let isSigned = true
-
+    private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource, signature: Model.SignatureData?) -> Result<Model.Collection, Error> {
         var serializationOkay = true
         let packages = collection.packages.map { package -> Model.Package in
             let versions = package.versions.compactMap { version -> Model.Package.Version? in
@@ -177,8 +184,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                               packages: packages,
                               createdAt: collection.generatedAt,
                               createdBy: collection.generatedBy.flatMap { Model.Collection.Author(name: $0.name) },
-                              lastProcessedAt: Date(),
-                              isSigned: isSigned))
+                              signature: signature,
+                              lastProcessedAt: Date()))
     }
 
     private func makeRequestOptions(validResponseCodes: [Int]) -> HTTPClientRequest.Options {
@@ -307,5 +314,24 @@ extension Model.Compatibility {
 extension Model.License {
     fileprivate init(from: JSONModel.License) {
         self.init(type: Model.LicenseType(string: from.name), url: from.url)
+    }
+}
+
+extension Model.SignatureData {
+    fileprivate init(from: JSONModel.Signature) {
+        self.certificate = .init(from: from.certificate)
+    }
+}
+
+extension Model.SignatureData.Certificate {
+    fileprivate init(from: JSONModel.Signature.Certificate) {
+        self.subject = .init(from: from.subject)
+        self.issuer = .init(from: from.issuer)
+    }
+}
+
+extension Model.SignatureData.Certificate.Name {
+    fileprivate init(from: JSONModel.Signature.Certificate.Name) {
+        self.commonName = from.commonName
     }
 }
