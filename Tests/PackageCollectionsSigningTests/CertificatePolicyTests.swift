@@ -75,9 +75,15 @@ class CertificatePolicyTests: XCTestCase {
             // Self-signed root is not trusted
             let policy = TestCertificatePolicy(anchorCerts: [])
             XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
+                #if canImport(Security)
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                 }
+                #else
+                guard CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError else {
+                    return XCTFail("Expected CertificatePolicyError.noTrustedRootCertsConfigured")
+                }
+                #endif
             }
         }
     }

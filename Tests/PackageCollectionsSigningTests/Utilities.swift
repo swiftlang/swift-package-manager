@@ -53,8 +53,14 @@ struct TestCertificatePolicy: CertificatePolicy {
             guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
                 return self.callbackQueue.async { callback(.failure(CertificatePolicyError.codeSigningCertRequired)) }
             }
+
+            #if canImport(Security)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
                         diagnosticsEngine: DiagnosticsEngine(), callbackQueue: self.callbackQueue, callback: callback)
+            #else
+            self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
+                        diagnosticsEngine: DiagnosticsEngine(), callbackQueue: self.callbackQueue, callback: callback)
+            #endif
         } catch {
             return self.callbackQueue.async { callback(.failure(error)) }
         }
