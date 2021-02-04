@@ -15,7 +15,7 @@ import class Foundation.ProcessInfo
 
 // We default to a 10.10 minimum deployment target for clients of libSwiftPM,
 // but allow overriding it when building for a toolchain.
-
+// swift-driver test
 let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
