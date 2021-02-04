@@ -110,8 +110,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -213,8 +213,8 @@ final class BuildPlanTests: XCTestCase {
                     Manifest.createV4Manifest(
                         name: "ExplicitTest",
                         path: testDirPath.description,
-                        url: "/ExplicitTest",
                         packageKind: .root,
+                        packageLocation: "/ExplicitTest",
                         targets: [
                             TargetDescription(name: "A", dependencies: ["B"]),
                             TargetDescription(name: "B", dependencies: ["C"]),
@@ -273,7 +273,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
+                    packageLocation: "/Pkg",
                     dependencies: [
                         PackageDependencyDescription(url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -295,8 +295,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "ExtPkg",
                     path: "/ExtPkg",
-                    url: "/ExtPkg",
                     packageKind: .remote,
+                    packageLocation: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtLib", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -376,8 +376,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
-                    url: "/A",
                     packageKind: .root,
+                    packageLocation: "/A",
                     dependencies: [
                         PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -388,8 +388,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "B",
                     path: "/B",
-                    url: "/B",
                     packageKind: .local,
+                    packageLocation: "/B",
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -430,8 +430,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
@@ -483,8 +483,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     dependencies: [
                         PackageDependencyDescription(url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -495,8 +495,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "ExtPkg",
                     path: "/ExtPkg",
-                    url: "/ExtPkg",
                     packageKind: .local,
+                    packageLocation: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["extlib"]),
                     ],
@@ -596,7 +596,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
+                    packageLocation: "/Pkg",
                     dependencies: [
                         PackageDependencyDescription(url: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -617,8 +617,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "ExtPkg",
                     path: "/ExtPkg",
-                    url: "/ExtPkg",
                     packageKind: .remote,
+                    packageLocation: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -682,8 +682,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     cLanguageStandard: "gnu99",
                     cxxLanguageStandard: "c++1z",
                     targets: [
@@ -743,8 +743,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -812,9 +812,9 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
-                    v: .v5,
                     packageKind: .root,
+                    packageLocation: "/Pkg",
+                    v: .v5,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -852,8 +852,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     dependencies: [
                         PackageDependencyDescription(url: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -865,8 +865,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Dep",
                     path: "/Dep",
-                    url: "/Dep",
                     packageKind: .local,
+                    packageLocation: "/Dep",
                     products: [
                         ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"]),
                     ],
@@ -902,8 +902,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
@@ -963,8 +963,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     dependencies: [
                         PackageDependencyDescription(url: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
@@ -974,8 +974,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Clibgit",
                     path: "/Clibgit",
-                    url: "/Clibgit",
-                    packageKind: .local),
+                    packageKind: .local,
+                    packageLocation: "/Clibgit"),
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -1020,8 +1020,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -1054,8 +1054,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
@@ -1065,8 +1065,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
                         PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1147,8 +1147,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1211,8 +1211,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1275,8 +1275,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
-                    url: "/A",
                     packageKind: .root,
+                    packageLocation: "/A",
                     dependencies: [
                         PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
@@ -1290,8 +1290,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "B",
                     path: "/B",
-                    url: "/B",
                     packageKind: .local,
+                    packageLocation: "/B",
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "bexec", type: .executable, targets: ["BTarget2"]),
@@ -1303,8 +1303,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "C",
                     path: "/C",
-                    url: "/C",
                     packageKind: .local,
+                    packageLocation: "/C",
                     products: [
                         ProductDescription(name: "cexec", type: .executable, targets: ["CTarget"])
                     ],
@@ -1367,7 +1367,7 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
-                    url: "/A",
+                    packageLocation: "/A",
                     dependencies: [
                         PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                         PackageDependencyDescription(url: "/C", requirement: .upToNextMajor(from: "1.0.0")),
@@ -1395,8 +1395,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "B",
                     path: "/B",
-                    url: "/B",
                     packageKind: .remote,
+                    packageLocation: "/B",
                     products: [
                         ProductDescription(name: "BLibrary1", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "BLibrary2", type: .library(.static), targets: ["BTarget2"]),
@@ -1415,8 +1415,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "C",
                     path: "/C",
-                    url: "/C",
                     packageKind: .remote,
+                    packageLocation: "/C",
                     products: [
                         ProductDescription(name: "CLibrary", type: .library(.static), targets: ["CTarget"])
                     ],
@@ -1487,8 +1487,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
-                    packageKind: .root
+                    packageKind: .root,
+                    packageLocation: "/Pkg"
                 ),
             ]
         )
@@ -1513,8 +1513,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
-                    url: "/A",
                     packageKind: .root,
+                    packageLocation: "/A",
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1549,8 +1549,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "A",
                     path: "/A",
-                    url: "/A",
                     packageKind: .root,
+                    packageLocation: "/A",
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1586,8 +1586,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                     TargetDescription(name: "exe", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
@@ -1639,8 +1639,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "app", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1730,8 +1730,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1772,13 +1772,13 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "A",
+                    path: "/A",
+                    packageKind: .root,
+                    packageLocation: "/A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                     ],
-                    path: "/A",
-                    url: "/A",
                     v: .v5,
-                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1787,13 +1787,13 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "B",
+                    path: "/B",
+                    packageKind: .local,
+                    packageLocation: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.12"),
                     ],
-                    path: "/B",
-                    url: "/B",
                     v: .v5,
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -1834,14 +1834,14 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "A",
+                    path: "/A",
+                    packageKind: .root,
+                    packageLocation: "/A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                         PlatformDescription(name: "ios", version: "10"),
                     ],
-                    path: "/A",
-                    url: "/A",
                     v: .v5,
-                    packageKind: .root,
                     dependencies: [
                         PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1850,14 +1850,14 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "B",
+                    path: "/B",
+                    packageKind: .local,
+                    packageLocation: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "11"),
                     ],
-                    path: "/B",
-                    url: "/B",
                     v: .v5,
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -1901,9 +1901,9 @@ final class BuildPlanTests: XCTestCase {
         let aManifest = Manifest.createManifest(
             name: "A",
             path: "/A",
-            url: "/A",
-            v: .v5,
             packageKind: .root,
+            packageLocation: "/A",
+            v: .v5,
             dependencies: [
                 PackageDependencyDescription(url: "/B", requirement: .upToNextMajor(from: "1.0.0")),
             ],
@@ -1946,9 +1946,9 @@ final class BuildPlanTests: XCTestCase {
         let bManifest = Manifest.createManifest(
             name: "B",
             path: "/B",
-            url: "/B",
-            v: .v5,
             packageKind: .local,
+            packageLocation: "/B",
+            v: .v5,
             products: [
                 ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
             ],
@@ -2028,9 +2028,9 @@ final class BuildPlanTests: XCTestCase {
         let aManifest = Manifest.createManifest(
             name: "A",
             path: "/A",
-            url: "/A",
-            v: .v5,
             packageKind: .root,
+            packageLocation: "/A",
+            v: .v5,
             targets: [
                 try TargetDescription(name: "exe", dependencies: []),
             ]
@@ -2067,8 +2067,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
-                    url: "/PkgA",
                     packageKind: .local,
+                    packageLocation: "/PkgA",
                     products: [
                         ProductDescription(name: "swiftlib", type: .library(.automatic), targets: ["swiftlib"]),
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"])
@@ -2080,8 +2080,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgB",
                     path: "/PkgB",
-                    url: "/PkgB",
                     packageKind: .root,
+                    packageLocation: "/PkgB",
                     dependencies: [
                         PackageDependencyDescription(url: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -2120,8 +2120,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
-                    url: "/PkgA",
                     packageKind: .root,
+                    packageLocation: "/PkgA",
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -2175,8 +2175,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
-                    url: "/PkgA",
                     packageKind: .root,
+                    packageLocation: "/PkgA",
                     dependencies: [
                         PackageDependencyDescription(url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -2186,8 +2186,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgB",
                     path: "/PkgB",
-                    url: "/PkgB",
                     packageKind: .local,
+                    packageLocation: "/PkgB",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -2243,8 +2243,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgA",
                     path: "/PkgA",
-                    url: "/PkgA",
                     packageKind: .root,
+                    packageLocation: "/PkgA",
                     dependencies: [
                         PackageDependencyDescription(url: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -2254,8 +2254,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "PkgB",
                     path: "/PkgB",
-                    url: "/PkgB",
                     packageKind: .local,
+                    packageLocation: "/PkgB",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
                     ],
@@ -2311,8 +2311,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2373,9 +2373,9 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createManifest(
                     name: "PkgA",
                     path: "/PkgA",
-                    url: "/PkgA",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/PkgA",
+                    v: .v5_2,
                     targets: [
                         TargetDescription(
                             name: "Foo",
@@ -2430,8 +2430,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2536,8 +2536,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                         ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
@@ -2636,8 +2636,8 @@ final class BuildPlanTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
                         TargetDescription(name: "lib", dependencies: []),

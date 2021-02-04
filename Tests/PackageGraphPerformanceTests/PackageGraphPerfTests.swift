@@ -27,7 +27,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         var rootManifests: [Manifest]!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
-            let url = "/" + name
+            let location = "/" + name
 
             let dependencies: [PackageDependencyDescription]
             let targets: [TargetDescription]
@@ -45,12 +45,12 @@ class PackageGraphPerfTests: XCTestCasePerf {
             let isRoot = pkg == 1
             let manifest = Manifest(
                 name: name,
+                path: AbsolutePath(location).appending(component: Manifest.filename),
+                packageKind: isRoot ? .root : .remote,
+                packageLocation: location,
                 platforms: [],
-                path: AbsolutePath(url).appending(component: Manifest.filename),
-                url: url,
                 version: "1.0.0",
                 toolsVersion: .v4_2,
-                packageKind: isRoot ? .root : .remote,
                 dependencies: dependencies,
                 products: [
                     ProductDescription(name: name, type: .library(.automatic), targets: [name])

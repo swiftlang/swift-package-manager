@@ -409,9 +409,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5,
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -433,9 +433,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -457,9 +457,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -481,9 +481,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -529,8 +529,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: packageDir.basename,
                 path: packageDir.pathString,
-                url: packageDir.pathString,
                 packageKind: .root,
+                packageLocation: packageDir.pathString,
                 targets: [
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
@@ -590,9 +590,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: packageDirectory.basename,
                 path: packageDirectory.pathString,
-                url: packageDirectory.pathString,
-                v: .v5_2,
                 packageKind: .root,
+                packageLocation: packageDirectory.pathString,
+                v: .v5_2,
                 dependencies: [
                     PackageDependencyDescription(
                         url: "Somewhere/Dependency",

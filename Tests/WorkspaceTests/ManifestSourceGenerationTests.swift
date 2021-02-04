@@ -22,12 +22,32 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
             let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-            let manifest = try tsc_await { manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root, on: .global(), completion: $0) }
+            let manifest = try tsc_await {
+                manifestLoader.load(at: packageDir,
+                                    packageKind: .root,
+                                    packageLocation: packageDir.pathString,
+                                    version: nil,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
+                                    fileSystem: fs,
+                                    on: .global(),
+                                    completion: $0)
+            }
 
             // Generate source code for the loaded manifest, write it out to replace the manifest file contents, and load it again.
             let newContents = manifest.generatedManifestFileContents
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
-            let newManifest = try tsc_await { manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root, on: .global(), completion: $0) }
+            let newManifest = try tsc_await {
+                manifestLoader.load(at: packageDir,
+                                    packageKind: .root,
+                                    packageLocation: packageDir.pathString,
+                                    version: nil,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
+                                    fileSystem: fs,
+                                    on: .global(),
+                                    completion: $0)
+            }
             
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents

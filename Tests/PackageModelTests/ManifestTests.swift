@@ -30,9 +30,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 products: products,
                 targets: targets
             )
@@ -49,9 +49,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 products: products,
                 targets: targets
             )
@@ -87,9 +87,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5,
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -106,9 +106,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -125,9 +125,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -144,9 +144,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets

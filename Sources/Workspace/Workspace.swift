@@ -788,7 +788,7 @@ extension Workspace {
         var rootManifests = [Manifest]()
         Set(packages).forEach { package in
             sync.enter()
-            self.loadManifest(packagePath: package, url: package.pathString, packageKind: .root, diagnostics: diagnostics) { result in
+            self.loadManifest(packagePath: package, packageLocation: package.pathString, packageKind: .root, diagnostics: diagnostics) { result in
                 defer { sync.leave() }
                 if case .success(let manifest) = result {
                     lock.withLock {
@@ -883,7 +883,7 @@ extension Workspace {
             // FIXME: this should not block
             let manifest = try temp_await {
                 self.loadManifest(packagePath: destination,
-                                  url: dependency.packageRef.repository.url,
+                                  packageLocation: dependency.packageRef.repository.url,
                                   packageKind: .local,
                                   diagnostics: diagnostics,
                                   completion: $0)
@@ -1137,13 +1137,13 @@ extension Workspace {
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
-                self.root.manifests.map { (PackageIdentity(url: $0.url), $0) } +
-                self.dependencies.map { (PackageIdentity(url: $0.manifest.url), $0.manifest) })
+                self.root.manifests.map { (PackageIdentity(url: $0.packageLocation), $0) } +
+                self.dependencies.map { (PackageIdentity(url: $0.manifest.packageLocation), $0.manifest) })
 
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = self.root.manifests.map{ manifest in
-                let identity = PackageIdentity(url: manifest.url)
-                let package = PackageReference(identity: identity, kind: manifest.packageKind, location: manifest.url)
+                let identity = PackageIdentity(url: manifest.packageLocation)
+                let package = PackageReference(identity: identity, kind: manifest.packageKind, location: manifest.packageLocation)
                 inputIdentities.insert(package)
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
@@ -1174,7 +1174,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map {
-                let url = workspace.config.mirrors.effectiveURL(forURL: $0.1.url)
+                let url = workspace.config.mirrors.effectiveURL(forURL: $0.1.packageLocation)
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind, location: url)
             })
             // We should never have loaded a manifest we don't need.
@@ -1348,17 +1348,17 @@ extension Workspace {
         // optimization: preload manifest we know about in parallel
         let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.url) } }.flatMap { $0 }
         // FIXME: this should not block
-        var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.url, $0) }
+        var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) }
 
         // continue to load the rest of the manifest for this graph
-        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.url, productFilter: .everything)) }) { node in
+        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: .everything)) }) { node in
             return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
                 let url = config.mirrors.effectiveURL(forURL: dependency.url)
                 // FIXME: this should not block
                 // note: loadManifest emits diagnostics in case it fails
                 let manifest = loadedManifests[url] ?? temp_await { self.loadManifest(forURL: url, diagnostics: diagnostics, completion: $0) }
                 loadedManifests[url] = manifest
-                return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.url, productFilter: dependency.productFilter)) }
+                return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: dependency.productFilter)) }
             }
         }
 
@@ -1366,7 +1366,7 @@ extension Workspace {
         var deduplication = [PackageIdentity: Int]()
         var allManifests = [(manifest: Manifest, productFilter: ProductFilter)]()
         for node in allManifestsWithPossibleDuplicates {
-            let identity = PackageIdentity(url: node.item.url)
+            let identity = PackageIdentity(url: node.item.packageLocation)
             if let index = deduplication[identity]  {
                 let productFilter = allManifests[index].productFilter.merge(node.key.productFilter)
                 allManifests[index] = (node.item, productFilter)
@@ -1381,14 +1381,14 @@ extension Workspace {
         // check for overrides attempts with same name but different path
         let rootManifestsByName = root.manifests.spm_createDictionary{ ($0.name, $0) }
         dependencyManifests.forEach { manifest, _ in
-            if let override = rootManifestsByName[manifest.name], override.url != manifest.url  {
-                diagnostics.emit(error: "unable to override package '\(manifest.name)' because its identity '\(PackageIdentity(url: manifest.url))' doesn't match override's identity (directory name) '\(PackageIdentity(url: override.url))'")
+            if let override = rootManifestsByName[manifest.name], override.packageLocation != manifest.packageLocation  {
+                diagnostics.emit(error: "unable to override package '\(manifest.name)' because its identity '\(PackageIdentity(url: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(url: override.packageLocation))'")
             }
         }
 
         let dependencies = try dependencyManifests.map{ manifest, productFilter -> (Manifest, ManagedDependency, ProductFilter) in
-            guard let dependency = self.state.dependencies[forURL: manifest.url] else {
-                throw InternalError("dependency not found for \(manifest.url)")
+            guard let dependency = self.state.dependencies[forURL: manifest.packageLocation] else {
+                throw InternalError("dependency not found for \(manifest.packageLocation)")
             }
             return (manifest, dependency, productFilter)
         }
@@ -1420,7 +1420,7 @@ extension Workspace {
 
         // Load and return the manifest.
         self.loadManifest(packagePath: packagePath,
-                          url: managedDependency.packageRef.location,
+                          packageLocation: managedDependency.packageRef.location,
                           version: version,
                           packageKind: packageKind,
                           diagnostics: diagnostics) { result in
@@ -1456,14 +1456,14 @@ extension Workspace {
     /// This is just a helper wrapper to the manifest loader.
     fileprivate func loadManifest(
         packagePath: AbsolutePath,
-        url: String,
+        packageLocation: String,
         version: Version? = nil,
         packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         // Load the manifest, bracketed by the calls to the delegate callbacks. The delegate callback is only passed any diagnostics emited during the parsing of the manifest, but they are also forwarded up to the caller.
-        delegate?.willLoadManifest(packagePath: packagePath, url: url, version: version, packageKind: packageKind)
+        delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind)
         let manifestDiagnostics = DiagnosticsEngine(handlers: [{diagnostics.emit($0)}])
         diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
             do {
@@ -1474,11 +1474,13 @@ extension Workspace {
                 try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: packagePath.pathString)
 
                 // Load the manifest.
-                manifestLoader.load(package: packagePath,
-                                    baseURL: url,
-                                    version: version,
-                                    toolsVersion: toolsVersion,
+                manifestLoader.load(at: packagePath,
                                     packageKind: packageKind,
+                                    packageLocation: packageLocation,
+                                    version: version,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
+                                    fileSystem: localFileSystem,
                                     diagnostics: diagnostics,
                                     on: self.queue) { result in
 
@@ -1486,7 +1488,7 @@ extension Workspace {
                     case .failure(let error):
                         diagnostics.emit(error)
                     case .success(let manifest):
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: url, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestDiagnostics.diagnostics)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestDiagnostics.diagnostics)
                     }
                     completion(result)
                 }
