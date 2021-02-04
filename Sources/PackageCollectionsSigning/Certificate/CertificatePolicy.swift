@@ -14,12 +14,14 @@ import struct Foundation.Date
 import class Foundation.FileManager
 import struct Foundation.URL
 
+import Basics
 import TSCBasic
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Security
 #else
 @_implementationOnly import CCryptoBoringSSL
+@_implementationOnly import PackageCollectionsSigningLibc
 #endif
 
 protocol CertificatePolicy {
@@ -37,6 +39,7 @@ extension CertificatePolicy {
     typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
     #endif
 
+    #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
     /// Verifies the certificate.
     ///
     /// - Parameters:
@@ -56,7 +59,6 @@ extension CertificatePolicy {
             return callback(.failure(CertificatePolicyError.emptyCertChain))
         }
 
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         let policy = SecPolicyCreateBasicX509()
         let revocationPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod)
 
@@ -82,7 +84,30 @@ extension CertificatePolicy {
                 callback(.success(isTrusted))
             }
         }
-        #else
+    }
+
+    #else
+    /// Verifies the certificate.
+    ///
+    /// - Parameters:
+    ///   - certChain: The entire certificate chain. The certificate being verified must be the first element of the array.
+    ///   - anchorCerts: Manually specify the certificates to trust (e.g., for testing)
+    ///   - verifyDate: Overrides the timestamp used for checking certificate expiry (e.g., for testing). By default the current time is used.
+    ///   - queue: The  `DispatchQueue` to use for async operations
+    ///   - httpClient: HTTP client for OCSP requests
+    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors
+    ///   - callback: The callback to invoke when the result is available.
+    func verify(certChain: [Certificate],
+                anchorCerts: [Certificate]? = nil,
+                verifyDate: Date? = nil,
+                queue: DispatchQueue,
+                httpClient: HTTPClient?,
+                diagnosticsEngine: DiagnosticsEngine?,
+                callback: @escaping (Result<Bool, Error>) -> Void) {
+        guard !certChain.isEmpty else {
+            return callback(.failure(CertificatePolicyError.emptyCertChain))
+        }
+
         // Cert chain
         let x509Stack = CCryptoBoringSSL_sk_X509_new_null()
         defer { CCryptoBoringSSL_sk_X509_free(x509Stack) }
@@ -137,16 +162,122 @@ extension CertificatePolicy {
             return callback(.success(false))
         }
 
-        // TODO: OCSP
-//        if certChain.count >= 1 {
-//            // Whether cert chain can be trusted depends on OCSP result
-//            self.BoringSSL_OCSP_isGood(certificate: certChain[0], issuer: certChain[1], callback: callback)
-//        } else {
-//            callback(.success(true))
-//        }
-        callback(.success(true))
-        #endif
+        if certChain.count >= 1, let httpClient = httpClient {
+            // Whether cert chain can be trusted depends on OCSP result
+            self.BoringSSL_OCSP_isGood(certificate: certChain[0], issuer: certChain[1], queue: queue, httpClient: httpClient, callback: callback)
+        } else {
+            callback(.success(true))
+        }
     }
+
+    private func BoringSSL_OCSP_isGood(certificate: Certificate,
+                                       issuer: Certificate,
+                                       queue: DispatchQueue,
+                                       httpClient: HTTPClient,
+                                       callback: @escaping (Result<Bool, Error>) -> Void) {
+        let ocspURLs = CCryptoBoringSSL_X509_get1_ocsp(certificate.underlying)
+        defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
+
+        let ocspURLCount = CCryptoBoringSSL_sk_OPENSSL_STRING_num(ocspURLs)
+        // Nothing to do if no OCSP URLs. Use `supportsOCSP` to require OCSP support if needed.
+        guard ocspURLCount > 0 else { return callback(.success(true)) }
+
+        // Construct the OCSP request
+        let digest = CCryptoBoringSSL_EVP_sha1()
+        guard let certid = OCSP_cert_to_id(digest, certificate.underlying, issuer.underlying),
+            let request = OCSP_REQUEST_new(),
+            OCSP_request_add0_id(request, certid) != nil else {
+            return callback(.failure(CertificatePolicyError.ocspFailure))
+        }
+        defer { OCSP_REQUEST_free(request) }
+
+        // Write the request binary to memory bio
+        guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()),
+            i2d_OCSP_REQUEST_bio(bio, request) > 0 else {
+            return callback(.failure(CertificatePolicyError.ocspFailure))
+        }
+        defer { CCryptoBoringSSL_BIO_free(bio) }
+
+        // Copy from bio to byte array then convert to Data
+        var count = 0
+        let out = UnsafeMutablePointer<UnsafePointer<UInt8>?>.allocate(capacity: 1)
+        guard CCryptoBoringSSL_BIO_mem_contents(bio, out, &count) > 0 else {
+            return callback(.failure(CertificatePolicyError.ocspFailure))
+        }
+
+        let requestData = Data(UnsafeBufferPointer(start: out.pointee, count: count))
+
+        let results = ThreadSafeArrayStore<Bool>()
+        let group = DispatchGroup()
+
+        // Query each OCSP responder and record result
+        for index in 0 ..< ocspURLCount {
+            guard let urlStr = CCryptoBoringSSL_sk_OPENSSL_STRING_value(ocspURLs, numericCast(index)),
+                let url = String(validatingUTF8: urlStr).flatMap({ URL(string: $0) }) else {
+                continue
+            }
+
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Content-Type", value: "application/ocsp-request")
+            url.host.map { headers.add(name: "Host", value: "\($0)") }
+
+            var options = HTTPClientRequest.Options()
+            options.validResponseCodes = [200]
+
+            group.enter()
+            httpClient.post(url, body: requestData, headers: headers, options: options) { result in
+                defer { group.leave() }
+
+                switch result {
+                case .failure:
+                    return
+                case .success(let response):
+                    guard let responseData = response.body else { return }
+
+                    let bytes = responseData.copyBytes()
+                    // Convert response to bio then OCSP response
+                    guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()),
+                        CCryptoBoringSSL_BIO_write(bio, bytes, numericCast(bytes.count)) > 0,
+                        let response = d2i_OCSP_RESPONSE_bio(bio, nil) else {
+                        return
+                    }
+                    defer { CCryptoBoringSSL_BIO_free(bio) }
+                    defer { OCSP_RESPONSE_free(response) }
+
+                    // This is just the OCSP response status, not the certificate's status
+                    guard OCSP_response_status(response) == OCSP_RESPONSE_STATUS_SUCCESSFUL,
+                        CCryptoBoringSSL_OBJ_obj2nid(response.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic,
+                        let basicResp = OCSP_response_get1_basic(response),
+                        let basicRespData = basicResp.pointee.tbsResponseData?.pointee else {
+                        return
+                    }
+                    defer { OCSP_BASICRESP_free(basicResp) }
+
+                    // Inspect the OCSP response
+                    for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
+                        guard let singleResp = sk_OCSP_SINGLERESP_value(basicRespData.responses, numericCast(i)),
+                            let certStatus = singleResp.pointee.certStatus else {
+                            continue
+                        }
+
+                        // Is the certificate in good status?
+                        results.append(certStatus.pointee.type == V_OCSP_CERTSTATUS_GOOD)
+                        break
+                    }
+                }
+            }
+        }
+
+        group.notify(queue: queue) {
+            // If there's no result then something must have gone wrong
+            guard !results.isEmpty else {
+                return callback(.failure(CertificatePolicyError.ocspFailure))
+            }
+            // Do we have at least one result that indicates certificate is good?
+            callback(.success(results.get().first(where: { !$0 }) == nil))
+        }
+    }
+    #endif
 }
 
 // MARK: - Supporting methods and types
@@ -249,7 +380,7 @@ enum CertificatePolicyError: Error {
     case emptyCertChain
     case certVerificationFailure
     case extensionFailure
-//    case ocspFailure
+    case ocspFailure
 }
 
 // MARK: - Certificate policies
@@ -270,6 +401,10 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let queue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine?
 
+    #if !os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+    private let httpClient: HTTPClient
+    #endif
+
     /// Initializes a `DefaultCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
@@ -284,6 +419,12 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.expectedSubjectUserID = expectedSubjectUserID
         self.queue = queue
         self.diagnosticsEngine = diagnosticsEngine
+
+        #if !os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        var httpClientConfig = HTTPClientConfiguration()
+        httpClientConfig.callbackQueue = queue
+        self.httpClient = HTTPClient(configuration: httpClientConfig)
+        #endif
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Bool, Error>) -> Void) {
@@ -309,7 +450,11 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             }
 
             // Verify the cert chain - if it is trusted then cert chain is valid
+            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, diagnosticsEngine: self.diagnosticsEngine, callback: callback)
+            #else
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callback: callback)
+            #endif
         } catch {
             return callback(.failure(error))
         }
@@ -332,6 +477,10 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     private let queue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine?
 
+    #if !os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+    private let httpClient: HTTPClient
+    #endif
+
     /// Initializes a `AppleDeveloperCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
@@ -346,6 +495,12 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
         self.expectedSubjectUserID = expectedSubjectUserID
         self.queue = queue
         self.diagnosticsEngine = diagnosticsEngine
+
+        #if !os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        var httpClientConfig = HTTPClientConfiguration()
+        httpClientConfig.callbackQueue = queue
+        self.httpClient = HTTPClient(configuration: httpClientConfig)
+        #endif
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Bool, Error>) -> Void) {
@@ -382,7 +537,11 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
             }
 
             // Verify the cert chain - if it is trusted then cert chain is valid
+            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, diagnosticsEngine: self.diagnosticsEngine, callback: callback)
+            #else
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callback: callback)
+            #endif
         } catch {
             return callback(.failure(error))
         }

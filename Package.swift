@@ -157,11 +157,18 @@ let package = Package(
             /** Package collections models */
             name: "PackageCollectionsModel",
             dependencies: []),
-        
+
+        .target(
+            /** Package collections signing C lib */
+            name: "PackageCollectionsSigningLibc",
+            dependencies: ["Crypto"],
+            cSettings: [
+                .define("WIN32_LEAN_AND_MEAN"),
+            ]),
         .target(
             /** Package collections signing */
             name: "PackageCollectionsSigning",
-            dependencies: ["PackageCollectionsModel", "Crypto", "Basics"]),
+            dependencies: ["PackageCollectionsModel", "PackageCollectionsSigningLibc", "Crypto", "Basics"]),
 
         // MARK: Package Manager Functionality
 

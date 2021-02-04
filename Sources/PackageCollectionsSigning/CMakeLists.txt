@@ -39,7 +39,11 @@ target_link_libraries(PackageCollectionsSigning PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageCollectionsSigning PRIVATE
   Crypto
-  CCryptoBoringSSL)
+  CCryptoBoringSSL
+  PackageCollectionsSigningLibc)
+target_include_directories(PackageCollectionsSigning PRIVATE
+  $<TARGET_PROPERTY:PackageCollectionsSigningLibc,INCLUDE_DIRECTORIES>)
+  
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageCollectionsSigning PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

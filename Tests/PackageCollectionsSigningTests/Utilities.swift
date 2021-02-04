@@ -49,7 +49,12 @@ struct TestCertificatePolicy: CertificatePolicy {
             guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
                 return callback(.success(false))
             }
+
+            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, queue: self.queue, diagnosticsEngine: nil, callback: callback)
+            #else
+            self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, queue: self.queue, httpClient: nil, diagnosticsEngine: nil, callback: callback)
+            #endif
         } catch {
             return callback(.failure(error))
         }
