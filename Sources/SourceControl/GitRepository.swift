@@ -81,12 +81,26 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
         precondition(!localFileSystem.exists(path))
+
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         try self.callGit("clone", "--mirror", repository.url, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.url)")
     }
-
+    
+    public func isInitializedDirectory(location: String) throws {
+        // Provides better feedback when mistakingly using url: for a dependency that
+        // is a local package. Still allows for using url with a local package that has
+        // also been initialized by git
+        do {
+            try self.callGit("-C", location, "rev-parse", "--git-dir", repository: RepositorySpecifier(url: location))
+        } catch let error as GitCloneError {
+            throw GitCloneError(repository: RepositorySpecifier(url: location),
+                                message: "Cannot clone from local directory \(location)\nPlease git init or use \"path:\" for \(location)",
+                                result: error.result)
+        }
+    }
+    
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }

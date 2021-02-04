@@ -13,6 +13,7 @@ import TSCBasic
 import TSCUtility
 import PackageModel
 import Foundation
+import SourceControl
 
 enum ManifestJSONParser {
      struct Result {
@@ -362,13 +363,19 @@ extension PackageDependencyDescription {
             self = .local(identity: identity,
                           name: name,
                           path: path,
-                           productFilter: .everything)
+                          productFilter: .everything)
         // a package in a git location, may be a remote URL or on disk
         // TODO: consider refining the behavior + validation when the package is on disk
         // TODO: refactor this when adding registry support
         default:
             // location mapping (aka mirrors)
             let location = identityResolver.resolveLocation(from: location)
+            
+            if let validPath = try? AbsolutePath(validating: location), fileSystem.exists(validPath) {
+                let gitRepoProvider = GitRepositoryProvider()
+                try gitRepoProvider.isInitializedDirectory(location: location)
+            }
+            
             // in the future this will check with the registries for the identity of the URL
             let identity = identityResolver.resolveIdentity(for: location)
             let requirement = try Requirement(v4: requirementJSON)
