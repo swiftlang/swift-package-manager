@@ -211,7 +211,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 return nil
             }
             // FIXME: do we want to display all manifests?
-            guard let manifest = version.manifests.default else {
+            guard let manifest = version.defaultManifest else {
                 return nil
             }
 

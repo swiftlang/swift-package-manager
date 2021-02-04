@@ -36,6 +36,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -99,6 +100,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -122,6 +124,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -169,6 +172,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -183,6 +187,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -240,6 +245,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -287,6 +293,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -301,6 +308,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -324,6 +332,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -338,6 +347,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -382,6 +392,7 @@ class PackageCollectionValidationTests: XCTestCase {
                     Model.Collection.Package.Version(
                         version: "1.3.2",
                         manifests: [:],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -429,6 +440,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
                         license: nil
                     ),
@@ -476,6 +488,7 @@ class PackageCollectionValidationTests: XCTestCase {
                                 minimumPlatformVersions: nil
                             ),
                         ],
+                        defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
                         license: nil
                     ),

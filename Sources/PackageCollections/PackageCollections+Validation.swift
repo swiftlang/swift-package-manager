@@ -132,6 +132,10 @@ extension PackageCollectionModel.V1 {
                     messages.append(.error("Package \(packageID) version \(version.version) does not have any manifests.", property: "version.manifest"))
                     return
                 }
+                guard version.manifests[version.defaultToolsVersion] != nil else {
+                    messages.append(.error("Package \(packageID) version \(version.version) is missing the default manifest (tools version: \(version.defaultToolsVersion))", property: "version.manifest"))
+                    return
+                }
 
                 version.manifests.forEach { toolsVersion, manifest in
                     if toolsVersion != manifest.toolsVersion {

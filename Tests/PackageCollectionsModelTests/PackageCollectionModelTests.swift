@@ -34,6 +34,7 @@ class PackageCollectionModelTests: XCTestCase {
                                 minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),
@@ -76,6 +77,7 @@ class PackageCollectionModelTests: XCTestCase {
                                 minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
                             ),
                         ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),

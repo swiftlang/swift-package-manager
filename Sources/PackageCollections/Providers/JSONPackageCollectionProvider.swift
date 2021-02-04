@@ -167,6 +167,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     serializationOkay = false
                 }
 
+                guard let defaultToolsVersion = ToolsVersion(string: version.defaultToolsVersion) else {
+                    return nil
+                }
+
                 let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
                 if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
                     serializationOkay = false
@@ -175,6 +179,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
                 return .init(version: parsedVersion,
                              manifests: manifests,
+                             defaultToolsVersion: defaultToolsVersion,
                              verifiedCompatibility: verifiedCompatibility,
                              license: license)
             }

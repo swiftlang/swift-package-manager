@@ -65,6 +65,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
 
                 return PackageCollectionsModel.Package.Version(version: TSCUtility.Version(versionIndex, 0, 0),
                                                                manifests: manifests,
+                                                               defaultToolsVersion: toolsVersion,
                                                                verifiedCompatibility: verifiedCompatibility,
                                                                license: license)
             }

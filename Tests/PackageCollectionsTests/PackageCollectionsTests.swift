@@ -532,6 +532,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
                                                                   manifests: [toolsVersion: mockManifest],
+                                                                  defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
 
@@ -688,6 +689,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
                                                                   manifests: [toolsVersion: mockManifest],
+                                                                  defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
                                                                   license: nil)
 
@@ -780,7 +782,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         // search by target name
         let start = Date()
-        let targetName = mockCollections.last!.packages.last!.versions.last!.manifests.default!.targets.last!.name
+        let targetName = mockCollections.last!.packages.last!.versions.last!.defaultManifest!.targets.last!.name
         let searchResult = try tsc_await { callback in packageCollections.findTargets(targetName, searchType: .exactMatch, callback: callback) }
         XCTAssert(searchResult.items.count > 0, "should get results")
         let delta = Date().timeIntervalSince(start)
@@ -922,11 +924,11 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         let targetsList = try tsc_await { callback in packageCollections.listTargets(callback: callback) }
-        let expectedTargets = Set(mockCollections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.manifests.default!.targets.map { $0.name } } } })
+        let expectedTargets = Set(mockCollections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.defaultManifest!.targets.map { $0.name } } } })
         XCTAssertEqual(Set(targetsList.map { $0.target.name }), expectedTargets, "targets should match")
 
         let targetsPackagesList = Set(targetsList.flatMap { $0.packages })
-        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.manifests.default!.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
+        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.defaultManifest!.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
         XCTAssertEqual(targetsPackagesList.count, expectedPackages.count, "pacakges should match")
 
         let targetsCollectionsList = Set(targetsList.flatMap { $0.packages.flatMap { $0.collections } })
@@ -1022,6 +1024,7 @@ final class PackageCollectionsTests: XCTestCase {
         let versions = (0 ... 3).map {
             PackageCollectionsModel.Package.Version(version: TSCUtility.Version($0, 0, 0),
                                                     manifests: [toolsVersion: manifest],
+                                                    defaultToolsVersion: toolsVersion,
                                                     verifiedCompatibility: [
                                                         .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                         .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
@@ -1057,8 +1060,8 @@ final class PackageCollectionsTests: XCTestCase {
             let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
             XCTAssertNotNil(metadataVersion)
 
-            let manifest = version.manifests.default!
-            let metadataManifest = metadataVersion?.manifests.default
+            let manifest = version.defaultManifest!
+            let metadataManifest = metadataVersion?.defaultManifest
             XCTAssertEqual(manifest.packageName, metadataManifest?.packageName, "packageName should match")
             XCTAssertEqual(manifest.targets, metadataManifest?.targets, "targets should match")
             XCTAssertEqual(manifest.products, metadataManifest?.products, "products should match")
