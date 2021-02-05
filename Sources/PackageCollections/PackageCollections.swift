@@ -243,16 +243,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 // then try to get more metadata from provider (optional)
                 self.metadataProvider.get(reference) { result in
                     switch result {
-                    case .failure(let error) where error is NotFoundError:
+                    case .failure:
                         self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections
                         )
                         callback(.success(metadata))
-                    case .failure(let error):
-                        self.diagnosticsEngine?.emit(error: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
-                        callback(.failure(error))
                     case .success(let basicMetadata):
                         // finally merge the results
                         let metadata = Model.PackageMetadata(

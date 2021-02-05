@@ -1166,9 +1166,10 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        XCTAssertThrowsError(try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }, "expected error") { error in
-            XCTAssert(error is BrokenMetadataProvider.TerribleThing)
-        }
+        // Despite metadata provider error we should still get back data from storage
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
+        XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
     func testFetchMetadataPerformance() throws {
