@@ -159,6 +159,12 @@ For example, if the latest tag is 1.1.3:
 $> git clone https://github.com/apple/swift-crypto --branch 1.1.3
 ```
 
+6. Clone [SwiftSyntax](https://github.com/apple/swift-syntax) beside the SwiftPM directory and checkout the revision which matches the Swift compiler being used to build SwiftPM. If the `swiftc` being used to compile SwiftPM was built using `build-script`, use the corresponding revision of `SwiftSyntax` obtained using `update-checkout`. If the `swiftc` being used to compile SwiftPM is from a nightly development snapshot, checkout the corresponding nightly snapshot tag of `SwiftSyntax`. See the [SwiftSyntax README](https://github.com/apple/swift-syntax) for more information about choosing the correct version.
+
+```bash
+$> git clone https://github.com/apple/swift-syntax
+```
+
 #### Building
 
 ```bash
