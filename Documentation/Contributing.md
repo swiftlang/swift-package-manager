@@ -152,6 +152,13 @@ For example, if the latest tag is 0.3.1:
 $> git clone https://github.com/apple/swift-argument-parser --branch 0.3.1
 ```
 
+5. Clone [swift-crypto](https://github.com/apple/swift-crypto) beside the SwiftPM directory and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
+
+For example, if the latest tag is 1.1.3:
+```bash
+$> git clone https://github.com/apple/swift-crypto --branch 1.1.3
+```
+
 #### Building
 
 ```bash
