@@ -15,10 +15,13 @@ add_library(Basics
   FileSystem+Extensions.swift
   HTPClient+URLSession.swift
   HTTPClient.swift
-  JSON+Extensions.swift)
+  JSON+Extensions.swift
+  SwiftVersion.swift)
 target_link_libraries(Basics PUBLIC
   TSCBasic
   TSCUtility)
+target_link_libraries(Basics PRIVATE
+   TSCclibc)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Basics PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
