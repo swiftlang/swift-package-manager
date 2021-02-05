@@ -191,7 +191,7 @@ public struct SwiftTestTool: SwiftCommand {
         _superCommandName: "swift",
         abstract: "Build and run tests",
         discussion: "SEE ALSO: swift build, swift run, swift package",
-        version: Versioning.currentVersion.completeDisplayString,
+        version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()

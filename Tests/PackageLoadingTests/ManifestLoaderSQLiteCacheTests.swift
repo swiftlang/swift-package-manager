@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 @testable import PackageLoading
 import PackageModel
 import TSCBasic
@@ -186,7 +187,7 @@ fileprivate func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePat
                                                       manifestPath: manifestPath,
                                                       toolsVersion: ToolsVersion.currentToolsVersion,
                                                       env: [:],
-                                                      swiftpmVersion: Versioning.currentVersion.displayString,
+                                                      swiftpmVersion: SwiftVersion.currentVersion.displayString,
                                                       fileSystem: fileSystem)
         manifests[key] = ManifestLoader.ManifestParseResult(compilerOutput: "mock-output-\(index)",
                                                             parsedManifest: "{ 'name': 'mock-manifest-\(index)' }")

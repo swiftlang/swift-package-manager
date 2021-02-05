@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import PackageModel
-import TSCUtility
+import Basics
 import Foundation
+import PackageModel
+import TSCBasic
+import TSCUtility
 
 /// Protocol for the manifest loader interface.
 public protocol ToolsVersionLoaderProtocol {
@@ -37,7 +38,7 @@ extension Manifest {
         fileSystem: FileSystem
     ) throws -> AbsolutePath {
         // Look for a version-specific manifest.
-        for versionSpecificKey in Versioning.currentVersionSpecificKeys {
+        for versionSpecificKey in SwiftVersion.currentVersion.versionSpecificKeys {
             let versionSpecificPath = packagePath.appending(component: Manifest.basename + versionSpecificKey + ".swift")
             if fileSystem.isFile(versionSpecificPath) {
                 return versionSpecificPath

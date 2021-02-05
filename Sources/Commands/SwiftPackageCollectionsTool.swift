@@ -9,6 +9,7 @@
  */
 
 import ArgumentParser
+import Basics
 import Foundation
 import PackageCollections
 import PackageModel
@@ -42,7 +43,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Interact with package collections",
         discussion: "SEE ALSO: swift build, swift package, swift run, swift test",
-        version: Versioning.currentVersion.completeDisplayString,
+        version: SwiftVersion.currentVersion.completeDisplayString,
         subcommands: [
             Add.self,
             Describe.self,

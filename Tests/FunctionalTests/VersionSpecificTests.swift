@@ -8,13 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import SourceControl
-import TSCUtility
-
 import SPMTestSupport
+import TSCBasic
+import TSCUtility
+import XCTest
 
 class VersionSpecificTests: XCTestCase {
     /// Functional tests of end-to-end support for version specific dependency resolution.
@@ -112,7 +111,7 @@ class VersionSpecificTests: XCTestCase {
             }
             try repo.stage(file: "Package.swift")
             try repo.commit(message: "OK v1.1.0")
-            try repo.tag(name: "1.1.0@swift-\(Versioning.currentVersion.major)")
+            try repo.tag(name: "1.1.0@swift-\(SwiftVersion.currentVersion.major)")
 
             // The build should work now.
             _ = try SwiftPMProduct.SwiftPackage.execute(["reset"], packagePath: primaryPath)
