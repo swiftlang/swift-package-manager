@@ -29,7 +29,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     let stdoutStream: OutputByteStream
 
     /// The delegate used by the build system.
-    public weak var delegate: BuildSystemDelegate?
+    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     public var builtTestProducts: [BuiltTestProduct] {
         guard let graph = try? getPackageGraph() else {
