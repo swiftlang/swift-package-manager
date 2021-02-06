@@ -309,40 +309,43 @@ extension PackageDependencyDescription.Requirement {
 
 extension PackageDependencyDescription {
     fileprivate init(v4 json: JSON, toolsVersion: ToolsVersion, packageLocation: String, fileSystem: FileSystem) throws {
-        let isBaseURLRemote = URL.scheme(packageLocation) != nil
+        let filePrefix = "file://"
 
-        func fixLocation(_ location: String, requirement: Requirement) throws -> String {
+        func fixLocation(_ dependencyLocation: String) throws -> String {
             // If base URL is remote (http/ssh), we can't do any "fixing".
-            if isBaseURLRemote {
-                return location
+            if URL.scheme(packageLocation) != nil {
+                return dependencyLocation
             }
 
-            // If the dependency URL starts with '~/', try to expand it.
-            if location.hasPrefix("~/") {
-                return fileSystem.homeDirectory.appending(RelativePath(String(location.dropFirst(2)))).pathString
-            }
-
-            // If the dependency URL is not remote, try to "fix" it.
-            if URL.scheme(location) == nil {
+            if dependencyLocation.hasPrefix("~/") {
+                // If the dependency URL starts with '~/', try to expand it.
+                return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
+            } else if dependencyLocation.hasPrefix(filePrefix) {
+                // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
+                // strip that. We need to design a Location data structure for SwiftPM.
+                return AbsolutePath(String(dependencyLocation.dropFirst(filePrefix.count))).pathString
+            } else if URL.scheme(dependencyLocation) == nil {
+                // If the dependency URL is not remote, try to "fix" it.
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-                return AbsolutePath(location, relativeTo: AbsolutePath(packageLocation)).pathString
+                return AbsolutePath(dependencyLocation, relativeTo: AbsolutePath(packageLocation)).pathString
             }
 
-            if case .localPackage = requirement {
-                do {
-                    return try AbsolutePath(validating: location).pathString
-                } catch PathValidationError.invalidAbsolutePath(let path) {
-                    throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
-                }
-            }
-
-            return location
+            return dependencyLocation
         }
 
-        let requirement = try Requirement(v4: json.get("requirement"))
-        let location = try fixLocation(json.get("url"), requirement: requirement)
+        let location = try fixLocation(json.get("url"))
         let name: String? = json.get("name")
-        self.init(name: name, url: location, requirement: requirement)
+        let requirement = try Requirement(v4: json.get("requirement"))
+
+        if case .localPackage = requirement {
+            do {
+                _ = try AbsolutePath(validating: location)
+            } catch PathValidationError.invalidAbsolutePath(let path) {
+                throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
+            }
+        }
+
+        self.init(name: name, location: location, requirement: requirement)
     }
 }
 

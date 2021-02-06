@@ -184,12 +184,12 @@ public final class Manifest: ObjectIdentifierProtocol {
         for target in targetsRequired(for: products) {
             for targetDependency in target.dependencies {
                 if let dependency = packageDependency(referencedBy: targetDependency) {
-                    requiredDependencyURLs.insert(dependency.url)
+                    requiredDependencyURLs.insert(dependency.location)
                 }
             }
         }
         
-        return dependencies.filter { requiredDependencyURLs.contains($0.url) }
+        return dependencies.filter { requiredDependencyURLs.contains($0.location) }
         #endif
     }
 
@@ -211,7 +211,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         })
 
         let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
-        let requiredTargets = requiredTargetNames.compactMap({ targetsByName[$0] })
+        let requiredTargets = requiredTargetNames.compactMap{ targetsByName[$0] }
         return requiredTargets
     }
 
@@ -224,7 +224,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     ) -> [PackageDependencyDescription] {
 
         var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
-        let availablePackages = Set(dependencies.lazy.map({ $0.name }))
+        let availablePackages = Set(dependencies.lazy.map{ $0.nameForTargetDependencyResolutionOnly })
 
         for target in targets {
             for targetDependency in target.dependencies {
@@ -243,7 +243,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         }
 
         return dependencies.compactMap { dependency in
-            if let filter = associations[dependency.name] {
+            if let filter = associations[dependency.nameForTargetDependencyResolutionOnly] {
                 return dependency.filtered(by: filter)
             } else if keepUnused {
                 // Register that while the dependency was kept, no products are needed.
@@ -271,7 +271,7 @@ public final class Manifest: ObjectIdentifierProtocol {
             return nil
         }
 
-        return dependencies.first(where: { $0.name == packageName })
+        return dependencies.first(where: { $0.nameForTargetDependencyResolutionOnly == packageName })
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.

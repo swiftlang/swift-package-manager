@@ -105,8 +105,8 @@ fileprivate struct DescribedPackage: Encodable {
         let requirement: PackageDependencyDescription.Requirement?
 
         init(from dependency: PackageDependencyDescription) {
-            self.name = dependency.explicitName
-            self.url = dependency.url
+            self.name = dependency.explicitNameForTargetDependencyResolutionOnly
+            self.url = dependency.location
             self.requirement = dependency.requirement
         }
     }

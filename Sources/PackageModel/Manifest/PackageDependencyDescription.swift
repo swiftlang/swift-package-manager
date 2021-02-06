@@ -30,19 +30,14 @@ public struct PackageDependencyDescription: Equatable, Codable, Hashable {
         }
     }
 
-    /// The name of the package dependency explicitly defined in the manifest, if any.
-    public let explicitName: String?
+    /// An explicit name set by the user, to be used  *only*  for target dependencies resolution
+    public let explicitNameForTargetDependencyResolutionOnly: String?
 
-    /// The name of the packagedependency,
-    /// either explicitly defined in the manifest,
-    /// or derived from the URL.
-    ///
-    /// - SeeAlso: `explicitName`
-    /// - SeeAlso: `url`
-    public let name: String
+    /// A computed name to be used *only* for target dependencies resolution
+    public let nameForTargetDependencyResolutionOnly: String
 
-    /// The url of the package dependency.
-    public let url: String
+    /// The location of the package dependency.
+    public let location: String
 
     /// The dependency requirement.
     public let requirement: Requirement
@@ -53,30 +48,23 @@ public struct PackageDependencyDescription: Equatable, Codable, Hashable {
     /// Create a package dependency.
     public init(
         name: String? = nil,
-        url: String,
+        location: String,
         requirement: Requirement,
         productFilter: ProductFilter = .everything
     ) {
-        // FIXME: SwiftPM can't handle file URLs with file:// scheme so we need to
-        // strip that. We need to design a URL data structure for SwiftPM.
-        let filePrefix = "file://"
-        let normalizedURL: String
-        if url.hasPrefix(filePrefix) {
-            normalizedURL = AbsolutePath(String(url.dropFirst(filePrefix.count))).pathString
-        } else {
-            normalizedURL = url
-        }
-
-        self.explicitName = name
-        self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: normalizedURL)
-        self.url = normalizedURL
+        self.explicitNameForTargetDependencyResolutionOnly = name
+        self.nameForTargetDependencyResolutionOnly = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: location)
+        self.location = location
         self.requirement = requirement
         self.productFilter = productFilter
     }
 
     /// Returns a new package dependency with the specified products.
     public func filtered(by productFilter: ProductFilter) -> PackageDependencyDescription {
-        PackageDependencyDescription(name: explicitName, url: url, requirement: requirement, productFilter: productFilter)
+        PackageDependencyDescription(name: self.explicitNameForTargetDependencyResolutionOnly,
+                                     location: self.location,
+                                     requirement: self.requirement,
+                                     productFilter: productFilter)
     }
 }
 

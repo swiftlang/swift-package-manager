@@ -360,8 +360,8 @@ final class PackageToolTests: XCTestCase {
             packageLocation: "/PackageA",
             v: .v5_3,
             dependencies: [
-                .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
-                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
+                .init(name: "PackageB", location: "/PackageB", requirement: .localPackage),
+                .init(name: "PackageC", location: "/PackageC", requirement: .localPackage),
             ],
             products: [
                 .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -378,8 +378,8 @@ final class PackageToolTests: XCTestCase {
             packageLocation: "/PackageB",
             v: .v5_3,
             dependencies: [
-                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
-                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+                .init(name: "PackageC", location: "/PackageC", requirement: .localPackage),
+                .init(name: "PackageD", location: "/PackageD", requirement: .localPackage),
             ],
             products: [
                 .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -396,7 +396,7 @@ final class PackageToolTests: XCTestCase {
             packageLocation: "/PackageC",
             v: .v5_3,
             dependencies: [
-                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+                .init(name: "PackageD", location: "/PackageD", requirement: .localPackage),
             ],
             products: [
                 .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])

@@ -14,7 +14,7 @@ import SourceControl
 extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
     public func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
-        let effectiveURL = mirrors.effectiveURL(forURL: url)
+        let effectiveURL = mirrors.effectiveURL(forURL: self.location)
 
         // FIXME: The identity of a package dependency is currently based on
         //        on a name computed from the package's effective URL.  This

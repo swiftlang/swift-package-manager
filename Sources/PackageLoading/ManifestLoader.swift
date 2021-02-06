@@ -451,7 +451,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine?
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            PackageIdentity(url: dependency.url)
+            PackageIdentity(url: dependency.location)
         })
 
         let duplicateDependencyIdentities = dependenciesByIdentity
@@ -473,7 +473,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let duplicateDependencyNames = manifest.dependencies
                 .lazy
                 .filter({ !duplicateDependencies.contains($0) })
-                .map({ $0.name })
+                .map({ $0.nameForTargetDependencyResolutionOnly })
                 .spm_findDuplicates()
 
             for name in duplicateDependencyNames {
@@ -522,7 +522,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         try diagnostics.emit(.unknownTargetPackageDependency(
                             packageName: packageName ?? "unknown package name",
                             targetName: target.name,
-                            validPackages: manifest.dependencies.map { $0.name }
+                            validPackages: manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
                         ))
                     }
                 case .byName(let name, _):
@@ -534,7 +534,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         try diagnostics.emit(.unknownTargetDependency(
                             dependency: name,
                             targetName: target.name,
-                            validDependencies: manifest.dependencies.map { $0.name }
+                            validDependencies: manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
                         ))
                     }
                 }
