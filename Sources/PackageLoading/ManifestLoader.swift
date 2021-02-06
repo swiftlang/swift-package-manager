@@ -556,7 +556,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             manifestPath: path,
             toolsVersion: toolsVersion,
             env: ProcessEnv.vars,
-            swiftpmVersion: Versioning.currentVersion.displayString,
+            swiftpmVersion: SwiftVersion.currentVersion.displayString,
             fileSystem: fileSystem
         )
 

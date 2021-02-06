@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
-import SPMTestSupport
+import Basics
 import PackageModel
 import PackageLoading
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
+import XCTest
 
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -327,7 +327,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 "let package = Package(name: \"Trivial\")"))
 
         // Check at each possible spelling.
-        let currentVersion = Versioning.currentVersion
+        let currentVersion = SwiftVersion.currentVersion
         let possibleSuffixes = [
             "\(currentVersion.major).\(currentVersion.minor).\(currentVersion.patch)",
             "\(currentVersion.major).\(currentVersion.minor)",

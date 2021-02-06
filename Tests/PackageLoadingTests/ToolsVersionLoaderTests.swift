@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
 
-import TSCBasic
-import SPMTestSupport
-
+import Basics
 import PackageModel
 import PackageLoading
+import SPMTestSupport
+import TSCBasic
 import TSCUtility
+import XCTest
 
 class ToolsVersionLoaderTests: XCTestCase {
 
@@ -674,7 +674,7 @@ class ToolsVersionLoaderTests: XCTestCase {
         }
 
         // Test version specific manifests.
-        let keys = Versioning.currentVersionSpecificKeys
+        let keys = SwiftVersion.currentVersion.versionSpecificKeys
 
         // In case the count ever changes, we will need to modify this test.
         XCTAssertEqual(keys.count, 3)

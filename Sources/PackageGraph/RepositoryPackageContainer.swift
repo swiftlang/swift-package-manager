@@ -384,3 +384,48 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         }
     }
 }
+
+extension Git {
+    static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
+        // First, check if we need to restrict the tag set to version-specific tags.
+        var knownVersions: [Version: [String]] = [:]
+        var versionSpecificKnownVersions: [Version: [String]] = [:]
+
+        for tag in tags {
+            for versionSpecificKey in SwiftVersion.currentVersion.versionSpecificKeys {
+                if tag.hasSuffix(versionSpecificKey) {
+                    let trimmedTag = String(tag.dropLast(versionSpecificKey.count))
+                    if let version = Version(tag: trimmedTag) {
+                        versionSpecificKnownVersions[version, default: []].append(tag)
+                    }
+                    break
+                }
+            }
+
+            if let version = Version(tag: tag) {
+                knownVersions[version, default: []].append(tag)
+            }
+        }
+        // Check if any version specific tags were found.
+        // If true, then return the version specific tags,
+        // or else return the version independent tags.
+        if !versionSpecificKnownVersions.isEmpty {
+            return versionSpecificKnownVersions
+        } else {
+            return knownVersions
+        }
+    }
+}
+
+extension Version {
+    /// Try a version from a git tag.
+    ///
+    /// - Parameter tag: A version string possibly prepended with "v".
+    init?(tag: String) {
+        if tag.first == "v" {
+            self.init(string: String(tag.dropFirst()))
+        } else {
+            self.init(string: tag)
+        }
+    }
+}

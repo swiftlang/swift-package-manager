@@ -79,7 +79,7 @@ public struct HTTPClient: HTTPClientProtocol {
             }
         }
         if request.options.addUserAgent, !request.headers.contains("User-Agent") {
-            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(Versioning.currentVersion.displayString)")
+            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.currentVersion.displayString)")
         }
         // execute
         self._execute(request: request, requestNumber: 0) { result in

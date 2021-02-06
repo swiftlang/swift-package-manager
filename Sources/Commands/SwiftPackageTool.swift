@@ -30,7 +30,7 @@ public struct SwiftPackageTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
-        version: Versioning.currentVersion.completeDisplayString,
+        version: SwiftVersion.currentVersion.completeDisplayString,
         subcommands: [
             Clean.self,
             PurgeCache.self,
