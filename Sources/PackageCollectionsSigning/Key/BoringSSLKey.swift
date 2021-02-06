@@ -34,7 +34,7 @@ extension BoringSSLKey {
                               _ closure: (UnsafeMutablePointer<BIO>) -> (T?)) throws -> T where Data: DataProtocol {
         let bytes = data.copyBytes()
 
-        let bio = CCryptoBoringSSL_BIO_new_mem_buf(bytes, -1)
+        let bio = CCryptoBoringSSL_BIO_new_mem_buf(bytes, numericCast(bytes.count))
         defer { CCryptoBoringSSL_BIO_free(bio) }
 
         guard let bioPointer = bio, let result = closure(bioPointer) else {

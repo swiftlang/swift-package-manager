@@ -8,9 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import struct Foundation.Data
+
 import TSCBasic
 
 func readPEM(path: AbsolutePath) throws -> String {
-    let data = try localFileSystem.readFileContents(path).contents
+    let data = Data(try localFileSystem.readFileContents(path).contents)
     return String(decoding: data, as: UTF8.self)
 }
