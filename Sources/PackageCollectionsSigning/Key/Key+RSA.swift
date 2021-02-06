@@ -135,7 +135,7 @@ final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
             return bytes
         }
 
-        guard let key = CCryptoBoringSSL_d2i_PublicKey(EVP_PKEY_RSA, nil, &bytes, data.count) else {
+        guard let key = CCryptoBoringSSL_d2i_PublicKey(EVP_PKEY_RSA, nil, &bytes, numericCast(data.count)) else {
             throw BoringSSLKeyError.failedToLoadKeyFromBytes
         }
         defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
