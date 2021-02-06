@@ -9,6 +9,8 @@
 add_library(SPMBuildCore
   BuildParameters.swift
   BuildSystem.swift
+  BuildSystemCommand.swift
+  BuildSystemDelegate.swift
   BuiltTestProduct.swift
   Sanitizers.swift
   Toolchain.swift)

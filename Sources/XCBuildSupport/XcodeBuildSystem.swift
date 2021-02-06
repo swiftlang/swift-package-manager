@@ -16,7 +16,7 @@ import PackageModel
 import PackageGraph
 import SPMBuildCore
 
-public final class XcodeBuildSystem: BuildSystem {
+public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> PackageGraph
     private let isVerbose: Bool
@@ -27,6 +27,9 @@ public final class XcodeBuildSystem: BuildSystem {
 
     /// The stdout stream for the build delegate.
     let stdoutStream: OutputByteStream
+
+    /// The delegate used by the build system.
+    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     public var builtTestProducts: [BuiltTestProduct] {
         guard let graph = try? getPackageGraph() else {
@@ -155,6 +158,7 @@ public final class XcodeBuildSystem: BuildSystem {
             ? VerboseProgressAnimation(stream: stdoutStream)
             : MultiLinePercentProgressAnimation(stream: stdoutStream, header: "")
         let delegate = XCBuildDelegate(
+            buildSystem: self,
             diagnostics: diagnostics,
             outputStream: stdoutStream,
             progressAnimation: progressAnimation)
