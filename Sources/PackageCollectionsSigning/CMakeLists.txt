@@ -13,7 +13,7 @@ add_library(PackageCollectionsSigning
   Key/Key+EC.swift
   Key/Key+RSA.swift
   Utilities/Utilities.swift)
-target_link_libraries(PackageCollectionsSigning PUBLIC
+target_link_libraries(PackageCollectionsSigning PRIVATE
   Crypto
   CCryptoBoringSSL)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
