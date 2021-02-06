@@ -87,17 +87,6 @@ public struct PackageGraph {
     public let inputPackages: [ResolvedPackage]
 
     /// Construct a package graph directly.
-    // FIXME: deprecated 12/2020, remove once clients migrate
-    @available(*, deprecated, message: "use throwing variant instead (init(rootPackages:rootDependencies:dependencies:)")
-    public init(
-        rootPackages: [ResolvedPackage],
-        rootDependencies: [ResolvedPackage] = [],
-        requiredDependencies: Set<PackageReference>
-    ) {
-        try! self.init(rootPackages: rootPackages, rootDependencies: rootDependencies, dependencies: requiredDependencies)
-    }
-
-    /// Construct a package graph directly.
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],

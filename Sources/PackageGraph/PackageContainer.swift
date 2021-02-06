@@ -59,12 +59,6 @@ public protocol PackageContainer {
     /// version appears first.
     func versionsDescending() throws -> [Version]
 
-    /// Get the list of versions in the repository sorted in the reverse order, that is the latest
-    /// version appears first.
-    // FIXME: deprecated 12/2020, remove once clients migrate
-    @available(*, deprecated, message: "use versionsDescending instead")
-    func reversedVersions() throws -> [Version]
-
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
     //
