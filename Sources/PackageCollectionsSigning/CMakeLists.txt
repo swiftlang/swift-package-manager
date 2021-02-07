@@ -22,6 +22,10 @@ add_library(PackageCollectionsSigning
   Key/Key.swift
   Key/Key+EC.swift
   Key/Key+RSA.swift
+  Signing/BoringSSLSigning.swift
+  Signing/Signing.swift
+  Signing/Signing+ECKey.swift
+  Signing/Signing+RSAKey.swift
   Utilities/Utilities.swift)
 target_link_libraries(PackageCollectionsSigning PUBLIC
    $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>

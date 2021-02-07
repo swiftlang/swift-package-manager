@@ -10,7 +10,7 @@
 
 import Foundation
 
-protocol PrivateKey {
+protocol PrivateKey: MessageSigner {
     /// Creates a private key from PEM.
     ///
     /// - Parameters:
@@ -18,7 +18,7 @@ protocol PrivateKey {
     init<Data>(pem data: Data) throws where Data: DataProtocol
 }
 
-protocol PublicKey {
+protocol PublicKey: MessageValidator {
     /// Creates a public key from raw bytes.
     ///
     /// Refer to implementation for details on what representation the raw bytes should be.
