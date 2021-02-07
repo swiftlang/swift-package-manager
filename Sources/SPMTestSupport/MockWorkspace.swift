@@ -26,6 +26,7 @@ public final class MockWorkspace {
     let roots: [MockPackage]
     let packages: [MockPackage]
     public let config: Workspace.Configuration
+    let identityResolver: IdentityResolver
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
     public let delegate = MockWorkspaceDelegate()
@@ -33,12 +34,14 @@ public final class MockWorkspace {
     let skipUpdate: Bool
     let enablePubGrub: Bool
 
+
     public init(
         sandbox: AbsolutePath,
         fs: FileSystem,
         downloader: MockDownloader? = nil,
         archiver: MockArchiver = MockArchiver(),
         checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
+        config: Workspace.Configuration? = nil,
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
@@ -50,7 +53,8 @@ public final class MockWorkspace {
         self.downloader = downloader ?? MockDownloader(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        self.identityResolver = DefaultIdentityResolver(locationMapper: self.config.mirrors.effectiveURL(forURL:))
         self.roots = roots
         self.packages = packages
 
@@ -126,7 +130,7 @@ public final class MockWorkspace {
                     platforms: package.platforms,
                     version: v,
                     toolsVersion: toolsVersion,
-                    dependencies: package.dependencies.map { $0.convert(baseURL: packagesDir) },
+                    dependencies: package.dependencies.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: try package.targets.map { try $0.convert() }
                 )
@@ -167,6 +171,7 @@ public final class MockWorkspace {
             config: self.config,
             fileSystem: self.fs,
             repositoryProvider: self.repoProvider,
+            identityResolver: self.identityResolver,
             downloader: self.downloader,
             archiver: self.archiver,
             checksumAlgorithm: self.checksumAlgorithm,
@@ -252,7 +257,7 @@ public final class MockWorkspace {
         packages: [String] = [],
         _ result: (DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -269,7 +274,7 @@ public final class MockWorkspace {
         deps: [MockDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -286,7 +291,7 @@ public final class MockWorkspace {
         deps: [MockDependency],
         _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
@@ -468,7 +473,7 @@ public final class MockWorkspace {
         deps: [MockDependency] = [],
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
     ) throws {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir) }
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let diagnostics = DiagnosticsEngine()
         let workspace = self.createWorkspace()
         let rootInput = PackageGraphRootInput(

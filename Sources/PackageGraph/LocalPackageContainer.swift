@@ -25,7 +25,7 @@ import TSCUtility
 /// Examples: Root packages, local dependencies, edited packages.
 public final class LocalPackageContainer: PackageContainer {
     public let package: PackageReference
-    private let mirrors: DependencyMirrors
+    private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
@@ -53,6 +53,7 @@ public final class LocalPackageContainer: PackageContainer {
                                     version: nil,
                                     revision: nil,
                                     toolsVersion: toolsVersion,
+                                    identityResolver: identityResolver,
                                     fileSystem: fileSystem,
                                     diagnostics: nil,
                                     on: .global(),
@@ -62,7 +63,7 @@ public final class LocalPackageContainer: PackageContainer {
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+        return try loadManifest().dependencyConstraints(productFilter: productFilter)
     }
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
@@ -73,7 +74,7 @@ public final class LocalPackageContainer: PackageContainer {
 
     public init(
         package: PackageReference,
-        mirrors: DependencyMirrors,
+        identityResolver: IdentityResolver,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
@@ -81,7 +82,7 @@ public final class LocalPackageContainer: PackageContainer {
     ) {
         assert(URL.scheme(package.location) == nil, "unexpected scheme \(URL.scheme(package.location)!) in \(package.location)")
         self.package = package
-        self.mirrors = mirrors
+        self.identityResolver = identityResolver
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion

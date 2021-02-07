@@ -67,10 +67,10 @@ class ManifestTests: XCTestCase {
     }
 
     func testRequiredDependencies() throws {
-        let dependencies = [
-            PackageDependencyDescription(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+        let dependencies: [PackageDependencyDescription] = [
+            .scm(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -95,10 +95,10 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.location }).sorted(), [
-                "/Bar1",
-                "/Bar2",
-                "/Bar3",
+            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+                "bar1",
+                "bar2",
+                "bar3",
             ])
         }
 
@@ -114,10 +114,10 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.location }).sorted(), [
-                "/Bar1", // Foo → Foo1 → Bar1
-                "/Bar2", // Foo → Foo1 → Foo2 → Bar2
-                "/Bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
+            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.identity.description }).sorted(), [
+                "bar1", // Foo → Foo1 → Bar1
+                "bar2", // Foo → Foo1 → Foo2 → Bar2
+                "bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
             ])
         }
 
@@ -133,10 +133,10 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.location }).sorted(), [
-                "/Bar1",
-                "/Bar2",
-                "/Bar3",
+            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+                "bar1",
+                "bar2",
+                "bar3",
             ])
         }
 

@@ -274,7 +274,7 @@ public class RepositoryManager {
                     let repositoryPath = self.path.appending(handle.subpath)
                     // Change the state to pending.
                     handle.status = .pending
-                    // Make sure desination is free.
+                    // Make sure destination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
 
                     // Inform delegate.
@@ -334,7 +334,7 @@ public class RepositoryManager {
     ///   - update: Update a repository that is already cached or alternatively fetch the repository into the cache.
     /// - Throws:
     /// - Returns: Details about the performed fetch.
-   @discardableResult
+    @discardableResult
     func fetchAndPopulateCache(handle: RepositoryHandle, repositoryPath: AbsolutePath) throws -> FetchDetails {
         var updatedCache = false
         var fromCache = false

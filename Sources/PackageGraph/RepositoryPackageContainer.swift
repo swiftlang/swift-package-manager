@@ -57,7 +57,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     public let package: PackageReference
     private let repository: Repository
-    private let mirrors: DependencyMirrors
+    private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
@@ -76,14 +76,14 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     init(
         package: PackageReference,
-        mirrors: DependencyMirrors,
+        identityResolver: IdentityResolver,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion
     ) {
         self.package = package
-        self.mirrors = mirrors
+        self.identityResolver = identityResolver
         self.repository = repository
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
@@ -222,7 +222,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         productFilter: ProductFilter
     ) throws -> (Manifest, [Constraint]) {
         let manifest = try self.loadManifest(at: revision, version: version)
-        return (manifest, manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors))
+        return (manifest, manifest.dependencyConstraints(productFilter: productFilter))
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [Constraint] {
@@ -287,6 +287,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                                     version: version,
                                     revision: nil,
                                     toolsVersion: toolsVersion,
+                                    identityResolver: identityResolver,
                                     fileSystem: fs,
                                     diagnostics: nil,
                                     on: .global(),
@@ -311,7 +312,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
-    let mirrors: DependencyMirrors
+    let identityResolver: IdentityResolver
 
     /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
     /// the container.
@@ -329,13 +330,13 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     ///   - toolsVersionLoader: The tools version loader.
     public init(
         repositoryManager: RepositoryManager,
-        mirrors: DependencyMirrors = [:],
+        identityResolver: IdentityResolver,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
     ) {
         self.repositoryManager = repositoryManager
-        self.mirrors = mirrors
+        self.identityResolver = identityResolver
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
@@ -352,7 +353,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
             return queue.async {
                 let container = LocalPackageContainer(
                     package: package,
-                    mirrors: self.mirrors,
+                    identityResolver: self.identityResolver,
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
@@ -372,7 +373,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                     let repository = try handle.open()
                     return RepositoryPackageContainer(
                         package: package,
-                        mirrors: self.mirrors,
+                        identityResolver: self.identityResolver,
                         repository: repository,
                         manifestLoader: self.manifestLoader,
                         toolsVersionLoader: self.toolsVersionLoader,

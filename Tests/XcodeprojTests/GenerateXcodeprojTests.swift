@@ -357,7 +357,7 @@ class GenerateXcodeprojTests: XCTestCase {
                         path: fooPackagePath.pathString,
                         packageLocation: fooPackagePath.pathString,
                         dependencies: [
-                            PackageDependencyDescription(name: "Bar", location: barPackagePath.pathString, requirement: .localPackage)
+                            .local(name: "Bar", path: barPackagePath)
                         ],
                         targets: [
                             TargetDescription(name: "Foo", dependencies: [

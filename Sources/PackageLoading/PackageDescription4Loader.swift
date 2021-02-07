@@ -30,7 +30,13 @@ enum ManifestJSONParser {
          var errors: [String] = []
      }
 
-    static func parse(v4 jsonString: String, toolsVersion: ToolsVersion, packageLocation: String, fileSystem: FileSystem) throws -> ManifestJSONParser.Result {
+    static func parse(
+        v4 jsonString: String,
+        toolsVersion: ToolsVersion,
+        packageLocation: String,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem
+    ) throws -> ManifestJSONParser.Result {
         let json = try JSON(string: jsonString)
         let package = try json.getJSON("package")
         var result = Self.Result(name: try package.get(String.self, forKey: "name"))
@@ -46,6 +52,7 @@ enum ManifestJSONParser {
                 v4: $0,
                 toolsVersion: toolsVersion,
                 packageLocation: packageLocation,
+                identityResolver: identityResolver,
                 fileSystem: fileSystem
             )
         })
@@ -298,9 +305,6 @@ extension PackageDependencyDescription.Requirement {
             let identifier = try json.get(String.self, forKey: "identifier")
             self = .exact(Version(string: identifier)!)
 
-        case "localPackage":
-            self = .localPackage
-
         default:
             throw InternalError("invalid dependency \(type)")
         }
@@ -308,7 +312,13 @@ extension PackageDependencyDescription.Requirement {
 }
 
 extension PackageDependencyDescription {
-    fileprivate init(v4 json: JSON, toolsVersion: ToolsVersion, packageLocation: String, fileSystem: FileSystem) throws {
+    fileprivate init(
+        v4 json: JSON,
+        toolsVersion: ToolsVersion,
+        packageLocation: String,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem
+    ) throws {
         let filePrefix = "file://"
 
         func fixLocation(_ dependencyLocation: String) throws -> String {
@@ -333,19 +343,41 @@ extension PackageDependencyDescription {
             return dependencyLocation
         }
 
-        let location = try fixLocation(json.get("url"))
         let name: String? = json.get("name")
-        let requirement = try Requirement(v4: json.get("requirement"))
+        let location = try fixLocation(json.get("url"))
 
-        if case .localPackage = requirement {
+        // backwards compatibility 2/2021
+        let requirementJSON: JSON = try json.get("requirement")
+        let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
+        switch requirementType {
+        // a local package on disk
+        case "localPackage":
+            let path: AbsolutePath
             do {
-                _ = try AbsolutePath(validating: location)
+                path = try AbsolutePath(validating: location)
             } catch PathValidationError.invalidAbsolutePath(let path) {
                 throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
             }
+            let identity = identityResolver.resolveIdentity(for: path)
+            self = .local(identity: identity,
+                          name: name,
+                          path: path,
+                           productFilter: .everything)
+        // a package in a git location, may be a remote URL or on disk
+        // TODO: consider refining the behavior + validation when the package is on disk
+        // TODO: refactor this when adding registry support
+        default:
+            // location mapping (aka mirrors)
+            let location = identityResolver.resolveLocation(from: location)
+            // in the future this will check with the registries for the identity of the URL
+            let identity = identityResolver.resolveIdentity(for: location)
+            let requirement = try Requirement(v4: requirementJSON)
+            self = .scm(identity: identity,
+                        name: name,
+                        location: location,
+                        requirement: requirement,
+                        productFilter: .everything)
         }
-
-        self.init(name: name, location: location, requirement: requirement)
     }
 }
 

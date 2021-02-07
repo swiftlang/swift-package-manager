@@ -784,6 +784,7 @@ public class SwiftTool {
             case (false, .shared):
                 cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
             }
+
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,

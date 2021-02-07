@@ -13,6 +13,7 @@ import XCTest
 import TSCBasic
 import PackageGraph
 import PackageModel
+import PackageLoading
 import SPMTestSupport
 
 class PackageGraphPerfTests: XCTestCasePerf {
@@ -38,7 +39,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             } else {
                 let depName = "Foo\(pkg + 1)"
                 let depUrl = "/\(depName)"
-                dependencies = [PackageDependencyDescription(name: depName, location: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
+                dependencies = [.scm(name: depName, location: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
                 targets = [try TargetDescription(name: name, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
             }
             // Create manifest.
@@ -63,11 +64,14 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 externalManifests.append(manifest)
             }
         }
-        
+
+        let identityResolver = DefaultIdentityResolver()
+
         measure {
             let diagnostics = DiagnosticsEngine()
             let g = try! PackageGraph.load(
                 root: PackageGraphRoot(input: PackageGraphRootInput(packages: rootManifests.map({$0.path})), manifests: rootManifests),
+                identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 diagnostics: diagnostics,
                 fileSystem: fs)

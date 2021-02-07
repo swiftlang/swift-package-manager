@@ -48,7 +48,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testDepenencyNameForTargetDependencyResolution() throws {
+    func testDependencyNameForTargetDependencyResolution() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription

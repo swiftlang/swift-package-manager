@@ -167,30 +167,30 @@ public final class Manifest: ObjectIdentifierProtocol {
     public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependencyDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calcualted it, returned the cached value.
-        if let dependencies = _requiredDependencies[productFilter] {
-            return dependencies
+        if let dependencies = self._requiredDependencies[productFilter] {
+            return self.dependencies
         } else {
-            let targets = targetsRequired(for: productFilter)
-            let dependencies = dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
-            _requiredDependencies[productFilter] = dependencies
-            return dependencies
+            let targets = self.targetsRequired(for: productFilter)
+            let dependencies = self.dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
+            self._requiredDependencies[productFilter] = dependencies
+            return self.dependencies
         }
         #else
         guard toolsVersion >= .v5_2 && packageKind != .root else {
-            return dependencies
+            return self.dependencies
         }
         
-        var requiredDependencyURLs: Set<String> = []
+        var requiredDependencyURLs: Set<PackageIdentity> = []
         
-        for target in targetsRequired(for: products) {
+        for target in self.targetsRequired(for: products) {
             for targetDependency in target.dependencies {
-                if let dependency = packageDependency(referencedBy: targetDependency) {
-                    requiredDependencyURLs.insert(dependency.location)
+                if let dependency = self.packageDependency(referencedBy: targetDependency) {
+                    requiredDependencyURLs.insert(dependency.identity)
                 }
             }
         }
         
-        return dependencies.filter { requiredDependencyURLs.contains($0.location) }
+        return self.dependencies.filter { requiredDependencyURLs.contains($0.identity) }
         #endif
     }
 

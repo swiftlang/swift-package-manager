@@ -141,13 +141,13 @@ class PackageDescription4LoadingTests: PackageDescriptionLoadingTests {
             )
             """
        loadManifest(stream.bytes) { manifest in
-            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.location, $0) })
-            XCTAssertEqual(deps["/foo1"], PackageDependencyDescription(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo2"], PackageDependencyDescription(location: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo3"], PackageDependencyDescription(location: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
-            XCTAssertEqual(deps["/foo4"], PackageDependencyDescription(location: "/foo4", requirement: .exact("1.0.0")))
-            XCTAssertEqual(deps["/foo5"], PackageDependencyDescription(location: "/foo5", requirement: .branch("master")))
-            XCTAssertEqual(deps["/foo6"], PackageDependencyDescription(location: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo2"], .scm(location: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo3"], .scm(location: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo4"], .scm(location: "/foo4", requirement: .exact("1.0.0")))
+            XCTAssertEqual(deps["foo5"], .scm(location: "/foo5", requirement: .branch("master")))
+            XCTAssertEqual(deps["foo6"], .scm(location: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 

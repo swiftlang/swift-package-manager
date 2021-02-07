@@ -61,7 +61,7 @@ class PackageGraphTests: XCTestCase {
                     packageKind: .root,
                     packageLocation: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(name: "Foo", location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(name: "Foo", location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
