@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Crypto
 import Foundation
+
+import Crypto
 
 typealias CryptoECPrivateKey = P256.Signing.PrivateKey
 typealias CryptoECPublicKey = P256.Signing.PublicKey
