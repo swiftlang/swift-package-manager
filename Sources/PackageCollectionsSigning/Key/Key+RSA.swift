@@ -105,6 +105,7 @@ final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
             throw KeyError.invalidPEM
         }
 
+        print("Private key bytes \(data.count)")
         let key = try Self.load(pem: data) { bio in
             CCryptoBoringSSL_PEM_read_bio_PrivateKey(bio, nil, nil, nil)
         }
@@ -151,6 +152,7 @@ final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
             throw KeyError.invalidPEM
         }
 
+        print("Public key bytes \(data.count)")
         let key = try Self.load(pem: data) { bio in
             CCryptoBoringSSL_PEM_read_bio_PUBKEY(bio, nil, nil, nil)
         }

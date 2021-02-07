@@ -33,6 +33,7 @@ extension BoringSSLKey {
     static func load<Data, T>(pem data: Data,
                               _ closure: (UnsafeMutablePointer<BIO>) -> (T?)) throws -> T where Data: DataProtocol {
         let bytes = data.copyBytes()
+        print("BoringSSLKey.load bytes \(bytes.count)")
 
         let bio = CCryptoBoringSSL_BIO_new_mem_buf(bytes, numericCast(bytes.count))
         defer { CCryptoBoringSSL_BIO_free(bio) }
