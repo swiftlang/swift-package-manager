@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import struct Foundation.Data
+import Foundation
 
 import Crypto
 
@@ -18,7 +18,9 @@ typealias CryptoECPublicKey = P256.Signing.PublicKey
 struct ECPrivateKey: PrivateKey {
     let underlying: CryptoECPrivateKey
 
-    init(pem: String) throws {
+    init<Data>(pem: Data) throws where Data: DataProtocol {
+        let bytes = pem.copyBytes()
+        let pem = String(decoding: bytes, as: UTF8.self)
         // TODO: init(pemRepresentation:) is available on macOS 11.0+
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
@@ -40,7 +42,9 @@ struct ECPublicKey: PublicKey {
         self.underlying = try CryptoECPublicKey(x963Representation: data)
     }
 
-    init(pem: String) throws {
+    init<Data>(pem: Data) throws where Data: DataProtocol {
+        let bytes = pem.copyBytes()
+        let pem = String(decoding: bytes, as: UTF8.self)
         // TODO: init(pemRepresentation:) is available on macOS 11.0+
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)

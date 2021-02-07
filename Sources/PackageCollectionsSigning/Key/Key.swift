@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import struct Foundation.Data
+import Foundation
 
 protocol PrivateKey: MessageSigner {
     /// Creates a private key from PEM.
     ///
     /// - Parameters:
     ///   - pem: The key in PEM format, including the `-----BEGIN` and `-----END` lines.
-    init(pem: String) throws
+    init<Data>(pem: Data) throws where Data: DataProtocol
 }
 
 protocol PublicKey: MessageValidator {
@@ -28,7 +28,7 @@ protocol PublicKey: MessageValidator {
     ///
     /// - Parameters:
     ///   - pem: The key in PEM format, including the `-----BEGIN` and `-----END` lines.
-    init(pem: String) throws
+    init<Data>(pem: Data) throws where Data: DataProtocol
 }
 
 enum KeyError: Error {
