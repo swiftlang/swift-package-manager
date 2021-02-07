@@ -43,7 +43,8 @@ typealias RSAPrivateKey = BoringSSLRSAPrivateKey
 struct CoreRSAPrivateKey: PrivateKey {
     let underlying: SecKey
 
-    init(pem: String) throws {
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
+        let pem = String(decoding: data, as: UTF8.self)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
 
         let options: [String: Any] = [
@@ -82,7 +83,8 @@ struct CoreRSAPublicKey: PublicKey {
         self.underlying = key
     }
 
-    init(pem: String) throws {
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
+        let pem = String(decoding: data, as: UTF8.self)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
         try self.init(data: data)
     }
@@ -101,11 +103,7 @@ final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
         CCryptoBoringSSL_RSA_free(self.underlying)
     }
 
-    init(pem: String) throws {
-        guard let data = pem.data(using: .utf8) else {
-            throw KeyError.invalidPEM
-        }
-
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
         let key = try Self.load(pem: data) { bio in
             CCryptoBoringSSL_PEM_read_bio_PrivateKey(bio, nil, nil, nil)
         }
@@ -148,11 +146,7 @@ final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
         self.underlying = pointer
     }
 
-    init(pem: String) throws {
-        guard let data = pem.data(using: .utf8) else {
-            throw KeyError.invalidPEM
-        }
-
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
         let key = try Self.load(pem: data) { bio in
             CCryptoBoringSSL_PEM_read_bio_PUBKEY(bio, nil, nil, nil)
         }

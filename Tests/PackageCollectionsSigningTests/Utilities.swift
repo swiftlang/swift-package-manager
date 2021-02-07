@@ -1,3 +1,29 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
+
+let ecPrivateKey = """
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIMFnwA1gjIFnFZim4B2QvoXJIG2L4B8nH1BBZFlotA24oAoGCCqGSM49
+AwEHoUQDQgAEkc2FgXZVz9llhV6+jAGPVHEcxBxK5tui9HWzvtE+ogKPr7i3e2JO
+Xwm91hecppS11y/S8bLmrFxA+dCP/V7bnw==
+-----END EC PRIVATE KEY-----
+"""
+
+let ecPublicKey = """
+-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkc2FgXZVz9llhV6+jAGPVHEcxBxK
+5tui9HWzvtE+ogKPr7i3e2JOXwm91hecppS11y/S8bLmrFxA+dCP/V7bnw==
+-----END PUBLIC KEY-----
+"""
+
+let rsaPrivateKey = """
 -----BEGIN RSA PRIVATE KEY-----
 MIIEpQIBAAKCAQEAoQIWz/MQ+mRShQxxxs+zlCLHRz+R1zUPKZhg3eggbXartfyI
 OSPEDaVANCjE1QLg0dtGCpkbMAVQLkC7os5ZuW6A6qtSAU6WUBOvnDBPVumqmDUq
@@ -25,3 +51,22 @@ cfEcouGknCt8kfOxH5jstitONizkeYZuYDcChh1PU2vUcg9bY1XmH77yiiJClz4+
 6+95qwqyl3xCTJNvLwcNB+yricsWfUicEPKfDJX1w8m5/fANMRZYXr2nmAZvS9Kw
 pkG0a65+K/m4wnZIszEuNZ2ybjrHEwYdWygRkJUmHp5rzmjdKjCBkwU=
 -----END RSA PRIVATE KEY-----
+"""
+
+let rsaPublicKey = """
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoQIWz/MQ+mRShQxxxs+z
+lCLHRz+R1zUPKZhg3eggbXartfyIOSPEDaVANCjE1QLg0dtGCpkbMAVQLkC7os5Z
+uW6A6qtSAU6WUBOvnDBPVumqmDUqAeXGEQyDZqReRm3D4Ov4qOTlIk34pRhoCyma
+NTiw7GfyzzWOcPxcRGGTz6fv1gmSwDnURBeL9QUAb2/sdAAsY/SZzziNF+womF8y
+3mn+IvlKL3EhtSxUfdZpPdFmxPzaoVIlllFQcKnxH4/0PZeyPK0Npq4kCqATXcYX
+maa3Ms9tPcsQUggtAR/QepyrKmB1SRAouHqKi+bGTlCpFSFbDgW422gfqXEEboh3
+9QIDAQAB
+-----END PUBLIC KEY-----
+"""
+
+extension String {
+    var bytes: [UInt8] {
+        [UInt8](self.utf8)
+    }
+}

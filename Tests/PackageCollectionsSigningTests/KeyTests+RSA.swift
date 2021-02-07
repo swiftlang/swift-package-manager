@@ -27,18 +27,10 @@ class RSAKeyTests: XCTestCase {
     }
 
     func testPublicKeyFromPEM() throws {
-        fixture(name: "Collections") { directoryPath in
-            let path = directoryPath.appending(components: "Signing", "rsa_public.pem")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
-            XCTAssertNoThrow(try RSAPublicKey(pem: String(decoding: data, as: UTF8.self)))
-        }
+        XCTAssertNoThrow(try RSAPublicKey(pem: rsaPublicKey.bytes))
     }
 
     func testPrivateKeyFromPEM() throws {
-        fixture(name: "Collections") { directoryPath in
-            let path = directoryPath.appending(components: "Signing", "rsa_private.pem")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
-            XCTAssertNoThrow(try RSAPrivateKey(pem: String(decoding: data, as: UTF8.self)))
-        }
+        XCTAssertNoThrow(try RSAPrivateKey(pem: rsaPrivateKey.bytes))
     }
 }

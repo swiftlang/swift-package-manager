@@ -34,10 +34,13 @@ extension BoringSSLKey {
                               _ closure: (UnsafeMutablePointer<BIO>) -> (T?)) throws -> T where Data: DataProtocol {
         let bytes = data.copyBytes()
 
-        let bio = CCryptoBoringSSL_BIO_new_mem_buf(bytes, numericCast(bytes.count))
+        let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
         defer { CCryptoBoringSSL_BIO_free(bio) }
 
-        guard let bioPointer = bio, let result = closure(bioPointer) else {
+        guard let bioPointer = bio, CCryptoBoringSSL_BIO_write(bioPointer, bytes, numericCast(bytes.count)) > 0 else {
+            throw BoringSSLKeyError.bioInitializationFailure
+        }
+        guard let result = closure(bioPointer) else {
             throw BoringSSLKeyError.bioConversionFailure
         }
 
@@ -48,6 +51,7 @@ extension BoringSSLKey {
 enum BoringSSLKeyError: Error {
     case failedToLoadKeyFromBytes
     case rsaConversionFailure
+    case bioInitializationFailure
     case bioConversionFailure
 }
 #endif

@@ -15,7 +15,7 @@ protocol PrivateKey {
     ///
     /// - Parameters:
     ///   - pem: The key in PEM format, including the `-----BEGIN` and `-----END` lines.
-    init(pem: String) throws
+    init<Data>(pem data: Data) throws where Data: DataProtocol
 }
 
 protocol PublicKey {
@@ -28,7 +28,7 @@ protocol PublicKey {
     ///
     /// - Parameters:
     ///   - pem: The key in PEM format, including the `-----BEGIN` and `-----END` lines.
-    init(pem: String) throws
+    init<Data>(pem data: Data) throws where Data: DataProtocol
 }
 
 enum KeyError: Error {
