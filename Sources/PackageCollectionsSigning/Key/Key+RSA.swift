@@ -44,7 +44,7 @@ struct CoreRSAPrivateKey: PrivateKey {
     let underlying: SecKey
 
     init<Data>(pem: Data) throws where Data: DataProtocol {
-        let pem = String(decoding: pem.copyBytes(), as: UTF8.self)
+        let pem = String(decoding: pem, as: UTF8.self)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
 
         let options: [String: Any] = [
@@ -84,7 +84,7 @@ struct CoreRSAPublicKey: PublicKey {
     }
 
     init<Data>(pem: Data) throws where Data: DataProtocol {
-        let pem = String(decoding: pem.copyBytes(), as: UTF8.self)
+        let pem = String(decoding: pem, as: UTF8.self)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
         try self.init(data: data)
     }

@@ -100,7 +100,7 @@ extension Signature {
         }
 
         init(_ signature: [UInt8], jsonDecoder: JSONDecoder = JSONDecoder()) throws {
-            let parts = signature.copyBytes().split(separator: .period)
+            let parts = signature.split(separator: .period)
 
             guard parts.count == 3 else {
                 throw SignatureError.malformedSignature

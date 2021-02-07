@@ -19,8 +19,7 @@ struct ECPrivateKey: PrivateKey {
     let underlying: CryptoECPrivateKey
 
     init<Data>(pem: Data) throws where Data: DataProtocol {
-        let bytes = pem.copyBytes()
-        let pem = String(decoding: bytes, as: UTF8.self)
+        let pem = String(decoding: pem, as: UTF8.self)
         // TODO: init(pemRepresentation:) is available on macOS 11.0+
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
@@ -43,8 +42,7 @@ struct ECPublicKey: PublicKey {
     }
 
     init<Data>(pem: Data) throws where Data: DataProtocol {
-        let bytes = pem.copyBytes()
-        let pem = String(decoding: bytes, as: UTF8.self)
+        let pem = String(decoding: pem, as: UTF8.self)
         // TODO: init(pemRepresentation:) is available on macOS 11.0+
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)

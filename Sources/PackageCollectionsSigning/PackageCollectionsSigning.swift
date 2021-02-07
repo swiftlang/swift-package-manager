@@ -75,7 +75,7 @@ public struct PackageCollectionSigning {
                         )
 
                         // Key for signing
-                        let privateKeyPEM = try Data(contentsOf: certPrivateKeyPath).copyBytes()
+                        let privateKeyPEM = try Data(contentsOf: certPrivateKeyPath)
 
                         let privateKey: PrivateKey
                         switch keyType {
