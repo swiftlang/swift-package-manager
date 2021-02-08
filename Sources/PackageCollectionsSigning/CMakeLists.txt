@@ -13,6 +13,9 @@ add_library(PackageCollectionsSigning
   Key/Key+EC.swift
   Key/Key+RSA.swift
   Utilities/Utilities.swift)
+target_link_libraries(PackageCollectionsSigning PUBLIC
+   $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
+   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageCollectionsSigning PRIVATE
   Crypto
   CCryptoBoringSSL)
