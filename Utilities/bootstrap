@@ -381,7 +381,7 @@ def install(args):
 
 def install_swiftpm(prefix, args):
     # Install swiftpm binaries.
-    for binary in ["swift-build", "swift-test", "swift-run", "swift-package"]:
+    for binary in ["swift-build", "swift-test", "swift-run", "swift-package", "swift-package-collection"]:
         dest = os.path.join(prefix, "bin")
         install_binary(args, binary, dest)
 
