@@ -30,21 +30,23 @@ protocol BoringSSLKey {}
 
 extension BoringSSLKey {
     // Source: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/Utilities/OpenSSLSigner.swift
-    static func load<Data, T>(pem data: Data,
-                              _ closure: (UnsafeMutablePointer<BIO>) -> (T?)) throws -> T where Data: DataProtocol {
+    static func load<Data, KeyType>(pem data: Data,
+                                    _ createKey: (UnsafeMutablePointer<BIO>) -> (KeyType?)) throws -> KeyType where Data: DataProtocol {
         let bytes = data.copyBytes()
 
+        // Not doing `CCryptoBoringSSL_BIO_new_mem_buf(bytes, numericCast(bytes.count))` because
+        // it causes `bioConversionFailure` error on *some* Linux builds (e.g., SPM Linux smoke test)
         let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
         defer { CCryptoBoringSSL_BIO_free(bio) }
 
         guard let bioPointer = bio, CCryptoBoringSSL_BIO_write(bioPointer, bytes, numericCast(bytes.count)) > 0 else {
             throw BoringSSLKeyError.bioInitializationFailure
         }
-        guard let result = closure(bioPointer) else {
+        guard let key = createKey(bioPointer) else {
             throw BoringSSLKeyError.bioConversionFailure
         }
 
-        return result
+        return key
     }
 }
 

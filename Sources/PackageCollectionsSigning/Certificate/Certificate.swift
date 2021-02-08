@@ -155,8 +155,7 @@ final class BoringSSLCertificate {
             throw CertificateError.keyExtractionFailure
         }
 
-        let bytes = UnsafeBufferPointer(start: buffer, count: Int(length)).map { $0 }
-        let data = Data(bytes)
+        let data = Data(UnsafeBufferPointer(start: buffer, count: Int(length)))
 
         switch try self.keyType(of: key) {
         case .RSA:
@@ -217,7 +216,7 @@ private extension UnsafeMutablePointer where Pointee == X509_NAME {
             return nil
         }
 
-        return value.map { String(validatingUTF8: $0) } ?? nil
+        return String.decodeCString(value, as: UTF8.self, repairingInvalidCodeUnits: true)?.result
     }
 }
 
