@@ -191,15 +191,15 @@ final class BuildPlanTests: XCTestCase {
             let bSwift = bPath.appending(component: "B.swift")
             let cSwift = cPath.appending(component: "C.swift")
             try localFileSystem.writeFileContents(main) {
-              $0 <<< "baz()"
+              $0 <<< "baz();"
             }
             try localFileSystem.writeFileContents(aSwift) {
-                $0 <<< "import B"
-                $0 <<< "import C"
+                $0 <<< "import B;"
+                $0 <<< "import C;"
                 $0 <<< "public func baz() { bar() }"
             }
             try localFileSystem.writeFileContents(bSwift) {
-                $0 <<< "import C"
+                $0 <<< "import C;"
                 $0 <<< "public func bar() { foo() }"
             }
             try localFileSystem.writeFileContents(cSwift) {

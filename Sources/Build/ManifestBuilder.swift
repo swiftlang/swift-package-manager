@@ -316,12 +316,9 @@ extension LLBuildManifestBuilder {
             ResolvedTarget.Dependency.target($0, conditions: [])
         }
         let allPackageDependencies = try topologicalSort(nodes, successors: { $0.dependencies })
-
-        // All modules discovered so far as a part of this package manifest.
-        // This includes modules that correspond to the package's own targets, package dependency
-        // targets, and modules that are discovered as dependencies of the above in individual
-        // dependency scanning actions
-        var discoveredModulesMap : SwiftDriver.ModuleInfoMap = [:]
+        // Instantiate the inter-module dependency oracle which will cache commonly-scanned
+        // modules across targets' Driver instances.
+        let dependencyOracle = InterModuleDependencyOracle()
 
         // Create commands for all target descriptions in the plan.
         for dependency in allPackageDependencies.reversed() {
@@ -349,7 +346,7 @@ extension LLBuildManifestBuilder {
             switch description {
                 case .swift(let desc):
                     try self.createExplicitSwiftTargetCompileCommand(description: desc,
-                                                                     discoveredModulesMap: &discoveredModulesMap)
+                                                                     dependencyOracle: dependencyOracle)
                 case .clang(let desc):
                     try self.createClangCompileCommand(desc)
             }
@@ -358,7 +355,7 @@ extension LLBuildManifestBuilder {
 
     private func createExplicitSwiftTargetCompileCommand(
         description: SwiftTargetBuildDescription,
-        discoveredModulesMap: inout SwiftDriver.ModuleInfoMap
+        dependencyOracle: InterModuleDependencyOracle
     ) throws {
         // Inputs.
         let inputs = try self.computeSwiftCompileCmdInputs(description)
@@ -370,7 +367,7 @@ extension LLBuildManifestBuilder {
 
         // Commands.
         try addExplicitBuildSwiftCmds(description, inputs: inputs,
-                                      discoveredModulesMap: &discoveredModulesMap)
+                                      dependencyOracle: dependencyOracle)
 
         self.addTargetCmd(description, cmdOutputs: cmdOutputs)
         self.addModuleWrapCmd(description)
@@ -379,7 +376,7 @@ extension LLBuildManifestBuilder {
     private func addExplicitBuildSwiftCmds(
         _ targetDescription: SwiftTargetBuildDescription,
         inputs: [Node],
-        discoveredModulesMap: inout SwiftDriver.ModuleInfoMap
+        dependencyOracle: InterModuleDependencyOracle
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
         var dependencyModulePathMap: SwiftDriver.ExternalTargetModulePathMap = [:]
@@ -398,18 +395,9 @@ extension LLBuildManifestBuilder {
                                               env: ProcessEnv.vars)
         var driver = try Driver(args: commandLine, fileSystem: targetDescription.fs,
                                 executor: executor,
-                                externalBuildArtifacts: (dependencyModulePathMap, discoveredModulesMap))
-
+                                externalTargetModulePathMap: dependencyModulePathMap,
+                                interModuleDependencyOracle: dependencyOracle)
         let jobs = try driver.planBuild()
-
-        // Save the path to the target's module to be used by its dependents
-        // Save the dependency graph of this target to be used by its dependents
-        guard let dependencyGraph = driver.interModuleDependencyGraph else {
-            throw InternalError("Expected module dependency graph for target: \(targetDescription)")
-        }
-        try InterModuleDependencyGraph.mergeModules(from: dependencyGraph,
-                                                    into: &discoveredModulesMap)
-
         try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
                                isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
     }
