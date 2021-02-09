@@ -41,6 +41,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// The repository URL the manifest was loaded from.
     public let packageLocation: String
 
+    // FIXME: deprecated 2/2021, remove once clients migrate
     @available(*, deprecated)
     public var url: String {
         get {
