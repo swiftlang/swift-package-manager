@@ -33,31 +33,10 @@ protocol PublicKey {
 
 enum KeyError: Error {
     case initializationFailure
-    case invalidPEM
     case invalidData
 }
 
 enum KeyType {
     case RSA
     case EC
-}
-
-// MARK: - Utilities
-
-enum KeyUtilities {
-    static func stripHeaderAndFooter(pem: String) throws -> Data {
-        let lines = pem.components(separatedBy: "\n").filter { line in
-            !line.hasPrefix("-----BEGIN") && !line.hasPrefix("-----END")
-        }
-        guard !lines.isEmpty else {
-            throw KeyError.invalidPEM
-        }
-
-        let stripped = lines.map { $0.replacingOccurrences(of: "\r", with: "") }.joined(separator: "")
-        guard let data = Data(base64Encoded: stripped, options: [.ignoreUnknownCharacters]) else {
-            throw KeyError.invalidPEM
-        }
-
-        return data
-    }
 }

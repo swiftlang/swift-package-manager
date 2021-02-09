@@ -8,6 +8,16 @@
 
 add_library(PackageCollectionsSigning
   Certificate/Certificate.swift
+  Key/ASN1/ASN1.swift
+  Key/ASN1/ASN1Error.swift
+  Key/ASN1/PEMDocument.swift
+  Key/ASN1/SEC1PrivateKey.swift
+  Key/ASN1/SubjectPublicKeyInfo.swift
+  Key/ASN1/Types/ASN1BitString.swift
+  Key/ASN1/Types/ASN1Identifier.swift
+  Key/ASN1/Types/ASN1Integer.swift
+  Key/ASN1/Types/ASN1ObjectIdentifier.swift
+  Key/ASN1/Types/ASN1OctetString.swift
   Key/BoringSSLKey.swift
   Key/Key.swift
   Key/Key+EC.swift

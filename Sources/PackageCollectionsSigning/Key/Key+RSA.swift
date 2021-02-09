@@ -44,8 +44,9 @@ struct CoreRSAPrivateKey: PrivateKey {
     let underlying: SecKey
 
     init<Data>(pem data: Data) throws where Data: DataProtocol {
-        let pem = String(decoding: data, as: UTF8.self)
-        let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
+        let pemString = String(decoding: data, as: UTF8.self)
+        let pemDocument = try ASN1.PEMDocument(pemString: pemString)
+        let data = pemDocument.derBytes
 
         let options: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
@@ -84,9 +85,9 @@ struct CoreRSAPublicKey: PublicKey {
     }
 
     init<Data>(pem data: Data) throws where Data: DataProtocol {
-        let pem = String(decoding: data, as: UTF8.self)
-        let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
-        try self.init(data: data)
+        let pemString = String(decoding: data, as: UTF8.self)
+        let pemDocument = try ASN1.PEMDocument(pemString: pemString)
+        try self.init(data: pemDocument.derBytes)
     }
 }
 

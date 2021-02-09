@@ -24,11 +24,9 @@ struct ECPrivateKey: PrivateKey {
         if #available(macOS 11, *) {
             self.underlying = try CryptoECPrivateKey(pemRepresentation: pem)
         } else {
-            let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
-            // From the output of `openssl pkey -in eckey.pem -text -noout`, the P256 private key is 32-byte long.
-            // PEM format is 7-byte pre_string || 32-byte private key || 14-byte mid_string || 65-byte public key
-            // See: https://stackoverflow.com/questions/48101258/how-to-convert-an-ecdsa-key-to-pem-format
-            self.underlying = try CryptoECPrivateKey(rawRepresentation: data.dropFirst(7).prefix(32))
+            let pemDocument = try ASN1.PEMDocument(pemString: pem)
+            let parsed = try ASN1.SEC1PrivateKey(asn1Encoded: Array(pemDocument.derBytes))
+            self.underlying = try CryptoECPrivateKey(rawRepresentation: parsed.privateKey)
         }
         #else
         self.underlying = try CryptoECPrivateKey(pemRepresentation: pem)
@@ -50,9 +48,9 @@ struct ECPublicKey: PublicKey {
         if #available(macOS 11, *) {
             self.underlying = try CryptoECPublicKey(pemRepresentation: pem)
         } else {
-            let data = try KeyUtilities.stripHeaderAndFooter(pem: pem)
-            // The P256 public key is 65-byte long and there's PEM prefix
-            self.underlying = try CryptoECPublicKey(x963Representation: data.suffix(65))
+            let pemDocument = try ASN1.PEMDocument(pemString: pem)
+            let parsed = try ASN1.SubjectPublicKeyInfo(asn1Encoded: Array(pemDocument.derBytes))
+            self.underlying = try CryptoECPublicKey(x963Representation: parsed.key)
         }
         #else
         self.underlying = try CryptoECPublicKey(pemRepresentation: pem)
