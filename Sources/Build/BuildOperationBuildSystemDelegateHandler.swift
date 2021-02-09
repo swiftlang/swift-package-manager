@@ -18,6 +18,12 @@ import Foundation
 import LLBuildManifest
 import SPMBuildCore
 
+#if canImport(llbuildSwift)
+typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
+#else
+typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
+#endif
+
 typealias Diagnostic = TSCBasic.Diagnostic
 
 class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
@@ -356,7 +362,7 @@ final class CopyCommand: CustomLLBuildCommand {
 }
 
 /// Convenient llbuild build system delegate implementation
-final class BuildOperationBuildSystemDelegateHandler: llbuildSwift.BuildSystemDelegate, SwiftCompilerOutputParserDelegate {
+final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
     private let diagnostics: DiagnosticsEngine
     var outputStream: ThreadSafeOutputByteStream
     var progressAnimation: ProgressAnimationProtocol
