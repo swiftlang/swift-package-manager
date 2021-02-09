@@ -363,9 +363,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         #endif
 
         let dependencies = [
-            PackageDependencyDescription(name: "Bar1", url: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(name: "Bar2", url: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(name: "Bar3", url: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar1", location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar2", location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            PackageDependencyDescription(name: "Bar3", location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -389,7 +389,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             PackageContainerConstraint(
                 package: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
-                products: v5ProductMapping[$0.name]!
+                products: v5ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
@@ -401,7 +401,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             PackageContainerConstraint(
                 package: $0.createPackageRef(mirrors: mirrors),
                 requirement: $0.requirement.toConstraintRequirement(),
-                products: v5_2ProductMapping[$0.name]!
+                products: v5_2ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
             )
         }
 
@@ -595,7 +595,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 v: .v5_2,
                 dependencies: [
                     PackageDependencyDescription(
-                        url: "Somewhere/Dependency",
+                        location: "Somewhere/Dependency",
                         requirement: .exact(version),
                         productFilter: .specific([])
                     )

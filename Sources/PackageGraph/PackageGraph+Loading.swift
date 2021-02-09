@@ -43,7 +43,7 @@ extension PackageGraph {
         let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap({ dependency in
-                let url = mirrors.effectiveURL(forURL: dependency.url)
+                let url = mirrors.effectiveURL(forURL: dependency.location)
                 return manifestMap[PackageIdentity(url: url)].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
@@ -53,11 +53,11 @@ extension PackageGraph {
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests)
         let rootDependencies = Set(root.dependencies.compactMap({
-            manifestMap[PackageIdentity(url: $0.url)]
+            manifestMap[PackageIdentity(url: $0.location)]
         }))
         let rootManifestNodes = root.manifests.map { GraphLoadingNode(manifest: $0, productFilter: .everything) }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
-            guard let manifest = manifestMap[PackageIdentity(url: dependency.url)] else { return nil }
+            guard let manifest = manifestMap[PackageIdentity(url: dependency.location)] else { return nil }
             return GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -223,11 +223,11 @@ private func createResolvedPackages(
         var dependencies = [ResolvedPackageBuilder]()
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
-            let dependencyURL = mirrors.effectiveURL(forURL: dependency.url)
+            let dependencyURL = mirrors.effectiveURL(forURL: dependency.location)
             let dependencyIdentity = PackageIdentity(url: dependencyURL)
 
             // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
-            if let explicitDependencyName = dependency.explicitName, let resolvedPackage = packageMapByName[explicitDependencyName] {
+            if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly, let resolvedPackage = packageMapByName[explicitDependencyName] {
                 guard !dependencies.contains(resolvedPackage) else {
                     // check if this resolvedPackage already listed in the dependencies
                     // this means that the dependencies share the same name
@@ -258,7 +258,7 @@ private func createResolvedPackages(
                     return diagnostics.emit(error, location: diagnosticLocation)
                 }
                 // check that the explicit package dependency name matches the package name.
-                if let explicitDependencyName = dependency.explicitName, resolvedPackage.package.name != explicitDependencyName {
+                if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly, resolvedPackage.package.name != explicitDependencyName {
                     // check if this resolvedPackage url is the same as the dependency one
                     // if not, this means that the dependencies share the same identity
                     // FIXME: this works but the way we find out about this is based on a side effect, need to improve it when working on identity
@@ -417,7 +417,7 @@ private func createResolvedPackages(
                     let referencedPackageURL = mirrors.effectiveURL(forURL: product.packageBuilder.package.manifest.packageLocation)
                     let referencedPackageIdentity = PackageIdentity(url: referencedPackageURL)
                     guard let packageDependency = (packageBuilder.package.manifest.dependencies.first { package in
-                        let packageURL = mirrors.effectiveURL(forURL: package.url)
+                        let packageURL = mirrors.effectiveURL(forURL: package.location)
                         let packageIdentity = PackageIdentity(url: packageURL)
                         return packageIdentity == referencedPackageIdentity
                     }) else {
@@ -425,7 +425,7 @@ private func createResolvedPackages(
                     }
 
                     let packageName = product.packageBuilder.package.name
-                    if productRef.name != packageDependency.name || packageDependency.name != packageName {
+                    if productRef.name != packageDependency.nameForTargetDependencyResolutionOnly || packageDependency.nameForTargetDependencyResolutionOnly != packageName {
                         let error = PackageGraphError.productDependencyMissingPackage(
                             productName: productRef.name,
                             targetName: targetBuilder.target.name,

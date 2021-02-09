@@ -1086,7 +1086,7 @@ extension Workspace {
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
-                let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
+                let url = workspace.config.mirrors.effectiveURL(forURL: dependency.location)
                 let identity = PackageIdentity(url: url)
                 let package = PackageReference.remote(identity: identity, location: url)
                 inputIdentities.insert(package)
@@ -1099,7 +1099,7 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
-                    let url = workspace.config.mirrors.effectiveURL(forURL: dependency.url)
+                    let url = workspace.config.mirrors.effectiveURL(forURL: dependency.location)
                     let identity = PackageIdentity(url: url)
                     let package = PackageReference.remote(identity: identity, location: url)
                     requiredIdentities.insert(package)
@@ -1270,7 +1270,7 @@ extension Workspace {
         }
 
         // optimization: preload in parallel
-        let rootDependencyManifestsURLs = root.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.url) }
+        let rootDependencyManifestsURLs = root.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.location) }
         let rootDependencyManifests = try temp_await { self.loadManifests(forURLs: rootDependencyManifestsURLs, diagnostics: diagnostics, completion: $0) }
 
         let inputManifests = root.manifests + rootDependencyManifests
@@ -1284,14 +1284,14 @@ extension Workspace {
         }
 
         // optimization: preload manifest we know about in parallel
-        let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.url) } }.flatMap { $0 }
+        let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.location) } }.flatMap { $0 }
         // FIXME: this should not block
         var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) }
 
         // continue to load the rest of the manifest for this graph
         let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: .everything)) }) { node in
             return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
-                let url = config.mirrors.effectiveURL(forURL: dependency.url)
+                let url = config.mirrors.effectiveURL(forURL: dependency.location)
                 // FIXME: this should not block
                 // note: loadManifest emits diagnostics in case it fails
                 let manifest = loadedManifests[url] ?? temp_await { self.loadManifest(forURL: url, diagnostics: diagnostics, completion: $0) }

@@ -337,14 +337,12 @@ final class WorkspaceTests: XCTestCase {
 
         let dependencies: [PackageDependencyDescription] = [
             .init(
-                name: nil,
-                url: workspace.packagesDir.appending(component: "Foo").pathString,
+                location: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Foo"])
             ),
             .init(
-                name: nil,
-                url: workspace.packagesDir.appending(component: "Bar").pathString + ".git",
+                location: workspace.packagesDir.appending(component: "Bar").pathString + ".git",
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Bar"])
             ),
@@ -461,7 +459,8 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["foo-package", "bar-package"], dependencies: [PackageDependencyDescription(url: "/tmp/ws/pkgs/bar-package", requirement: .upToNextMajor(from: "1.0.0"), productFilter: .everything)]) { graph, diagnostics in
+        workspace.checkPackageGraph(roots: ["foo-package", "bar-package"],
+                                    dependencies: [PackageDependencyDescription(location: "/tmp/ws/pkgs/bar-package", requirement: .upToNextMajor(from: "1.0.0"), productFilter: .everything)]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "FooPackage", "BarPackage")
                 result.check(packages: "FooPackage", "BarPackage")
@@ -648,12 +647,12 @@ final class WorkspaceTests: XCTestCase {
 
         let dependencies: [PackageDependencyDescription] = [
             .init(
-                url: workspace.packagesDir.appending(component: "Bar").pathString,
+                location: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Bar"])
             ),
             .init(
-                url: "file://\(workspace.packagesDir.appending(component: "Foo").pathString)/",
+                location: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Foo"])
             ),
@@ -2656,7 +2655,7 @@ final class WorkspaceTests: XCTestCase {
             platforms: [],
             version: manifest.version,
             toolsVersion: manifest.toolsVersion,
-            dependencies: [PackageDependencyDescription(url: manifest.dependencies[0].url, requirement: .exact("1.5.0"))],
+            dependencies: [PackageDependencyDescription(location: manifest.dependencies[0].location, requirement: .exact("1.5.0"))],
             targets: manifest.targets
         )
 
