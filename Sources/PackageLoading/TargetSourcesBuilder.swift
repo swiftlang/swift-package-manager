@@ -69,7 +69,15 @@ public struct TargetSourcesBuilder {
         self.rules = FileRuleDescription.builtinRules
         self.toolsVersion = toolsVersion
         self.fs = fs
-        let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
+        let excludedPaths = target.exclude.map{ (entry) -> AbsolutePath in
+            let absPath = path.appending(RelativePath(entry))
+            
+            if !self.fs.exists(absPath) {
+                diags.emit(warning: "Cannot exclude path: \(absPath) because it does not exist")
+            }
+            
+            return absPath
+        }
         self.excludedPaths = Set(excludedPaths)
 
         let declaredSources = target.sources?.map{ path.appending(RelativePath($0)) }
@@ -161,6 +169,18 @@ public struct TargetSourcesBuilder {
                     diags.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
                 }
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
+            }
+            
+            if !self.fs.exists(resourcePath) {
+                self.diags.emit(warning: "Resource: \(resourcePath) does not exist")
+            } else {
+                // Resources should be found with in the root of the package and or its subdirectories,
+                // not outside of it
+                if let cwd = self.fs.currentWorkingDirectory {
+                    if !resourcePath.pathString.hasPrefix(cwd.pathString) {
+                        self.diags.emit(warning: "Resource: \(resourcePath) should be found within the root of \(cwd)")
+                    }
+                }
             }
         }
 

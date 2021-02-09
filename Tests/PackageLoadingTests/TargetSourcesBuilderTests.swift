@@ -83,7 +83,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let fs = InMemoryFileSystem()
         fs.createEmptyFiles(at: .root, files: [
-            "/.some2/hello.swift",
+            "/some2/hello.swift",
             "/Hello.something/hello.txt",
         ])
 
