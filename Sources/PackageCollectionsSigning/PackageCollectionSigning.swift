@@ -13,45 +13,55 @@ import Foundation
 
 import Basics
 import PackageCollectionsModel
+import TSCBasic
 
 public struct PackageCollectionSigning {
     public typealias Model = PackageCollectionModel.V1
-    
+
     private static let minimumRSAKeySizeInBits = 2048
-    
-    let trustedRootCertsDir: URL?
+
+    /// URL of the optional directory containing root certificates to be trusted.
+    private let trustedRootCertsDir: URL?
 
     /// Dispatch queue for running async tasks
-    let queue: DispatchQueue
+    private let queue: DispatchQueue
+
+    /// Diagnostics engine to emit warnings and errors
+    private let diagnosticsEngine: DiagnosticsEngine?
 
     /// Internal cache/storage of `CertificatePolicy`s
     private let certPolicies = ThreadSafeKeyValueStore<CertificatePolicyKey, CertificatePolicy>()
 
-    public init(trustedRootCertsDir: URL? = nil, queue: DispatchQueue = DispatchQueue.global()) {
+    public init(trustedRootCertsDir: URL? = nil, queue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.queue = queue
+        self.diagnosticsEngine = diagnosticsEngine
         self.certPolicies[CertificatePolicyKey.default] = DefaultCertificatePolicy(
             trustedRootCertsDir: trustedRootCertsDir,
             expectedSubjectUserID: nil,
-            queue: queue
+            queue: queue,
+            diagnosticsEngine: diagnosticsEngine
         )
     }
 
-    init(certPolicy: CertificatePolicy, trustedRootCertsDir: URL? = nil, queue: DispatchQueue = DispatchQueue.global()) {
+    init(certPolicy: CertificatePolicy, trustedRootCertsDir: URL? = nil, queue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.queue = queue
         self.certPolicies[CertificatePolicyKey.custom] = certPolicy
+        self.diagnosticsEngine = diagnosticsEngine
     }
 
     private func getCertificatePolicy(key: CertificatePolicyKey) throws -> CertificatePolicy {
         switch key {
         case .default(let subjectUserID):
             return self.certPolicies.memoize(key) {
-                DefaultCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, expectedSubjectUserID: subjectUserID, queue: self.queue)
+                DefaultCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, expectedSubjectUserID: subjectUserID,
+                                         queue: self.queue, diagnosticsEngine: self.diagnosticsEngine)
             }
         case .appleDistribution(let subjectUserID):
             return self.certPolicies.memoize(key) {
-                AppleDeveloperCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, expectedSubjectUserID: subjectUserID, queue: self.queue)
+                AppleDeveloperCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, expectedSubjectUserID: subjectUserID,
+                                                queue: self.queue, diagnosticsEngine: self.diagnosticsEngine)
             }
         case .custom:
             // Custom `CertificatePolicy` can be set using the internal initializer only

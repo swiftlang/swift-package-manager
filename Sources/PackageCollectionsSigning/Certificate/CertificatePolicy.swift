@@ -14,6 +14,8 @@ import struct Foundation.Date
 import class Foundation.FileManager
 import struct Foundation.URL
 
+import TSCBasic
+
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Security
 #else
@@ -42,11 +44,13 @@ extension CertificatePolicy {
     ///   - anchorCerts: Manually specify the certificates to trust (e.g., for testing)
     ///   - verifyDate: Overrides the timestamp used for checking certificate expiry (e.g., for testing). By default the current time is used.
     ///   - queue: The  `DispatchQueue` to use for async operations
+    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors
     ///   - callback: The callback to invoke when the result is available.
     func verify(certChain: [Certificate],
                 anchorCerts: [Certificate]? = nil,
                 verifyDate: Date? = nil,
                 queue: DispatchQueue,
+                diagnosticsEngine: DiagnosticsEngine?,
                 callback: @escaping (Result<Bool, Error>) -> Void) {
         guard !certChain.isEmpty else {
             return callback(.failure(CertificatePolicyError.emptyCertChain))
@@ -226,14 +230,14 @@ enum CertificateExtendedKeyUsage {
 }
 
 extension CertificatePolicy {
-    static func loadCerts(at directory: URL) -> [Certificate] {
+    static func loadCerts(at directory: URL, diagnosticsEngine: DiagnosticsEngine?) -> [Certificate] {
         var certs = [Certificate]()
         if let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) {
             for case let fileURL as URL in enumerator {
                 do {
                     certs.append(try Certificate(derEncoded: Data(contentsOf: fileURL)))
                 } catch {
-                    // Skip cert if problematic
+                    diagnosticsEngine?.emit(warning: "The certificate \(fileURL) is invalid: \(error)")
                 }
             }
         }
@@ -263,7 +267,8 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     let trustedRoots: [Certificate]?
     let expectedSubjectUserID: String?
 
-    let queue: DispatchQueue
+    private let queue: DispatchQueue
+    private let diagnosticsEngine: DiagnosticsEngine?
 
     /// Initializes a `DefaultCertificatePolicy`.
     /// - Parameters:
@@ -273,10 +278,12 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///                          `trustedRootCertsDir` are trusted.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - queue: The `DispatchQueue` to perform async operations.
-    init(trustedRootCertsDir: URL? = nil, expectedSubjectUserID: String? = nil, queue: DispatchQueue = DispatchQueue.global()) {
-        self.trustedRoots = trustedRootCertsDir.map { Self.loadCerts(at: $0) }
+    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
+    init(trustedRootCertsDir: URL? = nil, expectedSubjectUserID: String? = nil, queue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.trustedRoots = trustedRootCertsDir.map { Self.loadCerts(at: $0, diagnosticsEngine: diagnosticsEngine) }
         self.expectedSubjectUserID = expectedSubjectUserID
         self.queue = queue
+        self.diagnosticsEngine = diagnosticsEngine
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Bool, Error>) -> Void) {
@@ -302,7 +309,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             }
 
             // Verify the cert chain - if it is trusted then cert chain is valid
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, diagnosticsEngine: self.diagnosticsEngine, callback: callback)
         } catch {
             return callback(.failure(error))
         }
@@ -322,7 +329,8 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     let trustedRoots: [Certificate]?
     let expectedSubjectUserID: String?
 
-    let queue: DispatchQueue
+    private let queue: DispatchQueue
+    private let diagnosticsEngine: DiagnosticsEngine?
 
     /// Initializes a `AppleDeveloperCertificatePolicy`.
     /// - Parameters:
@@ -332,10 +340,12 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     ///                          `trustedRootCertsDir` are trusted.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - queue: The `DispatchQueue` to perform async operations.
-    init(trustedRootCertsDir: URL? = nil, expectedSubjectUserID: String? = nil, queue: DispatchQueue = DispatchQueue.global()) {
-        self.trustedRoots = trustedRootCertsDir.map { Self.loadCerts(at: $0) }
+    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
+    init(trustedRootCertsDir: URL? = nil, expectedSubjectUserID: String? = nil, queue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.trustedRoots = trustedRootCertsDir.map { Self.loadCerts(at: $0, diagnosticsEngine: diagnosticsEngine) }
         self.expectedSubjectUserID = expectedSubjectUserID
         self.queue = queue
+        self.diagnosticsEngine = diagnosticsEngine
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Bool, Error>) -> Void) {
@@ -372,7 +382,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
             }
 
             // Verify the cert chain - if it is trusted then cert chain is valid
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, queue: self.queue, diagnosticsEngine: self.diagnosticsEngine, callback: callback)
         } catch {
             return callback(.failure(error))
         }
