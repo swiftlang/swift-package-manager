@@ -219,15 +219,6 @@ private extension UnsafeMutablePointer where Pointee == X509_NAME {
         return String.decodeCString(value, as: UTF8.self, repairingInvalidCodeUnits: true)?.result
     }
 }
-
-private extension String {
-    init?(validatingUTF8 cString: UnsafePointer<UInt8>) {
-        guard let (s, _) = String.decodeCString(cString, as: UTF8.self, repairingInvalidCodeUnits: false) else {
-            return nil
-        }
-        self = s
-    }
-}
 #endif
 
 struct CertificateName {
