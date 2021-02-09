@@ -23,18 +23,13 @@
 
 import Foundation
 
-// Source: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/Utilities/Utilities.swift
+// Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/Utilities/Utilities.swift
 
 extension DataProtocol {
     func copyBytes() -> [UInt8] {
-        if let array = self.withContiguousStorageIfAvailable({ buffer in [UInt8](buffer) }) {
-            return array
-        } else {
-            let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: self.count)
-            defer { buffer.deallocate() }
-
+        [UInt8](unsafeUninitializedCapacity: self.count) { buffer, initializedCount in
             self.copyBytes(to: buffer)
-            return [UInt8](buffer)
+            initializedCount = self.count
         }
     }
 }

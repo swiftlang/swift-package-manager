@@ -97,7 +97,7 @@ struct CoreRSAPublicKey: PublicKey {
 #else
 final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
-    let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
+    static let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
 
     deinit {
         CCryptoBoringSSL_RSA_free(self.underlying)
@@ -119,7 +119,7 @@ final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
 
 final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
-    let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
+    static let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
 
     deinit {
         CCryptoBoringSSL_RSA_free(self.underlying)
@@ -127,15 +127,13 @@ final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
 
     /// `data` should be in the PKCS #1 format
     init(data: Data) throws {
-        var bytes: UnsafePointer<UInt8>? = try data.withUnsafeBytes {
-            guard let bytes = $0.bindMemory(to: UInt8.self).baseAddress else {
-                throw KeyError.invalidData
+        let bytes = data.copyBytes()
+        let key = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> UnsafeMutablePointer<EVP_PKEY> in
+            var pointer = ptr.baseAddress
+            guard let key = CCryptoBoringSSL_d2i_PublicKey(EVP_PKEY_RSA, nil, &pointer, numericCast(data.count)) else {
+                throw BoringSSLKeyError.failedToLoadKeyFromBytes
             }
-            return bytes
-        }
-
-        guard let key = CCryptoBoringSSL_d2i_PublicKey(EVP_PKEY_RSA, nil, &bytes, numericCast(data.count)) else {
-            throw BoringSSLKeyError.failedToLoadKeyFromBytes
+            return key
         }
         defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
 

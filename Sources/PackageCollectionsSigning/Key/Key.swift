@@ -46,18 +46,15 @@ enum KeyType {
 
 enum KeyUtilities {
     static func stripHeaderAndFooter(pem: String) throws -> Data {
-        var lines = pem.components(separatedBy: "\n").filter { line in
+        let lines = pem.components(separatedBy: "\n").filter { line in
             !line.hasPrefix("-----BEGIN") && !line.hasPrefix("-----END")
         }
-
         guard !lines.isEmpty else {
             throw KeyError.invalidPEM
         }
 
-        lines = lines.map { $0.replacingOccurrences(of: "\r", with: "") }
-
-        guard let stripped = lines.joined(separator: "").data(using: .utf8),
-            let data = Data(base64Encoded: stripped, options: [.ignoreUnknownCharacters]) else {
+        let stripped = lines.map { $0.replacingOccurrences(of: "\r", with: "") }.joined(separator: "")
+        guard let data = Data(base64Encoded: stripped, options: [.ignoreUnknownCharacters]) else {
             throw KeyError.invalidPEM
         }
 
