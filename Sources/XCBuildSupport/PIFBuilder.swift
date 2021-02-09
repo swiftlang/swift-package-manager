@@ -563,6 +563,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         let generatedModuleMapDir = "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)"
         let moduleMapFile = "\(generatedModuleMapDir)/\(target.name).modulemap"
         let moduleMapFileContents: String?
+        let shouldImpartModuleMap: Bool
 
         if let clangTarget = target.underlyingTarget as? ClangTarget {
             // Let the target itself find its own headers.
@@ -583,8 +584,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                         export *
                     }
                     """
+
+                shouldImpartModuleMap = true
             } else {
                 moduleMapFileContents = nil
+                shouldImpartModuleMap = false
             }
         } else if let swiftTarget = target.underlyingTarget as? SwiftTarget {
             settings[.SWIFT_VERSION] = swiftTarget.swiftVersion.description
@@ -598,6 +602,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                     export *
                 }
                 """
+
+            shouldImpartModuleMap = true
         } else {
             throw InternalError("unexpected target")
         }
@@ -608,7 +614,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
 
         // Pass the path of the module map up to all direct and indirect clients.
-        impartedSettings[.OTHER_CFLAGS, default: ["$(inherited)"]].append("-fmodule-map-file=\(moduleMapFile)")
+        if shouldImpartModuleMap {
+            impartedSettings[.OTHER_CFLAGS, default: ["$(inherited)"]].append("-fmodule-map-file=\(moduleMapFile)")
+        }
         impartedSettings[.OTHER_LDRFLAGS] = []
 
         if target.underlyingTarget.isCxx {
