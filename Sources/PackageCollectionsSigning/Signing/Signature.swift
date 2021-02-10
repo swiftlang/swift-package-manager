@@ -30,6 +30,15 @@ struct Signature {
     enum Algorithm: String, Codable {
         case RS256 // RSASSA-PKCS1-v1_5 using SHA-256
         case ES256 // ECDSA using P-256 and SHA-256
+
+        static func from(keyType: KeyType) -> Algorithm {
+            switch keyType {
+            case .RSA:
+                return .RS256
+            case .EC:
+                return .ES256
+            }
+        }
     }
 
     struct Header: Equatable, Codable {

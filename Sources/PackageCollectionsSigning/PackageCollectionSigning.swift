@@ -63,14 +63,7 @@ public struct PackageCollectionSigning {
                         let keyType = try certificate.keyType()
 
                         // Signature header
-                        let signatureAlgorithm: Signature.Algorithm
-                        switch keyType {
-                        case .RSA:
-                            signatureAlgorithm = .RS256
-                        case .EC:
-                            signatureAlgorithm = .ES256
-                        }
-
+                        let signatureAlgorithm = Signature.Algorithm.from(keyType: keyType)
                         let header = Signature.Header(
                             algorithm: signatureAlgorithm,
                             certChain: certChainData.map { $0.base64EncodedString() }

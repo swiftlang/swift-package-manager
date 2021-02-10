@@ -40,8 +40,8 @@ extension Data {
     ///
     /// https://tools.ietf.org/html/rfc4648#page-7
     mutating func base64URLUnescape() {
-        for (i, byte) in self.enumerated() {
-            switch byte {
+        for i in 0 ..< self.count {
+            switch self[i] {
             case 0x2D: self[self.index(self.startIndex, offsetBy: i)] = 0x2B
             case 0x5F: self[self.index(self.startIndex, offsetBy: i)] = 0x2F
             default: break
@@ -50,7 +50,7 @@ extension Data {
         /// https://stackoverflow.com/questions/43499651/decode-base64url-to-base64-swift
         let padding = count % 4
         if padding > 0 {
-            self += Data(repeating: 0x3D, count: 4 - count % 4)
+            self += Data(repeating: 0x3D, count: 4 - padding)
         }
     }
 
@@ -58,8 +58,8 @@ extension Data {
     ///
     /// https://tools.ietf.org/html/rfc4648#page-7
     mutating func base64URLEscape() {
-        for (i, byte) in enumerated() {
-            switch byte {
+        for i in 0 ..< self.count {
+            switch self[i] {
             case 0x2B: self[self.index(self.startIndex, offsetBy: i)] = 0x2D
             case 0x2F: self[self.index(self.startIndex, offsetBy: i)] = 0x5F
             default: break
