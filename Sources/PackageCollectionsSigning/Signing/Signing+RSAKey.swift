@@ -62,8 +62,14 @@ extension CoreRSAPublicKey {
 #else
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSASigner.swift
 extension BoringSSLRSAPrivateKey: BoringSSLSigning {
+    private static let algorithm = BoringSSLEVP(type: .sha256)
+
+    var algorithm: BoringSSLEVP {
+        Self.algorithm
+    }
+
     func sign(message: Data) throws -> Data {
-        let digest = try self.digest(message, algorithm: Self.algorithm)
+        let digest = try self.digest(message)
 
         var signatureLength: UInt32 = 0
         var signature = [UInt8](
@@ -72,7 +78,7 @@ extension BoringSSLRSAPrivateKey: BoringSSLSigning {
         )
 
         guard CCryptoBoringSSL_RSA_sign(
-            CCryptoBoringSSL_EVP_MD_type(Self.algorithm),
+            CCryptoBoringSSL_EVP_MD_type(self.algorithm.underlying),
             digest,
             numericCast(digest.count),
             &signature,
@@ -87,12 +93,18 @@ extension BoringSSLRSAPrivateKey: BoringSSLSigning {
 }
 
 extension BoringSSLRSAPublicKey: BoringSSLSigning {
+    private static let algorithm = BoringSSLEVP(type: .sha256)
+
+    var algorithm: BoringSSLEVP {
+        Self.algorithm
+    }
+
     func isValidSignature(_ signature: Data, for message: Data) throws -> Bool {
-        let digest = try self.digest(message, algorithm: Self.algorithm)
+        let digest = try self.digest(message)
         let signature = signature.copyBytes()
 
         return CCryptoBoringSSL_RSA_verify(
-            CCryptoBoringSSL_EVP_MD_type(Self.algorithm),
+            CCryptoBoringSSL_EVP_MD_type(self.algorithm.underlying),
             digest,
             numericCast(digest.count),
             signature,

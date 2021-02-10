@@ -26,15 +26,32 @@ import Foundation
 
 @_implementationOnly import CCryptoBoringSSL
 
-protocol BoringSSLSigning {}
+protocol BoringSSLSigning {
+    var algorithm: BoringSSLEVP { get }
+}
+
+struct BoringSSLEVP {
+    let underlying: OpaquePointer
+
+    init(type: EVPType) {
+        switch type {
+        case .sha256:
+            self.underlying = CCryptoBoringSSL_EVP_sha256()
+        }
+    }
+
+    enum EVPType {
+        case sha256
+    }
+}
 
 extension BoringSSLSigning {
     // Source: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/Utilities/OpenSSLSigner.swift
-    func digest<Message>(_ message: Message, algorithm: OpaquePointer) throws -> [UInt8] where Message: DataProtocol {
+    func digest<Message>(_ message: Message) throws -> [UInt8] where Message: DataProtocol {
         let context = CCryptoBoringSSL_EVP_MD_CTX_new()
         defer { CCryptoBoringSSL_EVP_MD_CTX_free(context) }
 
-        guard CCryptoBoringSSL_EVP_DigestInit_ex(context, algorithm, nil) == 1 else {
+        guard CCryptoBoringSSL_EVP_DigestInit_ex(context, self.algorithm.underlying, nil) == 1 else {
             throw BoringSSLSigningError.digestInitializationFailure
         }
 

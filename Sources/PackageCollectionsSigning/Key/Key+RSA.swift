@@ -106,7 +106,6 @@ struct CoreRSAPublicKey: PublicKey {
 #else
 final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
-    static let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
 
     deinit {
         CCryptoBoringSSL_RSA_free(self.underlying)
@@ -132,7 +131,6 @@ final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
 
 final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
-    static let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
 
     deinit {
         CCryptoBoringSSL_RSA_free(self.underlying)
