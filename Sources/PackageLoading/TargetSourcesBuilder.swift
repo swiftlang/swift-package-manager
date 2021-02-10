@@ -72,7 +72,7 @@ public struct TargetSourcesBuilder {
         let excludedPaths = target.exclude.map{ (entry) -> AbsolutePath in
             let absPath = path.appending(RelativePath(entry))
             
-            if !self.fs.exists(absPath) {
+            if !fs.exists(absPath) {
                 diags.emit(warning: "Cannot exclude path: \(absPath) because it does not exist")
             }
             
