@@ -40,3 +40,7 @@ enum KeyType {
     case RSA
     case EC
 }
+
+func toBits(bytes: Int) -> Int {
+    bytes * 8
+}

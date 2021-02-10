@@ -22,15 +22,18 @@ class RSAKeyTests: XCTestCase {
             let data = Data(try localFileSystem.readFileContents(path).contents)
 
             let certificate = try Certificate(derEncoded: data)
-            XCTAssertNoThrow(try certificate.publicKey())
+            let key = try certificate.publicKey() as! RSAPublicKey
+            XCTAssertEqual(2048, key.sizeInBits)
         }
     }
 
     func testPublicKeyFromPEM() throws {
-        XCTAssertNoThrow(try RSAPublicKey(pem: rsaPublicKey.bytes))
+        let key = try RSAPublicKey(pem: rsaPublicKey.bytes)
+        XCTAssertEqual(2048, key.sizeInBits)
     }
 
     func testPrivateKeyFromPEM() throws {
-        XCTAssertNoThrow(try RSAPrivateKey(pem: rsaPrivateKey.bytes))
+        let key = try RSAPrivateKey(pem: rsaPrivateKey.bytes)
+        XCTAssertEqual(2048, key.sizeInBits)
     }
 }

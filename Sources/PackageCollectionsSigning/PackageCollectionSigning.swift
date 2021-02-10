@@ -15,6 +15,8 @@ import PackageCollectionsModel
 public struct PackageCollectionSigning {
     public typealias Model = PackageCollectionModel.V1
 
+    private static let minimumRSAKeySizeInBits = 2048
+
     let certPolicy: CertificatePolicy
 
     public init() {
@@ -84,6 +86,7 @@ public struct PackageCollectionSigning {
                         case .EC:
                             privateKey = try ECPrivateKey(pem: privateKeyPEM)
                         }
+                        try self.validateKey(privateKey)
 
                         // Generate the signature
                         let signatureBytes = try Signature.generate(for: collection, with: header, using: privateKey, jsonEncoder: jsonEncoder)
@@ -173,6 +176,14 @@ public struct PackageCollectionSigning {
             callback(.failure(error))
         }
     }
+
+    private func validateKey(_ privateKey: PrivateKey) throws {
+        if let rsaKey = privateKey as? RSAPrivateKey {
+            guard rsaKey.sizeInBits >= Self.minimumRSAKeySizeInBits else {
+                throw PackageCollectionSigningError.invalidKeySize(minimumBits: Self.minimumRSAKeySizeInBits)
+            }
+        }
+    }
 }
 
 enum PackageCollectionSigningError: Error {
@@ -180,4 +191,5 @@ enum PackageCollectionSigningError: Error {
     case invalidCertChain
     case invalidSignature
     case missingCertInfo
+    case invalidKeySize(minimumBits: Int)
 }
