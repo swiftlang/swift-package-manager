@@ -15,6 +15,7 @@ import class Foundation.JSONDecoder
 import struct Foundation.URL
 
 import PackageCollectionsModel
+import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
@@ -26,12 +27,20 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let diagnosticsEngine: DiagnosticsEngine?
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
+    private let signatureValidator: PackageCollectionSignatureValidator
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(configuration: Configuration = .init(),
+         httpClient: HTTPClient? = nil,
+         signatureValidator: PackageCollectionSignatureValidator? = nil,
+         diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.decoder = JSONDecoder.makeWithDefaults()
+        self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
+            trustedRootCertsDir: configuration.trustedRootCertsDir,
+            diagnosticsEngine: diagnosticsEngine
+        )
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -97,14 +106,21 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                         do {
                             // parse json and construct result
                             do {
-                                // This fails if "signature" is missing
-                                let signature = try JSONModel.SignedCollection.signature(from: body, using: self.decoder)
-                                // TODO: Check collection's signature
-                                // If signature is
-                                //      a. valid: process the collection; set isSigned=true
-                                //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
-                                let collection = try JSONModel.SignedCollection.collection(from: body, using: self.decoder)
-                                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature)))
+                                // This fails if collection is not signed (i.e., no "signature")
+                                let signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: body)
+                                let certPolicyKey = self.configuration.certificatePolicyKey(for: source) ?? .default
+                                // Check the signature
+                                self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, jsonDecoder: self.decoder) { result in
+                                    switch result {
+                                    case .failure(let error):
+                                        return callback(.failure(error))
+                                    case .success(let isValid):
+                                        guard isValid else {
+                                            return callback(.failure(Errors.invalidSignature))
+                                        }
+                                        return callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature)))
+                                    }
+                                }
                             } catch {
                                 // Collection is not signed
                                 guard let collection = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
@@ -213,10 +229,22 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     public struct Configuration {
         public var maximumSizeInBytes: Int
+        public var trustedRootCertsDir: URL?
+        public var sourceCertPolicies: [String: CertificatePolicyKey]
 
-        public init(maximumSizeInBytes: Int? = nil) {
+        public init(maximumSizeInBytes: Int? = nil,
+                    trustedRootCertsDir: URL? = nil,
+                    sourceCertPolicies: [String: CertificatePolicyKey]? = nil) {
             // TODO: where should we read defaults from?
             self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
+            self.trustedRootCertsDir = trustedRootCertsDir
+            self.sourceCertPolicies = sourceCertPolicies ?? [:]
+        }
+
+        func certificatePolicyKey(for source: Model.CollectionSource) -> CertificatePolicyKey? {
+            // Certificate policy is associated to a collection host
+            guard let host = source.url.host else { return nil }
+            return self.sourceCertPolicies[host]
         }
     }
 
@@ -224,6 +252,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         case invalidJSON(Error)
         case invalidResponse(String)
         case responseTooLarge(Int)
+        case invalidSignature
     }
 }
 

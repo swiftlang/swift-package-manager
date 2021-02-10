@@ -9,9 +9,13 @@
  */
 
 import struct Foundation.Date
+import class Foundation.JSONDecoder
 import struct Foundation.URL
 import struct Foundation.UUID
+
 @testable import PackageCollections
+import PackageCollectionsModel
+import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
@@ -142,6 +146,25 @@ struct MockMetadataProvider: PackageMetadataProvider {
             callback(.success(package))
         } else {
             callback(.failure(NotFoundError("\(reference)")))
+        }
+    }
+}
+
+struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {
+    let collections: Set<String>
+
+    init(_ collections: Set<String> = []) {
+        self.collections = collections
+    }
+
+    func validate(signedCollection: PackageCollectionModel.V1.SignedCollection,
+                  certPolicyKey: CertificatePolicyKey,
+                  jsonDecoder: JSONDecoder,
+                  callback: @escaping (Result<Bool, Error>) -> Void) {
+        if self.collections.contains(signedCollection.collection.name) {
+            callback(.success(true))
+        } else {
+            callback(.success(false))
         }
     }
 }

@@ -32,6 +32,9 @@ target_link_libraries(PackageCollections PUBLIC
   TSCBasic
   TSCUtility
   Basics
+  Crypto
+  PackageCollectionsModel
+  PackageCollectionsSigning
   PackageModel
   SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

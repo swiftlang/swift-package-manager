@@ -15,7 +15,42 @@ import Basics
 import PackageCollectionsModel
 import TSCBasic
 
-public struct PackageCollectionSigning {
+public protocol PackageCollectionSigner {
+    /// Signs package collection using the given certificate and key.
+    ///
+    /// - Parameters:
+    ///   - collection: The package collection to be signed
+    ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
+    ///                     must be the first in the array.
+    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
+    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
+    ///   - jsonEncoder: The `JSONEncoder` to use
+    ///   - callback: The callback to invoke when the signed collection is available.
+    func sign(collection: PackageCollectionModel.V1.Collection,
+              certChainPaths: [URL],
+              certPrivateKeyPath: URL,
+              certPolicyKey: CertificatePolicyKey,
+              jsonEncoder: JSONEncoder,
+              callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void)
+}
+
+public protocol PackageCollectionSignatureValidator {
+    /// Validates a signed package collection.
+    ///
+    /// - Parameters:
+    ///   - signedCollection: The signed package collection
+    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
+    ///   - jsonDecoder: The `JSONDecoder` to use
+    ///   - callback: The callback to invoke when the result is available.
+    func validate(signedCollection: PackageCollectionModel.V1.SignedCollection,
+                  certPolicyKey: CertificatePolicyKey,
+                  jsonDecoder: JSONDecoder,
+                  callback: @escaping (Result<Bool, Error>) -> Void)
+}
+
+// MARK: - Implementation
+
+public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollectionSignatureValidator {
     public typealias Model = PackageCollectionModel.V1
 
     private static let minimumRSAKeySizeInBits = 2048
@@ -72,16 +107,6 @@ public struct PackageCollectionSigning {
         }
     }
 
-    /// Signs package collection using the given certificate and key.
-    ///
-    /// - Parameters:
-    ///   - collection: The package collection to be signed
-    ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
-    ///                     must be the first in the array.
-    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
-    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
-    ///   - jsonEncoder: The `JSONEncoder` to use
-    ///   - callback: The callback to invoke when the signed collection is available.
     public func sign(collection: Model.Collection,
                      certChainPaths: [URL],
                      certPrivateKeyPath: URL,
@@ -165,13 +190,6 @@ public struct PackageCollectionSigning {
         }
     }
 
-    /// Validates a signed package collection.
-    ///
-    /// - Parameters:
-    ///   - signedCollection: The signed package collection
-    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
-    ///   - jsonDecoder: The `JSONDecoder` to use
-    ///   - callback: The callback to invoke when the result is available.
     public func validate(signedCollection: Model.SignedCollection,
                          certPolicyKey: CertificatePolicyKey = .default,
                          jsonDecoder: JSONDecoder = JSONDecoder(),
