@@ -47,38 +47,38 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
         fixture(name: "Collections") { directoryPath in
-            let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+            let handler: HTTPClient.Handler = { request, _, completion in
                 switch (request.method, request.url) {
                 case (.get, apiURL):
                     let path = directoryPath.appending(components: "GitHub", "metadata.json")
                     let data = Data(try! localFileSystem.readFileContents(path).contents)
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 case (.get, apiURL.appendingPathComponent("tags")):
                     let path = directoryPath.appending(components: "GitHub", "tags.json")
                     let data = Data(try! localFileSystem.readFileContents(path).contents)
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 case (.get, apiURL.appendingPathComponent("contributors")):
                     let path = directoryPath.appending(components: "GitHub", "contributors.json")
                     let data = Data(try! localFileSystem.readFileContents(path).contents)
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 case (.get, apiURL.appendingPathComponent("readme")):
                     let path = directoryPath.appending(components: "GitHub", "readme.json")
                     let data = Data(try! localFileSystem.readFileContents(path).contents)
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 case (.get, apiURL.appendingPathComponent("license")):
                     let path = directoryPath.appending(components: "GitHub", "license.json")
                     let data = Data(try! localFileSystem.readFileContents(path).contents)
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 default:
                     XCTFail("method and url should match")
                 }
@@ -106,8 +106,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
     func testRepoNotFound() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
 
-        let handler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
-            callback(.success(.init(statusCode: 404)))
+        let handler: HTTPClient.Handler = { _, _, completion in
+            completion(.success(.init(statusCode: 404)))
         }
 
         var httpClient = HTTPClient(handler: handler)
@@ -127,14 +127,14 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "GitHub", "metadata.json")
             let data = try Data(localFileSystem.readFileContents(path).contents)
-            let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+            let handler: HTTPClient.Handler = { request, _, completion in
                 switch (request.method, request.url) {
                 case (.get, apiURL):
-                    callback(.success(.init(statusCode: 200,
-                                            headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 default:
-                    callback(.success(.init(statusCode: 500)))
+                    completion(.success(.init(statusCode: 500)))
                 }
             }
 
@@ -157,8 +157,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         let repoURL = "https://github.com/octocat/Hello-World.git"
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
-        let handler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
-            callback(.success(.init(statusCode: 401)))
+        let handler: HTTPClient.Handler = { _, _, completion in
+            completion(.success(.init(statusCode: 401)))
         }
 
         var httpClient = HTTPClient(handler: handler)
@@ -176,12 +176,12 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
         let authTokens = [AuthTokenType.github("api.github.com"): "foo"]
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             if request.headers.get("Authorization").first == "token \(authTokens.first!.value)" {
-                callback(.success(.init(statusCode: 401)))
+                completion(.success(.init(statusCode: 401)))
             } else {
                 XCTFail("expected correct authorization header")
-                callback(.success(.init(statusCode: 500)))
+                completion(.success(.init(statusCode: 500)))
             }
         }
 
@@ -206,20 +206,20 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "GitHub", "metadata.json")
             let data = try Data(localFileSystem.readFileContents(path).contents)
-            let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+            let handler: HTTPClient.Handler = { request, _, completion in
                 var headers = HTTPClientHeaders()
                 headers.add(name: "X-RateLimit-Limit", value: "\(total)")
                 headers.add(name: "X-RateLimit-Remaining", value: "\(remaining)")
                 if remaining == 0 {
-                    callback(.success(.init(statusCode: 403, headers: headers)))
+                    completion(.success(.init(statusCode: 403, headers: headers)))
                 } else if request.url == apiURL {
                     remaining = remaining - 1
                     headers.add(name: "Content-Length", value: "\(data.count)")
-                    callback(.success(.init(statusCode: 200,
-                                            headers: headers,
-                                            body: data)))
+                    completion(.success(.init(statusCode: 200,
+                                              headers: headers,
+                                              body: data)))
                 } else {
-                    callback(.success(.init(statusCode: 500)))
+                    completion(.success(.init(statusCode: 500)))
                 }
             }
 

@@ -1,4 +1,12 @@
+/*
+ This source file is part of the Swift.org open source project
 
+ Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
 
 import Foundation
 import struct TSCUtility.Versioning
@@ -8,25 +16,81 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-public struct URLSessionHTTPClient: HTTPClientProtocol {
+public final class URLSessionHTTPClient: NSObject, HTTPClientProtocol {
     private let configuration: URLSessionConfiguration
+    private let delegateQueue: OperationQueue
+    private var session: URLSession!
+    private var tasks = ThreadSafeKeyValueStore<Int, DataTask>()
 
     public init(configuration: URLSessionConfiguration = .default) {
         self.configuration = configuration
+        self.delegateQueue = OperationQueue()
+        self.delegateQueue.name = "org.swift.swiftpm.urlsession-http-client"
+        self.delegateQueue.maxConcurrentOperationCount = 1
+        super.init()
+        self.session = URLSession(configuration: self.configuration, delegate: self, delegateQueue: self.delegateQueue)
     }
 
-    public func execute(_ request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) {
-        let session = URLSession(configuration: self.configuration)
-        let task = session.dataTask(with: request.urlRequest()) { data, response, error in
-            if let error = error {
-                callback(.failure(error))
-            } else if let response = response as? HTTPURLResponse {
-                callback(.success(response.response(body: data)))
-            } else {
-                callback(.failure(HTTPClientError.invalidResponse))
-            }
-        }
+    public func execute(_ request: HTTPClient.Request, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+        let task = self.session.dataTask(with: request.urlRequest())
+        self.tasks[task.taskIdentifier] = DataTask(task: task, progressHandler: progress, completionHandler: completion)
         task.resume()
+    }
+}
+
+extension URLSessionHTTPClient: URLSessionDataDelegate {
+    public func urlSession(_ session: URLSession,
+                           dataTask: URLSessionDataTask,
+                           didReceive response: URLResponse,
+                           completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard let task = self.tasks[dataTask.taskIdentifier] else {
+            return completionHandler(.cancel)
+        }
+        task.response = response as? HTTPURLResponse
+        task.expectedContentLength = response.expectedContentLength
+        task.progressHandler?(0, response.expectedContentLength)
+        completionHandler(.allow)
+    }
+
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard let task = self.tasks[dataTask.taskIdentifier] else {
+            return
+        }
+        if task.buffer != nil {
+            task.buffer?.append(data)
+        } else {
+            task.buffer = data
+        }
+        task.progressHandler?(Int64(task.buffer?.count ?? 0), task.expectedContentLength) // safe since created in the line above
+    }
+
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let task = self.tasks.removeValue(forKey: task.taskIdentifier) else {
+            return
+        }
+        if let error = error {
+            task.completionHandler(.failure(error))
+        } else if let response = task.response {
+            task.completionHandler(.success(response.response(body: task.buffer)))
+        } else {
+            task.completionHandler(.failure(HTTPClientError.invalidResponse))
+        }
+    }
+
+    class DataTask {
+        let task: URLSessionDataTask
+        let completionHandler: CompletionHandler
+        let progressHandler: ProgressHandler?
+
+        var response: HTTPURLResponse?
+        var expectedContentLength: Int64?
+        var buffer: Data?
+
+        init(task: URLSessionDataTask, progressHandler: ProgressHandler?, completionHandler: @escaping CompletionHandler) {
+            self.task = task
+            self.progressHandler = progressHandler
+            self.completionHandler = completionHandler
+        }
     }
 }
 
