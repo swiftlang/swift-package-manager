@@ -752,7 +752,7 @@ public final class PackageBuilder {
         default:
             targetType = sources.computeTargetType()
             if targetType == .executable && manifest.toolsVersion >= .v5_4 && warnAboutImplicitExecutableTargets {
-                diagnostics.emit(warning: "in tools version \(ToolsVersion.v5_4) and later, use 'executableTarget()' to declare executable targets")
+                diagnostics.emit(warning: "'\(potentialModule.name)' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version \(ToolsVersion.v5_4) executable targets should be declared as 'executableTarget()'")
             }
         }
         
