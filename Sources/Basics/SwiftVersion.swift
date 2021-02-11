@@ -21,16 +21,16 @@ public struct SwiftVersion {
     public var buildIdentifier: String?
 
     /// The major component of the version number.
-    public var major: Int { return version.major }
+    public var major: Int { return self.version.major }
     /// The minor component of the version number.
-    public var minor: Int { return version.minor }
+    public var minor: Int { return self.version.minor }
     /// The patch component of the version number.
-    public var patch: Int { return version.patch }
+    public var patch: Int { return self.version.patch }
 
     /// The version as a readable string.
     public var displayString: String {
         var result = "\(major).\(minor).\(patch)"
-        if isDevelopment {
+        if self.isDevelopment {
             result += "-dev"
         }
         if let buildIdentifier = self.buildIdentifier {
@@ -45,7 +45,7 @@ public struct SwiftVersion {
         if !vendorPrefix.isEmpty {
             vendorPrefix += " "
         }
-        return vendorPrefix + "Swift Package Manager - Swift " + displayString
+        return vendorPrefix + "Swift Package Manager - Swift " + self.displayString
     }
 
     /// The list of version specific identifiers to search when attempting to
@@ -53,12 +53,11 @@ public struct SwiftVersion {
     /// preference.
     public var versionSpecificKeys: [String] {
         return [
-            "@swift-\(major).\(minor).\(patch)",
-            "@swift-\(major).\(minor)",
-            "@swift-\(major)",
+            "@swift-\(self.major).\(self.minor).\(self.patch)",
+            "@swift-\(self.major).\(self.minor)",
+            "@swift-\(self.major)",
         ]
     }
-
 }
 
 extension SwiftVersion {
@@ -66,7 +65,8 @@ extension SwiftVersion {
     public static let currentVersion = SwiftVersion(
         version: (5, 4, 0),
         isDevelopment: true,
-        buildIdentifier: getBuildIdentifier())
+        buildIdentifier: getBuildIdentifier()
+    )
 }
 
 private func getBuildIdentifier() -> String? {

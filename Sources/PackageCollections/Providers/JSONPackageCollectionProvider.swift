@@ -70,14 +70,15 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let response):
-                guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int.init) else {
+                guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
                     return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
                 }
                 guard contentLength <= self.configuration.maximumSizeInBytes else {
-                    return callback(.failure(Errors.responseTooLarge(contentLength)))
+                    return callback(.failure(HTTPClientError.responseTooLarge(contentLength)))
                 }
                 // next do a get request to get the actual content
-                let getOptions = self.makeRequestOptions(validResponseCodes: [200])
+                var getOptions = self.makeRequestOptions(validResponseCodes: [200])
+                getOptions.maximumResponseSizeInBytes = self.configuration.maximumSizeInBytes
                 self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
                     switch result {
                     case .failure(let error):
@@ -86,11 +87,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                         // check content length again so we can record this as a bad actor
                         // if not returning head and exceeding size
                         // TODO: store bad actors to prevent server DoS
-                        guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int.init) else {
+                        guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
                             return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
                         }
                         guard contentLength < self.configuration.maximumSizeInBytes else {
-                            return callback(.failure(Errors.responseTooLarge(contentLength)))
+                            return callback(.failure(HTTPClientError.responseTooLarge(contentLength)))
                         }
                         guard let body = response.body else {
                             return callback(.failure(Errors.invalidResponse("Body is empty")))
@@ -236,7 +237,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 
     public struct Configuration {
-        public var maximumSizeInBytes: Int
+        public var maximumSizeInBytes: Int64
         public var validator: PackageCollectionModel.V1.Validator.Configuration
 
         public var maximumPackageCount: Int {
@@ -266,7 +267,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
         }
 
-        public init(maximumSizeInBytes: Int? = nil,
+        public init(maximumSizeInBytes: Int64? = nil,
                     maximumPackageCount: Int? = nil,
                     maximumMajorVersionCount: Int? = nil,
                     maximumMinorVersionCount: Int? = nil) {
@@ -283,7 +284,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     public enum Errors: Error {
         case invalidJSON(Error)
         case invalidResponse(String)
-        case responseTooLarge(Int)
     }
 }
 

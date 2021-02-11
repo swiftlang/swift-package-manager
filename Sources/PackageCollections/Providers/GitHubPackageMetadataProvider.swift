@@ -53,16 +53,17 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
         // get the main data
         sync.enter()
-        var metadataHeaders = self.makeRequestHeaders(metadataURL)
+        var metadataHeaders = HTTPClientHeaders()
         metadataHeaders.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
         let metadataOptions = self.makeRequestOptions(validResponseCodes: [200, 401, 403, 404])
+        let hasAuthorization = metadataOptions.authorizationProvider?(metadataURL) != nil
         httpClient.get(metadataURL, headers: metadataHeaders, options: metadataOptions) { result in
             defer { sync.leave() }
             results[metadataURL] = result
             if case .success(let response) = result {
                 let apiLimit = response.headers.get("X-RateLimit-Limit").first.flatMap(Int.init) ?? -1
                 let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
-                switch (response.statusCode, metadataHeaders.contains("Authorization"), apiRemaining) {
+                switch (response.statusCode, hasAuthorization, apiRemaining) {
                 case (_, _, 0):
                     self.diagnosticsEngine?.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
@@ -81,7 +82,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     // if successful, fan out multiple API calls
                     [tagsURL, contributorsURL, readmeURL, licenseURL].forEach { url in
                         sync.enter()
-                        var headers = self.makeRequestHeaders(url)
+                        var headers = HTTPClientHeaders()
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
                         let options = self.makeRequestOptions(validResponseCodes: [200])
                         self.httpClient.get(url, headers: headers, options: options) { result in
@@ -155,15 +156,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         var options = HTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
-        return options
-    }
-
-    private func makeRequestHeaders(_ url: URL) -> HTTPClientHeaders {
-        var headers = HTTPClientHeaders()
-        if let host = url.host, let token = self.configuration.authTokens?[.github(host)] {
-            headers.add(name: "Authorization", value: "token \(token)")
+        options.authorizationProvider = { url in
+            url.host.flatMap { host in
+                self.configuration.authTokens?[.github(host)].flatMap { token in
+                    "token \(token)"
+                }
+            }
         }
-        return headers
+        return options
     }
 
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {

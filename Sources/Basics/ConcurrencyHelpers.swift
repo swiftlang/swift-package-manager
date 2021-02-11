@@ -6,8 +6,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
 import class Foundation.ProcessInfo
+import TSCBasic
 
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
@@ -34,6 +34,12 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     public func memoize(_ key: Key, body: () throws -> Value) rethrows -> Value {
         try self.lock.withLock {
             try self.underlying.memoize(key: key, body: body)
+        }
+    }
+
+    public func removeValue(forKey key: Key) -> Value? {
+        self.lock.withLock {
+            self.underlying.removeValue(forKey: key)
         }
     }
 
