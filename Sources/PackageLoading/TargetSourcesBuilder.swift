@@ -84,14 +84,12 @@ public struct TargetSourcesBuilder {
         }
         self.declaredSources = declaredSources?.spm_uniqueElements()
         
-        for exclude in self.excludedPaths {
-            validTargetPath(exclude, "Cannot exclude path: \(exclude) because it does not exist")
+        self.excludedPaths.forEach { exclude in
+            validTargetPath(at: exclude, message: "Cannot exclude path: \(exclude) because it does not exist")
         }
         
-        if let decSources = self.declaredSources {
-            for source in decSources {
-                validTargetPath(source, "Source: \(source) does not exist")
-            }
+        self.declaredSources?.forEach { source in
+            validTargetPath(at: source, message: "Source: \(source) does not exist")
         }
 
       #if DEBUG
@@ -100,22 +98,29 @@ public struct TargetSourcesBuilder {
     }
 
     @discardableResult
-    private func validTargetPath(_ absPath: AbsolutePath, _ message: String) -> Bool {
-        // Check if paths that are enumerated in targets: [] exist 
-        if !self.fs.exists(absPath) {
-            self.diags.emit(warning: message)
+    private func validTargetPath(at: AbsolutePath, message: String?) -> Bool {
+        guard let cwd = self.fs.currentWorkingDirectory else {
             return false
-        } else {
-            // Excludes, Sources, and Resources should be found at the root of the package and or
-            // its subdirectories
-            if let cwd = self.fs.currentWorkingDirectory {
-                if !absPath.pathString.hasPrefix(cwd.pathString) {
-                    self.diags.emit(warning: "\(absPath) should be found within the root of \(cwd)")
-                }
-            }
-            return true
         }
+        
+        // Check if paths that are enumerated in targets: [] exist
+        guard self.fs.exists(at) else {
+            if let msg = message {
+                self.diags.emit(warning: msg)
+            }
+            return false
+        }
+
+        // Excludes, Sources, and Resources should be found at the root of the package and or
+        // its subdirectories
+        guard at.pathString.hasPrefix(cwd.pathString) else {
+            self.diags.emit(warning: "\(at) should be found within the root of \(cwd)")
+            return false
+        }
+        
+        return true
     }
+    
     /// Emits an error in debug mode if we have conflicting rules for any file type.
     private func validateRules(_ rules: [FileRuleDescription]) {
         var extensionMap: [String: FileRuleDescription] = [:]
@@ -190,7 +195,7 @@ public struct TargetSourcesBuilder {
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
             }
             
-            validTargetPath(resourcePath, "Resource: \(resourcePath) does not exist")
+            validTargetPath(at: resourcePath, message: "Resource: \(resourcePath) does not exist")
         }
 
         // Match any sources explicitly declared in the manifest file.
