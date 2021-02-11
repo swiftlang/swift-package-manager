@@ -15,12 +15,12 @@ protocol CertificatePolicy {
     ///   - certChainPaths: Paths to each certificate in the chain. The certificate being verified must be the first element of the array,
     ///                     with its issuer the next element and so on, and the root CA certificate is last.
     ///   - callback: The callback to invoke when the result is available.
-    func validate(certChain: [Certificate], callback: @escaping (Result<Bool, Error>) -> Void)
+    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void)
 }
 
 // TODO: actual cert policies to be implemented later
 struct NoopCertificatePolicy: CertificatePolicy {
-    func validate(certChain: [Certificate], callback: @escaping (Result<Bool, Error>) -> Void) {
-        callback(.success(true))
+    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
+        callback(.success(()))
     }
 }

@@ -51,13 +51,10 @@ public struct PackageCollectionSigning {
             let certChain = try certChainData.map { try Certificate(derEncoded: $0) }
             self.certPolicy.validate(certChain: certChain) { result in
                 switch result {
-                case .failure(let error):
-                    return callback(.failure(error))
-                case .success(let isCertChainValid):
-                    guard isCertChainValid else {
-                        return callback(.failure(PackageCollectionSigningError.invalidCertChain))
-                    }
-
+                case .failure:
+                    // TODO: emit error with DiagnosticsEngine
+                    return callback(.failure(PackageCollectionSigningError.invalidCertChain))
+                case .success:
                     do {
                         let certificate = certChain.first! // !-safe because certChain cannot be empty at this point
                         let keyType = try certificate.keyType()
@@ -141,13 +138,10 @@ public struct PackageCollectionSigning {
             // Check that the certificate is valid before we do anything
             self.certPolicy.validate(certChain: certChain) { result in
                 switch result {
-                case .failure(let error):
-                    return callback(.failure(error))
-                case .success(let isCertChainValid):
-                    guard isCertChainValid else {
-                        return callback(.failure(PackageCollectionSigningError.invalidCertChain))
-                    }
-
+                case .failure:
+                    // TODO: emit error with DiagnosticsEngine
+                    return callback(.failure(PackageCollectionSigningError.invalidCertChain))
+                case .success:
                     do {
                         // Extract public key from the certificate
                         let certificate = certChain.first! // !-safe because certChain is not empty at this point
