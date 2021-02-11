@@ -85,11 +85,15 @@ public struct TargetSourcesBuilder {
         self.declaredSources = declaredSources?.spm_uniqueElements()
         
         self.excludedPaths.forEach { exclude in
-            validTargetPath(at: exclude, message: "Cannot exclude path: \(exclude) because it does not exist")
+            if let message = validTargetPath(at: exclude) {
+                self.diags.emit(warning: "Invalid Exclude: \(exclude): \(message)")
+            }
         }
         
         self.declaredSources?.forEach { source in
-            validTargetPath(at: source, message: "Source: \(source) does not exist")
+            if let message = validTargetPath(at: source) {
+                self.diags.emit(warning: "Invalid Source: \(source): \(message)")
+            }
         }
 
       #if DEBUG
@@ -98,27 +102,23 @@ public struct TargetSourcesBuilder {
     }
 
     @discardableResult
-    private func validTargetPath(at: AbsolutePath, message: String?) -> Bool {
+    private func validTargetPath(at: AbsolutePath) -> Error? {
         guard let cwd = self.fs.currentWorkingDirectory else {
-            return false
+            return StringError("Unknown Current Working Directory")
         }
         
         // Check if paths that are enumerated in targets: [] exist
         guard self.fs.exists(at) else {
-            if let msg = message {
-                self.diags.emit(warning: msg)
-            }
-            return false
+            return StringError("\(at) could not be found")
         }
 
         // Excludes, Sources, and Resources should be found at the root of the package and or
         // its subdirectories
         guard at.pathString.hasPrefix(cwd.pathString) else {
-            self.diags.emit(warning: "\(at) should be found within the root of \(cwd)")
-            return false
+            return StringError("\(at) should be found within the root of \(cwd)")
         }
         
-        return true
+        return nil
     }
     
     /// Emits an error in debug mode if we have conflicting rules for any file type.
@@ -195,7 +195,9 @@ public struct TargetSourcesBuilder {
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
             }
             
-            validTargetPath(at: resourcePath, message: "Resource: \(resourcePath) does not exist")
+            if let message = validTargetPath(at: resourcePath) {
+                self.diags.emit(warning: "Invalid Resource: \(resourcePath): \(message)")
+            }
         }
 
         // Match any sources explicitly declared in the manifest file.
