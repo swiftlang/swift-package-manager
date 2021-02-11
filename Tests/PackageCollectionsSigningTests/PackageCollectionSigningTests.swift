@@ -42,7 +42,7 @@ class PackageCollectionSigningTests: XCTestCase {
             }
 
             // Then validate that signature is valid
-            XCTAssertTrue(try tsc_await { callback in signing.validate(signedCollection: signedCollection, jsonDecoder: jsonDecoder, callback: callback) })
+            XCTAssertNoThrow(try tsc_await { callback in signing.validate(signedCollection: signedCollection, jsonDecoder: jsonDecoder, callback: callback) })
         }
     }
 
@@ -89,8 +89,12 @@ class PackageCollectionSigningTests: XCTestCase {
             // Use collection1's signature for collection2
             let badSignedCollection = PackageCollectionModel.V1.SignedCollection(collection: collection2, signature: signedCollection.signature)
 
-            // Then validate that signature is valid
-            XCTAssertFalse(try tsc_await { callback in signing.validate(signedCollection: badSignedCollection, jsonDecoder: jsonDecoder, callback: callback) })
+            // The signature should be invalid
+            XCTAssertThrowsError(try tsc_await { callback in signing.validate(signedCollection: badSignedCollection, jsonDecoder: jsonDecoder, callback: callback) }) { error in
+                guard PackageCollectionSigningError.invalidSignature == error as? PackageCollectionSigningError else {
+                    return XCTFail("Expected PackageCollectionSigningError.invalidSignature")
+                }
+            }
         }
     }
 
@@ -119,7 +123,7 @@ class PackageCollectionSigningTests: XCTestCase {
             }
 
             // Then validate that signature is valid
-            XCTAssertTrue(try tsc_await { callback in signing.validate(signedCollection: signedCollection, jsonDecoder: jsonDecoder, callback: callback) })
+            XCTAssertNoThrow(try tsc_await { callback in signing.validate(signedCollection: signedCollection, jsonDecoder: jsonDecoder, callback: callback) })
         }
     }
 
@@ -166,8 +170,12 @@ class PackageCollectionSigningTests: XCTestCase {
             // Use collection1's signature for collection2
             let badSignedCollection = PackageCollectionModel.V1.SignedCollection(collection: collection2, signature: signedCollection.signature)
 
-            // Then validate that signature is valid
-            XCTAssertFalse(try tsc_await { callback in signing.validate(signedCollection: badSignedCollection, jsonDecoder: jsonDecoder, callback: callback) })
+            // The signature should be invalid
+            XCTAssertThrowsError(try tsc_await { callback in signing.validate(signedCollection: badSignedCollection, jsonDecoder: jsonDecoder, callback: callback) }) { error in
+                guard PackageCollectionSigningError.invalidSignature == error as? PackageCollectionSigningError else {
+                    return XCTFail("Expected PackageCollectionSigningError.invalidSignature")
+                }
+            }
         }
     }
 }

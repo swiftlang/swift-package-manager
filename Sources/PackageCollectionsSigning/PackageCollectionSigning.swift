@@ -41,20 +41,14 @@ public struct PackageCollectionSigning {
                      certPrivateKeyPath: URL,
                      jsonEncoder: JSONEncoder = JSONEncoder(),
                      callback: @escaping (Result<Model.SignedCollection, Error>) -> Void) {
-        guard !certChainPaths.isEmpty else {
-            return callback(.failure(PackageCollectionSigningError.emptyCertChain))
-        }
-
         do {
-            // Check that the cert is valid before we do anything
             let certChainData = try certChainPaths.map { try Data(contentsOf: $0) }
-            let certChain = try certChainData.map { try Certificate(derEncoded: $0) }
-            self.certPolicy.validate(certChain: certChain) { result in
+            // Check that the certificate is valid
+            self.validateCertChain(certChainData) { result in
                 switch result {
-                case .failure:
-                    // TODO: emit error with DiagnosticsEngine
-                    return callback(.failure(PackageCollectionSigningError.invalidCertChain))
-                case .success:
+                case .failure(let error):
+                    return callback(.failure(error))
+                case .success(let certChain):
                     do {
                         let certificate = certChain.first! // !-safe because certChain cannot be empty at this point
                         let keyType = try certificate.keyType()
@@ -114,7 +108,7 @@ public struct PackageCollectionSigning {
     ///   - callback: The callback to invoke when the result is available.
     public func validate(signedCollection: Model.SignedCollection,
                          jsonDecoder: JSONDecoder = JSONDecoder(),
-                         callback: @escaping (Result<Bool, Error>) -> Void) {
+                         callback: @escaping (Result<Void, Error>) -> Void) {
         guard let signature = signedCollection.signature.signature.data(using: .utf8)?.copyBytes() else {
             return callback(.failure(PackageCollectionSigningError.invalidSignature))
         }
@@ -125,23 +119,19 @@ public struct PackageCollectionSigning {
 
             // Signature header contains the certificate and public key for verification
             let header = parser.header
-            guard !header.certChain.isEmpty else {
-                throw SignatureError.malformedSignature
-            }
 
-            let certChain = try header.certChain.compactMap { Data(base64Encoded: $0) }.map { try Certificate(derEncoded: $0) }
+            let certChainData = header.certChain.compactMap { Data(base64Encoded: $0) }
             // Make sure we restore all certs successfully
-            guard certChain.count == header.certChain.count else {
+            guard certChainData.count == header.certChain.count else {
                 throw SignatureError.malformedSignature
             }
 
-            // Check that the certificate is valid before we do anything
-            self.certPolicy.validate(certChain: certChain) { result in
+            // Check that the certificate is valid
+            self.validateCertChain(certChainData) { result in
                 switch result {
-                case .failure:
-                    // TODO: emit error with DiagnosticsEngine
-                    return callback(.failure(PackageCollectionSigningError.invalidCertChain))
-                case .success:
+                case .failure(let error):
+                    return callback(.failure(error))
+                case .success(let certChain):
                     do {
                         // Extract public key from the certificate
                         let certificate = certChain.first! // !-safe because certChain is not empty at this point
@@ -153,7 +143,10 @@ public struct PackageCollectionSigning {
                         // Verify the signature embedded in the signature is the same as received
                         // i.e., the signature is associated with the given collection and not another
                         let collectionFromSignature = try jsonDecoder.decode(Model.Collection.self, from: parser.payload)
-                        callback(.success(signedCollection.collection == collectionFromSignature))
+                        guard signedCollection.collection == collectionFromSignature else {
+                            return callback(.failure(PackageCollectionSigningError.invalidSignature))
+                        }
+                        callback(.success(()))
                     } catch {
                         callback(.failure(error))
                     }
@@ -161,6 +154,28 @@ public struct PackageCollectionSigning {
             }
         } catch {
             callback(.failure(error))
+        }
+    }
+
+    private func validateCertChain(_ certChainData: [Data], callback: @escaping (Result<[Certificate], Error>) -> Void) {
+        guard !certChainData.isEmpty else {
+            return callback(.failure(PackageCollectionSigningError.emptyCertChain))
+        }
+
+        do {
+            let certChain = try certChainData.map { try Certificate(derEncoded: $0) }
+            self.certPolicy.validate(certChain: certChain) { result in
+                switch result {
+                case .failure:
+                    // TODO: emit error with DiagnosticsEngine
+                    callback(.failure(PackageCollectionSigningError.invalidCertChain))
+                case .success:
+                    callback(.success(certChain))
+                }
+            }
+        } catch {
+            // TODO: emit error with DiagnosticsEngine
+            callback(.failure(PackageCollectionSigningError.invalidCertChain))
         }
     }
 
@@ -173,7 +188,7 @@ public struct PackageCollectionSigning {
     }
 }
 
-enum PackageCollectionSigningError: Error {
+enum PackageCollectionSigningError: Error, Equatable {
     case emptyCertChain
     case invalidCertChain
     case invalidSignature
