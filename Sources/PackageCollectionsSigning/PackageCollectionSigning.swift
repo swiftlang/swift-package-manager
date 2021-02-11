@@ -113,47 +113,20 @@ public struct PackageCollectionSigning {
             return callback(.failure(PackageCollectionSigningError.invalidSignature))
         }
 
-        do {
-            // Parse the signature
-            let parser = try Signature.Parser(signature)
-
-            // Signature header contains the certificate and public key for verification
-            let header = parser.header
-
-            let certChainData = header.certChain.compactMap { Data(base64Encoded: $0) }
-            // Make sure we restore all certs successfully
-            guard certChainData.count == header.certChain.count else {
-                throw SignatureError.malformedSignature
-            }
-
-            // Check that the certificate is valid
-            self.validateCertChain(certChainData) { result in
-                switch result {
-                case .failure(let error):
-                    return callback(.failure(error))
-                case .success(let certChain):
-                    do {
-                        // Extract public key from the certificate
-                        let certificate = certChain.first! // !-safe because certChain is not empty at this point
-                        let publicKey = try certificate.publicKey()
-
-                        // Verify the key was used to generate the signature
-                        try parser.validate(using: publicKey)
-
-                        // Verify the signature embedded in the signature is the same as received
-                        // i.e., the signature is associated with the given collection and not another
-                        let collectionFromSignature = try jsonDecoder.decode(Model.Collection.self, from: parser.payload)
-                        guard signedCollection.collection == collectionFromSignature else {
-                            return callback(.failure(PackageCollectionSigningError.invalidSignature))
-                        }
-                        callback(.success(()))
-                    } catch {
-                        callback(.failure(error))
-                    }
+        // Parse the signature
+        Signature.parse(signature, certChainValidate: self.validateCertChain, jsonDecoder: jsonDecoder) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let signature):
+                // Verify the collection embedded in the signature is the same as received
+                // i.e., the signature is associated with the given collection and not another
+                guard let collectionFromSignature = try? jsonDecoder.decode(Model.Collection.self, from: signature.payload),
+                    signedCollection.collection == collectionFromSignature else {
+                    return callback(.failure(PackageCollectionSigningError.invalidSignature))
                 }
+                callback(.success(()))
             }
-        } catch {
-            callback(.failure(error))
         }
     }
 

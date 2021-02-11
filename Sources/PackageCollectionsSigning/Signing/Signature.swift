@@ -27,6 +27,12 @@ import Foundation
 // for JSON Web Signature (JWS).
 
 struct Signature {
+    let header: Header
+    let payload: Data
+    let signature: Data
+}
+
+extension Signature {
     enum Algorithm: String, Codable {
         case RS256 // RSASSA-PKCS1-v1_5 using SHA-256
         case ES256 // ECDSA using P-256 and SHA-256
@@ -84,59 +90,67 @@ extension Signature {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTParser.swift
 extension Signature {
-    struct Parser {
-        let header: Header
-        let payload: Data
-        let signature: Data
-        let message: Data
+    typealias CertChainValidate = ([Data], @escaping (Result<[Certificate], Error>) -> Void) -> Void
 
-        private let jsonDecoder: JSONDecoder
+    static func parse(_ signature: String,
+                      certChainValidate: CertChainValidate,
+                      jsonDecoder: JSONDecoder = JSONDecoder(),
+                      callback: @escaping (Result<Signature, Error>) -> Void) {
+        let bytes = Array(signature.utf8)
+        Self.parse(bytes, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder, callback: callback)
+    }
 
-        init(_ signature: String, jsonDecoder: JSONDecoder = JSONDecoder()) throws {
-            let bytes = Array(signature.utf8)
-            try self.init(bytes, jsonDecoder: jsonDecoder)
+    static func parse<SignatureData>(_ signature: SignatureData,
+                                     certChainValidate: CertChainValidate,
+                                     jsonDecoder: JSONDecoder = JSONDecoder(),
+                                     callback: @escaping (Result<Signature, Error>) -> Void) where SignatureData: DataProtocol {
+        let parts = signature.copyBytes().split(separator: .period)
+        guard parts.count == 3 else {
+            return callback(.failure(SignatureError.malformedSignature))
         }
 
-        init<Data>(_ signature: Data, jsonDecoder: JSONDecoder = JSONDecoder()) throws where Data: DataProtocol {
-            let parts = signature.copyBytes().split(separator: .period)
+        let encodedHeader = parts[0]
+        let encodedPayload = parts[1]
+        let encodedSignature = parts[2]
 
-            guard parts.count == 3 else {
-                throw SignatureError.malformedSignature
-            }
-
-            let encodedHeader = parts[0]
-            let encodedPayload = parts[1]
-            let encodedSignature = parts[2]
-
-            guard let header = encodedHeader.base64URLDecodedBytes() else {
-                throw SignatureError.malformedSignature
-            }
-            self.header = try jsonDecoder.decode(Header.self, from: header)
-
-            guard let payload = encodedPayload.base64URLDecodedBytes() else {
-                throw SignatureError.malformedSignature
-            }
-            self.payload = payload
-
-            guard let signature = encodedSignature.base64URLDecodedBytes() else {
-                throw SignatureError.malformedSignature
-            }
-            self.signature = signature
-
-            self.message = encodedHeader + .period + encodedPayload
-            self.jsonDecoder = jsonDecoder
+        guard let headerBytes = encodedHeader.base64URLDecodedBytes(),
+            let header = try? jsonDecoder.decode(Header.self, from: headerBytes) else {
+            return callback(.failure(SignatureError.malformedSignature))
         }
 
-        func decodePayload<Payload>(as payload: Payload.Type) throws -> Payload where Payload: Decodable {
-            try self.jsonDecoder.decode(
-                Payload.self,
-                from: self.payload
-            )
+        // Signature header contains the certificate and public key for verification
+        let certChainData = header.certChain.compactMap { Data(base64Encoded: $0) }
+        // Make sure we restore all certs successfully
+        guard certChainData.count == header.certChain.count else {
+            return callback(.failure(SignatureError.malformedSignature))
         }
 
-        func validate(using validator: MessageValidator) throws {
-            guard try validator.isValidSignature(self.signature, for: self.message) else {
-                throw SignatureError.invalidSignature
+        certChainValidate(certChainData) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let certChain):
+                do {
+                    // Extract public key from the certificate
+                    let certificate = certChain.first! // !-safe because certChain is not empty at this point
+                    let publicKey = try certificate.publicKey()
+
+                    guard let payload = encodedPayload.base64URLDecodedBytes() else {
+                        return callback(.failure(SignatureError.malformedSignature))
+                    }
+                    guard let signature = encodedSignature.base64URLDecodedBytes() else {
+                        return callback(.failure(SignatureError.malformedSignature))
+                    }
+
+                    // Verify the key was used to generate the signature
+                    let message: Data = Data(encodedHeader) + .period + Data(encodedPayload)
+                    guard try publicKey.isValidSignature(signature, for: message) else {
+                        return callback(.failure(SignatureError.invalidSignature))
+                    }
+                    callback(.success(Signature(header: header, payload: payload, signature: signature)))
+                } catch {
+                    callback(.failure(error))
+                }
             }
         }
     }
