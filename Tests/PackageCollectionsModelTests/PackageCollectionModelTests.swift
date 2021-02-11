@@ -25,11 +25,16 @@ class PackageCollectionModelTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
-                        packageName: "Foobar",
-                        targets: [.init(name: "Foo", moduleName: "Foo")],
-                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
-                        toolsVersion: "5.2",
-                        minimumPlatformVersions: [.init(name: "macOS", version: "10.15")],
+                        manifests: [
+                            "5.2": Model.Collection.Package.Version.Manifest(
+                                toolsVersion: "5.2",
+                                packageName: "Foobar",
+                                targets: [.init(name: "Foo", moduleName: "Foo")],
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
+                            ),
+                        ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),
@@ -63,11 +68,16 @@ class PackageCollectionModelTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
-                        packageName: "Foobar",
-                        targets: [.init(name: "Foo", moduleName: "Foo")],
-                        products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
-                        toolsVersion: "5.2",
-                        minimumPlatformVersions: [.init(name: "macOS", version: "10.15")],
+                        manifests: [
+                            "5.2": Model.Collection.Package.Version.Manifest(
+                                toolsVersion: "5.2",
+                                packageName: "Foobar",
+                                targets: [.init(name: "Foo", moduleName: "Foo")],
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: [.init(name: "macOS", version: "10.15")]
+                            ),
+                        ],
+                        defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
                         license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
                     ),

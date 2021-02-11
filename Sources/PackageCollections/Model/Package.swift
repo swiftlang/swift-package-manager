@@ -112,29 +112,31 @@ extension PackageCollectionsModel.Package {
         /// The version
         public let version: TSCUtility.Version
 
-        /// The package name
-        public let packageName: String
+        // TODO: remove (replaced by manifests)
+        public var packageName: String { self.defaultManifest!.packageName }
 
-        // Custom instead of `PackageModel.Target` because we don't need the additional details
-        /// The package version's targets
-        public let targets: [Target]
+        // TODO: remove (replaced by manifests)
+        public var targets: [Target] { self.defaultManifest!.targets }
 
-        // Custom instead of `PackageModel.Product` because of the simplified `Target`
-        /// The package version's products
-        public let products: [Product]
+        // TODO: remove (replaced by manifests)
+        public var products: [Product] { self.defaultManifest!.products }
 
-        /// The package version's Swift tools version
-        public let toolsVersion: ToolsVersion
+        // TODO: remove (replaced by manifests)
+        public var toolsVersion: ToolsVersion { self.defaultManifest!.toolsVersion }
 
-        /// The package version's supported platforms
-        public let minimumPlatformVersions: [SupportedPlatform]?
+        // TODO: remove (replaced by manifests)
+        public var minimumPlatformVersions: [SupportedPlatform]? { nil }
+
+        /// Manifests by tools version
+        public let manifests: [ToolsVersion: Manifest]
+
+        /// Tools version of the default manifest
+        public let defaultToolsVersion: ToolsVersion
 
         // TODO: remove (replaced by verifiedCompatibility)
-        /// The package version's supported platforms verified to work
         public var verifiedPlatforms: [PackageModel.Platform]? { nil }
 
         // TODO: remove (replaced by verifiedCompatibility)
-        /// The package version's Swift versions verified to work
         public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
 
         /// An array of compatible platforms and Swift versions that has been tested and verified for.
@@ -142,6 +144,25 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's license
         public let license: PackageCollectionsModel.License?
+
+        public struct Manifest: Equatable, Codable {
+            /// The Swift tools version specified in `Package.swift`.
+            public let toolsVersion: ToolsVersion
+
+            /// The package name
+            public let packageName: String
+
+            // Custom instead of `PackageModel.Target` because we don't need the additional details
+            /// The package version's targets
+            public let targets: [Target]
+
+            // Custom instead of `PackageModel.Product` because of the simplified `Target`
+            /// The package version's products
+            public let products: [Product]
+
+            /// The package version's supported platforms
+            public let minimumPlatformVersions: [SupportedPlatform]?
+        }
     }
 }
 
@@ -224,5 +245,11 @@ extension Array where Element == PackageCollectionsModel.Package.Version {
         self.filter { !$0.version.prereleaseIdentifiers.isEmpty }
             .sorted(by: >)
             .first
+    }
+}
+
+extension PackageCollectionsModel.Package.Version {
+    public var defaultManifest: Manifest? {
+        self.manifests[self.defaultToolsVersion]
     }
 }

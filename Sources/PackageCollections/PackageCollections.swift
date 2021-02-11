@@ -243,16 +243,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 // then try to get more metadata from provider (optional)
                 self.metadataProvider.get(reference) { result in
                     switch result {
-                    case .failure(let error) where error is NotFoundError:
+                    case .failure:
                         self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections
                         )
                         callback(.success(metadata))
-                    case .failure(let error):
-                        self.diagnosticsEngine?.emit(error: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
-                        callback(.failure(error))
                     case .success(let basicMetadata):
                         // finally merge the results
                         let metadata = Model.PackageMetadata(
@@ -403,11 +400,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 packageCollections[package.reference] = entry
 
                 package.versions.forEach { version in
-                    version.targets.forEach { target in
-                        // Avoid copy-on-write: remove entry from dictionary before mutating
-                        var entry = targetsPackages.removeValue(forKey: target.name) ?? (target: target, packages: .init())
-                        entry.packages.insert(package.reference)
-                        targetsPackages[target.name] = entry
+                    version.manifests.values.forEach { manifest in
+                        manifest.targets.forEach { target in
+                            // Avoid copy-on-write: remove entry from dictionary before mutating
+                            var entry = targetsPackages.removeValue(forKey: target.name) ?? (target: target, packages: .init())
+                            entry.packages.insert(package.reference)
+                            targetsPackages[target.name] = entry
+                        }
                     }
                 }
             }
@@ -417,7 +416,15 @@ public struct PackageCollections: PackageCollectionsProtocol {
             let targetPackages = pair.packages
                 .compactMap { packageCollections[$0] }
                 .map { pair -> Model.TargetListResult.Package in
-                    let versions = pair.package.versions.map { Model.TargetListResult.PackageVersion(version: $0.version, packageName: $0.packageName) }
+                    let versions = pair.package.versions.flatMap { version in
+                        version.manifests.values.map { manifest in
+                            Model.TargetListResult.PackageVersion(
+                                version: version.version,
+                                toolsVersion: manifest.toolsVersion,
+                                packageName: manifest.packageName
+                            )
+                        }
+                    }
                     return .init(repository: pair.package.repository,
                                  summary: pair.package.summary,
                                  versions: versions,
@@ -432,11 +439,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
                                                basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             .init(version: packageVersion.version,
-                  packageName: packageVersion.packageName,
-                  targets: packageVersion.targets,
-                  products: packageVersion.products,
-                  toolsVersion: packageVersion.toolsVersion,
-                  minimumPlatformVersions: packageVersion.minimumPlatformVersions,
+                  manifests: packageVersion.manifests,
+                  defaultToolsVersion: packageVersion.defaultToolsVersion,
                   verifiedCompatibility: packageVersion.verifiedCompatibility,
                   license: packageVersion.license)
         }

@@ -128,17 +128,32 @@ extension PackageCollectionModel.V1 {
             }
 
             package.versions.forEach { version in
-                if version.products.isEmpty {
-                    messages.append(.error("Package \(packageID) version \(version.version) does not contain any products.", property: "version.products"))
+                guard !version.manifests.isEmpty else {
+                    messages.append(.error("Package \(packageID) version \(version.version) does not have any manifests.", property: "version.manifest"))
+                    return
                 }
-                version.products.forEach { product in
-                    if product.targets.isEmpty {
-                        messages.append(.error("Product \(product.name) of package \(packageID) version \(version.version) does not contain any targets.", property: "product.targets"))
-                    }
+                guard version.manifests[version.defaultToolsVersion] != nil else {
+                    messages.append(.error("Package \(packageID) version \(version.version) is missing the default manifest (tools version: \(version.defaultToolsVersion))", property: "version.manifest"))
+                    return
                 }
 
-                if version.targets.isEmpty {
-                    messages.append(.error("Package \(packageID) version \(version.version) does not contain any targets.", property: "version.targets"))
+                version.manifests.forEach { toolsVersion, manifest in
+                    if toolsVersion != manifest.toolsVersion {
+                        messages.append(.error("Manifest tools version \(manifest.toolsVersion) does not match \(toolsVersion)", property: "version.manifest"))
+                    }
+
+                    if manifest.products.isEmpty {
+                        messages.append(.error("Package \(packageID) version \(version.version) tools-version \(toolsVersion) does not contain any products.", property: "version.manifest.products"))
+                    }
+                    manifest.products.forEach { product in
+                        if product.targets.isEmpty {
+                            messages.append(.error("Product \(product.name) of package \(packageID) version \(version.version) tools-version \(toolsVersion) does not contain any targets.", property: "product.targets"))
+                        }
+                    }
+
+                    if manifest.targets.isEmpty {
+                        messages.append(.error("Package \(packageID) version \(version.version) tools-version \(toolsVersion) does not contain any targets.", property: "version.manifest.targets"))
+                    }
                 }
             }
         }

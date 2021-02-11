@@ -208,7 +208,7 @@ class PackageCollectionsStorageTests: XCTestCase {
                 _ = try tsc_await { callback in storage.put(collection: collection, callback: callback) }
             }
 
-            let targetName = mockCollections.last!.packages.last!.versions.last!.targets.last!.name
+            let targetName = mockCollections.last!.packages.last!.versions.last!.defaultManifest!.targets.last!.name
 
             do {
                 let searchResult = try tsc_await { callback in storage.searchTargets(query: targetName, type: .exactMatch, callback: callback) }

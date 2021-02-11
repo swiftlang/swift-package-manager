@@ -45,6 +45,15 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                     targets: targets)
                 }
                 let minimumPlatformVersions = (0 ..< Int.random(in: 1 ... 2)).map { _ in supportedPlatforms.randomElement()! }
+                let toolsVersion = ToolsVersion(string: "5.2")!
+                let manifests = [toolsVersion: PackageCollectionsModel.Package.Version.Manifest(
+                    toolsVersion: toolsVersion,
+                    packageName: "package-\(packageIndex)",
+                    targets: targets,
+                    products: products,
+                    minimumPlatformVersions: minimumPlatformVersions
+                )]
+
                 let verifiedCompatibility = (0 ..< Int.random(in: 1 ... 3)).map { _ in
                     PackageCollectionsModel.Compatibility(
                         platform: platforms.randomElement()!,
@@ -55,11 +64,8 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                 let license = PackageCollectionsModel.License(type: licenseType, url: URL(string: "http://\(licenseType).license")!)
 
                 return PackageCollectionsModel.Package.Version(version: TSCUtility.Version(versionIndex, 0, 0),
-                                                               packageName: "package-\(packageIndex)",
-                                                               targets: targets,
-                                                               products: products,
-                                                               toolsVersion: .currentToolsVersion,
-                                                               minimumPlatformVersions: minimumPlatformVersions,
+                                                               manifests: manifests,
+                                                               defaultToolsVersion: toolsVersion,
                                                                verifiedCompatibility: verifiedCompatibility,
                                                                license: license)
             }

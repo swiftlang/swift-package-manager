@@ -26,12 +26,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let diagnosticsEngine: DiagnosticsEngine?
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
+    private let validator: JSONModel.Validator
 
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.decoder = JSONDecoder.makeWithDefaults()
+        self.validator = JSONModel.Validator(configuration: configuration.validator)
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -122,6 +124,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     }
 
     private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource, signature: Model.SignatureData?) -> Result<Model.Collection, Error> {
+        if let errors = self.validator.validate(collection: collection)?.errors() {
+            return .failure(MultipleErrors(errors))
+        }
+
         var serializationOkay = true
         let packages = collection.packages.map { package -> Model.Package in
             let versions = package.versions.compactMap { version -> Model.Package.Version? in
@@ -129,21 +135,42 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 guard let parsedVersion = TSCUtility.Version(string: version.version) else {
                     return nil
                 }
-                guard let toolsVersion = ToolsVersion(string: version.toolsVersion) else {
+
+                let manifests = [ToolsVersion: Model.Package.Version.Manifest](uniqueKeysWithValues: version.manifests.compactMap { key, value in
+                    guard let keyToolsVersion = ToolsVersion(string: key), let manifestToolsVersion = ToolsVersion(string: value.toolsVersion) else {
+                        return nil
+                    }
+
+                    let targets = value.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
+                    if targets.count != value.targets.count {
+                        serializationOkay = false
+                    }
+                    let products = value.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
+                    if products.count != value.products.count {
+                        serializationOkay = false
+                    }
+                    let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = value.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
+                    if minimumPlatformVersions?.count != value.minimumPlatformVersions?.count {
+                        serializationOkay = false
+                    }
+
+                    let manifest = Model.Package.Version.Manifest(
+                        toolsVersion: manifestToolsVersion,
+                        packageName: value.packageName,
+                        targets: targets,
+                        products: products,
+                        minimumPlatformVersions: minimumPlatformVersions
+                    )
+                    return (keyToolsVersion, manifest)
+                })
+                if manifests.count != version.manifests.count {
+                    serializationOkay = false
+                }
+
+                guard let defaultToolsVersion = ToolsVersion(string: version.defaultToolsVersion) else {
                     return nil
                 }
-                let targets = version.targets.map { Model.Target(name: $0.name, moduleName: $0.moduleName) }
-                if targets.count != version.targets.count {
-                    serializationOkay = false
-                }
-                let products = version.products.compactMap { Model.Product(from: $0, packageTargets: targets) }
-                if products.count != version.products.count {
-                    serializationOkay = false
-                }
-                let minimumPlatformVersions: [PackageModel.SupportedPlatform]? = version.minimumPlatformVersions?.compactMap { PackageModel.SupportedPlatform(from: $0) }
-                if minimumPlatformVersions?.count != version.minimumPlatformVersions?.count {
-                    serializationOkay = false
-                }
+
                 let verifiedCompatibility = version.verifiedCompatibility?.compactMap { Model.Compatibility(from: $0) }
                 if verifiedCompatibility?.count != version.verifiedCompatibility?.count {
                     serializationOkay = false
@@ -151,11 +178,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 let license = version.license.flatMap { Model.License(from: $0) }
 
                 return .init(version: parsedVersion,
-                             packageName: version.packageName,
-                             targets: targets,
-                             products: products,
-                             toolsVersion: toolsVersion,
-                             minimumPlatformVersions: minimumPlatformVersions,
+                             manifests: manifests,
+                             defaultToolsVersion: defaultToolsVersion,
                              verifiedCompatibility: verifiedCompatibility,
                              license: license)
             }
@@ -213,10 +237,46 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     public struct Configuration {
         public var maximumSizeInBytes: Int
+        public var validator: PackageCollectionModel.V1.Validator.Configuration
 
-        public init(maximumSizeInBytes: Int? = nil) {
+        public var maximumPackageCount: Int {
+            get {
+                self.validator.maximumPackageCount
+            }
+            set(newValue) {
+                self.validator.maximumPackageCount = newValue
+            }
+        }
+
+        public var maximumMajorVersionCount: Int {
+            get {
+                self.validator.maximumMajorVersionCount
+            }
+            set(newValue) {
+                self.validator.maximumMajorVersionCount = newValue
+            }
+        }
+
+        public var maximumMinorVersionCount: Int {
+            get {
+                self.validator.maximumMinorVersionCount
+            }
+            set(newValue) {
+                self.validator.maximumMinorVersionCount = newValue
+            }
+        }
+
+        public init(maximumSizeInBytes: Int? = nil,
+                    maximumPackageCount: Int? = nil,
+                    maximumMajorVersionCount: Int? = nil,
+                    maximumMinorVersionCount: Int? = nil) {
             // TODO: where should we read defaults from?
             self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
+            self.validator = JSONModel.Validator.Configuration(
+                maximumPackageCount: maximumPackageCount,
+                maximumMajorVersionCount: maximumMajorVersionCount,
+                maximumMinorVersionCount: maximumMinorVersionCount
+            )
         }
     }
 

@@ -19,15 +19,18 @@ import TSCUtility
 private enum CollectionsError: Swift.Error {
     case invalidArgument(String)
     case invalidVersionString(String)
+    case unsigned
 }
 
 extension CollectionsError: CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidArgument(let argumentName):
-            return "invalid argument '\(argumentName)'"
+            return "Invalid argument '\(argumentName)'"
         case .invalidVersionString(let versionString):
-            return "invalid version string '\(versionString)'"
+            return "Invalid version string '\(versionString)'"
+        case .unsigned:
+            return "The collection is not signed. If you would still like to add it please rerun 'add' with '--trust-unsigned'."
         }
     }
 }
@@ -100,8 +103,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @Option(name: .long, help: "Sort order for the added collection")
         var order: Int?
         
-        @Option(name: .long, help: "Trust the collection even if it is unsigned")
-        var trustUnsigned: Bool?
+        @Flag(name: .long, help: "Trust the collection even if it is unsigned")
+        var trustUnsigned: Bool = false
 
         mutating func run() throws {
             guard let collectionUrl = URL(string: collectionUrl) else {
@@ -109,14 +112,19 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             }
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
-            let collection = try with { collections in
-                try tsc_await {
-                    collections.addCollection(
-                        source,
-                        order: order,
-                        trustConfirmationProvider: trustUnsigned.map { userTrusted in { _, callback in callback(userTrusted) } },
-                        callback: $0
-                    ) }
+            let collection: PackageCollectionsModel.Collection = try with { collections in
+                do {
+                    let userTrusted = self.trustUnsigned
+                    return try tsc_await {
+                        collections.addCollection(
+                            source,
+                            order: order,
+                            trustConfirmationProvider: { _, callback in callback(userTrusted) },
+                            callback: $0
+                        ) }
+                } catch PackageCollectionError.trustConfirmationRequired, PackageCollectionError.untrusted {
+                    throw CollectionsError.unsigned
+                }
             }
 
             print("Added \"\(collection.name)\" to your package collections.")
@@ -210,19 +218,31 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             guard let version = version else {
                 return nil
             }
+            guard let defaultManifest = version.defaultManifest else {
+                return nil
+            }
 
-            let modules = version.targets.compactMap { $0.moduleName }.joined(separator: ", ")
-            let products = optionalRow("Products", version.products.isEmpty ? nil : version.products.compactMap { $0.name }.joined(separator: ", "))
+            let manifests = version.manifests.values.filter { $0.toolsVersion != version.defaultToolsVersion }.map { printManifest($0) }.joined(separator: "\n")
             let compatibility = optionalRow(
                 "Verified Compatibility (Platform, Swift Version)",
                 version.verifiedCompatibility?.map { "(\($0.platform.name), \($0.swiftVersion.rawValue))" }.joined(separator: ", ")
             )
             let license = optionalRow("License", version.license?.type.description)
-
+            
             return """
             \(version.version)
-                Package Name: \(version.packageName)
-                Modules: \(modules)\(products)\(compatibility)\(license)
+            \(printManifest(defaultManifest))\(manifests)\(compatibility)\(license)
+            """
+        }
+        
+        private func printManifest(_ manifest: PackageCollectionsModel.Package.Version.Manifest) -> String {
+            let modules = manifest.targets.compactMap { $0.moduleName }.joined(separator: ", ")
+            let products = optionalRow("Products", manifest.products.isEmpty ? nil : manifest.products.compactMap { $0.name }.joined(separator: ", "), indentationLevel: 3)
+
+            return """
+                    Tools Version: \(manifest.toolsVersion.description)
+                        Package Name: \(manifest.packageName)
+                        Modules: \(modules)\(products)
             """
         }
 

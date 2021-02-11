@@ -21,26 +21,31 @@
       "versions": [
         {
           "version": "0.1.0",
-          "packageName": "PackageOne",
-          "targets": [
-            {
-              "name": "Foo",
-              "moduleName": "Foo"
+          "manifests": {
+            "5.1": {
+              "toolsVersion": "5.1",
+              "packageName": "PackageOne",
+              "targets": [
+                {
+                  "name": "Foo",
+                  "moduleName": "Foo"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Foo",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Foo"]
+                }
+              ],
+              "minimumPlatformVersions": [
+                { "name": "macOS", "version": "10.15" }
+              ]
             }
-          ],
-          "products": [
-            {
-              "name": "Foo",
-              "type": {
-                "library": ["automatic"]
-              },
-              "targets": ["Foo"]
-            }
-          ],
-          "toolsVersion": "5.1",
-          "minimumPlatformVersions": [
-            { "name": "macOS", "version": "10.15" }
-          ],
+          },
+          "defaultToolsVersion": "5.1",
           "verifiedCompatibility": [
             {
               "platform": { "name": "macOS" },
@@ -69,43 +74,53 @@
       "versions": [
         {
           "version": "2.1.0",
-          "packageName": "PackageTwo",
-          "targets": [
-            {
-              "name": "Bar",
-              "moduleName": "Bar"
+          "manifests": {
+            "5.2": {
+              "toolsVersion": "5.2",
+              "packageName": "PackageTwo",
+              "targets": [
+                {
+                  "name": "Bar",
+                  "moduleName": "Bar"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Bar",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Bar"]
+                }
+              ]
             }
-          ],
-          "products": [
-            {
-              "name": "Bar",
-              "type": {
-                "library": ["automatic"]
-              },
-              "targets": ["Bar"]
-            }
-          ],
-          "toolsVersion": "5.2"
+          },
+          "defaultToolsVersion": "5.2"
         },
         {
           "version": "1.8.3",
-          "packageName": "PackageTwo",
-          "targets": [
-            {
-              "name": "Bar",
-              "moduleName": "Bar"
+          "manifests": {
+            "5.0": {
+              "toolsVersion": "5.0",
+              "packageName": "PackageTwo",
+              "targets": [
+                {
+                  "name": "Bar",
+                  "moduleName": "Bar"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Bar",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Bar"]
+                }
+              ]
             }
-          ],
-          "products": [
-            {
-              "name": "Bar",
-              "type": {
-                "library": ["automatic"]
-              },
-              "targets": ["Bar"]
-            }
-          ],
-          "toolsVersion": "5.0"
+          },
+          "defaultToolsVersion": "5.0"
         }
       ]
     }

@@ -203,25 +203,27 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     var targets = Set<String>()
 
                     try package.versions.forEach { version in
-                        // Packages FTS
-                        let packagesBindings: [SQLite.SQLiteValue] = [
-                            .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
-                            .string(package.reference.identity.description),
-                            .string(version.version.description),
-                            .string(version.packageName),
-                            .string(package.repository.url),
-                            package.summary.map { .string($0) } ?? .null,
-                            package.keywords.map { .string($0.joined(separator: ",")) } ?? .null,
-                            .string(version.products.map { $0.name }.joined(separator: ",")),
-                            .string(version.targets.map { $0.name }.joined(separator: ",")),
-                        ]
-                        try packagesStatement.bind(packagesBindings)
-                        try packagesStatement.step()
+                        try version.manifests.values.forEach { manifest in
+                            // Packages FTS
+                            let packagesBindings: [SQLite.SQLiteValue] = [
+                                .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
+                                .string(package.reference.identity.description),
+                                .string(version.version.description),
+                                .string(manifest.packageName),
+                                .string(package.repository.url),
+                                package.summary.map { .string($0) } ?? .null,
+                                package.keywords.map { .string($0.joined(separator: ",")) } ?? .null,
+                                .string(manifest.products.map { $0.name }.joined(separator: ",")),
+                                .string(manifest.targets.map { $0.name }.joined(separator: ",")),
+                            ]
+                            try packagesStatement.bind(packagesBindings)
+                            try packagesStatement.step()
 
-                        try packagesStatement.clearBindings()
-                        try packagesStatement.reset()
+                            try packagesStatement.clearBindings()
+                            try packagesStatement.reset()
 
-                        version.targets.forEach { targets.insert($0.name) }
+                            manifest.targets.forEach { targets.insert($0.name) }
+                        }
                     }
 
                     let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.reference.identity)
@@ -456,9 +458,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             if let summary = package.summary, summary.lowercased().contains(queryString) { return true }
                             if let keywords = package.keywords, (keywords.map { $0.lowercased() }).contains(queryString) { return true }
                             return package.versions.contains(where: { version in
-                                if version.packageName.lowercased().contains(queryString) { return true }
-                                if version.products.contains(where: { $0.name.lowercased().contains(queryString) }) { return true }
-                                return version.targets.contains(where: { $0.name.lowercased().contains(queryString) })
+                                version.manifests.values.contains { manifest in
+                                    if manifest.packageName.lowercased().contains(queryString) { return true }
+                                    if manifest.products.contains(where: { $0.name.lowercased().contains(queryString) }) { return true }
+                                    return manifest.targets.contains(where: { $0.name.lowercased().contains(queryString) })
+                                }
                             })
                         }
                         return map
@@ -552,6 +556,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             case .failure(let error):
                 callback(.failure(error))
             case .success(let collections):
+                // For each package, find the containing collections
+                var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+                // For each matching target, find the containing package version(s)
+                var targetPackageVersions = [Model.Target: [PackageIdentity: Set<Model.TargetListResult.PackageVersion>]]()
+
                 if self.useSearchIndices.get() ?? false {
                     var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, targetName: String)]()
                     // Trie is more performant for target search; use it if available
@@ -605,11 +614,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         result[collection.identifier] = collection
                     }
 
-                    // For each package, find the containing collections
-                    var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
-                    // For each matching target, find the containing package version(s)
-                    var targetPackageVersions = [Model.Target: [PackageIdentity: Set<Model.TargetListResult.PackageVersion>]]()
-
                     matches.filter { collectionDict.keys.contains($0.collection) }.forEach { match in
                         var packageEntry = packageCollections.removeValue(forKey: match.package)
                         if packageEntry == nil {
@@ -626,51 +630,39 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             packageCollections[match.package] = packageEntry
 
                             packageEntry.package.versions.forEach { version in
-                                let targets = version.targets.filter { $0.name.lowercased() == match.targetName.lowercased() }
-                                targets.forEach { target in
-                                    var targetEntry = targetPackageVersions.removeValue(forKey: target) ?? [:]
-                                    var targetPackageEntry = targetEntry.removeValue(forKey: packageEntry.package.reference.identity) ?? .init()
-                                    targetPackageEntry.insert(.init(version: version.version, packageName: version.packageName))
-                                    targetEntry[packageEntry.package.reference.identity] = targetPackageEntry
-                                    targetPackageVersions[target] = targetEntry
+                                version.manifests.values.forEach { manifest in
+                                    let targets = manifest.targets.filter { $0.name.lowercased() == match.targetName.lowercased() }
+                                    targets.forEach { target in
+                                        var targetEntry = targetPackageVersions.removeValue(forKey: target) ?? [:]
+                                        var targetPackageEntry = targetEntry.removeValue(forKey: packageEntry.package.reference.identity) ?? .init()
+                                        targetPackageEntry.insert(.init(version: version.version, toolsVersion: manifest.toolsVersion, packageName: manifest.packageName))
+                                        targetEntry[packageEntry.package.reference.identity] = targetPackageEntry
+                                        targetPackageVersions[target] = targetEntry
+                                    }
                                 }
                             }
                         }
                     }
-
-                    let result = Model.TargetSearchResult(items: targetPackageVersions.map { target, packageVersions in
-                        let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { reference, versions in
-                            guard let packageEntry = packageCollections[reference] else {
-                                return nil
-                            }
-                            return Model.TargetListItem.Package(
-                                repository: packageEntry.package.repository,
-                                summary: packageEntry.package.summary,
-                                versions: Array(versions).sorted(by: >),
-                                collections: Array(packageEntry.collections)
-                            )
-                        }
-                        return Model.TargetListItem(target: target, packages: targetPackages)
-                    })
-                    callback(.success(result))
                 } else {
                     let collectionsPackages = collections.reduce([Model.CollectionIdentifier: [(target: Model.Target, package: Model.Package)]]()) { partial, collection in
                         var map = partial
                         collection.packages.forEach { package in
                             package.versions.forEach { version in
-                                version.targets.forEach { target in
-                                    let match: Bool
-                                    switch type {
-                                    case .exactMatch:
-                                        match = target.name.lowercased() == query
-                                    case .prefix:
-                                        match = target.name.lowercased().hasPrefix(query)
-                                    }
-                                    if match {
-                                        // Avoid copy-on-write: remove entry from dictionary before mutating
-                                        var entry = map.removeValue(forKey: collection.identifier) ?? .init()
-                                        entry.append((target, package))
-                                        map[collection.identifier] = entry
+                                version.manifests.values.forEach { manifest in
+                                    manifest.targets.forEach { target in
+                                        let match: Bool
+                                        switch type {
+                                        case .exactMatch:
+                                            match = target.name.lowercased() == query
+                                        case .prefix:
+                                            match = target.name.lowercased().hasPrefix(query)
+                                        }
+                                        if match {
+                                            // Avoid copy-on-write: remove entry from dictionary before mutating
+                                            var entry = map.removeValue(forKey: collection.identifier) ?? .init()
+                                            entry.append((target, package))
+                                            map[collection.identifier] = entry
+                                        }
                                     }
                                 }
                             }
@@ -678,40 +670,44 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         return map
                     }
 
-                    // compose result :p
-                    var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
-                    var targetsPackages = [Model.Target: Set<PackageReference>]()
-
                     collectionsPackages.forEach { collectionIdentifier, packagesAndTargets in
                         packagesAndTargets.forEach { item in
                             // Avoid copy-on-write: remove entry from dictionary before mutating
-                            var packageCollectionsEntry = packageCollections.removeValue(forKey: item.package.reference) ?? (item.package, .init())
+                            var packageCollectionsEntry = packageCollections.removeValue(forKey: item.package.reference.identity) ?? (item.package, .init())
                             packageCollectionsEntry.collections.insert(collectionIdentifier)
-                            packageCollections[item.package.reference] = packageCollectionsEntry
+                            packageCollections[item.package.reference.identity] = packageCollectionsEntry
 
-                            // Avoid copy-on-write: remove entry from dictionary before mutating
-                            var targetsPackagesEntry = targetsPackages.removeValue(forKey: item.target) ?? .init()
-                            targetsPackagesEntry.insert(item.package.reference)
-                            targetsPackages[item.target] = targetsPackagesEntry
+                            packageCollectionsEntry.package.versions.forEach { version in
+                                version.manifests.values.forEach { manifest in
+                                    let targets = manifest.targets.filter { $0.name.lowercased() == item.target.name.lowercased() }
+                                    targets.forEach { target in
+                                        var targetEntry = targetPackageVersions.removeValue(forKey: item.target) ?? [:]
+                                        var targetPackageEntry = targetEntry.removeValue(forKey: item.package.reference.identity) ?? .init()
+                                        targetPackageEntry.insert(.init(version: version.version, toolsVersion: manifest.toolsVersion, packageName: manifest.packageName))
+                                        targetEntry[item.package.reference.identity] = targetPackageEntry
+                                        targetPackageVersions[target] = targetEntry
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    let result = Model.TargetSearchResult(items: targetsPackages.map { target, packages in
-                        let targetsPackages = packages
-                            .compactMap { packageCollections[$0] }
-                            .map { pair -> Model.TargetListItem.Package in
-                                let versions = pair.package.versions.map { Model.TargetListItem.Package.Version(version: $0.version, packageName: $0.packageName) }
-                                return Model.TargetListItem.Package(repository: pair.package.repository,
-                                                                    summary: pair.package.summary,
-                                                                    versions: versions,
-                                                                    collections: Array(pair.collections))
-                            }
-
-                        return Model.TargetListItem(target: target, packages: targetsPackages)
-                    })
-
-                    callback(.success(result))
                 }
+
+                let result = Model.TargetSearchResult(items: targetPackageVersions.map { target, packageVersions in
+                    let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
+                        guard let packageEntry = packageCollections[identity] else {
+                            return nil
+                        }
+                        return Model.TargetListItem.Package(
+                            repository: packageEntry.package.repository,
+                            summary: packageEntry.package.summary,
+                            versions: Array(versions).sorted(by: >),
+                            collections: Array(packageEntry.collections)
+                        )
+                    }
+                    return Model.TargetListItem(target: target, packages: targetPackages)
+                })
+                callback(.success(result))
             }
         }
     }
