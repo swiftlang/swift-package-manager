@@ -60,7 +60,7 @@ extension Signature {
     static func generate<Payload>(for payload: Payload,
                                   with header: Header,
                                   using signer: MessageSigner,
-                                  jsonEncoder: JSONEncoder = JSONEncoder()) throws -> [UInt8] where Payload: Encodable {
+                                  jsonEncoder: JSONEncoder = JSONEncoder()) throws -> Data where Payload: Encodable {
         let headerData = try jsonEncoder.encode(header)
         let encodedHeader = headerData.base64URLEncodedBytes()
 
@@ -69,14 +69,14 @@ extension Signature {
 
         // https://www.rfc-editor.org/rfc/rfc7515.html#section-5.1
         // Signing input: BASE64URL(header) + '.' + BASE64URL(payload)
-        let signatureData = try signer.sign(message: Data(encodedHeader + [.period] + encodedPayload))
+        let signatureData = try signer.sign(message: encodedHeader + .period + encodedPayload)
         let encodedSignature = signatureData.base64URLEncodedBytes()
 
         // Result: header.payload.signature
         let bytes = encodedHeader
-            + [.period]
+            + .period
             + encodedPayload
-            + [.period]
+            + .period
             + encodedSignature
         return bytes
     }
@@ -85,58 +85,57 @@ extension Signature {
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTParser.swift
 extension Signature {
     struct Parser {
-        private let encodedHeader: ArraySlice<UInt8>
-        private let encodedPayload: ArraySlice<UInt8>
-        private let encodedSignature: ArraySlice<UInt8>
+        let header: Header
+        let payload: Data
+        let signature: Data
+        let message: Data
 
         private let jsonDecoder: JSONDecoder
-
-        var payload: [UInt8] {
-            self.encodedPayload.base64URLDecodedBytes()
-        }
-
-        var message: [UInt8] {
-            Array(self.encodedHeader + [.period] + self.encodedPayload)
-        }
-
-        var signature: [UInt8] {
-            self.encodedSignature.base64URLDecodedBytes()
-        }
 
         init(_ signature: String, jsonDecoder: JSONDecoder = JSONDecoder()) throws {
             let bytes = Array(signature.utf8)
             try self.init(bytes, jsonDecoder: jsonDecoder)
         }
 
-        init(_ signature: [UInt8], jsonDecoder: JSONDecoder = JSONDecoder()) throws {
+        init<Data>(_ signature: Data, jsonDecoder: JSONDecoder = JSONDecoder()) throws where Data: DataProtocol {
             let parts = signature.copyBytes().split(separator: .period)
 
             guard parts.count == 3 else {
                 throw SignatureError.malformedSignature
             }
 
-            self.encodedHeader = parts[0]
-            self.encodedPayload = parts[1]
-            self.encodedSignature = parts[2]
+            let encodedHeader = parts[0]
+            let encodedPayload = parts[1]
+            let encodedSignature = parts[2]
+
+            guard let header = encodedHeader.base64URLDecodedBytes() else {
+                throw SignatureError.malformedSignature
+            }
+            self.header = try jsonDecoder.decode(Header.self, from: header)
+
+            guard let payload = encodedPayload.base64URLDecodedBytes() else {
+                throw SignatureError.malformedSignature
+            }
+            self.payload = payload
+
+            guard let signature = encodedSignature.base64URLDecodedBytes() else {
+                throw SignatureError.malformedSignature
+            }
+            self.signature = signature
+
+            self.message = encodedHeader + .period + encodedPayload
             self.jsonDecoder = jsonDecoder
         }
 
-        func header() throws -> Header {
-            try self.jsonDecoder.decode(
-                Header.self,
-                from: Data(self.encodedHeader.base64URLDecodedBytes())
-            )
-        }
-
-        func payload<Payload>(as payload: Payload.Type) throws -> Payload where Payload: Decodable {
+        func decodePayload<Payload>(as payload: Payload.Type) throws -> Payload where Payload: Decodable {
             try self.jsonDecoder.decode(
                 Payload.self,
-                from: Data(self.encodedPayload.base64URLDecodedBytes())
+                from: self.payload
             )
         }
 
         func validate(using validator: MessageValidator) throws {
-            guard try validator.isValidSignature(Data(self.signature), for: Data(self.message)) else {
+            guard try validator.isValidSignature(self.signature, for: self.message) else {
                 throw SignatureError.invalidSignature
             }
         }

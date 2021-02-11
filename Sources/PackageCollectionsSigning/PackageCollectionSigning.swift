@@ -82,9 +82,9 @@ public struct PackageCollectionSigning {
                         try self.validateKey(privateKey)
 
                         // Generate the signature
-                        let signatureBytes = try Signature.generate(for: collection, with: header, using: privateKey, jsonEncoder: jsonEncoder)
+                        let signatureData = try Signature.generate(for: collection, with: header, using: privateKey, jsonEncoder: jsonEncoder)
 
-                        guard let signature = String(bytes: signatureBytes, encoding: .utf8) else {
+                        guard let signature = String(bytes: signatureData, encoding: .utf8) else {
                             return callback(.failure(PackageCollectionSigningError.invalidSignature))
                         }
                         guard let subject = try certificate.subject().commonName, let issuer = try certificate.issuer().commonName else {
@@ -127,7 +127,7 @@ public struct PackageCollectionSigning {
             let parser = try Signature.Parser(signature)
 
             // Signature header contains the certificate and public key for verification
-            let header = try parser.header()
+            let header = parser.header
             guard !header.certChain.isEmpty else {
                 throw SignatureError.malformedSignature
             }
@@ -158,7 +158,7 @@ public struct PackageCollectionSigning {
 
                         // Verify the signature embedded in the signature is the same as received
                         // i.e., the signature is associated with the given collection and not another
-                        let collectionFromSignature = try jsonDecoder.decode(Model.Collection.self, from: Data(parser.payload))
+                        let collectionFromSignature = try jsonDecoder.decode(Model.Collection.self, from: parser.payload)
                         callback(.success(signedCollection.collection == collectionFromSignature))
                     } catch {
                         callback(.failure(error))

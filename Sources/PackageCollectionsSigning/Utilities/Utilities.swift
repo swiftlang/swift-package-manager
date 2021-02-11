@@ -39,3 +39,9 @@ extension UInt8 {
         UInt8(ascii: ".")
     }
 }
+
+extension Data {
+    static var period: Data {
+        Data([UInt8.period])
+    }
+}

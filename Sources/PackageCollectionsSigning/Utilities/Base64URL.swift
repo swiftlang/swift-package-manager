@@ -26,12 +26,16 @@ import Foundation
 // Source: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/Utilities/Base64URL.swift
 
 extension DataProtocol {
-    func base64URLDecodedBytes() -> [UInt8] {
-        return Data(base64Encoded: Data(self.copyBytes()).base64URLUnescaped())?.copyBytes() ?? []
+    func base64URLDecodedBytes() -> Data? {
+        var data = Data(self)
+        data.base64URLUnescape()
+        return Data(base64Encoded: data)
     }
 
-    func base64URLEncodedBytes() -> [UInt8] {
-        return Data(self.copyBytes()).base64EncodedData().base64URLEscaped().copyBytes()
+    func base64URLEncodedBytes() -> Data {
+        var data = Data(self).base64EncodedData()
+        data.base64URLEscape()
+        return data
     }
 }
 

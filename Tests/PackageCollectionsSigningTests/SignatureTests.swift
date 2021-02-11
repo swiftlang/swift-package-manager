@@ -29,11 +29,11 @@ class SignatureTests: XCTestCase {
             let signature = try Signature.generate(for: payload, with: header, using: privateKey)
 
             let parser = try Signature.Parser(signature)
-            XCTAssertEqual(payload, try parser.payload(as: [String: String].self))
-            XCTAssertEqual(header, try parser.header())
+            XCTAssertEqual(payload, try parser.decodePayload(as: [String: String].self))
+            XCTAssertEqual(header, parser.header)
 
             // Extract public key from the certificate in signature header
-            let certData = Data(base64Encoded: try parser.header().certChain.first!)!
+            let certData = Data(base64Encoded: parser.header.certChain.first!)!
             let certificate = try Certificate(derEncoded: certData)
             let publicKey = try certificate.publicKey()
 
@@ -55,11 +55,11 @@ class SignatureTests: XCTestCase {
             let signature = try Signature.generate(for: payload, with: header, using: privateKey)
 
             let parser = try Signature.Parser(signature)
-            XCTAssertEqual(payload, try parser.payload(as: [String: String].self))
-            XCTAssertEqual(header, try parser.header())
+            XCTAssertEqual(payload, try parser.decodePayload(as: [String: String].self))
+            XCTAssertEqual(header, parser.header)
 
             // Extract public key from the certificate in signature header
-            let certData = Data(base64Encoded: try parser.header().certChain.first!)!
+            let certData = Data(base64Encoded: parser.header.certChain.first!)!
             let certificate = try Certificate(derEncoded: certData)
             let publicKey = try certificate.publicKey()
 
@@ -85,11 +85,11 @@ class SignatureTests: XCTestCase {
             let signature = try Signature.generate(for: payload, with: header, using: privateKey)
 
             let parser = try Signature.Parser(signature)
-            XCTAssertEqual(payload, try parser.payload(as: [String: String].self))
-            XCTAssertEqual(header, try parser.header())
+            XCTAssertEqual(payload, try parser.decodePayload(as: [String: String].self))
+            XCTAssertEqual(header, parser.header)
 
             // Extract public key from the certificate in signature header
-            let certData = Data(base64Encoded: try parser.header().certChain.first!)!
+            let certData = Data(base64Encoded: parser.header.certChain.first!)!
             let certificate = try Certificate(derEncoded: certData)
             let publicKey = try certificate.publicKey()
 
@@ -111,11 +111,11 @@ class SignatureTests: XCTestCase {
             let signature = try Signature.generate(for: payload, with: header, using: privateKey)
 
             let parser = try Signature.Parser(signature)
-            XCTAssertEqual(payload, try parser.payload(as: [String: String].self))
-            XCTAssertEqual(header, try parser.header())
+            XCTAssertEqual(payload, try parser.decodePayload(as: [String: String].self))
+            XCTAssertEqual(header, parser.header)
 
             // Extract public key from the certificate in signature header
-            let certData = Data(base64Encoded: try parser.header().certChain.first!)!
+            let certData = Data(base64Encoded: parser.header.certChain.first!)!
             let certificate = try Certificate(derEncoded: certData)
             let publicKey = try certificate.publicKey()
 
