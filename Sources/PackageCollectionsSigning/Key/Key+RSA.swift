@@ -28,6 +28,10 @@ typealias RSAPrivateKey = BoringSSLRSAPrivateKey
 struct CoreRSAPrivateKey: PrivateKey {
     let underlying: SecKey
 
+    var sizeInBits: Int {
+        toBits(bytes: SecKeyGetBlockSize(self.underlying))
+    }
+
     init<Data>(pem data: Data) throws where Data: DataProtocol {
         let pemString = String(decoding: data, as: UTF8.self)
         let pemDocument = try ASN1.PEMDocument(pemString: pemString)
@@ -51,6 +55,10 @@ struct CoreRSAPrivateKey: PrivateKey {
 
 struct CoreRSAPublicKey: PublicKey {
     let underlying: SecKey
+
+    var sizeInBits: Int {
+        toBits(bytes: SecKeyGetBlockSize(self.underlying))
+    }
 
     /// `data` should be in PKCS #1 format
     init(data: Data) throws {
@@ -80,12 +88,20 @@ struct CoreRSAPublicKey: PublicKey {
 
 #else
 final class BoringSSLRSAPrivateKey: PrivateKey {
+    var sizeInBits: Int {
+        fatalError("Not implemented")
+    }
+
     init<Data>(pem data: Data) throws where Data: DataProtocol {
         fatalError("Not implemented: \(#function)")
     }
 }
 
 final class BoringSSLRSAPublicKey: PublicKey {
+    var sizeInBits: Int {
+        fatalError("Not implemented")
+    }
+
     /// `data` should be in the PKCS #1 format
     init(data: Data) throws {
         fatalError("Not implemented: \(#function)")
