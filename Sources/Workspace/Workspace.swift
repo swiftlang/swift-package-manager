@@ -1424,7 +1424,13 @@ extension Workspace {
 
                     switch result {
                     case .failure(let error):
-                        diagnostics.emit(error)
+                        // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+                        switch error {
+                        case Diagnostics.fatalError:
+                            break
+                        default:
+                            diagnostics.emit(error)
+                        }
                     case .success(let manifest):
                         self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestDiagnostics.diagnostics)
                     }
