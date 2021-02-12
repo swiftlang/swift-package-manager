@@ -133,17 +133,19 @@ extension SwiftPackageTool {
                 dryRun: dryRun
             )
 
+            // try to load the graph which will emit any errors
+            if !swiftTool.diagnostics.hasErrors {
+                _ = try workspace.loadPackageGraph(
+                    rootInput: swiftTool.getWorkspaceRoot(),
+                    diagnostics: swiftTool.diagnostics
+                )
+            }
+
             if let pinsStore = swiftTool.diagnostics.wrap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
                 logPackageChanges(changes: changes, pins: pinsStore)
             }
 
             if !dryRun {
-                // try to load the graph which will emit any errors
-                _ = try workspace.loadPackageGraph(
-                    rootInput: swiftTool.getWorkspaceRoot(),
-                    diagnostics: swiftTool.diagnostics
-                )
-
                 // Throw if there were errors when loading the graph.
                 // The actual errors will be printed before exiting.
                 guard !swiftTool.diagnostics.hasErrors else {
