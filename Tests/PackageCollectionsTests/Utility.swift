@@ -84,8 +84,8 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
         if signed {
             signature = .init(
                 certificate: PackageCollectionsModel.SignatureData.Certificate(
-                    subject: .init(commonName: "subject-\(collectionIndex)"),
-                    issuer: .init(commonName: "issuer-\(collectionIndex)")
+                    subject: .init(userID: nil, commonName: "subject-\(collectionIndex)", organizationalUnit: nil, organization: nil),
+                    issuer: .init(userID: nil, commonName: "issuer-\(collectionIndex)", organizationalUnit: nil, organization: nil)
                 )
             )
         }

@@ -99,8 +99,8 @@ class PackageCollectionModelTests: XCTestCase {
         let signature = Model.Signature(
             signature: "<SIGNATURE>",
             certificate: Model.Signature.Certificate(
-                subject: .init(commonName: "Test Subject"),
-                issuer: .init(commonName: "Test Issuer")
+                subject: .init(userID: "Test User ID", commonName: "Test Subject", organizationalUnit: "Test Org Unit", organization: "Test Org"),
+                issuer: .init(userID: nil, commonName: "Test Issuer", organizationalUnit: nil, organization: nil)
             )
         )
         let signedCollection = Model.SignedCollection(collection: collection, signature: signature)

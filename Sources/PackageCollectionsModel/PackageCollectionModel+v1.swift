@@ -403,12 +403,27 @@ extension PackageCollectionModel.V1 {
 
             /// Generic certificate name (e.g., subject, issuer)
             public struct Name: Equatable, Codable {
+                /// User ID
+                public let userID: String?
+
                 /// Common name
-                public let commonName: String
+                public let commonName: String?
+
+                /// Organizational unit
+                public let organizationalUnit: String?
+
+                /// Organization
+                public let organization: String?
 
                 /// Creates a `Name`
-                public init(commonName: String) {
+                public init(userID: String?,
+                            commonName: String?,
+                            organizationalUnit: String?,
+                            organization: String?) {
+                    self.userID = userID
                     self.commonName = commonName
+                    self.organizationalUnit = organizationalUnit
+                    self.organization = organization
                 }
             }
         }

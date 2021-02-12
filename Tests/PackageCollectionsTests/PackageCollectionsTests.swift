@@ -825,8 +825,8 @@ final class PackageCollectionsTests: XCTestCase {
                 } else {
                     let signature = PackageCollectionsModel.SignatureData(
                         certificate: PackageCollectionsModel.SignatureData.Certificate(
-                            subject: .init(commonName: ""),
-                            issuer: .init(commonName: "")
+                            subject: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil),
+                            issuer: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil)
                         )
                     )
                     callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, signature: signature)))
