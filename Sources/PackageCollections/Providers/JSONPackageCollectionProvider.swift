@@ -392,6 +392,9 @@ extension Model.SignatureData.Certificate {
 
 extension Model.SignatureData.Certificate.Name {
     fileprivate init(from: JSONModel.Signature.Certificate.Name) {
+        self.userID = from.userID
         self.commonName = from.commonName
+        self.organizationalUnit = from.organizationalUnit
+        self.organization = from.organization
     }
 }
