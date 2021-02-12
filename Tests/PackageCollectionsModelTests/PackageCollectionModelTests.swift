@@ -25,6 +25,7 @@ class PackageCollectionModelTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: "Fix a few bugs",
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -36,7 +37,8 @@ class PackageCollectionModelTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
-                        license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
+                        license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!),
+                        createdAt: Date()
                     ),
                 ],
                 readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!,
@@ -68,6 +70,7 @@ class PackageCollectionModelTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: "Fix a few bugs",
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -79,7 +82,8 @@ class PackageCollectionModelTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: [Model.Compatibility(platform: Model.Platform(name: "macOS"), swiftVersion: "5.2")],
-                        license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!)
+                        license: .init(name: "Apache-2.0", url: URL(string: "https://package-collection-tests.com/repos/foobar/LICENSE")!),
+                        createdAt: Date()
                     ),
                 ],
                 readmeURL: URL(string: "https://package-collection-tests.com/repos/foobar/README")!,

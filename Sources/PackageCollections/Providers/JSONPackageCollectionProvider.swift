@@ -179,10 +179,12 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 let license = version.license.flatMap { Model.License(from: $0) }
 
                 return .init(version: parsedVersion,
+                             summary: version.summary,
                              manifests: manifests,
                              defaultToolsVersion: defaultToolsVersion,
                              verifiedCompatibility: verifiedCompatibility,
-                             license: license)
+                             license: license,
+                             createdAt: version.createdAt)
             }
             if versions.count != package.versions.count {
                 serializationOkay = false

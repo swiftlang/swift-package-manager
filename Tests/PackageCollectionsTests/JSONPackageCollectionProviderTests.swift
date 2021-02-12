@@ -61,6 +61,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
+            XCTAssertEqual(version.summary, "Fixed a few bugs")
             let manifest = version.manifests.values.first!
             XCTAssertEqual(manifest.packageName, "PackageOne")
             XCTAssertEqual(manifest.targets, [.init(name: "Foo", moduleName: "Foo")])
@@ -71,6 +72,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
         }
     }
@@ -116,6 +118,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertEqual(package.versions.count, 1)
             let version = package.versions.first!
+            XCTAssertEqual(version.summary, "Fixed a few bugs")
             let manifest = version.manifests.values.first!
             XCTAssertEqual(manifest.packageName, "PackageOne")
             XCTAssertEqual(manifest.targets, [.init(name: "Foo", moduleName: "Foo")])
@@ -126,6 +129,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertNotNil(version.createdAt)
             XCTAssertTrue(collection.isSigned)
             let signature = collection.signature!
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)

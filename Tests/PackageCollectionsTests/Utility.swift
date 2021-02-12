@@ -64,10 +64,12 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                 let license = PackageCollectionsModel.License(type: licenseType, url: URL(string: "http://\(licenseType).license")!)
 
                 return PackageCollectionsModel.Package.Version(version: TSCUtility.Version(versionIndex, 0, 0),
+                                                               summary: "\(versionIndex) description",
                                                                manifests: manifests,
                                                                defaultToolsVersion: toolsVersion,
                                                                verifiedCompatibility: verifiedCompatibility,
-                                                               license: license)
+                                                               license: license,
+                                                               createdAt: Date())
             }
 
             return PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),

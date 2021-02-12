@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import struct Foundation.Date
 import struct Foundation.URL
 
 import PackageModel
@@ -112,6 +113,9 @@ extension PackageCollectionsModel.Package {
         /// The version
         public let version: TSCUtility.Version
 
+        /// Package version description
+        public let summary: String?
+
         // TODO: remove (replaced by manifests)
         public var packageName: String { self.defaultManifest!.packageName }
 
@@ -144,6 +148,9 @@ extension PackageCollectionsModel.Package {
 
         /// The package version's license
         public let license: PackageCollectionsModel.License?
+
+        /// When the package version was created
+        public let createdAt: Date?
 
         public struct Manifest: Equatable, Codable {
             /// The Swift tools version specified in `Package.swift`.
