@@ -25,13 +25,13 @@ enum PackageGraphError: Swift.Error {
     case productDependencyIncorrectPackage(name: String, package: String)
 
     /// The package dependency name does not match the package name.
-    case incorrectPackageDependencyName(dependencyPackageName: String, dependencyName: String, dependencyURL: String, resolvedPackageName: String, resolvedPackageURL: String)
+    case incorrectPackageDependencyName(dependencyPackageName: String, dependencyName: String, dependencyLocation: String, resolvedPackageName: String, resolvedPackageURL: String)
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByIdentifier(dependencyPackageName: String, dependencyURL: String, otherDependencyURL: String, identity: PackageIdentity)
+    case dependencyAlreadySatisfiedByIdentifier(dependencyPackageName: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByName(dependencyPackageName: String, dependencyURL: String, otherDependencyURL: String, name: String)
+    case dependencyAlreadySatisfiedByName(dependencyPackageName: String, dependencyLocation: String, otherDependencyURL: String, name: String)
 
     /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
     case productDependencyMissingPackage(
@@ -233,12 +233,12 @@ fileprivate extension PackageDependencyDescription {
             parameters.append("name: \"\(name)\"")
         }
 
-        if requirement == .localPackage {
-            parameters.append("path: \"\(self.location)\"")
-        } else {
-            parameters.append("url: \"\(self.location)\"")
-
-            switch requirement {
+        switch self {
+        case .local(let data):
+            parameters.append("path: \"\(data.path)\"")
+        case .scm(let data):
+            parameters.append("url: \"\(data.location)\"")
+            switch data.requirement {
             case .branch(let branch):
                 parameters.append(".branch(\"\(branch)\")")
             case .exact(let version):
@@ -253,8 +253,6 @@ fileprivate extension PackageDependencyDescription {
                 } else {
                     parameters.append(".upToNextMinor(\"\(range.lowerBound)\"..<\"\(range.upperBound)\")")
                 }
-            case .localPackage:
-                fatalError("handled above")
             }
         }
 

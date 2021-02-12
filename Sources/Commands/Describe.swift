@@ -100,14 +100,22 @@ fileprivate struct DescribedPackage: Encodable {
     
     /// Represents a package dependency for the sole purpose of generating a description.
     struct DescribedPackageDependency: Encodable {
+        let identity: PackageIdentity
         let name: String?
         let url: String?
         let requirement: PackageDependencyDescription.Requirement?
 
         init(from dependency: PackageDependencyDescription) {
+            self.identity = dependency.identity
             self.name = dependency.explicitNameForTargetDependencyResolutionOnly
-            self.url = dependency.location
-            self.requirement = dependency.requirement
+            switch dependency {
+            case .local(let data):
+                self.url = data.path.pathString
+                self.requirement = nil
+            case .scm(let data):
+                self.url = data.location
+                self.requirement = data.requirement
+            }
         }
     }
 

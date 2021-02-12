@@ -42,7 +42,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo", "Bar"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -71,8 +71,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .init(name: "Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
-            .init(name: "Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .git(name: "Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
+            .git(name: "Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -193,7 +193,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 MockPackage(
@@ -203,7 +203,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Baz", requirement: .exact("1.0.1")),
+                        .git(name: "Baz", requirement: .exact("1.0.1")),
                     ]
                 ),
             ],
@@ -250,7 +250,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -318,7 +318,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -336,12 +336,12 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let dependencies: [PackageDependencyDescription] = [
-            .init(
+            .scm(
                 location: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Foo"])
             ),
-            .init(
+            .scm(
                 location: workspace.packagesDir.appending(component: "Bar").pathString + ".git",
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Bar"])
@@ -428,7 +428,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -460,7 +460,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["foo-package", "bar-package"],
-                                    dependencies: [PackageDependencyDescription(location: "/tmp/ws/pkgs/bar-package", requirement: .upToNextMajor(from: "1.0.0"), productFilter: .everything)]) { graph, diagnostics in
+                                    dependencies: [.scm(location: "/tmp/ws/pkgs/bar-package", requirement: .upToNextMajor(from: "1.0.0"))]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "FooPackage", "BarPackage")
                 result.check(packages: "FooPackage", "BarPackage")
@@ -486,7 +486,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -547,7 +547,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 MockPackage(
@@ -628,7 +628,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -646,12 +646,12 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let dependencies: [PackageDependencyDescription] = [
-            .init(
+            .scm(
                 location: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Bar"])
             ),
-            .init(
+            .scm(
                 location: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
                 productFilter: .specific(["Foo"])
@@ -690,7 +690,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "AA", requirement: .exact("1.0.0")),
+                        .git(name: "AA", requirement: .exact("1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -703,7 +703,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "AA", requirement: .exact("2.0.0")),
+                        .git(name: "AA", requirement: .exact("2.0.0")),
                     ],
                     versions: ["1.0.1"]
                 ),
@@ -723,7 +723,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.0.
         do {
             let deps: [MockDependency] = [
-                .init(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+                .git(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
             ]
             workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTester(graph) { result in
@@ -746,7 +746,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.1.
         do {
             let deps: [MockDependency] = [
-                .init(name: "A", requirement: .exact("1.0.1"), products: .specific(["A"])),
+                .git(name: "A", requirement: .exact("1.0.1"), products: .specific(["A"])),
             ]
             workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTester(graph) { result in
@@ -786,7 +786,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "AA", requirement: .exact("1.0.0")),
+                        .git(name: "AA", requirement: .exact("1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -799,7 +799,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "B", targets: ["B"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "AA", requirement: .exact("2.0.0")),
+                        .git(name: "AA", requirement: .exact("2.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -817,8 +817,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .init(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
-            .init(name: "B", requirement: .exact("1.0.0"), products: .specific(["B"])),
+            .git(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+            .git(name: "B", requirement: .exact("1.0.0"), products: .specific(["B"])),
         ]
         workspace.checkPackageGraph(deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
@@ -884,8 +884,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: v1Requirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .git(name: "C", requirement: v1Requirement),
                     ]
                 ),
             ],
@@ -941,8 +941,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: branchRequirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .git(name: "C", requirement: branchRequirement),
                     ]
                 ),
             ],
@@ -1000,7 +1000,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "C", requirement: .revision("hello")),
+                        .git(name: "C", requirement: .revision("hello")),
                     ]
                 ),
             ],
@@ -1051,8 +1051,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: masterRequirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .git(name: "C", requirement: masterRequirement),
                     ]
                 ),
             ],
@@ -1101,7 +1101,7 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let localRequirement: MockDependency.Requirement = .localPackage
+        //let localRequirement: MockDependency.Requirement = .localPackage
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
 
         let workspace = try MockWorkspace(
@@ -1113,8 +1113,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: localRequirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .local(name: "C"),
                     ]
                 ),
             ],
@@ -1163,7 +1163,7 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let localRequirement: MockDependency.Requirement = .localPackage
+        //let localRequirement: MockDependency.Requirement = .localPackage
         let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
         let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
 
@@ -1176,8 +1176,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: localRequirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .local(name: "C"),
                     ]
                 ),
             ],
@@ -1238,8 +1238,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: v2Requirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .git(name: "C", requirement: v2Requirement),
                     ]
                 ),
             ],
@@ -1297,8 +1297,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "B", requirement: v1Requirement),
-                        MockDependency(name: "C", requirement: v2Requirement),
+                        .git(name: "B", requirement: v1Requirement),
+                        .git(name: "C", requirement: v2Requirement),
                     ]
                 ),
             ],
@@ -1378,7 +1378,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1392,7 +1392,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1421,7 +1421,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -1476,7 +1476,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1506,7 +1506,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -1569,7 +1569,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1583,7 +1583,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.5.0"]
                 ),
@@ -1596,7 +1596,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMinor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMinor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1615,7 +1615,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1673,7 +1673,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1750,7 +1750,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 MockPackage(
@@ -1760,7 +1760,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1820,10 +1820,10 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1837,8 +1837,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1852,7 +1852,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1886,7 +1886,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .branch("develop")),
+                        .git(name: "Foo", requirement: .branch("develop")),
                     ]
                 ),
             ],
@@ -1920,7 +1920,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We request Bar via revision.
         let deps: [MockDependency] = [
-            .init(name: "Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
+            .git(name: "Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -1950,7 +1950,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2023,7 +2023,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2069,7 +2069,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2172,8 +2172,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2280,7 +2280,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2346,7 +2346,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         let ws = workspace.createWorkspace()
 
@@ -2404,8 +2404,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2434,7 +2434,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         // Load the graph.
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -2525,7 +2525,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2549,7 +2549,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: [nil]
                 ),
@@ -2579,7 +2579,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2612,7 +2612,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .exact("1.0.0")),
+                        .git(name: "Bar", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
@@ -2643,21 +2643,34 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check that changing the requirement to 1.5.0 triggers re-resolution.
-        //
-        // FIXME: Find a cleaner way to change a dependency requirement.
         let fooKey = MockManifestLoader.Key(url: "/tmp/ws/roots/Foo")
         let manifest = workspace.manifestLoader.manifests[fooKey]!
-        workspace.manifestLoader.manifests[fooKey] = Manifest(
-            name: manifest.name,
-            path: manifest.path,
-            packageKind: .root,
-            packageLocation: manifest.packageLocation,
-            platforms: [],
-            version: manifest.version,
-            toolsVersion: manifest.toolsVersion,
-            dependencies: [PackageDependencyDescription(location: manifest.dependencies[0].location, requirement: .exact("1.5.0"))],
-            targets: manifest.targets
-        )
+
+        let dependency = manifest.dependencies[0]
+        switch dependency {
+        case .scm(let data):
+            let updatedDependency: PackageDependencyDescription = .scm(
+                identity: data.identity,
+                name: data.name,
+                location: data.location,
+                requirement: .exact("1.5.0"),
+                productFilter: data.productFilter
+            )
+
+            workspace.manifestLoader.manifests[fooKey] = Manifest(
+                name: manifest.name,
+                path: manifest.path,
+                packageKind: .root,
+                packageLocation: manifest.packageLocation,
+                platforms: [],
+                version: manifest.version,
+                toolsVersion: manifest.toolsVersion,
+                dependencies: [updatedDependency],
+                targets: manifest.targets
+            )
+        default:
+            XCTFail("unexpected dependency type")
+        }
 
         workspace.checkPackageGraph(roots: ["Foo"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -2682,7 +2695,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2738,7 +2751,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Try resolving a bad graph.
         let deps: [MockDependency] = [
-            .init(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            .git(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
@@ -2764,7 +2777,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2812,8 +2825,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .localPackage),
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .local(name: "Bar"),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2837,7 +2850,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -2890,7 +2903,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2904,7 +2917,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Baz", requirement: .localPackage),
+                        .local(name: "Baz"),
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
@@ -2950,7 +2963,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2981,7 +2994,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Override with local package and run update.
         let deps: [MockDependency] = [
-            .init(name: "Bar", requirement: .localPackage, products: .specific(["Bar"])),
+            .local(name: "Bar", products: .specific(["Bar"])),
         ]
         workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3014,7 +3027,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: nil, path: "Bar", requirement: .localPackage),
+                        .local(name: nil, path: "Bar"),
                     ]
                 ),
             ],
@@ -3069,7 +3082,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3083,7 +3096,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3093,7 +3106,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3138,7 +3151,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3152,7 +3165,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3162,7 +3175,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3218,7 +3231,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3232,7 +3245,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Foo2", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Foo2", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3288,7 +3301,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3306,7 +3319,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Nested/Foo", requirement: .localPackage, products: .specific(["Foo"])),
+            .local(name: "Nested/Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3352,7 +3365,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .init(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3379,9 +3392,15 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
+        let config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
+        config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
+        try config.saveState()
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
+            config: config,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -3392,7 +3411,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -3407,7 +3426,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Dep", targets: ["Dep"]),
                     ],
                     dependencies: [
-                        MockDependency(name: nil, path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"],
                     toolsVersion: .v5
@@ -3445,26 +3464,8 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
-                result.check(roots: "Foo")
-                result.check(packages: "Foo", "Dep", "Bar")
-                result.check(targets: "Foo", "Dep", "Bar")
-            }
-            XCTAssertNoDiagnostics(diagnostics)
-        }
-        workspace.checkManagedDependencies { result in
-            result.check(dependency: "Dep", at: .checkout(.version("1.5.0")))
-            result.check(dependency: "Bar", at: .checkout(.version("1.5.0")))
-            result.check(notPresent: "Baz")
-        }
-
-        workspace.config.mirrors.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bar").pathString)
-        workspace.config.mirrors.set(mirrorURL: workspace.packagesDir.appending(component: "Baz").pathString, forURL: workspace.packagesDir.appending(component: "Bam").pathString)
-        try workspace.config.saveState()
-
         let deps: [MockDependency] = [
-            .init(name: "Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
+            .git(name: "Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
@@ -3498,7 +3499,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3512,7 +3513,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -3525,7 +3526,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        MockDependency(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.1.0"],
                     toolsVersion: .v5
@@ -3568,7 +3569,7 @@ final class WorkspaceTests: XCTestCase {
         // dependencies.
 
         var deps: [MockDependency] = [
-            .init(name: "Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
+            .git(name: "Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3592,7 +3593,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .init(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            .git(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3627,8 +3628,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3658,7 +3659,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the initial graph.
         let deps: [MockDependency] = [
-            .init(name: "Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
+            .git(name: "Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3743,7 +3744,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .localPackage),
+                        .local(name: "Foo"),
                     ]
                 ),
             ],
@@ -3781,18 +3782,38 @@ final class WorkspaceTests: XCTestCase {
         // (This just uses the same one used by all the other tests.)
         let swiftCompiler = Resources.default.swiftCompiler
 
+        // identity resolver helps go from textual description to actual identity
+        let identityResolver = DefaultIdentityResolver()
+
         // From here the API should be simple and straightforward:
         let diagnostics = DiagnosticsEngine()
         let manifest = try tsc_await {
-            ManifestLoader.loadManifest(at: packagePath, kind: .local, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], on: .global(), completion: $0)
+            ManifestLoader.loadManifest(at: packagePath,
+                                        kind: .local,
+                                        swiftCompiler: swiftCompiler,
+                                        swiftCompilerFlags: [],
+                                        identityResolver: identityResolver,
+                                        on: .global(),
+                                        completion: $0)
         }
 
         let loadedPackage = try tsc_await {
-            PackageBuilder.loadPackage(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], xcTestMinimumDeploymentTargets: [:], diagnostics: diagnostics, on: .global(), completion: $0)
+            PackageBuilder.loadPackage(at: packagePath,
+                                       swiftCompiler: swiftCompiler,
+                                       swiftCompilerFlags: [],
+                                       xcTestMinimumDeploymentTargets: [:],
+                                       identityResolver: identityResolver,
+                                       diagnostics: diagnostics,
+                                       on: .global(),
+                                       completion: $0)
         }
 
         let graph = try Workspace.loadGraph(
-            packagePath: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], diagnostics: diagnostics
+            packagePath: packagePath,
+            swiftCompiler: swiftCompiler,
+            swiftCompilerFlags: [],
+            identityResolver: identityResolver,
+            diagnostics: diagnostics
         )
 
         XCTAssertEqual(manifest.name, "SwiftPM")
@@ -3815,7 +3836,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .branch("develop")),
+                        .git(name: "Foo", requirement: .branch("develop")),
                     ]
                 ),
             ],
@@ -3829,7 +3850,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Local", requirement: .localPackage),
+                        .local(name: "Local"),
                     ],
                     versions: ["develop"]
                 ),
@@ -3888,7 +3909,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .init(name: "bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .git(name: "bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Overridden/bazzz-master"], deps: deps) { _, diagnostics in
@@ -3923,8 +3944,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .localPackage),
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .local(name: "Bar"),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3948,7 +3969,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -3979,8 +4000,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .branch("master")),
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .branch("master")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3994,7 +4015,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .branch("master")),
+                        .git(name: "Bar", requirement: .branch("master")),
                     ],
                     versions: ["master", nil]
                 ),
@@ -4017,7 +4038,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -4089,9 +4110,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_2
                 ),
@@ -4108,8 +4129,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo1"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -4123,8 +4144,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: barProducts,
                     dependencies: [
-                        MockDependency(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -4285,8 +4306,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "A", requirement: .exact("1.0.0")),
-                        MockDependency(name: "B", requirement: .exact("1.0.0")),
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .git(name: "B", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4534,7 +4555,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "A", requirement: .exact("1.0.0")),
+                        .git(name: "A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4596,7 +4617,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "A", requirement: .exact("1.0.0")),
+                        .git(name: "A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4681,8 +4702,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "BarUtilityPackage", path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "BarUtilityPackage", path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -4743,8 +4764,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "FooPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "FooPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -4805,8 +4826,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -4835,7 +4856,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -4885,8 +4906,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: nil, path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
-                        MockDependency(name: nil, path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: nil, path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: nil, path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -4915,7 +4936,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: nil, path: "other-foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: nil, path: "other-foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -4964,7 +4985,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -4982,7 +5003,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "FooUtilityProduct", targets: ["FooUtilityTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -4998,7 +5019,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -5047,7 +5068,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: nil, path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5065,7 +5086,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "FooUtilityProduct", targets: ["FooUtilityTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: nil, path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5
@@ -5082,7 +5103,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: nil, path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5
@@ -5133,7 +5154,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        MockDependency(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5151,7 +5172,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        MockDependency(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),

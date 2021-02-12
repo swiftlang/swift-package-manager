@@ -60,7 +60,7 @@ class PIFBuilderTests: XCTestCase {
                         packageLocation: "/A",
                         v: .v5_2,
                         dependencies: [
-                            .init(name: "B", location: "/B", requirement: .branch("master")),
+                            .scm(name: "B", location: "/B", requirement: .branch("master")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -119,7 +119,7 @@ class PIFBuilderTests: XCTestCase {
                     defaultLocalization: "fr",
                     v: .v5_2,
                     dependencies: [
-                        .init(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
@@ -389,7 +389,7 @@ class PIFBuilderTests: XCTestCase {
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .init(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -715,7 +715,7 @@ class PIFBuilderTests: XCTestCase {
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .init(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -943,7 +943,7 @@ class PIFBuilderTests: XCTestCase {
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .init(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -1140,7 +1140,7 @@ class PIFBuilderTests: XCTestCase {
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .init(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),

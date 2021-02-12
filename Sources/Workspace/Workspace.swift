@@ -205,6 +205,9 @@ public class Workspace {
     /// The repository manager.
     public let repositoryManager: RepositoryManager
 
+    /// Utility to resolve package identifiers
+    public let identityResolver: IdentityResolver
+
     /// The package container provider.
     fileprivate let containerProvider: RepositoryPackageContainerProvider
 
@@ -263,6 +266,7 @@ public class Workspace {
         config: Workspace.Configuration = Workspace.Configuration(),
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        identityResolver: IdentityResolver? = nil,
         downloader: Downloader = FoundationDownloader(),
         netrcFilePath: AbsolutePath? = nil,
         archiver: Archiver = ZipArchiver(),
@@ -311,9 +315,11 @@ public class Workspace {
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
 
+        self.identityResolver = identityResolver ?? DefaultIdentityResolver(locationMapper: config.mirrors.effectiveURL(forURL:))
+
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
-            mirrors: self.config.mirrors,
+            identityResolver: self.identityResolver,
             manifestLoader: manifestLoader,
             currentToolsVersion: currentToolsVersion,
             toolsVersionLoader: toolsVersionLoader
@@ -561,7 +567,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints()
 
         // Create constraints based on root manifest and pins for the update resolution.
-        updateConstraints += graphRoot.constraints(mirrors: config.mirrors)
+        updateConstraints += graphRoot.constraints()
 
         let pinsMap: PinsStore.PinsMap
         if packages.isEmpty {
@@ -624,6 +630,7 @@ extension Workspace {
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
+        identityResolver: IdentityResolver,
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
@@ -674,7 +681,7 @@ extension Workspace {
         // Load the graph.
         return try PackageGraph.load(
             root: manifests.root,
-            mirrors: config.mirrors,
+            identityResolver: self.identityResolver,
             additionalFileRules: additionalFileRules,
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackageURLs().required,
@@ -695,7 +702,7 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         try self.loadPackageGraph(
-            rootInput: PackageGraphRootInput(packages: [rootPath], mirrors: config.mirrors),
+            rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
             diagnostics: diagnostics
         )
@@ -1075,22 +1082,20 @@ extension Workspace {
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
-                self.root.manifests.map { (PackageIdentity(url: $0.packageLocation), $0) } +
-                self.dependencies.map { (PackageIdentity(url: $0.manifest.packageLocation), $0.manifest) })
+                self.root.manifests.map { (workspace.identityResolver.resolveIdentity(for: $0.packageLocation), $0) } +
+                self.dependencies.map { (workspace.identityResolver.resolveIdentity(for: $0.manifest.packageLocation), $0.manifest) })
 
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = self.root.manifests.map{ manifest in
-                let identity = PackageIdentity(url: manifest.packageLocation)
+                let identity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
                 let package = PackageReference(identity: identity, kind: manifest.packageKind, location: manifest.packageLocation)
                 inputIdentities.insert(package)
                 let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
-                let url = workspace.config.mirrors.effectiveURL(forURL: dependency.location)
-                let identity = PackageIdentity(url: url)
-                let package = PackageReference.remote(identity: identity, location: url)
+                let package = dependency.createPackageRef()
                 inputIdentities.insert(package)
-                return manifestsMap[identity].map { manifest in
+                return manifestsMap[dependency.identity].map { manifest in
                     GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                 }
             }
@@ -1099,11 +1104,9 @@ extension Workspace {
             var requiredIdentities: Set<PackageReference> = []
             _ = transitiveClosure(inputNodes) { node in
                 return node.manifest.dependenciesRequired(for: node.productFilter).compactMap{ dependency in
-                    let url = workspace.config.mirrors.effectiveURL(forURL: dependency.location)
-                    let identity = PackageIdentity(url: url)
-                    let package = PackageReference.remote(identity: identity, location: url)
+                    let package = dependency.createPackageRef()
                     requiredIdentities.insert(package)
-                    return manifestsMap[identity].map { manifest in
+                    return manifestsMap[dependency.identity].map { manifest in
                         GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
                     }
                 }
@@ -1146,10 +1149,7 @@ extension Workspace {
                 case .checkout, .local:
                     break
                 }
-                allConstraints += externalManifest.dependencyConstraints(
-                    productFilter: productFilter,
-                    mirrors: workspace.config.mirrors
-                )
+                allConstraints += externalManifest.dependencyConstraints(productFilter: productFilter)
             }
             return allConstraints
         }
@@ -1247,6 +1247,7 @@ extension Workspace {
     /// This will load the manifests for the root package as well as all the
     /// current dependencies from the working checkouts.
     // @testable internal
+    // FIXME: this logic should be changed to use identity instead of location once identity is unique
     public func loadDependencyManifests(
         root: PackageGraphRoot,
         diagnostics: DiagnosticsEngine
@@ -1270,7 +1271,7 @@ extension Workspace {
         }
 
         // optimization: preload in parallel
-        let rootDependencyManifestsURLs = root.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.location) }
+        let rootDependencyManifestsURLs = root.dependencies.map{ $0.location }
         let rootDependencyManifests = try temp_await { self.loadManifests(forURLs: rootDependencyManifestsURLs, diagnostics: diagnostics, completion: $0) }
 
         let inputManifests = root.manifests + rootDependencyManifests
@@ -1284,18 +1285,18 @@ extension Workspace {
         }
 
         // optimization: preload manifest we know about in parallel
-        let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ config.mirrors.effectiveURL(forURL: $0.location) } }.flatMap { $0 }
+        let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ $0.location } }.flatMap { $0 }
         // FIXME: this should not block
         var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) }
 
         // continue to load the rest of the manifest for this graph
         let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: .everything)) }) { node in
             return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
-                let url = config.mirrors.effectiveURL(forURL: dependency.location)
+                let location = dependency.location
                 // FIXME: this should not block
                 // note: loadManifest emits diagnostics in case it fails
-                let manifest = loadedManifests[url] ?? temp_await { self.loadManifest(forURL: url, diagnostics: diagnostics, completion: $0) }
-                loadedManifests[url] = manifest
+                let manifest = loadedManifests[location] ?? temp_await { self.loadManifest(forURL: location, diagnostics: diagnostics, completion: $0) }
+                loadedManifests[location] = manifest
                 return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: dependency.productFilter)) }
             }
         }
@@ -1304,7 +1305,7 @@ extension Workspace {
         var deduplication = [PackageIdentity: Int]()
         var allManifests = [(manifest: Manifest, productFilter: ProductFilter)]()
         for node in allManifestsWithPossibleDuplicates {
-            let identity = PackageIdentity(url: node.item.packageLocation)
+            let identity = self.identityResolver.resolveIdentity(for: node.item.packageLocation)
             if let index = deduplication[identity]  {
                 let productFilter = allManifests[index].productFilter.merge(node.key.productFilter)
                 allManifests[index] = (node.item, productFilter)
@@ -1418,6 +1419,7 @@ extension Workspace {
                                     version: version,
                                     revision: nil,
                                     toolsVersion: toolsVersion,
+                                    identityResolver: self.identityResolver,
                                     fileSystem: localFileSystem,
                                     diagnostics: diagnostics,
                                     on: self.queue) { result in
@@ -1739,9 +1741,9 @@ extension Workspace {
         //
         // FIXME: This will only work for top-level local packages right now.
         for rootManifest in rootManifests {
-            let dependencies = rootManifest.dependencies.filter{ $0.requirement == .localPackage }
+            let dependencies = rootManifest.dependencies.filter{ $0.isLocal }
             for localPackage in dependencies {
-                let package = localPackage.createPackageRef(mirrors: self.config.mirrors)
+                let package = localPackage.createPackageRef()
                 state.dependencies.add(ManagedDependency.local(packageRef: package))
             }
         }
@@ -1835,7 +1837,7 @@ extension Workspace {
         // Create the constraints.
         var constraints = [PackageContainerConstraint]()
         constraints += currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints(mirrors: config.mirrors) + extraConstraints
+        constraints += graphRoot.constraints() + extraConstraints
 
         // Perform dependency resolution.
         let resolver = createResolver(pinsMap: pinsStore.pinsMap)
@@ -1942,16 +1944,16 @@ extension Workspace {
         extraConstraints: [PackageContainerConstraint] = []
     ) -> ResolutionPrecomputationResult {
         let constraints =
-            root.constraints(mirrors: config.mirrors) +
+            root.constraints() +
             // Include constraints from the manifests in the graph root.
-            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything, mirrors: config.mirrors) }) +
+            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything) }) +
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 
         let precomputationProvider = ResolverPrecomputationProvider(
             root: root,
             dependencyManifests: dependencyManifests,
-            mirrors: config.mirrors
+            identityResolver: self.identityResolver
         )
 
         let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
@@ -2549,5 +2551,18 @@ public final class LoadableResult<Value> {
     /// Load and return the value.
     public func load() throws -> Value {
         return try loadResult().get()
+    }
+}
+
+// FIXME: the manifest loading logic should be changed to use identity instead of location once identity is unique
+// at that time we should remove this
+extension PackageDependencyDescription {
+    var location: String {
+        switch self {
+        case .local(let data):
+            return data.path.pathString
+        case .scm(let data):
+            return data.location
+        }
     }
 }

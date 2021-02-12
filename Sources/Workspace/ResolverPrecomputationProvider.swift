@@ -38,8 +38,8 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The managed manifests to make available to the resolver.
     let dependencyManifests: Workspace.DependencyManifests
 
-    /// The dependency mirrors.
-    let mirrors: DependencyMirrors
+    /// The identity resolver
+    let identityResolver: IdentityResolver
 
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
@@ -47,12 +47,12 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
-        mirrors: DependencyMirrors,
+        identityResolver: IdentityResolver,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests
-        self.mirrors = mirrors
+        self.identityResolver = identityResolver
         self.currentToolsVersion = currentToolsVersion
     }
 
@@ -69,7 +69,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                     package: package,
                     manifest: manifest.manifest,
                     dependency: manifest.dependency,
-                    mirrors: self.mirrors,
+                    identityResolver: self.identityResolver,
                     currentToolsVersion: self.currentToolsVersion
                 )
                 return completion(.success(container))
@@ -82,7 +82,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                     package: package,
                     manifest: self.dependencyManifests.root.manifests[index],
                     dependency: nil,
-                    mirrors: self.mirrors,
+                    identityResolver: self.identityResolver,
                     currentToolsVersion: self.currentToolsVersion
                 )
 
@@ -100,18 +100,8 @@ private struct LocalPackageContainer: PackageContainer {
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
     let dependency: ManagedDependency?
-    let mirrors: DependencyMirrors
+    let identityResolver: IdentityResolver
     let currentToolsVersion: ToolsVersion
-
-    // Gets the package reference from the managed dependency or computes it for root packages.
-    var identifier: PackageReference {
-        if let identifier = dependency?.packageRef {
-            return identifier
-        } else {
-            let identity = PackageIdentity(url: manifest.packageLocation)
-            return .root(identity: identity, path: manifest.path)
-        }
-    }
 
     func versionsAscending() throws -> [Version] {
         if let version = dependency?.state.checkout?.version {
@@ -141,7 +131,7 @@ private struct LocalPackageContainer: PackageContainer {
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         precondition(dependency?.checkoutState?.version == version)
-        return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+        return manifest.dependencyConstraints(productFilter: productFilter)
     }
 
     func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
@@ -149,7 +139,7 @@ private struct LocalPackageContainer: PackageContainer {
         if let checkoutState = dependency?.checkoutState,
             checkoutState.version == nil,
             checkoutState.revision.identifier == revision {
-            return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+            return manifest.dependencyConstraints(productFilter: productFilter)
         }
 
         throw ResolverPrecomputationError.differentRequirement(
@@ -169,11 +159,17 @@ private struct LocalPackageContainer: PackageContainer {
             )
         }
 
-        return manifest.dependencyConstraints(productFilter: productFilter, mirrors: mirrors)
+        return manifest.dependencyConstraints(productFilter: productFilter)
     }
 
+    // Gets the package reference from the managed dependency or computes it for root packages.
     func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        return identifier
+        if let packageRef = dependency?.packageRef {
+            return packageRef
+        } else {
+            let identity = self.identityResolver.resolveIdentity(for: manifest.packageLocation)
+            return .root(identity: identity, path: manifest.path)
+        }
     }
 }
 

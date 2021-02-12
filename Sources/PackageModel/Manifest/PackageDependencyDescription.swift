@@ -11,7 +11,26 @@
 import TSCBasic
 
 /// Represents a package dependency.
-public struct PackageDependencyDescription: Equatable, Codable, Hashable {
+public enum PackageDependencyDescription: Equatable {
+
+     public struct Local: Equatable, Codable {
+        public let identity: PackageIdentity
+        public let name: String?
+        public let path: AbsolutePath
+        public let productFilter: ProductFilter
+    }
+
+    public struct SourceControlRepository: Equatable, Codable {
+        public let identity: PackageIdentity
+        public let name: String?
+        public let location: String
+        public let requirement: Requirement
+        public let productFilter: ProductFilter
+    }
+
+    case local(Local)
+    case scm(SourceControlRepository)
+    //case registry(data: Registry) // for future
 
     /// The dependency requirement.
     public enum Requirement: Equatable, Hashable {
@@ -19,7 +38,6 @@ public struct PackageDependencyDescription: Equatable, Codable, Hashable {
         case range(Range<Version>)
         case revision(String)
         case branch(String)
-        case localPackage
 
         public static func upToNextMajor(from version: TSCUtility.Version) -> Requirement {
             return .range(version..<Version(version.major + 1, 0, 0))
@@ -30,41 +48,108 @@ public struct PackageDependencyDescription: Equatable, Codable, Hashable {
         }
     }
 
-    /// An explicit name set by the user, to be used  *only*  for target dependencies resolution
-    public let explicitNameForTargetDependencyResolutionOnly: String?
-
-    /// A computed name to be used *only* for target dependencies resolution
-    public let nameForTargetDependencyResolutionOnly: String
-
-    /// The location of the package dependency.
-    public let location: String
-
-    /// The dependency requirement.
-    public let requirement: Requirement
-
-    /// The products requested of the package dependency.
-    public let productFilter: ProductFilter
-
-    /// Create a package dependency.
-    public init(
-        name: String? = nil,
-        location: String,
-        requirement: Requirement,
-        productFilter: ProductFilter = .everything
-    ) {
-        self.explicitNameForTargetDependencyResolutionOnly = name
-        self.nameForTargetDependencyResolutionOnly = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: location)
-        self.location = location
-        self.requirement = requirement
-        self.productFilter = productFilter
+    public var identity: PackageIdentity {
+        switch self {
+        case .local(let data):
+            return data.identity
+        case .scm(let data):
+            return data.identity
+        }
     }
 
-    /// Returns a new package dependency with the specified products.
+    // FIXME: we should simplify target based dependencies such that this is no longer required
+    // A name to be used *only* for target dependencies resolution
+    public var nameForTargetDependencyResolutionOnly: String {
+        switch self {
+        case .local(let data):
+            return data.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: data.path.pathString)
+        case .scm(let data):
+            return data.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: data.location)
+        }
+    }
+
+    // FIXME: we should simplify target based dependencies such that this is no longer required
+    // A name to be used *only* for target dependencies resolution
+    public var explicitNameForTargetDependencyResolutionOnly: String? {
+        switch self {
+        case .local(let data):
+            return data.name
+        case .scm(let data):
+            return data.name
+        }
+    }
+
+    public var productFilter: ProductFilter {
+        switch self {
+        case .local(let data):
+            return data.productFilter
+        case .scm(let data):
+            return data.productFilter
+        }
+    }
+
+    public var isLocal: Bool {
+        switch self {
+        case .local:
+            return true
+        case .scm:
+            return false
+        }
+    }
+
     public func filtered(by productFilter: ProductFilter) -> PackageDependencyDescription {
-        PackageDependencyDescription(name: self.explicitNameForTargetDependencyResolutionOnly,
-                                     location: self.location,
-                                     requirement: self.requirement,
-                                     productFilter: productFilter)
+        switch self {
+        case .local(let data):
+            return .local(identity: data.identity,
+                          name: data.name,
+                          path: data.path,
+                          productFilter: productFilter)
+        case .scm(let data):
+            return .scm(identity: data.identity,
+                        name: data.name,
+                        location: data.location,
+                        requirement: data.requirement,
+                        productFilter: productFilter)
+        }
+    }
+
+    public static func local(identity: PackageIdentity,
+                             name: String?,
+                             path: AbsolutePath,
+                             productFilter: ProductFilter
+    ) -> PackageDependencyDescription {
+        .local (
+            .init(identity: identity,
+                  name: name,
+                  path: path,
+                  productFilter: productFilter)
+        )
+    }
+
+    public static func scm(identity: PackageIdentity,
+                           name: String?,
+                           location: String,
+                           requirement: Requirement,
+                           productFilter: ProductFilter
+    ) -> PackageDependencyDescription {
+        .scm (
+            .init(identity: identity,
+                  name: name,
+                  location: location,
+                  requirement: requirement,
+                  productFilter: productFilter)
+        )
+    }
+}
+
+extension PackageDependencyDescription: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .local(let data):
+            return "local[\(data)]"
+        case .scm(let data):
+            return "git[\(data)]"
+        }
     }
 }
 
@@ -79,15 +164,49 @@ extension PackageDependencyDescription.Requirement: CustomStringConvertible {
             return "revision[\(revision)]"
         case .branch(let branch):
             return "branch[\(branch)]"
-        case .localPackage:
-            return "local"
+        }
+    }
+}
+
+extension PackageDependencyDescription: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case local, scm
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .local(let data):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .local)
+            try unkeyedContainer.encode(data)
+        case .scm(let data):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .scm)
+            try unkeyedContainer.encode(data)
+
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .local:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let data = try unkeyedValues.decode(Local.self)
+            self = .local(data)
+        case .scm:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let data = try unkeyedValues.decode(SourceControlRepository.self)
+            self = .scm(data)
         }
     }
 }
 
 extension PackageDependencyDescription.Requirement: Codable {
     private enum CodingKeys: String, CodingKey {
-        case exact, range, revision, branch, localPackage
+        case exact, range, revision, branch
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -105,8 +224,6 @@ extension PackageDependencyDescription.Requirement: Codable {
         case let .branch(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .branch)
             try unkeyedContainer.encode(a1)
-        case .localPackage:
-            try container.encodeNil(forKey: .localPackage)
         }
     }
 
@@ -132,8 +249,6 @@ extension PackageDependencyDescription.Requirement: Codable {
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
             self = .branch(a1)
-        case .localPackage:
-            self = .localPackage
         }
     }
 }

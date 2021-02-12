@@ -55,6 +55,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine?,
         on queue: DispatchQueue,
@@ -80,6 +81,7 @@ extension ManifestLoader {
         packageKind: PackageModel.PackageReference.Kind,
         packageLocation: String,
         toolsVersion: PackageModel.ToolsVersion,
+        identityResolver: IdentityResolver = DefaultIdentityResolver(),
         fileSystem: PackageLoading.FileSystem,
         diagnostics: TSCBasic.DiagnosticsEngine? = nil
     ) throws -> Manifest{
@@ -90,6 +92,7 @@ extension ManifestLoader {
                       version: nil,
                       revision: nil,
                       toolsVersion: toolsVersion,
+                      identityResolver: identityResolver,
                       fileSystem: fileSystem,
                       diagnostics: diagnostics,
                       on: .global(),

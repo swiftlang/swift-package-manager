@@ -175,6 +175,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
+            identityResolver: DefaultIdentityResolver(),
             manifestLoader: MockManifestLoader(manifests: [:])
         )
 
@@ -226,6 +227,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         func createProvider(_ currentToolsVersion: ToolsVersion) -> RepositoryPackageContainerProvider {
             return RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
+                identityResolver: DefaultIdentityResolver(),
                 manifestLoader: MockManifestLoader(manifests: [:]),
                 currentToolsVersion: currentToolsVersion
             )
@@ -308,6 +310,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
+            identityResolver: DefaultIdentityResolver(),
             manifestLoader: MockManifestLoader(manifests: [:])
         )
         let ref = PackageReference.remote(identity: PackageIdentity(path: repoPath), location: repoPath.pathString)
@@ -348,6 +351,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
         let provider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
+            identityResolver: DefaultIdentityResolver(),
             manifestLoader: MockManifestLoader(manifests: [:])
         )
         let ref = PackageReference.remote(identity: PackageIdentity(path: repoPath), location: repoPath.pathString)
@@ -362,10 +366,10 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let dependencies = [
-            PackageDependencyDescription(name: "Bar1", location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(name: "Bar2", location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(name: "Bar3", location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+        let dependencies: [PackageDependencyDescription] = [
+            .scm(name: "Bar1", location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(name: "Bar2", location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(name: "Bar3", location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -378,8 +382,6 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             try TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
         ]
 
-        let mirrors: DependencyMirrors = [:]
-
         let v5ProductMapping: [String: ProductFilter] = [
             "Bar1": .specific(["Bar1", "Bar3"]),
             "Bar2": .specific(["B2", "Bar1", "Bar3"]),
@@ -387,8 +389,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
         let v5Constraints = dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(mirrors: mirrors),
-                requirement: $0.requirement.toConstraintRequirement(),
+                package: $0.createPackageRef(),
+                requirement: $0.toConstraintRequirement(),
                 products: v5ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
             )
         }
@@ -399,8 +401,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
         let v5_2Constraints = dependencies.map {
             PackageContainerConstraint(
-                package: $0.createPackageRef(mirrors: mirrors),
-                requirement: $0.requirement.toConstraintRequirement(),
+                package: $0.createPackageRef(),
+                requirement: $0.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
             )
         }
@@ -419,7 +421,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .everything, mirrors: mirrors)
+                    .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5Constraints[0],
@@ -443,7 +445,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .everything, mirrors: mirrors)
+                    .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5Constraints[0],
@@ -467,7 +469,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .everything, mirrors: mirrors)
+                    .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5_2Constraints[0],
@@ -491,7 +493,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             XCTAssertEqual(
                 manifest
-                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })), mirrors: mirrors)
+                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })))
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5_2Constraints[0],
@@ -535,7 +537,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager, manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
+            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager,
+                                                                       identityResolver: DefaultIdentityResolver(),
+                                                                       manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
 
             // Get a hold of the container for the test package.
             let packageRef = PackageReference.remote(identity: PackageIdentity(path: packageDir), location: packageDir.pathString)
@@ -594,7 +598,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 packageLocation: packageDirectory.pathString,
                 v: .v5_2,
                 dependencies: [
-                    PackageDependencyDescription(
+                    .scm(
                         location: "Somewhere/Dependency",
                         requirement: .exact(version),
                         productFilter: .specific([])
@@ -610,6 +614,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
             let containerProvider = RepositoryPackageContainerProvider(
                 repositoryManager: repositoryManager,
+                identityResolver: DefaultIdentityResolver(),
                 manifestLoader: MockManifestLoader(
                     manifests: [.init(url: packageDirectory.pathString, version: Version(1, 0, 0)): manifest]
                 )

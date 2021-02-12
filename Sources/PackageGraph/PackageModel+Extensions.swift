@@ -13,33 +13,33 @@ import SourceControl
 
 extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
-    public func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
-        let effectiveURL = mirrors.effectiveURL(forURL: self.location)
-
-        // FIXME: The identity of a package dependency is currently based on
-        //        on a name computed from the package's effective URL.  This
-        //        is because the name of the package that's in the manifest
-        //        is not known until the manifest has been parsed.
-        //        We should instead use the declared URL of a package dependency
-        //        as its identity, as it will be needed for supporting package
-        //        registries.
-        let identity = PackageIdentity(url: effectiveURL)
-        
+    public func createPackageRef() -> PackageReference {
+        // TODO (next steps): move the location into PackageKind to preserve path vs. location
+        let packageKind: PackageReference.Kind
+        let location: String
+        switch self {
+        case .local(let data):
+            packageKind = .local
+            location = data.path.pathString
+        case .scm(let data):
+            packageKind = .remote
+            location = data.location
+        }
         return PackageReference(
-            identity: identity,
-            kind: requirement == .localPackage ? .local : .remote,
-            location: effectiveURL
+            identity: self.identity,
+            kind: packageKind,
+            location: location
         )
     }
 }
 
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
+    public func dependencyConstraints(productFilter: ProductFilter) -> [PackageContainerConstraint] {
         return dependenciesRequired(for: productFilter).map({
             return PackageContainerConstraint(
-                package: $0.createPackageRef(mirrors: mirrors),
-                requirement: $0.requirement.toConstraintRequirement(),
+                package: $0.createPackageRef(),
+                requirement: $0.toConstraintRequirement(),
                 products: $0.productFilter)
         })
     }

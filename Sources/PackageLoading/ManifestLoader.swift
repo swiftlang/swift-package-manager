@@ -80,7 +80,7 @@ public protocol ManifestLoaderProtocol {
     ///   - version: Optional. The version the manifest is from, if known.
     ///   - revision: Optional. The revision the manifest is from, if known
     ///   - toolsVersion: The version of the tools the manifest supports.
-    ///   - kind: The kind of package the manifest is from.
+    ///   - identityResolver: A helper to resolve identities based on configuration
     ///   - fileSystem: The file system to load from.
     ///   - diagnostics: Optional.  The diagnostics engine.
     ///   - on: The dispatch queue to perform asynchronous operations on.
@@ -92,6 +92,7 @@ public protocol ManifestLoaderProtocol {
         version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine?,
         on queue: DispatchQueue,
@@ -166,6 +167,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         kind: PackageReference.Kind,
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
+        identityResolver: IdentityResolver,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -181,6 +183,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 version: nil,
                 revision: nil,
                 toolsVersion: toolsVersion,
+                identityResolver: identityResolver,
                 fileSystem: fileSystem,
                 diagnostics: nil,
                 on: queue,
@@ -198,6 +201,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine? = nil,
         on queue: DispatchQueue,
@@ -205,7 +209,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ) {
         do {
             let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
-            let packageIdentity = PackageIdentity(url: packageLocation)
+            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
             self.loadFile(at: manifestPath,
                           packageIdentity: packageIdentity,
                           packageKind: packageKind,
@@ -213,6 +217,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                           version: version,
                           revision: revision,
                           toolsVersion: toolsVersion,
+                          identityResolver: identityResolver,
                           fileSystem: fileSystem,
                           diagnostics: diagnostics,
                           on: queue) { result in
@@ -242,6 +247,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine? = nil,
         on queue: DispatchQueue,
@@ -273,6 +279,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let parsedManifest = try ManifestJSONParser.parse(v4: jsonString,
                                                                   toolsVersion: toolsVersion,
                                                                   packageLocation: packageLocation,
+                                                                  identityResolver: identityResolver,
                                                                   fileSystem: fileSystem)
                 // Throw if we encountered any runtime errors.
                 guard parsedManifest.errors.isEmpty else {
@@ -384,7 +391,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         diagnostics: DiagnosticsEngine?
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
-            PackageIdentity(url: dependency.location)
+            dependency.identity
         })
 
         let duplicateDependencyIdentities = dependenciesByIdentity

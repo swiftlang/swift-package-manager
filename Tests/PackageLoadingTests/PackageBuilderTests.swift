@@ -2019,7 +2019,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -2053,7 +2053,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(location: "/Biz", requirement: .localPackage),
+                .local(path: "/Biz"),
             ],
             targets: [
                 try TargetDescription(

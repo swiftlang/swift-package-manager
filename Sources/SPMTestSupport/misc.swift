@@ -215,6 +215,7 @@ private func swiftArgs(
 }
 
 public func loadPackageGraph(
+    identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
@@ -230,6 +231,7 @@ public func loadPackageGraph(
 
     return try PackageGraph.load(
         root: graphRoot,
+        identityResolver: identityResolver,
         externalManifests: externalManifests,
         diagnostics: diagnostics,
         fileSystem: fs,

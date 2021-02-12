@@ -287,6 +287,7 @@ public final class PackageBuilder {
         swiftCompilerFlags: [String],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
             = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+        identityResolver: IdentityResolver,
         diagnostics: DiagnosticsEngine,
         on queue: DispatchQueue,
         completion: @escaping (Result<Package, Error>) -> Void
@@ -295,6 +296,7 @@ public final class PackageBuilder {
                                     kind: kind,
                                     swiftCompiler: swiftCompiler,
                                     swiftCompilerFlags: swiftCompilerFlags,
+                                    identityResolver: identityResolver,
                                     on: queue) { result in
             let result = result.tryMap { manifest -> Package in
                 let builder = PackageBuilder(

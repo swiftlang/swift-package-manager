@@ -120,20 +120,21 @@ fileprivate extension SourceCodeFragment {
         if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
-        if dependency.requirement != .localPackage {
-            params.append(SourceCodeFragment(key: "url", string: dependency.location))
-        }
-        switch dependency.requirement {
-        case .exact(let version):
-            params.append(SourceCodeFragment(enum: "exact", string: version.description))
-        case .range(let range):
-            params.append(SourceCodeFragment(enum: "range", string: range.description))
-        case .revision(let revision):
-            params.append(SourceCodeFragment(enum: "revision", string: revision))
-        case .branch(let branch):
-            params.append(SourceCodeFragment(enum: "branch", string: branch))
-        case .localPackage:
-            params.append(SourceCodeFragment(key: "path", string: dependency.location))
+        switch dependency {
+        case .local(let data):
+            params.append(SourceCodeFragment(key: "path", string: data.path.pathString))
+        case .scm(let data):
+            params.append(SourceCodeFragment(key: "url", string: data.location))
+            switch data.requirement {
+            case .exact(let version):
+                params.append(SourceCodeFragment(enum: "exact", string: version.description))
+            case .range(let range):
+                params.append(SourceCodeFragment(enum: "range", string: range.description))
+            case .revision(let revision):
+                params.append(SourceCodeFragment(enum: "revision", string: revision))
+            case .branch(let branch):
+                params.append(SourceCodeFragment(enum: "branch", string: branch))
+            }
         }
         self.init(enum: "package", subnodes: params)
     }
