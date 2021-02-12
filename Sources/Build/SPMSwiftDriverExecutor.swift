@@ -77,7 +77,7 @@ final class SPMSwiftDriverExecutor: DriverExecutor {
 
     if usedResponseFile {
       // Print the response file arguments as a comment.
-      result += " # \(job.commandLine.joinedUnresolvedArguments)"
+      result += " # \(job.commandLine.joinedArguments)"
     }
 
     if !job.extraEnvironment.isEmpty {
