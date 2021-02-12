@@ -14,11 +14,7 @@ import Foundation
 @testable import PackageCollectionsSigning
 import TSCBasic
 
-#if canImport(Security)
 let isSupportedPlatform = true
-#else
-let isSupportedPlatform = false
-#endif
 
 // Update this when running ENABLE_REAL_CERT_TEST tests
 let expectedSubjectUserID = "<USER ID>"
