@@ -83,7 +83,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let fs = InMemoryFileSystem()
         fs.createEmptyFiles(at: .root, files: [
-            "/.some2/hello.swift",
+            "/some2/hello.swift",
             "/Hello.something/hello.txt",
         ])
 
@@ -486,5 +486,108 @@ class TargetSourcesBuilderTests: XCTestCase {
         } catch {
             XCTFail(error.localizedDescription, file: file, line: line)
         }
+    }
+    
+    func testMissingExclude() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: ["fakeDir", "../../fileOutsideRoot.py"],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/Foo.swift",
+            "/Bar.swift"
+        ])
+
+        let diags = DiagnosticsEngine()
+
+        let _ = TargetSourcesBuilder(
+            packageName: "",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .v5,
+            fs: fs,
+            diags: diags
+        )
+
+        diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Exclude")) }
+    }
+    
+    func testMissingResource() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            resources: [.init(rule: .copy, path: "../../../Fake.txt"),
+                        .init(rule: .process, path: "NotReal")],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/Foo.swift",
+            "/Bar.swift"
+        ])
+
+        let diags = DiagnosticsEngine()
+
+        let builder = TargetSourcesBuilder(
+            packageName: "",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .v5,
+            fs: fs,
+            diags: diags
+        )
+
+        let _ = builder.computeContents().map{ $0.pathString }.sorted()
+        diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Resource")) }
+    }
+    
+    func testMissingSource() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["InvalidPackage.swift",
+                      "DoesNotExist.swift",
+                      "../../Tests/InvalidPackageTests/InvalidPackageTests.swift"],
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/Foo.swift",
+            "/Bar.swift"
+        ])
+
+        let diags = DiagnosticsEngine()
+
+        let _ = TargetSourcesBuilder(
+            packageName: "",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .v5,
+            fs: fs,
+            diags: diags
+        )
+
+        diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Source")) }
     }
 }

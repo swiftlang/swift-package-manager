@@ -83,12 +83,44 @@ public struct TargetSourcesBuilder {
             }
         }
         self.declaredSources = declaredSources?.spm_uniqueElements()
+        
+        self.excludedPaths.forEach { exclude in
+            if let message = validTargetPath(at: exclude) {
+                self.diags.emit(warning: "Invalid Exclude: \(exclude): \(message)")
+            }
+        }
+        
+        self.declaredSources?.forEach { source in
+            if let message = validTargetPath(at: source) {
+                self.diags.emit(warning: "Invalid Source: \(source): \(message)")
+            }
+        }
 
       #if DEBUG
         validateRules(self.rules)
       #endif
     }
 
+    @discardableResult
+    private func validTargetPath(at: AbsolutePath) -> Error? {
+        guard let cwd = self.fs.currentWorkingDirectory else {
+            return StringError("Unknown Current Working Directory")
+        }
+        
+        // Check if paths that are enumerated in targets: [] exist
+        guard self.fs.exists(at) else {
+            return StringError("\(at) could not be found")
+        }
+
+        // Excludes, Sources, and Resources should be found at the root of the package and or
+        // its subdirectories
+        guard at.pathString.hasPrefix(cwd.pathString) else {
+            return StringError("\(at) should be found within the root of \(cwd)")
+        }
+        
+        return nil
+    }
+    
     /// Emits an error in debug mode if we have conflicting rules for any file type.
     private func validateRules(_ rules: [FileRuleDescription]) {
         var extensionMap: [String: FileRuleDescription] = [:]
@@ -161,6 +193,10 @@ public struct TargetSourcesBuilder {
                     diags.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
                 }
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
+            }
+            
+            if let message = validTargetPath(at: resourcePath) {
+                self.diags.emit(warning: "Invalid Resource: \(resourcePath): \(message)")
             }
         }
 
