@@ -8,9 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Crypto
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-import Security
-#else
-import CCryptoBoringSSL
-#endif
+import Foundation
+
+extension DataProtocol {
+    func copyBytes() -> [UInt8] {
+        [UInt8](unsafeUninitializedCapacity: self.count) { buffer, initializedCount in
+            self.copyBytes(to: buffer)
+            initializedCount = self.count
+        }
+    }
+}

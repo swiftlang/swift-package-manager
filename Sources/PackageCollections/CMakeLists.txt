@@ -32,15 +32,11 @@ target_link_libraries(PackageCollections PUBLIC
   TSCBasic
   TSCUtility
   Basics
-  Crypto
-  CCryptoBoringSSL
   PackageModel
   SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageCollections PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-target_link_options(PackageCollections PRIVATE
-    "$<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>")
 
 if(USE_CMAKE_INSTALL)
 install(TARGETS PackageCollections
