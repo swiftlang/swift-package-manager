@@ -152,11 +152,16 @@ let package = Package(
             /** Package collections models */
             name: "PackageCollectionsModel",
             dependencies: []),
+        
+        .target(
+             /** Package collections signing */
+             name: "PackageCollectionsSigning",
+             dependencies: ["Crypto"]),
 
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionsModel", "Crypto"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionsModel"]),
 
         // MARK: Package Manager Functionality
 
@@ -266,8 +271,11 @@ let package = Package(
             name: "PackageCollectionsModelTests",
             dependencies: ["PackageCollectionsModel"]),
         .testTarget(
+            name: "PackageCollectionsSigningTests",
+            dependencies: ["PackageCollectionsSigning", "SPMTestSupport"]),
+        .testTarget(
             name: "PackageCollectionsTests",
-            dependencies: ["SPMTestSupport", "PackageCollections"]),
+            dependencies: ["PackageCollections", "SPMTestSupport"]),
         .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"]),
