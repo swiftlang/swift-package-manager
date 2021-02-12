@@ -8,11 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-#if canImport(Security)
 let isSupportedPlatform = true
-#else
-let isSupportedPlatform = false
-#endif
 
 let ecPrivateKey = """
 -----BEGIN EC PRIVATE KEY-----
