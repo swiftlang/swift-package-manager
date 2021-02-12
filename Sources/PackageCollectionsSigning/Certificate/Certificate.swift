@@ -12,6 +12,8 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
+#else
+@_implementationOnly import CCryptoBoringSSL
 #endif
 
 #if os(macOS)
@@ -107,24 +109,114 @@ struct CoreCertificate {
 
 #else
 final class BoringSSLCertificate {
+    let underlying: UnsafeMutablePointer<X509>
+
+    deinit {
+        CCryptoBoringSSL_X509_free(self.underlying)
+    }
+
     init(derEncoded data: Data) throws {
-        fatalError("Not implemented: \(#function)")
+        let bytes = data.copyBytes()
+        let x509 = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> UnsafeMutablePointer<X509> in
+            var pointer = ptr.baseAddress
+            guard let x509 = CCryptoBoringSSL_d2i_X509(nil, &pointer, numericCast(bytes.count)) else {
+                throw CertificateError.initializationFailure
+            }
+            return x509
+        }
+        self.underlying = x509
     }
 
     func subject() throws -> CertificateName {
-        fatalError("Not implemented: \(#function)")
+        guard let subject = CCryptoBoringSSL_X509_get_subject_name(self.underlying) else {
+            throw CertificateError.nameExtractionFailure
+        }
+        return CertificateName(x509Name: subject)
     }
 
     func issuer() throws -> CertificateName {
-        fatalError("Not implemented: \(#function)")
+        guard let issuer = CCryptoBoringSSL_X509_get_issuer_name(self.underlying) else {
+            throw CertificateError.nameExtractionFailure
+        }
+        return CertificateName(x509Name: issuer)
     }
 
     func publicKey() throws -> PublicKey {
-        fatalError("Not implemented: \(#function)")
+        guard let key = CCryptoBoringSSL_X509_get_pubkey(self.underlying) else {
+            throw CertificateError.keyExtractionFailure
+        }
+        defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
+
+        var buffer: UnsafeMutablePointer<CUnsignedChar>?
+        defer { CCryptoBoringSSL_OPENSSL_free(buffer) }
+
+        let length = CCryptoBoringSSL_i2d_PublicKey(key, &buffer)
+        guard length > 0 else {
+            throw CertificateError.keyExtractionFailure
+        }
+
+        let data = Data(UnsafeBufferPointer(start: buffer, count: Int(length)))
+
+        switch try self.keyType(of: key) {
+        case .RSA:
+            return try BoringSSLRSAPublicKey(data: data)
+        case .EC:
+            return try ECPublicKey(data: data)
+        }
     }
 
     func keyType() throws -> KeyType {
-        fatalError("Not implemented: \(#function)")
+        guard let key = CCryptoBoringSSL_X509_get_pubkey(self.underlying) else {
+            throw CertificateError.keyExtractionFailure
+        }
+        defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
+
+        return try self.keyType(of: key)
+    }
+
+    private func keyType(of key: UnsafeMutablePointer<EVP_PKEY>) throws -> KeyType {
+        let algorithm = CCryptoBoringSSL_OBJ_obj2nid(self.underlying.pointee.cert_info.pointee.key.pointee.algor.pointee.algorithm)
+
+        switch algorithm {
+        case NID_rsaEncryption:
+            return .RSA
+        case NID_X9_62_id_ecPublicKey:
+            return .EC
+        default:
+            throw CertificateError.unsupportedKeyType
+        }
+    }
+}
+
+private extension CertificateName {
+    init(x509Name: UnsafeMutablePointer<X509_NAME>) {
+        self.userID = x509Name.getStringValue(of: NID_userId)
+        self.commonName = x509Name.getStringValue(of: NID_commonName)
+        self.organization = x509Name.getStringValue(of: NID_organizationName)
+        self.organizationalUnit = x509Name.getStringValue(of: NID_organizationalUnitName)
+    }
+}
+
+private extension UnsafeMutablePointer where Pointee == X509_NAME {
+    func getStringValue(of nid: CInt) -> String? {
+        let index = CCryptoBoringSSL_X509_NAME_get_index_by_NID(self, nid, -1)
+        guard index >= 0 else {
+            return nil
+        }
+
+        let entry = CCryptoBoringSSL_X509_NAME_get_entry(self, index)
+        guard let data = CCryptoBoringSSL_X509_NAME_ENTRY_get_data(entry) else {
+            return nil
+        }
+
+        var value: UnsafeMutablePointer<CUnsignedChar>?
+        defer { CCryptoBoringSSL_OPENSSL_free(value) }
+
+        guard CCryptoBoringSSL_ASN1_STRING_to_UTF8(&value, data) >= 0 else {
+            return nil
+        }
+
+        return String.decodeCString(value, as: UTF8.self, repairingInvalidCodeUnits: true)?.result
     }
 }
 #endif
