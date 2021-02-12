@@ -24,6 +24,7 @@ add_library(PackageCollectionsSigning
   Key/Key+EC.swift
   Key/Key+RSA.swift
   PackageCollectionSigning.swift
+  Signing/BoringSSLSigning.swift
   Signing/Signature.swift
   Signing/Signing.swift
   Signing/Signing+ECKey.swift

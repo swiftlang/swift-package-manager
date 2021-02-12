@@ -106,10 +106,13 @@ struct CoreRSAPublicKey: PublicKey {
 #else
 final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
-    static let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
 
     deinit {
         CCryptoBoringSSL_RSA_free(self.underlying)
+    }
+
+    var sizeInBits: Int {
+        toBits(bytes: Int(CCryptoBoringSSL_RSA_size(self.underlying)))
     }
 
     init<Data>(pem data: Data) throws where Data: DataProtocol {
@@ -128,10 +131,13 @@ final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
 
 final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
-    static let algorithm: OpaquePointer = CCryptoBoringSSL_EVP_sha256()
 
     deinit {
         CCryptoBoringSSL_RSA_free(self.underlying)
+    }
+
+    var sizeInBits: Int {
+        toBits(bytes: Int(CCryptoBoringSSL_RSA_size(self.underlying)))
     }
 
     /// `data` should be in the PKCS #1 format
