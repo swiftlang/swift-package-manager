@@ -18,6 +18,8 @@ import TSCBasic
 
 #if os(macOS)
 import Security
+#else
+@_implementationOnly import CCryptoBoringSSL
 #endif
 
 protocol CertificatePolicy {
@@ -31,6 +33,10 @@ protocol CertificatePolicy {
 }
 
 extension CertificatePolicy {
+    #if !canImport(Security)
+    typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
+    #endif
+
     /// Verifies the certificate.
     ///
     /// - Parameters:
@@ -90,7 +96,69 @@ extension CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.noTrustedRootCertsConfigured))
         }
 
-        fatalError("Not implemented: \(#function)")
+        // Cert chain
+        let x509Stack = CCryptoBoringSSL_sk_X509_new_null()
+        defer { CCryptoBoringSSL_sk_X509_free(x509Stack) }
+
+        certChain[1...].forEach { certificate in
+            guard CCryptoBoringSSL_sk_X509_push(x509Stack, certificate.underlying) > 0 else {
+                return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
+            }
+        }
+
+        // Trusted certs
+        let x509Store = CCryptoBoringSSL_X509_STORE_new()
+        defer { CCryptoBoringSSL_X509_STORE_free(x509Store) }
+
+        let x509StoreCtx = CCryptoBoringSSL_X509_STORE_CTX_new()
+        defer { CCryptoBoringSSL_X509_STORE_CTX_free(x509StoreCtx) }
+
+        guard CCryptoBoringSSL_X509_STORE_CTX_init(x509StoreCtx, x509Store, certChain.first!.underlying, x509Stack) == 1 else { // !-safe since certChain cannot be empty
+            return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
+        }
+        CCryptoBoringSSL_X509_STORE_CTX_set_purpose(x509StoreCtx, X509_PURPOSE_ANY)
+
+        anchorCerts?.forEach {
+            CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0.underlying)
+        }
+
+        var ctxFlags: CInt = 0
+        if let verifyDate = verifyDate {
+            CCryptoBoringSSL_X509_STORE_CTX_set_time(x509StoreCtx, 0, numericCast(Int(verifyDate.timeIntervalSince1970)))
+            ctxFlags = ctxFlags | X509_V_FLAG_USE_CHECK_TIME
+        }
+        CCryptoBoringSSL_X509_STORE_CTX_set_flags(x509StoreCtx, UInt(ctxFlags))
+
+        let verifyCallback: BoringSSLVerifyCallback = { result, ctx in
+            // Success
+            if result == 1 { return result }
+
+            // Custom error handling
+            let errorCode = CCryptoBoringSSL_X509_STORE_CTX_get_error(ctx)
+            // Certs could have unknown critical extensions and cause them to be rejected.
+            // Instead of disabling all critical extension checks with X509_V_FLAG_IGNORE_CRITICAL
+            // we will just ignore this specific error.
+            if errorCode == X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION {
+                return 1
+            }
+            return result
+        }
+        CCryptoBoringSSL_X509_STORE_CTX_set_verify_cb(x509StoreCtx, verifyCallback)
+
+        guard CCryptoBoringSSL_X509_verify_cert(x509StoreCtx) == 1 else {
+            let error = CCryptoBoringSSL_X509_verify_cert_error_string(numericCast(CCryptoBoringSSL_X509_STORE_CTX_get_error(x509StoreCtx)))
+            diagnosticsEngine.emit(warning: "The certificate is invalid: \(String(describing: error))")
+            return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
+        }
+
+        // TODO: OCSP
+//        if certChain.count >= 1 {
+//            // Whether cert chain can be trusted depends on OCSP result
+//            self.BoringSSL_OCSP_isGood(certificate: certChain[0], issuer: certChain[1], callback: callback)
+//        } else {
+//            wrappedCallback(.success(())))
+//        }
+        wrappedCallback(.success(()))
         #endif
     }
 }
@@ -105,7 +173,9 @@ extension CertificatePolicy {
         }
         return !dict.isEmpty
         #else
-        fatalError("Not implemented: \(#function)")
+        let nid = CCryptoBoringSSL_OBJ_create(oid, "ObjectShortName", "ObjectLongName")
+        let index = CCryptoBoringSSL_X509_get_ext_by_NID(certificate.underlying, nid, -1)
+        return index >= 0
         #endif
     }
 
@@ -120,7 +190,8 @@ extension CertificatePolicy {
         }
         return usages.first(where: { $0 == usage.data }) != nil
         #else
-        fatalError("Not implemented: \(#function)")
+        let eku = CCryptoBoringSSL_X509_get_extended_key_usage(certificate.underlying)
+        return eku & UInt32(usage.flag) > 0
         #endif
     }
 
@@ -139,7 +210,11 @@ extension CertificatePolicy {
         }
         return infoAccessValue.first(where: { valueDict in valueDict[kSecPropertyKeyValue] as? String == "1.3.6.1.5.5.7.48.1" }) != nil
         #else
-        fatalError("Not implemented: \(#function)")
+        // Check that there is at least one OCSP responder URL, in which case OCSP check will take place in `verify`.
+        let ocspURLs = CCryptoBoringSSL_X509_get1_ocsp(certificate.underlying)
+        defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
+
+        return CCryptoBoringSSL_sk_OPENSSL_STRING_num(ocspURLs) > 0
         #endif
     }
 }
@@ -154,6 +229,15 @@ enum CertificateExtendedKeyUsage {
             // https://stackoverflow.com/questions/49489591/how-to-extract-or-compare-ksecpropertykeyvalue-from-seccertificate
             // https://github.com/google/der-ascii/blob/cd91cb85bb0d71e4611856e4f76f5110609d7e42/cmd/der2ascii/oid_names.go#L100
             return Data([0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x03])
+        }
+    }
+
+    #else
+    var flag: CInt {
+        switch self {
+        case .codeSigning:
+            // https://www.openssl.org/docs/man1.1.0/man3/X509_get_extension_flags.html
+            return XKU_CODE_SIGN
         }
     }
     #endif
