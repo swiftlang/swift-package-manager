@@ -21,9 +21,6 @@ enum PackageGraphError: Swift.Error {
     /// The product dependency not found.
     case productDependencyNotFound(dependencyProductName: String, dependencyPackageName: String?, packageName: String, targetName: String)
 
-    /// The product dependency was found but the package name did not match.
-    case productDependencyIncorrectPackage(name: String, package: String)
-
     /// The package dependency name does not match the package name.
     case incorrectPackageDependencyName(dependencyPackageName: String, dependencyName: String, dependencyLocation: String, resolvedPackageName: String, resolvedPackageURL: String)
 
@@ -37,7 +34,6 @@ enum PackageGraphError: Swift.Error {
     case productDependencyMissingPackage(
         productName: String,
         targetName: String,
-        packageName: String,
         packageDependency: PackageDependencyDescription
     )
 
@@ -173,9 +169,6 @@ extension PackageGraphError: CustomStringConvertible {
         case .productDependencyNotFound(let dependencyProductName, let dependencyPackageName, let packageName, let targetName):
             return "product '\(dependencyProductName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found"). it is required by package '\(packageName)' target '\(targetName)'."
 
-        case .productDependencyIncorrectPackage(let name, let package):
-            return "product dependency '\(name)' in package '\(package)' not found"
-
         case .incorrectPackageDependencyName(let dependencyPackageName, let dependencyName, let dependencyURL, let resolvedPackageName, let resolvedPackageURL):
             return """
                 '\(dependencyPackageName)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \
@@ -191,32 +184,14 @@ extension PackageGraphError: CustomStringConvertible {
         case .productDependencyMissingPackage(
                 let productName,
                 let targetName,
-                let packageName,
                 let packageDependency
             ):
 
-            var solutionSteps: [String] = []
+            let solution = """
+            reference the package in the target dependency with '.product(name: "\(productName)", package: \
+            "\(packageDependency.nameForTargetDependencyResolutionOnly)")'
+            """
 
-            // If the package dependency name is the same as the package name, or if the product name and package name
-            // don't correspond, we need to rewrite the target dependency to explicit specify the package name.
-            if packageDependency.nameForTargetDependencyResolutionOnly == packageName || productName != packageName {
-                solutionSteps.append("""
-                    reference the package in the target dependency with '.product(name: "\(productName)", package: \
-                    "\(packageName)")'
-                    """)
-            }
-
-            // If the name of the product and the package are the same, or if the package dependency implicit name
-            // deduced from the URL is not correct, we need to rewrite the package dependency declaration to specify the
-            // package name.
-            if productName == packageName || packageDependency.nameForTargetDependencyResolutionOnly != packageName {
-                let dependencySwiftRepresentation = packageDependency.swiftRepresentation(overridingName: packageName)
-                solutionSteps.append("""
-                    provide the name of the package dependency with '\(dependencySwiftRepresentation)'
-                    """)
-            }
-
-            let solution = solutionSteps.joined(separator: " and ")
             return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
 
         case .duplicateProduct(let product, let packages):

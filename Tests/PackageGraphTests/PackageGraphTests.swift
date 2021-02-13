@@ -674,19 +674,27 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.checkUnordered(diagnostic: """
-                dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target \
-                dependency with '.product(name: "BarLib", package: "Bar")'
-                """, behavior: .error, location: "'Foo' /Foo")
-            result.checkUnordered(diagnostic: """
-                dependency 'Biz' in target 'Foo' requires explicit declaration; provide the name of the package \
-                dependency with '.package(name: "Biz", url: "/BizPath", .exact("1.2.3"))'
-                """, behavior: .error, location: "'Foo' /Foo")
-            result.checkUnordered(diagnostic: """
-                dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target \
-                dependency with '.product(name: "FizLib", package: "Fiz")' and provide the name of the package \
-                dependency with '.package(name: "Fiz", url: "/FizPath", from: "1.1.2")'
-                """, behavior: .error, location: "'Foo' /Foo")
+            result.checkUnordered(
+                diagnostic: """
+                dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
+                """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+            result.checkUnordered(
+                diagnostic: """
+                dependency 'Biz' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Biz", package: "BizPath")'
+                """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+            result.checkUnordered(
+                diagnostic: """
+                dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "FizLib", package: "FizPath")'
+                """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
         }
     }
 
@@ -1254,5 +1262,629 @@ class PackageGraphTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles: [])
         let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs)
         XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
+    }
+
+    func testTargetDependencies_Pre52() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+    }
+
+    func testTargetDependencies_Pre52_UnknownProduct() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Unknown"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(
+                diagnostic: """
+                    product 'Unknown' not found. it is required by package 'Foo' target 'Foo'.
+                    """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+        }
+    }
+
+    func testTargetDependencies_Post52_NamesAligned() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5_2,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+    }
+
+    func testTargetDependencies_Post52_UnknownProduct() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Unknown"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5_2,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(
+                diagnostic: """
+                    product 'Unknown' not found. it is required by package 'Foo' target 'Foo'.
+                    """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+        }
+    }
+
+    func testTargetDependencies_Post52_ProductPackageNoMatch() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Bar",
+                packageKind: .local,
+                packageLocation: "/Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fixit
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_ProductPackageNoMatch_DependencyExplicitName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Bar",
+                packageKind: .local,
+                packageLocation: "/Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+
+        // fixit
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fixit
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "Some-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fix it
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Foo-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+    // test backwards compatibility 5.2 < 5.4
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_WithDependencyName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+    }
+
+    // test backwards compatibility 5.2 < 5.4
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch_WithDependencyName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fix it
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+    
+    func testTargetDependencies_Post52_ManifestNameNotMatchedWithURL() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Some-Bar",
+                path: "/Bar",
+                packageKind: .local,
+                packageLocation: "/Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        'Foo' dependency on '/Bar' has an explicit name 'Bar' which does not match the name 'Some-Bar' set for '/Bar'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fix it
+
+        do {
+            let fixedManifests = [
+                try manifests[0].withDependencies([
+                    .scm(name: "Some-Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ]).withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+}
+
+
+extension Manifest {
+    func withTargets(_ targets: [TargetDescription]) -> Manifest {
+        Manifest.createManifest(
+            name: self.name,
+            path: self.path.parentDirectory.pathString,
+            packageKind: self.packageKind,
+            packageLocation: self.packageLocation,
+            v: self.toolsVersion,
+            dependencies: self.dependencies,
+            targets: targets
+        )
+    }
+
+    func withDependencies(_ dependencies: [PackageDependencyDescription]) -> Manifest {
+        Manifest.createManifest(
+            name: self.name,
+            path: self.path.parentDirectory.pathString,
+            packageKind: self.packageKind,
+            packageLocation: self.packageLocation,
+            v: self.toolsVersion,
+            dependencies: dependencies,
+            targets: self.targets
+        )
     }
 }
