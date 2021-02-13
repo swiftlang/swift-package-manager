@@ -531,10 +531,12 @@ final class PackageCollectionsTests: XCTestCase {
         )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
+                                                                  summary: nil,
                                                                   manifests: [toolsVersion: mockManifest],
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
-                                                                  license: nil)
+                                                                  license: nil,
+                                                                  createdAt: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: .init(url: "https://packages.mock/\(UUID().uuidString)"),
                                                           summary: UUID().uuidString,
@@ -688,10 +690,12 @@ final class PackageCollectionsTests: XCTestCase {
         )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
+                                                                  summary: nil,
                                                                   manifests: [toolsVersion: mockManifest],
                                                                   defaultToolsVersion: toolsVersion,
                                                                   verifiedCompatibility: nil,
-                                                                  license: nil)
+                                                                  license: nil,
+                                                                  createdAt: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://packages.mock/\(UUID().uuidString)"),
                                                           summary: UUID().uuidString,
@@ -1023,13 +1027,15 @@ final class PackageCollectionsTests: XCTestCase {
 
         let versions = (0 ... 3).map {
             PackageCollectionsModel.Package.Version(version: TSCUtility.Version($0, 0, 0),
+                                                    summary: "\($0) description",
                                                     manifests: [toolsVersion: manifest],
                                                     defaultToolsVersion: toolsVersion,
                                                     verifiedCompatibility: [
                                                         .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                         .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
                                                     ],
-                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!))
+                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!),
+                                                    createdAt: Date())
         }
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageId)"),

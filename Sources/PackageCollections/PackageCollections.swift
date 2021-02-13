@@ -439,10 +439,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
                                                basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             .init(version: packageVersion.version,
+                  summary: packageVersion.summary,
                   manifests: packageVersion.manifests,
                   defaultToolsVersion: packageVersion.defaultToolsVersion,
                   verifiedCompatibility: packageVersion.verifiedCompatibility,
-                  license: packageVersion.license)
+                  license: packageVersion.license,
+                  createdAt: packageVersion.createdAt)
         }
         versions.sort(by: >)
 

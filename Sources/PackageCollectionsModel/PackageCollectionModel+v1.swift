@@ -34,7 +34,7 @@ extension PackageCollectionModel.V1 {
         /// The revision number of this package collection.
         public let revision: Int?
 
-        /// The ISO 8601-formatted datetime string when the package collection was generated.
+        /// When the package collection was generated.
         public let generatedAt: Date
 
         /// The author of this package collection.
@@ -119,6 +119,9 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// The semantic version string.
         public let version: String
 
+        /// A description of the package version.
+        public let summary: String?
+
         /// Manifests by tools version.
         public let manifests: [String: Manifest]
 
@@ -131,19 +134,26 @@ extension PackageCollectionModel.V1.Collection.Package {
         /// The package version's license.
         public let license: PackageCollectionModel.V1.License?
 
+        /// When the package version was created.
+        public let createdAt: Date?
+
         /// Creates a `Version`
         public init(
             version: String,
+            summary: String?,
             manifests: [String: Manifest],
             defaultToolsVersion: String,
             verifiedCompatibility: [PackageCollectionModel.V1.Compatibility]?,
-            license: PackageCollectionModel.V1.License?
+            license: PackageCollectionModel.V1.License?,
+            createdAt: Date?
         ) {
             self.version = version
+            self.summary = summary
             self.manifests = manifests
             self.defaultToolsVersion = defaultToolsVersion
             self.verifiedCompatibility = verifiedCompatibility
             self.license = license
+            self.createdAt = createdAt
         }
 
         public struct Manifest: Equatable, Codable {

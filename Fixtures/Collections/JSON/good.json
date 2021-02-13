@@ -21,6 +21,7 @@
       "versions": [
         {
           "version": "0.1.0",
+          "summary": "Fixed a few bugs",
           "manifests": {
             "5.1": {
               "toolsVersion": "5.1",
@@ -63,7 +64,8 @@
           "license": {
             "name": "Apache-2.0",
             "url": "https://www.example.com/repos/RepoOne/LICENSE"
-          }
+          },
+          "createdAt": "2020-10-21T09:25:36Z"
         }
       ]
     },

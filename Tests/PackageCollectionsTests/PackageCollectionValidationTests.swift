@@ -27,6 +27,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -38,7 +39,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -91,6 +93,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -102,7 +105,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -115,6 +119,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -126,7 +131,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -163,6 +169,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -174,10 +181,12 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -189,7 +198,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -236,6 +246,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "v1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -247,7 +258,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -284,6 +296,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "2.0.0",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -295,10 +308,12 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -310,7 +325,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -323,6 +339,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.4.0",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -334,10 +351,12 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -349,7 +368,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -391,10 +411,12 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [:],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -431,6 +453,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -442,7 +465,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.2",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -479,6 +503,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.1": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -490,7 +515,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
@@ -527,6 +553,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
                                 toolsVersion: "5.2",
@@ -538,7 +565,8 @@ class PackageCollectionValidationTests: XCTestCase {
                         ],
                         defaultToolsVersion: "5.1",
                         verifiedCompatibility: nil,
-                        license: nil
+                        license: nil,
+                        createdAt: nil
                     ),
                 ],
                 readmeURL: nil,
