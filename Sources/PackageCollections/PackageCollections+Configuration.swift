@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Dispatch
+
 // TODO: how do we read default config values? ENV variables? user settings?
 extension PackageCollections {
     public struct Configuration {
@@ -15,10 +17,13 @@ extension PackageCollections {
         // JSONPackageCollectionProvider: maximumSizeInBytes
         // JSONPackageCollectionValidator: maximumPackageCount, maximumMajorVersionCount, maximumMinorVersionCount
 
+        public var callbackQueue: DispatchQueue?
+
         /// Auth tokens for the collections or metadata provider
         public var authTokens: [AuthTokenType: String]?
 
         public init(authTokens: [AuthTokenType: String]? = nil) {
+            self.callbackQueue = .none
             self.authTokens = authTokens
         }
     }

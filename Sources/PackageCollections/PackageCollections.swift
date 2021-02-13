@@ -9,6 +9,7 @@
  */
 
 import Basics
+import Dispatch
 import PackageModel
 import TSCBasic
 
@@ -64,6 +65,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
                                 callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
@@ -93,6 +97,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
@@ -119,6 +126,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     ) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil, callback: callback)
     }
 
@@ -126,6 +136,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
                               order: Int? = nil,
                               trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -159,6 +172,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func removeCollection(_ source: PackageCollectionsModel.CollectionSource,
                                  callback: @escaping (Result<Void, Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.storage.sources.remove(source: source) { result in
             switch result {
             case .failure(let error):
@@ -172,11 +188,17 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func moveCollection(_ source: PackageCollectionsModel.CollectionSource,
                                to order: Int,
                                callback: @escaping (Result<Void, Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.storage.sources.move(source: source, to: order, callback: callback)
     }
 
     public func updateCollection(_ source: PackageCollectionsModel.CollectionSource,
                                  callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.storage.sources.update(source: source) { result in
             switch result {
             case .failure(let error):
@@ -192,6 +214,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // If not found locally (storage), the collection will be fetched from the source.
     public func getCollection(_ source: PackageCollectionsModel.CollectionSource,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -216,6 +241,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
@@ -234,6 +262,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func getPackageMetadata(_ reference: PackageReference,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         // first find in storage
         self.findPackage(identifier: reference.identity) { result in
             switch result {
@@ -269,6 +300,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
     ) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         self.listCollections(identifiers: collections) { result in
             switch result {
             case .failure(let error):
@@ -286,6 +320,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
     ) {
+        // wrap callback with callback queue
+        let callback = self.configuration.callbackQueue.map { $0.wrap(callback) } ?? callback
+
         let searchType = searchType ?? .exactMatch
 
         self.storage.sources.list { result in
@@ -466,5 +503,15 @@ private struct UnknownProvider: Error {
 
     init(_ sourceType: Model.CollectionSourceType) {
         self.sourceType = sourceType
+    }
+}
+
+extension DispatchQueue {
+    func wrap<T>(_ callback: @escaping (T) -> Void) -> (T) -> Void {
+        return { result in
+            self.async {
+                callback(result)
+            }
+        }
     }
 }
