@@ -34,7 +34,7 @@ extension CollectionsError: CustomStringConvertible {
         case .unsigned:
             return "The collection is not signed. If you would still like to add it please rerun 'add' with '--trust-unsigned'."
         case .cannotVerifySignature:
-            return "The collection's signature cannot be verified due to missing configuration. Please refer to documentations on how to set up trusted root certificates or rerun 'add' with '--skip-signature-check."
+            return "The collection's signature cannot be verified due to missing configuration. Please refer to documentations on how to set up trusted root certificates or rerun 'add' with '--skip-signature-check'."
         }
     }
 }

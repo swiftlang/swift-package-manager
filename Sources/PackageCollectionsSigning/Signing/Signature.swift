@@ -66,7 +66,7 @@ extension Signature {
     static func generate<Payload>(for payload: Payload,
                                   with header: Header,
                                   using signer: MessageSigner,
-                                  jsonEncoder: JSONEncoder = JSONEncoder()) throws -> Data where Payload: Encodable {
+                                  jsonEncoder: JSONEncoder) throws -> Data where Payload: Encodable {
         let headerData = try jsonEncoder.encode(header)
         let encodedHeader = headerData.base64URLEncodedBytes()
 
@@ -94,7 +94,7 @@ extension Signature {
 
     static func parse(_ signature: String,
                       certChainValidate: CertChainValidate,
-                      jsonDecoder: JSONDecoder = JSONDecoder(),
+                      jsonDecoder: JSONDecoder,
                       callback: @escaping (Result<Signature, Error>) -> Void) {
         let bytes = Array(signature.utf8)
         Self.parse(bytes, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder, callback: callback)
@@ -102,7 +102,7 @@ extension Signature {
 
     static func parse<SignatureData>(_ signature: SignatureData,
                                      certChainValidate: CertChainValidate,
-                                     jsonDecoder: JSONDecoder = JSONDecoder(),
+                                     jsonDecoder: JSONDecoder,
                                      callback: @escaping (Result<Signature, Error>) -> Void) where SignatureData: DataProtocol {
         let parts = signature.copyBytes().split(separator: .period)
         guard parts.count == 3 else {

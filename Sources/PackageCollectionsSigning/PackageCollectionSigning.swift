@@ -15,7 +15,38 @@ import Basics
 import PackageCollectionsModel
 import TSCBasic
 
-public struct PackageCollectionSigning {
+public protocol PackageCollectionSigner {
+    /// Signs package collection using the given certificate and key.
+    ///
+    /// - Parameters:
+    ///   - collection: The package collection to be signed
+    ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
+    ///                     must be the first in the array.
+    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
+    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
+    ///   - callback: The callback to invoke when the signed collection is available.
+    func sign(collection: PackageCollectionModel.V1.Collection,
+              certChainPaths: [URL],
+              certPrivateKeyPath: URL,
+              certPolicyKey: CertificatePolicyKey,
+              callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void)
+}
+
+public protocol PackageCollectionSignatureValidator {
+    /// Validates a signed package collection.
+    ///
+    /// - Parameters:
+    ///   - signedCollection: The signed package collection
+    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
+    ///   - callback: The callback to invoke when the result is available.
+    func validate(signedCollection: PackageCollectionModel.V1.SignedCollection,
+                  certPolicyKey: CertificatePolicyKey,
+                  callback: @escaping (Result<Void, Error>) -> Void)
+}
+
+// MARK: - Implementation
+
+public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollectionSignatureValidator {
     public typealias Model = PackageCollectionModel.V1
 
     private static let minimumRSAKeySizeInBits = 2048
@@ -31,6 +62,9 @@ public struct PackageCollectionSigning {
     /// Internal cache/storage of `CertificatePolicy`s
     private let certPolicies = ThreadSafeKeyValueStore<CertificatePolicyKey, CertificatePolicy>()
 
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
     public init(trustedRootCertsDir: URL? = nil, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.callbackQueue = callbackQueue
@@ -41,13 +75,17 @@ public struct PackageCollectionSigning {
             callbackQueue: callbackQueue,
             diagnosticsEngine: diagnosticsEngine
         )
+        self.encoder = JSONEncoder.makeWithDefaults()
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     init(certPolicy: CertificatePolicy, trustedRootCertsDir: URL? = nil, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.callbackQueue = callbackQueue
-        self.certPolicies[CertificatePolicyKey.custom] = certPolicy
         self.diagnosticsEngine = diagnosticsEngine
+        self.certPolicies[CertificatePolicyKey.custom] = certPolicy
+        self.encoder = JSONEncoder.makeWithDefaults()
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     private func getCertificatePolicy(key: CertificatePolicyKey) throws -> CertificatePolicy {
@@ -69,21 +107,10 @@ public struct PackageCollectionSigning {
         }
     }
 
-    /// Signs package collection using the given certificate and key.
-    ///
-    /// - Parameters:
-    ///   - collection: The package collection to be signed
-    ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
-    ///                     must be the first in the array.
-    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
-    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
-    ///   - jsonEncoder: The `JSONEncoder` to use
-    ///   - callback: The callback to invoke when the signed collection is available.
     public func sign(collection: Model.Collection,
                      certChainPaths: [URL],
                      certPrivateKeyPath: URL,
                      certPolicyKey: CertificatePolicyKey = .default,
-                     jsonEncoder: JSONEncoder = JSONEncoder(),
                      callback: @escaping (Result<Model.SignedCollection, Error>) -> Void) {
         do {
             let certChainData = try certChainPaths.map { try Data(contentsOf: $0) }
@@ -117,7 +144,7 @@ public struct PackageCollectionSigning {
                         try self.validateKey(privateKey)
 
                         // Generate the signature
-                        let signatureData = try Signature.generate(for: collection, with: header, using: privateKey, jsonEncoder: jsonEncoder)
+                        let signatureData = try Signature.generate(for: collection, with: header, using: privateKey, jsonEncoder: self.encoder)
 
                         guard let signature = String(bytes: signatureData, encoding: .utf8) else {
                             return callback(.failure(PackageCollectionSigningError.invalidSignature))
@@ -150,7 +177,6 @@ public struct PackageCollectionSigning {
     ///   - callback: The callback to invoke when the result is available.
     public func validate(signedCollection: Model.SignedCollection,
                          certPolicyKey: CertificatePolicyKey = .default,
-                         jsonDecoder: JSONDecoder = JSONDecoder(),
                          callback: @escaping (Result<Void, Error>) -> Void) {
         guard let signature = signedCollection.signature.signature.data(using: .utf8)?.copyBytes() else {
             return callback(.failure(PackageCollectionSigningError.invalidSignature))
@@ -160,14 +186,14 @@ public struct PackageCollectionSigning {
         let certChainValidate = { certChainData, validateCallback in
             self.validateCertChain(certChainData, certPolicyKey: certPolicyKey, callback: validateCallback)
         }
-        Signature.parse(signature, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder) { result in
+        Signature.parse(signature, certChainValidate: certChainValidate, jsonDecoder: self.decoder) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let signature):
                 // Verify the collection embedded in the signature is the same as received
                 // i.e., the signature is associated with the given collection and not another
-                guard let collectionFromSignature = try? jsonDecoder.decode(Model.Collection.self, from: signature.payload),
+                guard let collectionFromSignature = try? self.decoder.decode(Model.Collection.self, from: signature.payload),
                     signedCollection.collection == collectionFromSignature else {
                     return callback(.failure(PackageCollectionSigningError.invalidSignature))
                 }
@@ -208,7 +234,7 @@ public struct PackageCollectionSigning {
     }
 }
 
-enum PackageCollectionSigningError: Error, Equatable {
+public enum PackageCollectionSigningError: Error, Equatable {
     case certPolicyNotFound
     case emptyCertChain
     case invalidCertChain

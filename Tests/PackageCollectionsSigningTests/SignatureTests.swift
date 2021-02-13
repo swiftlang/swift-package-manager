@@ -22,6 +22,9 @@ class SignatureTests: XCTestCase {
         }
 
         fixture(name: "Collections") { directoryPath in
+            let jsonEncoder = JSONEncoder()
+            let jsonDecoder = JSONDecoder()
+
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -31,9 +34,8 @@ class SignatureTests: XCTestCase {
 
             let header = Signature.Header(algorithm: .RS256, certChain: [base64EncodedCert])
             let privateKey = try RSAPrivateKey(pem: certRSAPrivateKey.bytes)
-            let signature = try Signature.generate(for: payload, with: header, using: privateKey)
+            let signature = try Signature.generate(for: payload, with: header, using: privateKey, jsonEncoder: jsonEncoder)
 
-            let jsonDecoder = JSONDecoder()
             let parsedSignature = try tsc_await { callback in
                 Signature.parse(signature, certChainValidate: { _, cb in cb(.success([certificate])) }, jsonDecoder: jsonDecoder, callback: callback)
             }
@@ -48,6 +50,9 @@ class SignatureTests: XCTestCase {
         }
 
         fixture(name: "Collections") { directoryPath in
+            let jsonEncoder = JSONEncoder()
+            let jsonDecoder = JSONDecoder()
+
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -58,9 +63,8 @@ class SignatureTests: XCTestCase {
             let header = Signature.Header(algorithm: .RS256, certChain: [base64EncodedCert])
             // This is not cert's key so `parse` will fail
             let privateKey = try RSAPrivateKey(pem: rsaPrivateKey.bytes)
-            let signature = try Signature.generate(for: payload, with: header, using: privateKey)
+            let signature = try Signature.generate(for: payload, with: header, using: privateKey, jsonEncoder: jsonEncoder)
 
-            let jsonDecoder = JSONDecoder()
             XCTAssertThrowsError(try tsc_await { callback in
                 Signature.parse(signature, certChainValidate: { _, cb in cb(.success([certificate])) }, jsonDecoder: jsonDecoder, callback: callback)
             }) { error in
@@ -77,6 +81,9 @@ class SignatureTests: XCTestCase {
         }
 
         fixture(name: "Collections") { directoryPath in
+            let jsonEncoder = JSONEncoder()
+            let jsonDecoder = JSONDecoder()
+
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
@@ -86,9 +93,8 @@ class SignatureTests: XCTestCase {
 
             let header = Signature.Header(algorithm: .ES256, certChain: [base64EncodedCert])
             let privateKey = try ECPrivateKey(pem: certECPrivateKey.bytes)
-            let signature = try Signature.generate(for: payload, with: header, using: privateKey)
+            let signature = try Signature.generate(for: payload, with: header, using: privateKey, jsonEncoder: jsonEncoder)
 
-            let jsonDecoder = JSONDecoder()
             let parsedSignature = try tsc_await { callback in
                 Signature.parse(signature, certChainValidate: { _, cb in cb(.success([certificate])) }, jsonDecoder: jsonDecoder, callback: callback)
             }
@@ -103,6 +109,9 @@ class SignatureTests: XCTestCase {
         }
 
         fixture(name: "Collections") { directoryPath in
+            let jsonEncoder = JSONEncoder()
+            let jsonDecoder = JSONDecoder()
+
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
@@ -113,9 +122,8 @@ class SignatureTests: XCTestCase {
             let header = Signature.Header(algorithm: .ES256, certChain: [base64EncodedCert])
             // This is not cert's key so `parse` will fail
             let privateKey = try ECPrivateKey(pem: ecPrivateKey.bytes)
-            let signature = try Signature.generate(for: payload, with: header, using: privateKey)
+            let signature = try Signature.generate(for: payload, with: header, using: privateKey, jsonEncoder: jsonEncoder)
 
-            let jsonDecoder = JSONDecoder()
             XCTAssertThrowsError(try tsc_await { callback in
                 Signature.parse(signature, certChainValidate: { _, cb in cb(.success([certificate])) }, jsonDecoder: jsonDecoder, callback: callback)
             }) { error in

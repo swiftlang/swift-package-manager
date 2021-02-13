@@ -114,11 +114,5 @@ class PackageCollectionModelTests: XCTestCase {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(Model.SignedCollection.self, from: data)
         XCTAssertEqual(signedCollection, decoded)
-
-        let decodedCollection = try Model.SignedCollection.collection(from: data, using: decoder)
-        XCTAssertEqual(collection, decodedCollection)
-
-        let decodedSignature = try Model.SignedCollection.signature(from: data, using: decoder)
-        XCTAssertEqual(signature, decodedSignature)
     }
 }
