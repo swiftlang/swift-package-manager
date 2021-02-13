@@ -8,11 +8,65 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Dispatch
+import Foundation
+
+@testable import PackageCollectionsSigning
+import TSCBasic
+
 #if canImport(Security)
 let isSupportedPlatform = true
 #else
 let isSupportedPlatform = false
 #endif
+
+// Update this when running ENABLE_REAL_CERT_TEST tests
+let expectedSubjectUserID = "<USER ID>"
+
+// MARK: - CertificatePolicy for test certs
+
+struct TestCertificatePolicy: CertificatePolicy {
+    static let testCertValidDate: Date = {
+        var dateComponents = DateComponents()
+        dateComponents.year = 2020
+        dateComponents.month = 11
+        dateComponents.day = 16
+        return Calendar.current.date(from: dateComponents)!
+    }()
+
+    static let testCertInvalidDate: Date = {
+        var dateComponents = DateComponents()
+        dateComponents.year = 2000
+        dateComponents.month = 11
+        dateComponents.day = 16
+        return Calendar.current.date(from: dateComponents)!
+    }()
+
+    let anchorCerts: [Certificate]?
+    let verifyDate: Date
+
+    let callbackQueue: DispatchQueue
+
+    init(anchorCerts: [Certificate]? = nil, verifyDate: Date = Self.testCertValidDate, callbackQueue: DispatchQueue = DispatchQueue.global()) {
+        self.anchorCerts = anchorCerts
+        self.verifyDate = verifyDate
+        self.callbackQueue = callbackQueue
+    }
+
+    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
+        do {
+            guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
+                return self.callbackQueue.async { callback(.failure(CertificatePolicyError.codeSigningCertRequired)) }
+            }
+            self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
+                        diagnosticsEngine: DiagnosticsEngine(), callbackQueue: self.callbackQueue, callback: callback)
+        } catch {
+            return self.callbackQueue.async { callback(.failure(error)) }
+        }
+    }
+}
+
+// MARK: - Test keys
 
 let ecPrivateKey = """
 -----BEGIN EC PRIVATE KEY-----
@@ -108,6 +162,8 @@ ArYcBO4+cBZSbNjmUdUOSyM8fAUrWmy4QyvZXNy15V7W6qVzxfa0hT8T6tFUVmKG
 qseI/cG+CoygHw9OqBcffl1d8LVAHmF8mkfzJ2CnQs9CLFxS1+f9
 -----END RSA PRIVATE KEY-----
 """
+
+// MARK: - Utils
 
 extension String {
     var bytes: [UInt8] {

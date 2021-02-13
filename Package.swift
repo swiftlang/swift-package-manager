@@ -156,7 +156,7 @@ let package = Package(
         .target(
              /** Package collections signing */
              name: "PackageCollectionsSigning",
-             dependencies: ["PackageCollectionsModel", "Crypto"]),
+             dependencies: ["PackageCollectionsModel", "Crypto", "Basics"]),
 
         .target(
             /** Data structures and support for package collections */
