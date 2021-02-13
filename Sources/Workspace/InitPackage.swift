@@ -43,6 +43,7 @@ public final class InitPackage {
         case executable = "executable"
         case systemModule = "system-module"
         case manifest = "manifest"
+        case `extension` = "extension"
 
         public var description: String {
             return rawValue
@@ -284,7 +285,7 @@ public final class InitPackage {
                 print("Hello, world!")
 
                 """
-        case .systemModule, .empty, .manifest:
+        case .systemModule, .empty, .manifest, .`extension`:
             throw InternalError("invalid packageType \(packageType)")
         }
 
@@ -326,7 +327,7 @@ public final class InitPackage {
         try makeDirectories(tests)
 
         switch packageType {
-        case .systemModule, .empty, .manifest: break
+        case .systemModule, .empty, .manifest, .`extension`: break
         case .library, .executable:
             try writeTestFileStubs(testsPath: tests)
         }
@@ -421,7 +422,7 @@ public final class InitPackage {
 
         let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
         switch packageType {
-        case .systemModule, .empty, .manifest: break
+        case .systemModule, .empty, .manifest, .`extension`: break
         case .library:
             try writeLibraryTestsFile(testClassFile)
         case .executable:

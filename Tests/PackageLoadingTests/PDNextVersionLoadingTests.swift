@@ -21,4 +21,66 @@ class PackageDescriptionNextVersionLoadingTests: PackageDescriptionLoadingTests 
         .vNext
     }
 
+    func testPrebuildExtensionTarget() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .extension(
+                       name: "Foo",
+                       capability: .prebuild()
+                    ),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.targets[0].type, .extension)
+            XCTAssertEqual(manifest.targets[0].extensionCapability, .prebuild)
+        }
+    }
+
+    func testBuildToolExtensionTarget() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .extension(
+                       name: "Foo",
+                       capability: .buildTool()
+                    ),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.targets[0].type, .extension)
+            XCTAssertEqual(manifest.targets[0].extensionCapability, .buildTool)
+        }
+    }
+
+    func testPostbuildExtensionTarget() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .extension(
+                       name: "Foo",
+                       capability: .postbuild()
+                    ),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.targets[0].type, .extension)
+            XCTAssertEqual(manifest.targets[0].extensionCapability, .postbuild)
+        }
+    }
 }

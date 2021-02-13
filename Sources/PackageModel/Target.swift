@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -17,6 +17,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         ClangTarget.self,
         SystemLibraryTarget.self,
         BinaryTarget.self,
+        ExtensionTarget.self,
     ]
 
     /// The target kind.
@@ -26,6 +27,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         case systemModule = "system-target"
         case test
         case binary
+        case `extension` = "extension"
     }
 
     /// A reference to a product from a target dependency.
@@ -524,5 +526,82 @@ public final class BinaryTarget: Target {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
         try super.init(from: decoder)
+    }
+}
+
+public final class ExtensionTarget: Target {
+
+    public let capability: ExtensionCapability
+    
+    public init(
+        name: String,
+        platforms: [SupportedPlatform] = [],
+        sources: Sources,
+        extensionCapability: ExtensionCapability,
+        dependencies: [Target.Dependency] = []
+    ) {
+        self.capability = extensionCapability
+        super.init(
+            name: name,
+            defaultLocalization: nil,
+            platforms: platforms,
+            type: .extension,
+            sources: sources,
+            dependencies: dependencies,
+            buildSettings: .init()
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case capability
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.capability, forKey: .capability)
+        try super.encode(to: encoder)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.capability = try container.decode(ExtensionCapability.self, forKey: .capability)
+        try super.init(from: decoder)
+    }
+}
+
+public enum ExtensionCapability: Equatable, Codable {
+    case prebuild
+    case buildTool
+    case postbuild
+
+    private enum CodingKeys: String, CodingKey {
+        case prebuild, buildTool, postbuild
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .prebuild:
+            try container.encodeNil(forKey: .prebuild)
+        case .buildTool:
+            try container.encodeNil(forKey: .buildTool)
+        case .postbuild:
+            try container.encodeNil(forKey: .postbuild)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .prebuild:
+            self = .prebuild
+        case .buildTool:
+            self = .buildTool
+        case .postbuild:
+            self = .postbuild
+        }
     }
 }

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -43,7 +43,7 @@ extension ResolvedTarget {
             return "com.apple.product-type.framework"
         case .executable:
             return "com.apple.product-type.tool"
-        case .systemModule, .binary:
+        case .systemModule, .binary, .extension:
             fatalError()
         }
     }
@@ -56,7 +56,7 @@ extension ResolvedTarget {
             return "wrapper.framework"
         case .executable:
             return "compiled.mach-o.executable"
-        case .systemModule, .binary:
+        case .systemModule, .binary, .extension:
             fatalError()
         }
     }
@@ -69,7 +69,7 @@ extension ResolvedTarget {
             return RelativePath("\(c99name).framework")
         case .executable:
             return RelativePath(name)
-        case .systemModule, .binary:
+        case .systemModule, .binary, .extension:
             fatalError()
         }
     }
@@ -81,7 +81,7 @@ extension ResolvedTarget {
             return "'lib$(TARGET_NAME)'"
         case .test, .executable:
             return "'$(TARGET_NAME)'"
-        case .systemModule, .binary:
+        case .systemModule, .binary, .extension:
             fatalError()
         }
     }

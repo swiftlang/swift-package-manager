@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -18,6 +18,7 @@ public struct TargetDescription: Equatable, Codable {
         case test
         case system
         case binary
+        case `extension`
     }
 
     /// Represents a target's dependency on another entity.
@@ -102,13 +103,21 @@ public struct TargetDescription: Equatable, Codable {
 
     /// The providers of a system library target.
     public let providers: [SystemPackageProviderDescription]?
+    
+    /// The capability for a package extension target.
+    public let extensionCapability: ExtensionCapability?
+    
+    /// Represents the capability of a package extension.
+    public enum ExtensionCapability: Equatable {
+        case prebuild, buildTool, postbuild
+    }
 
     /// The target-specific build settings declared in this target.
     public let settings: [TargetBuildSettingDescription.Setting]
 
     /// The binary target checksum.
     public let checksum: String?
-
+    
     public init(
         name: String,
         dependencies: [Dependency] = [],
@@ -121,6 +130,7 @@ public struct TargetDescription: Equatable, Codable {
         type: TargetType = .regular,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
+        extensionCapability: ExtensionCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil
     ) throws {
@@ -129,6 +139,7 @@ public struct TargetDescription: Equatable, Codable {
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
             if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .system:
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
@@ -136,6 +147,7 @@ public struct TargetDescription: Equatable, Codable {
             if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
             if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
             if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
             if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .binary:
@@ -147,6 +159,17 @@ public struct TargetDescription: Equatable, Codable {
             if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+        case .extension:
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if extensionCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
         }
 
@@ -161,6 +184,7 @@ public struct TargetDescription: Equatable, Codable {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self.extensionCapability = extensionCapability
         self.settings = settings
         self.checksum = checksum
     }
@@ -219,6 +243,39 @@ extension TargetDescription.Dependency: Codable {
 extension TargetDescription.Dependency: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self = .byName(name: value, condition: nil)
+    }
+}
+
+extension TargetDescription.ExtensionCapability: Codable {
+    private enum CodingKeys: CodingKey {
+        case prebuild, buildTool, postbuild
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .prebuild:
+            try container.encodeNil(forKey: .prebuild)
+        case .buildTool:
+            try container.encodeNil(forKey: .buildTool)
+        case .postbuild:
+            try container.encodeNil(forKey: .postbuild)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .prebuild:
+            self = .prebuild
+        case .buildTool:
+            self = .buildTool
+        case .postbuild:
+            self = .postbuild
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -30,6 +30,8 @@ public final class Target {
         case system
         /// A target that references a binary artifact.
         case binary
+        /// A target that provides a package extension.
+        case `extension`
     }
 
     /// The different types of a target's dependency on another entity.
@@ -120,6 +122,21 @@ public final class Target {
 
     /// The providers array for a system library target.
     public let providers: [SystemPackageProvider]?
+    
+    /// The capability provided by a package extension target.
+    @available(_PackageDescription, introduced: 999.0)
+    public var extensionCapability: ExtensionCapability? {
+        get { return _extensionCapability }
+        set { _extensionCapability = newValue }
+    }
+    private var _extensionCapability: ExtensionCapability?
+    
+    /// The different types of capability that an extension can provide.
+    public enum ExtensionCapability {
+        case _prebuild
+        case _buildTool
+        case _postbuild
+    }
 
     /// The target's C build settings.
     @available(_PackageDescription, introduced: 5)
@@ -174,6 +191,7 @@ public final class Target {
         type: TargetType,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
+        extensionCapability: ExtensionCapability? = nil,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
@@ -191,6 +209,7 @@ public final class Target {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self._extensionCapability = extensionCapability
         self._cSettings = cSettings
         self._cxxSettings = cxxSettings
         self._swiftSettings = swiftSettings
@@ -203,6 +222,7 @@ public final class Target {
                 url == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
+                extensionCapability == nil &&
                 checksum == nil
             )
         case .system:
@@ -213,6 +233,7 @@ public final class Target {
                 sources == nil &&
                 resources == nil &&
                 publicHeadersPath == nil &&
+                extensionCapability == nil &&
                 cSettings == nil &&
                 cxxSettings == nil &&
                 swiftSettings == nil &&
@@ -228,6 +249,22 @@ public final class Target {
                 publicHeadersPath == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
+                extensionCapability == nil &&
+                cSettings == nil &&
+                cxxSettings == nil &&
+                swiftSettings == nil &&
+                linkerSettings == nil
+            )
+        case .extension:
+            precondition(
+                url == nil &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                extensionCapability != nil &&
                 cSettings == nil &&
                 cxxSettings == nil &&
                 swiftSettings == nil &&
@@ -650,6 +687,23 @@ public final class Target {
             publicHeadersPath: nil,
             type: .binary)
     }
+
+    @available(_PackageDescription, introduced: 999.0)
+    public static func `extension`(
+        name: String,
+        capability: ExtensionCapability,
+        dependencies: [Dependency] = []
+    ) -> Target {
+      return Target(
+          name: name,
+          dependencies: dependencies,
+          path: nil,
+          exclude: [],
+          sources: nil,
+          publicHeadersPath: nil,
+          type: .extension,
+          extensionCapability: capability)
+    }
   #endif
 }
 
@@ -666,6 +720,7 @@ extension Target: Encodable {
         case type
         case pkgConfig
         case providers
+        case extensionCapability
         case cSettings
         case cxxSettings
         case swiftSettings
@@ -687,6 +742,7 @@ extension Target: Encodable {
         try container.encode(type, forKey: .type)
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
+        try container.encode(_extensionCapability, forKey: .extensionCapability)
         try container.encode(_checksum, forKey: .checksum)
 
         if let cSettings = self._cSettings {
@@ -803,6 +859,41 @@ extension Target.Dependency {
         return ._byNameItem(name: name, condition: condition)
     }
   #endif
+}
+
+extension Target.ExtensionCapability {
+
+    /// Specifies that the extension provides a prebuild capability.
+    /// The commands generated by the extension are prebuild actions that
+    /// should unconditionally run before the build starts. Such commands are
+    /// esponsible for their down dependency caching in order to avoid doing
+    /// unncessary work.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func prebuild() -> Target.ExtensionCapability {
+        return ._prebuild
+    }
+
+    /// Specifies that the extension provides a build-tool capability.
+    /// The commands generated by the extension should run at appropriate
+    /// times during the build based on its declared dependencies. The must
+    /// declare the input and output paths so that the build system knows
+    /// when to run the command. This is usually the best capability for
+    /// the extension to provide when the inputs and outputs of the command
+    /// are known ahead of time.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func buildTool() -> Target.ExtensionCapability {
+        return ._buildTool
+    }
+
+    /// Specifies that the extension provides a postbuild capability.
+    /// The commands generated by the extension are postbuild actions that
+    /// should unconditionally run after the build finishes. Such commands
+    /// are responsible for their down dependency caching in order to avoid
+    /// doing unncessary work.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func postbuild() -> Target.ExtensionCapability {
+        return ._postbuild
+    }
 }
 
 // MARK: ExpressibleByStringLiteral

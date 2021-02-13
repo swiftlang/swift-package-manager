@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -132,12 +132,29 @@ fileprivate struct DescribedPackage: Encodable {
         }
     }
 
+    /// Represents a extension capability for the sole purpose of generating a description.
+    struct DescribedExtensionCapability: Encodable {
+        let type: String
+
+        init(from capability: ExtensionCapability, in package: Package) {
+            switch capability {
+            case .prebuild:
+                self.type = "prebuild"
+            case .buildTool:
+                self.type = "buildTool"
+            case .postbuild:
+                self.type = "postbuild"
+            }
+        }
+    }
+
     /// Represents a target for the sole purpose of generating a description.
     struct DescribedTarget: Encodable {
         let name: String
         let type: String
         let c99name: String?
         let moduleType: String?
+        let extensionCapability: DescribedExtensionCapability?
         let path: String
         let sources: [String]
         let resources: [PackageModel.Resource]?
@@ -149,6 +166,7 @@ fileprivate struct DescribedPackage: Encodable {
             self.type = target.type.rawValue
             self.c99name = target.c99name
             self.moduleType = String(describing: Swift.type(of: target))
+            self.extensionCapability = (target as? ExtensionTarget).map{ DescribedExtensionCapability(from: $0.capability, in: package) }
             self.path = target.sources.root.relative(to: package.path).pathString
             self.sources = target.sources.relativePaths.map{ $0.pathString }
             self.resources = target.resources.isEmpty ? nil : target.resources
