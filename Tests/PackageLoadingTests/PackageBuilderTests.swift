@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -2157,6 +2157,47 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testExtensionTargetsAreGuardededByFeatureFlag() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/MyExtension/extension.swift",
+            "/Foo/Sources/MyLibrary/library.swift"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "MyExtension",
+                    dependencies: [
+                        .target(name: "MyLibrary"),
+                    ],
+                    type: .extension,
+                    extensionCapability: .buildTool
+                ),
+                try TargetDescription(
+                    name: "MyLibrary",
+                    type: .regular
+                ),
+            ]
+        )
+
+        // Check that extension targets are set up correctly when the feature flag is set.
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowExtensionTargets: true, in: fs) { package, diagnostics in
+            package.checkModule("MyExtension") { target in
+                target.check(extensionCapability: .buildTool)
+                target.check(dependencies: ["MyLibrary"])
+            }
+            package.checkModule("MyLibrary")
+        }
+        
+        // Check that the right diagnostics are emitted when the feature flag isn't set.
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowExtensionTargets: false, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "extension target 'MyExtension' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_EXTENSION_TARGETS=1 in environment)", behavior: .error)
+        }
+    }
+
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -2189,6 +2230,7 @@ final class PackageBuilderTester {
         path: AbsolutePath = .root,
         remoteArtifacts: [RemoteArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
+        allowExtensionTargets: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
@@ -2208,6 +2250,7 @@ final class PackageBuilderTester {
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
+                allowExtensionTargets: allowExtensionTargets,
                 createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
@@ -2388,6 +2431,13 @@ final class PackageBuilderTester {
         func checkPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
             let platform = target.getSupportedPlatform(for: platform)
             XCTAssertEqual(platform?.options, options, file: file, line: line)
+        }
+        
+        func check(extensionCapability: ExtensionCapability, file: StaticString = #file, line: UInt = #line) {
+            guard case let target as ExtensionTarget = target else {
+                return XCTFail("Extension capability is being checked on a non-Extension target", file: file, line: line)
+            }
+            XCTAssertEqual(target.capability, extensionCapability, file: file, line: line)
         }
     }
 

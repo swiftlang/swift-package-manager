@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -141,6 +141,8 @@ enum ManifestJSONParser {
         let providers = try? json
             .getArray("providers")
             .map(SystemPackageProviderDescription.init(v4:))
+        
+        let capability = try? TargetDescription.ExtensionCapability(v4: json.getJSON("extensionCapability"))
 
         let dependencies = try json
             .getArray("dependencies")
@@ -164,6 +166,7 @@ enum ManifestJSONParser {
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
             providers: providers,
+            extensionCapability: capability,
             settings: try Self.parseBuildSettings(json),
             checksum: json.get("checksum")
         )
@@ -394,6 +397,8 @@ extension TargetDescription.TargetType {
             self = .system
         case "binary":
             self = .binary
+        case "extension":
+            self = .extension
         default:
             throw InternalError("invalid target \(string)")
         }
@@ -416,6 +421,22 @@ extension TargetDescription.Dependency {
         case "byname":
             self = try .byName(name: json.get("name"), condition: condition)
 
+        default:
+            throw InternalError("invalid type \(type)")
+        }
+    }
+}
+
+extension TargetDescription.ExtensionCapability {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        switch type {
+        case "prebuild":
+            self = .prebuild
+        case "buildTool":
+            self = .buildTool
+        case "postbuild":
+            self = .postbuild
         default:
             throw InternalError("invalid type \(type)")
         }

@@ -291,6 +291,22 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(textChunk6.contains("Sources:\n        main.c"), textChunk6)
         }
     }
+    
+    func testDescribePackageUsingExtensions() throws {
+        fixture(name: "Miscellaneous/Extensions/MySourceGenExtension") { prefix in
+            // Generate the JSON description.
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix, env: ["SWIFTPM_ENABLE_EXTENSION_TARGETS": "1"])
+            XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
+
+            // Check the contents of the JSON.
+            XCTAssertEqual(try XCTUnwrap(json["name"]).string, "MySourceGenExtension")
+            let targetsArray = try XCTUnwrap(json["targets"]?.array)
+            let extensionTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenExt" }?.dictionary)
+            XCTAssertEqual(extensionTarget["module_type"]?.string, "ExtensionTarget")
+            XCTAssertEqual(extensionTarget["extension_capability"]?.dictionary?["type"]?.string, "prebuild")
+        }
+    }
 
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in

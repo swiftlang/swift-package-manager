@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -592,6 +592,30 @@ extension SystemPackageProvider: Encodable {
     }
 }
 
+extension Target.ExtensionCapability: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type
+    }
+
+    private enum Capability: String, Encodable {
+        case prebuild
+        case buildTool
+        case postbuild
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case ._prebuild:
+            try container.encode(Capability.prebuild, forKey: .type)
+        case ._buildTool:
+            try container.encode(Capability.buildTool, forKey: .type)
+        case ._postbuild:
+            try container.encode(Capability.postbuild, forKey: .type)
+        }
+    }
+}
+
 extension Target.Dependency: Encodable {
     private enum CodingKeys: CodingKey {
         case type
@@ -650,6 +674,7 @@ func manifestToJSON(_ package: Package) -> String {
     }
 
     let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     let data = try! encoder.encode(Output(package: package, errors: errors))
     return String(data: data, encoding: .utf8)!
 }

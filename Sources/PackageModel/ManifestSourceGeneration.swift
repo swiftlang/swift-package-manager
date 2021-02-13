@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -165,6 +165,11 @@ fileprivate extension SourceCodeFragment {
 
         params.append(SourceCodeFragment(key: "name", string: target.name))
         
+        if let extensionCapability = target.extensionCapability {
+            let node = SourceCodeFragment(from: extensionCapability)
+            params.append(SourceCodeFragment(key: "capability", subnode: node))
+        }
+
         if !target.dependencies.isEmpty {
             let nodes = target.dependencies.map{ SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
@@ -243,6 +248,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "systemLibrary", subnodes: params, multiline: true)
         case .binary:
             self.init(enum: "binaryTarget", subnodes: params, multiline: true)
+        case .extension:
+            self.init(enum: "extension", subnodes: params, multiline: true)
         }
     }
 
@@ -344,6 +351,18 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)
+        }
+    }
+
+    /// Instantiates a SourceCodeFragment to represent a single extension capability.
+    init(from capability: TargetDescription.ExtensionCapability) {
+        switch capability {
+        case .prebuild:
+            self.init(enum: "prebuild", subnodes: [])
+        case .buildTool:
+            self.init(enum: "buildTool", subnodes: [])
+        case .postbuild:
+            self.init(enum: "postbuild", subnodes: [])
         }
     }
 
