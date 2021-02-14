@@ -222,7 +222,7 @@ let package = Package(
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
-            dependencies: ["Commands"]),
+            dependencies: ["Commands", "SwiftToolsSupport-auto"]),
         .target(
             /** Builds packages */
             name: "swift-build",
