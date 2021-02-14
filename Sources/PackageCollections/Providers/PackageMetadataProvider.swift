@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -30,11 +30,18 @@ extension Model {
     struct PackageBasicMetadata: Equatable {
         let summary: String?
         let keywords: [String]?
-        let versions: [TSCUtility.Version]
+        let versions: [PackageBasicVersionMetadata]
         let watchersCount: Int?
         let readmeURL: Foundation.URL?
         let license: PackageCollectionsModel.License?
         let authors: [PackageCollectionsModel.Package.Author]?
         let processedAt: Date
+    }
+
+    struct PackageBasicVersionMetadata: Equatable {
+        let version: TSCUtility.Version
+        let summary: String?
+        let createdAt: Date
+        let publishedAt: Date?
     }
 }
