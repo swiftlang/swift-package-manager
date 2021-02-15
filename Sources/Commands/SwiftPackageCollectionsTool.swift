@@ -53,12 +53,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             List.self,
             Refresh.self,
             Remove.self,
-            Search.self
+            Search.self,
         ],
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
-    public init() {
-    }
+    public init() {}
 
     // MARK: Collections
 
@@ -70,10 +70,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         mutating func run() throws {
             let collections = try with { collections in
-                return try tsc_await { collections.listCollections(identifiers: nil, callback: $0) }
+                try tsc_await { collections.listCollections(identifiers: nil, callback: $0) }
             }
 
-            if jsonOptions.json {
+            if self.jsonOptions.json {
                 try JSONEncoder.makeWithDefaults().print(collections)
             } else {
                 collections.forEach {
@@ -88,7 +88,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         mutating func run() throws {
             let collections = try with { collections in
-                return try tsc_await { collections.refreshCollections(callback: $0) }
+                try tsc_await { collections.refreshCollections(callback: $0) }
             }
             print("Refreshed \(collections.count) configured package collections.")
         }
@@ -102,7 +102,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         @Option(name: .long, help: "Sort order for the added collection")
         var order: Int?
-        
+
         @Flag(name: .long, help: "Trust the collection even if it is unsigned")
         var trustUnsigned: Bool = false
 
@@ -121,7 +121,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             order: order,
                             trustConfirmationProvider: { _, callback in callback(userTrusted) },
                             callback: $0
-                        ) }
+                        )
+                    }
                 } catch PackageCollectionError.trustConfirmationRequired, PackageCollectionError.untrusted {
                     throw CollectionsError.unsigned
                 }
@@ -175,7 +176,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 switch searchMethod {
                 case .keywords:
                     let results = try tsc_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
-                    
+
                     if jsonOptions.json {
                         try JSONEncoder.makeWithDefaults().print(results.items)
                     } else {
@@ -203,7 +204,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
     // MARK: Packages
 
     struct Describe: ParsableCommand {
-        static var configuration = CommandConfiguration(abstract: "Get metadata for a single package or collection")
+        static var configuration = CommandConfiguration(abstract: "Get metadata for a collection or a package included in an imported collection")
 
         @OptionGroup
         var jsonOptions: JSONOptions
@@ -228,13 +229,13 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 version.verifiedCompatibility?.map { "(\($0.platform.name), \($0.swiftVersion.rawValue))" }.joined(separator: ", ")
             )
             let license = optionalRow("License", version.license?.type.description)
-            
+
             return """
             \(version.version)
-            \(printManifest(defaultManifest))\(manifests)\(compatibility)\(license)
+            \(self.printManifest(defaultManifest))\(manifests)\(compatibility)\(license)
             """
         }
-        
+
         private func printManifest(_ manifest: PackageCollectionsModel.Package.Version.Manifest) -> String {
             let modules = manifest.targets.compactMap { $0.moduleName }.joined(separator: ", ")
             let products = optionalRow("Products", manifest.products.isEmpty ? nil : manifest.products.compactMap { $0.name }.joined(separator: ", "), indentationLevel: 3)
@@ -250,15 +251,15 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             try with { collections in
                 let identity = PackageIdentity(url: packageUrl)
                 let reference = PackageReference.remote(identity: identity, location: packageUrl)
-                
-                do { // assume URL is for a package
+
+                do { // assume URL is for a package in an imported collection
                     let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }
-                    
+
                     if let versionString = version {
                         guard let version = TSCUtility.Version(string: versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
                             throw CollectionsError.invalidVersionString(versionString)
                         }
-                        
+
                         if jsonOptions.json {
                             try JSONEncoder.makeWithDefaults().print(result)
                         } else {
@@ -286,28 +287,32 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     if version != nil {
                         throw error
                     }
-                    
+
                     guard let collectionUrl = URL(string: packageUrl) else {
                         throw CollectionsError.invalidArgument("collectionUrl")
                     }
-                    
-                    let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
-                    let collection = try tsc_await { collections.getCollection(source, callback: $0) }
-                    
-                    let description = optionalRow("Description", collection.overview)
-                    let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
-                    let createdAt = optionalRow("Created At", DateFormatter().string(from: collection.createdAt))
-                    let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n\(indent(levels: 2))")
-                    
-                    if jsonOptions.json {
-                        try JSONEncoder.makeWithDefaults().print(collection)
-                    } else {
-                        print("""
-                                        Name: \(collection.name)
-                                        Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
-                                        Packages:
-                                            \(packages)
-                                    """)
+
+                    do {
+                        let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
+                        let collection = try tsc_await { collections.getCollection(source, callback: $0) }
+
+                        let description = optionalRow("Description", collection.overview)
+                        let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
+                        let createdAt = optionalRow("Created At", DateFormatter().string(from: collection.createdAt))
+                        let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n\(indent(levels: 2))")
+
+                        if jsonOptions.json {
+                            try JSONEncoder.makeWithDefaults().print(collection)
+                        } else {
+                            print("""
+                                Name: \(collection.name)
+                                Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
+                                Packages:
+                                    \(packages)
+                            """)
+                        }
+                    } catch {
+                        print("Failed to get metadata. The given URL neither belongs to a valid collection nor a package in an imported collection.")
                     }
                 }
             }
@@ -328,7 +333,7 @@ private func optionalRow(_ title: String, _ contents: String?, indentationLevel:
 }
 
 private extension JSONEncoder {
-    func print<T>(_ value: T) throws where T : Encodable {
+    func print<T>(_ value: T) throws where T: Encodable {
         let jsonData = try self.encode(value)
         let jsonString = String(data: jsonData, encoding: .utf8)!
         Swift.print(jsonString)
@@ -345,7 +350,7 @@ private extension ParsableCommand {
                 Self.exit(withError: error)
             }
         }
-        
+
         return try handler(collections)
     }
 }
