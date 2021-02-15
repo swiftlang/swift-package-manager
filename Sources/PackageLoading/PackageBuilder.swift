@@ -238,7 +238,8 @@ public final class PackageBuilder {
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
-    /// Temporary parameter controlling whether to allow package extension targets (durning bring-up, before proposal is accepted).
+    /// Temporary parameter controlling whether to allow package extension targets (during bring-up, before proposal is accepted).
+    /// This is set if SWIFTPM_ENABLE_EXTENSION_TARGETS=1 or if the feature is enabled in the initializer (for use by unit tests).
     private let allowExtensionTargets: Bool
     
     /// Create the special REPL product for this package.
@@ -271,7 +272,7 @@ public final class PackageBuilder {
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
-        allowExtensionTargets: Bool = (ProcessEnv.vars["SWIFTPM_ENABLE_EXTENSION_TARGETS"] == "1"),
+        allowExtensionTargets: Bool = false,
         createREPLProduct: Bool = false
     ) {
         self.manifest = manifest
@@ -283,7 +284,7 @@ public final class PackageBuilder {
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
-        self.allowExtensionTargets = allowExtensionTargets
+        self.allowExtensionTargets = allowExtensionTargets || ProcessEnv.vars["SWIFTPM_ENABLE_EXTENSION_TARGETS"] == "1"
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
