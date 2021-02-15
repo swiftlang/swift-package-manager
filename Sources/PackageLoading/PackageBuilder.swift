@@ -705,6 +705,7 @@ public final class PackageBuilder {
         let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
         combinedDependencyNames.spm_findDuplicates().forEach {
             diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name))
+            diagnostics.emit(.blamePackage(package: self.manifest.name))
         }
 
         // Create the build setting assignment table for this target.

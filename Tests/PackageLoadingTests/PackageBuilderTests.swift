@@ -2039,6 +2039,8 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("Foo2")
             diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo'", behavior: .warning)
             diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo'", behavior: .warning)
+            diagnostics.checkUnordered(diagnostic: "The package Foo is the source of the above warning", behavior: .warning)
+            diagnostics.checkUnordered(diagnostic: "The package Foo is the source of the above warning", behavior: .warning)
         }
     }
 

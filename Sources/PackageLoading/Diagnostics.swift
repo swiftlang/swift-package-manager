@@ -41,6 +41,10 @@ extension Diagnostic.Message {
 
         return .warning("ignoring duplicate product '\(product.name)'\(typeString)")
     }
+    
+    static func blamePackage(package: String) -> Diagnostic.Message {
+        .warning("The package \(package) is the source of the above warning")
+    }
 
     static func duplicateTargetDependency(dependency: String, target: String) -> Diagnostic.Message {
         .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)'")
