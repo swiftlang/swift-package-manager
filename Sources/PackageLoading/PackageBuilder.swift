@@ -704,7 +704,7 @@ public final class PackageBuilder {
         // Check for duplicate target dependencies by name
         let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
         combinedDependencyNames.spm_findDuplicates().forEach {
-            diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name))
+            diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.manifest.name))
         }
 
         // Create the build setting assignment table for this target.
