@@ -43,6 +43,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
 
         let metadataURL = baseURL
+        // TODO: make `per_page` configurable? GitHub API's max/default is 100
         let releasesURL = URL(string: baseURL.appendingPathComponent("releases").absoluteString + "?per_page=20") ?? baseURL.appendingPathComponent("releases")
         let contributorsURL = baseURL.appendingPathComponent("contributors")
         let readmeURL = baseURL.appendingPathComponent("readme")
@@ -119,7 +120,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
                         versions: releases.compactMap {
-                            guard let tagName = $0.tagName, let version = TSCUtility.Version(string: tagName) else {
+                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(string:)) else {
                                 return nil
                             }
                             return Model.PackageBasicVersionMetadata(version: version, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
