@@ -70,10 +70,9 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let response):
-                guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                    return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
-                }
-                guard contentLength <= self.configuration.maximumSizeInBytes else {
+                // HEAD response doesn't have to include "Content-Length" header
+                if let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init),
+                    contentLength > self.configuration.maximumSizeInBytes {
                     return callback(.failure(HTTPClientError.responseTooLarge(contentLength)))
                 }
                 // next do a get request to get the actual content
@@ -84,11 +83,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let response):
-                        // check content length again so we can record this as a bad actor
-                        // if not returning head and exceeding size
+                        // check content length again, but since it's possible for GET response to
+                        // NOT have this header, we fall back to response body length
                         // TODO: store bad actors to prevent server DoS
-                        guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                            return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
+                        guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) ?? response.body.flatMap({ Int64($0.count) }) else {
+                            return callback(.failure(Errors.invalidResponse("Cannot determine content length")))
                         }
                         guard contentLength < self.configuration.maximumSizeInBytes else {
                             return callback(.failure(HTTPClientError.responseTooLarge(contentLength)))
