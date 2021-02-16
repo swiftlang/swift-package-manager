@@ -732,7 +732,7 @@ private class GitFileSystemView: FileSystem {
     }
 
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        fatalError("Unsupported")
+        throw InternalError("changeCurrentWorkingDirectory not supported")
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -754,7 +754,7 @@ private class GitFileSystemView: FileSystem {
             throw FileSystemError(.isDirectory, path)
         }
         guard entry.type != .symlink else {
-            fatalError("FIXME: not implemented")
+            throw InternalError("symlinks not supported")
         }
         return try self.repository.read(blob: entry.hash)
     }
