@@ -225,7 +225,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private func makeRequestHeaders() -> HTTPClientHeaders {
         var headers = HTTPClientHeaders()
         // Include "Accept-Encoding" header so we receive "Content-Length" header in the response
-        headers.add(name: "Accept-Encoding", value: "*")
+        headers.add(name: "Accept-Encoding", value: "deflate, identity, gzip;q=0")
         return headers
     }
 
