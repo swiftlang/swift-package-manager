@@ -252,6 +252,9 @@ let package = Package(
             name: "PackageDescription4Tests",
             dependencies: ["PackageDescription"]),
         .testTarget(
+            name: "SPMBuildCoreTests",
+            dependencies: ["SPMBuildCore", "SPMTestSupport"]),
+        .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "SPMTestSupport"],
             exclude: ["Inputs"]),

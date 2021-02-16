@@ -136,6 +136,10 @@ public final class ResolvedTargetResult {
         }
         body(ResolvedTargetDependencyResult(dependency))
     }
+
+    public func check(type: Target.Kind, file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(type, target.type, file: file, line: line)
+    }
 }
 
 public final class ResolvedTargetDependencyResult {
