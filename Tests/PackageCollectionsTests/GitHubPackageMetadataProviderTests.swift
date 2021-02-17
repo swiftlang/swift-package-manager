@@ -45,6 +45,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
     func testGood() throws {
         let repoURL = "https://github.com/octocat/Hello-World.git"
         let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
+        let releasesURL = URL(string: "https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")!
 
         fixture(name: "Collections") { directoryPath in
             let handler: HTTPClient.Handler = { request, _, completion in
@@ -55,8 +56,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     completion(.success(.init(statusCode: 200,
                                               headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                               body: data)))
-                case (.get, apiURL.appendingPathComponent("tags")):
-                    let path = directoryPath.appending(components: "GitHub", "tags.json")
+                case (.get, releasesURL):
+                    let path = directoryPath.appending(components: "GitHub", "releases.json")
                     let data = Data(try! localFileSystem.readFileContents(path).contents)
                     completion(.success(.init(statusCode: 200,
                                               headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
@@ -92,7 +93,9 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
 
             XCTAssertEqual(metadata.summary, "This your first repo!")
-            XCTAssertEqual(metadata.versions, [TSCUtility.Version("0.1.0")])
+            XCTAssertEqual(metadata.versions.count, 1)
+            XCTAssertEqual(metadata.versions[0].version, TSCUtility.Version("1.0.0"))
+            XCTAssertEqual(metadata.versions[0].summary, "Description of the release")
             XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
                                                                                      url: URL(string: "https://api.github.com/users/octocat")!,
                                                                                      service: .init(name: "GitHub"))])

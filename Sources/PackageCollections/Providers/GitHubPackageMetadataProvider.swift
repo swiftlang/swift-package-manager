@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -43,7 +43,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
 
         let metadataURL = baseURL
-        let tagsURL = baseURL.appendingPathComponent("tags")
+        // TODO: make `per_page` configurable? GitHub API's max/default is 100
+        let releasesURL = URL(string: baseURL.appendingPathComponent("releases").absoluteString + "?per_page=20") ?? baseURL.appendingPathComponent("releases")
         let contributorsURL = baseURL.appendingPathComponent("contributors")
         let readmeURL = baseURL.appendingPathComponent("readme")
         let licenseURL = baseURL.appendingPathComponent("license")
@@ -80,7 +81,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
-                    [tagsURL, contributorsURL, readmeURL, licenseURL].forEach { url in
+                    [releasesURL, contributorsURL, readmeURL, licenseURL].forEach { url in
                         sync.enter()
                         var headers = HTTPClientHeaders()
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
@@ -109,7 +110,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
                         throw Errors.invalidResponse(metadataURL, "Empty body")
                     }
-                    let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
+                    let releases = try results[releasesURL]?.success?.decodeBody([Release].self, using: self.decoder) ?? []
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
                     let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
                     let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
@@ -118,7 +119,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         summary: metadata.description,
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
-                        versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
+                        versions: releases.compactMap {
+                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(string:)) else {
+                                return nil
+                            }
+                            return Model.PackageBasicVersionMetadata(version: version, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
+                        },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
                         license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
@@ -235,6 +241,23 @@ extension GitHubPackageMetadataProvider {
 }
 
 extension GitHubPackageMetadataProvider {
+    fileprivate struct Release: Codable {
+        let name: String
+        let tagName: String?
+        // This might contain rich-text
+        let body: String?
+        let createdAt: Date
+        let publishedAt: Date?
+
+        private enum CodingKeys: String, CodingKey {
+            case name
+            case tagName = "tag_name"
+            case body
+            case createdAt = "created_at"
+            case publishedAt = "published_at"
+        }
+    }
+
     fileprivate struct Tag: Codable {
         let name: String
         let tarballURL: Foundation.URL

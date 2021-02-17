@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -106,7 +106,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
     return .init(summary: UUID().uuidString,
                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
-                 versions: (0 ..< Int.random(in: 1 ... 10)).map { TSCUtility.Version($0, 0, 0) },
+                 versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(version: TSCUtility.Version($0, 0, 0), summary: "description \($0)", createdAt: Date(), publishedAt: nil) },
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: URL(string: "https://package-readme")!,
                  license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "https://package-license")!),

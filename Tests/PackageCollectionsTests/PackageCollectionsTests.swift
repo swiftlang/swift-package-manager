@@ -1049,7 +1049,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
-                                                                        versions: mockPackage.versions.map { TSCUtility.Version($0.version.major, 1, 0) },
+                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, summary: "\($0.summary!) 2", createdAt: Date(), publishedAt: nil) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
                                                                         readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
                                                                         license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "\(mockPackage.license!.url.absoluteString)-2")!),
@@ -1066,6 +1066,9 @@ final class PackageCollectionsTests: XCTestCase {
             let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
             XCTAssertNotNil(metadataVersion)
 
+            let mockMetadataVersion = mockMetadata.versions.first(where: { $0.version == version.version })
+            XCTAssertNotNil(mockMetadataVersion)
+
             let manifest = version.defaultManifest!
             let metadataManifest = metadataVersion?.defaultManifest
             XCTAssertEqual(manifest.packageName, metadataManifest?.packageName, "packageName should match")
@@ -1075,6 +1078,8 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(manifest.minimumPlatformVersions, metadataManifest?.minimumPlatformVersions, "minimumPlatformVersions should match")
             XCTAssertEqual(version.verifiedCompatibility, metadataVersion?.verifiedCompatibility, "verifiedCompatibility should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
+            XCTAssertEqual(mockMetadataVersion?.summary, metadataVersion?.summary, "summary should match")
+            XCTAssertEqual(mockMetadataVersion?.createdAt, metadataVersion?.createdAt, "createdAt should match")
         }
         XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")
         XCTAssertEqual(metadata.latestVersion?.version, versions.last?.version, "latestVersion should match")
