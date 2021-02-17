@@ -9,6 +9,7 @@
 */
 
 import Foundation
+import Basics
 import PackageModel
 import PackageGraph
 import TSCBasic
@@ -55,7 +56,9 @@ extension PackageGraph {
             
             // If this target does use any extensions, create the input context to pass to them.
             // FIXME: We'll want to decide on what directories to provide to the extenion
-            let package = self.packages.first{ $0.targets.contains(target) }!
+            guard let package = self.packages.first(where: { $0.targets.contains(target) }) else {
+                throw InternalError("could not find package for target \(target)")
+            }
             let extOutputsDir = outputDir.appending(components: "extensions", package.name, target.c99name, "outputs")
             let extCachesDir = outputDir.appending(components: "extensions", package.name, target.c99name, "caches")
             let extensionInput = ExtensionEvaluationInput(
@@ -159,7 +162,6 @@ extension PackageGraph {
     fileprivate func runExtension(sources: Sources, input: ExtensionEvaluationInput, extensionRunner: ExtensionRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: ExtensionEvaluationOutput, stdoutText: Data) {
         // Serialize the ExtensionEvaluationInput to JSON.
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         let inputJSON = try encoder.encode(input)
         
         // Call the extension runner.
