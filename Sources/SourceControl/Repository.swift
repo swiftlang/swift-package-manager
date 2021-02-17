@@ -125,17 +125,6 @@ public protocol RepositoryProvider {
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
 }
 
-extension RepositoryProvider {
-    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
-        fatalError("Unimplemented")
-    }
-
-    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        fatalError("Unimplemented")
-    }
-
-}
-
 /// Abstract repository operations.
 ///
 /// This interface provides access to an abstracted representation of a
@@ -236,12 +225,6 @@ public protocol WorkingCheckout {
 
     /// Returns true if the file at `path` is ignored by `git`
     func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool]
-}
-
-extension WorkingCheckout {
-    public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
-        fatalError("Unimplemented")
-    }
 }
 
 /// A single repository revision.
