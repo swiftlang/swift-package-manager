@@ -744,7 +744,7 @@ public final class PackageBuilder {
             fs: fileSystem,
             diags: diagnostics
         )
-        let (sources, resources, headers) = try sourcesBuilder.run()
+        let (sources, resources, headers, others) = try sourcesBuilder.run()
 
         // Make sure defaultLocalization is set if the target has localized resources.
         let hasLocalizedResources = resources.contains(where: { $0.localization != nil })
@@ -814,6 +814,7 @@ public final class PackageBuilder {
                 type: targetType,
                 sources: sources,
                 resources: resources,
+                others: others,
                 dependencies: dependencies,
                 swiftVersion: try swiftVersion(),
                 buildSettings: buildSettings

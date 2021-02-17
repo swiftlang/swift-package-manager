@@ -123,6 +123,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The resource files in the target.
     public let resources: [Resource]
+    
+    /// Other kinds of files in the target.
+    public let others: [AbsolutePath]
 
     /// The list of platforms that are supported by this target.
     public let platforms: [SupportedPlatform]
@@ -143,6 +146,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
+        others: [AbsolutePath] = [],
         dependencies: [Target.Dependency],
         buildSettings: BuildSettings.AssignmentTable
     ) {
@@ -153,13 +157,14 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.type = type
         self.sources = sources
         self.resources = resources
+        self.others = others
         self.dependencies = dependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, bundleName, defaultLocalization, platforms, type, sources, resources, buildSettings
+        case name, bundleName, defaultLocalization, platforms, type, sources, resources, others, buildSettings
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -174,6 +179,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         try container.encode(type, forKey: .type)
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
+        try container.encode(others, forKey: .others)
         try container.encode(buildSettings, forKey: .buildSettings)
     }
 
@@ -186,6 +192,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.type = try container.decode(Kind.self, forKey: .type)
         self.sources = try container.decode(Sources.self, forKey: .sources)
         self.resources = try container.decode([Resource].self, forKey: .resources)
+        self.others = try container.decode([AbsolutePath].self, forKey: .others)
         // FIXME: dependencies property is skipped on purpose as it points to
         // the actual target dependency object.
         self.dependencies = []
@@ -230,6 +237,7 @@ public final class SwiftTarget: Target {
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
+        others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
         buildSettings: BuildSettings.AssignmentTable = .init()
@@ -243,6 +251,7 @@ public final class SwiftTarget: Target {
             type: type,
             sources: sources,
             resources: resources,
+            others: others,
             dependencies: dependencies,
             buildSettings: buildSettings
         )

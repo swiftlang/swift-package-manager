@@ -135,7 +135,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Run the builder to produce the sources of the target.
-    public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath]) {
+    public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], others: [AbsolutePath]) {
         let contents = computeContents()
         var pathToRule: [AbsolutePath: Rule] = [:]
 
@@ -146,6 +146,7 @@ public struct TargetSourcesBuilder {
         // Emit an error if we found files without a matching rule in
         // tools version >= v5_3. This will be activated once resources
         // support is complete.
+        var others: [AbsolutePath] = []
         if toolsVersion >= .v5_3 {
             let filesWithNoRules = pathToRule.filter { $0.value.rule == .none }
             if !filesWithNoRules.isEmpty {
@@ -155,6 +156,7 @@ public struct TargetSourcesBuilder {
                 }
                 diags.emit(.warning(warning))
             }
+            others.append(contentsOf: filesWithNoRules.keys)
         }
 
         let headers = pathToRule.lazy.filter { $0.value.rule == .header }.map { $0.key }.sorted()
@@ -173,7 +175,7 @@ public struct TargetSourcesBuilder {
             throw Target.Error.mixedSources(targetPath)
         }
 
-        return (sources, resources, headers)
+        return (sources, resources, headers, others)
     }
 
     private struct Rule {

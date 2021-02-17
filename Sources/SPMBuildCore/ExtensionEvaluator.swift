@@ -67,6 +67,8 @@ extension PackageGraph {
                 targetDir: target.sources.root.pathString,
                 packageDir: package.path.pathString,
                 sourceFiles: target.sources.paths.map{ $0.pathString },
+                resourceFiles: target.underlyingTarget.resources.map{ $0.path.pathString },
+                otherFiles: target.underlyingTarget.others.map { $0.pathString },
                 dependencies: dependencyTargets.map {
                     .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
                 },
@@ -289,6 +291,8 @@ struct ExtensionEvaluationInput: Codable {
     var targetDir: String
     var packageDir: String
     var sourceFiles: [String]
+    var resourceFiles: [String]
+    var otherFiles: [String]
     var dependencies: [DependencyTarget]
     public struct DependencyTarget: Codable {
         var targetName: String
