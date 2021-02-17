@@ -373,7 +373,9 @@ extension PackageDependencyDescription {
             
             if let validPath = try? AbsolutePath(validating: location), fileSystem.exists(validPath) {
                 let gitRepoProvider = GitRepositoryProvider()
-                try gitRepoProvider.isInitializedDirectory(location: location)
+                guard gitRepoProvider.isValidDirectory(location) else {
+                    throw StringError("Cannot clone from local directory \(location)\nPlease git init or use \"path:\" for \(location)")
+                }
             }
             
             // in the future this will check with the registries for the identity of the URL

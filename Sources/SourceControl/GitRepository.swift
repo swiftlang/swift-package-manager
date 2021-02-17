@@ -88,16 +88,15 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          failureMessage: "Failed to clone repository \(repository.url)")
     }
     
-    public func isInitializedDirectory(location: String) throws {
+    public func isValidDirectory(_ directory: String) -> Bool {
         // Provides better feedback when mistakingly using url: for a dependency that
         // is a local package. Still allows for using url with a local package that has
         // also been initialized by git
         do {
-            try self.callGit("-C", location, "rev-parse", "--git-dir", repository: RepositorySpecifier(url: location))
-        } catch let error as GitCloneError {
-            throw GitCloneError(repository: RepositorySpecifier(url: location),
-                                message: "Cannot clone from local directory \(location)\nPlease git init or use \"path:\" for \(location)",
-                                result: error.result)
+            try self.callGit("-C", directory, "rev-parse", "--git-dir", repository: RepositorySpecifier(url: directory))
+            return true
+        } catch {
+            return false
         }
     }
     
