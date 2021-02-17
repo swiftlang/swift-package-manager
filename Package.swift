@@ -92,6 +92,12 @@ let package = Package(
         ),
         
         .library(
+            name: "PackageExtension",
+            type: .dynamic,
+            targets: ["PackageExtension"]
+        ),
+        
+        .library(
             name: "PackageCollectionsModel",
             targets: ["PackageCollectionsModel"]
         ),
@@ -107,6 +113,9 @@ let package = Package(
             swiftSettings: [
                 .define("PACKAGE_DESCRIPTION_4_2"),
             ]),
+        
+        .target(
+            name: "PackageExtension"),
 
         // MARK: SwiftPM specific support libraries
 
