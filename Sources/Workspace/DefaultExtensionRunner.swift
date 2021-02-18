@@ -165,10 +165,10 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         // script, it can be safely split out while maintaining the ability to see debug output without resorting
         // to side-channel communication that might be not be very cross-platform (e.g. pipes, file handles, etc).
         var stdoutPieces = try result.output.get().split(separator: 0, omittingEmptySubsequences: false)
-        let json = (stdoutPieces.count > 1) ? Data(stdoutPieces.removeLast()) : nil
+        let jsonPiece = (stdoutPieces.count > 1) ? Data(stdoutPieces.removeLast()) : nil
         let stdout = Data(stdoutPieces.joined())
         let stderr = try Data(result.stderrOutput.get())
-        guard let json = json else {
+        guard let json = jsonPiece else {
             throw DefaultExtensionRunnerError.didNotReceiveJSONFromExtension("didn't get any structured output from running the extension")
         }
         
