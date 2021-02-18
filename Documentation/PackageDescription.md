@@ -296,6 +296,16 @@ static func package(url: String, from version: Version) -> Package.Dependency
 ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
 static func package(url: String, _ requirement: Package.Dependency.Requirement) -> Package.Dependency
 
+/// Adds a remote package dependency given a branch requirement.
+///
+///    .package(url: "https://example.com/example-package.git", branch: "main"),
+///
+/// - Parameters:
+///     - name: The name of the package, or nil to deduce it from the URL.
+///     - url: The valid Git URL of the package.
+///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+static func package(name: String? = nil, url: String, branch: String) -> Package.Dependency
+
 /// Add a package dependency starting with a specific minimum version, up to
 /// but not including a specified maximum version.
 ///

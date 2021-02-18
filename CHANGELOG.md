@@ -21,6 +21,12 @@ Swift 5.4
   * Source Breakages for Swift Packages
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
+    
+* [#2937]
+   * Improvements
+   
+   Adding a dependency requirement can now be done with the convenience initializer .package(url: , branch:)
+
 
 Swift 4.2
 ---------
