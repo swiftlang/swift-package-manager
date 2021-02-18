@@ -8,6 +8,7 @@
 
 add_library(PackageCollectionsSigning
   Certificate/Certificate.swift
+  Certificate/CertificatePolicy.swift
   Key/ASN1/ASN1.swift
   Key/ASN1/ASN1Error.swift
   Key/ASN1/PEMDocument.swift
@@ -21,10 +22,17 @@ add_library(PackageCollectionsSigning
   Key/Key.swift
   Key/Key+EC.swift
   Key/Key+RSA.swift
+  PackageCollectionSigning.swift
+  Signing/Signature.swift
+  Signing/Signing.swift
+  Signing/Signing+ECKey.swift
+  Signing/Signing+RSAKey.swift
+  Utilities/Base64URL.swift 
   Utilities/Utilities.swift)
 target_link_libraries(PackageCollectionsSigning PUBLIC
-   $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
-   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
+  PackageCollectionsModel
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageCollectionsSigning PRIVATE
   Crypto)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
