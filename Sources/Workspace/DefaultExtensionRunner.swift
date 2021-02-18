@@ -44,7 +44,7 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
         
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        let runtimePath = resources.binDir ?? resources.libDir.appending(toolsVersion.runtimeSubpath)
+        let runtimePath = resources.binDir ?? resources.libDir
 
         // Compile the package extension script.
         var command = [resources.swiftCompiler.pathString]
@@ -116,7 +116,7 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
         if result.exitStatus != .terminated(code: 0) {
             // TODO: Make this a proper error.
-            throw StringError("failed to compile package extension: \(output)")
+            throw StringError("failed to compile package extension:\n\(command)\n\n\(output)")
         }
 
         return compiledExec

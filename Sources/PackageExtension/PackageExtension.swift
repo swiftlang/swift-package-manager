@@ -223,7 +223,7 @@ public struct Path: ExpressibleByStringLiteral, Encodable, Decodable {
         return appending(components)
     }
     
-    public var basename: String {
+    public var filename: String {
         // Check for a special case of the root directory.
         if self.string == "/" {
             // Root directory, so the basename is a single path separator (the
@@ -240,6 +240,16 @@ public struct Path: ExpressibleByStringLiteral, Encodable, Decodable {
         return String(string.suffix(from: string.index(after: idx)))
     }
     
+    public var basename: String {
+        let filename = self.filename
+        if let suff = self.suffix {
+            return String(filename.dropLast(suff.count))
+        }
+        else {
+            return filename
+        }
+    }
+    
     public var suffix: String? {
         // Find the last path separator, if any.
         let sIdx = string.lastIndex(of: "/")
@@ -254,7 +264,7 @@ public struct Path: ExpressibleByStringLiteral, Encodable, Decodable {
         if let idx = string[fIdx...].lastIndex(of: ".") {
             // Unless it's just a `.` at the end, we have found a suffix.
             if string.distance(from: idx, to: string.endIndex) > 1 {
-                return String(string.suffix(from: string.index(idx, offsetBy: 1)))
+                return String(string.suffix(from: idx))
             }
             else {
                 return nil
