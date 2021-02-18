@@ -205,11 +205,21 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///                          Users may specify additional certificates to trust by placing them in `trustedRootCertsDir` and
     ///                          configure the signing tool or SwiftPM to use it. On non-Apple platforms, only trust root certificates in
     ///                          `trustedRootCertsDir` are trusted.
+    ///   - additionalTrustedRootCerts: Root certificates to be trusted in addition to those in `trustedRootCertsDir`. The difference
+    ///                                 between this and `trustedRootCertsDir` is that the latter is user configured and dynamic,
+    ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
-    init(trustedRootCertsDir: URL? = nil, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
-        self.trustedRoots = trustedRootCertsDir.map { Self.loadCerts(at: $0, diagnosticsEngine: diagnosticsEngine) }
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+        var trustedRoots = [Certificate]()
+        if let trustedRootCertsDir = trustedRootCertsDir {
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+        }
+        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+            trustedRoots.append(contentsOf: additionalTrustedRootCerts)
+        }
+        self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
@@ -269,11 +279,21 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     ///                          Users may specify additional certificates to trust by placing them in `trustedRootCertsDir` and
     ///                          configure the signing tool or SwiftPM to use it. On non-Apple platforms, only trust root certificates in
     ///                          `trustedRootCertsDir` are trusted.
+    ///   - additionalTrustedRootCerts: Root certificates to be trusted in addition to those in `trustedRootCertsDir`. The difference
+    ///                                 between this and `trustedRootCertsDir` is that the latter is user configured and dynamic,
+    ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
-    init(trustedRootCertsDir: URL? = nil, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
-        self.trustedRoots = trustedRootCertsDir.map { Self.loadCerts(at: $0, diagnosticsEngine: diagnosticsEngine) }
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+        var trustedRoots = [Certificate]()
+        if let trustedRootCertsDir = trustedRootCertsDir {
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+        }
+        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+            trustedRoots.append(contentsOf: additionalTrustedRootCerts)
+        }
+        self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine

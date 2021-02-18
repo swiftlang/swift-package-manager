@@ -139,7 +139,8 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = DefaultCertificatePolicy(callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+            let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                                                  callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
             XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
@@ -149,7 +150,8 @@ class CertificatePolicyTests: XCTestCase {
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
+                                                      callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
                 XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                         return XCTFail("Expected CertificatePolicyError.invalidCertChain")
@@ -184,14 +186,43 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = DefaultCertificatePolicy(callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-            XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            do {
+                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                                                      callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            }
+
+            // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
+            do {
+                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                                                      callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            }
             #else
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                // Specify `trustedRootCertsDir`
+                do {
+                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
+                                                          callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
+
+                // Another way is to pass in `additionalTrustedRootCerts`
+                do {
+                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                                                          callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
+
+                // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
+                do {
+                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
+                                                          callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
             }
             #endif
         }
@@ -222,14 +253,43 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = AppleDeveloperCertificatePolicy(callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-            XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            do {
+                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                                                             callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            }
+
+            // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
+            do {
+                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                                                             callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            }
             #else
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                // Specify `trustedRootCertsDir`
+                do {
+                    let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
+                                                                 callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
+
+                // Another way is to pass in `additionalTrustedRootCerts`
+                do {
+                    let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                                                                 callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
+
+                // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
+                do {
+                    let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
+                                                                 callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
             }
             #endif
         }
@@ -259,13 +319,14 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = DefaultCertificatePolicy(expectedSubjectUserID: expectedSubjectUserID, callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+            let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
+                                                  callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
             XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             #else
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, expectedSubjectUserID: expectedSubjectUserID,
+                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
                                                       callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
@@ -298,13 +359,14 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = AppleDeveloperCertificatePolicy(expectedSubjectUserID: expectedSubjectUserID, callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+            let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
+                                                         callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
             XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             #else
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, expectedSubjectUserID: expectedSubjectUserID,
+                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
                                                              callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }

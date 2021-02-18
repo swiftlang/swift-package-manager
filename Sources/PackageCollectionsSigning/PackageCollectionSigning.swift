@@ -53,6 +53,8 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
     /// URL of the optional directory containing root certificates to be trusted.
     private let trustedRootCertsDir: URL?
+    /// Root certificates to be trusted in additional to those found in `trustedRootCertsDir`
+    private let additionalTrustedRootCerts: [Certificate]?
 
     /// The `DispatchQueue` to use for callbacks
     private let callbackQueue: DispatchQueue
@@ -65,8 +67,21 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    public init(trustedRootCertsDir: URL? = nil, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
+    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
         self.trustedRootCertsDir = trustedRootCertsDir
+        self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
+            guard let data = Data(base64Encoded: $0) else {
+                diagnosticsEngine.emit(error: "The certificate \($0) is not in valid base64 encoding")
+                return nil
+            }
+            do {
+                return try Certificate(derEncoded: data)
+            } catch {
+                diagnosticsEngine.emit(error: "The certificate \($0) is not in valid DER format: \(error)")
+                return nil
+            }
+        } }
+
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
         self.certPolicies = [:]
@@ -75,7 +90,10 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     }
 
     init(certPolicy: CertificatePolicy, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
-        self.trustedRootCertsDir = nil // This should be set through the given CertificatePolicy
+        // These should be set through the given CertificatePolicy
+        self.trustedRootCertsDir = nil
+        self.additionalTrustedRootCerts = nil
+
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
         self.certPolicies = [CertificatePolicyKey.custom: certPolicy]
@@ -87,12 +105,12 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
         switch key {
         case .default(let subjectUserID):
             // Create new instance each time since contents of trustedRootCertsDir might change
-            return DefaultCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, expectedSubjectUserID: subjectUserID,
-                                            callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+            return DefaultCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
+                                            expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
         case .appleDistribution(let subjectUserID):
             // Create new instance each time since contents of trustedRootCertsDir might change
-            return AppleDeveloperCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, expectedSubjectUserID: subjectUserID,
-                                                   callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+            return AppleDeveloperCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
+                                                   expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
         case .custom:
             // Custom `CertificatePolicy` can be set using the internal initializer only
             guard let certPolicy = self.certPolicies[key] else {

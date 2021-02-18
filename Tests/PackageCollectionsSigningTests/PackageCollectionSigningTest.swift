@@ -221,6 +221,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
@@ -228,21 +229,8 @@ class PackageCollectionSigningTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let signing = PackageCollectionSigning()
-            // Sign the collection
-            let signedCollection = try tsc_await { callback in
-                signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
-            }
-
-            // Then validate that signature is valid
-            XCTAssertNoThrow(try tsc_await { callback in
-                signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
-            })
-            #else
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL)
+            do {
+                let signing = PackageCollectionSigning()
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -252,6 +240,53 @@ class PackageCollectionSigningTests: XCTestCase {
                 XCTAssertNoThrow(try tsc_await { callback in
                     signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
                 })
+            }
+
+            // Try passing in the cert with `additionalTrustedRootCerts` even though it's already in the default trust store
+            do {
+                let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()])
+                // Sign the collection
+                let signedCollection = try tsc_await { callback in
+                    signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                }
+
+                // Then validate that signature is valid
+                XCTAssertNoThrow(try tsc_await { callback in
+                    signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                })
+            }
+            #else
+            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
+            try withTemporaryDirectory { tmp in
+                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
+
+                // Specify `trustedRootCertsDir`
+                do {
+                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL)
+                    // Sign the collection
+                    let signedCollection = try tsc_await { callback in
+                        signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                    }
+
+                    // Then validate that signature is valid
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                    })
+                }
+
+                // Another way is to pass in `additionalTrustedRootCerts`
+                do {
+                    let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()])
+                    // Sign the collection
+                    let signedCollection = try tsc_await { callback in
+                        signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                    }
+
+                    // Then validate that signature is valid
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                    })
+                }
             }
             #endif
         }
@@ -278,6 +313,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
+            let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
@@ -285,21 +321,8 @@ class PackageCollectionSigningTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let signing = PackageCollectionSigning()
-            // Sign the collection
-            let signedCollection = try tsc_await { callback in
-                signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
-            }
-
-            // Then validate that signature is valid
-            XCTAssertNoThrow(try tsc_await { callback in
-                signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
-            })
-            #else
-            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
-            try withTemporaryDirectory { tmp in
-                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL)
+            do {
+                let signing = PackageCollectionSigning()
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -309,6 +332,53 @@ class PackageCollectionSigningTests: XCTestCase {
                 XCTAssertNoThrow(try tsc_await { callback in
                     signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
                 })
+            }
+
+            // Try passing in the cert with `additionalTrustedRootCerts` even though it's already in the default trust store
+            do {
+                let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()])
+                // Sign the collection
+                let signedCollection = try tsc_await { callback in
+                    signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                }
+
+                // Then validate that signature is valid
+                XCTAssertNoThrow(try tsc_await { callback in
+                    signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                })
+            }
+            #else
+            // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
+            try withTemporaryDirectory { tmp in
+                try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
+
+                // Specify `trustedRootCertsDir`
+                do {
+                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL)
+                    // Sign the collection
+                    let signedCollection = try tsc_await { callback in
+                        signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                    }
+
+                    // Then validate that signature is valid
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                    })
+                }
+
+                // Another way is to pass in `additionalTrustedRootCerts`
+                do {
+                    let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()])
+                    // Sign the collection
+                    let signedCollection = try tsc_await { callback in
+                        signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                    }
+
+                    // Then validate that signature is valid
+                    XCTAssertNoThrow(try tsc_await { callback in
+                        signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                    })
+                }
             }
             #endif
         }
