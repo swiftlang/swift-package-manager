@@ -174,10 +174,6 @@ enum ManifestJSONParser {
 
     private static func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
         guard let resourcesJSON = try? json.getArray("resources") else { return [] }
-        if resourcesJSON.isEmpty {
-            throw ManifestParseError.runtimeManifestErrors(["resources cannot be an empty array; provide at least one value or remove it"])
-        }
-
         return try resourcesJSON.map { json in
             let rawRule = try json.get(String.self, forKey: "rule")
             let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
