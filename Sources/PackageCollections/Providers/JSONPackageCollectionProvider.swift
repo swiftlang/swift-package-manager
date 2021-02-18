@@ -34,6 +34,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     init(configuration: Configuration = .init(),
          httpClient: HTTPClient? = nil,
          signatureValidator: PackageCollectionSignatureValidator? = nil,
+         fileSystem: FileSystem = localFileSystem,
          diagnosticsEngine: DiagnosticsEngine) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
@@ -41,7 +42,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
-            trustedRootCertsDir: configuration.trustedRootCertsDir,
+            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.dotSwiftPM.appending(components: "config", "trust-root-certs").asURL,
             additionalTrustedRootCerts: PackageCollectionSourceCertificatePolicy.allRootCerts,
             callbackQueue: DispatchQueue.global(),
             diagnosticsEngine: diagnosticsEngine
@@ -123,15 +124,16 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 // Don't validate signature; set isVerified=false
                 callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
             } else {
-                // TODO: Signature validator should throw "cannot verify" error on non-Apple platforms
-                // if there are no trusted root certs set up, in which case we should throw PackageCollectionError.cannotVerifySignature
-
                 // Check the signature
                 self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
                     switch result {
                     case .failure(let error):
                         self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
-                        callback(.failure(Errors.invalidSignature))
+                        if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
+                            callback(.failure(PackageCollectionError.cannotVerifySignature))
+                        } else {
+                            callback(.failure(PackageCollectionError.invalidSignature))
+                        }
                     case .success:
                         callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
                     }
@@ -312,7 +314,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     public enum Errors: Error {
         case invalidJSON(Error)
         case invalidResponse(String)
-        case invalidSignature
     }
 }
 

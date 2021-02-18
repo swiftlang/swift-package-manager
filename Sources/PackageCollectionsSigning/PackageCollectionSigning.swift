@@ -227,7 +227,11 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 switch result {
                 case .failure(let error):
                     self.diagnosticsEngine.emit(error: "The certificate chain is invalid: \(error)")
-                    callback(.failure(PackageCollectionSigningError.invalidCertChain))
+                    if CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError {
+                        callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
+                    } else {
+                        callback(.failure(PackageCollectionSigningError.invalidCertChain))
+                    }
                 case .success:
                     callback(.success(certChain))
                 }
@@ -250,6 +254,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 public enum PackageCollectionSigningError: Error, Equatable {
     case certPolicyNotFound
     case emptyCertChain
+    case noTrustedRootCertsConfigured
     case invalidCertChain
     case invalidSignature
     case missingCertInfo

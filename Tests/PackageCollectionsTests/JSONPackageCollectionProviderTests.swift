@@ -358,7 +358,6 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
             // Mark collection as having valid signature
             let signatureValidator = MockCollectionSignatureValidator(["Sample Package Collection"])
-
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
@@ -422,7 +421,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             httpClient.configuration.retryStrategy = .none
 
             let signatureValidator = MockCollectionSignatureValidator()
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
             // Skip signature check
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url, skipSignatureCheck: true)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
@@ -460,6 +459,46 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         }
     }
 
+    func testSigned_noTrustedRootCertsConfigured() throws {
+        fixture(name: "Collections") { directoryPath in
+            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+            let url = URL(string: "https://www.test.com/collection.json")!
+            let data = Data(try localFileSystem.readFileContents(path).contents)
+
+            let handler: HTTPClient.Handler = { request, _, completion in
+                XCTAssertEqual(request.url, url, "url should match")
+                switch request.method {
+                case .head:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                case .get:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
+                default:
+                    XCTFail("method should match")
+                }
+            }
+
+            var httpClient = HTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            let signatureValidator = MockCollectionSignatureValidator(hasTrustedRootCerts: false)
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+
+            XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+                switch error {
+                case PackageCollectionError.cannotVerifySignature:
+                    break
+                default:
+                    XCTFail("unexpected error \(error)")
+                }
+            })
+        }
+    }
+
     func testSignedBad() throws {
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -487,13 +526,12 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
             // The validator doesn't know about the test collection so its signature would be considered invalid
             let signatureValidator = MockCollectionSignatureValidator()
-
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
             XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
                 switch error {
-                case JSONPackageCollectionProvider.Errors.invalidSignature:
+                case PackageCollectionError.invalidSignature:
                     break
                 default:
                     XCTFail("unexpected error \(error)")

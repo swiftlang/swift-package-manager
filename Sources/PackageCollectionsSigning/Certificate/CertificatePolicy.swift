@@ -83,6 +83,13 @@ extension CertificatePolicy {
             }
         }
         #else
+        // On non-Apple platforms we don't trust any of the system root certs, so if `anchorCerts`,
+        // which is a combination of user-configured and SwiftPM-provided roots, is empty the trust
+        // evaluation of `certChain` will always fail.
+        guard let anchorCerts = anchorCerts, !anchorCerts.isEmpty else {
+            return wrappedCallback(.failure(CertificatePolicyError.noTrustedRootCertsConfigured))
+        }
+
         fatalError("Not implemented: \(#function)")
         #endif
     }
@@ -178,6 +185,7 @@ enum CertificatePolicyError: Error, Equatable {
     case unexpectedCertChainLength
     case missingRequiredExtension
     case extensionFailure
+    case noTrustedRootCertsConfigured
 //    case ocspFailure
 }
 
