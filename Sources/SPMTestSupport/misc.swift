@@ -224,6 +224,7 @@ public func loadPackageGraph(
     manifests: [Manifest],
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
+    allowExtensionTargets: Bool = false,
     createREPLProduct: Bool = false
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind == .root }
@@ -239,6 +240,7 @@ public func loadPackageGraph(
         diagnostics: diagnostics,
         fileSystem: fs,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+        allowExtensionTargets: allowExtensionTargets,
         createREPLProduct: createREPLProduct
     )
 }
