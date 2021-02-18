@@ -311,7 +311,7 @@ fileprivate func TargetBuildContextFactory() -> TargetBuildContext {
         fflush(stdout)
     }
     // Look for the input JSON as the last argument of the invocation.
-    guard let data = ProcessInfo().arguments.last?.data(using: .utf8) else {
+    guard let data = ProcessInfo.processInfo.arguments.last?.data(using: .utf8) else {
         output.diagnostics.append(Diagnostic(severity: .error, message:"Expected last argument to contain JSON input data in UTF-8 encoding, but didn't find it.", file: nil, line: nil))
         exit(1)
     }
