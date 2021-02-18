@@ -25,7 +25,7 @@ private typealias JSONModel = PackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let configuration: Configuration
-    private let diagnosticsEngine: DiagnosticsEngine?
+    private let diagnosticsEngine: DiagnosticsEngine
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
     private let validator: JSONModel.Validator
@@ -34,7 +34,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     init(configuration: Configuration = .init(),
          httpClient: HTTPClient? = nil,
          signatureValidator: PackageCollectionSignatureValidator? = nil,
-         diagnosticsEngine: DiagnosticsEngine? = nil) {
+         diagnosticsEngine: DiagnosticsEngine) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
@@ -43,7 +43,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir,
             additionalTrustedRootCerts: PackageCollectionSourceCertificatePolicy.allRootCerts,
-            diagnosticsEngine: diagnosticsEngine ?? DiagnosticsEngine()
+            callbackQueue: DispatchQueue.global(),
+            diagnosticsEngine: diagnosticsEngine
         )
     }
 
@@ -129,7 +130,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
                     switch result {
                     case .failure(let error):
-                        self.diagnosticsEngine?.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                        self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
                         callback(.failure(Errors.invalidSignature))
                     case .success:
                         callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
@@ -222,7 +223,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         if !serializationOkay {
-            self.diagnosticsEngine?.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            self.diagnosticsEngine.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
         }
 
         return .success(.init(source: source,

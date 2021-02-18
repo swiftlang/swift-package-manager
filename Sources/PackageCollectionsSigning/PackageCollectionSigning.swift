@@ -67,7 +67,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
+    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
             guard let data = Data(base64Encoded: $0) else {
@@ -89,7 +89,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    init(certPolicy: CertificatePolicy, callbackQueue: DispatchQueue = DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
+    init(certPolicy: CertificatePolicy, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
         // These should be set through the given CertificatePolicy
         self.trustedRootCertsDir = nil
         self.additionalTrustedRootCerts = nil

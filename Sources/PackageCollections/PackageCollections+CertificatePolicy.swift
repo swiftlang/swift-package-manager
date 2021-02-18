@@ -21,8 +21,7 @@ internal struct PackageCollectionSourceCertificatePolicy {
 
     static func certificatePolicyKey(for source: Model.CollectionSource) -> CertificatePolicyKey? {
         // Certificate policy is associated to a collection host
-        guard let host = source.url.host else { return nil }
-        return self.sourceCertPolicies[host]?.certPolicyKey
+        source.url.host.flatMap { self.sourceCertPolicies[$0]?.certPolicyKey }
     }
 
     static var allRootCerts: [String]? {
