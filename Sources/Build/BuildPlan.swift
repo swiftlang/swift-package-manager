@@ -1265,6 +1265,15 @@ public class BuildPlan {
     /// Diagnostics Engine for emitting diagnostics.
     let diagnostics: DiagnosticsEngine
 
+
+    private var testManifestTargetsMap: [ResolvedProduct: ResolvedTarget] = [:]
+
+    /// Cache for pkgConfig flags.
+    private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
+
+    /// Cache for xcframework library information.
+    private var xcFrameworkCache = [BinaryTarget: LibraryInfo?]()
+
     private static func makeTestManifestTargets(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph
@@ -1402,8 +1411,6 @@ public class BuildPlan {
         // Finally plan these targets.
         try plan()
     }
-
-    private var testManifestTargetsMap: [ResolvedProduct: ResolvedTarget] = [:]
 
     static func validateDeploymentVersionOfProductDependency(
         _ product: ResolvedProduct,
@@ -1590,9 +1597,9 @@ public class BuildPlan {
                 // Add binary to binary paths set.
                 case .binary:
                     guard let binaryTarget = target.underlyingTarget as? BinaryTarget else {
-                        fatalError("should not happen")
+                        throw InternalError("invalid binary target '\(target.name)'")
                     }
-                    if let library = xcFrameworkLibrary(for: binaryTarget) {
+                    if case .xcframework = binaryTarget.kind, let library = self.xcFrameworkLibrary(for: binaryTarget) {
                         libraryBinaryPaths.insert(library.binaryPath)
                     }
                 case .extension:
@@ -1834,12 +1841,6 @@ public class BuildPlan {
         xcFrameworkCache[target] = xcFramework
         return xcFramework
     }
-
-    /// Cache for pkgConfig flags.
-    private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
-
-    /// Cache for xcframework library information.
-    private var xcFrameworkCache = [BinaryTarget: LibraryInfo?]()
 }
 
 /// Information about a library.

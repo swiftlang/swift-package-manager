@@ -353,13 +353,13 @@ public final class MockWorkspace {
         }
 
         for dependency in managedDependencies {
-            try self.fs.createDirectory(workspace.path(for: dependency), recursive: true)
+            try self.fs.createDirectory(workspace.path(to: dependency), recursive: true)
             workspace.state.dependencies.add(dependency)
         }
 
         for artifact in managedArtifacts {
-            if let path = workspace.path(for: artifact) {
-                try self.fs.createDirectory(path, recursive: true)
+            if let downloadPath = workspace.downloadPath(for: artifact) {
+                try self.fs.createDirectory(downloadPath, recursive: true)
             }
 
             workspace.state.artifacts.add(artifact)

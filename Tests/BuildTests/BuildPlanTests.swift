@@ -2455,8 +2455,7 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
-    func testBinaryTargets(platform: String, arch: String, destinationTriple: TSCUtility.Triple)
-    throws {
+    func testXCFrameworkBinaryTargets(platform: String, arch: String, destinationTriple: TSCUtility.Triple) throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/Library/Library.swift",
@@ -2529,6 +2528,7 @@ final class BuildPlanTests: XCTestCase {
                 """))
 
         let diagnostics = DiagnosticsEngine()
+        
         let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
@@ -2551,6 +2551,10 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "StaticLibrary", path: "StaticLibrary.xcframework", type: .binary),
                     ]
                 ),
+            ],
+            binaryArtifacts: [
+                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/Framework.xcframework")),
+                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/StaticLibrary.xcframework"))
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -2598,12 +2602,14 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
 
-    func testBinaryTargets() throws {
-        try testBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
+    func testXCFrameworkBinaryTargets() throws {
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", destinationTriple: .macOS)
+
         let arm64Triple = try TSCUtility.Triple("arm64-apple-macosx")
-        try testBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64", destinationTriple: arm64Triple)
+
         let arm64eTriple = try TSCUtility.Triple("arm64e-apple-macosx")
-        try testBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
+        try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
     func testAddressSanitizer() throws {

@@ -25,7 +25,7 @@ public final class ManagedArtifact {
         case remote(url: String, checksum: String, subpath: RelativePath)
 
         /// Represents a locally available artifact, with its path relative to its package.
-        case local(path: String)
+        case local(path: AbsolutePath)
     }
 
     /// The package reference.
@@ -66,7 +66,7 @@ public final class ManagedArtifact {
     public static func local(
         packageRef: PackageReference,
         targetName: String,
-        path: String
+        path: AbsolutePath
     ) -> ManagedArtifact {
         return ManagedArtifact(
             packageRef: packageRef,
@@ -89,14 +89,14 @@ extension ManagedArtifact: JSONMappable, JSONSerializable, CustomStringConvertib
 
     public func toJSON() -> JSON {
         return .init([
-            "packageRef": packageRef,
-            "targetName": targetName,
-            "source": source,
+            "packageRef": self.packageRef,
+            "targetName": self.targetName,
+            "source": self.source,
         ])
     }
 
     public var description: String {
-        return "<ManagedArtifact: \(packageRef.name).\(targetName) \(source)>"
+        return "<ManagedArtifact: \(self.packageRef.name).\(self.targetName) \(self.source)>"
     }
 }
 
@@ -105,7 +105,7 @@ extension ManagedArtifact.Source: JSONMappable, JSONSerializable, CustomStringCo
         let type: String = try json.get("type")
         switch type {
         case "local":
-            self = try .local(path: json.get("path"))
+            self = try .local(path: AbsolutePath(json.get("path")))
         case "remote":
             let url: String = try json.get("url")
             let checksum: String = try json.get("checksum")
@@ -121,7 +121,7 @@ extension ManagedArtifact.Source: JSONMappable, JSONSerializable, CustomStringCo
         case .local(let path):
             return .init([
                 "type": "local",
-                "path": path,
+                "path": path.pathString,
             ])
         case .remote(let url, let checksum, let subpath):
             return .init([

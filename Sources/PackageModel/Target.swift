@@ -445,9 +445,80 @@ public final class ClangTarget: Target {
 }
 
 public final class BinaryTarget: Target {
+    /// The kind of binary artifact.
+    public let kind: Kind
 
     /// The original source of the binary artifact.
-    public enum ArtifactSource: Equatable, Codable {
+    public let origin: Origin
+
+    /// The binary artifact path.
+    public var artifactPath: AbsolutePath {
+        return self.sources.root
+    }
+
+    public init(
+        name: String,
+        kind: Kind,
+        platforms: [SupportedPlatform] = [],
+        path: AbsolutePath,
+        origin: Origin
+    ) {
+        self.origin = origin
+        self.kind = kind
+        let sources = Sources(paths: [], root: path)
+        super.init(
+            name: name,
+            defaultLocalization: nil,
+            platforms: platforms,
+            type: .binary,
+            sources: sources,
+            dependencies: [],
+            buildSettings: .init()
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case origin
+        case artifactSource // backwards compatibility 2/2021
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.origin, forKey: .origin)
+        try container.encode(self.kind, forKey: .kind)
+    }
+
+    // 👀 do we need backwards compatibility?
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(Kind.self, forKey: .kind)
+        self.origin = try container.decode(Origin.self, forKey: .origin)
+        try super.init(from: decoder)
+    }
+
+    public enum Kind: String, RawRepresentable, Codable, CaseIterable {
+        case xcframework
+        // 👀 this is where we would add new types
+        //case swiftLibraryArchive
+        //case swiftExecutableArchive
+
+        public var fileExtension: String {
+            switch self {
+            case .xcframework:
+                return "xcframework"
+            }
+        }
+
+        public static func forFileExtension(_ fileExtension: String) throws -> Kind {
+            guard let kind = Kind.allCases.first(where: {  $0.fileExtension == fileExtension }) else {
+                throw StringError("unknown binary artifact file extension '\(fileExtension)'")
+            }
+            return kind
+        }
+    }
+
+    public enum Origin: Equatable, Codable {
 
         /// Represents an artifact that was downloaded from a remote URL.
         case remote(url: String)
@@ -484,48 +555,6 @@ public final class BinaryTarget: Target {
                 self = .local
             }
         }
-    }
-
-    /// The binary artifact's source.
-    public let artifactSource: ArtifactSource
-
-    /// The binary artifact path.
-    public var artifactPath: AbsolutePath {
-        return sources.root
-    }
-
-    public init(
-        name: String,
-        platforms: [SupportedPlatform] = [],
-        path: AbsolutePath,
-        artifactSource: ArtifactSource
-    ) {
-        self.artifactSource = artifactSource
-        let sources = Sources(paths: [], root: path)
-        super.init(
-            name: name,
-            defaultLocalization: nil,
-            platforms: platforms,
-            type: .binary,
-            sources: sources,
-            dependencies: [],
-            buildSettings: .init()
-        )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case artifactSource
-    }
-
-    public override func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(artifactSource, forKey: .artifactSource)
-    }
-
-    required public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
-        try super.init(from: decoder)
     }
 }
 

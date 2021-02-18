@@ -667,16 +667,20 @@ extension Workspace {
             )
         }
 
-        let remoteArtifacts = try state.artifacts.compactMap({ artifact -> RemoteArtifact? in
-            if case .remote(let url, _, _) = artifact.source {
-                guard let path = self.path(for: artifact) else {
-                    throw InternalError("failed computing path for \(artifact)")
+        // 👀 this used to return nil for local binary artifacts, is the change correct?
+        let binaryArtifacts = try self.state.artifacts.map{ artifact -> BinaryArtifact in
+            switch artifact.source {
+            case .remote(let url, _, _):
+                guard let path = self.downloadPath(for: artifact) else {
+                    throw InternalError("failed computing path for binary artifact \(artifact)")
                 }
-                return RemoteArtifact(url: url, path: path)
-            } else {
-                return nil
+                let kind = try BinaryTarget.Kind.forFileExtension(path.extension ?? "unknown")
+                return BinaryArtifact(kind: kind, originURL: url, path: path)
+            case .local(let path):
+                let kind = try BinaryTarget.Kind.forFileExtension(path.extension ?? "unknown")
+                return BinaryArtifact(kind: kind, originURL: nil, path: path)
             }
-        })
+        }
 
         // Load the graph.
         return try PackageGraph.load(
@@ -686,7 +690,7 @@ extension Workspace {
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackageURLs().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
-            remoteArtifacts: remoteArtifacts,
+            binaryArtifacts: binaryArtifacts,
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
@@ -1168,7 +1172,7 @@ extension Workspace {
                 // We should get the correct one from managed dependency object.
                 let ref = PackageReference.local(
                     identity: managedDependency.packageRef.identity,
-                    path: workspace.path(for: managedDependency)
+                    path: workspace.path(to: managedDependency)
                 )
                 let constraint = PackageContainerConstraint(
                     package: ref,
@@ -1209,7 +1213,7 @@ extension Workspace {
     /// Checkout dependencies will return the subpath inside `checkoutsPath` and
     /// edited dependencies will either return a subpath inside `editablesPath` or
     /// a custom path.
-    public func path(for dependency: ManagedDependency) -> AbsolutePath {
+    public func path(to dependency: ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
             return checkoutsPath.appending(dependency.subpath)
@@ -1221,10 +1225,10 @@ extension Workspace {
     }
 
     /// Returns the location of the artifact.
-    public func path(for artifact: ManagedArtifact) -> AbsolutePath? {
+    public func downloadPath(for artifact: ManagedArtifact) -> AbsolutePath? {
         switch artifact.source {
         case .remote(_, _, let subpath):
-            return artifactsPath.appending(subpath)
+            return self.artifactsPath.appending(subpath)
         case .local:
             return nil
         }
@@ -1355,7 +1359,7 @@ extension Workspace {
         }
 
         // Get the path of the package.
-        let packagePath = path(for: managedDependency)
+        let packagePath = path(to: managedDependency)
 
         // Load and return the manifest.
         self.loadManifest(packagePath: packagePath,
@@ -1506,8 +1510,8 @@ extension Workspace {
             for artifact in artifactsToRemove {
                 state.artifacts.remove(packageURL: artifact.packageRef.location, targetName: artifact.targetName)
 
-                if let path = path(for: artifact) {
-                    try fileSystem.removeFileTree(path)
+                if case .remote(_, _, _) = artifact.source, let downloadPath = self.downloadPath(for: artifact) {
+                    try fileSystem.removeFileTree(downloadPath)
                 }
             }
 
@@ -1544,17 +1548,27 @@ extension Workspace {
         for (packageRef, manifest) in packageAndManifests {
             for target in manifest.targets where target.type == .binary {
                 if let path = target.path {
-                    let artifact = ManagedArtifact.local(packageRef: packageRef, targetName: target.name, path: path)
-                    artifacts.append(artifact)
+                    // 👀 FIXME: is there a better way?
+                    // the target path is validated earlier to be within the package directory
+                    let absolutePath = manifest.path.parentDirectory.appending(component: path)
+                    artifacts.append(
+                        .local(
+                            packageRef: packageRef,
+                            targetName: target.name,
+                            path: absolutePath)
+                    )
                 } else if let url = target.url, let checksum = target.checksum {
-                    let subpath = artifactSubpath(packageRef: packageRef, targetName: target.name)
-                    let artifact = ManagedArtifact.remote(
-                        packageRef: packageRef,
-                        targetName: target.name,
-                        url: url,
-                        checksum: checksum,
-                        subpath: subpath)
-                    artifacts.append(artifact)
+                    // 👀 FIXME: hard coding "xcframework" here is obviously wrong, but need to understand what we expect today in the
+                    // zipfile to see how we can fix this
+                    let subpath = RelativePath("\(packageRef.name)/\(target.name).xcframework")
+                    artifacts.append(
+                        .remote(
+                            packageRef: packageRef,
+                            targetName: target.name,
+                            url: url,
+                            checksum: checksum,
+                            subpath: subpath)
+                    )
                 } else {
                     throw InternalError("a binary target should have either a path or a URL and a checksum")
                 }
@@ -1562,10 +1576,6 @@ extension Workspace {
         }
 
         return artifacts
-    }
-
-    private func artifactSubpath(packageRef: PackageReference, targetName: String) -> RelativePath {
-        RelativePath("\(packageRef.name)/\(targetName).xcframework")
     }
 
     private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) throws {
@@ -1585,7 +1595,7 @@ extension Workspace {
             group.enter()
             defer { group.leave() }
 
-            guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
+            guard case .remote(let url, let checksum, _) = artifact.source, let destination = self.downloadPath(for: artifact) else {
                 throw InternalError("Can't download local artifact")
             }
 
@@ -1636,7 +1646,7 @@ extension Workspace {
 
                             switch extractResult {
                             case .success:
-                                if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
+                                if let expectedPath = self.downloadPath(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
                                     tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: expectedPath.basename))
                                 }
                             case .failure(let error):
@@ -2112,7 +2122,7 @@ extension Workspace {
                 // the edited checkout is unchanged.
                 if let editedDependency = state.dependencies.first(where: {
                     guard $0.basedOn != nil else { return false }
-                    return path(for: $0).pathString == packageRef.location
+                    return self.path(to: $0).pathString == packageRef.location
                 }) {
                     currentDependency = editedDependency
                     let originalReference = editedDependency.basedOn!.packageRef // forced unwrap safe
@@ -2255,7 +2265,7 @@ extension Workspace {
             diagnostics.wrap {
 
                 // If the dependency is present, we're done.
-                let dependencyPath = path(for: dependency)
+                let dependencyPath = self.path(to: dependency)
                 guard !fileSystem.isDirectory(dependencyPath) else { return }
 
                 switch dependency.state {
