@@ -33,6 +33,7 @@ import class Foundation.Bundle
 /// the name were a relative path.
 public func fixture(
     name: String,
+    createGitRepo: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> Void
@@ -76,7 +77,9 @@ public func fixture(
                     guard localFileSystem.isDirectory(srcDir) else { continue }
                     let dstDir = tmpDirPath.appending(component: fileName)
                     try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-                    initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+                    if createGitRepo {
+                        initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+                    }
                 }
 
                 // Invoke the block, passing it the path of the copied fixture.

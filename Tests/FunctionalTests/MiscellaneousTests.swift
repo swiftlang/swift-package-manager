@@ -421,7 +421,23 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("does not exist"), "Error from git was not propogated to process output: \(output)")
         }
     }
+    
+    func testLocalPackageUsedAsURL() throws {
+        fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { prefix in
+            // This fixture has a setup that is trying to use a local package
+            // as a url that hasn't been initialized as a repo
 
+            // Launch swift-build.
+            let app = prefix.appending(component: "Bar")
+
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+
+            XCTAssert(result.exitStatus != .terminated(code: 0))
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("Cannot clone from local directory"), "Didn't find expected output: \(output)")
+        }
+    }
+    
     func testUnicode() {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in
