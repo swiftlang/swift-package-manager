@@ -42,6 +42,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir,
+            additionalTrustedRootCerts: PackageCollectionSourceCertificatePolicy.allRootCerts,
             diagnosticsEngine: diagnosticsEngine ?? DiagnosticsEngine()
         )
     }
@@ -102,7 +103,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                             return callback(.failure(Errors.invalidResponse("Body is empty")))
                         }
 
-                        let certPolicyKey = self.configuration.certificatePolicyKey(for: source) ?? .default
+                        let certPolicyKey = PackageCollectionSourceCertificatePolicy.certificatePolicyKey(for: source) ?? .default
                         self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKey: certPolicyKey, callback: callback)
                     }
                 }
@@ -261,7 +262,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     public struct Configuration {
         public var maximumSizeInBytes: Int64
         public var trustedRootCertsDir: URL?
-        public var sourceCertPolicies: [String: CertificatePolicyKey]
 
         var validator: PackageCollectionModel.V1.Validator.Configuration
 
@@ -294,25 +294,17 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
         public init(maximumSizeInBytes: Int64? = nil,
                     trustedRootCertsDir: URL? = nil,
-                    sourceCertPolicies: [String: CertificatePolicyKey]? = nil,
                     maximumPackageCount: Int? = nil,
                     maximumMajorVersionCount: Int? = nil,
                     maximumMinorVersionCount: Int? = nil) {
             // TODO: where should we read defaults from?
             self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
             self.trustedRootCertsDir = trustedRootCertsDir
-            self.sourceCertPolicies = sourceCertPolicies ?? [:]
             self.validator = JSONModel.Validator.Configuration(
                 maximumPackageCount: maximumPackageCount,
                 maximumMajorVersionCount: maximumMajorVersionCount,
                 maximumMinorVersionCount: maximumMinorVersionCount
             )
-        }
-
-        func certificatePolicyKey(for source: Model.CollectionSource) -> CertificatePolicyKey? {
-            // Certificate policy is associated to a collection host
-            guard let host = source.url.host else { return nil }
-            return self.sourceCertPolicies[host]
         }
     }
 

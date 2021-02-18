@@ -24,6 +24,7 @@ add_library(PackageCollections
   Storage/Trie.swift
   API.swift
   PackageCollections.swift
+  PackageCollections+CertificatePolicy.swift
   PackageCollections+Configuration.swift
   PackageCollections+Storage.swift
   PackageCollections+Validation.swift
