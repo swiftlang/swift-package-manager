@@ -23,6 +23,7 @@ target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
   PackageModel
+  SourceControl
   TSCUtility)
 if(Foundation_FOUND)
   target_link_libraries(PackageLoading PUBLIC
