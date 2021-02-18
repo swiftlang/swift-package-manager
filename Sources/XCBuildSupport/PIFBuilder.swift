@@ -258,6 +258,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .iOS)
         settings[.TVOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .tvOS)
         settings[.WATCHOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .watchOS)
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .driverKit)
         settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
         settings[.USE_HEADERMAP] = "NO"
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
@@ -1483,6 +1484,9 @@ extension Array where Element == PackageConditionProtocol {
             case .windows:
                 result += PIF.PlatformFilter.windowsFilters
 
+            case .driverKit:
+                result += PIF.PlatformFilter.driverKitFilters
+
             default:
                 assertionFailure("Unhandled platform condition: \(condition)")
                 break
@@ -1515,6 +1519,11 @@ extension PIF.PlatformFilter {
         .init(platform: "watchos", environment: "simulator")
     ]
 
+    /// DriverKit platform filters.
+    public static let driverKitFilters: [PIF.PlatformFilter] = [
+        .init(platform: "driverkit"),
+    ]
+
     /// Windows platform filters.
     public static let windowsFilters: [PIF.PlatformFilter] = [
         .init(platform: "windows", environment: "msvc"),
@@ -1543,6 +1552,7 @@ private extension PIF.BuildSettings.Platform {
         case .macOS: return .macOS
         case .tvOS: return .tvOS
         case .watchOS: return .watchOS
+        case .driverKit: return .driverKit
         default: return nil
         }
     }

@@ -457,6 +457,8 @@ extension PackageModel.Platform {
             return "tvOS"
         case .watchOS:
             return "watchOS"
+        case .driverKit:
+            return "DriverKit"
         default:
             fatalError("unexpected manifest name call for platform \(self)")
         }
@@ -469,7 +471,7 @@ extension SupportedPlatform {
             guard self.version.patch == 0 else {
                 return false
             }
-        } else if [Platform.macOS, .iOS, .watchOS, .tvOS].contains(platform) {
+        } else if [Platform.macOS, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
             guard self.version.minor == 0, self.version.patch == 0 else {
                 return false
             }
@@ -488,6 +490,8 @@ extension SupportedPlatform {
             return (9...14).contains(version.major)
         case .watchOS:
             return (2...7).contains(version.major)
+        case .driverKit:
+            return (19...20).contains(version.major)
 
         default:
             return false

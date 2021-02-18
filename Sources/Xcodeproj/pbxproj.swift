@@ -434,6 +434,8 @@ public func xcodeProject(
                     targetSettings.common.TVOS_DEPLOYMENT_TARGET = version
                 case .watchOS:
                     targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = version
+                case .driverKit:
+                    targetSettings.common.DRIVERKIT_DEPLOYMENT_TARGET = version
                 default:
                     break
                 }

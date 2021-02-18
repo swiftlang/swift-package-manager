@@ -885,6 +885,7 @@ public enum PIF {
             case COPY_PHASE_STRIP
             case DEBUG_INFORMATION_FORMAT
             case DEFINES_MODULE
+            case DRIVERKIT_DEPLOYMENT_TARGET
             case DYLIB_INSTALL_NAME_BASE
             case EMBEDDED_CONTENT_CONTAINS_SWIFT
             case ENABLE_NS_ASSERTIONS
@@ -959,6 +960,7 @@ public enum PIF {
             case iOS = "ios"
             case tvOS = "tvos"
             case watchOS = "watchos"
+            case driverKit = "driverkit"
             case linux
 
             public var conditions: [String] {
@@ -967,6 +969,7 @@ public enum PIF {
                 case .iOS: return ["sdk=iphonesimulator*", "sdk=iphoneos*"]
                 case .tvOS: return ["sdk=appletvsimulator*", "sdk=appletvos*"]
                 case .watchOS: return ["sdk=watchsimulator*", "sdk=watchos*"]
+                case .driverKit: return ["sdk=driverkit*"]
                 case .linux: return ["sdk=linux*"]
                 }
             }
