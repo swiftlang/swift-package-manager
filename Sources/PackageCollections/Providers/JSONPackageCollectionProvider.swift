@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
 import struct Foundation.URL
@@ -49,14 +50,9 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         if let absolutePath = source.absolutePath {
             do {
                 let fileContents = try localFileSystem.readFileContents(absolutePath)
-                let collection: JSONModel.Collection = try fileContents.withData { data in
-                    do {
-                        return try self.decoder.decode(JSONModel.Collection.self, from: data)
-                    } catch {
-                        throw Errors.invalidJSON(error)
-                    }
+                return fileContents.withData { data in
+                    self.decodeAndRunSignatureCheck(source: source, data: data, callback: callback)
                 }
-                return callback(self.makeCollection(from: collection, source: source, signature: nil))
             } catch {
                 return callback(.failure(error))
             }
@@ -97,30 +93,40 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                             return callback(.failure(Errors.invalidResponse("Body is empty")))
                         }
 
-                        do {
-                            // parse json and construct result
-                            do {
-                                // This fails if "signature" is missing
-                                let signature = try JSONModel.SignedCollection.signature(from: body, using: self.decoder)
-                                // TODO: Check collection's signature
-                                // If signature is
-                                //      a. valid: process the collection; set isSigned=true
-                                //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
-                                let collection = try JSONModel.SignedCollection.collection(from: body, using: self.decoder)
-                                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature)))
-                            } catch {
-                                // Collection is not signed
-                                guard let collection = try response.decodeBody(JSONModel.Collection.self, using: self.decoder) else {
-                                    return callback(.failure(Errors.invalidResponse("Invalid body")))
-                                }
-                                callback(self.makeCollection(from: collection, source: source, signature: nil))
-                            }
-                        } catch {
-                            callback(.failure(Errors.invalidJSON(error)))
-                        }
+                        self.decodeAndRunSignatureCheck(source: source, data: body, callback: callback)
                     }
                 }
             }
+        }
+    }
+
+    private func decodeAndRunSignatureCheck(source: Model.CollectionSource,
+                                            data: Data,
+                                            callback: @escaping (Result<Model.Collection, Error>) -> Void) {
+        do {
+            // This fails if "signature" is missing
+            let signature = try JSONModel.SignedCollection.signature(from: data, using: self.decoder)
+            if source.skipSignatureCheck {
+                // Don't validate signature but set isVerified=false
+                let collection = try JSONModel.SignedCollection.collection(from: data, using: self.decoder)
+                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature, isVerified: false)))
+            } else {
+                // TODO: Signature validator should throw "cannot verify" error on non-Apple platforms
+                // if there are no trusted root certs set up, in which case we should throw PackageCollectionError.cannotVerifySignature
+
+                // TODO: Check collection's signature
+                // If signature is
+                //      a. valid: process the collection; set isSigned=true
+                //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
+                let collection = try JSONModel.SignedCollection.collection(from: data, using: self.decoder)
+                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature, isVerified: true)))
+            }
+        } catch {
+            // Collection is not signed
+            guard let collection = try? self.decoder.decode(JSONModel.Collection.self, from: data) else {
+                return callback(.failure(Errors.invalidJSON(error)))
+            }
+            callback(self.makeCollection(from: collection, source: source, signature: nil))
         }
     }
 
@@ -380,8 +386,9 @@ extension Model.License {
 }
 
 extension Model.SignatureData {
-    fileprivate init(from: JSONModel.Signature) {
+    fileprivate init(from: JSONModel.Signature, isVerified: Bool) {
         self.certificate = .init(from: from.certificate)
+        self.isVerified = isVerified
     }
 }
 

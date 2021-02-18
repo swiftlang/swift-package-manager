@@ -831,7 +831,8 @@ final class PackageCollectionsTests: XCTestCase {
                         certificate: PackageCollectionsModel.SignatureData.Certificate(
                             subject: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil),
                             issuer: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil)
-                        )
+                        ),
+                        isVerified: true
                     )
                     callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, signature: signature)))
                 }

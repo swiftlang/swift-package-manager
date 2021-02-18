@@ -174,4 +174,8 @@ public enum PackageCollectionError: Equatable, Error {
 
     /// Package collection is not signed and user explicitly marks it untrusted
     case untrusted
+
+    /// There are no trusted root certificates. Signature check cannot be done in this case since it involves validating
+    /// the certificate chain that is used for signing and one requirement is that the root certificate must be trusted.
+    case cannotVerifySignature
 }
