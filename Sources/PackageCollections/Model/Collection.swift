@@ -100,13 +100,17 @@ extension PackageCollectionsModel {
         /// Indicates if the source is explicitly trusted or untrusted by the user
         public var isTrusted: Bool?
 
+        /// Indicates if the source can skip signature validation
+        public var skipSignatureCheck: Bool
+
         /// The source's absolute file system path, if its URL is of 'file' scheme.
         let absolutePath: AbsolutePath?
 
-        public init(type: CollectionSourceType, url: URL, isTrusted: Bool? = nil) {
+        public init(type: CollectionSourceType, url: URL, isTrusted: Bool? = nil, skipSignatureCheck: Bool = false) {
             self.type = type
             self.url = url
             self.isTrusted = isTrusted
+            self.skipSignatureCheck = skipSignatureCheck
 
             if url.scheme?.lowercased() == "file", let absolutePath = try? AbsolutePath(validating: url.path) {
                 self.absolutePath = absolutePath
@@ -192,8 +196,12 @@ extension PackageCollectionsModel {
         /// Details about the certificate used to generate the signature
         public let certificate: Certificate
 
-        public init(certificate: Certificate) {
+        /// Indicates if the signature has been validated. This is set to false if signature check didn't take place.
+        public let isVerified: Bool
+
+        public init(certificate: Certificate, isVerified: Bool) {
             self.certificate = certificate
+            self.isVerified = isVerified
         }
 
         public struct Certificate: Equatable, Codable {

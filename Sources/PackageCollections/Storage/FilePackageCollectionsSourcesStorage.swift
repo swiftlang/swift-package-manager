@@ -187,6 +187,7 @@ private enum StorageModel {
         let type: String
         let value: String
         let isTrusted: Bool?
+        let skipSignatureCheck: Bool?
     }
 
     enum SourceType: String {
@@ -204,7 +205,7 @@ private extension Model.CollectionSource {
 
         switch from.type {
         case StorageModel.SourceType.json.rawValue:
-            self.init(type: .json, url: url, isTrusted: from.isTrusted)
+            self.init(type: .json, url: url, isTrusted: from.isTrusted, skipSignatureCheck: from.skipSignatureCheck ?? false)
         default:
             throw SerializationError.unknownType(from.type)
         }
@@ -213,7 +214,8 @@ private extension Model.CollectionSource {
     func source() -> StorageModel.Source {
         switch self.type {
         case .json:
-            return .init(type: StorageModel.SourceType.json.rawValue, value: self.url.absoluteString, isTrusted: self.isTrusted)
+            return .init(type: StorageModel.SourceType.json.rawValue, value: self.url.absoluteString,
+                         isTrusted: self.isTrusted, skipSignatureCheck: self.skipSignatureCheck)
         }
     }
 }

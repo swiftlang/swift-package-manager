@@ -140,8 +140,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 self.refreshCollectionFromSource(source: source, trustConfirmationProvider: trustConfirmationProvider) { collectionResult in
                     switch collectionResult {
                     case .failure(let error):
-                        // Don't delete the source if we are either pending user confirmation or have recorded user's preference
-                        if let error = error as? PackageCollectionError, error == .trustConfirmationRequired || error == .untrusted {
+                        // Don't delete the source if we are either pending user confirmation or have recorded user's preference.
+                        // It is also possible that we can't verify signature (yet) due to config issue, which user can fix and we retry later.
+                        if let error = error as? PackageCollectionError, error == .trustConfirmationRequired || error == .untrusted || error == .cannotVerifySignature {
                             return callback(.failure(error))
                         }
                         // Otherwise remove source since it fails to be fetched

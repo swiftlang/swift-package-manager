@@ -20,8 +20,10 @@ private enum CollectionsError: Swift.Error {
     case invalidArgument(String)
     case invalidVersionString(String)
     case unsigned
+    case cannotVerifySignature
 }
 
+// FIXME: add links to docs in error messages
 extension CollectionsError: CustomStringConvertible {
     var description: String {
         switch self {
@@ -31,6 +33,8 @@ extension CollectionsError: CustomStringConvertible {
             return "Invalid version string '\(versionString)'"
         case .unsigned:
             return "The collection is not signed. If you would still like to add it please rerun 'add' with '--trust-unsigned'."
+        case .cannotVerifySignature:
+            return "The collection's signature cannot be verified due to missing configuration. Please refer to documentations on how to set up trusted root certificates or rerun 'add' with '--skip-signature-check."
         }
     }
 }
@@ -106,12 +110,15 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @Flag(name: .long, help: "Trust the collection even if it is unsigned")
         var trustUnsigned: Bool = false
 
+        @Flag(name: .long, help: "Skip signature check if the collection is signed")
+        var skipSignatureCheck: Bool = false
+
         mutating func run() throws {
             guard let collectionUrl = URL(string: collectionUrl) else {
                 throw CollectionsError.invalidArgument("collectionUrl")
             }
 
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl, skipSignatureCheck: self.skipSignatureCheck)
             let collection: PackageCollectionsModel.Collection = try with { collections in
                 do {
                     let userTrusted = self.trustUnsigned
@@ -125,6 +132,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     }
                 } catch PackageCollectionError.trustConfirmationRequired, PackageCollectionError.untrusted {
                     throw CollectionsError.unsigned
+                } catch PackageCollectionError.cannotVerifySignature {
+                    throw CollectionsError.cannotVerifySignature
                 }
             }
 

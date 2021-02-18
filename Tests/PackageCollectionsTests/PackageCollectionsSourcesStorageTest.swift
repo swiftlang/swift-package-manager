@@ -86,7 +86,16 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
             source.isTrusted = !(source.isTrusted ?? false)
             _ = try tsc_await { callback in storage.update(source: source, callback: callback) }
             let listAfter = try tsc_await { callback in storage.list(callback: callback) }
-            XCTAssertEqual(source.isTrusted, listAfter.first!.isTrusted, "item should match")
+            XCTAssertEqual(source.isTrusted, listAfter.first!.isTrusted, "isTrusted should match")
+        }
+
+        do {
+            let list = try tsc_await { callback in storage.list(callback: callback) }
+            var source = list.first!
+            source.skipSignatureCheck = !source.skipSignatureCheck
+            _ = try tsc_await { callback in storage.update(source: source, callback: callback) }
+            let listAfter = try tsc_await { callback in storage.list(callback: callback) }
+            XCTAssertEqual(source.skipSignatureCheck, listAfter.first!.skipSignatureCheck, "skipSignatureCheck should match")
         }
     }
 
