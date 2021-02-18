@@ -30,7 +30,9 @@ add_library(PackageCollectionsSigning
   Utilities/Base64URL.swift 
   Utilities/Utilities.swift)
 target_link_libraries(PackageCollectionsSigning PUBLIC
+  Basics
   PackageCollectionsModel
+  TSCBasic
   $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageCollectionsSigning PRIVATE
