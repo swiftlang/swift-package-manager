@@ -334,6 +334,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedGood() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
@@ -555,6 +559,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedLocalFile() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
 

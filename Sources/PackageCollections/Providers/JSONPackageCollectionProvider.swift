@@ -126,7 +126,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             let signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: data)
 
             if !Self.enableSignatureCheck {
-                return callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
+                return callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
             }
 
             if source.skipSignatureCheck {
