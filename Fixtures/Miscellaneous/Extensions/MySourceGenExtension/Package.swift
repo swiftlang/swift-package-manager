@@ -10,16 +10,12 @@ let package = Package(
         //     target: "MySourceGenExt"
         // )
     ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.3.1")),
-    ],
     targets: [
         // A local tool that uses an extension.
         .executableTarget(
             name: "MyLocalTool",
             dependencies: [
                 "MySourceGenExt",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "MySourceGenTool"
             ]
         ),
@@ -36,7 +32,6 @@ let package = Package(
             name: "MySourceGenTool",
             dependencies: [
                 "MySourceGenToolLib",
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
             ]
         ),
         // A library used by MySourceGenTool (not the client).

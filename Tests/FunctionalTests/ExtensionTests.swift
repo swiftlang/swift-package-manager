@@ -19,10 +19,10 @@ class ExtensionTests: XCTestCase {
         fixture(name: "Miscellaneous/Extensions/MySourceGenExtension") { prefix in
             do {
                 let (stdout, _) = try executeSwiftBuild(prefix, configuration: .Debug, env: ["SWIFTPM_ENABLE_EXTENSION_TARGETS": "1"])
-                XCTAssert(stdout.contains("Linking MySourceGenTool"))
-                XCTAssert(stdout.contains("MySourceGenTooling Foo.dat.swift"))
-                XCTAssert(stdout.contains("Linking MyLocalTool"))
-                XCTAssert(stdout.contains("Build Completed"))
+                XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("MySourceGenTooling Foo.dat"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build Completed"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)

@@ -1,21 +1,17 @@
 import PackageExtension
 
-
 for inputPath in targetBuildContext.otherFiles {
-    guard inputPath.hasSuffix(".dat") else { continue }
-    
-    let outputPath = targetBuildContext.outputDir.appending(inputPath.basename + ".swift")
-    print("inputPath:  \(inputPath)")
-    print("outputPath: \(outputPath)")
-
+    guard inputPath.suffix == ".dat" else { continue }
+    let outputName = inputPath.basename + ".swift"
+    let outputPath = targetBuildContext.outputDir.appending(outputName)
     commandConstructor.createCommand(
         displayName:
-            "MySourceGenTooling \(outputPath.string)",
+            "MySourceGenTooling \(inputPath)",
         executable:
             try targetBuildContext.lookupTool(named: "MySourceGenTool"),
         arguments: [
-            inputPath.string,
-            outputPath.string
+            "\(inputPath)",
+            "\(outputPath)"
         ],
         inputPaths: [
             inputPath,
