@@ -1031,8 +1031,8 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
 
-            let remoteArtifacts = [RemoteArtifact(url: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
-            PackageBuilderTester(manifest, remoteArtifacts: remoteArtifacts, in: fs) { package, _ in
+            let binaryArtifacts = [BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
+            PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, _ in
                 package.checkModule("foo")
             }
         }
@@ -2228,7 +2228,7 @@ final class PackageBuilderTester {
     init(
         _ manifest: Manifest,
         path: AbsolutePath = .root,
-        remoteArtifacts: [RemoteArtifact] = [],
+        binaryArtifacts: [BinaryArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
         allowExtensionTargets: Bool = false,
         createREPLProduct: Bool = false,
@@ -2244,7 +2244,7 @@ final class PackageBuilderTester {
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,
-                remoteArtifacts: remoteArtifacts,
+                binaryArtifacts: binaryArtifacts,
                 xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
                 fileSystem: fs,
                 diagnostics: diagnostics,

@@ -233,8 +233,8 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         diagnostics.wrap {
             try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
-            result(diagnostics)
         }
+        result(diagnostics)
     }
 
     public func checkClean(_ result: (DiagnosticsEngine) -> Void) {
@@ -263,10 +263,10 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        diagnostics.wrap {
+        _ = diagnostics.wrap {
             try workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
-            result(diagnostics)
         }
+        result(diagnostics)
     }
 
     public func checkUpdateDryRun(
@@ -280,10 +280,10 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        diagnostics.wrap {
-            let changes = try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
-            result(changes, diagnostics)
-        }
+        let changes = diagnostics.wrap {
+             try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
+        } ?? nil
+        result(changes, diagnostics)
     }
 
     public func checkPackageGraph(
@@ -306,12 +306,42 @@ public final class MockWorkspace {
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        diagnostics.wrap {
+        do {
             let graph = try workspace.loadPackageGraph(
                 rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
             )
             result(graph, diagnostics)
+        } catch {
+            preconditionFailure("expected graph to load, but failed with: \(error)\n\(diagnostics)")
         }
+    }
+
+    public func checkPackageGraphFailure(
+        roots: [String] = [],
+        deps: [MockDependency],
+        _ result: (DiagnosticsEngine) -> Void
+    ) {
+        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+        self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
+    }
+
+    public func checkPackageGraphFailure(
+        roots: [String] = [],
+        dependencies: [PackageDependencyDescription] = [],
+        forceResolvedVersions: Bool = false,
+        _ result: (DiagnosticsEngine) -> Void
+    ) {
+        let diagnostics = DiagnosticsEngine()
+        let workspace = self.createWorkspace()
+        let rootInput = PackageGraphRootInput(
+            packages: rootPaths(for: roots), dependencies: dependencies
+        )
+        _ = diagnostics.wrap {
+            try workspace.loadPackageGraph(
+                rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
+            )
+        }
+        result(diagnostics)
     }
 
     public struct ResolutionPrecomputationResult {
@@ -353,14 +383,12 @@ public final class MockWorkspace {
         }
 
         for dependency in managedDependencies {
-            try self.fs.createDirectory(workspace.path(for: dependency), recursive: true)
+            try self.fs.createDirectory(workspace.path(to: dependency), recursive: true)
             workspace.state.dependencies.add(dependency)
         }
 
         for artifact in managedArtifacts {
-            if let path = workspace.path(for: artifact) {
-                try self.fs.createDirectory(path, recursive: true)
-            }
+            try self.fs.createDirectory(artifact.path, recursive: true)
 
             workspace.state.artifacts.add(artifact)
         }
@@ -448,6 +476,7 @@ public final class MockWorkspace {
             packageName: String,
             targetName: String,
             source: ManagedArtifact.Source,
+            path: AbsolutePath,
             file: StaticString = #file,
             line: UInt = #line
         ) {
@@ -455,13 +484,13 @@ public final class MockWorkspace {
                 XCTFail("\(packageName).\(targetName) does not exists", file: file, line: line)
                 return
             }
+            XCTAssertEqual(artifact.path, path)
             switch (artifact.source, source) {
-            case (.remote(let lhsURL, let lhsChecksum, let lhsSubpath), .remote(let rhsURL, let rhsChecksum, let rhsSubpath)):
+            case (.remote(let lhsURL, let lhsChecksum), .remote(let rhsURL, let rhsChecksum)):
                 XCTAssertEqual(lhsURL, rhsURL, file: file, line: line)
                 XCTAssertEqual(lhsChecksum, rhsChecksum, file: file, line: line)
-                XCTAssertEqual(lhsSubpath, rhsSubpath, file: file, line: line)
-            case (.local(let lhsPath), .local(let rhsPath)):
-                XCTAssertEqual(lhsPath, rhsPath, file: file, line: line)
+            case (.local, .local):
+                break
             default:
                 XCTFail("wrong source type", file: file, line: line)
             }

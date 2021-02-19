@@ -193,16 +193,19 @@ extension Product.Error: CustomStringConvertible {
 }
 
 /// A structure representing the remote artifact information necessary to construct the package.
-public struct RemoteArtifact {
+public struct BinaryArtifact {
+    /// The kind of the artifact.
+    public let kind: BinaryTarget.Kind
 
-    /// The URl the artifact was downloaded from.
-    public let url: String
+    /// The URL the artifact was downloaded from.
+    public let originURL: String?
 
-    /// The path to the downloaded artifact.
+    /// The path to the  artifact.
     public let path: AbsolutePath
 
-    public init(url: String, path: AbsolutePath) {
-        self.url = url
+    public init(kind: BinaryTarget.Kind, originURL: String?, path: AbsolutePath) {
+        self.kind = kind
+        self.originURL = originURL
         self.path = path
     }
 }
@@ -222,7 +225,7 @@ public final class PackageBuilder {
     private let packagePath: AbsolutePath
 
     /// Information concerning the different downloaded binary target artifacts.
-    private let remoteArtifacts: [RemoteArtifact]
+    private let binaryArtifacts: [BinaryArtifact]
 
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
@@ -266,7 +269,7 @@ public final class PackageBuilder {
         productFilter: ProductFilter,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
-        remoteArtifacts: [RemoteArtifact] = [],
+        binaryArtifacts: [BinaryArtifact] = [],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         fileSystem: FileSystem = localFileSystem,
         diagnostics: DiagnosticsEngine,
@@ -279,7 +282,7 @@ public final class PackageBuilder {
         self.productFilter = productFilter
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
-        self.remoteArtifacts = remoteArtifacts
+        self.binaryArtifacts = binaryArtifacts
         self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
@@ -526,7 +529,7 @@ public final class PackageBuilder {
                     return packagePath
                 }
 
-                // Make sure target is not refenced by absolute path
+                // Make sure target is not referenced by absolute path
                 guard let relativeSubPath = try? RelativePath(validating: subpath) else {
                     throw ModuleError.unsupportedTargetPath(subpath)
                 }
@@ -541,7 +544,7 @@ public final class PackageBuilder {
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
             } else if target.type == .binary {
-                if let artifact = remoteArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
+                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
                     return artifact.path
                 } else {
                     throw ModuleError.artifactNotFound(target.name)
@@ -707,13 +710,16 @@ public final class PackageBuilder {
                 providers: manifestTarget.providers
             )
         } else if potentialModule.type == .binary {
-            let remoteURL = remoteArtifacts.first(where: { $0.path == potentialModule.path })
-            let artifactSource: BinaryTarget.ArtifactSource = remoteURL.map({ .remote(url: $0.url) }) ?? .local
+            guard let artifact = self.binaryArtifacts.first(where: { $0.path == potentialModule.path }) else {
+                throw InternalError("unknown binary artifact for '\(potentialModule.name)'")
+            }
+            let artifactOrigin: BinaryTarget.Origin = artifact.originURL.flatMap{ .remote(url: $0) } ?? .local
             return BinaryTarget(
                 name: potentialModule.name,
+                kind: artifact.kind,
                 platforms: self.platforms(),
                 path: potentialModule.path,
-                artifactSource: artifactSource
+                origin: artifactOrigin
             )
         }
 

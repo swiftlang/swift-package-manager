@@ -15,19 +15,7 @@ import SourceControl
 import TSCUtility
 
 /// A downloaded artifact managed by the workspace.
-public final class ManagedArtifact {
-
-    /// Represents the source of the artifact.
-    public enum Source: Equatable {
-
-        /// Represents a remote artifact, with the url it was downloaded from, its checksum, and its path relative to
-        /// the workspace artifacts path.
-        case remote(url: String, checksum: String, subpath: RelativePath)
-
-        /// Represents a locally available artifact, with its path relative to its package.
-        case local(path: String)
-    }
-
+public struct ManagedArtifact {
     /// The package reference.
     public let packageRef: PackageReference
 
@@ -37,14 +25,19 @@ public final class ManagedArtifact {
     /// The source of the artifact (local or remote).
     public let source: Source
 
+    /// The path of the artifact on disk
+    public let path: AbsolutePath
+
     public init(
         packageRef: PackageReference,
         targetName: String,
-        source: Source
+        source: Source,
+        path: AbsolutePath
     ) {
         self.packageRef = packageRef
         self.targetName = targetName
         self.source = source
+        self.path = path        
     }
 
     /// Create an artifact downloaded from a remote url.
@@ -53,12 +46,13 @@ public final class ManagedArtifact {
         targetName: String,
         url: String,
         checksum: String,
-        subpath: RelativePath
+        path: AbsolutePath
     ) -> ManagedArtifact {
         return ManagedArtifact(
             packageRef: packageRef,
             targetName: targetName,
-            source: .remote(url: url, checksum: checksum, subpath: subpath)
+            source: .remote(url: url, checksum: checksum),
+            path: path
         )
     }
 
@@ -66,37 +60,51 @@ public final class ManagedArtifact {
     public static func local(
         packageRef: PackageReference,
         targetName: String,
-        path: String
+        path: AbsolutePath
     ) -> ManagedArtifact {
         return ManagedArtifact(
             packageRef: packageRef,
             targetName: targetName,
-            source: .local(path: path)
+            source: .local,
+            path: path
         )
+    }
+
+    /// Represents the source of the artifact.
+    public enum Source: Equatable {
+
+        /// Represents a remote artifact, with the url it was downloaded from, its checksum, and its path relative to
+        /// the workspace artifacts path.
+        case remote(url: String, checksum: String)
+
+        /// Represents a locally available artifact, with its path relative to its package.
+        case local
     }
 }
 
 // MARK: - JSON
 
 extension ManagedArtifact: JSONMappable, JSONSerializable, CustomStringConvertible {
-    public convenience init(json: JSON) throws {
+    public init(json: JSON) throws {
         try self.init(
             packageRef: json.get("packageRef"),
             targetName: json.get("targetName"),
-            source: json.get("source")
+            source: json.get("source"),
+            path: AbsolutePath(json.get("path"))
         )
     }
 
     public func toJSON() -> JSON {
         return .init([
-            "packageRef": packageRef,
-            "targetName": targetName,
-            "source": source,
+            "packageRef": self.packageRef,
+            "targetName": self.targetName,
+            "source": self.source,
+            "path": self.path,
         ])
     }
 
     public var description: String {
-        return "<ManagedArtifact: \(packageRef.name).\(targetName) \(source)>"
+        return "<ManagedArtifact: \(self.packageRef.name).\(self.targetName) \(self.source) \(self.path)>"
     }
 }
 
@@ -105,12 +113,11 @@ extension ManagedArtifact.Source: JSONMappable, JSONSerializable, CustomStringCo
         let type: String = try json.get("type")
         switch type {
         case "local":
-            self = try .local(path: json.get("path"))
+            self = .local
         case "remote":
             let url: String = try json.get("url")
             let checksum: String = try json.get("checksum")
-            let subpath = try RelativePath(json.get("subpath"))
-            self = .remote(url: url, checksum: checksum, subpath: subpath)
+            self = .remote(url: url, checksum: checksum)
         default:
             throw JSON.MapError.custom(key: nil, message: "Invalid type \(type)")
         }
@@ -118,27 +125,25 @@ extension ManagedArtifact.Source: JSONMappable, JSONSerializable, CustomStringCo
 
     public func toJSON() -> JSON {
         switch self {
-        case .local(let path):
+        case .local:
             return .init([
                 "type": "local",
-                "path": path,
             ])
-        case .remote(let url, let checksum, let subpath):
+        case .remote(let url, let checksum):
             return .init([
                 "type": "remote",
                 "url": url,
-                "checksum": checksum,
-                "subpath": subpath.toJSON(),
+                "checksum": checksum
             ])
         }
     }
 
     public var description: String {
         switch self {
-        case .local(let path):
-            return "local(path: \(path))"
-        case .remote(let url, let checksum, let subpath):
-            return "remote(url: \(url), checksum: \(checksum), subpath: \(subpath))"
+        case .local:
+            return "local"
+        case .remote(let url, let checksum):
+            return "remote(url: \(url), checksum: \(checksum))"
         }
     }
 }

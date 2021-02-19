@@ -439,7 +439,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 ))
             }
 
-            let validExtensions = isRemote ? ["zip"] : ["xcframework"]
+            let validExtensions = isRemote ? ["zip"] : BinaryTarget.Kind.allCases.map{ $0.fileExtension }
             if !validExtensions.contains(location.pathExtension) {
                 try diagnostics.emit(.unsupportedBinaryLocationExtension(
                     targetName: target.name,

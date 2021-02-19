@@ -3688,7 +3688,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
-        workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { _, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: "cannot update Package.resolved file because automatic resolution is disabled", checkContains: true, behavior: .error)
             }
@@ -3912,7 +3912,7 @@ final class WorkspaceTests: XCTestCase {
             .git(name: "bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
-        workspace.checkPackageGraph(roots: ["Overridden/bazzz-master"], deps: deps) { _, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
             DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
                 result.check(diagnostic: .equal("unable to override package 'Baz' because its identity 'bazzz' doesn't match override's identity (directory name) 'bazzz-master'"), behavior: .error)
             }
@@ -4263,27 +4263,27 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testArtifactDownload() throws {
+    func testArtifactDownloadHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         var downloads: [MockDownloader.Download] = []
 
-        let workspace = try MockWorkspace(
-            sandbox: sandbox,
-            fs: fs,
-            downloader: MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+        // returns a dummy zipfile for the requested artifact
+        let downloader = MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+            do {
                 let contents: [UInt8]
                 switch url.lastPathComponent {
-                case "a1.zip": contents = [0xA1]
-                case "a2.zip": contents = [0xA2]
-                case "a3.zip": contents = [0xA3]
-                case "b.zip": contents = [0xB0]
+                case "a1.zip":
+                    contents = [0xA1]
+                case "a2.zip":
+                    contents = [0xA2]
+                case "b.zip":
+                    contents = [0xB0]
                 default:
-                    XCTFail("unexpected url")
-                    contents = []
+                    throw StringError("unexpected url \(url)")
                 }
 
-                try! fs.writeFileContents(
+                try fs.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
@@ -4291,7 +4291,213 @@ final class WorkspaceTests: XCTestCase {
 
                 downloads.append(MockDownloader.Download(url: url, destinationPath: destination))
                 completion(.success(()))
-            }),
+            } catch {
+                completion(.failure( DownloaderError.clientError(error)))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a1.zip":
+                    name = "A1.xcframework"
+                case "a2.zip":
+                    name = "A2.xcframework"
+                case "b.zip":
+                    name = "B.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            downloader: downloader,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                            "B"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .git(name: "B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                        MockProduct(name: "A2", targets: ["A2"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "B",
+                    targets: [
+                        MockTarget(
+                            name: "B",
+                            type: .binary,
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "B", targets: ["B"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
+            XCTAssertEqual(downloads.map { $0.url.absoluteString }.sorted(), [
+                "https://a.com/a1.zip",
+                "https://a.com/a2.zip",
+                "https://b.com/b.zip",
+            ])
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0xA1]).hexadecimalRepresentation,
+                ByteString([0xA2]).hexadecimalRepresentation,
+                ByteString([0xB0]).hexadecimalRepresentation,
+            ])
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }, [
+                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+            ])
+            XCTAssertEqual(
+                downloads.map { $0.destinationPath },
+                workspace.archiver.extractions.map { $0.archivePath }
+            )
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(packageName: "A",
+                         targetName: "A1",
+                         source: .remote(
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+            )
+            result.check(packageName: "A",
+                         targetName: "A2",
+                         source: .remote(
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+            )
+            result.check(packageName: "B",
+                         targetName: "B",
+                         source: .remote(
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
+            )
+        }
+    }
+
+    func testArtifactDownloadWithPreviousState() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        var downloads: [MockDownloader.Download] = []
+
+        // returns a dummy zipfile for the requested artifact
+        let downloader = MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+            do {
+                let contents: [UInt8]
+                switch url.lastPathComponent {
+                case "a1.zip":
+                    contents = [0xA1]
+                case "a2.zip":
+                    contents = [0xA2]
+                case "a3.zip":
+                    contents = [0xA3]
+                case "b.zip":
+                    contents = [0xB0]
+                default:
+                    throw StringError("unexpected url \(url)")
+                }
+
+                try fs.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                downloads.append(MockDownloader.Download(url: url, destinationPath: destination))
+                completion(.success(()))
+            } catch {
+                completion(.failure(DownloaderError.clientError(error)))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a1.zip":
+                    name = "A1.xcframework"
+                case "a2.zip":
+                    name = "A2.xcframework"
+                case "a3.zip":
+                    name = "incorrect-name.xcframework"
+                case "b.zip":
+                    name = "B.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            downloader: downloader,
+            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4368,11 +4574,6 @@ final class WorkspaceTests: XCTestCase {
         let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "A4.xcframework")
         try fs.createDirectory(a4FrameworkPath, recursive: true)
 
-        try [("A", "A1.xcframework"), ("A", "A2.xcframework"), ("B", "B.xcframework")].forEach {
-            let frameworkPath = workspace.artifactsDir.appending(components: $0.0, $0.1)
-            try fs.createDirectory(frameworkPath, recursive: true)
-        }
-
         // Pin A to 1.0.0, Checkout B to 1.0.0
         let aURL = workspace.urlForPackage(withName: "A")
         let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
@@ -4389,61 +4590,63 @@ final class WorkspaceTests: XCTestCase {
                     targetName: "A1",
                     source: .remote(
                         url: "https://a.com/a1.zip",
-                        checksum: "a1",
-                        subpath: RelativePath("A/A1.xcframework")
-                    )
+                        checksum: "a1"
+                    ),
+                    path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
                 ),
                 ManagedArtifact(
                     packageRef: aRef,
                     targetName: "A3",
                     source: .remote(
                         url: "https://a.com/old/a3.zip",
-                        checksum: "a3-old-checksum",
-                        subpath: RelativePath("A/A3.xcframework")
-                    )
+                        checksum: "a3-old-checksum"
+                    ),
+                    path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
                 ),
                 ManagedArtifact(
                     packageRef: aRef,
                     targetName: "A4",
                     source: .remote(
                         url: "https://a.com/a4.zip",
-                        checksum: "a4",
-                        subpath: RelativePath("A/A4.xcframework")
-                    )
+                        checksum: "a4"
+                    ),
+                    path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
                 ),
                 ManagedArtifact(
                     packageRef: aRef,
                     targetName: "A5",
                     source: .remote(
                         url: "https://a.com/a5.zip",
-                        checksum: "a5",
-                        subpath: RelativePath("A/A5.xcframework")
-                    )
+                        checksum: "a5"
+                    ),
+                    path: workspace.artifactsDir.appending(components: "A", "A5.xcframework")
                 ),
                 ManagedArtifact(
                     packageRef: aRef,
                     targetName: "A6",
-                    source: .local(path: "A6.xcframework")
+                    source: .local,
+                    path: workspace.artifactsDir.appending(components: "A", "A6.xcframework")
                 ),
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertEqual(diagnostics.diagnostics.map { $0.message.text }, ["downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3.xcframework'"])
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            XCTAssertEqual(diagnostics.diagnostics.map { $0.message.text },
+                           ["downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3'"])
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A5.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
-            XCTAssertEqual(downloads.map { $0.url }, [
-                URL(string: "https://b.com/b.zip")!,
-                URL(string: "https://a.com/a2.zip")!,
-                URL(string: "https://a.com/a3.zip")!,
+            XCTAssertEqual(downloads.map { $0.url.absoluteString }.sorted(), [
+                "https://a.com/a2.zip",
+                "https://a.com/a3.zip",
+                "https://b.com/b.zip",
             ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes, [
-                ByteString([0xB0]),
-                ByteString([0xA2]),
-                ByteString([0xA3]),
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0xA2]).hexadecimalRepresentation,
+                ByteString([0xA3]).hexadecimalRepresentation,
+                ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }, [
                 AbsolutePath("/tmp/ws/.build/artifacts/B"),
@@ -4454,67 +4657,40 @@ final class WorkspaceTests: XCTestCase {
                 downloads.map { $0.destinationPath },
                 workspace.archiver.extractions.map { $0.archivePath }
             )
-            PackageGraphTester(graph) { graph in
-                if let a1 = graph.find(target: "A1")?.underlyingTarget as? BinaryTarget {
-                    XCTAssertEqual(a1.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework"))
-                    XCTAssertEqual(a1.artifactSource, .remote(url: "https://a.com/a1.zip"))
-                } else {
-                    XCTFail("expected binary target")
-                }
-
-                if let a2 = graph.find(target: "A2")?.underlyingTarget as? BinaryTarget {
-                    XCTAssertEqual(a2.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/A/A2.xcframework"))
-                    XCTAssertEqual(a2.artifactSource, .remote(url: "https://a.com/a2.zip"))
-                } else {
-                    XCTFail("expected binary target")
-                }
-
-                if let a3 = graph.find(target: "A3")?.underlyingTarget as? BinaryTarget {
-                    XCTAssertEqual(a3.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework"))
-                    XCTAssertEqual(a3.artifactSource, .remote(url: "https://a.com/a3.zip"))
-                } else {
-                    XCTFail("expected binary target")
-                }
-
-                if let a4 = graph.find(target: "A4")?.underlyingTarget as? BinaryTarget {
-                    XCTAssertEqual(a4.artifactPath, a4FrameworkPath)
-                    XCTAssertEqual(a4.artifactSource, .local)
-                } else {
-                    XCTFail("expected binary target")
-                }
-
-                if let b = graph.find(target: "B")?.underlyingTarget as? BinaryTarget {
-                    XCTAssertEqual(b.artifactPath, AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework"))
-                    XCTAssertEqual(b.artifactSource, .remote(url: "https://b.com/b.zip"))
-                } else {
-                    XCTFail("expected binary target")
-                }
-            }
         }
 
         workspace.checkManagedArtifacts { result in
-            result.check(packageName: "A", targetName: "A1", source: .remote(
-                url: "https://a.com/a1.zip",
-                checksum: "a1",
-                subpath: RelativePath("A/A1.xcframework")
-            ))
-            result.check(packageName: "A", targetName: "A2", source: .remote(
-                url: "https://a.com/a2.zip",
-                checksum: "a2",
-                subpath: RelativePath("A/A2.xcframework")
-            ))
-            result.check(packageName: "A", targetName: "A3", source: .remote(
-                url: "https://a.com/a3.zip",
-                checksum: "a3",
-                subpath: RelativePath("A/A3.xcframework")
-            ))
-            result.check(packageName: "A", targetName: "A4", source: .local(path: "A4.xcframework"))
+            result.check(packageName: "A",
+                         targetName: "A1",
+                         source: .remote(
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+            )
+            result.check(packageName: "A",
+                         targetName: "A2",
+                         source: .remote(
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+            )
+            result.checkNotPresent(packageName: "A", targetName: "A3")
+            result.check(packageName: "A",
+                         targetName: "A4",
+                         source: .local,
+                         path: a4FrameworkPath
+            )
             result.checkNotPresent(packageName: "A", targetName: "A5")
-            result.check(packageName: "B", targetName: "B", source: .remote(
-                url: "https://b.com/b.zip",
-                checksum: "b0",
-                subpath: RelativePath("B/B.xcframework")
-            ))
+            result.check(packageName: "B",
+                         targetName: "B",
+                         source: .remote(
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
+            )
         }
     }
 
@@ -4540,7 +4716,7 @@ final class WorkspaceTests: XCTestCase {
                     completion(.success(()))
                 }
             }),
-            archiver: MockArchiver(extract: { _, destinationPath, completion in
+            archiver: MockArchiver(extract: { _, _, destinationPath, completion in
                 XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
                 completion(.failure(DummyError()))
             }),
@@ -4592,7 +4768,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             print(diagnostics.diagnostics)
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("artifact of binary target 'A1' failed download: invalid status code 500"), behavior: .error)
@@ -4652,14 +4828,14 @@ final class WorkspaceTests: XCTestCase {
                     targetName: "A",
                     source: .remote(
                         url: "https://a.com/a.zip",
-                        checksum: "old-checksum",
-                        subpath: RelativePath("A/A.xcframework")
-                    )
+                        checksum: "old-checksum"
+                    ),
+                    path: workspace.packagesDir.appending(components: "A", "A.xcframework")
                 ),
             ]
         )
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { result, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             XCTAssertEqual(workspace.downloader.downloads, [])
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("artifact of binary target 'A' has changed checksum"), behavior: .error)

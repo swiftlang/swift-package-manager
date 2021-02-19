@@ -1648,6 +1648,9 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "BinaryLibrary", path: "BinaryLibrary.xcframework", type: .binary)
                     ]),
             ],
+            binaryArtifacts: [
+                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"))
+            ],
             shouldCreateMultipleTestProducts: true
         )
 

@@ -667,16 +667,9 @@ extension Workspace {
             )
         }
 
-        let remoteArtifacts = try state.artifacts.compactMap({ artifact -> RemoteArtifact? in
-            if case .remote(let url, _, _) = artifact.source {
-                guard let path = self.path(for: artifact) else {
-                    throw InternalError("failed computing path for \(artifact)")
-                }
-                return RemoteArtifact(url: url, path: path)
-            } else {
-                return nil
-            }
-        })
+        let binaryArtifacts = try self.state.artifacts.map{ artifact -> BinaryArtifact in
+            return try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
+        }
 
         // Load the graph.
         return try PackageGraph.load(
@@ -686,7 +679,7 @@ extension Workspace {
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackageURLs().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
-            remoteArtifacts: remoteArtifacts,
+            binaryArtifacts: binaryArtifacts,
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             diagnostics: diagnostics,
             fileSystem: fileSystem,
@@ -1168,7 +1161,7 @@ extension Workspace {
                 // We should get the correct one from managed dependency object.
                 let ref = PackageReference.local(
                     identity: managedDependency.packageRef.identity,
-                    path: workspace.path(for: managedDependency)
+                    path: workspace.path(to: managedDependency)
                 )
                 let constraint = PackageContainerConstraint(
                     package: ref,
@@ -1209,7 +1202,7 @@ extension Workspace {
     /// Checkout dependencies will return the subpath inside `checkoutsPath` and
     /// edited dependencies will either return a subpath inside `editablesPath` or
     /// a custom path.
-    public func path(for dependency: ManagedDependency) -> AbsolutePath {
+    public func path(to dependency: ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
             return checkoutsPath.appending(dependency.subpath)
@@ -1217,16 +1210,6 @@ extension Workspace {
             return path ?? editablesPath.appending(dependency.subpath)
         case .local:
             return AbsolutePath(dependency.packageRef.location)
-        }
-    }
-
-    /// Returns the location of the artifact.
-    public func path(for artifact: ManagedArtifact) -> AbsolutePath? {
-        switch artifact.source {
-        case .remote(_, _, let subpath):
-            return artifactsPath.appending(subpath)
-        case .local:
-            return nil
         }
     }
 
@@ -1355,7 +1338,7 @@ extension Workspace {
         }
 
         // Get the path of the package.
-        let packagePath = path(for: managedDependency)
+        let packagePath = path(to: managedDependency)
 
         // Load and return the manifest.
         self.loadManifest(packagePath: packagePath,
@@ -1450,55 +1433,55 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         diagnostics: DiagnosticsEngine
     ) throws {
-        let updatedArtifacts = try self.artifacts(from: manifests)
+        let manifestArtifacts = try self.parseArtifacts(from: manifests)
 
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
-        var artifactsToDownload: [ManagedArtifact] = []
+        var artifactsToDownload: [RemoteArtifact] = []
 
         for artifact in state.artifacts {
-            if !updatedArtifacts.contains(where: {
-                $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName
-            }) {
+            if !manifestArtifacts.local.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
+                !manifestArtifacts.remote.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) {
                 artifactsToRemove.append(artifact)
             }
         }
 
-        for artifact in updatedArtifacts {
+        for artifact in manifestArtifacts.local {
             let existingArtifact = state.artifacts[
                 packageURL: artifact.packageRef.location,
                 targetName: artifact.targetName
             ]
 
-            switch artifact.source {
-            case .local:
-                if let existingArtifact = existingArtifact, case .remote = existingArtifact.source {
-                    // If we go from a remote to a local artifact, we can remove the old remote artifact.
-                    artifactsToRemove.append(existingArtifact)
-                }
-
-                artifactsToAdd.append(artifact)
-            case .remote(_, let checksum, _):
-                if let existingArtifact = existingArtifact,
-                    case .remote(_, let existingChecksum, _) = existingArtifact.source
-                {
-                    // If we already have an artifact with the same checksum, we don't need to download it again.
-                    if checksum == existingChecksum {
-                        continue
-                    }
-
-                    // If the checksum is different but the package wasn't updated, this is a security risk.
-                    if !addedOrUpdatedPackages.contains(artifact.packageRef) {
-                        diagnostics.emit(.artifactChecksumChanged(targetName: artifact.targetName))
-                        continue
-                    }
-
-                    artifactsToRemove.append(existingArtifact)
-                }
-
-                artifactsToAdd.append(artifact)
-                artifactsToDownload.append(artifact)
+            if let existingArtifact = existingArtifact, case .remote = existingArtifact.source {
+                // If we go from a remote to a local artifact, we can remove the old remote artifact.
+                artifactsToRemove.append(existingArtifact)
             }
+
+            artifactsToAdd.append(artifact)
+        }
+
+        for artifact in manifestArtifacts.remote {
+            let existingArtifact = state.artifacts[
+                packageURL: artifact.packageRef.location,
+                targetName: artifact.targetName
+            ]
+
+            if let existingArtifact = existingArtifact, case .remote(_, let existingChecksum) = existingArtifact.source {
+                // If we already have an artifact with the same checksum, we don't need to download it again.
+                if artifact.checksum == existingChecksum {
+                    continue
+                }
+
+                // If the checksum is different but the package wasn't updated, this is a security risk.
+                if !addedOrUpdatedPackages.contains(artifact.packageRef) {
+                    diagnostics.emit(.artifactChecksumChanged(targetName: artifact.targetName))
+                    continue
+                }
+
+                artifactsToRemove.append(existingArtifact)
+            }
+
+            artifactsToDownload.append(artifact)
         }
 
         // Remove the artifacts and directories which are not needed anymore.
@@ -1506,8 +1489,8 @@ extension Workspace {
             for artifact in artifactsToRemove {
                 state.artifacts.remove(packageURL: artifact.packageRef.location, targetName: artifact.targetName)
 
-                if let path = path(for: artifact) {
-                    try fileSystem.removeFileTree(path)
+                if case .remote = artifact.source {
+                    try fileSystem.removeFileTree(artifact.path)
                 }
             }
 
@@ -1520,55 +1503,65 @@ extension Workspace {
         }
 
         guard !diagnostics.hasErrors else {
-            return
+            throw Diagnostics.fatalError
         }
 
-        try self.download(artifactsToDownload, diagnostics: diagnostics)
+        // Download the artifacts
+        let downloadedArtifacts = try self.download(artifactsToDownload, diagnostics: diagnostics)
+        artifactsToAdd.append(contentsOf: downloadedArtifacts)
 
+        // Add the new artifacts
         for artifact in artifactsToAdd {
-            state.artifacts.add(artifact)
+            self.state.artifacts.add(artifact)
+        }
+
+        guard !diagnostics.hasErrors else {
+            throw Diagnostics.fatalError
         }
 
         diagnostics.wrap {
-            try state.saveState()
+            try self.state.saveState()
         }
     }
 
-    private func artifacts(from manifests: DependencyManifests) throws -> [ManagedArtifact] {
+    private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
         let packageAndManifests: [(PackageReference, Manifest)] =
             zip(manifests.root.packageRefs, manifests.root.manifests) + // Root package and manifests.
             manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
 
-        var artifacts: [ManagedArtifact] = []
+        var localArtifacts: [ManagedArtifact] = []
+        var remoteArtifacts: [RemoteArtifact] = []
 
         for (packageRef, manifest) in packageAndManifests {
             for target in manifest.targets where target.type == .binary {
                 if let path = target.path {
-                    let artifact = ManagedArtifact.local(packageRef: packageRef, targetName: target.name, path: path)
-                    artifacts.append(artifact)
+                    // TODO: find a better way to get the base path (not via the manifest)
+                    // the target path is validated earlier to be within the package directory
+                    let absolutePath = manifest.path.parentDirectory.appending(component: path)
+                    localArtifacts.append(
+                        .local(
+                            packageRef: packageRef,
+                            targetName: target.name,
+                            path: absolutePath)
+                    )
                 } else if let url = target.url, let checksum = target.checksum {
-                    let subpath = artifactSubpath(packageRef: packageRef, targetName: target.name)
-                    let artifact = ManagedArtifact.remote(
-                        packageRef: packageRef,
-                        targetName: target.name,
-                        url: url,
-                        checksum: checksum,
-                        subpath: subpath)
-                    artifacts.append(artifact)
+                    remoteArtifacts.append(
+                        .init(
+                            packageRef: packageRef,
+                            targetName: target.name,
+                            url: url,
+                            checksum: checksum)
+                    )
                 } else {
                     throw InternalError("a binary target should have either a path or a URL and a checksum")
                 }
             }
         }
 
-        return artifacts
+        return (local: localArtifacts, remote: remoteArtifacts)
     }
 
-    private func artifactSubpath(packageRef: PackageReference, targetName: String) -> RelativePath {
-        RelativePath("\(packageRef.name)/\(targetName).xcframework")
-    }
-
-    private func download(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) throws {
+    private func download(_ artifacts: [RemoteArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
         let group = DispatchGroup()
         let tempDiagnostics = DiagnosticsEngine()
 
@@ -1581,19 +1574,18 @@ extension Workspace {
             authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
         }
         #endif
+
+        let result = ThreadSafeArrayStore<ManagedArtifact>()
+
         for artifact in artifacts {
             group.enter()
             defer { group.leave() }
 
-            guard case .remote(let url, let checksum, _) = artifact.source, let destination = path(for: artifact) else {
-                throw InternalError("Can't download local artifact")
+            guard let parsedURL = URL(string: artifact.url) else {
+                throw StringError("invalid url \(artifact.url)")
             }
 
-            guard let parsedURL = URL(string: url) else {
-                throw StringError("invalid url \(url)")
-            }
-
-            let parentDirectory = destination.parentDirectory
+            let parentDirectory =  self.artifactsPath.appending(component: artifact.packageRef.name)
 
             do {
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
@@ -1604,15 +1596,16 @@ extension Workspace {
 
             let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
 
-            group.enter()
             didDownloadAnyArtifact = true
+
+            group.enter()
             downloader.downloadFile(
                 at: parsedURL,
                 to: archivePath,
                 withAuthorizationProvider: authProvider,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     self.delegate?.downloadingBinaryArtifact(
-                        from: url,
+                        from: artifact.url,
                         bytesDownloaded: bytesDownloaded,
                         totalBytesToDownload: totalBytesToDownload)
                 },
@@ -1621,11 +1614,10 @@ extension Workspace {
 
                     switch downloadResult {
                     case .success:
-                        let archiveChecksum = self.checksum(
-                            forBinaryArtifactAt: archivePath,
-                            diagnostics: tempDiagnostics)
-                        guard archiveChecksum == checksum else {
-                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: checksum, actualChecksum: archiveChecksum))
+                        let archiveChecksum = self.checksum(forBinaryArtifactAt: archivePath, diagnostics: tempDiagnostics )
+                        guard archiveChecksum == artifact.checksum else {
+                            tempDiagnostics.emit(
+                                .artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
                             return
                         }
@@ -1636,9 +1628,24 @@ extension Workspace {
 
                             switch extractResult {
                             case .success:
-                                if let expectedPath = self.path(for: artifact), !self.fileSystem.isDirectory(expectedPath) {
-                                    tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: expectedPath.basename))
+                                let extractedFiles = tempDiagnostics.wrap { try self.fileSystem.getDirectoryContents(parentDirectory)
+                                    .map{ parentDirectory.appending(component: $0) }
+                                    .filter{ $0 != archivePath }
                                 }
+
+                                guard let artifactPath = extractedFiles?.first(where: { $0.basenameWithoutExt == artifact.targetName }) else {
+                                    return tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                                }
+
+                                result.append(
+                                    .remote(
+                                        packageRef: artifact.packageRef,
+                                        targetName: artifact.targetName,
+                                        url: artifact.url,
+                                        checksum: artifact.checksum,
+                                        path: artifactPath
+                                    )
+                                )
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                                 tempDiagnostics.emit(.artifactFailedExtraction(targetName: artifact.targetName, reason: reason))
@@ -1662,6 +1669,8 @@ extension Workspace {
         for diagnostic in tempDiagnostics.diagnostics {
             diagnostics.emit(diagnostic.message, location: diagnostic.location)
         }
+
+        return result.map{ $0 }
     }
 }
 
@@ -2112,7 +2121,7 @@ extension Workspace {
                 // the edited checkout is unchanged.
                 if let editedDependency = state.dependencies.first(where: {
                     guard $0.basedOn != nil else { return false }
-                    return path(for: $0).pathString == packageRef.location
+                    return self.path(to: $0).pathString == packageRef.location
                 }) {
                     currentDependency = editedDependency
                     let originalReference = editedDependency.basedOn!.packageRef // forced unwrap safe
@@ -2255,7 +2264,7 @@ extension Workspace {
             diagnostics.wrap {
 
                 // If the dependency is present, we're done.
-                let dependencyPath = path(for: dependency)
+                let dependencyPath = self.path(to: dependency)
                 guard !fileSystem.isDirectory(dependencyPath) else { return }
 
                 switch dependency.state {
@@ -2532,7 +2541,6 @@ extension Workspace {
 /// It is useful for objects that holds a state on disk and needs to be
 /// loaded frequently.
 public final class LoadableResult<Value> {
-
     /// The constructor closure for the value.
     private let construct: () throws -> Value
 
@@ -2554,9 +2562,31 @@ public final class LoadableResult<Value> {
     }
 }
 
+private struct RemoteArtifact {
+    let packageRef: PackageReference
+    let targetName: String
+    let url: String
+    let checksum: String
+}
+
+private extension ManagedArtifact {
+    var originURL: String? {
+        switch self.source {
+        case .remote(let url, _):
+            return url
+        case .local:
+            return nil
+        }
+    }
+
+    func kind() throws -> BinaryTarget.Kind {
+        return try BinaryTarget.Kind.forFileExtension(self.path.extension ?? "unknown")
+    }
+}
+
 // FIXME: the manifest loading logic should be changed to use identity instead of location once identity is unique
 // at that time we should remove this
-extension PackageDependencyDescription {
+private extension PackageDependencyDescription {
     var location: String {
         switch self {
         case .local(let data):
