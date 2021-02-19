@@ -86,15 +86,17 @@ public struct TargetSourcesBuilder {
         
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
-                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == "Invalid Exclude: \(message) '\(exclude)'" }) {
-                    self.diags.emit(warning: "Invalid Exclude: \(message) '\(exclude)'")
+                let warning = "Invalid Exclude: \(message) '\(exclude)'"
+                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
+                    self.diags.emit(warning: warning)
                 }
             }
         }
         
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
-                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == "Invalid Source: \(message) '\(source)'" }) {
+                let warning = "Invalid Source: \(message) '\(source)'"
+                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
                     self.diags.emit(warning: "Invalid Source: \(message) '\(source)'")
                 }
             }
@@ -202,8 +204,9 @@ public struct TargetSourcesBuilder {
             }
             
             if let message = validTargetPath(at: resourcePath) {
-                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == "Invalid Resource: \(message) '\(resourcePath)'" }) {
-                    self.diags.emit(warning: "Invalid Resource: \(message) '\(resourcePath)'")
+                let warning = "Invalid Resource: \(message) '\(resourcePath)'"
+                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
+                    self.diags.emit(warning: warning)
                 }
             }
         }
