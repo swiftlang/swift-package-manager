@@ -13,9 +13,11 @@ import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
+import class Foundation.ProcessInfo
 import struct Foundation.URL
 
 import PackageCollectionsModel
+import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
@@ -23,18 +25,32 @@ import TSCBasic
 private typealias JSONModel = PackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
+    // FIXME: remove
+    static let enableSignatureCheck = ProcessInfo.processInfo.environment["ENABLE_COLLECTION_SIGNATURE_CHECK"] != nil
+
     private let configuration: Configuration
-    private let diagnosticsEngine: DiagnosticsEngine?
+    private let diagnosticsEngine: DiagnosticsEngine
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
     private let validator: JSONModel.Validator
+    private let signatureValidator: PackageCollectionSignatureValidator
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(configuration: Configuration = .init(),
+         httpClient: HTTPClient? = nil,
+         signatureValidator: PackageCollectionSignatureValidator? = nil,
+         fileSystem: FileSystem = localFileSystem,
+         diagnosticsEngine: DiagnosticsEngine) {
         self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
+        self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
+            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.dotSwiftPM.appending(components: "config", "trust-root-certs").asURL,
+            additionalTrustedRootCerts: PackageCollectionSourceCertificatePolicy.allRootCerts,
+            callbackQueue: DispatchQueue.global(),
+            diagnosticsEngine: diagnosticsEngine
+        )
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -51,7 +67,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             do {
                 let fileContents = try localFileSystem.readFileContents(absolutePath)
                 return fileContents.withData { data in
-                    self.decodeAndRunSignatureCheck(source: source, data: data, callback: callback)
+                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKey: .default, callback: callback)
                 }
             } catch {
                 return callback(.failure(error))
@@ -93,7 +109,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                             return callback(.failure(Errors.invalidResponse("Body is empty")))
                         }
 
-                        self.decodeAndRunSignatureCheck(source: source, data: body, callback: callback)
+                        let certPolicyKey = PackageCollectionSourceCertificatePolicy.certificatePolicyKey(for: source) ?? .default
+                        self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKey: certPolicyKey, callback: callback)
                     }
                 }
             }
@@ -102,24 +119,34 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     private func decodeAndRunSignatureCheck(source: Model.CollectionSource,
                                             data: Data,
+                                            certPolicyKey: CertificatePolicyKey,
                                             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         do {
-            // This fails if "signature" is missing
-            let signature = try JSONModel.SignedCollection.signature(from: data, using: self.decoder)
-            if source.skipSignatureCheck {
-                // Don't validate signature but set isVerified=false
-                let collection = try JSONModel.SignedCollection.collection(from: data, using: self.decoder)
-                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature, isVerified: false)))
-            } else {
-                // TODO: Signature validator should throw "cannot verify" error on non-Apple platforms
-                // if there are no trusted root certs set up, in which case we should throw PackageCollectionError.cannotVerifySignature
+            // This fails if collection is not signed (i.e., no "signature")
+            let signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: data)
 
-                // TODO: Check collection's signature
-                // If signature is
-                //      a. valid: process the collection; set isSigned=true
-                //      b. invalid: includes expired cert, untrusted cert, signature-payload mismatch => return error
-                let collection = try JSONModel.SignedCollection.collection(from: data, using: self.decoder)
-                callback(self.makeCollection(from: collection, source: source, signature: Model.SignatureData(from: signature, isVerified: true)))
+            if !Self.enableSignatureCheck {
+                return callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
+            }
+
+            if source.skipSignatureCheck {
+                // Don't validate signature; set isVerified=false
+                callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
+            } else {
+                // Check the signature
+                self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
+                    switch result {
+                    case .failure(let error):
+                        self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                        if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
+                            callback(.failure(PackageCollectionError.cannotVerifySignature))
+                        } else {
+                            callback(.failure(PackageCollectionError.invalidSignature))
+                        }
+                    case .success:
+                        callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
+                    }
+                }
             }
         } catch {
             // Collection is not signed
@@ -207,7 +234,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         if !serializationOkay {
-            self.diagnosticsEngine?.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            self.diagnosticsEngine.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
         }
 
         return .success(.init(source: source,
@@ -246,7 +273,9 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     public struct Configuration {
         public var maximumSizeInBytes: Int64
-        public var validator: PackageCollectionModel.V1.Validator.Configuration
+        public var trustedRootCertsDir: URL?
+
+        var validator: PackageCollectionModel.V1.Validator.Configuration
 
         public var maximumPackageCount: Int {
             get {
@@ -276,11 +305,13 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         public init(maximumSizeInBytes: Int64? = nil,
+                    trustedRootCertsDir: URL? = nil,
                     maximumPackageCount: Int? = nil,
                     maximumMajorVersionCount: Int? = nil,
                     maximumMinorVersionCount: Int? = nil) {
             // TODO: where should we read defaults from?
             self.maximumSizeInBytes = maximumSizeInBytes ?? 5_000_000 // 5MB
+            self.trustedRootCertsDir = trustedRootCertsDir
             self.validator = JSONModel.Validator.Configuration(
                 maximumPackageCount: maximumPackageCount,
                 maximumMajorVersionCount: maximumMajorVersionCount,

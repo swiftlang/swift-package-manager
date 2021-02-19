@@ -24,6 +24,7 @@ add_library(PackageCollections
   Storage/Trie.swift
   API.swift
   PackageCollections.swift
+  PackageCollections+CertificatePolicy.swift
   PackageCollections+Configuration.swift
   PackageCollections+Storage.swift
   PackageCollections+Validation.swift
@@ -32,6 +33,9 @@ target_link_libraries(PackageCollections PUBLIC
   TSCBasic
   TSCUtility
   Basics
+  Crypto
+  PackageCollectionsModel
+  PackageCollectionsSigning
   PackageModel
   SourceControl)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

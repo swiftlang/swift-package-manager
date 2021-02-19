@@ -11,7 +11,10 @@
 import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
+
 @testable import PackageCollections
+import PackageCollectionsModel
+import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
@@ -123,13 +126,18 @@ func makeMockStorage() -> PackageCollections.Storage {
 
 struct MockCollectionsProvider: PackageCollectionProvider {
     let collections: [PackageCollectionsModel.Collection]
+    let collectionsWithInvalidSignature: Set<PackageCollectionsModel.CollectionSource>?
 
-    init(_ collections: [PackageCollectionsModel.Collection]) {
+    init(_ collections: [PackageCollectionsModel.Collection], collectionsWithInvalidSignature: Set<PackageCollectionsModel.CollectionSource>? = nil) {
         self.collections = collections
+        self.collectionsWithInvalidSignature = collectionsWithInvalidSignature
     }
 
     func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
         if let collection = (self.collections.first { $0.source == source }) {
+            if self.collectionsWithInvalidSignature?.contains(source) ?? false {
+                return callback(.failure(PackageCollectionError.invalidSignature))
+            }
             callback(.success(collection))
         } else {
             callback(.failure(NotFoundError("\(source)")))
@@ -151,6 +159,30 @@ struct MockMetadataProvider: PackageMetadataProvider {
             callback(.success(package))
         } else {
             callback(.failure(NotFoundError("\(reference)")))
+        }
+    }
+}
+
+struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {
+    let collections: Set<String>
+    let hasTrustedRootCerts: Bool
+
+    init(_ collections: Set<String> = [], hasTrustedRootCerts: Bool = true) {
+        self.collections = collections
+        self.hasTrustedRootCerts = hasTrustedRootCerts
+    }
+
+    func validate(signedCollection: PackageCollectionModel.V1.SignedCollection,
+                  certPolicyKey: CertificatePolicyKey,
+                  callback: @escaping (Result<Void, Error>) -> Void) {
+        guard self.hasTrustedRootCerts else {
+            return callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
+        }
+
+        if self.collections.contains(signedCollection.collection.name) {
+            callback(.success(()))
+        } else {
+            callback(.failure(PackageCollectionSigningError.invalidSignature))
         }
     }
 }

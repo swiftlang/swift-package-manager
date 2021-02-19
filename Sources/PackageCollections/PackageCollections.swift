@@ -25,7 +25,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
         let storage = Storage(sources: FilePackageCollectionsSourcesStorage(diagnosticsEngine: diagnosticsEngine),
                               collections: SQLitePackageCollectionsStorage(diagnosticsEngine: diagnosticsEngine))
 

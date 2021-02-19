@@ -21,6 +21,7 @@ private enum CollectionsError: Swift.Error {
     case invalidVersionString(String)
     case unsigned
     case cannotVerifySignature
+    case invalidSignature
 }
 
 // FIXME: add links to docs in error messages
@@ -34,7 +35,9 @@ extension CollectionsError: CustomStringConvertible {
         case .unsigned:
             return "The collection is not signed. If you would still like to add it please rerun 'add' with '--trust-unsigned'."
         case .cannotVerifySignature:
-            return "The collection's signature cannot be verified due to missing configuration. Please refer to documentations on how to set up trusted root certificates or rerun 'add' with '--skip-signature-check."
+            return "The collection's signature cannot be verified due to missing configuration. Please refer to documentations on how to set up trusted root certificates or rerun 'add' with '--skip-signature-check'."
+        case .invalidSignature:
+            return "The collection's signature is invalid. If you would still like to add it please rerun 'add' with '--skip-signature-check'."
         }
     }
 }
@@ -134,6 +137,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     throw CollectionsError.unsigned
                 } catch PackageCollectionError.cannotVerifySignature {
                     throw CollectionsError.cannotVerifySignature
+                } catch PackageCollectionError.invalidSignature {
+                    throw CollectionsError.invalidSignature
                 }
             }
 

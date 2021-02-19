@@ -175,6 +175,40 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
+    func testCollectionWithInvalidSignatureNotAdded() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection], collectionsWithInvalidSignature: [mockCollection.source])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        // add fails because collection's signature is invalid
+        guard case .failure(let error) = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }),
+            PackageCollectionError.invalidSignature == error as? PackageCollectionError else {
+            return XCTFail("expected PackageCollectionError.invalidSignature")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+    }
+
     func testDelete() throws {
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
