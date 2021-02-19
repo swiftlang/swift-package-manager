@@ -19,6 +19,8 @@ import SPMTestSupport
 import TSCBasic
 import TSCUtility
 
+private let enableSignatureCheck = JSONPackageCollectionProvider.enableSignatureCheck
+
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {
         fixture(name: "Collections") { directoryPath in
@@ -396,6 +398,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_skipSignatureCheck() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
@@ -460,6 +466,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_noTrustedRootCertsConfigured() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
@@ -500,6 +510,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedBad() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!

@@ -13,6 +13,7 @@ import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
+import class Foundation.ProcessInfo
 import struct Foundation.URL
 
 import PackageCollectionsModel
@@ -24,6 +25,9 @@ import TSCBasic
 private typealias JSONModel = PackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
+    // FIXME: remove
+    static let enableSignatureCheck = ProcessInfo.processInfo.environment["ENABLE_COLLECTION_SIGNATURE_CHECK"] != nil
+
     private let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine
     private let httpClient: HTTPClient
@@ -120,6 +124,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         do {
             // This fails if collection is not signed (i.e., no "signature")
             let signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: data)
+
+            if !Self.enableSignatureCheck {
+                return callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
+            }
+
             if source.skipSignatureCheck {
                 // Don't validate signature; set isVerified=false
                 callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
