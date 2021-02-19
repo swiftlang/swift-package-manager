@@ -544,11 +544,15 @@ public final class SwiftTargetBuildDescription {
 
     /// The modulemap file for this target, if any.
     private(set) var moduleMap: AbsolutePath?
+    
+    /// The results of having applied any extensions to this target.
+    public let extensionEvaluationResults: [ExtensionEvaluationResult]
 
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
         buildParameters: BuildParameters,
+        extensionEvaluationResults: [ExtensionEvaluationResult] = [],
         isTestTarget: Bool? = nil,
         testDiscoveryTarget: Bool = false,
         fs: FileSystem = localFileSystem
@@ -562,6 +566,21 @@ public final class SwiftTargetBuildDescription {
         self.fs = fs
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
+        self.extensionEvaluationResults = extensionEvaluationResults
+
+        // Add any derived source paths declared by build-tool extensions that were applied to this target.  We do
+        // this here and not just in the LLBuildManifestBuilder because we need to include them in any situation
+        // where sources are processed, e.g. when determining names of object files, etc.
+        for command in extensionEvaluationResults.reduce([], { $0 + $1.commands }) {
+            // Prebuild and postbuild commands are handled outside the build system.
+            if case .buildToolCommand(_, _, _, _, _, _, _, let derivedSourcePaths) = command {
+                // TODO: What should we do if we find non-Swift sources here?
+                for absPath in derivedSourcePaths {
+                    let relPath = absPath.relative(to: self.derivedSources.root)
+                    self.derivedSources.relativePaths.append(relPath)
+                }
+            }
+        }
 
         if shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
@@ -1259,6 +1278,9 @@ public class BuildPlan {
         return AnySequence(productMap.values)
     }
 
+    /// The results of evaluating any extensions used by targets in this build.
+    public let extensionEvaluationResults: [ResolvedTarget: [ExtensionEvaluationResult]]
+
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -1327,11 +1349,13 @@ public class BuildPlan {
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
+        extensionEvaluationResults: [ResolvedTarget: [ExtensionEvaluationResult]] = [:],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) throws {
         self.buildParameters = buildParameters
         self.graph = graph
+        self.extensionEvaluationResults = extensionEvaluationResults
         self.diagnostics = diagnostics
         self.fileSystem = fileSystem
 
@@ -1353,7 +1377,11 @@ public class BuildPlan {
 
             switch target.underlyingTarget {
             case is SwiftTarget:
-                targetMap[target] = try .swift(SwiftTargetBuildDescription(target: target, buildParameters: buildParameters, fs: fileSystem))
+                targetMap[target] = try .swift(SwiftTargetBuildDescription(
+                    target: target,
+                    buildParameters: buildParameters,
+                    extensionEvaluationResults: extensionEvaluationResults[target] ?? [],
+                    fs: fileSystem))
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,

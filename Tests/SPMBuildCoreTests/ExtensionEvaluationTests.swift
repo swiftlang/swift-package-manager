@@ -87,6 +87,7 @@ class ExtensionEvaluationTests: XCTestCase {
             func runExtension(
                 sources: Sources,
                 inputJSON: Data,
+                toolsVersion: ToolsVersion,
                 diagnostics: DiagnosticsEngine,
                 fileSystem: FileSystem
             ) throws -> (outputJSON: Data, stdoutText: Data) {

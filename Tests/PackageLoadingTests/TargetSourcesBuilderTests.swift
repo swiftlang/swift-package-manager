@@ -143,7 +143,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             toolsVersion: .minimumRequired,
             fileTypes: ["something"])
 
-        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5, fs: fs) { _, _, _, _ in
+        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5, fs: fs) { _, _, _, _,_  in
             // No diagnostics
         }
     }
@@ -161,7 +161,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Resources/Sub/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", behavior: .note)
                 diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", behavior: .note)
@@ -181,7 +181,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Copied/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "found 'Processed/foo.txt'", behavior: .note)
                 diagnostics.checkUnordered(diagnostic: "found 'Copied/foo.txt'", behavior: .note)
@@ -201,7 +201,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Copied/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 // No diagnostics
             }
         }
@@ -219,7 +219,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/B/Copy/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(diagnostic: "multiple resources named 'Copy' in target 'Foo'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "found 'A/Copy'", behavior: .note)
                 diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", behavior: .note)
@@ -239,7 +239,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/B/EN.lproj/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(diagnostic: "multiple resources named 'en.lproj/foo.txt' in target 'Foo'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "found 'A/en.lproj/foo.txt'", behavior: .note)
                 diagnostics.checkUnordered(diagnostic: "found 'B/EN.lproj/foo.txt'", behavior: .note)
@@ -259,7 +259,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/B/en.lproj/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(diagnostic: "resource 'B/en.lproj' in target 'Foo' conflicts with other localization directories", behavior: .error)
             }
         }
@@ -272,7 +272,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/en.lproj/Localizable.strings"
         )
 
-        build(target: target, toolsVersion: .v5_2, fs: fs) { _, resources, _, _ in
+        build(target: target, toolsVersion: .v5_2, fs: fs) { _, resources, _, _, _ in
             XCTAssert(resources.isEmpty)
             // No diagnostics
         }
@@ -289,7 +289,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Copied/en.lproj/sub/Localizable.strings"
         )
 
-        build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+        build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
             diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", behavior: .error)
         }
     }
@@ -303,7 +303,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Resources/en.lproj/Localizable.strings"
         )
 
-        build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+        build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
             diagnostics.check(
                 diagnostic: .contains("""
                     resource 'Resources/en.lproj/Localizable.strings' in target 'Foo' is in a localization directory \
@@ -330,7 +330,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Icon.png"
         )
 
-        build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+        build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
             diagnostics.check(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' is missing the default localization 'fr'"),
                 behavior: .warning)
@@ -355,7 +355,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Icon.png"
         )
 
-        build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+        build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Localizable.strings' in target 'Foo' has both localized and un-localized variants"),
                 behavior: .warning)
@@ -391,7 +391,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Other/Image.png"
         )
 
-        build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources,  _, diagnostics in
+        build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _,  _, diagnostics in
             XCTAssertEqual(Set(resources), [
                 Resource(rule: .process, path: AbsolutePath("/Processed/foo.txt"), localization: nil),
                 Resource(rule: .process, path: AbsolutePath("/Processed/En-uS.lproj/Localizable.stringsdict"), localization: "en-us"),
@@ -412,7 +412,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Foo/es.lproj/Image.png"
         )
 
-        build(target: try TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
+        build(target: try TargetDescription(name: "Foo"), defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, resources, _, _, diagnostics in
             XCTAssertEqual(Set(resources), [
                 Resource(rule: .process, path: AbsolutePath("/Foo/fr.lproj/Image.png"), localization: "fr"),
                 Resource(rule: .process, path: AbsolutePath("/Foo/es.lproj/Image.png"), localization: "es"),
@@ -430,7 +430,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Resources/Processed/Info.plist"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(
                     diagnostic: .contains("resource 'Resources/Processed/Info.plist' in target 'Foo' is forbidden"),
                     behavior: .error)
@@ -446,7 +446,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Resources/Copied/Info.plist"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(
                     diagnostic: .contains("resource 'Resources/Copied/Info.plist' in target 'Foo' is forbidden"),
                     behavior: .error)
@@ -462,7 +462,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
-        checker: (Sources, [Resource], [AbsolutePath], DiagnosticsEngineResult) -> ()
+        checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], DiagnosticsEngineResult) -> ()
     ) {
         let diagnostics = DiagnosticsEngine()
         let builder = TargetSourcesBuilder(
@@ -478,10 +478,10 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         do {
-            let (sources, resources, headers) = try builder.run()
+            let (sources, resources, headers, others) = try builder.run()
 
             DiagnosticsEngineTester(diagnostics, file: file, line: line) { diagnostics in
-                checker(sources, resources, headers, diagnostics)
+                checker(sources, resources, headers, others, diagnostics)
             }
         } catch {
             XCTFail(error.localizedDescription, file: file, line: line)

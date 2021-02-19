@@ -1,1 +1,1 @@
-print("Exec: \\(name)")
+print("Exec: \(data)")

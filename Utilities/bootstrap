@@ -410,6 +410,22 @@ def install_swiftpm(prefix, args):
 
             file_util.copy_file(src, dest, update=1)
 
+    files_to_install = ["libPackageExtension" + g_shared_lib_ext]
+    if platform.system() == 'Darwin':
+        files_to_install.append("PackageExtension.swiftinterface")
+    else:
+        files_to_install.append("PackageExtension.swiftmodule")
+    files_to_install.append("PackageExtension.swiftdoc")
+
+    for file in files_to_install:
+        src = os.path.join(runtime_lib_src, file)
+        dest = os.path.join(runtime_lib_dest, file)
+        mkdir_p(os.path.dirname(dest))
+
+        note("Installing %s to %s" % (src, dest))
+
+        file_util.copy_file(src, dest, update=1)
+
 
 def install_libswiftpm_dylib(args, library_name, install_dir, module_names):
     # FIXME: Don't hardcode the prefix and suffix.

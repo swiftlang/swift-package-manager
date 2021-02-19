@@ -30,6 +30,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
+    
+    /// The closure for evaluating extensions in the package graph.
+    let extensionEvaluator: (PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]]
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -60,12 +63,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
+        extensionEvaluator: @escaping (PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]],
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
+        self.extensionEvaluator = extensionEvaluator
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
     }
@@ -74,6 +79,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         try memoize(to: &packageGraph) {
             try self.packageGraphLoader()
         }
+    }
+    
+    public func getExtensionEvaluationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]] {
+        return try self.extensionEvaluator(graph)
     }
 
     /// Compute and return the latest build description.
@@ -157,9 +166,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Create the build plan and return the build description.
     private func plan() throws -> BuildDescription {
         let graph = try getPackageGraph()
+        let extensionEvaluationResults = try getExtensionEvaluationResults(for: graph)
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
+            extensionEvaluationResults: extensionEvaluationResults,
             diagnostics: diagnostics
         )
         self.buildPlan = plan

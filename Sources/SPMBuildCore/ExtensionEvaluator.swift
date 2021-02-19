@@ -67,6 +67,8 @@ extension PackageGraph {
                 targetDir: target.sources.root.pathString,
                 packageDir: package.path.pathString,
                 sourceFiles: target.sources.paths.map{ $0.pathString },
+                resourceFiles: target.underlyingTarget.resources.map{ $0.path.pathString },
+                otherFiles: target.underlyingTarget.others.map { $0.pathString },
                 dependencies: dependencyTargets.map {
                     .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
                 },
@@ -99,6 +101,7 @@ extension PackageGraph {
                 let (extensionOutput, emittedText) = try runExtension(
                     sources: extTarget.sources,
                     input: extensionInput,
+                    toolsVersion: package.manifest.toolsVersion,
                     extensionRunner: extensionRunner,
                     diagnostics: diagnostics,
                     fileSystem: fileSystem
@@ -159,13 +162,13 @@ extension PackageGraph {
     
     /// Private helper function that serializes an ExtensionEvaluationInput as input JSON, calls the extension runner to invoke the extension, and finally deserializes the output JSON it emits to a ExtensionEvaluationOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
     /// FIXME: This should be asynchronous, taking a queue and a completion closure.
-    fileprivate func runExtension(sources: Sources, input: ExtensionEvaluationInput, extensionRunner: ExtensionRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: ExtensionEvaluationOutput, stdoutText: Data) {
+    fileprivate func runExtension(sources: Sources, input: ExtensionEvaluationInput, toolsVersion: ToolsVersion, extensionRunner: ExtensionRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: ExtensionEvaluationOutput, stdoutText: Data) {
         // Serialize the ExtensionEvaluationInput to JSON.
         let encoder = JSONEncoder()
         let inputJSON = try encoder.encode(input)
         
         // Call the extension runner.
-        let (outputJSON, stdoutText) = try extensionRunner.runExtension(sources: sources, inputJSON: inputJSON, diagnostics: diagnostics, fileSystem: fileSystem)
+        let (outputJSON, stdoutText) = try extensionRunner.runExtension(sources: sources, inputJSON: inputJSON, toolsVersion: toolsVersion, diagnostics: diagnostics, fileSystem: fileSystem)
 
         // Deserialize the JSON to an ExtensionEvaluationOutput.
         let output: ExtensionEvaluationOutput
@@ -276,6 +279,7 @@ public protocol ExtensionRunner {
     func runExtension(
         sources: Sources,
         inputJSON: Data,
+        toolsVersion: ToolsVersion,
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)
@@ -289,6 +293,8 @@ struct ExtensionEvaluationInput: Codable {
     var targetDir: String
     var packageDir: String
     var sourceFiles: [String]
+    var resourceFiles: [String]
+    var otherFiles: [String]
     var dependencies: [DependencyTarget]
     public struct DependencyTarget: Codable {
         var targetName: String

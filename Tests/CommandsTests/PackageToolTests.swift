@@ -304,7 +304,7 @@ final class PackageToolTests: XCTestCase {
             let targetsArray = try XCTUnwrap(json["targets"]?.array)
             let extensionTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenExt" }?.dictionary)
             XCTAssertEqual(extensionTarget["module_type"]?.string, "ExtensionTarget")
-            XCTAssertEqual(extensionTarget["extension_capability"]?.dictionary?["type"]?.string, "prebuild")
+            XCTAssertEqual(extensionTarget["extension_capability"]?.dictionary?["type"]?.string, "buildTool")
         }
     }
 

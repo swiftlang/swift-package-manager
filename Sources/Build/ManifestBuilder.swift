@@ -510,6 +510,8 @@ extension LLBuildManifestBuilder {
             if target.underlyingTarget is SystemLibraryTarget { return }
             // Ignore Binary Modules.
             if target.underlyingTarget is BinaryTarget { return }
+            // Ignore Extension Targets.
+            if target.underlyingTarget is ExtensionTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {
@@ -570,6 +572,20 @@ extension LLBuildManifestBuilder {
                 inputs.append(directory: path)
             } else {
                 inputs.append(file: path)
+            }
+        }
+
+        // Add any build tool commands created by extensions for the target (prebuild and postbuild commands are handled outside the build).
+        for command in target.extensionEvaluationResults.reduce([], { $0 + $1.commands }) {
+            if case .buildToolCommand(let displayName, let execPath, let arguments, _, _, let inputPaths, let outputPaths, _) = command {
+                // Create a shell command to invoke the executable.  We include the path of the executable as a dependency.
+                // FIXME: We will need to extend the addShellCmd() function to also take working directory and environment.
+                manifest.addShellCmd(
+                    name: displayName,
+                    description: displayName,
+                    inputs: [.file(execPath)] + inputPaths.map{ .file($0) },
+                    outputs: outputPaths.map{ .file($0) },
+                    args: [execPath.pathString] + arguments)
             }
         }
 

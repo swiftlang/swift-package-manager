@@ -11,10 +11,18 @@ let package = Package(
         // )
     ],
     targets: [
+        // A local tool that uses an extension.
+        .executableTarget(
+            name: "MyLocalTool",
+            dependencies: [
+                "MySourceGenExt",
+                "MySourceGenTool"
+            ]
+        ),
         // The target that implements the extension and generates commands to invoke MySourceGenTool.
         .extension(
             name: "MySourceGenExt",
-            capability: .prebuild(),
+            capability: .buildTool(),
             dependencies: [
                 "MySourceGenTool"
             ]
@@ -23,23 +31,16 @@ let package = Package(
         .executableTarget(
             name: "MySourceGenTool",
             dependencies: [
-                "MySourceGenToolLib"
+                "MySourceGenToolLib",
             ]
         ),
         // A library used by MySourceGenTool (not the client).
-        .executableTarget(
+        .target(
             name: "MySourceGenToolLib"
         ),
         // A runtime library that the client needs to link against.
         .target(
             name: "MySourceGenRuntimeLib"
-        ),
-        // A local tool that uses the extension.
-        .executableTarget(
-            name: "MyLocalTool",
-            dependencies: [
-                "MySourceGenExt"
-            ]
         ),
         // Unit tests for the extension.
         .testTarget(
