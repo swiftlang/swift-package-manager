@@ -546,7 +546,7 @@ public final class SwiftTargetBuildDescription {
     private(set) var moduleMap: AbsolutePath?
     
     /// The results of having applied any extensions to this target.
-    public private(set) var extensionEvaluationResults: [ExtensionEvaluationResult]
+    public let extensionEvaluationResults: [ExtensionEvaluationResult]
 
     /// Create a new target description with target and build parameters.
     init(
@@ -1279,7 +1279,7 @@ public class BuildPlan {
     }
 
     /// The results of evaluating any extensions used by targets in this build.
-    private(set) var extensionEvaluationResults: [ResolvedTarget: [ExtensionEvaluationResult]]
+    public let extensionEvaluationResults: [ResolvedTarget: [ExtensionEvaluationResult]]
 
     /// The filesystem to operate on.
     let fileSystem: FileSystem
