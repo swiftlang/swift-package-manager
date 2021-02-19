@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Foundation
 
@@ -25,7 +25,6 @@ import Foundation
 // failure to decode the output is also considered a failure to run the ex-
 // tension).
 
-
 /// Private constructor for the TargetBuildContext.  Expects the JSON form of
 /// this structure to be in the last command line argument.  Also registers a
 /// block to emit the output data at the end of the process.
@@ -40,21 +39,19 @@ func CreateTargetBuildContext() -> TargetBuildContext {
     }
     // Look for the input JSON as the last argument of the invocation.
     guard let data = ProcessInfo.processInfo.arguments.last?.data(using: .utf8) else {
-        output.diagnostics.append(Diagnostic(severity: .error, message:"Expected last argument to contain JSON input data in UTF-8 encoding, but didn't find it.", file: nil, line: nil))
+        output.diagnostics.append(Diagnostic(severity: .error, message: "Expected last argument to contain JSON input data in UTF-8 encoding, but didn't find it.", file: nil, line: nil))
         exit(1)
     }
     let buildContext: TargetBuildContext
     do {
         let decoder = JSONDecoder()
         buildContext = try decoder.decode(TargetBuildContext.self, from: data)
-    }
-    catch {
+    } catch {
         output.diagnostics.append(Diagnostic(severity: .error, message: "\(error)", file: nil, line: nil))
         exit(1)
     }
     return buildContext
 }
-
 
 /// Private structures containing the information to send back to SwiftPM.
 
@@ -69,11 +66,11 @@ struct Command: Encodable {
     let derivedSourcePaths: [Path]
 }
 
-
 struct Diagnostic: Encodable {
     enum Severity: String, Encodable {
         case error, warning, remark
     }
+
     let severity: Severity
     let message: String
     let file: Path?
@@ -87,4 +84,5 @@ struct OutputStruct: Encodable {
     var generatedFilePaths: [String] = []
     var prebuildOutputDirectories: [String] = []
 }
+
 var output = OutputStruct(version: 1)

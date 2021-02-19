@@ -1,26 +1,24 @@
 /*
-This source file is part of the Swift.org open source project
+ This source file is part of the Swift.org open source project
 
-Copyright (c) 2021 Apple Inc. and the Swift project authors
-Licensed under Apache License v2.0 with Runtime Library Exception
+ Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
 
-See http://swift.org/LICENSE.txt for license information
-See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
 
 import Basics
-import TSCBasic
-import TSCUtility
+import Foundation
 import PackageGraph
-import PackageLoading   // for ManifestResourceProvider
+import PackageLoading // for ManifestResourceProvider
 import PackageModel
 import SPMBuildCore
-import Foundation
-
+import TSCBasic
+import TSCUtility
 
 /// An extension runner that compiles the extension as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultExtensionRunner: ExtensionRunner {
-    
     let cacheDir: AbsolutePath
     let resources: ManifestResourceProvider
 
@@ -32,7 +30,7 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         self.cacheDir = cacheDir
         self.resources = manifestResources
     }
-    
+
     /// Public protocol function that compiles and runs the extension as a subprocess.  The tools version controls the availability of APIs in PackageExtension, and should be
     public func runExtension(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
         let compiledExec = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
@@ -42,23 +40,23 @@ public struct DefaultExtensionRunner: ExtensionRunner {
     /// Helper function that compiles an extension as an executable and returns the path to it.
     fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> AbsolutePath {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
-        
+
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        let runtimePath = resources.binDir ?? resources.libDir
+        let runtimePath = self.resources.binDir ?? self.resources.libDir
 
         // Compile the package extension script.
         var command = [resources.swiftCompiler.pathString]
-        
+
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
         let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
-        
+
         // If we got the binDir that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
 
         let macOSPackageDescriptionPath: AbsolutePath
-        if resources.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
+        if self.resources.binDir != nil, localFileSystem.exists(packageFrameworkPath) {
             command += [
                 "-F", packageFrameworkPath.pathString,
                 "-framework", "PackageExtension",
@@ -70,16 +68,15 @@ public struct DefaultExtensionRunner: ExtensionRunner {
                 "-L", runtimePath.pathString,
                 "-lPackageExtension",
             ]
-#if !os(Windows)
+            #if !os(Windows)
             // -rpath argument is not supported on Windows,
             // so we add runtimePath to PATH when executing the manifest instead
             command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
-#endif
+            #endif
 
             // note: this is not correct for all platforms, but we only actually use it on macOS.
             macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageExtension.dylib"))
         }
-
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
         #if os(macOS)
@@ -94,24 +91,24 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         #endif
 
         // Add any extra flags required as indicated by the ManifestLoader.
-        command += resources.swiftCompilerFlags
+        command += self.resources.swiftCompilerFlags
 
         command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         command += ["-I", runtimePath.pathString]
-      #if os(macOS)
+        #if os(macOS)
         if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
             command += ["-sdk", sdkRoot.pathString]
         }
-      #endif
+        #endif
         command += ["-package-description-version", toolsVersion.description]
         if let moduleCachePath = moduleCachePath {
             command += ["-module-cache-path", moduleCachePath]
         }
-        
-        command += sources.paths.map{ $0.pathString }
+
+        command += sources.paths.map { $0.pathString }
         let compiledExec = cacheDir.appending(component: "compiled-extension")
         command += ["-o", compiledExec.pathString]
-        
+
         let result = try Process.popen(arguments: command)
         let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
         if result.exitStatus != .terminated(code: 0) {
@@ -121,19 +118,20 @@ public struct DefaultExtensionRunner: ExtensionRunner {
 
         return compiledExec
     }
-    
+
     /// Returns path to the sdk, if possible.
-    /// FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
+    // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
     private func sdkRoot() -> AbsolutePath? {
         if let sdkRoot = self.sdkRootCache.get() {
             return sdkRoot
         }
 
-        var sdkRootPath: AbsolutePath? = nil
+        var sdkRootPath: AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
         let foundPath = try? Process.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path")
+            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
+        )
         guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
             return nil
         }
@@ -145,21 +143,20 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         return sdkRootPath
     }
 
-    /// FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
+    // FIXME: This is copied from ManifestLoader.  This should be consolidated when ManifestLoader is cleaned up.
     static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath) throws -> PlatformVersion? {
         let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
         guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
         return PlatformVersion(versionString)
     }
 
-    
     fileprivate func invoke(compiledExec: AbsolutePath, input: Data) throws -> (outputJSON: Data, stdoutText: Data) {
         // FIXME: It would be more robust to pass it as `stdin` data, but we need TSC support for that.  When this is
         // changed, PackageExtension will need to change as well (but no extensions need to change).
         var command = [compiledExec.pathString]
         command += [String(decoding: input, as: UTF8.self)]
         let result = try Process.popen(arguments: command)
-        
+
         // Collect the output. The `PackageExtension` runtime library writes the output as a zero byte followed by
         // the JSON-serialized ExtensionEvaluationResult. Since this appears after any free-form output from the
         // script, it can be safely split out while maintaining the ability to see debug output without resorting
@@ -171,12 +168,12 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         guard let json = jsonPiece else {
             throw DefaultExtensionRunnerError.didNotReceiveJSONFromExtension("didn't get any structured output from running the extension")
         }
-        
+
         // Throw an error if we failed.
         if result.exitStatus != .terminated(code: 0) {
             throw DefaultExtensionRunnerError.extensionSubprocessFailed("failed to invoke package extension: \(String(decoding: stderr, as: UTF8.self))")
         }
-        
+
         // Otherwise return the JSON data and any output text.
         return (outputJSON: json, stdoutText: stderr + stdout)
     }

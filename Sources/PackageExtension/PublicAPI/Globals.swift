@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 /*
  Like package manifests, package extensions are Swift scripts that use API
@@ -17,7 +17,7 @@
  and can be accessed through the `targetBuildContext` global. The extension
  generates commands to run during the build using the `commandConstructor`
  global, and can emit diagnostics using the `diagnosticsEmitter` global.
-*/
+ */
 
 /// Provides information about the target being built, as well as contextual
 /// information such as the paths of the directories to which commands should
@@ -28,7 +28,7 @@ public let targetBuildContext: TargetBuildContext = CreateTargetBuildContext()
 /// Constructs commands to run during the build, including full command lines.
 /// All paths should be based on the ones passed to the extension in the target
 /// build context.
-public let commandConstructor: CommandConstructor = CommandConstructor()
+public let commandConstructor = CommandConstructor()
 
 /// Emits errors, warnings, and remarks to be shown as a result of running the
 /// extension. After emitting one or more errors, the extension should return a
