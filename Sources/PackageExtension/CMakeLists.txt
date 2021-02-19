@@ -7,7 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageExtension
-    PackageExtension.swift)
+    PublicAPI/CommandConstructor.swift
+    PublicAPI/DiagnosticsEmitter.swift
+    PublicAPI/Globals.swift
+    PublicAPI/Path.swift
+    PublicAPI/TargetBuildContext.swift
+    ImplementationDetails.swift)
   
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
     set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/pm/PackageExtension.swiftinterface)
