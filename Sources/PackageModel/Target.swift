@@ -489,17 +489,26 @@ public final class BinaryTarget: Target {
         try container.encode(self.kind, forKey: .kind)
     }
 
-    // 👀 do we need backwards compatibility?
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.kind = try container.decode(Kind.self, forKey: .kind)
-        self.origin = try container.decode(Origin.self, forKey: .origin)
+        // backwards compatibility 2/2021
+        if !container.contains(.kind) {
+            self.kind = .xcframework
+        } else {
+            self.kind = try container.decode(Kind.self, forKey: .kind)
+        }
+        // backwards compatibility 2/2021
+        if container.contains(.artifactSource)  {
+            self.origin = try container.decode(Origin.self, forKey: .artifactSource)
+        } else {
+            self.origin = try container.decode(Origin.self, forKey: .origin)
+        }
         try super.init(from: decoder)
     }
 
     public enum Kind: String, RawRepresentable, Codable, CaseIterable {
         case xcframework
-        // 👀 this is where we would add new types
+        // TODO: add new types
         //case swiftLibraryArchive
         //case swiftExecutableArchive
 
@@ -511,7 +520,7 @@ public final class BinaryTarget: Target {
         }
 
         public static func forFileExtension(_ fileExtension: String) throws -> Kind {
-            guard let kind = Kind.allCases.first(where: {  $0.fileExtension == fileExtension }) else {
+            guard let kind = Kind.allCases.first(where: { $0.fileExtension == fileExtension }) else {
                 throw StringError("unknown binary artifact file extension '\(fileExtension)'")
             }
             return kind

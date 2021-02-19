@@ -1265,7 +1265,6 @@ public class BuildPlan {
     /// Diagnostics Engine for emitting diagnostics.
     let diagnostics: DiagnosticsEngine
 
-
     private var testManifestTargetsMap: [ResolvedProduct: ResolvedTarget] = [:]
 
     /// Cache for pkgConfig flags.

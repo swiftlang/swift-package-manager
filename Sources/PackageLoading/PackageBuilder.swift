@@ -710,8 +710,6 @@ public final class PackageBuilder {
                 providers: manifestTarget.providers
             )
         } else if potentialModule.type == .binary {
-            // 👀 original code assumed that is not artifact found it must be local
-            // this was required for some of the tests which i changed
             guard let artifact = self.binaryArtifacts.first(where: { $0.path == potentialModule.path }) else {
                 throw InternalError("unknown binary artifact for '\(potentialModule.name)'")
             }

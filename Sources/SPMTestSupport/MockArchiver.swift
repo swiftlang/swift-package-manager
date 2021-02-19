@@ -14,6 +14,7 @@ import Foundation
 
 public class MockArchiver: Archiver {
     public typealias Extract = (
+        MockArchiver,
         AbsolutePath,
         AbsolutePath,
         (Result<Void, Error>) -> Void
@@ -22,6 +23,11 @@ public class MockArchiver: Archiver {
     public struct Extraction: Equatable {
         public let archivePath: AbsolutePath
         public let destinationPath: AbsolutePath
+
+        public init(archivePath: AbsolutePath, destinationPath: AbsolutePath) {
+            self.archivePath = archivePath
+            self.destinationPath = destinationPath
+        }
     }
 
     public let supportedExtensions: Set<String> = ["zip"]
@@ -29,7 +35,7 @@ public class MockArchiver: Archiver {
     public var extract: Extract!
 
     public init(extract: Extract? = nil) {
-        self.extract = extract ?? { archivePath, destinationPath, completion in
+        self.extract = extract ?? { archiver, archivePath, destinationPath, completion in
             self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
             completion(.success(()))
         }
@@ -40,6 +46,6 @@ public class MockArchiver: Archiver {
         to destinationPath: AbsolutePath,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.extract(archivePath, destinationPath, completion)
+        self.extract(self, archivePath, destinationPath, completion)
     }
 }
