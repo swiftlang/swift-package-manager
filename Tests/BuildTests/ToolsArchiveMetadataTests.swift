@@ -17,7 +17,7 @@ final class ToolsArchiveMetadataTests: XCTestCase {
     func testParseMetadata() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
-            .root.appending(component: "info.json"),
+            AbsolutePath("/info.json"),
             bytes: ByteString(encodingAsUTF8: """
              {
                  "schemaVersion": "1.0",
