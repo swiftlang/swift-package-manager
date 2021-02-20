@@ -386,6 +386,8 @@ extension PackageModel.Platform {
             self = PackageModel.Platform.tvOS
         case let name where name.contains("watchos"):
             self = PackageModel.Platform.watchOS
+        case let name where name.contains("driverkit"):
+            self = PackageModel.Platform.driverKit
         case let name where name.contains("linux"):
             self = PackageModel.Platform.linux
         case let name where name.contains("android"):

@@ -31,6 +31,9 @@ public struct Platform: Encodable, Equatable {
     /// The watchOS platform.
     public static let watchOS: Platform = Platform(name: "watchos")
 
+    /// The DriverKit platform
+    public static let driverKit: Platform = Platform(name: "driverkit")
+
     /// The Linux platform.
     public static let linux: Platform = Platform(name: "linux")
 
@@ -160,6 +163,25 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `2.0.1`.
     public static func watchOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: SupportedPlatform.WatchOSVersion(string: versionString).version)
+    }
+
+    /// Configures the minimum deployment target version for the DriverKit platform.
+    ///
+    /// - Parameter version: The minimum deployment target that the package supports.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func driverKit(_ version: SupportedPlatform.DriverKitVersion) -> SupportedPlatform {
+        return SupportedPlatform(platform: .driverKit, version: version.version)
+    }
+
+    /// Configures the minimum deployment target version for the DriverKit platform
+    /// using a custom version string.
+    ///
+    /// The version string must be a series of two or three dot-separated integers, such as `19.0` or `19.0.1`.
+    ///
+    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func driverKit(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .driverKit, version: SupportedPlatform.DriverKitVersion(string: versionString).version)
     }
 }
 
@@ -361,6 +383,27 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.3
         @available(_PackageDescription, introduced: 5.3)
         public static let v7: WatchOSVersion = .init(string: "7.0")
+    }
+
+    /// The supported DriverKit version.
+    public struct DriverKitVersion: Encodable, AppleOSVersion {
+        fileprivate static let name = "DriverKit"
+        fileprivate static let minimumMajorVersion = 19
+
+        /// The underlying version representation.
+        let version: String
+
+        fileprivate init(uncheckedVersion version: String) {
+            self.version = version
+        }
+
+        /// The value that represents DriverKit 19.0.
+        @available(_PackageDescription, introduced: 999.0)
+        public static let v19: DriverKitVersion = .init(string: "19.0")
+
+        /// The value that represents DriverKit 20.0.
+        @available(_PackageDescription, introduced: 999.0)
+        public static let v20: DriverKitVersion = .init(string: "20.0")
     }
 }
 

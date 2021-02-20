@@ -68,6 +68,8 @@ private extension PackageModel.Platform {
             return "appletvos"
         case .watchOS:
             return "watchos"
+        case .driverKit:
+            return nil // DriverKit does not support XCTest.
         default:
             return nil
         }
