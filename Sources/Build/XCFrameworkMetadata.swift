@@ -1,20 +1,20 @@
 /*
-This source file is part of the Swift.org open source project
+ This source file is part of the Swift.org open source project
 
-Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
-Licensed under Apache License v2.0 with Runtime Library Exception
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
 
-See http://swift.org/LICENSE.txt for license information
-See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
 
-import TSCBasic
-import TSCUtility
+import Foundation
 import PackageModel
 import SPMBuildCore
-import Foundation
+import TSCBasic
+import TSCUtility
 
-public struct XCFrameworkInfo: Equatable {
+public struct XCFrameworkMetadata: Equatable {
     public struct Library: Equatable {
         public let libraryIdentifier: String
         public let libraryPath: String
@@ -44,35 +44,32 @@ public struct XCFrameworkInfo: Equatable {
     }
 }
 
-extension XCFrameworkInfo {
-    public init?(path: AbsolutePath, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) {
+extension XCFrameworkMetadata {
+    public static func parse(fileSystem: FileSystem, rootPath: AbsolutePath) throws -> XCFrameworkMetadata {
+        let path = rootPath.appending(component: "Info.plist")
         guard fileSystem.exists(path) else {
-            diagnostics.emit(error: "missing XCFramework Info.plist at '\(path)'")
-            return nil
+            throw StringError("XCFramework Info.plist not found at '\(rootPath)'")
         }
 
         do {
-            let plistBytes = try fileSystem.readFileContents(path)
-
-            let decoder = PropertyListDecoder()
-            self = try plistBytes.withData({ data in
-                try decoder.decode(XCFrameworkInfo.self, from: data)
-            })
+            let bytes = try fileSystem.readFileContents(path)
+            return try bytes.withData { data in
+                let decoder = PropertyListDecoder()
+                return try decoder.decode(XCFrameworkMetadata.self, from: data)
+            }
         } catch {
-            diagnostics.emit(error: "failed parsing XCFramework Info.plist at '\(path)': \(error)")
-            return nil
+            throw StringError("failed parsing XCFramework Info.plist at '\(path)': \(error)")
         }
     }
 }
 
-extension XCFrameworkInfo: Decodable {
+extension XCFrameworkMetadata: Decodable {
     enum CodingKeys: String, CodingKey {
         case libraries = "AvailableLibraries"
     }
 }
 
-extension Triple.Arch: Decodable { }
-extension XCFrameworkInfo.Library: Decodable {
+extension XCFrameworkMetadata.Library: Decodable {
     enum CodingKeys: String, CodingKey {
         case libraryIdentifier = "LibraryIdentifier"
         case libraryPath = "LibraryPath"
@@ -81,3 +78,5 @@ extension XCFrameworkInfo.Library: Decodable {
         case architectures = "SupportedArchitectures"
     }
 }
+
+extension Triple.Arch: Decodable {}

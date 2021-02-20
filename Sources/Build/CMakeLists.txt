@@ -13,7 +13,8 @@ add_library(Build
   ManifestBuilder.swift
   SPMSwiftDriverExecutor.swift
   SwiftCompilerOutputParser.swift
-  XCFrameworkInfo.swift)
+  ToolsArchiveMetadata.swift
+  XCFrameworkMetadata.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
