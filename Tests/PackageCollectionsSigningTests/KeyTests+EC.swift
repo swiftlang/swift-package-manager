@@ -31,10 +31,18 @@ class ECKeyTests: XCTestCase {
     }
 
     func testPublicKeyFromPEM() throws {
+        if !isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         XCTAssertNoThrow(try ECPublicKey(pem: ecPublicKey.bytes))
     }
 
     func testPrivateKeyFromPEM() throws {
+        if !isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         XCTAssertNoThrow(try ECPrivateKey(pem: ecPrivateKey.bytes))
     }
 }

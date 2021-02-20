@@ -10,11 +10,11 @@
 
 import struct Foundation.Data
 
-#if canImport(Security)
+#if os(macOS)
 import Security
 #endif
 
-#if canImport(Security)
+#if os(macOS)
 typealias Certificate = CoreCertificate
 #else
 typealias Certificate = BoringSSLCertificate
@@ -22,7 +22,7 @@ typealias Certificate = BoringSSLCertificate
 
 // MARK: - Certificate implementation using the Security framework
 
-#if canImport(Security)
+#if os(macOS)
 struct CoreCertificate {
     let underlying: SecCertificate
 

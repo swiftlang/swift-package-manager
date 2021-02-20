@@ -14,7 +14,7 @@ import Foundation
 @testable import PackageCollectionsSigning
 import TSCBasic
 
-#if canImport(Security)
+#if os(macOS)
 let isSupportedPlatform = true
 #else
 let isSupportedPlatform = false
