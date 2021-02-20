@@ -97,7 +97,7 @@ public struct TargetSourcesBuilder {
             if let message = validTargetPath(at: source) {
                 let warning = "Invalid Source: \(message) '\(source)'"
                 if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
-                    self.diags.emit(warning: "Invalid Source: \(message) '\(source)'")
+                    self.diags.emit(warning: warning)
                 }
             }
         }
