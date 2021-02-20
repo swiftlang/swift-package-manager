@@ -319,16 +319,46 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                  callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-            XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+            // Subject user ID matches
+            do {
+                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
+                                                      callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            }
+            // Subject user ID does not match
+            do {
+                let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
+                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
+                                                      callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
+                    guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
+                    }
+                }
+            }
             #else
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                      callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                // Subject user ID matches
+                do {
+                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
+                                                          callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
+                // Subject user ID does not match
+                do {
+                    let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
+                    let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
+                                                          callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
+                        guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
+                            return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
+                        }
+                    }
+                }
             }
             #endif
         }
@@ -359,16 +389,46 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                         callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-            XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+            // Subject user ID matches
+            do {
+                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
+                                                             callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+            }
+            // Subject user ID does not match
+            do {
+                let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
+                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
+                                                             callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
+                    guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
+                        return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
+                    }
+                }
+            }
             #else
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                             callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
-                XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+
+                // Subject user ID matches
+                do {
+                    let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
+                                                                 callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
+                }
+                // Subject user ID does not match
+                do {
+                    let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
+                    let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
+                                                                 callbackQueue: DispatchQueue.global(), diagnosticsEngine: DiagnosticsEngine())
+                    XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
+                        guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
+                            return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
+                        }
+                    }
+                }
             }
             #endif
         }
