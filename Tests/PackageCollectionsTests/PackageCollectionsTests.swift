@@ -19,6 +19,10 @@ import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
     func testBasicRegistration() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -44,6 +48,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testAddDuplicates() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -70,6 +78,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testAddUnsigned() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -111,6 +123,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testInvalidCollectionNotAdded() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -144,6 +160,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testCollectionPendingTrustConfirmIsKeptOnAdd() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -176,6 +196,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testCollectionWithInvalidSignatureNotAdded() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -210,6 +234,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testDelete() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -259,6 +287,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testDeleteFromBothStorages() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -292,6 +324,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testOrdering() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -361,6 +397,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testReorder() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -461,6 +501,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testUpdateTrust() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -515,6 +559,10 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -543,6 +591,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testPackageSearch() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -674,6 +726,10 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -702,6 +758,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testTargetsSearch() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -800,6 +860,10 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -828,6 +892,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testHappyRefresh() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -848,6 +916,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testBrokenRefresh() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         struct BrokenProvider: PackageCollectionProvider {
             let brokenSources: [PackageCollectionsModel.CollectionSource]
             let error: Error
@@ -920,6 +992,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testRefreshOne() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -940,6 +1016,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testListTargets() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -976,6 +1056,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataHappy() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -1010,6 +1094,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataInOrder() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -1042,7 +1130,11 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
-    func testMergedPackageMetadata() {
+    func testMergedPackageMetadata() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let packageId = UUID().uuidString
 
         let targets = (0 ..< Int.random(in: 1 ... 5)).map {
@@ -1125,6 +1217,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataNotFoundInCollections() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -1146,6 +1242,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataNotFoundByProvider() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -1179,6 +1279,10 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataProviderError() throws {
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
+
         struct BrokenMetadataProvider: PackageMetadataProvider {
             var name: String = "BrokenMetadataProvider"
 
@@ -1223,6 +1327,10 @@ final class PackageCollectionsTests: XCTestCase {
         #else
         try XCTSkipIf(true)
         #endif
+
+        if !PackageCollections.isSupportedPlatform {
+            try XCTSkipIf(true)
+        }
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()

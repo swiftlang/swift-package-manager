@@ -335,7 +335,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedGood() throws {
-        if !enableSignatureCheck {
+        if !enableSignatureCheck || !JSONPackageCollectionProvider.isSignatureCheckSupported {
             try XCTSkipIf(true)
         }
 
@@ -471,7 +471,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_noTrustedRootCertsConfigured() throws {
-        if !enableSignatureCheck {
+        if !enableSignatureCheck || !JSONPackageCollectionProvider.isSignatureCheckSupported {
             try XCTSkipIf(true)
         }
 
@@ -515,7 +515,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedBad() throws {
-        if !enableSignatureCheck {
+        if !enableSignatureCheck || !JSONPackageCollectionProvider.isSignatureCheckSupported {
             try XCTSkipIf(true)
         }
 
@@ -560,7 +560,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedLocalFile() throws {
-        if !enableSignatureCheck {
+        if !enableSignatureCheck || !JSONPackageCollectionProvider.isSignatureCheckSupported {
             try XCTSkipIf(true)
         }
 

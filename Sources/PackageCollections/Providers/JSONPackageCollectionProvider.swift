@@ -28,6 +28,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     // FIXME: remove
     static let enableSignatureCheck = ProcessInfo.processInfo.environment["ENABLE_COLLECTION_SIGNATURE_CHECK"] != nil
 
+    // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
+    // module depends on are available on all Apple platforms.
+    #if os(macOS) || os(Linux) || os(Windows)
+    static let isSignatureCheckSupported = true
+    #else
+    static let isSignatureCheckSupported = false
+    #endif
+
     private let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine
     private let httpClient: HTTPClient
@@ -136,6 +144,10 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 // Don't validate signature; set isVerified=false
                 callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
             } else {
+                if !Self.isSignatureCheckSupported {
+                    fatalError("Unsupported platform")
+                }
+
                 // Check the signature
                 self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
                     switch result {
