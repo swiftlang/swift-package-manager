@@ -130,21 +130,21 @@ extension PackageGraph {
                 // Generate commands from the extension output.
                 let commands: [ExtensionEvaluationResult.Command] = extensionOutput.commands.map { cmd in
                     let displayName = cmd.displayName
-                    let execPath = AbsolutePath(cmd.executable)
+                    let executable = cmd.executable
                     let arguments = cmd.arguments
                     let workingDir = cmd.workingDirectory.map{ AbsolutePath($0) }
                     let environment = cmd.environment
                     switch extTarget.capability {
                     case .prebuild:
                         let derivedSourceDirPaths = cmd.derivedSourcePaths.map{ AbsolutePath($0) }
-                        return .prebuildCommand(displayName: displayName, execPath: execPath, arguments: arguments, workingDir: workingDir, environment: environment, derivedSourceDirPaths: derivedSourceDirPaths)
+                        return .prebuildCommand(displayName: displayName, executable: executable, arguments: arguments, workingDir: workingDir, environment: environment, derivedSourceDirPaths: derivedSourceDirPaths)
                     case .buildTool:
                         let inputPaths = cmd.inputPaths.map{ AbsolutePath($0) }
                         let outputPaths = cmd.outputPaths.map{ AbsolutePath($0) }
                         let derivedSourcePaths = cmd.derivedSourcePaths.map{ AbsolutePath($0) }
-                        return .buildToolCommand(displayName: displayName, execPath: execPath, arguments: arguments, workingDir: workingDir, environment: environment, inputPaths: inputPaths, outputPaths: outputPaths, derivedSourcePaths: derivedSourcePaths)
+                        return .buildToolCommand(displayName: displayName, executable: executable, arguments: arguments, workingDir: workingDir, environment: environment, inputPaths: inputPaths, outputPaths: outputPaths, derivedSourcePaths: derivedSourcePaths)
                     case .postbuild:
-                        return .postbuildCommand(displayName: displayName, execPath: execPath, arguments: arguments, workingDir: workingDir, environment: environment)
+                        return .postbuildCommand(displayName: displayName, executable: executable, arguments: arguments, workingDir: workingDir, environment: environment)
                     }
                 }
                 
@@ -203,7 +203,7 @@ public struct ExtensionEvaluationResult {
         /// should be applied.
         case prebuildCommand(
                 displayName: String,
-                execPath: AbsolutePath,
+                executable: String,
                 arguments: [String],
                 workingDir: AbsolutePath?,
                 environment: [String: String]?,
@@ -217,7 +217,7 @@ public struct ExtensionEvaluationResult {
         /// be applied.
         case buildToolCommand(
                 displayName: String,
-                execPath: AbsolutePath,
+                executable: String,
                 arguments: [String],
                 workingDir: AbsolutePath?,
                 environment: [String: String]?,
@@ -229,7 +229,7 @@ public struct ExtensionEvaluationResult {
         /// A command to run after the end of every build.
         case postbuildCommand(
                 displayName: String,
-                execPath: AbsolutePath,
+                executable: String,
                 arguments: [String],
                 workingDir: AbsolutePath?,
                 environment: [String: String]?
