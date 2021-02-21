@@ -1138,6 +1138,8 @@ public final class ProductBuildDescription {
                 }
             }
             args += ["-emit-executable"]
+        case .extension:
+            throw InternalError("unexpectedly asked to generate linker arguments for an extension product")
         }
 
         // Set rpath such that dynamic libraries are looked up
@@ -1153,7 +1155,7 @@ public final class ProductBuildDescription {
         // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
           switch product.type {
-          case .library: break
+          case .library, .extension: break
           case .test, .executable:
               if buildParameters.triple.isDarwin() {
                   let stdlib = buildParameters.toolchain.macosSwiftStdlib
@@ -1424,8 +1426,8 @@ public class BuildPlan {
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph except
-        // for automatic libraries because they don't produce any output.
-        for product in graph.allProducts where product.type != .library(.automatic) {
+        // for automatic libraries and extension because they don't produce any output.
+        for product in graph.allProducts where product.type != .library(.automatic) && product.type != .extension {
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters,
                 fs: fileSystem,
@@ -1588,10 +1590,10 @@ public class BuildPlan {
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
-            // need to statically link it.
+            // need to statically link it or if it's an extension.
             case .product(let product, _):
                 switch product.type {
-                case .library(.automatic), .library(.static):
+                case .library(.automatic), .library(.static), .extension:
                     return product.targets.map { .target($0, conditions: []) }
                 case .library(.dynamic), .test, .executable:
                     return []

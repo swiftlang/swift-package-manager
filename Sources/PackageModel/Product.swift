@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -69,6 +69,9 @@ public enum ProductType: Equatable {
 
     /// An executable product.
     case executable
+    
+    /// An extension product.
+    case `extension`
 
     /// A test product.
     case test
@@ -156,6 +159,8 @@ extension ProductType: CustomStringConvertible {
             case .static:
                 return "static"
             }
+        case .extension:
+            return "extension"
         }
     }
 }
@@ -175,7 +180,7 @@ extension ProductFilter: CustomStringConvertible {
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, test
+        case library, executable, `extension`, test
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -186,6 +191,8 @@ extension ProductType: Codable {
             try unkeyedContainer.encode(a1)
         case .executable:
             try container.encodeNil(forKey: .executable)
+        case .extension:
+            try container.encodeNil(forKey: .extension)
         case .test:
             try container.encodeNil(forKey: .test)
         }
@@ -205,6 +212,8 @@ extension ProductType: Codable {
             self = .test
         case .executable:
             self = .executable
+        case .extension:
+            self = .extension
         }
     }
 }

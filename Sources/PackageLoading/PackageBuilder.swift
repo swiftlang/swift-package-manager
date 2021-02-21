@@ -1192,6 +1192,10 @@ public final class PackageBuilder {
                 guard self.validateExecutableProduct(product, with: targets) else {
                     continue
                 }
+            case .extension:
+                guard self.validateExtensionProduct(product, with: targets) else {
+                    continue
+                }
             }
 
             append(Product(name: product.name, type: product.type, targets: targets))
@@ -1205,7 +1209,7 @@ public final class PackageBuilder {
             // for them.
             let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
                 switch product.type {
-                case .library, .test:
+                case .library, .extension, .test:
                     return []
                 case .executable:
                     return product.targets
@@ -1282,6 +1286,25 @@ public final class PackageBuilder {
             return false
         }
 
+        return true
+    }
+
+    private func validateExtensionProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+        let nonExtensionTargets = targets.filter{ $0.type != .extension }
+        guard nonExtensionTargets.isEmpty else {
+            diagnostics.emit(
+                .extensionProductWithNonExtensionTargets(product: product.name, otherTargets: nonExtensionTargets.map{ $0.name }),
+                location: diagnosticLocation()
+            )
+            return false
+        }
+        guard !targets.isEmpty else {
+            diagnostics.emit(
+                .extensionProductWithNoTargets(product: product.name),
+                location: diagnosticLocation()
+            )
+            return false
+        }
         return true
     }
 }

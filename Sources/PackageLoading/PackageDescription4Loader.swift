@@ -269,6 +269,9 @@ extension PackageModel.ProductType {
             }
 
             self = .library(libraryType)
+            
+        case "extension":
+            self = .extension
 
         default:
             throw InternalError("unexpected product type: \(json)")

@@ -34,7 +34,7 @@ extension Diagnostic.Message {
         switch product.type {
         case .library(.automatic):
             typeString = ""
-        case .executable, .test,
+        case .executable, .extension, .test,
              .library(.dynamic), .library(.static):
             typeString = " (\(product.type))"
         }
@@ -74,6 +74,14 @@ extension Diagnostic.Message {
 
     static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Diagnostic.Message {
         .error("executable product '\(product)' should not have more than one executable target")
+    }
+
+    static func extensionProductWithNoTargets(product: String) -> Diagnostic.Message {
+        .error("extension product '\(product)' should have at least one extension target")
+    }
+
+    static func extensionProductWithNonExtensionTargets(product: String, otherTargets: [String]) -> Diagnostic.Message {
+        .error("extension product '\(product)' should have only extension targets (it has \(otherTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
     static var noLibraryTargetsForREPL: Diagnostic.Message {

@@ -554,8 +554,8 @@ extension LLBuildManifestBuilder {
                     // Establish a dependency on binary of the product.
                     inputs.append(file: planProduct.binary)
 
-                // For automatic and static libraries, add their targets as static input.
-                case .library(.automatic), .library(.static):
+                // For automatic and static libraries, and extensions, add their targets as static input.
+                case .library(.automatic), .library(.static), .extension:
                     for target in product.targets {
                         try addStaticTargetInputs(target)
                     }
@@ -674,7 +674,7 @@ extension LLBuildManifestBuilder {
                     let binary = planProduct.binary
                     inputs.append(file: binary)
 
-                case .library(.automatic), .library(.static):
+                case .library(.automatic), .library(.static), .extension:
                     for target in product.targets {
                         addStaticTargetInputs(target)
                     }
@@ -847,6 +847,8 @@ extension ResolvedProduct {
             throw InternalError("automatic library not supported")
         case .executable:
             return "\(name)-\(config).exe"
+        case .extension:
+            throw InternalError("unexpectedly asked for the llbuild target name of an extension product")
         }
     }
 
