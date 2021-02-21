@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -128,6 +128,29 @@ public class Product: Encodable {
         }
     }
 
+    /// The extension product of a Swift package.
+    public final class Extension: Product {
+        private enum ExtensionCodingKeys: CodingKey {
+            case targets
+        }
+
+        /// The name of the extension target to vend as a product.
+        public let targets: [String]
+
+        init(name: String, targets: [String]) {
+            self.targets = targets
+            super.init(name: name)
+        }
+
+        public override func encode(to encoder: Encoder) throws {
+            try super.encode(to: encoder)
+            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
+            try productContainer.encode("extension", forKey: .type)
+            var extensionContainer = encoder.container(keyedBy: ExtensionCodingKeys.self)
+            try extensionContainer.encode(targets, forKey: .targets)
+        }
+    }
+
     /// Creates a library product to allow clients that declare a dependency on this package
     /// to use the package's functionality.
     ///
@@ -160,6 +183,19 @@ public class Product: Encodable {
         targets: [String]
     ) -> Product {
         return Executable(name: name, targets: targets)
+    }
+    
+    /// Creates an extension package product.
+    ///
+    /// - Parameters:
+    ///     - name: The name of the extension product.
+    ///     - targets: The extension targets to vend as a product.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func `extension`(
+        name: String,
+        targets: [String]
+    ) -> Product {
+        return Extension(name: name, targets: targets)
     }
 
     public func encode(to encoder: Encoder) throws {

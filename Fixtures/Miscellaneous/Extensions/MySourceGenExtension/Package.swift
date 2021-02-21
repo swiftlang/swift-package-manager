@@ -5,10 +5,14 @@ let package = Package(
     name: "MySourceGenExtension",
     products: [
         // The product that vends MySourceGenExt to client packages.
-        // .extension(
-        //     name: "MySourceGenExt",
-        //     target: "MySourceGenExt"
-        // )
+        .extension(
+            name: "MySourceGenExt",
+            targets: ["MySourceGenExt"]
+        ),
+        .executable(
+            name: "MySourceGenTool",
+            targets: ["MySourceGenTool"]
+        )
     ],
     targets: [
         // A local tool that uses an extension.
@@ -16,7 +20,6 @@ let package = Package(
             name: "MyLocalTool",
             dependencies: [
                 "MySourceGenExt",
-                "MySourceGenTool"
             ]
         ),
         // The target that implements the extension and generates commands to invoke MySourceGenTool.

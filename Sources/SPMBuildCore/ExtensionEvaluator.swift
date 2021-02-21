@@ -43,9 +43,8 @@ extension PackageGraph {
                     else {
                         dependencyTargets.append(target.underlyingTarget)
                     }
-                case .product(_, _):
-                    // TODO: Support extension product dependencies.
-                    break
+                case .product(let product, _):
+                    extensionTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? ExtensionTarget })
                 }
             }
             

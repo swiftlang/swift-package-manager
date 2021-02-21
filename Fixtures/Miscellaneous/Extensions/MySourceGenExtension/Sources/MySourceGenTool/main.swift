@@ -11,6 +11,6 @@ let outputFile = ProcessInfo.processInfo.arguments[2]
 
 let inputData = FileManager.default.contents(atPath: inputFile) ?? Data()
 let dataAsHex = inputData.map { String(format: "%02hhx", $0) }.joined()
-let outputString = "public var data = \(dataAsHex.quotedForSourceCode)\n"
+let outputString = "public var generatedString = \(dataAsHex.quotedForSourceCode)\n"
 let outputData = outputString.data(using: .utf8)
 FileManager.default.createFile(atPath: outputFile, contents: outputData)

@@ -6,7 +6,7 @@ for inputPath in targetBuildContext.otherFiles {
     let outputPath = targetBuildContext.outputDir.appending(outputName)
     commandConstructor.createCommand(
         displayName:
-            "MySourceGenTooling \(inputPath)",
+            "Generating \(outputName) from \(inputPath.filename)",
         executable:
             try targetBuildContext.lookupTool(named: "MySourceGenTool"),
         arguments: [
