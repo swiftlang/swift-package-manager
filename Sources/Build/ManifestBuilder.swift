@@ -577,9 +577,10 @@ extension LLBuildManifestBuilder {
 
         // Add any build tool commands created by extensions for the target (prebuild and postbuild commands are handled outside the build).
         for command in target.extensionEvaluationResults.reduce([], { $0 + $1.commands }) {
-            if case .buildToolCommand(let displayName, let execPath, let arguments, _, _, let inputPaths, let outputPaths, _) = command {
+            if case .buildToolCommand(let displayName, let executable, let arguments, _, _, let inputPaths, let outputPaths, _) = command {
                 // Create a shell command to invoke the executable.  We include the path of the executable as a dependency.
                 // FIXME: We will need to extend the addShellCmd() function to also take working directory and environment.
+                let execPath = AbsolutePath(executable, relativeTo: buildParameters.buildPath)
                 manifest.addShellCmd(
                     name: displayName,
                     description: displayName,

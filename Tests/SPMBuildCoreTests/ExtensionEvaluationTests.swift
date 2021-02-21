@@ -150,7 +150,7 @@ class ExtensionEvaluationTests: XCTestCase {
         let evalFirstCommand = try XCTUnwrap(evalFirstResult.commands.first)
         if case .buildToolCommand(let name, let exec, let args, let wdir, let env, let inputs, let outputs, let derived) = evalFirstCommand {
             XCTAssertEqual(name, "Do something")
-            XCTAssertEqual(exec, AbsolutePath("/bin/FooTool"))
+            XCTAssertEqual(exec, "/bin/FooTool")
             XCTAssertEqual(args, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
             XCTAssertEqual(wdir, AbsolutePath("/Foo/Sources/Foo"))
             XCTAssertEqual(env, ["X": "Y"])
