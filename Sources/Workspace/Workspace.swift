@@ -1539,7 +1539,7 @@ extension Workspace {
                 if let path = target.path {
                     // TODO: find a better way to get the base path (not via the manifest)
                     // the target path is validated earlier to be within the package directory
-                    let absolutePath = manifest.path.parentDirectory.appending(component: path)
+                    let absolutePath = manifest.path.parentDirectory.appending(RelativePath(path))
                     localArtifacts.append(
                         .local(
                             packageRef: packageRef,
