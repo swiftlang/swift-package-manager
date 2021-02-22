@@ -9,14 +9,12 @@
 */
 
 import Basics
-import Foundation
 import TSCBasic
 import TSCUtility
 
 extension HTTPClient {
     public static func mock(fileSystem: FileSystem) -> HTTPClient {
         let handler: HTTPClient.Handler = { request, _, completion in
-
             switch request.kind {
             case.generic:
                 completion(.success(.okay(body: request.url.absoluteString)))
@@ -33,6 +31,6 @@ extension HTTPClient {
                 }
             }
         }
-        return HTTPClient(handler: handler)       
+        return HTTPClient(handler: handler)
     }
 }

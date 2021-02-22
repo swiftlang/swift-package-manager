@@ -109,6 +109,14 @@ public final class ThreadSafeArrayStore<Value> {
         }
     }
 
+    @discardableResult
+    public func append(contentsOf items: [Value]) -> Int {
+        self.lock.withLock {
+            self.underlying.append(contentsOf: items)
+            return self.underlying.count
+        }
+    }
+
     public var count: Int {
         self.lock.withLock {
             self.underlying.count
