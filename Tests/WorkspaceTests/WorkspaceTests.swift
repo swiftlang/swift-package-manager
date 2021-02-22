@@ -4542,7 +4542,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "A4",
                             type: .binary,
-                            path: "A4.xcframework"
+                            path: "XCFrameworks/A4.xcframework"
                         ),
                     ],
                     products: [
@@ -4571,7 +4571,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "A4.xcframework")
+        let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "XCFrameworks", "A4.xcframework")
         try fs.createDirectory(a4FrameworkPath, recursive: true)
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
