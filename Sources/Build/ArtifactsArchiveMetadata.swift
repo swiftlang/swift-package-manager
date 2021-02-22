@@ -37,17 +37,18 @@ public struct ArtifactsArchiveMetadata: Equatable {
 
     // In the future we are likely to extend the ArtifactsArchive file format to carry other types of artifacts beyond executables.
     // Additional fields may be required to support these new artifact types e.g. headers path for libraries.
-    public enum ArtifactType: String, RawRepresentable,  Decodable {
+    // This can also support resource-only artifacts as well. For example, 3d models along with associated textures, or fonts, etc.
+    public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
     }
 
     public struct Variant: Equatable {
         let path: String
-        let supportedTriplets: [Triple]
+        let supportedTriples: [Triple]
 
-        public init(path: String, supportedTriplets: [Triple]) {
+        public init(path: String, supportedTriples: [Triple]) {
             self.path = path
-            self.supportedTriplets = supportedTriplets
+            self.supportedTriples = supportedTriples
         }
     }
 }
@@ -74,7 +75,7 @@ extension ArtifactsArchiveMetadata {
 extension ArtifactsArchiveMetadata: Decodable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion
-        case artifacts = "availableArtifacts"
+        case artifacts
     }
 }
 
@@ -83,7 +84,6 @@ extension ArtifactsArchiveMetadata.Artifact: Decodable {
         case type
         case version
         case variants
-        case supportedTriplets
     }
 
     public init(from decoder: Decoder) throws {
@@ -97,13 +97,12 @@ extension ArtifactsArchiveMetadata.Artifact: Decodable {
 extension ArtifactsArchiveMetadata.Variant: Decodable {
     enum CodingKeys: String, CodingKey {
         case path
-        case supportedTriplets
+        case supportedTriples
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.supportedTriplets = try container.decode([String].self, forKey: .supportedTriplets).map { try Triple($0) }
+        self.supportedTriples = try container.decode([String].self, forKey: .supportedTriples).map { try Triple($0) }
         self.path = try container.decode(String.self, forKey: .path)
     }
 }
-

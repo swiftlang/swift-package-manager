@@ -21,18 +21,18 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
             bytes: ByteString(encodingAsUTF8: """
             {
                 "schemaVersion": "1.0",
-                "availableArtifacts": {
+                "artifacts": {
                     "protocol-buffer-compiler": {
                         "type": "executable",
                         "version": "3.5.1",
                         "variants": [
                             {
                                 "path": "x86_64-apple-macosx/protoc",
-                                "supportedTriplets": ["x86_64-apple-macosx"]
+                                "supportedTriples": ["x86_64-apple-macosx"]
                             },
                             {
                                 "path": "x86_64-unknown-linux-gnu/protoc",
-                                "supportedTriplets": ["x86_64-unknown-linux-gnu"]
+                                "supportedTriples": ["x86_64-unknown-linux-gnu"]
                             }
                         ]
                     }
@@ -51,14 +51,14 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
                     variants: [
                         ArtifactsArchiveMetadata.Variant(
                             path: "x86_64-apple-macosx/protoc",
-                            supportedTriplets: [Triple("x86_64-apple-macosx")]
+                            supportedTriples: [Triple("x86_64-apple-macosx")]
                         ),
                         ArtifactsArchiveMetadata.Variant(
                             path: "x86_64-unknown-linux-gnu/protoc",
-                            supportedTriplets: [Triple("x86_64-unknown-linux-gnu")]
-                        )
+                            supportedTriples: [Triple("x86_64-unknown-linux-gnu")]
+                        ),
                     ]
-                )
+                ),
             ]
         ))
     }

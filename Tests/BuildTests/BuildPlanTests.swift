@@ -2623,14 +2623,14 @@ final class BuildPlanTests: XCTestCase {
             bytes: ByteString(encodingAsUTF8: """
                 {
                     "schemaVersion": "1.0",
-                    "availableArtifacts": {
+                    "artifacts": {
                         "\(artifactName)": {
                             "type": "executable",
                             "version": "1.1.0",
                             "variants": [
                                 {
                                     "path": "all-platforms/mytool",
-                                    "supportedTriplets": ["\(artifactTriples.map{ $0.tripleString }.joined(separator: "\", \""))"]
+                                    "supportedTriples": ["\(artifactTriples.map{ $0.tripleString }.joined(separator: "\", \""))"]
                                 }
                             ]
                         }

@@ -1641,7 +1641,7 @@ public class BuildPlan {
                     switch binaryTarget.kind {
                     case .xcframework:
                         let libraries = try self.parseXCFramework(for: binaryTarget)
-                        libraries.forEach { library in
+                        for library in libraries {
                             libraryBinaryPaths.insert(library.libraryPath)
                         }
                     case .artifactsArchive:
@@ -1697,7 +1697,7 @@ public class BuildPlan {
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
                     let libraries = try self.parseXCFramework(for: target)
-                    libraries.forEach { library in
+                    for library in libraries {
                         if let headersPath = library.headersPath {
                             clangTarget.additionalFlags += ["-I", headersPath.pathString]
                         }
@@ -1734,7 +1734,7 @@ public class BuildPlan {
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
                     let libraries = try self.parseXCFramework(for: target)
-                    libraries.forEach { library in
+                    for library in libraries {
                         if let headersPath = library.headersPath {
                             swiftTarget.additionalFlags += ["-Xcc", "-I", "-Xcc", headersPath.pathString]
                         }
@@ -1874,8 +1874,8 @@ public class BuildPlan {
             }
 
             let libraryDirectory = target.artifactPath.appending(component: library.libraryIdentifier)
-            let libraryPath = libraryDirectory.appending(component: library.libraryPath)
-            let headersPath = library.headersPath.map({ libraryDirectory.appending(component: $0) })
+            let libraryPath = libraryDirectory.appending(RelativePath(library.libraryPath))
+            let headersPath = library.headersPath.map({ libraryDirectory.appending(RelativePath($0)) })
 
             return [LibraryInfo(libraryPath: libraryPath, headersPath: headersPath)]
         }
@@ -1888,7 +1888,7 @@ public class BuildPlan {
 
             // filter the artifacts that are relevant to the triple
             // FIXME: this filter needs to become more sophisticated
-            let supportedArtifacts = metadata.artifacts.filter { $0.value.variants.contains(where: { $0.supportedTriplets.contains(buildParameters.triple) }) }
+            let supportedArtifacts = metadata.artifacts.filter { $0.value.variants.contains(where: { $0.supportedTriples.contains(buildParameters.triple) }) }
             // TODO: add support for libraries
             let executables = supportedArtifacts.filter { $0.value.type == .executable }
 
@@ -2017,16 +2017,5 @@ fileprivate extension Triple.OS {
 fileprivate extension Triple {
     var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
-    }
-}
-
-// FIXME: move this to TSC
-extension Triple: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.tripleString)
-        hasher.combine(self.arch)
-        hasher.combine(self.vendor)
-        hasher.combine(self.os)
-        hasher.combine(self.abi)
     }
 }
