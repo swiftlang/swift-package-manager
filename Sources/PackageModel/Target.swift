@@ -517,14 +517,14 @@ public final class BinaryTarget: Target {
 
     public enum Kind: String, RawRepresentable, Codable, CaseIterable {
         case xcframework
-        case toolsArchive
+        case artifactsArchive
 
         public var fileExtension: String {
             switch self {
             case .xcframework:
                 return "xcframework"
-            case .toolsArchive:
-                return "toar"
+            case .artifactsArchive:
+                return "arar"
             }
         }
 

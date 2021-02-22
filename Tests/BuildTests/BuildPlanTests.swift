@@ -2611,11 +2611,11 @@ final class BuildPlanTests: XCTestCase {
         try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
     }
 
-    func testToolsArchiveBinaryTargets(toolTriples:[TSCUtility.Triple], destinationTriple: TSCUtility.Triple) throws -> Bool {
+    func testArtifactsArchiveBinaryTargets(artifactTriples:[TSCUtility.Triple], destinationTriple: TSCUtility.Triple) throws -> Bool {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
-        let toolName = "my-tool"
-        let toolPath = AbsolutePath("/Pkg/MyTool.toar")
+        let artifactName = "my-tool"
+        let toolPath = AbsolutePath("/Pkg/MyTool.arar")
         try fs.createDirectory(toolPath, recursive: true)
 
         try fs.writeFileContents(
@@ -2623,13 +2623,17 @@ final class BuildPlanTests: XCTestCase {
             bytes: ByteString(encodingAsUTF8: """
                 {
                     "schemaVersion": "1.0",
-                    "availableTools": {
-                        "\(toolName)": [
-                            {
-                                "path": "all-platforms/mytool",
-                                "supportedTriplets": ["\(toolTriples.map{ $0.tripleString }.joined(separator: "\", \""))"]
-                            }
-                        ]
+                    "availableArtifacts": {
+                        "\(artifactName)": {
+                            "type": "executable",
+                            "version": "1.1.0",
+                            "variants": [
+                                {
+                                    "path": "all-platforms/mytool",
+                                    "supportedTriplets": ["\(artifactTriples.map{ $0.tripleString }.joined(separator: "\", \""))"]
+                                }
+                            ]
+                        }
                     }
                 }
         """))
@@ -2649,12 +2653,12 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["MyTool"]),
-                        TargetDescription(name: "MyTool", path: "MyTool.toar", type: .binary),
+                        TargetDescription(name: "MyTool", path: "MyTool.arar", type: .binary),
                     ]
                 ),
             ],
             binaryArtifacts: [
-                .init(kind: .toolsArchive, originURL: nil, path: toolPath),
+                .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
             ]
         )
 
@@ -2671,20 +2675,20 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(1)
 
         let availableTools = try result.buildProduct(for: "exe").availableTools
-        return availableTools.contains(where: { $0.key == toolName })
+        return availableTools.contains(where: { $0.key == artifactName })
     }
 
-    func testToolsArchiveBinaryTargets() throws {
-        XCTAssertTrue(try testToolsArchiveBinaryTargets(toolTriples: [.macOS], destinationTriple: .macOS))
+    func testArtifactsArchiveBinaryTargets() throws {
+        XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.macOS], destinationTriple: .macOS))
 
         do {
             let triples = try ["arm64-apple-macosx",  "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"].map(TSCUtility.Triple.init)
-            XCTAssertTrue(try testToolsArchiveBinaryTargets(toolTriples: triples, destinationTriple: triples.first!))
+            XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: triples.first!))
         }
 
         do {
             let triples = try ["x86_64-unknown-linux-gnu"].map(TSCUtility.Triple.init)
-            XCTAssertFalse(try testToolsArchiveBinaryTargets(toolTriples: triples, destinationTriple: .macOS))
+            XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: .macOS))
         }
     }
 

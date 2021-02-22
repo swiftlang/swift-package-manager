@@ -1298,10 +1298,10 @@ public class BuildPlan {
     private var pkgConfigCache = [SystemLibraryTarget: (cFlags: [String], libs: [String])]()
 
     /// Cache for  library information.
-    private var externalLibrariesCache = [BinaryTarget: LibraryInfo]()
+    private var externalLibrariesCache = [BinaryTarget: [LibraryInfo]]()
 
     /// Cache for  tools information.
-    private var externalToolsCache = [BinaryTarget: [ToolInfo]]()
+    private var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
     private static func makeTestManifestTargets(
         _ buildParameters: BuildParameters,
@@ -1640,11 +1640,13 @@ public class BuildPlan {
                     }
                     switch binaryTarget.kind {
                     case .xcframework:
-                        let library = try self.parseXCFramework(for: binaryTarget)
-                        libraryBinaryPaths.insert(library.binaryPath)
-                    case .toolsArchive:
-                        let tools = try self.parseToolsArchive(for: binaryTarget)
-                        tools.forEach { availableTools[$0.name] = $0.binaryPath  }
+                        let libraries = try self.parseXCFramework(for: binaryTarget)
+                        libraries.forEach { library in
+                            libraryBinaryPaths.insert(library.libraryPath)
+                        }
+                    case .artifactsArchive:
+                        let tools = try self.parseArtifactsArchive(for: binaryTarget)
+                        tools.forEach { availableTools[$0.name] = $0.executablePath  }
                     }
                 case .extension:
                     continue
@@ -1694,11 +1696,13 @@ public class BuildPlan {
                 clangTarget.additionalFlags += pkgConfig(for: target).cFlags
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
-                    let library = try self.parseXCFramework(for: target)
-                    if let headersPath = library.headersPath {
-                        clangTarget.additionalFlags += ["-I", headersPath.pathString]
+                    let libraries = try self.parseXCFramework(for: target)
+                    libraries.forEach { library in
+                        if let headersPath = library.headersPath {
+                            clangTarget.additionalFlags += ["-I", headersPath.pathString]
+                        }
+                        clangTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
-                    clangTarget.libraryBinaryPaths.insert(library.binaryPath)
                 }
             default: continue
             }
@@ -1729,11 +1733,13 @@ public class BuildPlan {
                 swiftTarget.additionalFlags += pkgConfig(for: target).cFlags
             case let target as BinaryTarget:
                 if case .xcframework = target.kind {
-                    let library = try self.parseXCFramework(for: target)
-                    if let headersPath = library.headersPath {
-                        swiftTarget.additionalFlags += ["-Xcc", "-I", "-Xcc", headersPath.pathString]
+                    let libraries = try self.parseXCFramework(for: target)
+                    libraries.forEach { library in
+                        if let headersPath = library.headersPath {
+                            swiftTarget.additionalFlags += ["-Xcc", "-I", "-Xcc", headersPath.pathString]
+                        }
+                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
-                    swiftTarget.libraryBinaryPaths.insert(library.binaryPath)
                 }
             default:
                 break
@@ -1853,7 +1859,7 @@ public class BuildPlan {
     }
 
     /// Extracts the library information from an XCFramework.
-    private func parseXCFramework(for target: BinaryTarget) throws -> LibraryInfo {
+    private func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: target) {
             let metadata = try XCFrameworkMetadata.parse(fileSystem: self.fileSystem, rootPath: target.artifactPath)
 
@@ -1868,26 +1874,30 @@ public class BuildPlan {
             }
 
             let libraryDirectory = target.artifactPath.appending(component: library.libraryIdentifier)
-            let binaryPath = libraryDirectory.appending(component: library.libraryPath)
+            let libraryPath = libraryDirectory.appending(component: library.libraryPath)
             let headersPath = library.headersPath.map({ libraryDirectory.appending(component: $0) })
 
-            return LibraryInfo(binaryPath: binaryPath, headersPath: headersPath)
+            return [LibraryInfo(libraryPath: libraryPath, headersPath: headersPath)]
         }
     }
 
-    /// Extracts the executables info from an executablesArchive
-    private func parseToolsArchive(for target: BinaryTarget) throws -> [ToolInfo] {
-        try self.externalToolsCache.memoize(key: target) {
-            let metadata = try ToolsArchiveMetadata.parse(fileSystem: self.fileSystem, rootPath: target.artifactPath)
+    /// Extracts the artifacts  from an artifactsArchive
+    private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
+        try self.externalExecutablesCache.memoize(key: target) {
+            let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: self.fileSystem, rootPath: target.artifactPath)
 
-            // filter the tools that are relevant to the triple
-            let supportedTools = metadata.tools.filter { $0.value.contains(where: { $0.supportedTriplets.contains(buildParameters.triple) }) }
-            // flatten the tools for each access
-            return supportedTools.reduce(into: [ToolInfo](), { partial, entry in
-                let tools = entry.value.map {
-                    ToolInfo(name: entry.key, binaryPath: target.artifactPath.appending(RelativePath($0.path)))
+            // filter the artifacts that are relevant to the triple
+            // FIXME: this filter needs to become more sophisticated
+            let supportedArtifacts = metadata.artifacts.filter { $0.value.variants.contains(where: { $0.supportedTriplets.contains(buildParameters.triple) }) }
+            // TODO: add support for libraries
+            let executables = supportedArtifacts.filter { $0.value.type == .executable }
+
+            // flatten the results for easy access
+            return executables.reduce(into: [ExecutableInfo](), { partial, entry in
+                let executables = entry.value.variants.map {
+                    ExecutableInfo(name: entry.key, executablePath: target.artifactPath.appending(RelativePath($0.path)))
                 }
-                partial.append(contentsOf: tools)
+                partial.append(contentsOf: executables)
             })
         }
     }
@@ -1896,18 +1906,19 @@ public class BuildPlan {
 /// Information about a library from a binary dependency.
 private struct LibraryInfo: Equatable {
     /// The path to the binary.
-    let binaryPath: AbsolutePath
+    let libraryPath: AbsolutePath
 
     /// The path to the headers directory, if one exists.
     let headersPath: AbsolutePath?
 }
 
 /// Information about an executable from a binary dependency.
-private struct ToolInfo: Equatable {
+private struct ExecutableInfo: Equatable {
     /// The tool name
     let name: String
-    /// The path to the binary.
-    let binaryPath: AbsolutePath
+
+    /// The path to the executable.
+    let executablePath: AbsolutePath
 }
 
 private extension Diagnostic.Message {
