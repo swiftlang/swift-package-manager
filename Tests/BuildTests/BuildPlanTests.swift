@@ -8,16 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+@testable import Build
+@testable import PackageLoading
+import PackageModel
+import SPMBuildCore
+import SPMTestSupport
+import SwiftDriver
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-import PackageModel
-@testable import PackageLoading
-import SPMBuildCore
-import Build
-import SwiftDriver
+import XCTest
 
 let hostTriple = Resources.default.toolchain.triple
 #if os(macOS)
@@ -2610,6 +2609,87 @@ final class BuildPlanTests: XCTestCase {
 
         let arm64eTriple = try TSCUtility.Triple("arm64e-apple-macosx")
         try testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", destinationTriple: arm64eTriple)
+    }
+
+    func testArtifactsArchiveBinaryTargets(artifactTriples:[TSCUtility.Triple], destinationTriple: TSCUtility.Triple) throws -> Bool {
+        let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
+
+        let artifactName = "my-tool"
+        let toolPath = AbsolutePath("/Pkg/MyTool.arar")
+        try fs.createDirectory(toolPath, recursive: true)
+
+        try fs.writeFileContents(
+            toolPath.appending(component: "info.json"),
+            bytes: ByteString(encodingAsUTF8: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "\(artifactName)": {
+                            "type": "executable",
+                            "version": "1.1.0",
+                            "variants": [
+                                {
+                                    "path": "all-platforms/mytool",
+                                    "supportedTriples": ["\(artifactTriples.map{ $0.tripleString }.joined(separator: "\", \""))"]
+                                }
+                            ]
+                        }
+                    }
+                }
+        """))
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    packageKind: .root,
+                    packageLocation: "/Pkg",
+                    products: [
+                        ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["MyTool"]),
+                        TargetDescription(name: "MyTool", path: "MyTool.arar", type: .binary),
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
+            ]
+        )
+
+        XCTAssertNoDiagnostics(diagnostics)
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
+            graph: graph,
+            diagnostics: diagnostics,
+            fileSystem: fs
+        ))
+        XCTAssertNoDiagnostics(diagnostics)
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(1)
+
+        let availableTools = try result.buildProduct(for: "exe").availableTools
+        return availableTools.contains(where: { $0.key == artifactName })
+    }
+
+    func testArtifactsArchiveBinaryTargets() throws {
+        XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: [.macOS], destinationTriple: .macOS))
+
+        do {
+            let triples = try ["arm64-apple-macosx",  "x86_64-apple-macosx", "x86_64-unknown-linux-gnu"].map(TSCUtility.Triple.init)
+            XCTAssertTrue(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: triples.first!))
+        }
+
+        do {
+            let triples = try ["x86_64-unknown-linux-gnu"].map(TSCUtility.Triple.init)
+            XCTAssertFalse(try testArtifactsArchiveBinaryTargets(artifactTriples: triples, destinationTriple: .macOS))
+        }
     }
 
     func testAddressSanitizer() throws {

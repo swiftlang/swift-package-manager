@@ -7,13 +7,14 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Build
+  ArtifactsArchiveMetadata.swift
   BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan.swift
   ManifestBuilder.swift
   SPMSwiftDriverExecutor.swift
   SwiftCompilerOutputParser.swift
-  XCFrameworkInfo.swift)
+  XCFrameworkMetadata.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
