@@ -20,7 +20,7 @@ import Basics
 public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fs: FileSystem
-    public let downloader: MockDownloader
+    public let httpClient: HTTPClient
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
     let roots: [MockPackage]
@@ -38,7 +38,7 @@ public final class MockWorkspace {
     public init(
         sandbox: AbsolutePath,
         fs: FileSystem,
-        downloader: MockDownloader? = nil,
+        httpClient: HTTPClient? = nil,
         archiver: MockArchiver = MockArchiver(),
         checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
         config: Workspace.Configuration? = nil,
@@ -50,7 +50,7 @@ public final class MockWorkspace {
     ) throws {
         self.sandbox = sandbox
         self.fs = fs
-        self.downloader = downloader ?? MockDownloader(fileSystem: fs)
+        self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
         self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
@@ -172,7 +172,7 @@ public final class MockWorkspace {
             fileSystem: self.fs,
             repositoryProvider: self.repoProvider,
             identityResolver: self.identityResolver,
-            downloader: self.downloader,
+            httpClient: self.httpClient,
             archiver: self.archiver,
             checksumAlgorithm: self.checksumAlgorithm,
             isResolverPrefetchingEnabled: true,

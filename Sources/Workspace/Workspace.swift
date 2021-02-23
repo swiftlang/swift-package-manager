@@ -211,8 +211,8 @@ public class Workspace {
     /// The package container provider.
     fileprivate let containerProvider: RepositoryPackageContainerProvider
 
-    /// The downloader used for downloading binary artifacts.
-    fileprivate let downloader: Downloader
+    /// The http client used for downloading binary artifacts.
+    fileprivate let httpClient: HTTPClient
 
     fileprivate let netrcFilePath: AbsolutePath?
 
@@ -267,7 +267,7 @@ public class Workspace {
         fileSystem: FileSystem = localFileSystem,
         repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
         identityResolver: IdentityResolver? = nil,
-        downloader: Downloader = FoundationDownloader(),
+        httpClient: HTTPClient = HTTPClient(),
         netrcFilePath: AbsolutePath? = nil,
         archiver: Archiver = ZipArchiver(),
         checksumAlgorithm: HashAlgorithm = SHA256(),
@@ -285,7 +285,7 @@ public class Workspace {
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
-        self.downloader = downloader
+        self.httpClient = httpClient
         self.netrcFilePath = netrcFilePath
         self.archiver = archiver
 
@@ -1601,10 +1601,12 @@ extension Workspace {
             didDownloadAnyArtifact = true
 
             group.enter()
-            downloader.downloadFile(
-                at: parsedURL,
-                to: archivePath,
-                withAuthorizationProvider: authProvider,
+
+            var request = HTTPClient.Request.download(url: parsedURL, fileSystem: self.fileSystem, destination: archivePath)
+            request.options.authorizationProvider = authProvider?.authorization(for:)
+            request.options.validResponseCodes = [200]
+            self.httpClient.execute(
+                request,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     self.delegate?.downloadingBinaryArtifact(
                         from: artifact.url,
@@ -1656,8 +1658,7 @@ extension Workspace {
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
                         })
                     case .failure(let error):
-                        let reason = error.errorDescription ?? error.localizedDescription
-                        tempDiagnostics.emit(.artifactFailedDownload(targetName: artifact.targetName, reason: reason))
+                        tempDiagnostics.emit(.artifactFailedDownload(targetName: artifact.targetName, reason: "\(error)"))
                     }
                 })
         }
