@@ -29,7 +29,7 @@ final class PackageCollectionSourceCertificatePolicyTests: XCTestCase {
         let source1 = Model.CollectionSource(type: .json, url: URL(string: "https://package-collection-1")!)
         let unsignedSource = Model.CollectionSource(type: .json, url: URL(string: "https://package-collection-unsigned")!)
 
-        XCTAssertEqual(["root-cert-1a", "root-cert-1b", "root-cert-2"], sourceCertPolicy.allRootCerts)
+        XCTAssertEqual(["root-cert-1a", "root-cert-1b", "root-cert-2"], sourceCertPolicy.allRootCerts?.sorted())
 
         XCTAssertTrue(sourceCertPolicy.mustBeSigned(source: source1))
         XCTAssertFalse(sourceCertPolicy.mustBeSigned(source: unsignedSource))
