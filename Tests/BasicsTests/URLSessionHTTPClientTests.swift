@@ -212,6 +212,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
 
     // MARK: - download
 
+    // URLSession Download tests can only run on macOS
+    // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+    // and there is no way to set it in a mock
+    // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+    #if os(macOS)
     func testDownloadSuccess() throws {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -267,8 +272,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    // Netrc only available on macOS for now
-    #if os(macOS)
     func testDownloadAuthenticatedSuccess() throws {
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
@@ -332,10 +335,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
-    #endif
 
-    // Netrc only available on macOS for now
-    #if os(macOS)
     func testDownloadDefaultAuthenticationSuccess() throws {
         let netrcContent = "default login default password default"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
@@ -399,7 +399,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
-    #endif
 
     func testDownloadClientError() throws {
         let configuration = URLSessionConfiguration.default
@@ -430,12 +429,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     case .success:
                         XCTFail("unexpected success")
                     case .failure(let error):
-                        // XCTAssertEqual(error as? HTTPClientError, HTTPClientError.downloadError(clientError.description))
+                        #if os(macOS)
                         // FIXME: URLSession losses the full error description when going
                         // from Swift.Error to NSError which is then received in
                         // urlSession(_ session: URLSession, task downloadTask: URLSessionTask, didCompleteWithError error: Error?)
                         XCTAssertNotNil(error as? HTTPClientError)
-                        XCTAssertMatch((error as CustomStringConvertible).description, .contains("StringError"))
+                        #else
+                        XCTAssertEqual(error as? HTTPClientError, HTTPClientError.downloadError(clientError.description))
+                        #endif
                     }
                     completionExpectation.fulfill()
                 }
@@ -494,46 +495,47 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    func testDownloadFileSystemError() {
+    func testDownloadFileSystemError() throws {
         let configuration = URLSessionConfiguration.default
         configuration.protocolClasses = [MockURLProtocol.self]
         let urlSession = URLSessionHTTPClient(configuration: configuration)
         let httpClient = HTTPClient(handler: urlSession.execute)
 
-        let url = URL(string: "https://downloader-tests.com/testFileSystemError.zip")!
+        try testWithTemporaryDirectory { tmpdir in
+            let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
+            let completionExpectation = XCTestExpectation(description: "error")
 
-        let didStartLoadingExpectation = XCTestExpectation(description: "didStartLoading")
-        let completionExpectation = XCTestExpectation(description: "error")
+            let url = URL(string: "https://downloader-tests.com/testFileSystemError.zip")!
+            let request = HTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: tmpdir.appending(component: "download"))
+            httpClient.execute(request, progress: { _, _ in }, completion: { result in
+                switch result {
+                case .success:
+                    XCTFail("unexpected success")
+                case .failure(let error):
+                    XCTAssertEqual(error as? FileSystemError, FileSystemError(.unsupported))
+                }
+                completionExpectation.fulfill()
+            })
 
-        let request = HTTPClient.Request.download(url: url, fileSystem: FailingFileSystem(), destination: .root)
-        httpClient.execute(request, progress: { _, _ in }, completion: { result in
-            switch result {
-            case .success:
-                XCTFail("unexpected success")
-            case .failure(let error):
-                XCTAssertEqual(error as? FileSystemError, FileSystemError(.unsupported))
+            MockURLProtocol.onRequest(request) { request in
+                MockURLProtocol.sendResponse(statusCode: 200, for: request)
+                didStartLoadingExpectation.fulfill()
             }
-            completionExpectation.fulfill()
-        })
+            wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-        MockURLProtocol.onRequest(request) { request in
-            MockURLProtocol.sendResponse(statusCode: 200, for: request)
-            didStartLoadingExpectation.fulfill()
+            MockURLProtocol.sendData(Data([0xDE, 0xAD, 0xBE, 0xEF]), for: request)
+            MockURLProtocol.sendCompletion(for: request)
+            wait(for: [completionExpectation], timeout: 1.0)
         }
-        wait(for: [didStartLoadingExpectation], timeout: 1.0)
-
-        MockURLProtocol.sendData(Data([0xDE, 0xAD, 0xBE, 0xEF]), for: request)
-        MockURLProtocol.sendCompletion(for: request)
-        wait(for: [completionExpectation], timeout: 1.0)
     }
+    #endif
 }
 
 private class MockURLProtocol: URLProtocol {
     typealias Action = (URLRequest) -> Void
 
-    private static var lock = Lock()
-    private static var observers: [Key: Action] = [:]
-    private static var requests: [Key: URLProtocol] = [:]
+    private static var observers = ThreadSafeKeyValueStore<Key, Action>()
+    private static var requests = ThreadSafeKeyValueStore<Key, URLProtocol>()
 
     static func onRequest(_ request: HTTPClientRequest, completion: @escaping Action) {
         self.onRequest(request.methodString(), request.url, completion: completion)
@@ -541,12 +543,10 @@ private class MockURLProtocol: URLProtocol {
 
     static func onRequest(_ method: String, _ url: URL, completion: @escaping Action) {
         let key = Key(method, url)
-        self.lock.withLock { () -> Void in
-            guard !self.observers.keys.contains(key) else {
-                return XCTFail("does not support multiple observers for the same url")
-            }
-            self.observers[key] = completion
+        guard !self.observers.contains(key) else {
+            return XCTFail("does not support multiple observers for the same url")
         }
+        self.observers[key] = completion
     }
 
     static func respond(_ request: HTTPClientRequest, statusCode: Int, headers: [String: String]? = nil, body: Data? = nil) {
@@ -607,7 +607,7 @@ private class MockURLProtocol: URLProtocol {
     }
 
     private static func sendResponse(statusCode: Int, headers: [String: String]? = nil, for key: Key) {
-        guard let request = (self.lock.withLock { self.requests[key] }) else {
+        guard let request = self.requests[key] else {
             return XCTFail("url did not start loading")
         }
         let response = HTTPURLResponse(url: key.url, statusCode: statusCode, httpVersion: "1.1", headerFields: headers)!
@@ -615,21 +615,21 @@ private class MockURLProtocol: URLProtocol {
     }
 
     private static func sendData(_ data: Data, for key: Key) {
-        guard let request = (self.lock.withLock { self.requests[key] }) else {
+        guard let request = self.requests[key] else {
             return XCTFail("url did not start loading")
         }
         request.client?.urlProtocol(request, didLoad: data)
     }
 
     private static func sendCompletion(for key: Key) {
-        guard let request = (self.lock.withLock { self.requests[key] }) else {
+        guard let request = self.requests[key] else {
             return XCTFail("url did not start loading")
         }
         request.client?.urlProtocolDidFinishLoading(request)
     }
 
     private static func sendError(_ error: Error, for key: Key) {
-        guard let request = (self.lock.withLock { self.requests[key] }) else {
+        guard let request = self.requests[key] else {
             return XCTFail("url did not start loading")
         }
         request.client?.urlProtocol(request, didFailWithError: error)
@@ -658,12 +658,9 @@ private class MockURLProtocol: URLProtocol {
     override func startLoading() {
         if let url = self.request.url, let method = self.request.httpMethod {
             let key = Key(method, url)
+            Self.requests[key] = self
 
-            Self.lock.withLock {
-                Self.requests[key] = self
-            }
-
-            guard let action = (Self.lock.withLock { Self.observers[key] }) else {
+            guard let action = Self.observers[key] else {
                 return
             }
 
@@ -692,9 +689,7 @@ private class MockURLProtocol: URLProtocol {
     override func stopLoading() {
         if let url = self.request.url, let method = self.request.httpMethod {
             let key = Key(method, url)
-            Self.lock.withLock {
-                Self.requests[key] = nil
-            }
+            Self.requests[key] = nil
         }
     }
 }
