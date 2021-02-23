@@ -4269,7 +4269,7 @@ final class WorkspaceTests: XCTestCase {
         var downloads = [Foundation.URL: AbsolutePath]()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, callback in
+        let httpClient = HTTPClient(handler: { request, _, completion in
             do {
                 guard case .download(let fileSystem, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
@@ -4294,9 +4294,9 @@ final class WorkspaceTests: XCTestCase {
                 )
 
                 downloads[request.url] = destination
-                callback(.success(.okay()))
+                completion(.success(.okay()))
             } catch {
-                callback(.failure( DownloaderError.clientError(error)))
+                completion(.failure(error))
             }
         })
 
@@ -4444,7 +4444,7 @@ final class WorkspaceTests: XCTestCase {
         var downloads = [Foundation.URL: AbsolutePath]()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, callback in
+        let httpClient = HTTPClient(handler: { request, _, completion in
             do {
                 guard case .download(let fileSystem, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
@@ -4471,9 +4471,9 @@ final class WorkspaceTests: XCTestCase {
                 )
 
                 downloads[request.url] = destination
-                callback(.success(.okay()))
+                completion(.success(.okay()))
             } catch {
-                callback(.failure(DownloaderError.clientError(error)))
+                completion(.failure(error))
             }
         })
 
@@ -4706,7 +4706,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let httpClient = HTTPClient(handler: { request, _, callback in
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
             do {
                 guard case .download(let fileSystem, let destination) = request.kind else {
                     throw StringError("invalid request \(request.kind)")
@@ -4714,19 +4715,19 @@ final class WorkspaceTests: XCTestCase {
 
                 switch request.url {
                 case URL(string: "https://a.com/a1.zip")!:
-                    callback(.success(.serverError()))
+                    completion(.success(.serverError()))
                 case URL(string: "https://a.com/a2.zip")!:
                     try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
-                    callback(.success(.okay()))
+                    completion(.success(.okay()))
                 case URL(string: "https://a.com/a3.zip")!:
                     try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
-                    callback(.success(.okay()))
+                    completion(.success(.okay()))
                 default:
                     XCTFail("unexpected url")
-                    callback(.success(.okay()))
+                    completion(.success(.okay()))
                 }
             } catch {
-                callback(.failure(error))
+                completion(.failure(error))
             }
         })
 
@@ -4791,8 +4792,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             print(diagnostics.diagnostics)
             DiagnosticsEngineTester(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("artifact of binary target 'A1' failed download: badResponseStatusCode(500)"), behavior: .error)
-                result.checkUnordered(diagnostic: .contains("artifact of binary target 'A2' failed extraction: dummy error"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("failed downloading 'https://a.com/a1.zip' which is required by binary target 'A1': badResponseStatusCode(500)"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("failed extracting 'https://a.com/a2.zip' which is required by binary target 'A2': dummy error"), behavior: .error)
                 result.checkUnordered(diagnostic: .contains("checksum of downloaded artifact of binary target 'A3' (6d75736b6365686320746e65726566666964203d2073746e65746e6f6320746e65726566666964) does not match checksum specified by the manifest (a3)"), behavior: .error)
             }
         }
@@ -4802,7 +4803,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let httpClient = HTTPClient(handler: { request, _, callback in
+        let httpClient = HTTPClient(handler: { request, _, completion in
             XCTFail("should not be called")
         })
 
@@ -4863,6 +4864,686 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("artifact of binary target 'A' has changed checksum"), behavior: .error)
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexFilesHappyPath() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        var downloads = [Foundation.URL: AbsolutePath]()
+        let hostToolchain = try UserToolchain(destination: .hostDestination())
+
+        let ariFiles = [
+            """
+            {
+                "schemaVersion": "1.0",
+                "archives": [
+                    {
+                        "fileName": "a1.zip",
+                        "checksum": "a1",
+                        "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    }
+                ]
+            }
+            """,
+            """
+            {
+                "schemaVersion": "1.0",
+                "archives": [
+                    {
+                        "fileName": "a2/a2.zip",
+                        "checksum": "a2",
+                        "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                    }
+                ]
+            }
+            """
+        ]
+
+        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+        let ariFilesChecksums = ariFiles.map { checksumAlgorithm.hash($0).hexadecimalRepresentation }
+
+        // returns a dummy file for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            switch request.kind  {
+            case .generic:
+                do {
+                    let contents: String
+                    switch request.url.lastPathComponent {
+                    case "a1.ari":
+                        contents = ariFiles[0]
+                    case "a2.ari":
+                        contents = ariFiles[1]
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
+                    completion(.success(.okay(body: contents)))
+                } catch {
+                    completion(.failure(error))
+                }
+            case .download(let fileSystem, let destination):
+                do {
+                    let contents: [UInt8]
+                    switch request.url.lastPathComponent {
+                    case "a1.zip":
+                        contents = [0xA1]
+                    case "a2.zip":
+                        contents = [0xA2]
+                    case "b.zip":
+                        contents = [0xB0]
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
+
+                    try fileSystem.writeFileContents(
+                        destination,
+                        bytes: ByteString(contents),
+                        atomically: true
+                    )
+
+                    downloads[request.url] = destination
+                    completion(.success(.okay()))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a1.zip":
+                    name = "A1.arar"
+                case "a2.zip":
+                    name = "A2.arar"
+                case "b.zip":
+                    name = "B.arar"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            archiver: archiver,
+            checksumAlgorithm: checksumAlgorithm,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                            "B"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .git(name: "B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.ari",
+                            checksum: ariFilesChecksums[0]
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.ari",
+                            checksum: ariFilesChecksums[1]
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                        MockProduct(name: "A2", targets: ["A2"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "B",
+                    targets: [
+                        MockTarget(
+                            name: "B",
+                            type: .binary,
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "B", targets: ["B"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
+            XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
+                "https://a.com/a1.zip",
+                "https://a.com/a2/a2.zip",
+                "https://b.com/b.zip",
+            ])
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(),
+                (
+                    ariFiles.map(ByteString.init(encodingAsUTF8:)) +
+                    ariFiles.map(ByteString.init(encodingAsUTF8:)) +
+                    [
+                        ByteString([0xA1]),
+                        ByteString([0xA2]),
+                        ByteString([0xB0]),
+                    ]
+                ).map{ $0.hexadecimalRepresentation }.sorted()
+            )
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+            ])
+            XCTAssertEqual(
+                downloads.map { $0.value }.sorted(),
+                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+            )
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(packageName: "A",
+                         targetName: "A1",
+                         source: .remote(
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A1.arar")
+            )
+            result.check(packageName: "A",
+                         targetName: "A2",
+                         source: .remote(
+                            url: "https://a.com/a2/a2.zip",
+                            checksum: "a2"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A2.arar")
+            )
+            result.check(packageName: "B",
+                         targetName: "B",
+                         source: .remote(
+                            url: "https://b.com/b.zip",
+                            checksum: "b0"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "B", "B.arar")
+            )
+        }
+    }
+
+    func testDownloadArchiveIndexServerError() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // returns a dummy files for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            completion(.success(.serverError()))
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "does-not-matter"),
+                    ],
+                    products: [
+                        MockProduct(name: "A", targets: ["A"]),
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': badResponseStatusCode(500)"), behavior: .error)
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexFileBadChecksum() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let hostToolchain = try UserToolchain(destination: .hostDestination())
+
+        let ari = """
+        {
+            "schemaVersion": "1.0",
+            "archives": [
+                {
+                    "fileName": "a1.zip",
+                    "checksum": "a1",
+                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                }
+            ]
+        }
+        """
+        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+        let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
+
+        // returns a dummy files for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                let contents: String
+                switch request.url.lastPathComponent {
+                case "a.ari":
+                    contents = ari
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+                completion(.success(.okay(body: contents)))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "incorrect"),
+                    ],
+                    products: [
+                        MockProduct(name: "A", targets: ["A"]),
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': checksum of downloaded artifact of binary target 'A' (\(ariChecksums)) does not match checksum specified by the manifest (incorrect)"), behavior: .error)
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexFileChecksumChanges() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "a"),
+                    ],
+                    products: [
+                        MockProduct(name: "A", targets: ["A"]),
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        // Pin A to 1.0.0, Checkout A to 1.0.0
+        let aURL = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
+
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [aDependency],
+            managedArtifacts: [
+                ManagedArtifact(
+                    packageRef: aRef,
+                    targetName: "A",
+                    source: .remote(
+                        url: "https://a.com/a.ari",
+                        checksum: "old-checksum"
+                    ),
+                    path: workspace.packagesDir.appending(components: "A", "A.xcframework")
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("artifact of binary target 'A' has changed checksum"), behavior: .error)
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexFileBadArchivesChecksum() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let hostToolchain = try UserToolchain(destination: .hostDestination())
+
+        let ari = """
+        {
+            "schemaVersion": "1.0",
+            "archives": [
+                {
+                    "fileName": "a.zip",
+                    "checksum": "a",
+                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                }
+            ]
+        }
+        """
+        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+        let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
+
+        // returns a dummy files for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            switch request.kind  {
+            case .generic:
+                do {
+                    let contents: String
+                    switch request.url.lastPathComponent {
+                    case "a.ari":
+                        contents = ari
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
+                    completion(.success(.okay(body: contents)))
+                } catch {
+                    completion(.failure(error))
+                }
+            case .download(let fileSystem, let destination):
+                do {
+                    let contents: [UInt8]
+                    switch request.url.lastPathComponent {
+                    case "a.zip":
+                        contents = [0x42]
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
+
+                    try fileSystem.writeFileContents(
+                        destination,
+                        bytes: ByteString(contents),
+                        atomically: true
+                    )
+
+                    completion(.success(.okay()))
+                } catch {
+                    completion(.failure(error))
+                }
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a.zip":
+                    name = "A.arar"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksums),
+                    ],
+                    products: [
+                        MockProduct(name: "A", targets: ["A"]),
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("checksum of downloaded artifact of binary target 'A' (42) does not match checksum specified by the manifest (a)"), behavior: .error)
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexFileArchiveNotFound() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let hostToolchain = try UserToolchain(destination: .hostDestination())
+
+        let ari = """
+        {
+            "schemaVersion": "1.0",
+            "archives": [
+                {
+                    "fileName": "not-found.zip",
+                    "checksum": "a",
+                    "supportedTriples": ["\(hostToolchain.triple.tripleString)"]
+                }
+            ]
+        }
+        """
+        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+        let ariChecksums = checksumAlgorithm.hash(ari).hexadecimalRepresentation
+
+        // returns a dummy files for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            switch request.kind  {
+            case .generic:
+                do {
+                    let contents: String
+                    switch request.url.lastPathComponent {
+                    case "a.ari":
+                        contents = ari
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                    }
+                    completion(.success(.okay(body: contents)))
+                } catch {
+                    completion(.failure(error))
+                }
+            case .download:
+                completion(.success(.notFound()))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksums),
+                    ],
+                    products: [
+                        MockProduct(name: "A", targets: ["A"]),
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("failed downloading 'https://a.com/not-found.zip' which is required by binary target 'A': badResponseStatusCode(404)"), behavior: .error)
+            }
+        }
+    }
+
+    func testDownloadArchiveIndexTripleNotFound() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        let andriodTriple = try Triple("x86_64-unknown-linux-android")
+        let notHostTriple = hostToolchain.triple == andriodTriple ? .macOS : andriodTriple
+
+        let ari = """
+        {
+            "schemaVersion": "1.0",
+            "archives": [
+                {
+                    "fileName": "a1.zip",
+                    "checksum": "a1",
+                    "supportedTriples": ["\(notHostTriple.tripleString)"]
+                }
+            ]
+        }
+        """
+        let checksumAlgorithm = MockHashAlgorithm() // used in tests
+        let ariChecksum = checksumAlgorithm.hash(ari).hexadecimalRepresentation
+
+        // returns a dummy files for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                let contents: String
+                switch request.url.lastPathComponent {
+                case "a.ari":
+                    contents = ari
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+                completion(.success(.okay(body: contents)))
+            } catch {
+                completion(.failure( DownloaderError.clientError(error)))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["A"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksum),
+                    ],
+                    products: [
+                        MockProduct(name: "A", targets: ["A"]),
+                    ],
+                    versions: ["0.9.0", "1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': No supported archive was found for '\(hostToolchain.triple.tripleString)'"), behavior: .error)
             }
         }
     }

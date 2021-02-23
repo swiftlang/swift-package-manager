@@ -771,7 +771,7 @@ extension Workspace {
 
         return diagnostics.wrap {
             let contents = try fileSystem.readFileContents(path)
-            return checksumAlgorithm.hash(contents).hexadecimalRepresentation
+            return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
         } ?? ""
     }
 }
@@ -1546,7 +1546,7 @@ extension Workspace {
                             targetName: target.name,
                             path: absolutePath)
                     )
-                } else if let url = target.url, let checksum = target.checksum {
+                } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
                     remoteArtifacts.append(
                         .init(
                             packageRef: packageRef,
@@ -1566,23 +1566,78 @@ extension Workspace {
     private func download(_ artifacts: [RemoteArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
         let group = DispatchGroup()
         let tempDiagnostics = DiagnosticsEngine()
+        let result = ThreadSafeArrayStore<ManagedArtifact>()
 
         var authProvider: AuthorizationProviding? = nil
-        #if os(macOS)
-        // Netrc feature currently only supported on macOS
+        #if os(macOS) // Netrc feature currently only supported on macOS
         authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
         #endif
 
-        var didDownloadAnyArtifact = false
-        let result = ThreadSafeArrayStore<ManagedArtifact>()
+        // zip files to download
+        // stored in a thread-safe way as we may fetch more from "ari" files
+        let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter { $0.url.pathExtension.lowercased() == "zip" })
 
-        for artifact in artifacts {
+        // fetch and parse "ari" files, if any
+        let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "ari" }
+        if !indexFiles.isEmpty {
+            let hostToolchain = try UserToolchain(destination: .hostDestination())
+            let jsonDecoder = JSONDecoder.makeWithDefaults()
+            for indexFile in indexFiles {
+                group.enter()
+                var request = HTTPClient.Request(method: .get, url: indexFile.url)
+                request.options.validResponseCodes = [200]
+                request.options.authorizationProvider = authProvider?.authorization(for:)
+                self.httpClient.execute(request) { result in
+                    defer { group.leave() }
+
+                    do {
+                        switch result {
+                        case .failure(let error):
+                            throw error
+                        case .success(let response):
+                            guard let body = response.body else {
+                                throw StringError("Body is empty")
+                            }
+                            // FIXME: would be nice if checksumAlgorithm.hash took Data directly
+                            let bodyChecksum = self.checksumAlgorithm.hash(ByteString(body)).hexadecimalRepresentation
+                            guard bodyChecksum == indexFile.checksum else {
+                                throw StringError("checksum of downloaded artifact of binary target '\(indexFile.targetName)' (\(bodyChecksum)) does not match checksum specified by the manifest (\(indexFile.checksum ))")
+                            }
+                            let metadata = try jsonDecoder.decode(ArchiveIndexFile.self, from: body)
+                            // FIXME: this filter needs to become more sophisticated
+                            guard let supportedArchive = metadata.archives.first(where: { $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples.contains(hostToolchain.triple) }) else {
+                                throw StringError("No supported archive was found for '\(hostToolchain.triple.tripleString)'")
+                            }
+                            // add relevant archive
+                            zipArtifacts.append(
+                                RemoteArtifact(
+                                    packageRef: indexFile.packageRef,
+                                    targetName: indexFile.targetName,
+                                    url: indexFile.url.deletingLastPathComponent().appendingPathComponent(supportedArchive.fileName),
+                                    checksum: supportedArchive.checksum)
+                            )
+                        }
+                    } catch {
+                        tempDiagnostics.emit(.error("failed retrieving '\(indexFile.url)': \(error)"))
+                    }
+                }
+            }
+
+            // wait for all "ari" files to be processed
+            group.wait()
+
+            // no reason to continue if we already ran into issues
+            if tempDiagnostics.hasErrors {
+                // collect all diagnostics
+                diagnostics.append(contentsOf: tempDiagnostics)
+                throw Diagnostics.fatalError
+            }
+        }
+
+        // finally download zip files, if any
+        for artifact in (zipArtifacts.map{ $0 }) {
             group.enter()
             defer { group.leave() }
-
-            guard let parsedURL = URL(string: artifact.url) else {
-                throw StringError("invalid url \(artifact.url)")
-            }
 
             let parentDirectory =  self.artifactsPath.appending(component: artifact.packageRef.name)
 
@@ -1593,20 +1648,17 @@ extension Workspace {
                 continue
             }
 
-            let archivePath = parentDirectory.appending(component: parsedURL.lastPathComponent)
-
-            didDownloadAnyArtifact = true
+            let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
 
             group.enter()
-
-            var request = HTTPClient.Request.download(url: parsedURL, fileSystem: self.fileSystem, destination: archivePath)
+            var request = HTTPClient.Request.download(url: artifact.url, fileSystem: self.fileSystem, destination: archivePath)
             request.options.authorizationProvider = authProvider?.authorization(for:)
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
                     self.delegate?.downloadingBinaryArtifact(
-                        from: artifact.url,
+                        from: artifact.url.absoluteString,
                         bytesDownloaded: bytesDownloaded,
                         totalBytesToDownload: totalBytesToDownload)
                 },
@@ -1642,33 +1694,32 @@ extension Workspace {
                                     .remote(
                                         packageRef: artifact.packageRef,
                                         targetName: artifact.targetName,
-                                        url: artifact.url,
+                                        url: artifact.url.absoluteString,
                                         checksum: artifact.checksum,
                                         path: artifactPath
                                     )
                                 )
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                                tempDiagnostics.emit(.artifactFailedExtraction(targetName: artifact.targetName, reason: reason))
+                                tempDiagnostics.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
                             }
 
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
                         })
                     case .failure(let error):
-                        tempDiagnostics.emit(.artifactFailedDownload(targetName: artifact.targetName, reason: "\(error)"))
+                        tempDiagnostics.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(error)"))
                     }
                 })
         }
 
         group.wait()
 
-        if didDownloadAnyArtifact {
+        if zipArtifacts.count > 0 {
             delegate?.didDownloadBinaryArtifacts()
         }
 
-        for diagnostic in tempDiagnostics.diagnostics {
-            diagnostics.emit(diagnostic.message, location: diagnostic.location)
-        }
+        // collect all diagnostics
+        diagnostics.append(contentsOf: tempDiagnostics)
 
         return result.map{ $0 }
     }
@@ -2565,8 +2616,32 @@ public final class LoadableResult<Value> {
 private struct RemoteArtifact {
     let packageRef: PackageReference
     let targetName: String
-    let url: String
+    let url: Foundation.URL
     let checksum: String
+}
+
+private struct ArchiveIndexFile: Decodable {
+    let schemaVersion: String
+    let archives: [Archive]
+
+    struct Archive: Decodable {
+        let fileName: String
+        let checksum: String
+        let supportedTriples: [Triple]
+
+        enum CodingKeys: String, CodingKey {
+            case fileName
+            case checksum
+            case supportedTriples
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.fileName = try container.decode(String.self, forKey: .fileName)
+            self.checksum = try container.decode(String.self, forKey: .checksum)
+            self.supportedTriples = try container.decode([String].self, forKey: .supportedTriples).map(Triple.init)
+        }
+    }
 }
 
 private extension ManagedArtifact {
@@ -2593,6 +2668,14 @@ private extension PackageDependencyDescription {
             return data.path.pathString
         case .scm(let data):
             return data.location
+        }
+    }
+}
+
+private extension DiagnosticsEngine {
+    func append(contentsOf other: DiagnosticsEngine) {
+        for diagnostic in other.diagnostics {
+            self.emit(diagnostic.message, location: diagnostic.location)
         }
     }
 }

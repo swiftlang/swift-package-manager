@@ -34,7 +34,6 @@ public final class MockWorkspace {
     let skipUpdate: Bool
     let enablePubGrub: Bool
 
-
     public init(
         sandbox: AbsolutePath,
         fs: FileSystem,
