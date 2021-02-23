@@ -4791,9 +4791,9 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             print(diagnostics.diagnostics)
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("artifact of binary target 'A1' failed download: badResponseStatusCode(500)"), behavior: .error)
-                result.check(diagnostic: .contains("artifact of binary target 'A2' failed extraction: dummy error"), behavior: .error)
-                result.check(diagnostic: .contains("checksum of downloaded artifact of binary target 'A3' (6d75736b6365686320746e65726566666964203d2073746e65746e6f6320746e65726566666964) does not match checksum specified by the manifest (a3)"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("artifact of binary target 'A1' failed download: badResponseStatusCode(500)"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("artifact of binary target 'A2' failed extraction: dummy error"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("checksum of downloaded artifact of binary target 'A3' (6d75736b6365686320746e65726566666964203d2073746e65746e6f6320746e65726566666964) does not match checksum specified by the manifest (a3)"), behavior: .error)
             }
         }
     }
