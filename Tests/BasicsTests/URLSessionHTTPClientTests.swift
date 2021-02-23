@@ -16,8 +16,8 @@ import Foundation
 import FoundationNetworking
 #endif
 import TSCBasic
-import struct TSCUtility.Netrc
 import TSCTestSupport
+import struct TSCUtility.Netrc
 import XCTest
 
 final class URLSessionHTTPClientTest: XCTestCase {
@@ -207,7 +207,6 @@ final class URLSessionHTTPClientTest: XCTestCase {
         XCTAssertEqual(headers, expected)
     }
 
-
     // MARK: - download
 
     func testDownloadSuccess() throws {
@@ -241,13 +240,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     switch result {
                     case .success:
                         XCTAssert(localFileSystem.exists(destination))
-                        let bytes = ByteString(Array(repeating: 0xbe, count: 512) + Array(repeating: 0xef, count: 512))
+                        let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
                         XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
                     case .failure(let error):
                         XCTFail("\(error)")
                     }
                     completionExpectation.fulfill()
-                })
+                }
+            )
 
             MockURLProtocol.onRequest(request) { _ in
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
@@ -255,9 +255,9 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(repeating: 0xbe, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendData(Data(repeating: 0xef, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
             wait(for: [progress100Expectation], timeout: 1.0)
             MockURLProtocol.sendCompletion(for: request)
             wait(for: [completionExpectation], timeout: 1.0)
@@ -303,13 +303,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     switch result {
                     case .success:
                         XCTAssert(localFileSystem.exists(destination))
-                        let bytes = ByteString(Array(repeating: 0xbe, count: 512) + Array(repeating: 0xef, count: 512))
+                        let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
                         XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
                     case .failure(let error):
                         XCTFail("\(error)")
                     }
                     completionExpectation.fulfill()
-                })
+                }
+            )
 
             MockURLProtocol.onRequest(request) { request in
                 XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
@@ -318,9 +319,9 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(repeating: 0xbe, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendData(Data(repeating: 0xef, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
             wait(for: [progress100Expectation], timeout: 1.0)
             MockURLProtocol.sendCompletion(for: request)
             wait(for: [completionExpectation], timeout: 1.0)
@@ -366,13 +367,14 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     switch result {
                     case .success:
                         XCTAssert(localFileSystem.exists(destination))
-                        let bytes = ByteString(Array(repeating: 0xbe, count: 512) + Array(repeating: 0xef, count: 512))
+                        let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
                         XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
                     case .failure(let error):
                         XCTFail("\(error)")
                     }
                     completionExpectation.fulfill()
-                })
+                }
+            )
 
             MockURLProtocol.onRequest(request) { request in
                 XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
@@ -381,9 +383,9 @@ final class URLSessionHTTPClientTest: XCTestCase {
             }
             wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-            MockURLProtocol.sendData(Data(repeating: 0xbe, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
             wait(for: [progress50Expectation], timeout: 1.0)
-            MockURLProtocol.sendData(Data(repeating: 0xef, count: 512), for: request)
+            MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
             wait(for: [progress100Expectation], timeout: 1.0)
             MockURLProtocol.sendCompletion(for: request)
             wait(for: [completionExpectation], timeout: 1.0)
@@ -419,7 +421,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     case .success:
                         XCTFail("unexpected success")
                     case .failure(let error):
-                        //XCTAssertEqual(error as? HTTPClientError, HTTPClientError.downloadError(clientError.description))
+                        // XCTAssertEqual(error as? HTTPClientError, HTTPClientError.downloadError(clientError.description))
                         // FIXME: URLSession losses the full error description when going
                         // from Swift.Error to NSError which is then received in
                         // urlSession(_ session: URLSession, task downloadTask: URLSessionTask, didCompleteWithError error: Error?)
@@ -427,7 +429,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
                         XCTAssertMatch((error as CustomStringConvertible).description, .contains("StringError"))
                     }
                     completionExpectation.fulfill()
-                })
+                }
+            )
 
             MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
@@ -457,7 +460,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             request.options.validResponseCodes = [200]
             httpClient.execute(
                 request,
-                progress: { bytesDownloaded, totalBytesToDownload in
+                progress: { _, _ in
                     XCTFail("unexpected progress")
                 },
                 completion: { result in
@@ -465,10 +468,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
                     case .success:
                         XCTFail("unexpected success")
                     case .failure(let error):
-                         XCTAssertEqual(error as? HTTPClientError, HTTPClientError.badResponseStatusCode(500))
+                        XCTAssertEqual(error as? HTTPClientError, HTTPClientError.badResponseStatusCode(500))
                     }
                     completionExpectation.fulfill()
-                })
+                }
+            )
 
             MockURLProtocol.onRequest(request) { request in
                 MockURLProtocol.sendResponse(statusCode: 500, for: request)
@@ -509,7 +513,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
         wait(for: [didStartLoadingExpectation], timeout: 1.0)
 
-        MockURLProtocol.sendData(Data([0xde, 0xad, 0xbe, 0xef]), for: request)
+        MockURLProtocol.sendData(Data([0xDE, 0xAD, 0xBE, 0xEF]), for: request)
         MockURLProtocol.sendCompletion(for: request)
         wait(for: [completionExpectation], timeout: 1.0)
     }
@@ -707,31 +711,31 @@ class FailingFileSystem: FileSystem {
         fatalError("unexpected call")
     }
 
-    func isDirectory(_ path: AbsolutePath) -> Bool {
+    func isDirectory(_: AbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isFile(_ path: AbsolutePath) -> Bool {
+    func isFile(_: AbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isExecutableFile(_ path: AbsolutePath) -> Bool {
+    func isExecutableFile(_: AbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func isSymlink(_ path: AbsolutePath) -> Bool {
+    func isSymlink(_: AbsolutePath) -> Bool {
         fatalError("unexpected call")
     }
 
-    func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
+    func getDirectoryContents(_: AbsolutePath) throws -> [String] {
         fatalError("unexpected call")
     }
 
-    func readFileContents(_ path: AbsolutePath) throws -> ByteString {
+    func readFileContents(_: AbsolutePath) throws -> ByteString {
         fatalError("unexpected call")
     }
 
-    func removeFileTree(_ path: AbsolutePath) throws {
+    func removeFileTree(_: AbsolutePath) throws {
         fatalError("unexpected call")
     }
 

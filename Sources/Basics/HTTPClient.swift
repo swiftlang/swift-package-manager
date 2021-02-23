@@ -12,8 +12,8 @@ import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
-import struct Foundation.URL
 import class Foundation.NSError
+import struct Foundation.URL
 import TSCBasic
 import TSCUtility
 
@@ -308,7 +308,7 @@ public struct HTTPClientRequest {
                                 fileSystem: FileSystem,
                                 destination: AbsolutePath) -> HTTPClientRequest {
         HTTPClientRequest(kind: .download(fileSystem: fileSystem, destination: destination),
-                          url:url,
+                          url: url,
                           headers: headers,
                           body: nil,
                           options: options)

@@ -188,7 +188,6 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     }
 }
 
-
 extension HTTPClient.Request {
     func urlRequest() -> URLRequest {
         var request = URLRequest(url: self.url)
