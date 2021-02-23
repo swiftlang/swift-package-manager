@@ -13,6 +13,7 @@ import XCTest
 
 import Basics
 @testable import PackageCollections
+import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import SPMTestSupport
@@ -605,6 +606,129 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+        }
+    }
+
+    func testRequiredSigningGood() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
+        fixture(name: "Collections") { directoryPath in
+            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+            let url = URL(string: "https://www.test.com/collection.json")!
+            let data = Data(try localFileSystem.readFileContents(path).contents)
+
+            let handler: HTTPClient.Handler = { request, _, completion in
+                XCTAssertEqual(request.url, url, "url should match")
+                switch request.method {
+                case .head:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                case .get:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
+                default:
+                    XCTFail("method should match")
+                }
+            }
+
+            var httpClient = HTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            // Mark collection as having valid signature
+            let signatureValidator = MockCollectionSignatureValidator(["Sample Package Collection"])
+            // Collections from www.test.com must be signed
+            let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
+                sourceCertPolicies: ["www.test.com": .init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]
+            )
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
+                                                         sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+            let collection = try tsc_await { callback in provider.get(source, callback: callback) }
+
+            XCTAssertEqual(collection.name, "Sample Package Collection")
+            XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
+            XCTAssertEqual(collection.keywords, ["sample package collection"])
+            XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
+            XCTAssertEqual(collection.packages.count, 2)
+            let package = collection.packages.first!
+            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.summary, "Package One")
+            XCTAssertEqual(package.keywords, ["sample package"])
+            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.versions.count, 1)
+            let version = package.versions.first!
+            XCTAssertEqual(version.summary, "Fixed a few bugs")
+            let manifest = version.manifests.values.first!
+            XCTAssertEqual(manifest.packageName, "PackageOne")
+            XCTAssertEqual(manifest.targets, [.init(name: "Foo", moduleName: "Foo")])
+            XCTAssertEqual(manifest.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
+            XCTAssertEqual(manifest.toolsVersion, ToolsVersion(string: "5.1")!)
+            XCTAssertEqual(manifest.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
+            XCTAssertEqual(version.verifiedCompatibility?.count, 3)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertNotNil(version.createdAt)
+            XCTAssertTrue(collection.isSigned)
+            let signature = collection.signature!
+            XCTAssertTrue(signature.isVerified)
+            XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
+            XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+        }
+    }
+
+    func testMissingRequiredSignature() throws {
+        if !enableSignatureCheck {
+            try XCTSkipIf(true)
+        }
+
+        fixture(name: "Collections") { directoryPath in
+            let path = directoryPath.appending(components: "JSON", "good.json")
+            let url = URL(string: "https://www.test.com/collection.json")!
+            let data = Data(try localFileSystem.readFileContents(path).contents)
+
+            let handler: HTTPClient.Handler = { request, _, completion in
+                XCTAssertEqual(request.url, url, "url should match")
+                switch request.method {
+                case .head:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                case .get:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
+                default:
+                    XCTFail("method should match")
+                }
+            }
+
+            var httpClient = HTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            // The validator doesn't know about the test collection so its signature would be considered invalid
+            let signatureValidator = MockCollectionSignatureValidator()
+            // Collections from www.test.com must be signed
+            let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
+                sourceCertPolicies: ["www.test.com": .init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]
+            )
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
+                                                         sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+
+            XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+                switch error {
+                case PackageCollectionError.missingSignature:
+                    break
+                default:
+                    XCTFail("unexpected error \(error)")
+                }
+            })
         }
     }
 }

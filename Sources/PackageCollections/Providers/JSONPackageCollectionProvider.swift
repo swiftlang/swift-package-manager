@@ -34,10 +34,12 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let decoder: JSONDecoder
     private let validator: JSONModel.Validator
     private let signatureValidator: PackageCollectionSignatureValidator
+    private let sourceCertPolicy: PackageCollectionSourceCertificatePolicy
 
     init(configuration: Configuration = .init(),
          httpClient: HTTPClient? = nil,
          signatureValidator: PackageCollectionSignatureValidator? = nil,
+         sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
          fileSystem: FileSystem = localFileSystem,
          diagnosticsEngine: DiagnosticsEngine) {
         self.configuration = configuration
@@ -47,10 +49,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.dotSwiftPM.appending(components: "config", "trust-root-certs").asURL,
-            additionalTrustedRootCerts: PackageCollectionSourceCertificatePolicy.allRootCerts,
+            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts,
             callbackQueue: DispatchQueue.global(),
             diagnosticsEngine: diagnosticsEngine
         )
+        self.sourceCertPolicy = sourceCertPolicy
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -109,7 +112,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                             return callback(.failure(Errors.invalidResponse("Body is empty")))
                         }
 
-                        let certPolicyKey = PackageCollectionSourceCertificatePolicy.certificatePolicyKey(for: source) ?? .default
+                        let certPolicyKey = self.sourceCertPolicy.certificatePolicyKey(for: source) ?? .default
                         self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKey: certPolicyKey, callback: callback)
                     }
                 }
@@ -149,7 +152,11 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 }
             }
         } catch {
-            // Collection is not signed
+            // Bad: collection is supposed to be signed but it isn't
+            guard !self.sourceCertPolicy.mustBeSigned(source: source) else {
+                return callback(.failure(PackageCollectionError.missingSignature))
+            }
+            // Collection is unsigned
             guard let collection = try? self.decoder.decode(JSONModel.Collection.self, from: data) else {
                 return callback(.failure(Errors.invalidJSON(error)))
             }

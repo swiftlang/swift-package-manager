@@ -180,4 +180,6 @@ public enum PackageCollectionError: Equatable, Error {
     case cannotVerifySignature
 
     case invalidSignature
+
+    case missingSignature
 }
