@@ -4266,13 +4266,17 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads: [MockDownloader.Download] = []
+        var downloads = [Foundation.URL: AbsolutePath]()
 
         // returns a dummy zipfile for the requested artifact
-        let downloader = MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+        let httpClient = HTTPClient(handler: { request, _, callback in
             do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
                 let contents: [UInt8]
-                switch url.lastPathComponent {
+                switch request.url.lastPathComponent {
                 case "a1.zip":
                     contents = [0xA1]
                 case "a2.zip":
@@ -4280,19 +4284,19 @@ final class WorkspaceTests: XCTestCase {
                 case "b.zip":
                     contents = [0xB0]
                 default:
-                    throw StringError("unexpected url \(url)")
+                    throw StringError("unexpected url \(request.url)")
                 }
 
-                try fs.writeFileContents(
+                try fileSystem.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
                 )
 
-                downloads.append(MockDownloader.Download(url: url, destinationPath: destination))
-                completion(.success(()))
+                downloads[request.url] = destination
+                callback(.success(.okay()))
             } catch {
-                completion(.failure( DownloaderError.clientError(error)))
+                callback(.failure( DownloaderError.clientError(error)))
             }
         })
 
@@ -4321,7 +4325,7 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
-            downloader: downloader,
+            httpClient: httpClient,
             archiver: archiver,
             roots: [
                 MockPackage(
@@ -4385,7 +4389,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
-            XCTAssertEqual(downloads.map { $0.url.absoluteString }.sorted(), [
+            XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2.zip",
                 "https://b.com/b.zip",
@@ -4395,14 +4399,14 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA2]).hexadecimalRepresentation,
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }, [
-                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/A"),
                 AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/B")
             ])
             XCTAssertEqual(
-                downloads.map { $0.destinationPath },
-                workspace.archiver.extractions.map { $0.archivePath }
+                downloads.map { $0.value }.sorted(),
+                workspace.archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
 
@@ -4437,13 +4441,17 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadWithPreviousState() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads: [MockDownloader.Download] = []
+        var downloads = [Foundation.URL: AbsolutePath]()
 
         // returns a dummy zipfile for the requested artifact
-        let downloader = MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
+        let httpClient = HTTPClient(handler: { request, _, callback in
             do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
                 let contents: [UInt8]
-                switch url.lastPathComponent {
+                switch request.url.lastPathComponent {
                 case "a1.zip":
                     contents = [0xA1]
                 case "a2.zip":
@@ -4453,19 +4461,19 @@ final class WorkspaceTests: XCTestCase {
                 case "b.zip":
                     contents = [0xB0]
                 default:
-                    throw StringError("unexpected url \(url)")
+                    throw StringError("unexpected url \(request.url)")
                 }
 
-                try fs.writeFileContents(
+                try fileSystem.writeFileContents(
                     destination,
                     bytes: ByteString(contents),
                     atomically: true
                 )
 
-                downloads.append(MockDownloader.Download(url: url, destinationPath: destination))
-                completion(.success(()))
+                downloads[request.url] = destination
+                callback(.success(.okay()))
             } catch {
-                completion(.failure(DownloaderError.clientError(error)))
+                callback(.failure(DownloaderError.clientError(error)))
             }
         })
 
@@ -4496,7 +4504,7 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
-            downloader: downloader,
+            httpClient: httpClient,
             archiver: archiver,
             roots: [
                 MockPackage(
@@ -4638,7 +4646,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A5.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
-            XCTAssertEqual(downloads.map { $0.url.absoluteString }.sorted(), [
+            XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a2.zip",
                 "https://a.com/a3.zip",
                 "https://b.com/b.zip",
@@ -4648,14 +4656,14 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA3]).hexadecimalRepresentation,
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }, [
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
+                AbsolutePath("/tmp/ws/.build/artifacts/A"),
                 AbsolutePath("/tmp/ws/.build/artifacts/B"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
             ])
             XCTAssertEqual(
-                downloads.map { $0.destinationPath },
-                workspace.archiver.extractions.map { $0.archivePath }
+                downloads.map { $0.value }.sorted(),
+                workspace.archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
 
@@ -4698,28 +4706,40 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
+        let httpClient = HTTPClient(handler: { request, _, callback in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                switch request.url {
+                case URL(string: "https://a.com/a1.zip")!:
+                    callback(.success(.serverError()))
+                case URL(string: "https://a.com/a2.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
+                    callback(.success(.okay()))
+                case URL(string: "https://a.com/a3.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
+                    callback(.success(.okay()))
+                default:
+                    XCTFail("unexpected url")
+                    callback(.success(.okay()))
+                }
+            } catch {
+                callback(.failure(error))
+            }
+        })
+
+        let archiver = MockArchiver(extract: { _, _, destinationPath, completion in
+            XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
+            completion(.failure(DummyError()))
+        })
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
-            downloader: MockDownloader(fileSystem: fs, downloadFile: { url, destination, _, completion in
-                switch url {
-                case URL(string: "https://a.com/a1.zip")!:
-                    completion(.failure(.serverError(statusCode: 500)))
-                case URL(string: "https://a.com/a2.zip")!:
-                    try! fs.writeFileContents(destination, bytes: ByteString([0xA2]))
-                    completion(.success(()))
-                case URL(string: "https://a.com/a3.zip")!:
-                    try! fs.writeFileContents(destination, bytes: "different contents = different checksum")
-                    completion(.success(()))
-                default:
-                    XCTFail("unexpected url")
-                    completion(.success(()))
-                }
-            }),
-            archiver: MockArchiver(extract: { _, _, destinationPath, completion in
-                XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
-                completion(.failure(DummyError()))
-            }),
+            httpClient: httpClient,
+            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4771,9 +4791,9 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             print(diagnostics.diagnostics)
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("artifact of binary target 'A1' failed download: invalid status code 500"), behavior: .error)
-                result.check(diagnostic: .contains("artifact of binary target 'A2' failed extraction: dummy error"), behavior: .error)
-                result.check(diagnostic: .contains("checksum of downloaded artifact of binary target 'A3' (6d75736b6365686320746e65726566666964203d2073746e65746e6f6320746e65726566666964) does not match checksum specified by the manifest (a3)"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("artifact of binary target 'A1' failed download: badResponseStatusCode(500)"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("artifact of binary target 'A2' failed extraction: dummy error"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("checksum of downloaded artifact of binary target 'A3' (6d75736b6365686320746e65726566666964203d2073746e65746e6f6320746e65726566666964) does not match checksum specified by the manifest (a3)"), behavior: .error)
             }
         }
     }
@@ -4782,9 +4802,14 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
+        let httpClient = HTTPClient(handler: { request, _, callback in
+            XCTFail("should not be called")
+        })
+
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
+            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4836,7 +4861,6 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            XCTAssertEqual(workspace.downloader.downloads, [])
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .contains("artifact of binary target 'A' has changed checksum"), behavior: .error)
             }

@@ -12,6 +12,7 @@ import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
+import class Foundation.NSError
 import struct Foundation.URL
 import TSCBasic
 import TSCUtility
@@ -43,6 +44,7 @@ public enum HTTPClientError: Error, Equatable {
     case badResponseStatusCode(Int)
     case circuitBreakerTriggered
     case responseTooLarge(Int64)
+    case downloadError(String)
 }
 
 // MARK: - HTTPClient
@@ -272,22 +274,58 @@ public enum HTTPClientCircuitBreakerStrategy {
 // MARK: - HTTPClientRequest
 
 public struct HTTPClientRequest {
-    public let method: Method
+    public let kind: Kind
     public let url: URL
     public var headers: HTTPClientHeaders
     public var body: Data?
     public var options: Options
 
+    public init(kind: Kind,
+                url: URL,
+                headers: HTTPClientHeaders = .init(),
+                body: Data? = nil,
+                options: Options = .init()) {
+        self.kind = kind
+        self.url = url
+        self.headers = headers
+        self.body = body
+        self.options = options
+    }
+
+    // generic request
     public init(method: Method = .get,
                 url: URL,
                 headers: HTTPClientHeaders = .init(),
                 body: Data? = nil,
                 options: Options = .init()) {
-        self.method = method
-        self.url = url
-        self.headers = headers
-        self.body = body
-        self.options = options
+        self.init(kind: .generic(method), url: url, headers: headers, body: body, options: options)
+    }
+
+    // download request
+    public static func download(url: URL,
+                                headers: HTTPClientHeaders = .init(),
+                                options: Options = .init(),
+                                fileSystem: FileSystem,
+                                destination: AbsolutePath) -> HTTPClientRequest {
+        HTTPClientRequest(kind: .download(fileSystem: fileSystem, destination: destination),
+                          url: url,
+                          headers: headers,
+                          body: nil,
+                          options: options)
+    }
+
+    public var method: Method {
+        switch self.kind {
+        case .generic(let method):
+            return method
+        case .download:
+            return .get
+        }
+    }
+
+    public enum Kind {
+        case generic(Method)
+        case download(fileSystem: FileSystem, destination: AbsolutePath)
     }
 
     public enum Method {
@@ -341,6 +379,20 @@ public struct HTTPClientResponse {
 
     public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = .init()) throws -> T? {
         try self.body.flatMap { try decoder.decode(type, from: $0) }
+    }
+}
+
+extension HTTPClientResponse {
+    public static func okay(body: String? = nil) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 200, body: body?.data(using: .utf8))
+    }
+
+    public static func notFound(reason: String? = nil) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 404, body: (reason ?? "Not Found").data(using: .utf8))
+    }
+
+    public static func serverError(reason: String? = nil) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 500, body: (reason ?? "Internal Server Error").data(using: .utf8))
     }
 }
 
