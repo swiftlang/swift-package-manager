@@ -1568,15 +1568,12 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
 
         var authProvider: AuthorizationProviding? = nil
-        var didDownloadAnyArtifact = false
         #if os(macOS)
-        // Netrc feature currently only supported on macOS 10.13+ due to dependency
-        // on NSTextCheckingResult.range(with:)
-        if #available(macOS 10.13, *) {
-            authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
-        }
+        // Netrc feature currently only supported on macOS
+        authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
         #endif
 
+        var didDownloadAnyArtifact = false
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
         for artifact in artifacts {

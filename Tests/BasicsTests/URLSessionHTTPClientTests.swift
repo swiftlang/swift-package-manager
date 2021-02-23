@@ -17,7 +17,10 @@ import FoundationNetworking
 #endif
 import TSCBasic
 import TSCTestSupport
+// // Netrc only available on macOS for now
+#if os(macOS)
 import struct TSCUtility.Netrc
+#endif
 import XCTest
 
 final class URLSessionHTTPClientTest: XCTestCase {
@@ -264,6 +267,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
+    // Netrc only available on macOS for now
+    #if os(macOS)
     func testDownloadAuthenticatedSuccess() throws {
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
@@ -327,7 +332,10 @@ final class URLSessionHTTPClientTest: XCTestCase {
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
+    #endif
 
+    // Netrc only available on macOS for now
+    #if os(macOS)
     func testDownloadDefaultAuthenticationSuccess() throws {
         let netrcContent = "default login default password default"
         guard case .success(let netrc) = Netrc.from(netrcContent) else {
@@ -391,6 +399,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             wait(for: [completionExpectation], timeout: 1.0)
         }
     }
+    #endif
 
     func testDownloadClientError() throws {
         let configuration = URLSessionConfiguration.default
