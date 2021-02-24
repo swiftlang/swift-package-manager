@@ -18,9 +18,7 @@ import TSCBasic
 
 class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -40,9 +38,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_EC_validate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
@@ -62,9 +58,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_untrustedRoot() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -89,9 +83,7 @@ class CertificatePolicyTests: XCTestCase {
     }
 
     func test_validate_expiredCert() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -121,9 +113,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "development-revoked.cer")
@@ -168,9 +158,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
@@ -234,9 +222,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             // This must be an Apple Distribution cert
@@ -301,9 +287,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
@@ -370,9 +354,7 @@ class CertificatePolicyTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             // This must be an Apple Distribution cert

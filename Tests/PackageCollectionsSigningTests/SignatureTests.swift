@@ -17,9 +17,7 @@ import TSCBasic
 
 class SignatureTests: XCTestCase {
     func test_RS256_generateAndValidate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonEncoder = JSONEncoder()
@@ -45,9 +43,7 @@ class SignatureTests: XCTestCase {
     }
 
     func test_RS256_generateAndValidate_keyMismatch() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonEncoder = JSONEncoder()
@@ -76,9 +72,7 @@ class SignatureTests: XCTestCase {
     }
 
     func test_ES256_generateAndValidate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonEncoder = JSONEncoder()
@@ -104,9 +98,7 @@ class SignatureTests: XCTestCase {
     }
 
     func test_ES256_generateAndValidate_keyMismatch() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonEncoder = JSONEncoder()
