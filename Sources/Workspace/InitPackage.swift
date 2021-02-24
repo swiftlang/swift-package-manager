@@ -15,7 +15,7 @@ import PackageModel
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion(version: "5.3.0")
+    public static let newPackageToolsVersion = ToolsVersion.currentToolsVersion
 
     /// Options for the template package.
     public struct InitPackageOptions {
@@ -187,18 +187,34 @@ public final class InitPackage {
                 """)
 
             if packageType == .library || packageType == .executable || packageType == .manifest {
-                pkgParams.append("""
+                var param = ""
+
+                param += """
                     targets: [
                         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
                         // Targets can depend on other targets in this package, and on products in packages this package depends on.
-                        .target(
+
+                """
+                if packageType == .executable {
+                    param += """
+                            .executableTarget(
+                    """
+                } else {
+                    param += """
+                            .target(
+                    """
+                }
+                param += """
+
                             name: "\(pkgname)",
                             dependencies: []),
                         .testTarget(
                             name: "\(pkgname)Tests",
                             dependencies: ["\(pkgname)"]),
                     ]
-                """)
+                """
+
+                pkgParams.append(param)
             }
 
             stream <<< pkgParams.joined(separator: ",\n") <<< "\n)\n"
