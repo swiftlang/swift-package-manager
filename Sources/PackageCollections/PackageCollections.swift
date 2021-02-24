@@ -84,8 +84,30 @@ public struct PackageCollections: PackageCollectionsProtocol {
                         callback(.failure(error))
                     case .success(var collections):
                         // re-order by profile order which reflects the user's election
-                        collections.sort(by: { lhs, rhs in collectionOrder[lhs.identifier] ?? 0 < collectionOrder[rhs.identifier] ?? 0 })
-                        callback(.success(collections))
+                        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
+                            collectionOrder[lhs.identifier] ?? 0 < collectionOrder[rhs.identifier] ?? 0
+                        }
+
+                        // We've fetched all the configured collections and we're done
+                        if collections.count == sources.count {
+                            collections.sort(by: sort)
+                            return callback(.success(collections))
+                        }
+
+                        // Some of the results are missing. This happens when deserialization of stored collections fail,
+                        // so we will try refreshing the missing collections to update data in storage.
+                        let missingSources = Set(sources).subtracting(Set(collections.map { $0.source }))
+                        let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
+                        missingSources.forEach { source in
+                            self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
+                                let count = refreshResults.append(refreshResult)
+                                if count == missingSources.count {
+                                    collections += refreshResults.compactMap { $0.success } // best-effort; not returning errors
+                                    collections.sort(by: sort)
+                                    callback(.success(collections))
+                                }
+                            }
+                        }
                     }
                 }
             }
