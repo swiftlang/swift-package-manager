@@ -1917,6 +1917,8 @@ final class BuildPlanTests: XCTestCase {
                     .init(tool: .c, name: .define, value: ["CCC=2"]),
                     .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
 
+                    .init(tool: .linker, name: .linkedFramework, value: ["best"]),
+
                     .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
                     .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
                     ]
@@ -1998,7 +2000,7 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-Ilfoo", "-L", "lbar", .end])
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "best", "-Ilfoo", "-L", "lbar", .end])
         }
 
         do {
@@ -2011,10 +2013,10 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(bar, [.anySequence, "-DDMACOS", "-Isfoo", "-L", "sbar", .end])
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, [.anySequence, "-DFOO", "-framework", "CoreData", .end])
+            XCTAssertMatch(exe, [.anySequence, "-DFOO", .end])
 
             let linkExe = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-Ilfoo", "-L", "lbar", .anySequence])
+            XCTAssertMatch(linkExe, [.anySequence, "-lsqlite3", "-llibz", "-framework", "CoreData", "-framework", "best", "-Ilfoo", "-L", "lbar", .anySequence])
         }
     }
 
