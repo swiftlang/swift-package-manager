@@ -87,18 +87,14 @@ public struct TargetSourcesBuilder {
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
                 let warning = "Invalid Exclude: \(message) '\(exclude)'"
-                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
-                    self.diags.emit(warning: warning)
-                }
+                self.diags.emit(warning: warning)
             }
         }
         
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
                 let warning = "Invalid Source: \(message) '\(source)'"
-                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
-                    self.diags.emit(warning: warning)
-                }
+                self.diags.emit(warning: warning)
             }
         }
 
@@ -175,6 +171,7 @@ public struct TargetSourcesBuilder {
         diagnoseLocalizedAndUnlocalizedVariants(in: resources)
         diagnoseMissingDevelopmentRegionResource(in: resources)
         diagnoseInfoPlistConflicts(in: resources)
+        diagnoseInvalidResource(in: resources)
 
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
@@ -201,13 +198,6 @@ public struct TargetSourcesBuilder {
                     diags.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
                 }
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
-            }
-            
-            if let message = validTargetPath(at: resourcePath) {
-                let warning = "Invalid Resource: \(message) '\(resourcePath)'"
-                if !self.diags.diagnostics.contains(where: { $0.localizedDescription == warning }) {
-                    self.diags.emit(warning: warning)
-                }
             }
         }
 
@@ -355,6 +345,15 @@ public struct TargetSourcesBuilder {
                 diags.emit(.infoPlistResourceConflict(
                     path: resource.path.relative(to: targetPath),
                     targetName: target.name))
+            }
+        }
+    }
+    
+    private func diagnoseInvalidResource(in resources: [Resource]) {
+        resources.forEach { resource in
+            if let message = validTargetPath(at: resource.path) {
+                let warning = "Invalid Resource: \(message) '\(resource.path)'"
+                self.diags.emit(warning: warning)
             }
         }
     }
