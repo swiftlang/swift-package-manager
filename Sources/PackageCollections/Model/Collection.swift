@@ -122,6 +122,11 @@ extension PackageCollectionsModel {
         public static func == (lhs: CollectionSource, rhs: CollectionSource) -> Bool {
             lhs.type == rhs.type && lhs.url == rhs.url
         }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(self.type)
+            hasher.combine(self.url)
+        }
     }
 
     /// Represents the source type of a `Collection`

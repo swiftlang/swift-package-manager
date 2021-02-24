@@ -98,7 +98,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
         // User preference unknown
         XCTAssertThrowsError(
-            try tsc_await { callback in packageCollections.addCollection(mockCollections[1].source, order: nil, trustConfirmationProvider: nil, callback: callback) }) { error in
+            try tsc_await { callback in packageCollections.addCollection(mockCollections[2].source, order: nil, trustConfirmationProvider: nil, callback: callback) }) { error in
             guard case PackageCollectionError.trustConfirmationRequired = error else {
                 return XCTFail("Expected PackageCollectionError.trustConfirmationRequired")
             }
