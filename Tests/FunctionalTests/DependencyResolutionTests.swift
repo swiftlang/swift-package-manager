@@ -85,7 +85,7 @@ class DependencyResolutionTests: XCTestCase {
             try ["Foo", "Bar", "BarMirror"].forEach { directory in
                 let path = prefix.appending(component: directory)
                 _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "init")
-                _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "checkout", "-b", "main")
+                _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "checkout", "-b", "newMain")
             }
 
             // run with no mirror

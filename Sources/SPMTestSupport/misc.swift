@@ -132,6 +132,7 @@ public func initGitRepo(
         for tag in tags {
             try repo.tag(name: tag)
         }
+        try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
     } catch {
         XCTFail("\(error)", file: file, line: line)
     }
