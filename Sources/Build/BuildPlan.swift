@@ -380,10 +380,6 @@ public final class ClangTargetBuildDescription {
             "-I\(target.sources.root.appending(RelativePath($0)).pathString)"
         })
 
-        // Frameworks.
-        let frameworks = scope.evaluate(.LINK_FRAMEWORKS)
-        flags += frameworks.flatMap({ ["-framework", $0] })
-
         // Other C flags.
         flags += scope.evaluate(.OTHER_CFLAGS)
 
@@ -931,10 +927,6 @@ public final class SwiftTargetBuildDescription {
         // Swift defines.
         let swiftDefines = scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         flags += swiftDefines.map({ "-D" + $0 })
-
-        // Frameworks.
-        let frameworks = scope.evaluate(.LINK_FRAMEWORKS)
-        flags += frameworks.flatMap({ ["-framework", $0] })
 
         // Other Swift flags.
         flags += scope.evaluate(.OTHER_SWIFT_FLAGS)
