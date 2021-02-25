@@ -1,5 +1,13 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift v.Next
+ -----------
+ * [#]
+    * Improvements
+
+    Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, revision: String)`.
+
+
 Swift 5.4
 -----------
 * [#2937]

@@ -137,6 +137,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                    .package(url: "/foo4", .exact("1.0.0")),
                    .package(url: "/foo5", .branch("master")),
                    .package(url: "/foo6", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(url: "/foo7", revision: "58e9de4e7b79e67c72a46e164158e3542e570ab6"),
                ]
             )
             """
@@ -148,6 +149,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(deps["foo4"], .scm(location: "/foo4", requirement: .exact("1.0.0")))
             XCTAssertEqual(deps["foo5"], .scm(location: "/foo5", requirement: .branch("master")))
             XCTAssertEqual(deps["foo6"], .scm(location: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            XCTAssertEqual(deps["foo7"], .scm(location: "/foo7", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 
