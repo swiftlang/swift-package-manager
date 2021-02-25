@@ -45,7 +45,7 @@ $ swift package-collection add https://www.example.com/bad-packages.json
 The collection's signature is invalid. If you would still like to add it please rerun 'add' with '--skip-signature-check'.
 ```
 
-User may continue adding the collection despite of the error or opt to skip the signature check on a package collection by passing the `--skip-signature-check` flag:
+Users may continue adding the collection despite the error or preemptively skip the signature check on a package collection by passing the `--skip-signature-check` flag:
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json --skip-signature-check
