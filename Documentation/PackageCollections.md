@@ -7,15 +7,15 @@ and can be published to the web or distributed to local file systems.
 ## Using package collections
 
 With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. Contents of imported package 
-collections are accessible to any clients of libSwiftPM.
+collections are accessible to any clients of [libSwiftPM](libSwiftPM.md).
 
 `swift package-collection` has the following subcommands:
-- `add`: Add a new collection
-- `describe`: Get metadata for a collection or a package included in an imported collection
-- `list`: List configured collections
-- `refresh`: Refresh configured collections
-- `remove`: Remove a configured collection
-- `search`: Search for packages by keywords or module names within imported collections
+- [`add`](#add-subcommand): Add a new collection
+- [`describe`](#describe-subcommand): Get metadata for a collection or a package included in an imported collection
+- [`list`](#list-subcommand): List configured collections
+- [`refresh`](#refresh-subcommand): Refresh configured collections
+- [`remove`](#remove-subcommand): Remove a configured collection
+- [`search`](#search-subcommand): Search for packages by keywords or module names within imported collections
 
 ### `add` subcommand
 
