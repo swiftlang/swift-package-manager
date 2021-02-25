@@ -1,4 +1,4 @@
-import PackageExtension
+import PackagePlugin
 
 for inputPath in targetBuildContext.otherFiles {
     guard inputPath.suffix == ".dat" else { continue }

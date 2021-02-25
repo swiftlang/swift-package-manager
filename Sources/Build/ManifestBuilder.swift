@@ -510,8 +510,8 @@ extension LLBuildManifestBuilder {
             if target.underlyingTarget is SystemLibraryTarget { return }
             // Ignore Binary Modules.
             if target.underlyingTarget is BinaryTarget { return }
-            // Ignore Extension Targets.
-            if target.underlyingTarget is ExtensionTarget { return }
+            // Ignore Plugin Targets.
+            if target.underlyingTarget is PluginTarget { return }
 
             // Depend on the binary for executable targets.
             if target.type == .executable {
@@ -554,8 +554,8 @@ extension LLBuildManifestBuilder {
                     // Establish a dependency on binary of the product.
                     inputs.append(file: planProduct.binary)
 
-                // For automatic and static libraries, and extensions, add their targets as static input.
-                case .library(.automatic), .library(.static), .extension:
+                // For automatic and static libraries, and plugins, add their targets as static input.
+                case .library(.automatic), .library(.static), .plugin:
                     for target in product.targets {
                         try addStaticTargetInputs(target)
                     }
@@ -575,8 +575,8 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        // Add any build tool commands created by extensions for the target (prebuild and postbuild commands are handled outside the build).
-        for command in target.extensionEvaluationResults.reduce([], { $0 + $1.commands }) {
+        // Add any build tool commands created by plugins for the target (prebuild and postbuild commands are handled outside the build).
+        for command in target.pluginInvocationResults.reduce([], { $0 + $1.commands }) {
             if case .buildToolCommand(let displayName, let executable, let arguments, _, _, let inputPaths, let outputPaths, _) = command {
                 // Create a shell command to invoke the executable.  We include the path of the executable as a dependency.
                 // FIXME: We will need to extend the addShellCmd() function to also take working directory and environment.
@@ -674,7 +674,7 @@ extension LLBuildManifestBuilder {
                     let binary = planProduct.binary
                     inputs.append(file: binary)
 
-                case .library(.automatic), .library(.static), .extension:
+                case .library(.automatic), .library(.static), .plugin:
                     for target in product.targets {
                         addStaticTargetInputs(target)
                     }
@@ -847,8 +847,8 @@ extension ResolvedProduct {
             throw InternalError("automatic library not supported")
         case .executable:
             return "\(name)-\(config).exe"
-        case .extension:
-            throw InternalError("unexpectedly asked for the llbuild target name of an extension product")
+        case .plugin:
+            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
         }
     }
 

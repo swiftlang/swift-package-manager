@@ -17,7 +17,7 @@ import PackageModel
 import SPMTestSupport
 
 
-class ExtensionEvaluationTests: XCTestCase {
+class PluginInvocationTests: XCTestCase {
     
     func testBasics() throws {
         // Construct a canned file system and package graph with a single package and a library that uses an extension that uses a tool.
@@ -51,8 +51,8 @@ class ExtensionEvaluationTests: XCTestCase {
                         TargetDescription(
                             name: "FooExt",
                             dependencies: ["FooTool"],
-                            type: .extension,
-                            extensionCapability: .buildTool
+                            type: .plugin,
+                            pluginCapability: .buildTool
                         ),
                         TargetDescription(
                             name: "FooTool",
@@ -65,7 +65,7 @@ class ExtensionEvaluationTests: XCTestCase {
             allowExtensionTargets: true
         )
         
-        // Check the basic integrity before running extensions.
+        // Check the basic integrity before running plugins.
         XCTAssertNoDiagnostics(diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
@@ -74,7 +74,7 @@ class ExtensionEvaluationTests: XCTestCase {
                 target.check(dependencies: "FooExt")
             }
             graph.checkTarget("FooExt") { target in
-                target.check(type: .extension)
+                target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
             graph.checkTarget("FooTool") { target in
@@ -97,12 +97,12 @@ class ExtensionEvaluationTests: XCTestCase {
                 
                 // Deserialize and check the input.
                 let decoder = JSONDecoder()
-                let context = try decoder.decode(ExtensionEvaluationInput.self, from: inputJSON)
+                let context = try decoder.decode(PluginScriptRunnerInput.self, from: inputJSON)
                 XCTAssertEqual(context.targetName, "Foo")
                 
-                // Emit and return a serialized output ExtensionEvaluationResult JSON.
+                // Emit and return a serialized output PluginInvocationResult JSON.
                 let encoder = JSONEncoder()
-                let result = ExtensionEvaluationOutput(
+                let result = PluginScriptRunnerOutput(
                     version: 1,
                     diagnostics: [
                         .init(
@@ -127,11 +127,11 @@ class ExtensionEvaluationTests: XCTestCase {
                         )
                 ])
                 let outputJSON = try encoder.encode(result)
-                return (outputJSON: outputJSON, stdoutText: "Hello Extension!".data(using: .utf8)!)
+                return (outputJSON: outputJSON, stdoutText: "Hello Plugin!".data(using: .utf8)!)
             }
         }
         
-        // Construct a canned input and run extensions using our MockExtensionRunner().
+        // Construct a canned input and run plugins using our MockExtensionRunner().
         let buildEnv = BuildEnvironment(platform: .macOS, configuration: .debug)
         let execsDir = AbsolutePath("/Foo/.build/debug")
         let outputDir = AbsolutePath("/Foo/.build")
@@ -159,7 +159,7 @@ class ExtensionEvaluationTests: XCTestCase {
             XCTAssertEqual(derived, [])
         }
         else {
-            XCTFail("The command provided by the extension didn't match expectations")
+            XCTFail("The command provided by the plugin didn't match expectations")
         }
         
         XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
@@ -168,6 +168,6 @@ class ExtensionEvaluationTests: XCTestCase {
         XCTAssertEqual(evalFirstDiagnostic.message.text, "A warning")
         XCTAssertEqual(evalFirstDiagnostic.location.description, "/Foo/Sources/Foo/SomeFile.abc:42")
 
-        XCTAssertEqual(evalFirstResult.textOutput, "Hello Extension!")
+        XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }
 }

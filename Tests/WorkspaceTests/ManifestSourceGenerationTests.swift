@@ -227,16 +227,16 @@ class ManifestSourceGenerationTests: XCTestCase {
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
     }
 
-    func testExtensionTargets() throws {
+    func testPluginTargets() throws {
         let manifestContents = """
             // swift-tools-version:999.0
             import PackageDescription
 
             let package = Package(
-                name: "Extensions",
+                name: "Plugins",
                 targets: [
-                    .extension(
-                        name: "MyExtension",
+                    .plugin(
+                        name: "MyPlugin",
                         capability: .buildTool(),
                         dependencies: ["MyTool"]
                     ),

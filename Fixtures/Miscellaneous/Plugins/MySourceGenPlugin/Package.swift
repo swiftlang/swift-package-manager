@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "MySourceGenExtension",
+    name: "MySourceGenPlugin",
     products: [
-        // The product that vends MySourceGenExt to client packages.
-        .extension(
-            name: "MySourceGenExt",
-            targets: ["MySourceGenExt"]
+        // The product that vends MySourceGenPlugin to client packages.
+        .plugin(
+            name: "MySourceGenPlugin",
+            targets: ["MySourceGenPlugin"]
         ),
         .executable(
             name: "MySourceGenTool",
@@ -15,16 +15,16 @@ let package = Package(
         )
     ],
     targets: [
-        // A local tool that uses an extension.
+        // A local tool that uses a plugin.
         .executableTarget(
             name: "MyLocalTool",
             dependencies: [
-                "MySourceGenExt",
+                "MySourceGenPlugin",
             ]
         ),
-        // The target that implements the extension and generates commands to invoke MySourceGenTool.
-        .extension(
-            name: "MySourceGenExt",
+        // The target that implements the plugin and generates commands to invoke MySourceGenTool.
+        .plugin(
+            name: "MySourceGenPlugin",
             capability: .buildTool(),
             dependencies: [
                 "MySourceGenTool"
@@ -45,11 +45,11 @@ let package = Package(
         .target(
             name: "MySourceGenRuntimeLib"
         ),
-        // Unit tests for the extension.
+        // Unit tests for the plugin.
         .testTarget(
-            name: "MySourceGenExtTests",
+            name: "MySourceGenPluginTests",
             dependencies: [
-                "MySourceGenExt",
+                "MySourceGenPlugin",
                 "MySourceGenRuntimeLib"
             ]
         )

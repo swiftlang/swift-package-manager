@@ -112,7 +112,7 @@ struct APIDigesterBaselineDumper {
             buildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
-            extensionEvaluator: { _ in [:] },
+            pluginInvoker: { _ in [:] },
             diagnostics: diags,
             stdoutStream: stdoutStream
         )

@@ -541,14 +541,14 @@ public final class SwiftTargetBuildDescription {
     /// The modulemap file for this target, if any.
     private(set) var moduleMap: AbsolutePath?
     
-    /// The results of having applied any extensions to this target.
-    public let extensionEvaluationResults: [ExtensionEvaluationResult]
+    /// The results of applying any plugins to this target.
+    public let pluginInvocationResults: [PluginInvocationResult]
 
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
         buildParameters: BuildParameters,
-        extensionEvaluationResults: [ExtensionEvaluationResult] = [],
+        pluginInvocationResults: [PluginInvocationResult] = [],
         isTestTarget: Bool? = nil,
         testDiscoveryTarget: Bool = false,
         fs: FileSystem = localFileSystem
@@ -562,12 +562,12 @@ public final class SwiftTargetBuildDescription {
         self.fs = fs
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
-        self.extensionEvaluationResults = extensionEvaluationResults
+        self.pluginInvocationResults = pluginInvocationResults
 
-        // Add any derived source paths declared by build-tool extensions that were applied to this target.  We do
+        // Add any derived source paths declared by build-tool plugins that were applied to this target.  We do
         // this here and not just in the LLBuildManifestBuilder because we need to include them in any situation
         // where sources are processed, e.g. when determining names of object files, etc.
-        for command in extensionEvaluationResults.reduce([], { $0 + $1.commands }) {
+        for command in pluginInvocationResults.reduce([], { $0 + $1.commands }) {
             // Prebuild and postbuild commands are handled outside the build system.
             if case .buildToolCommand(_, _, _, _, _, _, _, let derivedSourcePaths) = command {
                 // TODO: What should we do if we find non-Swift sources here?
@@ -717,7 +717,7 @@ public final class SwiftTargetBuildDescription {
         case .library, .test:
             result.append("-parse-as-library")
 
-        case .executable, .systemModule, .binary, .extension:
+        case .executable, .systemModule, .binary, .plugin:
             do { }
         }
 
@@ -1133,8 +1133,8 @@ public final class ProductBuildDescription {
                 }
             }
             args += ["-emit-executable"]
-        case .extension:
-            throw InternalError("unexpectedly asked to generate linker arguments for an extension product")
+        case .plugin:
+            throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
         }
 
         // Set rpath such that dynamic libraries are looked up
@@ -1150,7 +1150,7 @@ public final class ProductBuildDescription {
         // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
           switch product.type {
-          case .library, .extension: break
+          case .library, .plugin: break
           case .test, .executable:
               if buildParameters.triple.isDarwin() {
                   let stdlib = buildParameters.toolchain.macosSwiftStdlib
@@ -1275,8 +1275,8 @@ public class BuildPlan {
         return AnySequence(productMap.values)
     }
 
-    /// The results of evaluating any extensions used by targets in this build.
-    public let extensionEvaluationResults: [ResolvedTarget: [ExtensionEvaluationResult]]
+    /// The results of invoking any plugins used by targets in this build.
+    public let pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]]
 
     /// The filesystem to operate on.
     let fileSystem: FileSystem
@@ -1357,13 +1357,13 @@ public class BuildPlan {
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        extensionEvaluationResults: [ResolvedTarget: [ExtensionEvaluationResult]] = [:],
+        pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]] = [:],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) throws {
         self.buildParameters = buildParameters
         self.graph = graph
-        self.extensionEvaluationResults = extensionEvaluationResults
+        self.pluginInvocationResults = pluginInvocationResults
         self.diagnostics = diagnostics
         self.fileSystem = fileSystem
 
@@ -1388,7 +1388,7 @@ public class BuildPlan {
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     target: target,
                     buildParameters: buildParameters,
-                    extensionEvaluationResults: extensionEvaluationResults[target] ?? [],
+                    pluginInvocationResults: pluginInvocationResults[target] ?? [],
                     fs: fileSystem))
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
@@ -1396,7 +1396,7 @@ public class BuildPlan {
                     buildParameters: buildParameters,
                     fileSystem: fileSystem,
                     diagnostics: diagnostics))
-            case is SystemLibraryTarget, is BinaryTarget, is ExtensionTarget:
+            case is SystemLibraryTarget, is BinaryTarget, is PluginTarget:
                  break
             default:
                  fatalError("unhandled \(target.underlyingTarget)")
@@ -1424,8 +1424,8 @@ public class BuildPlan {
 
         var productMap: [ResolvedProduct: ProductBuildDescription] = [:]
         // Create product description for each product we have in the package graph except
-        // for automatic libraries and extension because they don't produce any output.
-        for product in graph.allProducts where product.type != .library(.automatic) && product.type != .extension {
+        // for automatic libraries and plugins, because they don't produce any output.
+        for product in graph.allProducts where product.type != .library(.automatic) && product.type != .plugin {
             productMap[product] = ProductBuildDescription(
                 product: product, buildParameters: buildParameters,
                 fs: fileSystem,
@@ -1591,10 +1591,10 @@ public class BuildPlan {
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
             // For a product dependency, we only include its content only if we
-            // need to statically link it or if it's an extension.
+            // need to statically link it or if it's a plugin.
             case .product(let product, _):
                 switch product.type {
-                case .library(.automatic), .library(.static), .extension:
+                case .library(.automatic), .library(.static), .plugin:
                     return product.targets.map { .target($0, conditions: []) }
                 case .library(.dynamic), .test, .executable:
                     return []
@@ -1640,7 +1640,7 @@ public class BuildPlan {
                         let tools = try self.parseArtifactsArchive(for: binaryTarget)
                         tools.forEach { availableTools[$0.name] = $0.executablePath  }
                     }
-                case .extension:
+                case .plugin:
                     continue
                 }
 

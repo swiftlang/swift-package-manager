@@ -592,7 +592,7 @@ extension SystemPackageProvider: Encodable {
     }
 }
 
-extension Target.ExtensionCapability: Encodable {
+extension Target.PluginCapability: Encodable {
     private enum CodingKeys: CodingKey {
         case type
     }

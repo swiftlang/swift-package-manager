@@ -595,26 +595,40 @@ public class SwiftTool {
         }
     }
     
-    /// Evaluate extensions for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
-    func evaluateExtensions(graph: PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]] {
+    /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
+    func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
         do {
-            // Configure the inputs to the extension evaluation.
-            // FIXME: These paths are still fairly preliminary.
+            // Configure the plugin invocation inputs.
+
+            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
+            // files related to all plugins in the workspace.
             let buildEnvironment = try buildParameters().buildEnvironment
             let dataDir = try self.getActiveWorkspace().dataPath
-            let extensionsDir = dataDir.appending(component: "extensions")
-            let cacheDir = extensionsDir.appending(component: "cache")
-            let extensionRunner = try DefaultExtensionRunner(cacheDir: cacheDir, manifestResources: self._hostToolchain.get().manifestResources)
-            let outputDir = extensionsDir.appending(component: "outputs")
-            // FIXME: Too many assumptions!
+            let pluginsDir = dataDir.appending(component: "plugins")
+            
+            // The `cache` directory is in the plugins directory and is where the plugin script runner caches
+            // compiled plugin binaries and any other derived information.
+            let cacheDir = pluginsDir.appending(component: "cache")
+            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, manifestResources: self._hostToolchain.get().manifestResources)
+            
+            // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
+            // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
+            // additional files, and to which it can configure tools to write their outputs, etc.
+            let outputDir = pluginsDir.appending(component: "outputs")
+            
+            // The `tools` directory contains any command line tools (executables) that are available for any commands
+            // defined by the executable.
+            // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
+            // with a map of the names of tools available to each plugin. In particular this would not work with any
+            // binary targets.
             let execsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
             let diagnostics = DiagnosticsEngine()
             
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
-            // Ask the graph to evaluate extensions, and return the result.
-            let result = try graph.evaluateExtensions(buildEnvironment: buildEnvironment, execsDir: execsDir, outputDir: outputDir, extensionRunner: extensionRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
+            // Ask the graph to invoke plugins, and return the result.
+            let result = try graph.invokePlugins(buildEnvironment: buildEnvironment, execsDir: execsDir, outputDir: outputDir, pluginScriptRunner: pluginScriptRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
             return result
         }
         catch {
@@ -665,7 +679,7 @@ public class SwiftTool {
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
-            extensionEvaluator: { _ in [:] },
+            pluginInvoker: { _ in [:] },
             diagnostics: diagnostics,
             stdoutStream: self.stdoutStream
         )
@@ -680,12 +694,12 @@ public class SwiftTool {
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-            let extensionEvaluator = { try self.evaluateExtensions(graph: $0) }
+            let pluginInvoker = { try self.invokePlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
-                extensionEvaluator: extensionEvaluator,
+                pluginInvoker: pluginInvoker,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
             )

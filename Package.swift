@@ -92,9 +92,9 @@ let package = Package(
         ),
         
         .library(
-            name: "PackageExtension",
+            name: "PackagePlugin",
             type: .dynamic,
-            targets: ["PackageExtension"]
+            targets: ["PackagePlugin"]
         ),
         
         .library(
@@ -125,7 +125,7 @@ let package = Package(
             ]),
         
         .target(
-            name: "PackageExtension"),
+            name: "PackagePlugin"),
 
         // MARK: SwiftPM specific support libraries
 

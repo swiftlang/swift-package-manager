@@ -18,7 +18,7 @@ public struct TargetDescription: Equatable, Codable {
         case test
         case system
         case binary
-        case `extension`
+        case plugin
     }
 
     /// Represents a target's dependency on another entity.
@@ -104,11 +104,11 @@ public struct TargetDescription: Equatable, Codable {
     /// The providers of a system library target.
     public let providers: [SystemPackageProviderDescription]?
     
-    /// The capability for a package extension target.
-    public let extensionCapability: ExtensionCapability?
+    /// The declared capability for a package plugin target.
+    public let pluginCapability: PluginCapability?
     
-    /// Represents the capability of a package extension.
-    public enum ExtensionCapability: Equatable {
+    /// Represents the declared capability of a package plugin.
+    public enum PluginCapability: Equatable {
         case prebuild, buildTool, postbuild
     }
 
@@ -130,7 +130,7 @@ public struct TargetDescription: Equatable, Codable {
         type: TargetType = .regular,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
-        extensionCapability: ExtensionCapability? = nil,
+        pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil
     ) throws {
@@ -139,7 +139,7 @@ public struct TargetDescription: Equatable, Codable {
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .system:
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
@@ -147,7 +147,7 @@ public struct TargetDescription: Equatable, Codable {
             if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
             if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
             if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
-            if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
             if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .binary:
@@ -159,9 +159,9 @@ public struct TargetDescription: Equatable, Codable {
             if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
-        case .extension:
+        case .plugin:
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
             if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
             if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
@@ -169,7 +169,7 @@ public struct TargetDescription: Equatable, Codable {
             if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if extensionCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
+            if pluginCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
         }
 
@@ -184,7 +184,7 @@ public struct TargetDescription: Equatable, Codable {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.extensionCapability = extensionCapability
+        self.pluginCapability = pluginCapability
         self.settings = settings
         self.checksum = checksum
     }
@@ -246,7 +246,7 @@ extension TargetDescription.Dependency: ExpressibleByStringLiteral {
     }
 }
 
-extension TargetDescription.ExtensionCapability: Codable {
+extension TargetDescription.PluginCapability: Codable {
     private enum CodingKeys: CodingKey {
         case prebuild, buildTool, postbuild
     }

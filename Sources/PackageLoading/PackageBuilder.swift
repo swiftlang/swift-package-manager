@@ -69,11 +69,11 @@ public enum ModuleError: Swift.Error {
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
-    /// An extension target was declared but the feature flag isn't enabled.
-    case extensionTargetRequiresFeatureFlag(target: String)
+    /// A plugin target was declared but the feature flag isn't enabled.
+    case pluginTargetRequiresFeatureFlag(target: String)
 
-    /// An extension target didn't declare a capability.
-    case extensionCapabilityNotDeclared(target: String)
+    /// A plugin target didn't declare a capability.
+    case pluginCapabilityNotDeclared(target: String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -118,10 +118,10 @@ extension ModuleError: CustomStringConvertible {
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
-        case .extensionTargetRequiresFeatureFlag(let target):
-            return "extension target '\(target)' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_EXTENSION_TARGETS=1 in environment)"
-        case .extensionCapabilityNotDeclared(let target):
-            return "extension target '\(target)' doesn't have a 'capability' property"
+        case .pluginTargetRequiresFeatureFlag(let target):
+            return "plugin target '\(target)' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)"
+        case .pluginCapabilityNotDeclared(let target):
+            return "plugin target '\(target)' doesn't have a 'capability' property"
         }
     }
 }
@@ -241,9 +241,9 @@ public final class PackageBuilder {
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
-    /// Temporary parameter controlling whether to allow package extension targets (during bring-up, before proposal is accepted).
-    /// This is set if SWIFTPM_ENABLE_EXTENSION_TARGETS=1 or if the feature is enabled in the initializer (for use by unit tests).
-    private let allowExtensionTargets: Bool
+    /// Temporary parameter controlling whether to allow package plugin targets (during bring-up, before proposal is accepted).
+    /// This is set if SWIFTPM_ENABLE_PLUGINS=1 or if the feature is enabled in the initializer (for use by unit tests).
+    private let allowPluginTargets: Bool
     
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
@@ -275,7 +275,7 @@ public final class PackageBuilder {
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
-        allowExtensionTargets: Bool = false,
+        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) {
         self.manifest = manifest
@@ -287,7 +287,7 @@ public final class PackageBuilder {
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
-        self.allowExtensionTargets = allowExtensionTargets || ProcessEnv.vars["SWIFTPM_ENABLE_EXTENSION_TARGETS"] == "1"
+        self.allowPluginTargets = allowPluginTargets || ProcessEnv.vars["SWIFTPM_ENABLE_PLUGINS"] == "1"
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
@@ -766,18 +766,18 @@ public final class PackageBuilder {
         }
         try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
         
-        // Deal with package extension targets.
-        if potentialModule.type == .extension {
-            guard allowExtensionTargets else {
-                throw ModuleError.extensionTargetRequiresFeatureFlag(target: manifestTarget.name)
+        // Deal with package plugin targets.
+        if potentialModule.type == .plugin {
+            guard allowPluginTargets else {
+                throw ModuleError.pluginTargetRequiresFeatureFlag(target: manifestTarget.name)
             }
-            guard let declaredCapability = manifestTarget.extensionCapability else {
-                throw ModuleError.extensionCapabilityNotDeclared(target: manifestTarget.name)
+            guard let declaredCapability = manifestTarget.pluginCapability else {
+                throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
             
             // Translate the capability from the target description form coming in from the manifest
             // to the package model form.
-            let capability: ExtensionCapability
+            let capability: PluginCapability
             switch declaredCapability {
             case .prebuild:
                 capability = .prebuild
@@ -787,12 +787,12 @@ public final class PackageBuilder {
                 capability = .postbuild
             }
             
-            // Crate and return an ExtensionTarget configured with the information from the manifest.
-            return ExtensionTarget(
+            // Crate and return an PluginTarget configured with the information from the manifest.
+            return PluginTarget(
                 name: potentialModule.name,
                 platforms: self.platforms(),  // FIXME: this should be host platform
                 sources: sources,
-                extensionCapability: capability,
+                pluginCapability: capability,
                 dependencies: dependencies)
         }
         
@@ -1192,8 +1192,8 @@ public final class PackageBuilder {
                 guard self.validateExecutableProduct(product, with: targets) else {
                     continue
                 }
-            case .extension:
-                guard self.validateExtensionProduct(product, with: targets) else {
+            case .plugin:
+                guard self.validatePluginProduct(product, with: targets) else {
                     continue
                 }
             }
@@ -1209,7 +1209,7 @@ public final class PackageBuilder {
             // for them.
             let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
                 switch product.type {
-                case .library, .extension, .test:
+                case .library, .plugin, .test:
                     return []
                 case .executable:
                     return product.targets
@@ -1289,18 +1289,18 @@ public final class PackageBuilder {
         return true
     }
 
-    private func validateExtensionProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
-        let nonExtensionTargets = targets.filter{ $0.type != .extension }
-        guard nonExtensionTargets.isEmpty else {
+    private func validatePluginProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+        let nonPluginTargets = targets.filter{ $0.type != .plugin }
+        guard nonPluginTargets.isEmpty else {
             diagnostics.emit(
-                .extensionProductWithNonExtensionTargets(product: product.name, otherTargets: nonExtensionTargets.map{ $0.name }),
+                .pluginProductWithNonPluginTargets(product: product.name, otherTargets: nonPluginTargets.map{ $0.name }),
                 location: diagnosticLocation()
             )
             return false
         }
         guard !targets.isEmpty else {
             diagnostics.emit(
-                .extensionProductWithNoTargets(product: product.name),
+                .pluginProductWithNoTargets(product: product.name),
                 location: diagnosticLocation()
             )
             return false

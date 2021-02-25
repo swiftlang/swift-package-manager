@@ -128,13 +128,13 @@ public class Product: Encodable {
         }
     }
 
-    /// The extension product of a Swift package.
-    public final class Extension: Product {
-        private enum ExtensionCodingKeys: CodingKey {
+    /// The plugin product of a Swift package.
+    public final class Plugin: Product {
+        private enum PluginCodingKeys: CodingKey {
             case targets
         }
 
-        /// The name of the extension target to vend as a product.
+        /// The name of the plugin target to vend as a product.
         public let targets: [String]
 
         init(name: String, targets: [String]) {
@@ -145,9 +145,9 @@ public class Product: Encodable {
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
             var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
-            try productContainer.encode("extension", forKey: .type)
-            var extensionContainer = encoder.container(keyedBy: ExtensionCodingKeys.self)
-            try extensionContainer.encode(targets, forKey: .targets)
+            try productContainer.encode("plugin", forKey: .type)
+            var pluginContainer = encoder.container(keyedBy: PluginCodingKeys.self)
+            try pluginContainer.encode(targets, forKey: .targets)
         }
     }
 
@@ -185,17 +185,17 @@ public class Product: Encodable {
         return Executable(name: name, targets: targets)
     }
     
-    /// Creates an extension package product.
+    /// Creates an plugin package product.
     ///
     /// - Parameters:
-    ///     - name: The name of the extension product.
-    ///     - targets: The extension targets to vend as a product.
+    ///     - name: The name of the plugin product.
+    ///     - targets: The plugin targets to vend as a product.
     @available(_PackageDescription, introduced: 999.0)
-    public static func `extension`(
+    public static func plugin(
         name: String,
         targets: [String]
     ) -> Product {
-        return Extension(name: name, targets: targets)
+        return Plugin(name: name, targets: targets)
     }
 
     public func encode(to encoder: Encoder) throws {

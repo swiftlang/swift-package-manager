@@ -10,8 +10,8 @@
 
 import Foundation
 
-// The way in which SwiftPM communicates with the package extension is an im-
-// plementation detail, but the way it currently works is that the extension
+// The way in which SwiftPM communicates with the package plugin is an im-
+// plementation detail, but the way it currently works is that the plugin
 // is compiled (in a very similar way to the package manifest) and then run in
 // a sandbox. Currently it is passed the JSON encoded input structure as the
 // last command line argument; however, it this will likely change to instead
@@ -21,7 +21,7 @@ import Foundation
 // to be emitted to SwiftPM verbatim. SwiftPM tries to interpret any stdout
 // contents after the last zero byte as a JSON encoded output struct in UTF-8
 // encoding; any failure to decode it is considered a protocol failure. The
-// exit code of the compiled extension determines success or failure (though
+// exit code of the compiled plugin determines success or failure (though
 // failure to decode the output is also considered a failure to run the ex-
 // tension).
 

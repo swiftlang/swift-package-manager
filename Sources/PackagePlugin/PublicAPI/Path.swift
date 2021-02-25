@@ -10,7 +10,8 @@
 
 import Foundation
 
-// FIXME: This is preliminary.
+// TODO: This is preliminary and will be replaced by something with the same
+// API as FilePath in SwiftSystem.
 public struct Path: ExpressibleByStringLiteral, Encodable, Decodable {
     public var string: String
 

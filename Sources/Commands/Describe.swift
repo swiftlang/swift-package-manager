@@ -132,11 +132,11 @@ fileprivate struct DescribedPackage: Encodable {
         }
     }
 
-    /// Represents a extension capability for the sole purpose of generating a description.
-    struct DescribedExtensionCapability: Encodable {
+    /// Represents a plugin capability for the sole purpose of generating a description.
+    struct DescribedPluginCapability: Encodable {
         let type: String
 
-        init(from capability: ExtensionCapability, in package: Package) {
+        init(from capability: PluginCapability, in package: Package) {
             switch capability {
             case .prebuild:
                 self.type = "prebuild"
@@ -154,7 +154,7 @@ fileprivate struct DescribedPackage: Encodable {
         let type: String
         let c99name: String?
         let moduleType: String?
-        let extensionCapability: DescribedExtensionCapability?
+        let pluginCapability: DescribedPluginCapability?
         let path: String
         let sources: [String]
         let resources: [PackageModel.Resource]?
@@ -166,7 +166,7 @@ fileprivate struct DescribedPackage: Encodable {
             self.type = target.type.rawValue
             self.c99name = target.c99name
             self.moduleType = String(describing: Swift.type(of: target))
-            self.extensionCapability = (target as? ExtensionTarget).map{ DescribedExtensionCapability(from: $0.capability, in: package) }
+            self.pluginCapability = (target as? PluginTarget).map{ DescribedPluginCapability(from: $0.capability, in: package) }
             self.path = target.sources.root.relative(to: package.path).pathString
             self.sources = target.sources.relativePaths.map{ $0.pathString }
             self.resources = target.resources.isEmpty ? nil : target.resources

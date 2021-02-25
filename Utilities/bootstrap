@@ -410,12 +410,12 @@ def install_swiftpm(prefix, args):
 
             file_util.copy_file(src, dest, update=1)
 
-    files_to_install = ["libPackageExtension" + g_shared_lib_ext]
+    files_to_install = ["libPackagePlugin" + g_shared_lib_ext]
     if platform.system() == 'Darwin':
-        files_to_install.append("PackageExtension.swiftinterface")
+        files_to_install.append("PackagePlugin.swiftinterface")
     else:
-        files_to_install.append("PackageExtension.swiftmodule")
-    files_to_install.append("PackageExtension.swiftdoc")
+        files_to_install.append("PackagePlugin.swiftmodule")
+    files_to_install.append("PackagePlugin.swiftdoc")
 
     for file in files_to_install:
         src = os.path.join(runtime_lib_src, file)

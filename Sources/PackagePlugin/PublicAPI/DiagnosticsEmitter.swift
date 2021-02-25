@@ -9,7 +9,7 @@
  */
 
 /// Emits errors, warnings, and remarks to be shown as a result of running the
-/// extension. After emitting one or more errors, the extension should return a
+/// plugin. After emitting one or more errors, the plugin should return a
 /// non-zero exit code.
 public final class DiagnosticsEmitter {
     // This prevents a DiagnosticsEmitter from being instantiated by the script.

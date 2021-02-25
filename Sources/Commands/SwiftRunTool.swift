@@ -118,7 +118,7 @@ public struct SwiftRunTool: SwiftCommand {
                 buildParameters: buildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader,
-                extensionEvaluator: { _ in [:] },
+                pluginInvoker: { _ in [:] },
                 diagnostics: swiftTool.diagnostics,
                 stdoutStream: swiftTool.stdoutStream
             )
