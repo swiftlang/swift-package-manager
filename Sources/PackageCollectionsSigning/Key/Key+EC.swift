@@ -21,7 +21,7 @@ struct ECPrivateKey: PrivateKey {
     init<Data>(pem data: Data) throws where Data: DataProtocol {
         let pem = String(decoding: data, as: UTF8.self)
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-        if #available(macOS 11, *) {
+        if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
             self.underlying = try CryptoECPrivateKey(pemRepresentation: pem)
         } else {
             let pemDocument = try ASN1.PEMDocument(pemString: pem)
@@ -45,7 +45,7 @@ struct ECPublicKey: PublicKey {
     init<Data>(pem data: Data) throws where Data: DataProtocol {
         let pem = String(decoding: data, as: UTF8.self)
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-        if #available(macOS 11, *) {
+        if #available(macOS 11.0, iOS 14.0, watchOS 7.0, tvOS 14.0, *) {
             self.underlying = try CryptoECPublicKey(pemRepresentation: pem)
         } else {
             let pemDocument = try ASN1.PEMDocument(pemString: pem)

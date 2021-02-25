@@ -16,7 +16,7 @@ import struct Foundation.URL
 
 import TSCBasic
 
-#if canImport(Security)
+#if os(macOS)
 import Security
 #endif
 
@@ -53,7 +53,7 @@ extension CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
         }
 
-        #if canImport(Security)
+        #if os(macOS)
         let policy = SecPolicyCreateBasicX509()
         let revocationPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod)
 
@@ -99,7 +99,7 @@ extension CertificatePolicy {
 
 extension CertificatePolicy {
     func hasExtension(oid: String, in certificate: Certificate) throws -> Bool {
-        #if canImport(Security)
+        #if os(macOS)
         guard let dict = SecCertificateCopyValues(certificate.underlying, [oid as CFString] as CFArray, nil) as? [CFString: Any] else {
             throw CertificatePolicyError.extensionFailure
         }
@@ -110,7 +110,7 @@ extension CertificatePolicy {
     }
 
     func hasExtendedKeyUsage(_ usage: CertificateExtendedKeyUsage, in certificate: Certificate) throws -> Bool {
-        #if canImport(Security)
+        #if os(macOS)
         guard let dict = SecCertificateCopyValues(certificate.underlying, [kSecOIDExtendedKeyUsage] as CFArray, nil) as? [CFString: Any] else {
             throw CertificatePolicyError.extensionFailure
         }
@@ -127,7 +127,7 @@ extension CertificatePolicy {
     /// Checks that the certificate supports OCSP. This **must** be done before calling `verify` to ensure
     /// the necessary properties are in place to trigger revocation check.
     func supportsOCSP(certificate: Certificate) throws -> Bool {
-        #if canImport(Security)
+        #if os(macOS)
         // Check that certificate has "Certificate Authority Information Access" extension and includes OCSP as access method.
         // The actual revocation check will be done by the Security framework in `verify`.
         guard let dict = SecCertificateCopyValues(certificate.underlying, [kSecOIDAuthorityInfoAccess] as CFArray, nil) as? [CFString: Any] else { // ignore error
@@ -147,7 +147,7 @@ extension CertificatePolicy {
 enum CertificateExtendedKeyUsage {
     case codeSigning
 
-    #if canImport(Security)
+    #if os(macOS)
     var data: Data {
         switch self {
         case .codeSigning:

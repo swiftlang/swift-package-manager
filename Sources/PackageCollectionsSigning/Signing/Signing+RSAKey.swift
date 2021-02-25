@@ -10,13 +10,13 @@
 
 import struct Foundation.Data
 
-#if canImport(Security)
+#if os(macOS)
 import Security
 #endif
 
 // MARK: - MessageSigner and MessageValidator conformance using the Security framework
 
-#if canImport(Security)
+#if os(macOS)
 extension CoreRSAPrivateKey {
     func sign(message: Data) throws -> Data {
         var error: Unmanaged<CFError>?

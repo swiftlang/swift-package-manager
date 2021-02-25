@@ -182,4 +182,6 @@ public enum PackageCollectionError: Equatable, Error {
     case invalidSignature
 
     case missingSignature
+
+    case unsupportedPlatform
 }

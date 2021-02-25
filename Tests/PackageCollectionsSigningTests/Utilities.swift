@@ -10,15 +10,10 @@
 
 import Dispatch
 import Foundation
+import XCTest
 
 @testable import PackageCollectionsSigning
 import TSCBasic
-
-#if canImport(Security)
-let isSupportedPlatform = true
-#else
-let isSupportedPlatform = false
-#endif
 
 // Update this when running ENABLE_REAL_CERT_TEST tests
 let expectedSubjectUserID = "<USER ID>"
@@ -168,5 +163,14 @@ qseI/cG+CoygHw9OqBcffl1d8LVAHmF8mkfzJ2CnQs9CLFxS1+f9
 extension String {
     var bytes: [UInt8] {
         [UInt8](self.utf8)
+    }
+}
+
+extension XCTestCase {
+    func skipIfUnsupportedPlatform() throws {
+        #if os(macOS)
+        #else
+        throw XCTSkip("Skipping test on unsupported platform")
+        #endif
     }
 }
