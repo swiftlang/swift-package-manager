@@ -289,8 +289,8 @@ prevent the following attack vectors:
 - **Signature replacement**: Attackers may modify a collection then re-sign it using a different certificate, either pretend to be the same entity or as some other entity, and SwiftPM will accept it as long as the [signature is valid](#signed-package-collections).
 
 To defend against these attacks, SwiftPM has certificate-pinning configuration that allows collection publishers to:
-- Require signature check on their collections - this defends against "signature stripping"
-- Restrict what certificate can be used for signing - this defends against "signature replacement"
+- Require signature check on their collections — this defends against "signature stripping".
+- Restrict what certificate can be used for signing — this defends against "signature replacement".
 
 The process for collection publishers to define their certificate-pinning configuration is as follows:
 1. Edit the [configuration file](../Sources/PackageCollections/PackageCollections+CertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
