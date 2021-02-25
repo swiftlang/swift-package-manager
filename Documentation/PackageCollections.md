@@ -227,8 +227,7 @@ intended for package collection publishers:
 ### Creating package collections
 
 All package collections must adhere to the [collection data format](../Sources/PackageCollectionsModel/Formats/v1.md) for SwiftPM to be able to consume them. The recommended way
-to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator), 
-otherwise the data models are available through the [`PackageCollectionsModel` module](../Sources/PackageCollectionsModel).
+to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator). For custom implementations, the data models are available through the [`PackageCollectionsModel` module](../Sources/PackageCollectionsModel).
 
 ### Package collection signing (optional)
 
