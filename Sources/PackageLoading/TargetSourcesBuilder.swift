@@ -111,13 +111,13 @@ public struct TargetSourcesBuilder {
         
         // Check if paths that are enumerated in targets: [] exist
         guard self.fs.exists(at) else {
-            return StringError("Could not find")
+            return StringError("File not found")
         }
 
         // Excludes, Sources, and Resources should be found at the root of the package and or
         // its subdirectories
         guard at.pathString.hasPrefix(cwd.pathString) else {
-            return StringError("\(at) should be found within the root of \(cwd)")
+            return StringError("The current working directory '\(cwd)' should contain: ")
         }
         
         return nil
