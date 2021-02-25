@@ -87,7 +87,7 @@ $ swift package-collection add https://www.example.com/packages.json
 The collection is not signed. If you would still like to add it please rerun 'add' with '--trust-unsigned'.
 ```
 
-To continue user must confirm their trust by passing the `--trust-signed` flag:
+To continue user must confirm their trust by passing the `--trust-unsigned` flag:
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json --trust-unsigned
