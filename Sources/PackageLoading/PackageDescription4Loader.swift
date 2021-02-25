@@ -155,6 +155,11 @@ enum ManifestJSONParser {
         let exclude: [String] = try json.get("exclude")
         try exclude.forEach{ _ = try RelativePath(validating: $0) }
 
+        let extensionUsages = try? json
+            .getArray("extensionUsages")
+            .map(TargetDescription.ExtensionUsage.init(v4:))
+
+
         return try TargetDescription(
             name: try json.get("name"),
             dependencies: dependencies,
@@ -169,7 +174,8 @@ enum ManifestJSONParser {
             providers: providers,
             extensionCapability: capability,
             settings: try Self.parseBuildSettings(json),
-            checksum: json.get("checksum")
+            checksum: json.get("checksum"),
+            extensionUsages: extensionUsages
         )
     }
 
@@ -445,6 +451,23 @@ extension TargetDescription.ExtensionCapability {
             self = .buildTool
         case "postbuild":
             self = .postbuild
+        default:
+            throw InternalError("invalid type \(type)")
+        }
+    }
+}
+
+extension TargetDescription.ExtensionUsage {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        // let options = try (try? json.getJSON("options")).flatMap(PackageConditionDescription.init(v4:))
+
+        switch type {
+        case "extension":
+            let name = try json.get(String.self, forKey: "name")
+            let package = try? json.get(String.self, forKey: "package")
+            self = .extension(name: name, package: package, options: [:])  // FIXME
+
         default:
             throw InternalError("invalid type \(type)")
         }

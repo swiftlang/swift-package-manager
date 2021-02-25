@@ -304,12 +304,26 @@ private func createResolvedPackages(
         for targetBuilder in targetBuilders {
             targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
                 switch dependency {
-                case .target(let targetName, let conditions):
-                    guard let target = targetMap[targetName] else {
-                        throw InternalError("unknown target \(targetName)")
+                case .target(let target, let conditions):
+                    guard let targetBuilder = targetMap[target] else {
+                        throw InternalError("unknown target \(target.name)")
                     }
-                    return .target(target, conditions: conditions)
+                    return .target(targetBuilder, conditions: conditions)
                 case .product:
+                    return nil
+                }
+            }
+        }
+        
+        for targetBuilder in targetBuilders {
+            targetBuilder.extensionUsages += try targetBuilder.target.extensionUsages.compactMap { usage in
+                switch usage {
+                case .extensionTarget(let target, let options):
+                    guard let targetBuilder = targetMap[target] else {
+                        throw InternalError("unknown target \(target.name)")
+                    }
+                    return .target(targetBuilder, options: options)
+                case .extensionProduct(_, _):
                     return nil
                 }
             }
@@ -530,6 +544,19 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
 
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
+    
+    /// Enumeration to represent extension usages.
+    enum ExtensionUsage {
+
+        /// Usage of a target extension in the same package, with options.
+        case target(_ target: ResolvedTargetBuilder, options: [String: String])
+
+        /// Usage of a product extension in a different package, with options.
+        case product(_ product: ResolvedProductBuilder, options: [String: String])
+    }
+    
+    // The extension usages of this target.
+    var extensionUsages: [ExtensionUsage] = []
 
     /// The diagnostics engine.
     let diagnostics: DiagnosticsEngine
@@ -565,8 +592,19 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
                 return .product(product, conditions: conditions)
             }
         }
+        
+        // Convert ResolvedTargetBuilder.ExtensionUsages to ResolvedTarget.ExtensionUsages, preserving order and
+        // options.  We convert to real dependencies at this point.
+        let extensionUsages = try self.extensionUsages.map { usage -> ResolvedTarget.ExtensionUsage in
+            switch usage {
+            case .target(let targetBuilder, let options):
+                return .init(dependency: .target(try targetBuilder.construct(), conditions: []), options: options)
+            case .product(let productBuilder, let options):
+                return .init(dependency: .product(try productBuilder.construct(), conditions: []), options: options)
+            }
+        }
 
-        return ResolvedTarget(target: target, dependencies: dependencies)
+        return ResolvedTarget(target: target, dependencies: dependencies, extensionUsages: extensionUsages)
     }
 }
 

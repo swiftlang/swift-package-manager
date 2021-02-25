@@ -118,6 +118,14 @@ public struct TargetDescription: Equatable, Codable {
     /// The binary target checksum.
     public let checksum: String?
     
+    /// The usages of package extensions by the target.
+    public let extensionUsages: [ExtensionUsage]?
+
+    /// Represents a target's dependency on another entity.
+    public enum ExtensionUsage: Equatable {
+        case `extension`(name: String, package: String?, options: [String: String])
+    }
+
     public init(
         name: String,
         dependencies: [Dependency] = [],
@@ -132,7 +140,8 @@ public struct TargetDescription: Equatable, Codable {
         providers: [SystemPackageProviderDescription]? = nil,
         extensionCapability: ExtensionCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
-        checksum: String? = nil
+        checksum: String? = nil,
+        extensionUsages: [ExtensionUsage]? = nil
     ) throws {
         switch type {
         case .regular, .executable, .test:
@@ -150,6 +159,7 @@ public struct TargetDescription: Equatable, Codable {
             if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
             if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
+            if extensionUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionUsages") }
         case .binary:
             if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
@@ -161,6 +171,7 @@ public struct TargetDescription: Equatable, Codable {
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if extensionCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if extensionUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionUsages") }
         case .extension:
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
             if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
@@ -171,6 +182,7 @@ public struct TargetDescription: Equatable, Codable {
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if extensionCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if extensionUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "extensionUsages") }
         }
 
         self.name = name
@@ -187,6 +199,7 @@ public struct TargetDescription: Equatable, Codable {
         self.extensionCapability = extensionCapability
         self.settings = settings
         self.checksum = checksum
+        self.extensionUsages = extensionUsages
     }
 }
 
@@ -275,6 +288,38 @@ extension TargetDescription.ExtensionCapability: Codable {
             self = .buildTool
         case .postbuild:
             self = .postbuild
+        }
+    }
+}
+
+extension TargetDescription.ExtensionUsage: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case `extension`
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .extension(name, package, options):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .extension)
+            try unkeyedContainer.encode(name)
+            try unkeyedContainer.encode(package)
+            try unkeyedContainer.encode(options)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .extension:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let name = try unkeyedValues.decode(String.self)
+            let package = try unkeyedValues.decodeIfPresent(String.self)
+            let options = try unkeyedValues.decode([String:String].self)
+            self = .extension(name: name, package: package, options: options)
         }
     }
 }

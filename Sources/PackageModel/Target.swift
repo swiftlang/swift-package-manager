@@ -94,6 +94,55 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         }
     }
 
+    /// A usage of an extension target or product.
+    public enum ExtensionUsage {
+
+        /// A usage of an extension target in the same package.
+        case extensionTarget(_ target: Target, options: [String: String])
+
+        /// A usage of an extension product in any package.
+        case extensionProduct(_ product: ProductReference, options: [String: String])
+
+        /// The extension target, if the usage is a target extension usage.
+        public var target: Target? {
+            if case .extensionTarget(let target, _) = self {
+                return target
+            } else {
+                return nil
+            }
+        }
+
+        /// The extension product reference, if the usage is a product extension usage
+        public var product: ProductReference? {
+            if case .extensionProduct(let product, _) = self {
+                return product
+            } else {
+                return nil
+            }
+        }
+
+        /// The extension usage options.
+        public var option: [String: String] {
+            switch self {
+            case .extensionTarget(_, let options):
+                return options
+            case .extensionProduct(_, let options):
+                return options
+            }
+        }
+
+        /// The name of the extension target or product of the usage.
+        public var name: String {
+            switch self {
+            case .extensionTarget(let target, _):
+                return target.name
+            case .extensionProduct(let product, _):
+                return product.name
+            }
+        }
+    }
+
+
     /// The name of the target.
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
@@ -138,6 +187,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
 
+    /// The extension usages of this target.
+    public let extensionUsages: [ExtensionUsage]
+
     fileprivate init(
         name: String,
         bundleName: String? = nil,
@@ -148,7 +200,8 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         resources: [Resource] = [],
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency],
-        buildSettings: BuildSettings.AssignmentTable
+        buildSettings: BuildSettings.AssignmentTable,
+        extensionUsages: [Target.ExtensionUsage]
     ) {
         self.name = name
         self.bundleName = bundleName
@@ -161,10 +214,11 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.dependencies = dependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
+        self.extensionUsages = extensionUsages
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, bundleName, defaultLocalization, platforms, type, sources, resources, others, buildSettings
+        case name, bundleName, defaultLocalization, platforms, type, sources, resources, others, buildSettings, extensionUsages
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -181,6 +235,8 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         try container.encode(resources, forKey: .resources)
         try container.encode(others, forKey: .others)
         try container.encode(buildSettings, forKey: .buildSettings)
+        // FIXME: extensionUsages property is skipped on purpose as it points to
+        // the actual target dependency object.
     }
 
     required public init(from decoder: Decoder) throws {
@@ -198,6 +254,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.dependencies = []
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
+        // FIXME: extensionUsages property is skipped on purpose as it points to
+        // the actual target dependency object.
+        self.extensionUsages = []
     }
 }
 
@@ -222,7 +281,8 @@ public final class SwiftTarget: Target {
             type: .executable,
             sources: testDiscoverySrc,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            extensionUsages: []
         )
     }
 
@@ -240,7 +300,8 @@ public final class SwiftTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
-        buildSettings: BuildSettings.AssignmentTable = .init()
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        extensionUsages: [ExtensionUsage] = []
     ) {
         self.swiftVersion = swiftVersion
         super.init(
@@ -253,7 +314,8 @@ public final class SwiftTarget: Target {
             resources: resources,
             others: others,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            extensionUsages: extensionUsages
         )
     }
 
@@ -283,12 +345,13 @@ public final class SwiftTarget: Target {
             type: .executable,
             sources: sources,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            extensionUsages: []
         )
     }
 
     private enum CodingKeys: String, CodingKey {
-        case swiftVersion
+        case swiftVersion, extensionUsages
     }
 
     public override func encode(to encoder: Encoder) throws {
@@ -340,7 +403,8 @@ public final class SystemLibraryTarget: Target {
             type: .systemModule,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            extensionUsages: []
         )
     }
 
@@ -422,7 +486,8 @@ public final class ClangTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            extensionUsages: []
         )
     }
 
@@ -482,7 +547,8 @@ public final class BinaryTarget: Target {
             type: .binary,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            extensionUsages: []
         )
     }
 
@@ -595,7 +661,8 @@ public final class ExtensionTarget: Target {
             type: .extension,
             sources: sources,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            extensionUsages: []
         )
     }
 

@@ -49,7 +49,8 @@ public final class ResolvedProduct: ObjectIdentifierProtocol {
             // Create an executable resolved target with the linux main, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
             let swiftTarget = SwiftTarget(testManifest: testManifest, name: product.name, dependencies: dependencies)
-            return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
+            // FIXME: resolve extension usages here too
+            return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) }, extensionUsages: [])
         }
     }
 

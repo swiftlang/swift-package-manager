@@ -20,7 +20,8 @@ private extension ResolvedTarget {
             target: SwiftTarget(
                 name: name, type: .library, 
                 sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: [], swiftVersion: .v4),
-            dependencies: deps.map { .target($0, conditions: []) })
+            dependencies: deps.map { .target($0, conditions: []) },
+            extensionUsages: [])
     }
 }
 

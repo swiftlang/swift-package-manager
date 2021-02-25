@@ -1345,7 +1345,8 @@ public class BuildPlan {
                 )
                 let testManifestTarget = ResolvedTarget(
                     target: swiftTarget,
-                    dependencies: testProduct.targets.map { .target($0, conditions: []) }
+                    dependencies: testProduct.targets.map { .target($0, conditions: []) },
+                    extensionUsages: []
                 )
 
                 let target = try SwiftTargetBuildDescription(

@@ -120,11 +120,20 @@ public final class ResolvedTarget: ObjectIdentifierProtocol {
     public var sources: Sources {
         return underlyingTarget.sources
     }
+    
+    /// The build extensions applied to this target, along with any options provided.
+    public var extensionUsages: [ExtensionUsage]
+    
+    public struct ExtensionUsage {
+        var dependency: Dependency
+        var options: [String: String]
+    }
 
     /// Create a target instance.
-    public init(target: Target, dependencies: [Dependency]) {
+    public init(target: Target, dependencies: [Dependency], extensionUsages: [ExtensionUsage]) {
         self.underlyingTarget = target
-        self.dependencies = dependencies
+        self.dependencies = dependencies + extensionUsages.map { $0.dependency }
+        self.extensionUsages = extensionUsages
     }
 }
 

@@ -18,7 +18,7 @@ let package = Package(
         // A local tool that uses an extension.
         .executableTarget(
             name: "MyLocalTool",
-            dependencies: [
+            usingExtensions: [
                 "MySourceGenExt",
             ]
         ),
@@ -49,8 +49,10 @@ let package = Package(
         .testTarget(
             name: "MySourceGenExtTests",
             dependencies: [
-                "MySourceGenExt",
                 "MySourceGenRuntimeLib"
+            ],
+            usingExtensions: [
+                "MySourceGenExt",
             ]
         )
     ]

@@ -659,12 +659,28 @@ public final class PackageBuilder {
                     }
                 }
             } ?? []
+            
+            let extensionUsages: [Target.ExtensionUsage] = manifestTarget?.extensionUsages.map {
+                $0.compactMap{ usage in
+                    switch usage {
+                    case .extension(let name, let package, let options):
+                        if let package = package {
+                            return .extensionProduct(Target.ProductReference(name: name, package: package), options: options)
+                        }
+                        else {
+                            guard let target = targets[name] else { return nil }
+                            return .extensionTarget(target, options: options)
+                        }
+                    }
+                }
+            } ?? []
 
             // Create the target.
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                dependencies: dependencies
+                dependencies: dependencies,
+                extensionUsages: extensionUsages
             )
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {
@@ -691,7 +707,8 @@ public final class PackageBuilder {
     private func createTarget(
         potentialModule: PotentialModule,
         manifestTarget: TargetDescription?,
-        dependencies: [Target.Dependency]
+        dependencies: [Target.Dependency],
+        extensionUsages: [Target.ExtensionUsage]
     ) throws -> Target? {
         guard let manifestTarget = manifestTarget else { return nil }
 
@@ -823,7 +840,8 @@ public final class PackageBuilder {
                 others: others,
                 dependencies: dependencies,
                 swiftVersion: try swiftVersion(),
-                buildSettings: buildSettings
+                buildSettings: buildSettings,
+                extensionUsages: extensionUsages
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
