@@ -52,7 +52,7 @@ $ swift package-collection add https://www.example.com/packages.json --skip-sign
 ```
 
 For package collections hosted on the web, publishers may ask SwiftPM to [enforce the signature requirement](#protecting-package-collections). If a package collection is
-supposed to be signed but it isn't, user will see the following error message:
+expected to be signed but it isn't, user will see the following error message:
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
