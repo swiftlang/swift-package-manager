@@ -74,19 +74,21 @@ extension PackageGraph {
             // Sort all manifests toplogically.
             allManifests = try topologicalSort(inputManifests, successors: successors)
         }
-        var flattenedManifests: [String: GraphLoadingNode] = [:]
+
+        var flattenedManifests: [PackageIdentity: GraphLoadingNode] = [:]
         for node in allManifests {
-            if let existing = flattenedManifests[node.manifest.name] {
+            let packageIdentity = identityResolver.resolveIdentity(for: node.manifest.packageLocation)
+            if let existing = flattenedManifests[packageIdentity] {
                 let merged = GraphLoadingNode(
                     manifest: node.manifest,
                     productFilter: existing.productFilter.union(node.productFilter)
                 )
-                flattenedManifests[node.manifest.name] = merged
+                flattenedManifests[packageIdentity] = merged
             } else {
-                flattenedManifests[node.manifest.name] = node
+                flattenedManifests[packageIdentity] = node
             }
         }
-        allManifests = flattenedManifests.values.sorted(by: { $0.manifest.name < $1.manifest.name })
+        allManifests = flattenedManifests.values.sorted(by: { identityResolver.resolveIdentity(for: $0.manifest.packageLocation) < identityResolver.resolveIdentity(for: $1.manifest.packageLocation) })
 
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
@@ -179,7 +181,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
             }
 
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
-            if !dependencyIsUsed {
+            if !dependencyIsUsed && !diagnostics.hasErrors {
                 diagnostics.emit(.unusedDependency(dependency.name))
             }
         }
@@ -211,11 +213,18 @@ private func createResolvedPackages(
     }
 
     // Create a map of package builders keyed by the package identity.
+    // This is guaranteed to be unique so we can use spm_createDictionary
     let packageMapByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
         let identity = identityResolver.resolveIdentity(for: $0.package.manifest.packageLocation)
         return (identity, $0)
     }
-    let packageMapByName: [String: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{ ($0.package.name, $0) }
+
+    // in case packages have same manifest name this map can miss packages which will lead to missing product errors
+    // our plan is to deprecate the use of manifest + dependency explicit name in target dependency lookup and instead lean 100% on identity
+    // which means this map would go away too
+    let packageMapByNameForTargetDependencyResolutionOnly = packageBuilders.reduce(into: [String: ResolvedPackageBuilder](), { partial, item in
+        partial[item.package.name] = item
+    })
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -235,7 +244,7 @@ private func createResolvedPackages(
             }
 
             // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
-            if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly, let resolvedPackage = packageMapByName[explicitDependencyName] {
+            if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly, let resolvedPackage = packageMapByNameForTargetDependencyResolutionOnly[explicitDependencyName] {
                 guard !dependencies.contains(resolvedPackage) else {
                     // check if this resolvedPackage already listed in the dependencies
                     // this means that the dependencies share the same name
@@ -409,7 +418,7 @@ private func createResolvedPackages(
                 if let packageName = productRef.package {
                     // Find the declared package and check that it contains
                     // the product we found above.
-                    guard let dependencyPackage = packageMapByName[packageName], dependencyPackage.products.contains(product) else {
+                    guard let dependencyPackage = packageMapByNameForTargetDependencyResolutionOnly[packageName], dependencyPackage.products.contains(product) else {
                         let error = PackageGraphError.productDependencyIncorrectPackage(
                             name: productRef.name,
                             package: packageName
