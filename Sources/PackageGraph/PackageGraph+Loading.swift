@@ -141,7 +141,6 @@ extension PackageGraph {
         )
 
         let rootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
-
         checkAllDependenciesAreUsed(rootPackages, diagnostics)
 
         return try PackageGraph(
@@ -414,37 +413,23 @@ private func createResolvedPackages(
                     continue
                 }
 
-                // If package name is mentioned, ensure it is valid.
-                if let packageName = productRef.package {
-                    // Find the declared package and check that it contains
-                    // the product we found above.
-                    guard let dependencyPackage = packageMapByNameForTargetDependencyResolutionOnly[packageName], dependencyPackage.products.contains(product) else {
-                        let error = PackageGraphError.productDependencyIncorrectPackage(
-                            name: productRef.name,
-                            package: packageName
-                        )
-                        diagnostics.emit(error, location: diagnosticLocation())
-                        continue
-                    }
-                } else if packageBuilder.package.manifest.toolsVersion >= .v5_2 {
-                    // Starting in 5.2, and target-based dependency, we require target product dependencies to
-                    // explicitly reference the package containing the product, or for the product, package and
-                    // dependency to share the same name. We don't check this in manifest loading for root-packages so
-                    // we can provide a more detailed diagnostic here.
+                // Starting in 5.2, and target-based dependency, we require target product dependencies to
+                // explicitly reference the package containing the product, or for the product, package and
+                // dependency to share the same name. We don't check this in manifest loading for root-packages so
+                // we can provide a more detailed diagnostic here.
+                if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil{
                     let referencedPackageIdentity = identityResolver.resolveIdentity(for: product.packageBuilder.package.manifest.packageLocation)
-                    guard let packageDependency = (packageBuilder.package.manifest.dependencies.first { package in
+                    guard let referencedPackageDependency = (packageBuilder.package.manifest.dependencies.first { package in
                         return package.identity == referencedPackageIdentity
                     }) else {
                         throw InternalError("dependency reference for \(product.packageBuilder.package.manifest.packageLocation) not found")
                     }
-
-                    let packageName = product.packageBuilder.package.name
-                    if productRef.name != packageDependency.nameForTargetDependencyResolutionOnly || packageDependency.nameForTargetDependencyResolutionOnly != packageName {
+                    let referencedPackageName = referencedPackageDependency.nameForTargetDependencyResolutionOnly
+                    if productRef.name !=  referencedPackageName {
                         let error = PackageGraphError.productDependencyMissingPackage(
                             productName: productRef.name,
                             targetName: targetBuilder.target.name,
-                            packageName: packageName,
-                            packageDependency: packageDependency
+                            packageDependency: referencedPackageDependency
                         )
                         diagnostics.emit(error, location: diagnosticLocation())
                     }

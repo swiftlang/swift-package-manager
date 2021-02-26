@@ -5746,8 +5746,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    // this test is currently demonstrating bad behavior that would be fixed with https://github.com/apple/swift-package-manager/pull/3280
-    /*func testDuplicateManifestNameAtRoot_ExplicitTargetDependecy() throws {
+    func testDuplicateManifestNameAtRoot_ExplicitTargetDependecy() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5802,7 +5801,7 @@ final class WorkspaceTests: XCTestCase {
                 XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
             }
         }
-    }*/
+    }
 
     func testExplicitDependencyNameAndManifestNameMismatchAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -5870,8 +5869,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    // this test is currently demonstrating bad behavior that would be fixed with https://github.com/apple/swift-package-manager/pull/3280
-    /*func testManifestNameAndIdentityConflictAtRoot() throws {
+    func testManifestNameAndIdentityConflictAtRoot_Pre52() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5883,8 +5881,8 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            "FooPackage",
-                            "BarPackage"
+                            "FooProduct",
+                            "BarProduct"
                         ]),
                     ],
                     products: [],
@@ -5927,7 +5925,129 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
-    */
+
+    func testManifestNameAndIdentityConflictAtRoot_Post52_Incorrect() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            "FooProduct",
+                            "BarProduct"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_3
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "foo",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "foo",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "dependency 'FooProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"FooProduct\", package: \"foo\")'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+                result.check(
+                    diagnostic: "dependency 'BarProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"BarProduct\", package: \"bar\")'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+            }
+        }
+    }
+
+    func testManifestNameAndIdentityConflictAtRoot_Post52_Correct() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_3
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "foo",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "foo",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            }
+        }
+    }
 
     func testManifestNameAndIdentityConflictWithExplicitDependencyNamesAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")

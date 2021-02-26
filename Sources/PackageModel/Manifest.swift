@@ -272,7 +272,7 @@ public final class Manifest: ObjectIdentifierProtocol {
             return nil
         }
 
-        return dependencies.first(where: { $0.nameForTargetDependencyResolutionOnly == packageName })
+        return self.dependencies.first(where: { $0.nameForTargetDependencyResolutionOnly == packageName })
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.
