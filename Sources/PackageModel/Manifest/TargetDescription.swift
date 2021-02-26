@@ -118,6 +118,14 @@ public struct TargetDescription: Equatable, Codable {
     /// The binary target checksum.
     public let checksum: String?
     
+    /// The usages of package plugins by the target.
+    public let pluginUsages: [PluginUsage]?
+
+    /// Represents a target's usage of a plugin target or product.
+    public enum PluginUsage: Equatable {
+        case plugin(name: String, package: String?)
+    }
+
     public init(
         name: String,
         dependencies: [Dependency] = [],
@@ -132,7 +140,8 @@ public struct TargetDescription: Equatable, Codable {
         providers: [SystemPackageProviderDescription]? = nil,
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
-        checksum: String? = nil
+        checksum: String? = nil,
+        pluginUsages: [PluginUsage]? = nil
     ) throws {
         switch type {
         case .regular, .executable, .test:
@@ -150,6 +159,7 @@ public struct TargetDescription: Equatable, Codable {
             if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
             if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         case .binary:
             if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
@@ -161,6 +171,7 @@ public struct TargetDescription: Equatable, Codable {
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         case .plugin:
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
             if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
@@ -171,6 +182,7 @@ public struct TargetDescription: Equatable, Codable {
             if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
             if pluginCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
             if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }
 
         self.name = name
@@ -187,6 +199,7 @@ public struct TargetDescription: Equatable, Codable {
         self.pluginCapability = pluginCapability
         self.settings = settings
         self.checksum = checksum
+        self.pluginUsages = pluginUsages
     }
 }
 
@@ -275,6 +288,36 @@ extension TargetDescription.PluginCapability: Codable {
             self = .buildTool
         case .postbuild:
             self = .postbuild
+        }
+    }
+}
+
+extension TargetDescription.PluginUsage: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case plugin
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .plugin(name, package):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .plugin)
+            try unkeyedContainer.encode(name)
+            try unkeyedContainer.encode(package)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .plugin:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let name = try unkeyedValues.decode(String.self)
+            let package = try unkeyedValues.decodeIfPresent(String.self)
+            self = .plugin(name: name, package: package)
         }
     }
 }

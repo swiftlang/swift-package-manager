@@ -49,8 +49,10 @@ let package = Package(
         .testTarget(
             name: "MySourceGenPluginTests",
             dependencies: [
-                "MySourceGenPlugin",
                 "MySourceGenRuntimeLib"
+            ],
+            plugins: [
+                "MySourceGenPlugin"
             ]
         )
     ]
