@@ -13,12 +13,12 @@ import SPMTestSupport
 
 import TSCBasic
 
-class ExtensionTests: XCTestCase {
+class PluginTests: XCTestCase {
     
-    func testUseOfExtensionTargetByExecutableInSamePackage() {
-        fixture(name: "Miscellaneous/Extensions/MySourceGenExtension") { path in
+    func testUseOfPluginTargetByExecutableInSamePackage() {
+        fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { path in
             do {
-                let (stdout, _) = try executeSwiftBuild(path, configuration: .Debug, env: ["SWIFTPM_ENABLE_EXTENSION_TARGETS": "1"])
+                let (stdout, _) = try executeSwiftBuild(path, configuration: .Debug, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
                 XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating Foo.swift from Foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
@@ -31,10 +31,10 @@ class ExtensionTests: XCTestCase {
         }
     }
 
-    func testUseOfExtensionProductByExecutableAcrossPackages() {
-        fixture(name: "Miscellaneous/Extensions") { path in
+    func testUseOfPluginProductByExecutableAcrossPackages() {
+        fixture(name: "Miscellaneous/Plugins") { path in
             do {
-                let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenClient"), configuration: .Debug, env: ["SWIFTPM_ENABLE_EXTENSION_TARGETS": "1"])
+                let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenClient"), configuration: .Debug, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
                 XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating Foo.swift from Foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")

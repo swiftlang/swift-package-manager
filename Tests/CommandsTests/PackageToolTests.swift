@@ -292,19 +292,19 @@ final class PackageToolTests: XCTestCase {
         }
     }
     
-    func testDescribePackageUsingExtensions() throws {
-        fixture(name: "Miscellaneous/Extensions/MySourceGenExtension") { prefix in
+    func testDescribePackageUsingPlugins() throws {
+        fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { prefix in
             // Generate the JSON description.
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix, env: ["SWIFTPM_ENABLE_EXTENSION_TARGETS": "1"])
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
             XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
             let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
 
             // Check the contents of the JSON.
-            XCTAssertEqual(try XCTUnwrap(json["name"]).string, "MySourceGenExtension")
+            XCTAssertEqual(try XCTUnwrap(json["name"]).string, "MySourceGenPlugin")
             let targetsArray = try XCTUnwrap(json["targets"]?.array)
-            let extensionTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenExt" }?.dictionary)
-            XCTAssertEqual(extensionTarget["module_type"]?.string, "ExtensionTarget")
-            XCTAssertEqual(extensionTarget["extension_capability"]?.dictionary?["type"]?.string, "buildTool")
+            let extensionTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenPlugin" }?.dictionary)
+            XCTAssertEqual(extensionTarget["module_type"]?.string, "PluginTarget")
+            XCTAssertEqual(extensionTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
         }
     }
 

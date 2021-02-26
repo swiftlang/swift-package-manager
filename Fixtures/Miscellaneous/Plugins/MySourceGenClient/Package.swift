@@ -4,21 +4,21 @@ import PackageDescription
 let package = Package(
     name: "MySourceGenClient",
     dependencies: [
-        .package(path: "../MySourceGenExtension")
+        .package(path: "../MySourceGenPlugin")
     ],
     targets: [
-        // A tool that uses an extension.
+        // A tool that uses an plugin.
         .executableTarget(
             name: "MyTool",
             dependencies: [
-                .product(name: "MySourceGenExt", package: "MySourceGenExtension")
+                .product(name: "MySourceGenPlugin", package: "MySourceGenPlugin")
             ]
         ),
-        // A unit that uses the extension.
+        // A unit that uses the plugin.
         .testTarget(
             name: "MyTests",
             dependencies: [
-                .product(name: "MySourceGenExt", package: "MySourceGenExtension")
+                .product(name: "MySourceGenPlugin", package: "MySourceGenPlugin")
             ]
         )
     ]

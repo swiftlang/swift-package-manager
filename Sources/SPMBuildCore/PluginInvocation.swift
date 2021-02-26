@@ -17,50 +17,50 @@ import TSCBasic
 
 extension PackageGraph {
 
-    /// Traverses the graph of reachable targets in a package graph and evaluates extensions as needed.  Each extension is passed an input context that provides information about the target to which it is being applied (and some information from its dependency closure), and can generate an output in the form of commands that will later be run during the build.  This function returns a mapping of resolved targets to the results of running each of the extensions against the target in turn.  This include an ordered list of generated commands to run for each extension capability.  This function may cache anything it wants to under the `cacheDir` directory.  The `execsDir` directory is where executables for any dependencies of targets will be made available.  Any warnings and errors related to running the extension will be emitted to `diagnostics`, and this function will throw an error if evaluation of any extension fails.  Note that warnings emitted by the the extension itself will be returned in the ExtensionEvaluationResult structures and not added directly to the diagnostics engine.
-    public func evaluateExtensions(
+    /// Traverses the graph of reachable targets in a package graph and evaluates plugins as needed.  Each plugin is passed an input context that provides information about the target to which it is being applied (and some information from its dependency closure), and can generate an output in the form of commands that will later be run during the build.  This function returns a mapping of resolved targets to the results of running each of the plugins against the target in turn.  This include an ordered list of generated commands to run for each plugin capability.  This function may cache anything it wants to under the `cacheDir` directory.  The `execsDir` directory is where executables for any dependencies of targets will be made available.  Any warnings and errors related to running the plugin will be emitted to `diagnostics`, and this function will throw an error if evaluation of any plugin fails.  Note that warnings emitted by the the plugin itself will be returned in the PluginEvaluationResult structures and not added directly to the diagnostics engine.
+    public func invokePlugins(
         buildEnvironment: BuildEnvironment,
         execsDir: AbsolutePath,
         outputDir: AbsolutePath,
-        extensionRunner: ExtensionRunner,
+        pluginScriptRunner: PluginScriptRunner,
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
-    ) throws -> [ResolvedTarget: [ExtensionEvaluationResult]] {
+    ) throws -> [ResolvedTarget: [PluginInvocationResult]] {
         // TODO: Convert this to be asynchronous, taking a completion closure.  This may require changes to package graph APIs.
-        var evalResultsByTarget: [ResolvedTarget: [ExtensionEvaluationResult]] = [:]
+        var evalResultsByTarget: [ResolvedTarget: [PluginInvocationResult]] = [:]
         
         for target in self.reachableTargets {
-            // Infer extensions from the declared dependencies, and collect them as well as any regular dependnencies.
-            // TODO: We'll want to separate out extension usages from dependencies, but for now we get them from dependencies.
-            var extensionTargets: [ExtensionTarget] = []
+            // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.
+            // TODO: We'll want to separate out plugin usages from dependencies, but for now we get them from dependencies.
+            var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
             for dependency in target.dependencies(satisfying: buildEnvironment) {
                 switch dependency {
                 case .target(let target, _):
-                    if let extensionTarget = target.underlyingTarget as? ExtensionTarget {
-                        extensionTargets.append(extensionTarget)
+                    if let pluginTarget = target.underlyingTarget as? PluginTarget {
+                        pluginTargets.append(pluginTarget)
                     }
                     else {
                         dependencyTargets.append(target.underlyingTarget)
                     }
                 case .product(let product, _):
-                    extensionTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? ExtensionTarget })
+                    pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? PluginTarget })
                 }
             }
             
-            // Leave quickly in the common case of not using any extensions.
-            if extensionTargets.isEmpty {
+            // Leave quickly in the common case of not using any plugins.
+            if pluginTargets.isEmpty {
                 continue
             }
             
-            // If this target does use any extensions, create the input context to pass to them.
+            // If this target does use any plugins, create the input context to pass to them.
             // FIXME: We'll want to decide on what directories to provide to the extenion
             guard let package = self.packages.first(where: { $0.targets.contains(target) }) else {
                 throw InternalError("could not find package for target \(target)")
             }
-            let extOutputsDir = outputDir.appending(components: "extensions", package.name, target.c99name, "outputs")
-            let extCachesDir = outputDir.appending(components: "extensions", package.name, target.c99name, "caches")
-            let extensionInput = ExtensionEvaluationInput(
+            let extOutputsDir = outputDir.appending(components: "plugins", package.name, target.c99name, "outputs")
+            let extCachesDir = outputDir.appending(components: "plugins", package.name, target.c99name, "caches")
+            let pluginInput = PluginScriptRunnerInput(
                 targetName: target.name,
                 moduleName: target.c99name,
                 targetDir: target.sources.root.pathString,
@@ -78,39 +78,39 @@ extension PackageGraph {
                 options: [:]
             )
             
-            // Evaluate each extension in turn, creating a list of results (one for each extension used by the target).
-            var evalResults: [ExtensionEvaluationResult] = []
-            for extTarget in extensionTargets {
+            // Evaluate each plugin in turn, creating a list of results (one for each plugin used by the target).
+            var evalResults: [PluginInvocationResult] = []
+            for extTarget in pluginTargets {
                 // Create the output and cache directories, if needed.
                 do {
                     try fileSystem.createDirectory(extOutputsDir, recursive: true)
                 }
                 catch {
-                    throw ExtensionEvaluationError.outputDirectoryCouldNotBeCreated(path: extOutputsDir, underlyingError: error)
+                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: extOutputsDir, underlyingError: error)
                 }
                 do {
                     try fileSystem.createDirectory(extCachesDir, recursive: true)
                 }
                 catch {
-                    throw ExtensionEvaluationError.outputDirectoryCouldNotBeCreated(path: extCachesDir, underlyingError: error)
+                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: extCachesDir, underlyingError: error)
                 }
                 
-                // Run the extension in the context of the target, and generate commands from the output.
+                // Run the plugin in the context of the target, and generate commands from the output.
                 // TODO: This should be asynchronous.
-                let (extensionOutput, emittedText) = try runExtension(
+                let (pluginOutput, emittedText) = try runPluginScript(
                     sources: extTarget.sources,
-                    input: extensionInput,
+                    input: pluginInput,
                     toolsVersion: package.manifest.toolsVersion,
-                    extensionRunner: extensionRunner,
+                    pluginScriptRunner: pluginScriptRunner,
                     diagnostics: diagnostics,
                     fileSystem: fileSystem
                 )
                 
-                // Generate emittable Diagnostics from the extension output.
-                let diagnostics: [Diagnostic] = extensionOutput.diagnostics.map { diag in
+                // Generate emittable Diagnostics from the plugin output.
+                let diagnostics: [Diagnostic] = pluginOutput.diagnostics.map { diag in
                     // FIXME: The implementation here is unfortunate; better Diagnostic APIs would make it cleaner.
                     let location = diag.file.map {
-                        ExtensionEvaluationResult.FileLineLocation(file: $0, line: diag.line)
+                        PluginInvocationResult.FileLineLocation(file: $0, line: diag.line)
                     }
                     let message: Diagnostic.Message
                     switch diag.severity {
@@ -126,8 +126,8 @@ extension PackageGraph {
                     }
                 }
                 
-                // Generate commands from the extension output.
-                let commands: [ExtensionEvaluationResult.Command] = extensionOutput.commands.map { cmd in
+                // Generate commands from the plugin output.
+                let commands: [PluginInvocationResult.Command] = pluginOutput.commands.map { cmd in
                     let displayName = cmd.displayName
                     let executable = cmd.executable
                     let arguments = cmd.arguments
@@ -147,53 +147,76 @@ extension PackageGraph {
                     }
                 }
                 
-                // Create an evaluation result from the usage of the extension by the target.
+                // Create an evaluation result from the usage of the plugin by the target.
                 let textOutput = String(decoding: emittedText, as: UTF8.self)
-                evalResults.append(ExtensionEvaluationResult(extension: extTarget, commands: commands, diagnostics: diagnostics, textOutput: textOutput))
+                evalResults.append(PluginInvocationResult(plugin: extTarget, commands: commands, diagnostics: diagnostics, textOutput: textOutput))
             }
             
-            // Associate the list of results with the target.  The list will have one entry for each extension used by the target.
+            // Associate the list of results with the target.  The list will have one entry for each plugin used by the target.
             evalResultsByTarget[target] = evalResults
         }
         return evalResultsByTarget
     }
     
+    @available(*, deprecated, message: "used evaluationPlugins() instead")
+    public func evaluateExtensions(
+        buildEnvironment: BuildEnvironment,
+        execsDir: AbsolutePath,
+        outputDir: AbsolutePath,
+        extensionRunner: PluginScriptRunner,
+        diagnostics: DiagnosticsEngine,
+        fileSystem: FileSystem
+    ) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+        return try self.invokePlugins(
+            buildEnvironment: buildEnvironment,
+            execsDir: execsDir,
+            outputDir: outputDir,
+            pluginScriptRunner: extensionRunner,
+            diagnostics: diagnostics,
+            fileSystem: fileSystem)
+    }
     
-    /// Private helper function that serializes an ExtensionEvaluationInput as input JSON, calls the extension runner to invoke the extension, and finally deserializes the output JSON it emits to a ExtensionEvaluationOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
+    
+    /// Private helper function that serializes a PluginEvaluationInput as input JSON, calls the plugin runner to invoke the plugin, and finally deserializes the output JSON it emits to a PluginEvaluationOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
     /// FIXME: This should be asynchronous, taking a queue and a completion closure.
-    fileprivate func runExtension(sources: Sources, input: ExtensionEvaluationInput, toolsVersion: ToolsVersion, extensionRunner: ExtensionRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: ExtensionEvaluationOutput, stdoutText: Data) {
-        // Serialize the ExtensionEvaluationInput to JSON.
+    fileprivate func runPluginScript(sources: Sources, input: PluginScriptRunnerInput, toolsVersion: ToolsVersion, pluginScriptRunner: PluginScriptRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: PluginScriptRunnerOutput, stdoutText: Data) {
+        // Serialize the PluginEvaluationInput to JSON.
         let encoder = JSONEncoder()
         let inputJSON = try encoder.encode(input)
         
-        // Call the extension runner.
-        let (outputJSON, stdoutText) = try extensionRunner.runExtension(sources: sources, inputJSON: inputJSON, toolsVersion: toolsVersion, diagnostics: diagnostics, fileSystem: fileSystem)
+        // Call the plugin runner.
+        let (outputJSON, stdoutText) = try pluginScriptRunner.runPluginScript(
+            sources: sources,
+            inputJSON: inputJSON,
+            toolsVersion: toolsVersion,
+            diagnostics: diagnostics,
+            fileSystem: fileSystem)
 
-        // Deserialize the JSON to an ExtensionEvaluationOutput.
-        let output: ExtensionEvaluationOutput
+        // Deserialize the JSON to an PluginScriptRunnerOutput.
+        let output: PluginScriptRunnerOutput
         do {
             let decoder = JSONDecoder()
-            output = try decoder.decode(ExtensionEvaluationOutput.self, from: outputJSON)
+            output = try decoder.decode(PluginScriptRunnerOutput.self, from: outputJSON)
         }
         catch {
-            throw ExtensionEvaluationError.decodingExtensionOutputFailed(json: outputJSON, underlyingError: error)
+            throw PluginEvaluationError.decodingPluginOutputFailed(json: outputJSON, underlyingError: error)
         }
         return (output: output, stdoutText: stdoutText)
     }
 }
 
 
-/// Represents the result of evaluating an extension against a particular resolved-target.  This includes generated
-/// commands as well as any diagnostics or output emitted by the extension.
-public struct ExtensionEvaluationResult {
-    /// The extension that produced the results.
-    public let `extension`: ExtensionTarget
+/// Represents the result of invoking a plugin for a particular target.  The result includes generated build
+/// commands as well as any diagnostics or output emitted by the plugin.
+public struct PluginInvocationResult {
+    /// The plugin that produced the results.
+    public let plugin: PluginTarget
     
-    /// The commands generated by the extension (in order).
+    /// The commands generated by the plugin (in order).
     public let commands: [Command]
 
-    /// A command provided by an extension. Extensions are evaluated after package graph resolution (and subsequently,
-    /// if conditions change). Each extension specifies capabilities the capability it provides, which determines what
+    /// A command provided by a plugin. Plugins are evaluated after package graph resolution (and subsequently,
+    /// if conditions change). Each plugin specifies capabilities the capability it provides, which determines what
     /// kinds of commands it generates (when they run during the build, and the specific semantics surrounding them).
     public enum Command {
         
@@ -235,7 +258,7 @@ public struct ExtensionEvaluationResult {
              )
     }
     
-    // Any diagnostics emitted by the extension.
+    // Any diagnostics emitted by the plugin.
     public let diagnostics: [Diagnostic]
     
     // A location representing a file name or path and an optional line number.
@@ -248,33 +271,44 @@ public struct ExtensionEvaluationResult {
         }
     }
     
-    // Any textual output emitted by the extension.
+    // Any textual output emitted by the plugin.
     public let textOutput: String
 }
+public typealias ExtensionEvaluationResult = PluginInvocationResult
 
 
-/// An error in extension evaluation.
-public enum ExtensionEvaluationError: Swift.Error {
+/// An error in plugin evaluation.
+public enum PluginEvaluationError: Swift.Error {
     case outputDirectoryCouldNotBeCreated(path: AbsolutePath, underlyingError: Error)
-    case runningExtensionFailed(underlyingError: Error)
-    case decodingExtensionOutputFailed(json: Data, underlyingError: Error)
+    case runningPluginFailed(underlyingError: Error)
+    case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
+public typealias ExtensionEvaluationError = PluginEvaluationError
 
 
-/// Implements the mechanics of running an extension script (implemented as a set of Swift source files) as a process.
-public protocol ExtensionRunner {
+/// Implements the mechanics of running a plugin script (implemented as a set of Swift source files) as a process.
+public protocol PluginScriptRunner {
     
-    /// Implements the mechanics of running an extension script implemented as a set of Swift source files, for use
-    /// by the package graph when it is evaluating package extensions.
+    /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
+    /// by the package graph when it is evaluating package plugins.
     ///
     /// The `sources` refer to the Swift source files and are accessible in the provided `fileSystem`. The input is
-    /// a serialized ExtensionEvaluationContext, and the output should be a serialized ExtensionEvaluationOutput as
+    /// a serialized PluginEvaluationContext, and the output should be a serialized PluginEvaluationOutput as
     /// well as any free-form output produced by the script (for debugging purposes).
     ///
-    /// Any errors or warnings related to the running of the extension will be added to `diagnostics`.  Any errors
-    /// or warnings emitted by the extension itself will be part of the returned output.
+    /// Any errors or warnings related to the running of the plugin will be added to `diagnostics`.  Any errors
+    /// or warnings emitted by the plugin itself will be part of the returned output.
     ///
     /// Every concrete implementation should cache any intermediates as necessary for fast evaluation.
+    func runPluginScript(
+        sources: Sources,
+        inputJSON: Data,
+        toolsVersion: ToolsVersion,
+        diagnostics: DiagnosticsEngine,
+        fileSystem: FileSystem
+    ) throws -> (outputJSON: Data, stdoutText: Data)
+
+    @available(*, deprecated, message: "used runPlugin() instead")
     func runExtension(
         sources: Sources,
         inputJSON: Data,
@@ -283,10 +317,41 @@ public protocol ExtensionRunner {
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)
 }
+extension PluginScriptRunner {
+    public func runPluginScript(
+        sources: Sources,
+        inputJSON: Data,
+        toolsVersion: ToolsVersion,
+        diagnostics: DiagnosticsEngine,
+        fileSystem: FileSystem
+    ) throws -> (outputJSON: Data, stdoutText: Data) {
+        return try self.runExtension(
+            sources: sources,
+            inputJSON: inputJSON,
+            toolsVersion: toolsVersion,
+            diagnostics: diagnostics,
+            fileSystem: fileSystem)
+    }
+    public func runExtension(
+        sources: Sources,
+        inputJSON: Data,
+        toolsVersion: ToolsVersion,
+        diagnostics: DiagnosticsEngine,
+        fileSystem: FileSystem
+    ) throws -> (outputJSON: Data, stdoutText: Data) {
+        return try self.runPluginScript(
+            sources: sources,
+            inputJSON: inputJSON,
+            toolsVersion: toolsVersion,
+            diagnostics: diagnostics,
+            fileSystem: fileSystem)
+    }
+}
+public typealias ExtensionRunner = PluginScriptRunner
 
 
 /// Serializable context that's passed as input to the evaluation of the extension.
-struct ExtensionEvaluationInput: Codable {
+struct PluginScriptRunnerInput: Codable {
     var targetName: String
     var moduleName: String
     var targetDir: String
@@ -308,7 +373,7 @@ struct ExtensionEvaluationInput: Codable {
 
 
 /// Deserializable result that's received as output from the evaluation of the extension.
-struct ExtensionEvaluationOutput: Codable {
+struct PluginScriptRunnerOutput: Codable {
     let version: Int
     let diagnostics: [Diagnostic]
     struct Diagnostic: Codable {

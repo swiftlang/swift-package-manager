@@ -17,8 +17,8 @@ import SPMBuildCore
 import TSCBasic
 import TSCUtility
 
-/// An extension runner that compiles the extension as an executable binary for the host platform, and invokes it as a subprocess.
-public struct DefaultExtensionRunner: ExtensionRunner {
+/// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
+public struct DefaultPluginScriptRunner: PluginScriptRunner {
     let cacheDir: AbsolutePath
     let resources: ManifestResourceProvider
 
@@ -31,20 +31,20 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         self.resources = manifestResources
     }
 
-    /// Public protocol function that compiles and runs the extension as a subprocess.  The tools version controls the availability of APIs in PackageExtension, and should be
-    public func runExtension(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
+    /// Public protocol function that compiles and runs the plugin as a subprocess.  The tools version controls the availability of APIs in PackagePlugin, and should be
+    public func runPluginScript(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
         let compiledExec = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
         return try self.invoke(compiledExec: compiledExec, input: inputJSON)
     }
 
-    /// Helper function that compiles an extension as an executable and returns the path to it.
+    /// Helper function that compiles a plugin script as an executable and returns the path to it.
     fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> AbsolutePath {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
 
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
         let runtimePath = self.resources.binDir ?? self.resources.libDir
 
-        // Compile the package extension script.
+        // Compile the package plugin script.
         var command = [resources.swiftCompiler.pathString]
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
@@ -59,14 +59,14 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         if self.resources.binDir != nil, localFileSystem.exists(packageFrameworkPath) {
             command += [
                 "-F", packageFrameworkPath.pathString,
-                "-framework", "PackageExtension",
+                "-framework", "PackagePlugin",
                 "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
             ]
-            macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackageExtension.framework/PackageExtension"))
+            macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackagePlugin.framework/PackagePlugin"))
         } else {
             command += [
                 "-L", runtimePath.pathString,
-                "-lPackageExtension",
+                "-lPackagePlugin",
             ]
             #if !os(Windows)
             // -rpath argument is not supported on Windows,
@@ -75,7 +75,7 @@ public struct DefaultExtensionRunner: ExtensionRunner {
             #endif
 
             // note: this is not correct for all platforms, but we only actually use it on macOS.
-            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageExtension.dylib"))
+            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackagePlugin.dylib"))
         }
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
@@ -106,14 +106,14 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         }
 
         command += sources.paths.map { $0.pathString }
-        let compiledExec = cacheDir.appending(component: "compiled-extension")
+        let compiledExec = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", compiledExec.pathString]
 
         let result = try Process.popen(arguments: command)
         let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
         if result.exitStatus != .terminated(code: 0) {
             // TODO: Make this a proper error.
-            throw StringError("failed to compile package extension:\n\(command)\n\n\(output)")
+            throw StringError("failed to compile package plugin:\n\(command)\n\n\(output)")
         }
 
         return compiledExec
@@ -152,13 +152,13 @@ public struct DefaultExtensionRunner: ExtensionRunner {
 
     fileprivate func invoke(compiledExec: AbsolutePath, input: Data) throws -> (outputJSON: Data, stdoutText: Data) {
         // FIXME: It would be more robust to pass it as `stdin` data, but we need TSC support for that.  When this is
-        // changed, PackageExtension will need to change as well (but no extensions need to change).
+        // changed, PackagePlugin will need to change as well (but no plugins need to change).
         var command = [compiledExec.pathString]
         command += [String(decoding: input, as: UTF8.self)]
         let result = try Process.popen(arguments: command)
 
-        // Collect the output. The `PackageExtension` runtime library writes the output as a zero byte followed by
-        // the JSON-serialized ExtensionEvaluationResult. Since this appears after any free-form output from the
+        // Collect the output. The `PackagePlugin` runtime library writes the output as a zero byte followed by
+        // the JSON-serialized PluginEvaluationResult. Since this appears after any free-form output from the
         // script, it can be safely split out while maintaining the ability to see debug output without resorting
         // to side-channel communication that might be not be very cross-platform (e.g. pipes, file handles, etc).
         var stdoutPieces = try result.output.get().split(separator: 0, omittingEmptySubsequences: false)
@@ -166,21 +166,22 @@ public struct DefaultExtensionRunner: ExtensionRunner {
         let stdout = Data(stdoutPieces.joined())
         let stderr = try Data(result.stderrOutput.get())
         guard let json = jsonPiece else {
-            throw DefaultExtensionRunnerError.didNotReceiveJSONFromExtension("didn't get any structured output from running the extension")
+            throw DefaultPluginScriptRunnerError.didNotReceiveJSONFromPlugin("didn't get any structured output from running the plugin")
         }
 
         // Throw an error if we failed.
         if result.exitStatus != .terminated(code: 0) {
-            throw DefaultExtensionRunnerError.extensionSubprocessFailed("failed to invoke package extension: \(String(decoding: stderr, as: UTF8.self))")
+            throw DefaultPluginScriptRunnerError.pluginSubprocessFailed("failed to invoke package plugin: \(String(decoding: stderr, as: UTF8.self))")
         }
 
         // Otherwise return the JSON data and any output text.
         return (outputJSON: json, stdoutText: stderr + stdout)
     }
 }
+public typealias DefaultExtensionRunner = DefaultPluginScriptRunner
 
-/// An error in the default extension runner.
-public enum DefaultExtensionRunnerError: Swift.Error {
-    case didNotReceiveJSONFromExtension(_ message: String)
-    case extensionSubprocessFailed(_ message: String)
+/// An error in the default plugin runner.
+public enum DefaultPluginScriptRunnerError: Swift.Error {
+    case didNotReceiveJSONFromPlugin(_ message: String)
+    case pluginSubprocessFailed(_ message: String)
 }

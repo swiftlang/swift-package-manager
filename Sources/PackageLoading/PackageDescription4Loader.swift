@@ -143,7 +143,7 @@ enum ManifestJSONParser {
             .getArray("providers")
             .map(SystemPackageProviderDescription.init(v4:))
         
-        let capability = try? TargetDescription.ExtensionCapability(v4: json.getJSON("extensionCapability"))
+        let pluginCapability = try? TargetDescription.PluginCapability(v4: json.getJSON("pluginCapability"))
 
         let dependencies = try json
             .getArray("dependencies")
@@ -167,7 +167,7 @@ enum ManifestJSONParser {
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
             providers: providers,
-            extensionCapability: capability,
+            pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(json),
             checksum: json.get("checksum")
         )
@@ -270,8 +270,8 @@ extension PackageModel.ProductType {
 
             self = .library(libraryType)
             
-        case "extension":
-            self = .extension
+        case "plugin":
+            self = .plugin
 
         default:
             throw InternalError("unexpected product type: \(json)")
@@ -405,8 +405,8 @@ extension TargetDescription.TargetType {
             self = .system
         case "binary":
             self = .binary
-        case "extension":
-            self = .extension
+        case "plugin":
+            self = .plugin
         default:
             throw InternalError("invalid target \(string)")
         }
@@ -435,7 +435,7 @@ extension TargetDescription.Dependency {
     }
 }
 
-extension TargetDescription.ExtensionCapability {
+extension TargetDescription.PluginCapability {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
         switch type {

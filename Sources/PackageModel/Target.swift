@@ -17,7 +17,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         ClangTarget.self,
         SystemLibraryTarget.self,
         BinaryTarget.self,
-        ExtensionTarget.self,
+        PluginTarget.self,
     ]
 
     /// The target kind.
@@ -27,7 +27,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         case systemModule = "system-target"
         case test
         case binary
-        case `extension` = "extension"
+        case plugin
     }
 
     /// A reference to a product from a target dependency.
@@ -576,23 +576,23 @@ public final class BinaryTarget: Target {
     }
 }
 
-public final class ExtensionTarget: Target {
+public final class PluginTarget: Target {
 
-    public let capability: ExtensionCapability
+    public let capability: PluginCapability
     
     public init(
         name: String,
         platforms: [SupportedPlatform] = [],
         sources: Sources,
-        extensionCapability: ExtensionCapability,
+        pluginCapability: PluginCapability,
         dependencies: [Target.Dependency] = []
     ) {
-        self.capability = extensionCapability
+        self.capability = pluginCapability
         super.init(
             name: name,
             defaultLocalization: nil,
             platforms: platforms,
-            type: .extension,
+            type: .plugin,
             sources: sources,
             dependencies: dependencies,
             buildSettings: .init()
@@ -611,12 +611,12 @@ public final class ExtensionTarget: Target {
 
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.capability = try container.decode(ExtensionCapability.self, forKey: .capability)
+        self.capability = try container.decode(PluginCapability.self, forKey: .capability)
         try super.init(from: decoder)
     }
 }
 
-public enum ExtensionCapability: Equatable, Codable {
+public enum PluginCapability: Equatable, Codable {
     case prebuild
     case buildTool
     case postbuild

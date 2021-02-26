@@ -2162,7 +2162,7 @@ class PackageBuilderTests: XCTestCase {
 
     func testExtensionTargetsAreGuardededByFeatureFlag() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/MyExtension/extension.swift",
+            "/Foo/Sources/MyPlugin/plugin.swift",
             "/Foo/Sources/MyLibrary/library.swift"
         )
 
@@ -2171,12 +2171,12 @@ class PackageBuilderTests: XCTestCase {
             v: .vNext,
             targets: [
                 try TargetDescription(
-                    name: "MyExtension",
+                    name: "MyPlugin",
                     dependencies: [
                         .target(name: "MyLibrary"),
                     ],
-                    type: .extension,
-                    extensionCapability: .buildTool
+                    type: .plugin,
+                    pluginCapability: .buildTool
                 ),
                 try TargetDescription(
                     name: "MyLibrary",
@@ -2185,18 +2185,18 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        // Check that extension targets are set up correctly when the feature flag is set.
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowExtensionTargets: true, in: fs) { package, diagnostics in
-            package.checkModule("MyExtension") { target in
-                target.check(extensionCapability: .buildTool)
+        // Check that plugin targets are set up correctly when the feature flag is set.
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: true, in: fs) { package, diagnostics in
+            package.checkModule("MyPlugin") { target in
+                target.check(pluginCapability: .buildTool)
                 target.check(dependencies: ["MyLibrary"])
             }
             package.checkModule("MyLibrary")
         }
         
         // Check that the right diagnostics are emitted when the feature flag isn't set.
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowExtensionTargets: false, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "extension target 'MyExtension' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_EXTENSION_TARGETS=1 in environment)", behavior: .error)
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: false, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "plugin target 'MyPlugin' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)", behavior: .error)
         }
     }
 
@@ -2232,7 +2232,7 @@ final class PackageBuilderTester {
         path: AbsolutePath = .root,
         binaryArtifacts: [BinaryArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
-        allowExtensionTargets: Bool = false,
+        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
@@ -2252,7 +2252,7 @@ final class PackageBuilderTester {
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
-                allowExtensionTargets: allowExtensionTargets,
+                allowPluginTargets: allowPluginTargets,
                 createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
@@ -2435,11 +2435,11 @@ final class PackageBuilderTester {
             XCTAssertEqual(platform?.options, options, file: file, line: line)
         }
         
-        func check(extensionCapability: ExtensionCapability, file: StaticString = #file, line: UInt = #line) {
-            guard case let target as ExtensionTarget = target else {
-                return XCTFail("Extension capability is being checked on a non-Extension target", file: file, line: line)
+        func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
+            guard case let target as PluginTarget = target else {
+                return XCTFail("Plugin capability is being checked on a target", file: file, line: line)
             }
-            XCTAssertEqual(target.capability, extensionCapability, file: file, line: line)
+            XCTAssertEqual(target.capability, pluginCapability, file: file, line: line)
         }
     }
 

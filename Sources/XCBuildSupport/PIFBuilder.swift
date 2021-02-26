@@ -337,7 +337,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
-        case .extension:
+        case .plugin:
             return
         }
     }
@@ -355,8 +355,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         case .binary:
             // Binary target don't need to be built.
             return
-        case .extension:
-            // Package extension targets.
+        case .plugin:
+            // Package plugin targets.
             return
         }
     }
@@ -1365,8 +1365,8 @@ extension ProductType {
             return .test
         case .library:
             return .library
-        case .extension:
-            return .extension
+        case .plugin:
+            return .plugin
         }
     }
 }

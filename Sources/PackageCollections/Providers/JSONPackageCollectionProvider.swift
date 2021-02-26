@@ -362,7 +362,7 @@ extension PackageModel.ProductType {
         case .executable:
             self = .executable
         case .extension:
-            self = .extension
+            self = .plugin
         case .test:
             self = .test
         }

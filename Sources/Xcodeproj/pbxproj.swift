@@ -390,7 +390,7 @@ public func xcodeProject(
             productType = .framework
         case .test:
             productType = .unitTest
-        case .systemModule, .binary, .extension:
+        case .systemModule, .binary, .plugin:
             throw InternalError("\(target.type) not supported")
         }
 

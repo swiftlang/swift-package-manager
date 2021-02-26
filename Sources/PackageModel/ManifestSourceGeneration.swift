@@ -156,8 +156,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "library", subnodes: params, multiline: true)
         case .executable:
             self.init(enum: "executable", subnodes: params, multiline: true)
-        case .extension:
-            self.init(enum: "extension", subnodes: params, multiline: true)
+        case .plugin:
+            self.init(enum: "plugin", subnodes: params, multiline: true)
         case .test:
             self.init(enum: "test", subnodes: params, multiline: true)
         }
@@ -169,8 +169,8 @@ fileprivate extension SourceCodeFragment {
 
         params.append(SourceCodeFragment(key: "name", string: target.name))
         
-        if let extensionCapability = target.extensionCapability {
-            let node = SourceCodeFragment(from: extensionCapability)
+        if let pluginCapability = target.pluginCapability {
+            let node = SourceCodeFragment(from: pluginCapability)
             params.append(SourceCodeFragment(key: "capability", subnode: node))
         }
 
@@ -252,8 +252,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "systemLibrary", subnodes: params, multiline: true)
         case .binary:
             self.init(enum: "binaryTarget", subnodes: params, multiline: true)
-        case .extension:
-            self.init(enum: "extension", subnodes: params, multiline: true)
+        case .plugin:
+            self.init(enum: "plugin", subnodes: params, multiline: true)
         }
     }
 
@@ -359,8 +359,8 @@ fileprivate extension SourceCodeFragment {
         }
     }
 
-    /// Instantiates a SourceCodeFragment to represent a single extension capability.
-    init(from capability: TargetDescription.ExtensionCapability) {
+    /// Instantiates a SourceCodeFragment to represent a single plugin capability.
+    init(from capability: TargetDescription.PluginCapability) {
         switch capability {
         case .prebuild:
             self.init(enum: "prebuild", subnodes: [])

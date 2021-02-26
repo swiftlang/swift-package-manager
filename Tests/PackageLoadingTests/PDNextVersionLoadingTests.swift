@@ -21,66 +21,66 @@ class PackageDescriptionNextVersionLoadingTests: PackageDescriptionLoadingTests 
         .vNext
     }
 
-    func testPrebuildExtensionTarget() throws {
+    func testPrebuildPluginTarget() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
                name: "Foo",
                targets: [
-                   .extension(
+                   .plugin(
                        name: "Foo",
                        capability: .prebuild()
-                    ),
+                    )
                ]
             )
             """
 
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .extension)
-            XCTAssertEqual(manifest.targets[0].extensionCapability, .prebuild)
+            XCTAssertEqual(manifest.targets[0].type, .plugin)
+            XCTAssertEqual(manifest.targets[0].pluginCapability, .prebuild)
         }
     }
 
-    func testBuildToolExtensionTarget() throws {
+    func testBuildToolPluginTarget() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
                name: "Foo",
                targets: [
-                   .extension(
+                   .plugin(
                        name: "Foo",
                        capability: .buildTool()
-                    ),
+                    )
                ]
             )
             """
 
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .extension)
-            XCTAssertEqual(manifest.targets[0].extensionCapability, .buildTool)
+            XCTAssertEqual(manifest.targets[0].type, .plugin)
+            XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
         }
     }
 
-    func testPostbuildExtensionTarget() throws {
+    func testPostbuildPluginTarget() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
                name: "Foo",
                targets: [
-                   .extension(
+                   .plugin(
                        name: "Foo",
                        capability: .postbuild()
-                    ),
+                    )
                ]
             )
             """
 
         loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .extension)
-            XCTAssertEqual(manifest.targets[0].extensionCapability, .postbuild)
+            XCTAssertEqual(manifest.targets[0].type, .plugin)
+            XCTAssertEqual(manifest.targets[0].pluginCapability, .postbuild)
         }
     }
 }

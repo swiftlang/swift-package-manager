@@ -40,14 +40,14 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
         }
     }
     
-    func testExtensionsAreUnavailable() throws {
+    func testPluginsAreUnavailable() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
             let package = Package(
                name: "Foo",
                targets: [
-                   .extension(
+                   .plugin(
                        name: "Foo",
                        capability: .buildTool()
                    ),

@@ -9,12 +9,12 @@
  */
 
 /*
- Like package manifests, package extensions are Swift scripts that use API
- from a specialized PackageExtension library provided by SwiftPM. Extensions
+ Like package manifests, package plugins are Swift scripts that use API
+ from a specialized PackagePlugin library provided by SwiftPM. Plugins
  run in a sandbox and have read-only access to the package directory.
 
- The input to a package extension is passed by SwiftPM when it is invoked,
- and can be accessed through the `targetBuildContext` global. The extension
+ The input to a package plugin is passed by SwiftPM when it is invoked,
+ and can be accessed through the `targetBuildContext` global. The plugin
  generates commands to run during the build using the `commandConstructor`
  global, and can emit diagnostics using the `diagnosticsEmitter` global.
  */
@@ -26,11 +26,11 @@
 public let targetBuildContext: TargetBuildContext = CreateTargetBuildContext()
 
 /// Constructs commands to run during the build, including full command lines.
-/// All paths should be based on the ones passed to the extension in the target
+/// All paths should be based on the ones passed to the plugin in the target
 /// build context.
 public let commandConstructor = CommandConstructor()
 
 /// Emits errors, warnings, and remarks to be shown as a result of running the
-/// extension. After emitting one or more errors, the extension should return a
+/// plugin. After emitting one or more errors, the plugin should return a
 /// non-zero exit code.
 public let diagnosticsEmitter = DiagnosticsEmitter()

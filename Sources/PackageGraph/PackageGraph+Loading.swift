@@ -114,7 +114,7 @@ extension PackageGraph {
                         fileSystem: fileSystem,
                         diagnostics: diagnostics,
                         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                        allowExtensionTargets: allowExtensionTargets,
+                        allowPluginTargets: allowExtensionTargets,
                         createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
                     )
                     let package = try builder.construct()
@@ -312,11 +312,11 @@ private func createResolvedPackages(
         for targetBuilder in targetBuilders {
             targetBuilder.dependencies += try targetBuilder.target.dependencies.compactMap { dependency in
                 switch dependency {
-                case .target(let targetName, let conditions):
-                    guard let target = targetMap[targetName] else {
-                        throw InternalError("unknown target \(targetName)")
+                case .target(let target, let conditions):
+                    guard let targetBuilder = targetMap[target] else {
+                        throw InternalError("unknown target \(target.name)")
                     }
-                    return .target(target, conditions: conditions)
+                    return .target(targetBuilder, conditions: conditions)
                 case .product:
                     return nil
                 }

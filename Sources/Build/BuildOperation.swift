@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2015 - 2019 Apple Inc. and the Swift project authors
+ Copyright 2015 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -31,8 +31,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
     
-    /// The closure for evaluating extensions in the package graph.
-    let extensionEvaluator: (PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]]
+    /// The closure for invoking plugins in the package graph.
+    let pluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]]
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -63,14 +63,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        extensionEvaluator: @escaping (PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]],
+        pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
-        self.extensionEvaluator = extensionEvaluator
+        self.pluginInvoker = pluginInvoker
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
     }
@@ -81,8 +81,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
     
-    public func getExtensionEvaluationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [ExtensionEvaluationResult]] {
-        return try self.extensionEvaluator(graph)
+    public func getPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+        return try self.pluginInvoker(graph)
     }
 
     /// Compute and return the latest build description.
@@ -166,11 +166,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Create the build plan and return the build description.
     private func plan() throws -> BuildDescription {
         let graph = try getPackageGraph()
-        let extensionEvaluationResults = try getExtensionEvaluationResults(for: graph)
+        let pluginInvocationResults = try getPluginInvocationResults(for: graph)
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
-            extensionEvaluationResults: extensionEvaluationResults,
+            pluginInvocationResults: pluginInvocationResults,
             diagnostics: diagnostics
         )
         self.buildPlan = plan

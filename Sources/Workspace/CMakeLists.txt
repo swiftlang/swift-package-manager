@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Workspace
-  DefaultExtensionRunner.swift
+  DefaultPluginScriptRunner.swift
   Destination.swift
   Diagnostics.swift
   Export.swift
