@@ -179,17 +179,33 @@ extension CertificatePolicy {
 
         if certChain.count >= 1, let httpClient = httpClient {
             // Whether cert chain can be trusted depends on OCSP result
-            self.BoringSSL_OCSP_isGood(certificate: certChain[0], issuer: certChain[1], httpClient: httpClient, callbackQueue: callbackQueue, callback: callback)
+            ocspClient.checkStatus(certificate: certChain[0], issuer: certChain[1], httpClient: httpClient,
+                                   diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
         } else {
             wrappedCallback(.success(()))
         }
     }
+    #endif
+}
 
-    private func BoringSSL_OCSP_isGood(certificate: Certificate,
-                                       issuer: Certificate,
-                                       httpClient: HTTPClient,
-                                       callbackQueue: DispatchQueue,
-                                       callback: @escaping (Result<Void, Error>) -> Void) {
+#if !os(macOS)
+private let ocspClient = BoringSSLOCSPClient()
+
+private struct BoringSSLOCSPClient {
+    private let resultCache = ThreadSafeKeyValueStore<CacheKey, CacheValue>()
+
+    private let cacheTTL: DispatchTimeInterval
+
+    init(cacheTTL: DispatchTimeInterval = .seconds(300)) {
+        self.cacheTTL = cacheTTL
+    }
+
+    func checkStatus(certificate: Certificate,
+                     issuer: Certificate,
+                     httpClient: HTTPClient,
+                     diagnosticsEngine: DiagnosticsEngine,
+                     callbackQueue: DispatchQueue,
+                     callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
 
         let ocspURLs = CCryptoBoringSSL_X509_get1_ocsp(certificate.underlying)
@@ -224,14 +240,25 @@ extension CertificatePolicy {
 
         let requestData = Data(UnsafeBufferPointer(start: out.pointee, count: count))
 
-        let results = ThreadSafeArrayStore<Bool>()
+        let results = ThreadSafeArrayStore<Result<Bool, Error>>()
         let group = DispatchGroup()
 
         // Query each OCSP responder and record result
         for index in 0 ..< ocspURLCount {
             guard let urlStr = CCryptoBoringSSL_sk_OPENSSL_STRING_value(ocspURLs, numericCast(index)),
                 let url = String(validatingUTF8: urlStr).flatMap({ URL(string: $0) }) else {
+                results.append(.failure(OCSPError.badURL))
                 continue
+            }
+
+            let cacheKey = CacheKey(url: url, request: requestData)
+            if let cachedResult = self.resultCache[cacheKey] {
+                if cachedResult.timestamp + self.cacheTTL > DispatchTime.now() {
+                    results.append(.success(cachedResult.isCertGood))
+                    continue
+                } else {
+                    _ = self.resultCache.removeValue(forKey: cacheKey)
+                }
             }
 
             var headers = HTTPClientHeaders()
@@ -246,16 +273,20 @@ extension CertificatePolicy {
                 defer { group.leave() }
 
                 switch result {
-                case .failure:
-                    return
+                case .failure(let error):
+                    results.append(.failure(error))
                 case .success(let response):
-                    guard let responseData = response.body else { return }
+                    guard let responseData = response.body else {
+                        results.append(.failure(OCSPError.emptyResponseBody))
+                        return
+                    }
 
                     let bytes = responseData.copyBytes()
                     // Convert response to bio then OCSP response
                     guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()),
                         CCryptoBoringSSL_BIO_write(bio, bytes, numericCast(bytes.count)) > 0,
                         let response = d2i_OCSP_RESPONSE_bio(bio, nil) else {
+                        results.append(.failure(OCSPError.responseConversionFailure))
                         return
                     }
                     defer { CCryptoBoringSSL_BIO_free(bio) }
@@ -266,6 +297,7 @@ extension CertificatePolicy {
                         CCryptoBoringSSL_OBJ_obj2nid(response.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic,
                         let basicResp = OCSP_response_get1_basic(response),
                         let basicRespData = basicResp.pointee.tbsResponseData?.pointee else {
+                        results.append(.failure(OCSPError.badResponse))
                         return
                     }
                     defer { OCSP_BASICRESP_free(basicResp) }
@@ -274,11 +306,14 @@ extension CertificatePolicy {
                     for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
                         guard let singleResp = sk_OCSP_SINGLERESP_value(basicRespData.responses, numericCast(i)),
                             let certStatus = singleResp.pointee.certStatus else {
-                            continue
+                            results.append(.failure(OCSPError.badResponse))
+                            return
                         }
 
                         // Is the certificate in good status?
-                        results.append(certStatus.pointee.type == V_OCSP_CERTSTATUS_GOOD)
+                        let isCertGood = certStatus.pointee.type == V_OCSP_CERTSTATUS_GOOD
+                        results.append(.success(isCertGood))
+                        self.resultCache[cacheKey] = CacheValue(isCertGood: isCertGood, timestamp: DispatchTime.now())
                         break
                     }
                 }
@@ -287,18 +322,58 @@ extension CertificatePolicy {
 
         group.notify(queue: callbackQueue) {
             // If there's no result then something must have gone wrong
-            guard !results.isEmpty else {
+            guard !results.isEmpty, results.compactMap({ $0.failure }).isEmpty else {
+                diagnosticsEngine.emit(error: "OCSP failed. All results: \(results)")
                 return wrappedCallback(.failure(CertificatePolicyError.ocspFailure))
             }
             // Is there response "bad status" response?
-            guard results.get().first(where: { !$0 }) == nil else {
+            guard results.compactMap({ $0.success }).first(where: { !$0 }) == nil else {
                 return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
             }
             wrappedCallback(.success(()))
         }
     }
-    #endif
+
+    private struct CacheKey: Hashable {
+        let url: URL
+        let request: Data
+    }
+
+    private struct CacheValue {
+        let isCertGood: Bool
+        let timestamp: DispatchTime
+    }
 }
+
+private extension Result {
+    var failure: Failure? {
+        switch self {
+        case .failure(let failure):
+            return failure
+        case .success:
+            return nil
+        }
+    }
+
+    var success: Success? {
+        switch self {
+        case .failure:
+            return nil
+        case .success(let value):
+            return value
+        }
+    }
+}
+
+private extension HTTPClient {
+    static func makeDefault(callbackQueue: DispatchQueue) -> HTTPClient {
+        var httpClientConfig = HTTPClientConfiguration()
+        httpClientConfig.callbackQueue = callbackQueue
+        httpClientConfig.requestTimeout = .seconds(1)
+        return HTTPClient(configuration: httpClientConfig)
+    }
+}
+#endif
 
 // MARK: - Supporting methods and types
 
@@ -411,6 +486,13 @@ enum CertificatePolicyError: Error, Equatable {
     case ocspFailure
 }
 
+private enum OCSPError: Error {
+    case badURL
+    case emptyResponseBody
+    case responseConversionFailure
+    case badResponse
+}
+
 // MARK: - Certificate policies
 
 /// Default policy for validating certificates used to sign package collections.
@@ -459,9 +541,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.diagnosticsEngine = diagnosticsEngine
 
         #if !os(macOS)
-        var httpClientConfig = HTTPClientConfiguration()
-        httpClientConfig.callbackQueue = callbackQueue
-        self.httpClient = HTTPClient(configuration: httpClientConfig)
+        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
     }
 
@@ -547,9 +627,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
         self.diagnosticsEngine = diagnosticsEngine
 
         #if !os(macOS)
-        var httpClientConfig = HTTPClientConfiguration()
-        httpClientConfig.callbackQueue = callbackQueue
-        self.httpClient = HTTPClient(configuration: httpClientConfig)
+        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
     }
 
