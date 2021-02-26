@@ -19,9 +19,7 @@ import TSCBasic
 
 class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -53,9 +51,7 @@ class PackageCollectionSigningTests: XCTestCase {
     }
 
     func test_RSA_signAndValidate_collectionMismatch() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let collection1 = PackageCollectionModel.V1.Collection(
@@ -111,9 +107,7 @@ class PackageCollectionSigningTests: XCTestCase {
     }
 
     func test_EC_signAndValidate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -145,9 +139,7 @@ class PackageCollectionSigningTests: XCTestCase {
     }
 
     func test_EC_signAndValidate_collectionMismatch() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let collection1 = PackageCollectionModel.V1.Collection(
@@ -208,9 +200,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -302,9 +292,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -397,9 +385,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -453,9 +439,7 @@ class PackageCollectionSigningTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()

@@ -15,9 +15,7 @@ import XCTest
 
 class RSAKeySigningTests: XCTestCase {
     func test_signAndValidate_happyCase() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         let privateKey = try RSAPrivateKey(pem: rsaPrivateKey.bytes)
         let publicKey = try RSAPublicKey(pem: rsaPublicKey.bytes)
@@ -28,9 +26,7 @@ class RSAKeySigningTests: XCTestCase {
     }
 
     func test_signAndValidate_mismatch() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         let privateKey = try RSAPrivateKey(pem: rsaPrivateKey.bytes)
         let publicKey = try RSAPublicKey(pem: rsaPublicKey.bytes)

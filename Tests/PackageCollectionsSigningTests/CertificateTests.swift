@@ -17,9 +17,7 @@ import TSCBasic
 
 class CertificateTests: XCTestCase {
     func test_withRSAKey_fromDER() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -42,9 +40,7 @@ class CertificateTests: XCTestCase {
     }
 
     func test_withECKey_fromDER() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "Signing", "Test_ec.cer")

@@ -5565,7 +5565,7 @@ final class WorkspaceTests: XCTestCase {
         ])
     }
 
-    func testDuplicateIdentityAtRoot() throws {
+    func testDuplicateDependencyIdentityAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5627,7 +5627,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateNameAtRoot() throws {
+    func testDuplicateExplicitDependencyNameAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5682,6 +5682,307 @@ final class WorkspaceTests: XCTestCase {
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
                     diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+            }
+        }
+    }
+
+    func testDuplicateManifestNameAtRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            "FooProduct",
+                            "BarProduct"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "MyPackage",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "MyPackage",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            }
+        }
+    }
+
+    // this test is currently demonstrating bad behavior that would be fixed with https://github.com/apple/swift-package-manager/pull/3280
+    /*func testDuplicateManifestNameAtRoot_ExplicitTargetDependecy() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "MyPackage",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "MyPackage",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            }
+        }
+    }*/
+
+    func testExplicitDependencyNameAndManifestNameMismatchAtRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            "FooProduct",
+                            "BarProduct"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "MyPackage1", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "MyPackage2", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "MyPackage",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "MyPackage",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/foo' has an explicit name 'MyPackage1' which does not match the name 'MyPackage' set for '/tmp/ws/pkgs/foo'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+                result.check(
+                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar' has an explicit name 'MyPackage2' which does not match the name 'MyPackage' set for '/tmp/ws/pkgs/bar'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+            }
+        }
+    }
+
+    // this test is currently demonstrating bad behavior that would be fixed with https://github.com/apple/swift-package-manager/pull/3280
+    /*func testManifestNameAndIdentityConflictAtRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            "FooPackage",
+                            "BarPackage"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "foo",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "foo",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            }
+        }
+    }
+    */
+
+    func testManifestNameAndIdentityConflictWithExplicitDependencyNamesAtRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            "FooPackage",
+                            "BarPackage"
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "foo",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "foo",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
                     behavior: .error,
                     location: "'Root' /tmp/ws/roots/Root"
                 )

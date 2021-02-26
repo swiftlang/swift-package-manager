@@ -17,9 +17,7 @@ import TSCBasic
 
 class RSAKeyTests: XCTestCase {
     func testPublicKeyFromCertificate() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -31,17 +29,13 @@ class RSAKeyTests: XCTestCase {
     }
 
     func testPublicKeyFromPEM() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         XCTAssertNoThrow(try RSAPublicKey(pem: rsaPublicKey.bytes))
     }
 
     func testPrivateKeyFromPEM() throws {
-        if !isSupportedPlatform {
-            try XCTSkipIf(true)
-        }
+        try skipIfUnsupportedPlatform()
 
         XCTAssertNoThrow(try RSAPrivateKey(pem: rsaPrivateKey.bytes))
     }

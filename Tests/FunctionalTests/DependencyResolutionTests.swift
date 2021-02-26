@@ -65,6 +65,15 @@ class DependencyResolutionTests: XCTestCase {
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
+    
+    func testConvenienceBranchInit() throws {
+        fixture(name: "DependencyResolution/External/Branch") { prefix in
+            // Tests the convenience init .package(url: , branch: )
+            let app = prefix.appending(component: "Bar")
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+            XCTAssert(result.exitStatus == .terminated(code: 0))
+        }
+    }
 
     func testMirrors() {
         fixture(name: "DependencyResolution/External/Mirror") { prefix in
@@ -76,7 +85,7 @@ class DependencyResolutionTests: XCTestCase {
             try ["Foo", "Bar", "BarMirror"].forEach { directory in
                 let path = prefix.appending(component: directory)
                 _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "init")
-                _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "checkout", "-b", "main")
+                _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "checkout", "-b", "newMain")
             }
 
             // run with no mirror

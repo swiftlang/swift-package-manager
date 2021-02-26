@@ -10,11 +10,11 @@
 
 import Foundation
 
-#if canImport(Security)
+#if os(macOS)
 import Security
 #endif
 
-#if canImport(Security)
+#if os(macOS)
 typealias RSAPublicKey = CoreRSAPublicKey
 typealias RSAPrivateKey = CoreRSAPrivateKey
 #else
@@ -24,7 +24,7 @@ typealias RSAPrivateKey = BoringSSLRSAPrivateKey
 
 // MARK: - RSA key implementations using the Security framework
 
-#if canImport(Security)
+#if os(macOS)
 struct CoreRSAPrivateKey: PrivateKey {
     let underlying: SecKey
 

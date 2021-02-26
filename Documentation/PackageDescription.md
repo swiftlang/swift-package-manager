@@ -298,6 +298,16 @@ static func package(url: String, _ requirement: Package.Dependency.Requirement) 
 
 /// Adds a remote package dependency given a branch requirement.
 ///
+///    .package(url: "https://example.com/example-package.git", branch: "main"),
+///
+/// - Parameters:
+///     - name: The name of the package, or nil to deduce it from the URL.
+///     - url: The valid Git URL of the package.
+///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+static func package(name: String? = nil, url: String, branch: String) -> Package.Dependency
+
+/// Adds a remote package dependency given a branch requirement.
+///
 ///    .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
 ///
 /// - Parameters:

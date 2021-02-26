@@ -20,8 +20,6 @@ import SPMTestSupport
 import TSCBasic
 import TSCUtility
 
-private let enableSignatureCheck = JSONPackageCollectionProvider.enableSignatureCheck
-
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {
         fixture(name: "Collections") { directoryPath in
@@ -335,9 +333,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedGood() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
+        try skipIfSignatureCheckNotSupported()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -403,9 +400,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_skipSignatureCheck() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -471,9 +466,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_noTrustedRootCertsConfigured() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
+        try skipIfSignatureCheckNotSupported()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -515,9 +509,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedBad() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
+        try skipIfSignatureCheckNotSupported()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -560,9 +553,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSignedLocalFile() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
+        try skipIfSignatureCheckNotSupported()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -610,9 +602,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testRequiredSigningGood() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
@@ -683,9 +673,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testMissingRequiredSignature() throws {
-        if !enableSignatureCheck {
-            try XCTSkipIf(true)
-        }
+        try skipIfSignatureCheckDisabled()
 
         fixture(name: "Collections") { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good.json")
@@ -729,6 +717,20 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                     XCTFail("unexpected error \(error)")
                 }
             })
+        }
+    }
+}
+
+private extension XCTestCase {
+    func skipIfSignatureCheckDisabled() throws {
+        if !JSONPackageCollectionProvider.enableSignatureCheck {
+            throw XCTSkip("Skipping test because signature check is disabled")
+        }
+    }
+
+    func skipIfSignatureCheckNotSupported() throws {
+        if !JSONPackageCollectionProvider.isSignatureCheckSupported {
+            throw XCTSkip("Skipping test because signature check is not supported")
         }
     }
 }

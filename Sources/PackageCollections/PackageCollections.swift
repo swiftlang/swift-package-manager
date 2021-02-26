@@ -14,6 +14,13 @@ import TSCBasic
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol {
+    // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
+    #if os(macOS) || os(Linux) || os(Windows)
+    static let isSupportedPlatform = true
+    #else
+    static let isSupportedPlatform = false
+    #endif
+
     private let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine?
     private let storageContainer: (storage: Storage, owned: Bool)
@@ -64,6 +71,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
                                 callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
@@ -115,6 +126,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
@@ -137,10 +152,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    public func refreshCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    ) {
+    public func refreshCollection(_ source: PackageCollectionsModel.CollectionSource,
+                                  callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil, callback: callback)
     }
 
@@ -148,6 +165,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
                               order: Int? = nil,
                               trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -182,6 +203,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func removeCollection(_ source: PackageCollectionsModel.CollectionSource,
                                  callback: @escaping (Result<Void, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.storage.sources.remove(source: source) { result in
             switch result {
             case .failure(let error):
@@ -195,11 +220,19 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func moveCollection(_ source: PackageCollectionsModel.CollectionSource,
                                to order: Int,
                                callback: @escaping (Result<Void, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.storage.sources.move(source: source, to: order, callback: callback)
     }
 
     public func updateCollection(_ source: PackageCollectionsModel.CollectionSource,
                                  callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.storage.sources.update(source: source) { result in
             switch result {
             case .failure(let error):
@@ -215,6 +248,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // If not found locally (storage), the collection will be fetched from the source.
     public func getCollection(_ source: PackageCollectionsModel.CollectionSource,
                               callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         if let errors = source.validate()?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
@@ -234,11 +271,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // MARK: - Packages
 
-    public func findPackages(
-        _ query: String,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
+    public func findPackages(_ query: String,
+                             collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
+                             callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
@@ -257,6 +296,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func getPackageMetadata(_ reference: PackageReference,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         // first find in storage
         self.findPackage(identifier: reference.identity) { result in
             switch result {
@@ -288,10 +331,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // MARK: - Targets
 
-    public func listTargets(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
-    ) {
+    public func listTargets(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
+                            callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         self.listCollections(identifiers: collections) { result in
             switch result {
             case .failure(let error):
@@ -303,12 +348,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    public func findTargets(
-        _ query: String,
-        searchType: PackageCollectionsModel.TargetSearchType? = nil,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
-    ) {
+    public func findTargets(_ query: String,
+                            searchType: PackageCollectionsModel.TargetSearchType? = nil,
+                            collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
+                            callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void) {
+        guard Self.isSupportedPlatform else {
+            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+        }
+
         let searchType = searchType ?? .exactMatch
 
         self.storage.sources.list { result in
@@ -393,10 +440,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    func findPackage(
-        identifier: PackageIdentity,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void
-    ) {
+    func findPackage(identifier: PackageIdentity,
+                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
