@@ -64,6 +64,23 @@ extension Package.Dependency {
     ) -> Package.Dependency {
         return .init(name: name, url: url, requirement: .upToNextMajor(from: version))
     }
+    
+    /// Adds a remote package dependency given a branch requirement.
+    ///
+    ///    .package(url: "https://example.com/example-package.git", branch: "main"),
+    ///
+    /// - Parameters:
+    ///     - name: The name of the package, or nil to deduce it from the URL.
+    ///     - url: The valid Git URL of the package.
+    ///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func package(
+        name: String? = nil,
+        url: String,
+        branch: String
+    ) -> Package.Dependency {
+        return .init(name: name, url: url, requirement: .branch(branch))
+    }
 
     /// Adds a remote package dependency given a version requirement.
     ///
@@ -246,11 +263,6 @@ extension Package.Dependency {
 extension Package.Dependency {
     @available(*, unavailable, message: "use package(url:_:) with the .exact(Version) initializer instead")
     public static func package(url: String, version: Version) -> Package.Dependency {
-        fatalError()
-    }
-
-    @available(*, unavailable, message: "use package(url:_:) with the .branch(String) initializer instead")
-    public static func package(url: String, branch: String) -> Package.Dependency {
         fatalError()
     }
 

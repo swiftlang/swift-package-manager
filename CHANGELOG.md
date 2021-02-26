@@ -1,5 +1,13 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift v.Next
+-----------
+* [#3292]
+   * Improvements
+   
+   Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, branch: String)`.
+
+
 Swift 5.4
 -----------
 * [#2937]
@@ -21,6 +29,8 @@ Swift 5.4
   * Source Breakages for Swift Packages
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
+    
+
 
 Swift 4.2
 ---------
