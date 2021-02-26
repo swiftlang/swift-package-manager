@@ -242,4 +242,18 @@ final class BuildToolTests: XCTestCase {
             }
         }
     }
+
+    func testBuildCompleteMessage() {
+        fixture(name: "DependencyResolution/Internal/Simple") { path in
+            do {
+                let result = try execute([], packagePath: path)
+                XCTAssertTrue(result.stdout.contains("[6/6] Build complete!"), result.stdout)
+            }
+
+            do {
+                let result = try execute([], packagePath: path)
+                XCTAssertTrue(result.stdout.contains("[0/0] Build complete!"), result.stdout)
+            }
+        }
+    }
 }
