@@ -22,7 +22,7 @@ class PluginTests: XCTestCase {
                 XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating Foo.swift from Foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build Completed"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
@@ -38,7 +38,7 @@ class PluginTests: XCTestCase {
                 XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating Foo.swift from Foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build Completed"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
