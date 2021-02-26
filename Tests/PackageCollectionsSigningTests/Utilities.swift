@@ -54,7 +54,7 @@ struct TestCertificatePolicy: CertificatePolicy {
                 return callbackQueue.async { callback(.failure(CertificatePolicyError.codeSigningCertRequired)) }
             }
 
-            #if canImport(Security)
+            #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
                         diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
             #else
@@ -173,10 +173,5 @@ extension String {
 }
 
 extension XCTestCase {
-    func skipIfUnsupportedPlatform() throws {
-        #if os(macOS)
-        #else
-        throw XCTSkip("Skipping test on unsupported platform")
-        #endif
-    }
+    func skipIfUnsupportedPlatform() throws {}
 }

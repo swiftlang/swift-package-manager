@@ -35,10 +35,6 @@ protocol CertificatePolicy {
 }
 
 extension CertificatePolicy {
-    #if !canImport(Security)
-    typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
-    #endif
-
     #if os(macOS)
     /// Verifies a certificate chain.
     ///
@@ -93,6 +89,8 @@ extension CertificatePolicy {
     }
 
     #else
+    typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
+
     /// Verifies a certificate chain.
     ///
     /// - Parameters:
@@ -431,7 +429,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine
 
-    #if !canImport(Security)
+    #if !os(macOS)
     private let httpClient: HTTPClient
     #endif
 
@@ -460,7 +458,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
 
-        #if !canImport(Security)
+        #if !os(macOS)
         var httpClientConfig = HTTPClientConfiguration()
         httpClientConfig.callbackQueue = callbackQueue
         self.httpClient = HTTPClient(configuration: httpClientConfig)
@@ -492,7 +490,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             }
 
             // Verify the cert chain - if it is trusted then cert chain is valid
-            #if canImport(Security)
+            #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
             #else
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
@@ -519,7 +517,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine
 
-    #if !canImport(Security)
+    #if !os(macOS)
     private let httpClient: HTTPClient
     #endif
 
@@ -548,7 +546,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
 
-        #if !canImport(Security)
+        #if !os(macOS)
         var httpClientConfig = HTTPClientConfiguration()
         httpClientConfig.callbackQueue = callbackQueue
         self.httpClient = HTTPClient(configuration: httpClientConfig)
@@ -592,7 +590,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
             }
 
             // Verify the cert chain - if it is trusted then cert chain is valid
-            #if canImport(Security)
+            #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
             #else
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)

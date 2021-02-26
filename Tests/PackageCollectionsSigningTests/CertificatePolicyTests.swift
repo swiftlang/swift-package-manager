@@ -75,7 +75,7 @@ class CertificatePolicyTests: XCTestCase {
             // Self-signed root is not trusted
             let policy = TestCertificatePolicy(anchorCerts: [])
             XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
-                #if canImport(Security)
+                #if os(macOS)
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                 }
@@ -133,7 +133,7 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
                                                   callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
@@ -178,7 +178,7 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
                 let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
@@ -243,7 +243,7 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
                 let policy = AppleDeveloperCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
@@ -307,7 +307,7 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
 
             // Subject user ID matches
@@ -375,7 +375,7 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
 
             // Subject user ID matches

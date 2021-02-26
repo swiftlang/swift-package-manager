@@ -218,7 +218,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
             let certPolicyKey: CertificatePolicyKey = .default
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
                 let signing = PackageCollectionSigning(callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
@@ -310,7 +310,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
             let certPolicyKey: CertificatePolicyKey = .appleDistribution
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
                 let signing = PackageCollectionSigning(callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
@@ -400,7 +400,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
             let certPolicyKey: CertificatePolicyKey = .default(subjectUserID: expectedSubjectUserID)
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             let signing = PackageCollectionSigning(callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
             // Sign the collection
@@ -455,7 +455,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
             let certPolicyKey: CertificatePolicyKey = .appleDistribution(subjectUserID: expectedSubjectUserID)
 
-            #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             let signing = PackageCollectionSigning(callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
             // Sign the collection

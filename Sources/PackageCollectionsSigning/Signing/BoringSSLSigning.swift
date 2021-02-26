@@ -21,7 +21,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !canImport(Security)
+#if !os(macOS)
 import Foundation
 
 @_implementationOnly import CCryptoBoringSSL
