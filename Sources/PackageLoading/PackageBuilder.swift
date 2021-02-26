@@ -592,7 +592,8 @@ public final class PackageBuilder {
         let successors: (PotentialModule) -> [PotentialModule] = {
             // No reference of this target in manifest, i.e. it has no dependencies.
             guard let target = self.manifest.targetMap[$0.name] else { return [] }
-            return target.dependencies.compactMap({
+            // Collect the successors from declared dependencies.
+            var successors: [PotentialModule] = target.dependencies.compactMap({
                 switch $0 {
                 case .target(let name, _):
                     // Since we already checked above that all referenced targets
@@ -606,6 +607,16 @@ public final class PackageBuilder {
                     return potentialModuleMap[name]
                 }
             })
+            // If there are plugin usages, consider them to be dependencies too.
+            if let pluginUsages = target.pluginUsages {
+                successors += pluginUsages.compactMap({
+                    switch $0 {
+                    case .plugin(let name, let package):
+                        return (package == nil) ? potentialModuleMap[name] : nil
+                    }
+                })
+            }
+            return successors
         }
         // Look for any cycle in the dependencies.
         if let cycle = findCycle(potentialModules.sorted(by: { $0.name < $1.name }), successors: successors) {
@@ -659,12 +670,28 @@ public final class PackageBuilder {
                     }
                 }
             } ?? []
-
-            // Create the target.
+            
+            // Get dependencies from the plugin usages of this target.
+            let pluginUsages: [Target.PluginUsage] = manifestTarget?.pluginUsages.map {
+                $0.compactMap{ usage in
+                    switch usage {
+                    case .plugin(let name, let package):
+                        if let package = package {
+                            return .product(Target.ProductReference(name: name, package: package), conditions: [])
+                        }
+                        else {
+                            guard let target = targets[name] else { return nil }
+                            return .target(target, conditions: [])
+                        }
+                    }
+                }
+            } ?? []
+            
+            // Create the target, adding the inferred dependencies from plugin usages to the declared dependencies.
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                dependencies: dependencies
+                dependencies: dependencies + pluginUsages
             )
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {

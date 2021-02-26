@@ -17,8 +17,8 @@ let package = Package(
         // A unit that uses the plugin.
         .testTarget(
             name: "MyTests",
-            dependencies: [
-                .product(name: "MySourceGenPlugin", package: "MySourceGenPlugin")
+            plugins: [
+                .plugin(name: "MySourceGenPlugin", package: "MySourceGenPlugin")
             ]
         )
     ]

@@ -94,6 +94,12 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         }
     }
 
+    /// A usage of a plugin target or product. Implemented as a dependency
+    /// for now and added to the `dependencies` array, since they currently
+    /// have exactly the same characteristics and to avoid duplicating the
+    /// implementation for now.
+    public typealias PluginUsage = Dependency
+
     /// The name of the target.
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
@@ -137,6 +143,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
+    
+    /// The usages of package plugins by this target.
+    public let pluginUsages: [PluginUsage]
 
     fileprivate init(
         name: String,
@@ -148,7 +157,8 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         resources: [Resource] = [],
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency],
-        buildSettings: BuildSettings.AssignmentTable
+        buildSettings: BuildSettings.AssignmentTable,
+        pluginUsages: [PluginUsage]
     ) {
         self.name = name
         self.bundleName = bundleName
@@ -161,10 +171,11 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.dependencies = dependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
+        self.pluginUsages = pluginUsages
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, bundleName, defaultLocalization, platforms, type, sources, resources, others, buildSettings
+        case name, bundleName, defaultLocalization, platforms, type, sources, resources, others, buildSettings, pluginUsages
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -181,6 +192,8 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         try container.encode(resources, forKey: .resources)
         try container.encode(others, forKey: .others)
         try container.encode(buildSettings, forKey: .buildSettings)
+        // FIXME: pluginUsages property is skipped on purpose as it points to
+        // the actual target dependency object.
     }
 
     required public init(from decoder: Decoder) throws {
@@ -198,6 +211,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.dependencies = []
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
+        // FIXME: pluginUsages property is skipped on purpose as it points to
+        // the actual target dependency object.
+        self.pluginUsages = []
     }
 }
 
@@ -222,7 +238,8 @@ public final class SwiftTarget: Target {
             type: .executable,
             sources: testDiscoverySrc,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -240,7 +257,8 @@ public final class SwiftTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
-        buildSettings: BuildSettings.AssignmentTable = .init()
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        pluginUsages: [PluginUsage] = []
     ) {
         self.swiftVersion = swiftVersion
         super.init(
@@ -253,7 +271,8 @@ public final class SwiftTarget: Target {
             resources: resources,
             others: others,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            pluginUsages: pluginUsages
         )
     }
 
@@ -283,7 +302,8 @@ public final class SwiftTarget: Target {
             type: .executable,
             sources: sources,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -340,7 +360,8 @@ public final class SystemLibraryTarget: Target {
             type: .systemModule,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -422,7 +443,8 @@ public final class ClangTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            pluginUsages: []
         )
     }
 
@@ -482,7 +504,8 @@ public final class BinaryTarget: Target {
             type: .binary,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -595,7 +618,8 @@ public final class PluginTarget: Target {
             type: .plugin,
             sources: sources,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
