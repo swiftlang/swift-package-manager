@@ -68,8 +68,8 @@ Since generating a collection signature requires a certificate, part of the sign
 On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted. Users may include additional certificates to trust by placing 
 them in the `~/.swiftpm/config/trust-root-certs` directory. 
 
-On non-Apple platforms, there are no trusted root certificates by default. Only those found in `~/.swiftpm/config/trust-root-certs` are trusted. This means that 
-the signature check will always fail unless the `trust-root-certs` directory is set up:
+On non-Apple platforms, there are no trusted root certificates by default other than those shipped with the [certificate-pinning configuration](#protecting-package-collections). Only those 
+found in `~/.swiftpm/config/trust-root-certs` are trusted. This means that the signature check will always fail unless the `trust-root-certs` directory is set up:
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json
@@ -280,8 +280,9 @@ Non-expired, non-revoked Apple Distribution certificates from [developer.apple.c
 ##### Trusted root certificates
 
 With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. When SwiftPM user tries to add the collection, however,
-the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms), otherwise the 
-[signature check](#signed-package-collections) will fail. Collection publishers should make the DER-encoded root certificate(s) that they use downloadable so that users can adjust their setup if needed.
+the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms) or shipped with 
+the [certificate-pinning configuration](#protecting-package-collections), otherwise the [signature check](#signed-package-collections) will fail. Collection publishers should make the DER-encoded 
+root certificate(s) that they use downloadable so that users can adjust their setup if needed.
 
 ### Protecting package collections
 
