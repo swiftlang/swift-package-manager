@@ -977,6 +977,44 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(list.count, mockCollections.count, "list count should match")
     }
 
+    func testRefreshOneTrustedUnsigned() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 1, signed: false)
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        // User trusted
+        let collection = try tsc_await { callback in packageCollections.addCollection(mockCollections[0].source, order: nil, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
+        XCTAssertEqual(true, collection.source.isTrusted) // isTrusted is nil-able
+
+        // `isTrusted` should be true so refreshCollection should succeed
+        XCTAssertNoThrow(try tsc_await { callback in packageCollections.refreshCollection(collection.source, callback: callback) })
+    }
+
+    func testRefreshOneNotFound() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 1, signed: false)
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        // Don't add collection so it's not found in the config
+        XCTAssertThrowsError(try tsc_await { callback in packageCollections.refreshCollection(mockCollections[0].source, callback: callback) }, "expected error") { error in
+            XCTAssert(error is NotFoundError)
+        }
+    }
+
     func testListTargets() throws {
         try skipIfUnsupportedPlatform()
 

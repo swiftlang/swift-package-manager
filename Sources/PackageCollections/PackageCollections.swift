@@ -158,7 +158,17 @@ public struct PackageCollections: PackageCollectionsProtocol {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
-        self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil, callback: callback)
+        self.storage.sources.list { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let sources):
+                guard let savedSource = sources.first(where: { $0 == source }) else {
+                    return callback(.failure(NotFoundError("\(source)")))
+                }
+                self.refreshCollectionFromSource(source: savedSource, trustConfirmationProvider: nil, callback: callback)
+            }
+        }
     }
 
     public func addCollection(_ source: PackageCollectionsModel.CollectionSource,
@@ -389,7 +399,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
             switch result {
             case .failure(let error):
                 callback(.failure(error))
-            case .success(let collection):
+            case .success(var collection):
                 // If collection is signed and signature is valid, save to storage. `provider.get`
                 // would have failed if signature were invalid.
                 if collection.isSigned {
@@ -426,6 +436,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                             callback(.failure(error))
                         case .success:
                             if userTrusted {
+                                collection.source = source
                                 self.storage.collections.put(collection: collection, callback: callback)
                             } else {
                                 // Try to remove the untrusted collection (if previously saved) from storage before calling back
