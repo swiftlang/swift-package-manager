@@ -76,7 +76,9 @@ $ swift package-collection add https://www.example.com/packages.json
 The collection's signature cannot be verified due to missing configuration.
 ```
 
-Users should obtain root certificates from collection publishers and save them to `~/.swiftpm/config/trust-root-certs`. The root certificates must be DER-encoded.
+Users can explicitly specify they trust a publisher and any collections they publish, by obtaining that publisher's root certificate and saving it to `~/.swiftpm/config/trust-root-certs`. The 
+root certificates must be DER-encoded. Since SwiftPM trusts all certificate chains under a root, depending on what roots are installed, some publishers may already be trusted implicitly and 
+users don't need to explicitly specify each one. 
 
 #### Unsigned package collections
 
@@ -261,15 +263,15 @@ A signed package collection has an extra `signature` object:
 }
 ```
 
-The signature string will include the certificate's public key and chain so that they can be used for verification later when SwiftPM user [adds the collection](#signed-package-collections) to their configured
-list of collections.
+- The signature string (represented by `"<SIGNATURE>"`) is used to verify the contents of the collection file haven't been tampered with since it was signed when SwiftPM user [adds the collection](#signed-package-collections) to their configured list of collections. It includes the certificate's public key and chain.
+- `certificate` contains details extracted from the signing certificate. `subject.commonName` should be consistent with the name of the publisher so that it's recognizable by users. The root of the certificate must be [installed and trusted on users' machines](#trusted-root-certificates). 
 
 #### Requirements on signing certificate
 
 Certificates used for signing package collections must meet the following requirements, which are checked and enforced during signature generation (publishers) and verification (SwiftPM users):
 - The timestamp at which signing/verification is done must fall within the signing certificate's validity period.
 - The certificate's "Extended Key Usage" extension must include "Code Signing".
-- The certificate must use either 256-bit EC (recommended) or 2048-bit RSA key.
+- The certificate must use either 256-bit EC (recommended for enhanced security) or 2048-bit RSA key.
 - The certificate must not be revoked. The certificate authority must support OCSP, which means the certificate must have the "Certificate Authority Information Access" extension that includes OCSP as a method, specifying the responder's URL.
 - The certificate chain is valid and root certificate must be trusted.
 
@@ -278,7 +280,7 @@ Non-expired, non-revoked Apple Distribution certificates from [developer.apple.c
 ##### Trusted root certificates
 
 With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. When SwiftPM user tries to add the collection, however,
-the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory, otherwise the 
+the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms), otherwise the 
 [signature check](#signed-package-collections) will fail. Collection publishers should make the DER-encoded root certificate(s) that they use downloadable so that users can adjust their setup if needed.
 
 ### Protecting package collections
@@ -293,7 +295,7 @@ To defend against these attacks, SwiftPM has certificate-pinning configuration t
 - Restrict what certificate can be used for signing — this defends against "signature replacement".
 
 The process for collection publishers to define their certificate-pinning configuration is as follows:
-1. Edit the [configuration file](../Sources/PackageCollections/PackageCollections+CertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
+1. Edit the [source file](../Sources/PackageCollections/PackageCollections+CertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
 
 ```swift
 private static let defaultSourceCertPolicies: [String: CertificatePolicyConfig] = [
@@ -314,7 +316,7 @@ private static let defaultSourceCertPolicies: [String: CertificatePolicyConfig] 
 ```
 
 2. Open a pull request for review. The requestor must be able to provide proof of their identity and ownership on the domain.
-3. After the changes are accepted, they will take effects in the next SwiftPM release.
+3. After the changes are accepted, they will take effect in the next SwiftPM release.
 
 Since certificate-pinning configuration is associated with web domains, it can only be applied to signed collections hosted on the web (i.e., URL begins with  `https://`) and does 
 not cover those found on local file system (i.e., URL begins with `file://`). 
