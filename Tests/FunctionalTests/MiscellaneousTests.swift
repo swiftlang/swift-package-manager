@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -578,25 +578,20 @@ class MiscellaneousTestCase: XCTestCase {
         #endif
     }
     
-    func testErrorMessageWhenTestLinksExecutable() {
-        fixture(name: "Miscellaneous/ExeTest") { prefix in
+    func testTestsCanLinkAgainstExecutable() throws {
+        // Check if the host compiler supports the '-entry-point-function-name' flag.
+        try XCTSkipUnless(doesHostSwiftCompilerSupportRenamingMainSymbol(), "skipping because host compiler doesn't support '-entry-point-function-name'")
+        
+        fixture(name: "Miscellaneous/TestableExe") { prefix in
             do {
-                try executeSwiftTest(prefix)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
-                XCTAssertMatch(stderr + output, .contains("Compiling Exe main.swift"))
-                XCTAssertMatch(stderr + output, .contains("Compiling ExeTests ExeTests.swift"))
-                XCTAssertMatch(stderr + output, .regex("error: no such module 'Exe'"))
-                XCTAssertMatch(stderr + output, .regex("note: module 'Exe' is the main module of an executable, and cannot be imported by tests and other targets"))
-
-                if case ProcessResult.Error.nonZeroExit(let result) = error {
-                    // if our code crashes we'll get an exit code of 256
-                    XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                } else {
-                    XCTFail("\(stderr + output)")
-                }
+                let (stdout, _) = try executeSwiftTest(prefix)
+                XCTAssertMatch(stdout, .contains("Linking TestableExe1"))
+                XCTAssertMatch(stdout, .contains("Linking TestableExe2"))
+                XCTAssertMatch(stdout, .contains("Linking TestableExePackageTests"))
+                XCTAssertMatch(stdout, .contains("Hello, world"))
+                XCTAssertMatch(stdout, .contains("Hello, planet"))
             } catch {
-                XCTFail()
+                XCTFail("\(error)")
             }
         }
     }
@@ -611,5 +606,14 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTFail("\(error)")
             }
         }
+    }
+}
+
+func doesHostSwiftCompilerSupportRenamingMainSymbol() throws -> Bool {
+    try withTemporaryDirectory { tmpDir in
+        let hostToolchain = try UserToolchain(destination: .hostDestination())
+        FileManager.default.createFile(atPath: "\(tmpDir)/foo.swift", contents: Data())
+        let result = try Process.popen(args: hostToolchain.swiftCompiler.pathString, "-c", "-Xfrontend", "-entry-point-function-name", "-Xfrontend", "foo", "\(tmpDir)/foo.swift", "-o", "\(tmpDir)/foo.o")
+        return try !result.utf8stderrOutput().contains("unknown argument: '-entry-point-function-name'")
     }
 }
