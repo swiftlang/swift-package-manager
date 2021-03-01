@@ -105,10 +105,6 @@ public struct TargetSourcesBuilder {
 
     @discardableResult
     private func validTargetPath(at: AbsolutePath) -> Error? {
-        guard let cwd = self.fs.currentWorkingDirectory else {
-            return StringError("Unknown Current Working Directory")
-        }
-        
         // Check if paths that are enumerated in targets: [] exist
         guard self.fs.exists(at) else {
             return StringError("File not found")
@@ -116,8 +112,8 @@ public struct TargetSourcesBuilder {
 
         // Excludes, Sources, and Resources should be found at the root of the package and or
         // its subdirectories
-        guard at.pathString.hasPrefix(cwd.pathString) else {
-            return StringError("The current working directory '\(cwd)' should contain: ")
+        guard at.pathString.hasPrefix(self.packagePath.pathString) else {
+            return StringError("The current working directory '\(self.packagePath.pathString)' should contain: ")
         }
         
         return nil
