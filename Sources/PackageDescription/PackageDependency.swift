@@ -82,7 +82,7 @@ extension Package.Dependency {
         return .init(name: name, url: url, requirement: .branch(branch))
     }
   
-    /// Adds a remote package dependency given a branch requirement.
+    /// Adds a remote package dependency given a revision requirement.
     ///
     ///    .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
     ///
