@@ -165,16 +165,28 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Create the build plan and return the build description.
     private func plan() throws -> BuildDescription {
+        // Load the package graph.
         let graph = try getPackageGraph()
+        
+        // Invoke any plugins in the graph, and get the results.
         let pluginInvocationResults = try getPluginInvocationResults(for: graph)
+
+        // Run any prebuild commands provided by plugins. Any failure stops the build.
+        let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+            partial[target] = try pluginInvocationResults[target].map { try runPrebuildCommands(for: $0) }
+        })
+        
+        // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
             pluginInvocationResults: pluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
             diagnostics: diagnostics
         )
         self.buildPlan = plan
-
+        
+        // Finally create the llbuild manifest from the plan.
         return try BuildDescription.create(with: plan)
     }
 

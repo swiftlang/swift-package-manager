@@ -63,11 +63,6 @@ public final class TargetBuildContext: Decodable {
     /// package plugin itself may also write to this directory.
     public let outputDir: Path
 
-    /// A directory into which the package plugin or the tool it invokes can
-    /// write any caches that speed up its operation or any other intermediate
-    /// files that shouldn't be further processed.
-    public let cacheDir: Path
-
     /// Looks up and returns the path of a named command line executable tool.
     /// The executable must be either in the toolchain or in the system search
     /// path for executables, or be provided by an executable target or binary
@@ -77,12 +72,12 @@ public final class TargetBuildContext: Decodable {
     public func lookupTool(named name: String) throws -> Path {
         // TODO: Rather than just appending the name, this should instead use
         // a mapping of tool names to paths (passed in from the context).
-        return self.execsDir.appending(name)
+        return self.toolsDir.appending(name)
     }
 
-    /// A directory in which the built executables available to the plugin
-    /// will be located.
+    /// A directory in which any built or provided command line tools will be
+    /// available to the extension.
     // TODO: This should instead be a mapping of tool names to paths (passed
-    /// in from the context).
-    private let execsDir: Path
+    // in from the context).
+    private let toolsDir: Path
 }

@@ -4,42 +4,60 @@ import PackageDescription
 let package = Package(
     name: "MySourceGenPlugin",
     products: [
-        // The product that vends MySourceGenPlugin to client packages.
+        // The product that vends MySourceGenBuildToolPlugin to client packages.
         .plugin(
-            name: "MySourceGenPlugin",
-            targets: ["MySourceGenPlugin"]
+            name: "MySourceGenBuildToolPlugin",
+            targets: ["MySourceGenBuildToolPlugin"]
         ),
+        // The product that vends the MySourceGenBuildTool executable to client packages.
         .executable(
-            name: "MySourceGenTool",
-            targets: ["MySourceGenTool"]
-        )
+            name: "MySourceGenBuildTool",
+            targets: ["MySourceGenBuildTool"]
+        ),
+        // The product that vends MySourceGenPrebuildPlugin to client packages.
+        .plugin(
+            name: "MySourceGenPrebuildPlugin",
+            targets: ["MySourceGenPrebuildPlugin"]
+        ),
     ],
     targets: [
-        // A local tool that uses a plugin.
+        // A local tool that uses a build tool plugin.
         .executableTarget(
             name: "MyLocalTool",
             dependencies: [
-                "MySourceGenPlugin",
+                "MySourceGenBuildToolPlugin",
             ]
         ),
-        // The target that implements the plugin and generates commands to invoke MySourceGenTool.
+        // A local tool that uses a prebuild plugin.
+        .executableTarget(
+            name: "MyOtherLocalTool",
+            dependencies: [
+                "MySourceGenPrebuildPlugin",
+            ]
+        ),
+        // The plugin that generates build tool commands to invoke MySourceGenBuildTool.
         .plugin(
-            name: "MySourceGenPlugin",
+            name: "MySourceGenBuildToolPlugin",
             capability: .buildTool(),
             dependencies: [
-                "MySourceGenTool"
+                "MySourceGenBuildTool",
             ]
+        ),
+        // The plugin that generates prebuild commands (currently to invoke a system tool).
+        .plugin(
+            name: "MySourceGenPrebuildPlugin",
+            capability: .prebuild()
         ),
         // The command line tool that generates source files.
         .executableTarget(
-            name: "MySourceGenTool",
+            name: "MySourceGenBuildTool",
             dependencies: [
-                "MySourceGenToolLib",
+                "MySourceGenBuildToolLib",
             ]
         ),
-        // A library used by MySourceGenTool (not the client).
+        // A library used by MySourceGenBuildTool (not the client).
         .target(
-            name: "MySourceGenToolLib"
+            name: "MySourceGenBuildToolLib"
         ),
         // A runtime library that the client needs to link against.
         .target(
@@ -49,10 +67,11 @@ let package = Package(
         .testTarget(
             name: "MySourceGenPluginTests",
             dependencies: [
-                "MySourceGenRuntimeLib"
+                "MySourceGenRuntimeLib",
             ],
             plugins: [
-                "MySourceGenPlugin"
+                "MySourceGenBuildToolPlugin",
+                "MySourceGenPrebuildPlugin",
             ]
         )
     ]

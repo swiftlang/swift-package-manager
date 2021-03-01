@@ -122,8 +122,7 @@ class PluginInvocationTests: XCTestCase {
                                 "X": "Y"
                             ],
                             inputPaths: [],
-                            outputPaths: [],
-                            derivedSourcePaths: []
+                            outputPaths: []
                         )
                 ])
                 let outputJSON = try encoder.encode(result)
@@ -148,7 +147,7 @@ class PluginInvocationTests: XCTestCase {
         let evalFirstResult = try XCTUnwrap(evalResults.first)
         XCTAssertEqual(evalFirstResult.commands.count, 1)
         let evalFirstCommand = try XCTUnwrap(evalFirstResult.commands.first)
-        if case .buildToolCommand(let name, let exec, let args, let wdir, let env, let inputs, let outputs, let derived) = evalFirstCommand {
+        if case .buildToolCommand(let name, let exec, let args, let env, let wdir, let inputs, let outputs) = evalFirstCommand {
             XCTAssertEqual(name, "Do something")
             XCTAssertEqual(exec, "/bin/FooTool")
             XCTAssertEqual(args, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
@@ -156,7 +155,6 @@ class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(env, ["X": "Y"])
             XCTAssertEqual(inputs, [])
             XCTAssertEqual(outputs, [])
-            XCTAssertEqual(derived, [])
         }
         else {
             XCTFail("The command provided by the plugin didn't match expectations")

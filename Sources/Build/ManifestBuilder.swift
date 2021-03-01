@@ -108,6 +108,13 @@ extension LLBuildManifestBuilder {
                 .sorted()
                 .map { Node.directoryStructure($0) }
 
+            // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
+            var derivedSourceDirPaths: [AbsolutePath] = []
+            for result in plan.prebuildCommandResults.values.flatMap({ $0 }) {
+                derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
+            }
+            inputs.append(contentsOf: derivedSourceDirPaths.sorted().map{ Node.directoryStructure($0) })
+            
             // FIXME: Need to handle version-specific manifests.
             inputs.append(file: package.manifest.path)
 
@@ -577,7 +584,7 @@ extension LLBuildManifestBuilder {
 
         // Add any build tool commands created by plugins for the target (prebuild and postbuild commands are handled outside the build).
         for command in target.pluginInvocationResults.reduce([], { $0 + $1.commands }) {
-            if case .buildToolCommand(let displayName, let executable, let arguments, _, _, let inputPaths, let outputPaths, _) = command {
+            if case .buildToolCommand(let displayName, let executable, let arguments, _, _, let inputPaths, let outputPaths) = command {
                 // Create a shell command to invoke the executable.  We include the path of the executable as a dependency.
                 // FIXME: We will need to extend the addShellCmd() function to also take working directory and environment.
                 let execPath = AbsolutePath(executable, relativeTo: buildParameters.buildPath)

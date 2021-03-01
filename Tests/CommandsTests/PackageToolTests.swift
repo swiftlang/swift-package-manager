@@ -302,9 +302,12 @@ final class PackageToolTests: XCTestCase {
             // Check the contents of the JSON.
             XCTAssertEqual(try XCTUnwrap(json["name"]).string, "MySourceGenPlugin")
             let targetsArray = try XCTUnwrap(json["targets"]?.array)
-            let extensionTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenPlugin" }?.dictionary)
-            XCTAssertEqual(extensionTarget["module_type"]?.string, "PluginTarget")
-            XCTAssertEqual(extensionTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
+            let buildToolPluginTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenBuildToolPlugin" }?.dictionary)
+            XCTAssertEqual(buildToolPluginTarget["module_type"]?.string, "PluginTarget")
+            XCTAssertEqual(buildToolPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
+            let prebuildPluginTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenPrebuildPlugin" }?.dictionary)
+            XCTAssertEqual(prebuildPluginTarget["module_type"]?.string, "PluginTarget")
+            XCTAssertEqual(prebuildPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "prebuild")
         }
     }
 

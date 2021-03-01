@@ -13,6 +13,7 @@ add_library(SPMBuildCore
   BuildSystemDelegate.swift
   BuiltTestProduct.swift
   PluginInvocation.swift
+  PrebuildCommandResult.swift
   Sanitizers.swift
   Toolchain.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet

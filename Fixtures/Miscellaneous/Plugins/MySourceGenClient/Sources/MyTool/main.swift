@@ -1,1 +1,1 @@
-print("Generated string: '\(generatedString)'")
+print("Generated string Foo: '\(foo)'")
