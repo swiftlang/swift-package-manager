@@ -31,7 +31,7 @@ extension PackageCollectionsModel {
         public let identifier: Identifier
 
         /// Where the collection and its contents are obtained
-        public let source: Source
+        public internal(set) var source: Source
 
         /// The name of the collection
         public let name: String
