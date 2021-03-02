@@ -86,14 +86,14 @@ public struct TargetSourcesBuilder {
         
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
-                let warning = "Invalid Exclude: \(message) '\(exclude)'"
+                let warning = "Invalid Exclude '\(exclude)': \(message)."
                 self.diags.emit(warning: warning)
             }
         }
         
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
-                let warning = "Invalid Source: \(message) '\(source)'"
+                let warning = "Invalid Source '\(source)': \(message)."
                 self.diags.emit(warning: warning)
             }
         }
@@ -113,7 +113,7 @@ public struct TargetSourcesBuilder {
         // Excludes, Sources, and Resources should be found at the root of the package and or
         // its subdirectories
         guard at.pathString.hasPrefix(self.packagePath.pathString) else {
-            return StringError("'\(self.packagePath.pathString)' should contain: ")
+            return StringError("File must be within the package directory structure")
         }
         
         return nil
@@ -348,7 +348,7 @@ public struct TargetSourcesBuilder {
     private func diagnoseInvalidResource(in resources: [Resource]) {
         resources.forEach { resource in
             if let message = validTargetPath(at: resource.path) {
-                let warning = "Invalid Resource: \(message) '\(resource.path)'"
+                let warning = "Invalid Resource '\(resource.path)': \(message)."
                 self.diags.emit(warning: warning)
             }
         }
