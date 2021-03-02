@@ -113,7 +113,7 @@ public struct TargetSourcesBuilder {
         // Excludes, Sources, and Resources should be found at the root of the package and or
         // its subdirectories
         guard at.pathString.hasPrefix(self.packagePath.pathString) else {
-            return StringError("The current working directory '\(self.packagePath.pathString)' should contain: ")
+            return StringError("'\(self.packagePath.pathString)' should contain: ")
         }
         
         return nil
