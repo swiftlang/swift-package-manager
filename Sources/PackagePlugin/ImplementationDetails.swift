@@ -39,6 +39,7 @@ func CreateTargetBuildContext() -> TargetBuildContext {
     }
     // Look for the input JSON as the last argument of the invocation.
     guard let data = ProcessInfo.processInfo.arguments.last?.data(using: .utf8) else {
+        fputs("Expected last argument to contain JSON input data in UTF-8 encoding, but didn't find it.", stderr)
         output.diagnostics.append(Diagnostic(severity: .error, message: "Expected last argument to contain JSON input data in UTF-8 encoding, but didn't find it.", file: nil, line: nil))
         exit(1)
     }
@@ -47,6 +48,7 @@ func CreateTargetBuildContext() -> TargetBuildContext {
         let decoder = JSONDecoder()
         buildContext = try decoder.decode(TargetBuildContext.self, from: data)
     } catch {
+        fputs("Couldn't decode input JSON (reason: \(error)", stderr)
         output.diagnostics.append(Diagnostic(severity: .error, message: "\(error)", file: nil, line: nil))
         exit(1)
     }
@@ -56,14 +58,13 @@ func CreateTargetBuildContext() -> TargetBuildContext {
 /// Private structures containing the information to send back to SwiftPM.
 
 struct Command: Encodable {
+    let displayName: String?
     let executable: Path
     let arguments: [String]
-    let workingDirectory: Path?
     let environment: [String: String]?
-    let displayName: String?
+    let workingDirectory: Path?
     let inputPaths: [Path]
     let outputPaths: [Path]
-    let derivedSourcePaths: [Path]
 }
 
 struct Diagnostic: Encodable {
@@ -81,7 +82,7 @@ struct OutputStruct: Encodable {
     let version: Int
     var diagnostics: [Diagnostic] = []
     var commands: [Command] = []
-    var generatedFilePaths: [String] = []
+    var generatedOutputFiles: [String] = []
     var prebuildOutputDirectories: [String] = []
 }
 

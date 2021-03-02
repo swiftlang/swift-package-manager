@@ -171,7 +171,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 
         // Throw an error if we failed.
         if result.exitStatus != .terminated(code: 0) {
-            throw DefaultPluginScriptRunnerError.pluginSubprocessFailed("failed to invoke package plugin: \(String(decoding: stderr, as: UTF8.self))")
+            throw DefaultPluginScriptRunnerError.pluginSubprocessFailed("failed to invoke package plugin: \(String(decoding: stdout + stderr, as: UTF8.self))")
         }
 
         // Otherwise return the JSON data and any output text.

@@ -7,18 +7,18 @@ let package = Package(
         .package(path: "../MySourceGenPlugin")
     ],
     targets: [
-        // A tool that uses an plugin.
+        // A tool that uses a plugin.
         .executableTarget(
             name: "MyTool",
             dependencies: [
-                .product(name: "MySourceGenPlugin", package: "MySourceGenPlugin")
+                .product(name: "MySourceGenBuildToolPlugin", package: "MySourceGenPlugin")
             ]
         ),
-        // A unit that uses the plugin.
+        // A unit test that uses the plugin.
         .testTarget(
             name: "MyTests",
             plugins: [
-                .plugin(name: "MySourceGenPlugin", package: "MySourceGenPlugin")
+                .plugin(name: "MySourceGenBuildToolPlugin", package: "MySourceGenPlugin")
             ]
         )
     ]

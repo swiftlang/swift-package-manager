@@ -1,4 +1,6 @@
 import PackagePlugin
+ 
+print("Hello from the Build Tool Plugin!")
 
 for inputPath in targetBuildContext.otherFiles {
     guard inputPath.suffix == ".dat" else { continue }
@@ -8,7 +10,7 @@ for inputPath in targetBuildContext.otherFiles {
         displayName:
             "Generating \(outputName) from \(inputPath.filename)",
         executable:
-            try targetBuildContext.lookupTool(named: "MySourceGenTool"),
+            try targetBuildContext.lookupTool(named: "MySourceGenBuildTool"),
         arguments: [
             "\(inputPath)",
             "\(outputPath)"
@@ -18,9 +20,7 @@ for inputPath in targetBuildContext.otherFiles {
         ],
         outputPaths: [
             outputPath
-        ],
-        derivedSourcePaths: [
-            outputPath
         ]
     )
+    commandConstructor.addGeneratedOutputFile(path: outputPath)
 }

@@ -30,8 +30,7 @@ extension PackageGraph {
         var evalResultsByTarget: [ResolvedTarget: [PluginInvocationResult]] = [:]
         
         for target in self.reachableTargets {
-            // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.
-            // TODO: We'll want to separate out plugin usages from dependencies, but for now we get them from dependencies.
+            // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.  Although plugin usage is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
             for dependency in target.dependencies(satisfying: buildEnvironment) {
@@ -53,52 +52,43 @@ extension PackageGraph {
                 continue
             }
             
-            // If this target does use any plugins, create the input context to pass to them.
-            // FIXME: We'll want to decide on what directories to provide to the extenion
+            /// Determine the package that contains the target.
             guard let package = self.packages.first(where: { $0.targets.contains(target) }) else {
                 throw InternalError("could not find package for target \(target)")
             }
-            let extOutputsDir = outputDir.appending(components: "plugins", package.name, target.c99name, "outputs")
-            let extCachesDir = outputDir.appending(components: "plugins", package.name, target.c99name, "caches")
-            let pluginInput = PluginScriptRunnerInput(
-                targetName: target.name,
-                moduleName: target.c99name,
-                targetDir: target.sources.root.pathString,
-                packageDir: package.path.pathString,
-                sourceFiles: target.sources.paths.map{ $0.pathString },
-                resourceFiles: target.underlyingTarget.resources.map{ $0.path.pathString },
-                otherFiles: target.underlyingTarget.others.map { $0.pathString },
-                dependencies: dependencyTargets.map {
-                    .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
-                },
-                // FIXME: We'll want to adjust these output locations
-                outputDir: extOutputsDir.pathString,
-                cacheDir: extCachesDir.pathString,
-                execsDir: execsDir.pathString,
-                options: [:]
-            )
             
             // Evaluate each plugin in turn, creating a list of results (one for each plugin used by the target).
             var evalResults: [PluginInvocationResult] = []
-            for extTarget in pluginTargets {
-                // Create the output and cache directories, if needed.
+            for pluginTarget in pluginTargets {
+                // Give each invocation of an extension a separate output directory.
+                let extOutputDir = outputDir.appending(components: package.name, target.name, pluginTarget.name)
                 do {
-                    try fileSystem.createDirectory(extOutputsDir, recursive: true)
+                    try fileSystem.createDirectory(extOutputDir, recursive: true)
                 }
                 catch {
-                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: extOutputsDir, underlyingError: error)
+                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: extOutputDir, underlyingError: error)
                 }
-                do {
-                    try fileSystem.createDirectory(extCachesDir, recursive: true)
-                }
-                catch {
-                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: extCachesDir, underlyingError: error)
-                }
+                
+                // Create the input context to pass to the plugin.
+                let pluginInput = PluginScriptRunnerInput(
+                    targetName: target.name,
+                    moduleName: target.c99name,
+                    targetDir: target.sources.root.pathString,
+                    packageDir: package.path.pathString,
+                    sourceFiles: target.sources.paths.map{ $0.pathString },
+                    resourceFiles: target.underlyingTarget.resources.map{ $0.path.pathString },
+                    otherFiles: target.underlyingTarget.others.map { $0.pathString },
+                    dependencies: dependencyTargets.map {
+                        .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
+                    },
+                    outputDir: extOutputDir.pathString,
+                    toolsDir: execsDir.pathString
+                )
                 
                 // Run the plugin in the context of the target, and generate commands from the output.
                 // TODO: This should be asynchronous.
                 let (pluginOutput, emittedText) = try runPluginScript(
-                    sources: extTarget.sources,
+                    sources: pluginTarget.sources,
                     input: pluginInput,
                     toolsVersion: package.manifest.toolsVersion,
                     pluginScriptRunner: pluginScriptRunner,
@@ -126,30 +116,47 @@ extension PackageGraph {
                     }
                 }
                 
-                // Generate commands from the plugin output.
+                // Generate commands from the plugin output.  This is where we translate from the transport JSON to our internal form.
                 let commands: [PluginInvocationResult.Command] = pluginOutput.commands.map { cmd in
                     let displayName = cmd.displayName
                     let executable = cmd.executable
                     let arguments = cmd.arguments
-                    let workingDir = cmd.workingDirectory.map{ AbsolutePath($0) }
                     let environment = cmd.environment
-                    switch extTarget.capability {
+                    let workingDir = cmd.workingDirectory.map{ AbsolutePath($0) }
+                    switch pluginTarget.capability {
                     case .prebuild:
-                        let derivedSourceDirPaths = cmd.derivedSourcePaths.map{ AbsolutePath($0) }
-                        return .prebuildCommand(displayName: displayName, executable: executable, arguments: arguments, workingDir: workingDir, environment: environment, derivedSourceDirPaths: derivedSourceDirPaths)
+                        return .prebuildCommand(
+                            displayName: displayName,
+                            executable: executable,
+                            arguments: arguments,
+                            environment: environment ?? [:],
+                            workingDir: workingDir)
                     case .buildTool:
-                        let inputPaths = cmd.inputPaths.map{ AbsolutePath($0) }
-                        let outputPaths = cmd.outputPaths.map{ AbsolutePath($0) }
-                        let derivedSourcePaths = cmd.derivedSourcePaths.map{ AbsolutePath($0) }
-                        return .buildToolCommand(displayName: displayName, executable: executable, arguments: arguments, workingDir: workingDir, environment: environment, inputPaths: inputPaths, outputPaths: outputPaths, derivedSourcePaths: derivedSourcePaths)
+                        return .buildToolCommand(
+                            displayName: displayName,
+                            executable: executable,
+                            arguments: arguments,
+                            environment: environment ?? [:],
+                            workingDir: workingDir,
+                            inputPaths: cmd.inputPaths.map{ AbsolutePath($0) },
+                            outputPaths: cmd.outputPaths.map{ AbsolutePath($0) })
                     case .postbuild:
-                        return .postbuildCommand(displayName: displayName, executable: executable, arguments: arguments, workingDir: workingDir, environment: environment)
+                        return .postbuildCommand(
+                            displayName: displayName,
+                            executable: executable,
+                            arguments: arguments,
+                            environment: environment ?? [:],
+                            workingDir: workingDir)
                     }
                 }
                 
-                // Create an evaluation result from the usage of the plugin by the target.
+                // Extract any emitted text output, the paths of any derived source files, and the paths of any output directories that should affect the validity of the build plan.
                 let textOutput = String(decoding: emittedText, as: UTF8.self)
-                evalResults.append(PluginInvocationResult(plugin: extTarget, commands: commands, diagnostics: diagnostics, textOutput: textOutput))
+                let generatedOutputFiles = pluginOutput.generatedOutputFiles.map{ AbsolutePath($0) }
+                let prebuildOutputDirectories = pluginOutput.prebuildOutputDirectories.map{ AbsolutePath($0) }
+
+                // Create an evaluation result from the usage of the plugin by the target.
+                evalResults.append(PluginInvocationResult(plugin: pluginTarget, commands: commands, diagnostics: diagnostics, derivedSourceFiles: generatedOutputFiles, prebuildOutputDirectories: prebuildOutputDirectories, textOutput: textOutput))
             }
             
             // Associate the list of results with the target.  The list will have one entry for each plugin used by the target.
@@ -210,42 +217,37 @@ extension PackageGraph {
 /// commands as well as any diagnostics or output emitted by the plugin.
 public struct PluginInvocationResult {
     /// The plugin that produced the results.
-    public let plugin: PluginTarget
+    public var plugin: PluginTarget
     
     /// The commands generated by the plugin (in order).
-    public let commands: [Command]
+    public var commands: [Command]
 
     /// A command provided by a plugin. Plugins are evaluated after package graph resolution (and subsequently,
     /// if conditions change). Each plugin specifies capabilities the capability it provides, which determines what
     /// kinds of commands it generates (when they run during the build, and the specific semantics surrounding them).
     public enum Command {
         
-        /// A command to run before the start of every build. Besides the obvious parameters, it can provide a list of
-        /// directories whose contents should be considered as inputs to the set of source files to which build rules
-        /// should be applied.
+        /// A command to run before the start of every build.
         case prebuildCommand(
                 displayName: String,
                 executable: String,
                 arguments: [String],
-                workingDir: AbsolutePath?,
-                environment: [String: String]?,
-                derivedSourceDirPaths: [AbsolutePath]
+                environment: [String: String],
+                workingDir: AbsolutePath?
              )
         
         /// A command to be incorporated into the build graph, so that it runs when any of the outputs are missing or
         /// the inputs have changed from the last time when it ran. This is the preferred kind of command to generate
-        /// when the input and output paths are known. In addition to inputs and outputs, the command can specify one
-        /// or more files that should be considered as inputs to the set of source files to which build rules should
-        /// be applied.
+        /// when the input and output paths are known.  The input and output dependencies determine when the command
+        /// should be run during the build.
         case buildToolCommand(
                 displayName: String,
                 executable: String,
                 arguments: [String],
+                environment: [String: String],
                 workingDir: AbsolutePath?,
-                environment: [String: String]?,
                 inputPaths: [AbsolutePath],
-                outputPaths: [AbsolutePath],
-                derivedSourcePaths: [AbsolutePath]
+                outputPaths: [AbsolutePath]
              )
         
         /// A command to run after the end of every build.
@@ -253,26 +255,32 @@ public struct PluginInvocationResult {
                 displayName: String,
                 executable: String,
                 arguments: [String],
-                workingDir: AbsolutePath?,
-                environment: [String: String]?
+                environment: [String: String],
+                workingDir: AbsolutePath?
              )
     }
     
-    // Any diagnostics emitted by the plugin.
-    public let diagnostics: [Diagnostic]
+    /// Any diagnostics emitted by the plugin.
+    public var diagnostics: [Diagnostic]
     
-    // A location representing a file name or path and an optional line number.
+    /// A location representing a file name or path and an optional line number.
     // FIXME: This should be part of the Diagnostics APIs.
     struct FileLineLocation: DiagnosticLocation {
-        let file: String
-        let line: Int?
+        var file: String
+        var line: Int?
         var description: String {
             "\(file)\(line.map{":\($0)"} ?? "")"
         }
     }
     
-    // Any textual output emitted by the plugin.
-    public let textOutput: String
+    /// Any generated output files that should be have build rules applied to them.
+    public var derivedSourceFiles: [AbsolutePath]
+    
+    /// Any directories whose contents should affect the validity of the build plan.
+    public var prebuildOutputDirectories: [AbsolutePath]
+
+    /// Any textual output emitted by the plugin.
+    public var textOutput: String
 }
 public typealias ExtensionEvaluationResult = PluginInvocationResult
 
@@ -366,16 +374,14 @@ struct PluginScriptRunnerInput: Codable {
         var targetDir: String
     }
     var outputDir: String
-    var cacheDir: String
-    var execsDir: String
-    var options: [String: String]
+    var toolsDir: String
 }
 
 
 /// Deserializable result that's received as output from the evaluation of the extension.
 struct PluginScriptRunnerOutput: Codable {
-    let version: Int
-    let diagnostics: [Diagnostic]
+    var version: Int
+    var diagnostics: [Diagnostic]
     struct Diagnostic: Codable {
         enum Severity: String, Codable {
             case error, warning, remark
@@ -386,7 +392,7 @@ struct PluginScriptRunnerOutput: Codable {
         let line: Int?
     }
 
-    var commands: [GeneratedCommand]
+    let commands: [GeneratedCommand]
     struct GeneratedCommand: Codable {
         let displayName: String
         let executable: String
@@ -395,6 +401,8 @@ struct PluginScriptRunnerOutput: Codable {
         let environment: [String: String]?
         let inputPaths: [String]
         let outputPaths: [String]
-        let derivedSourcePaths: [String]
     }
+
+    var generatedOutputFiles: [String] = []
+    var prebuildOutputDirectories: [String] = []
 }

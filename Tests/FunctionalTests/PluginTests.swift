@@ -10,17 +10,17 @@
 
 import XCTest
 import SPMTestSupport
-
 import TSCBasic
 
 class PluginTests: XCTestCase {
     
-    func testUseOfPluginTargetByExecutableInSamePackage() {
-        fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { path in
+    func testUseOfBuildToolPluginTargetByExecutableInSamePackage() {
+        
+        fixture(name: "Miscellaneous/Plugins") { path in
             do {
-                let (stdout, _) = try executeSwiftBuild(path, configuration: .Debug, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
-                XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Generating Foo.swift from Foo.dat"), "stdout:\n\(stdout)")
+                let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"], env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
+                XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
@@ -31,13 +31,29 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testUseOfPluginProductByExecutableAcrossPackages() {
+    func testUseOfBuildToolPluginProductByExecutableAcrossPackages() {
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
-                let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenClient"), configuration: .Debug, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
-                XCTAssert(stdout.contains("Linking MySourceGenTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Generating Foo.swift from Foo.dat"), "stdout:\n\(stdout)")
+                let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenClient"), configuration: .Debug, extraArgs: ["--product", "MyTool"], env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
+                XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            }
+            catch {
+                print(error)
+                throw error
+            }
+        }
+    }
+
+    func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() {
+        fixture(name: "Miscellaneous/Plugins") { path in
+            do {
+                let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyOtherLocalTool"], env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
+                XCTAssert(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {

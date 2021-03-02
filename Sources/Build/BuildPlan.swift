@@ -482,6 +482,9 @@ public final class SwiftTargetBuildDescription {
     ///
     /// These are the source files generated during the build.
     private var derivedSources: Sources
+    
+    /// These are the source files derived from plugins.
+    private var pluginDerivedSources: Sources
 
     /// Path to the bundle generated for this module (if any).
     var bundlePath: AbsolutePath? {
@@ -489,11 +492,13 @@ public final class SwiftTargetBuildDescription {
     }
 
     /// The list of all source files in the target, including the derived ones.
-    public var sources: [AbsolutePath] { target.sources.paths + derivedSources.paths }
+    public var sources: [AbsolutePath] {
+        target.sources.paths + derivedSources.paths + pluginDerivedSources.paths
+    }
 
     /// The objects in this target.
     public var objects: [AbsolutePath] {
-        let relativePaths = target.sources.relativePaths + derivedSources.relativePaths
+        let relativePaths = target.sources.relativePaths + derivedSources.relativePaths + pluginDerivedSources.relativePaths
         return relativePaths.map{ tempsPath.appending(RelativePath("\($0.pathString).o")) }
     }
 
@@ -544,11 +549,15 @@ public final class SwiftTargetBuildDescription {
     /// The results of applying any plugins to this target.
     public let pluginInvocationResults: [PluginInvocationResult]
 
+    /// The results of running any prebuild commands for this target.
+    public let prebuildCommandResults: [PrebuildCommandResult]
+
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
         buildParameters: BuildParameters,
         pluginInvocationResults: [PluginInvocationResult] = [],
+        prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
         testDiscoveryTarget: Bool = false,
         fs: FileSystem = localFileSystem
@@ -562,22 +571,28 @@ public final class SwiftTargetBuildDescription {
         self.fs = fs
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
+        self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
         self.pluginInvocationResults = pluginInvocationResults
+        self.prebuildCommandResults = prebuildCommandResults
 
-        // Add any derived source paths declared by build-tool plugins that were applied to this target.  We do
-        // this here and not just in the LLBuildManifestBuilder because we need to include them in any situation
-        // where sources are processed, e.g. when determining names of object files, etc.
-        for command in pluginInvocationResults.reduce([], { $0 + $1.commands }) {
-            // Prebuild and postbuild commands are handled outside the build system.
-            if case .buildToolCommand(_, _, _, _, _, _, _, let derivedSourcePaths) = command {
-                // TODO: What should we do if we find non-Swift sources here?
-                for absPath in derivedSourcePaths {
-                    let relPath = absPath.relative(to: self.derivedSources.root)
-                    self.derivedSources.relativePaths.append(relPath)
-                }
+        // Add any derived source files that were declared in any plugin invocations.
+        for pluginResult in pluginInvocationResults {
+            // TODO: What should we do if we find non-Swift sources here?
+            for absPath in pluginResult.derivedSourceFiles {
+                let relPath = absPath.relative(to: self.pluginDerivedSources.root)
+                self.pluginDerivedSources.relativePaths.append(relPath)
             }
         }
 
+        // Add any derived source files that were discovered from output directories of prebuild commands.
+        for result in self.prebuildCommandResults {
+            // TODO: What should we do if we find non-Swift sources here?
+            for path in result.derivedSourceFiles {
+                let relPath = path.relative(to: self.pluginDerivedSources.root)
+                self.pluginDerivedSources.relativePaths.append(relPath)
+            }
+        }
+        
         if shouldEmitObjCCompatibilityHeader {
             self.moduleMap = try self.generateModuleMap()
         }
@@ -861,7 +876,7 @@ public final class SwiftTargetBuildDescription {
         stream <<< "  },\n"
 
         // Write out the entries for each source file.
-        let sources = target.sources.paths + derivedSources.paths
+        let sources = target.sources.paths + derivedSources.paths + pluginDerivedSources.paths
         for (idx, source) in sources.enumerated() {
             let object = objects[idx]
             let objectDir = object.parentDirectory
@@ -1278,6 +1293,10 @@ public class BuildPlan {
     /// The results of invoking any plugins used by targets in this build.
     public let pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]]
 
+    /// The results of running any prebuild commands for the targets in this build.  This includes any derived
+    /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
+    public let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
+
     /// The filesystem to operate on.
     let fileSystem: FileSystem
 
@@ -1358,12 +1377,14 @@ public class BuildPlan {
         buildParameters: BuildParameters,
         graph: PackageGraph,
         pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem
     ) throws {
         self.buildParameters = buildParameters
         self.graph = graph
         self.pluginInvocationResults = pluginInvocationResults
+        self.prebuildCommandResults = prebuildCommandResults
         self.diagnostics = diagnostics
         self.fileSystem = fileSystem
 
@@ -1389,6 +1410,7 @@ public class BuildPlan {
                     target: target,
                     buildParameters: buildParameters,
                     pluginInvocationResults: pluginInvocationResults[target] ?? [],
+                    prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     fs: fileSystem))
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
