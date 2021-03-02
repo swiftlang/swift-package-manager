@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -79,6 +79,15 @@ class PackageGraphTests: XCTestCase {
             result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
             result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
+
+        let fooPackage = try XCTUnwrap(g.packages.first{ $0.name == "Foo" })
+        let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
+        let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
+        XCTAssert(g.package(for: fooTarget) == fooPackage)
+        XCTAssert(g.package(for: fooDepTarget) == fooPackage)
+        let barPackage = try XCTUnwrap(g.packages.first{ $0.name == "Bar" })
+        let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
+        XCTAssert(g.package(for: barTarget) == barPackage)
     }
 
     func testProductDependencies() throws {

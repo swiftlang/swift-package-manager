@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -79,6 +79,18 @@ public struct PackageGraph {
         return rootPackages.contains(package)
     }
 
+    /// Returns the package that contains the target, or nil if the target isn't in the graph.
+    public func package(for target: ResolvedTarget) -> ResolvedPackage? {
+        return self.targetsToPackages[target]
+    }
+    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
+
+    /// Returns the package that contains the product, or nil if the product isn't in the graph.
+     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
+         return self.productsToPackages[product]
+     }
+    private let productsToPackages: [ResolvedProduct: ResolvedPackage]
+
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
@@ -92,6 +104,13 @@ public struct PackageGraph {
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
+        
+        // Create a mapping from targets to the packages that define them.  Here
+        // we include all targets, including tests in non-root packages, since
+        // this is intended for lookup and not traversal.
+        self.targetsToPackages = packages.reduce(into: [:], { partial, package in
+            package.targets.forEach{ partial[$0] = package }
+        })
 
         allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
             if rootPackages.contains(package) {
@@ -102,6 +121,13 @@ public struct PackageGraph {
                 return package.targets.filter({ $0.type != .test })
             }
         }))
+
+        // Create a mapping from products to the packages that define them.  Here
+        // we include all products, including tests in non-root packages, since
+        // this is intended for lookup and not traversal.
+        self.productsToPackages = packages.reduce(into: [:], { partial, package in
+            package.products.forEach{ partial[$0] = package }
+        })
 
         allProducts = Set(packages.flatMap({ package -> [ResolvedProduct] in
             if rootPackages.contains(package) {
