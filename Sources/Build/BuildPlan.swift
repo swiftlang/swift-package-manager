@@ -195,6 +195,11 @@ public final class ClangTargetBuildDescription {
     public var clangTarget: ClangTarget {
         return target.underlyingTarget as! ClangTarget
     }
+    
+    /// The tools version of the package that declared the target.  This can
+    /// can be used to conditionalize semantically significant changes in how
+    /// a target is built.
+    public let toolsVersion: ToolsVersion
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -249,11 +254,12 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Create a new target description with target and build parameters.
-    init(target: ResolvedTarget, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem, diagnostics: DiagnosticsEngine) throws {
+    init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem, diagnostics: DiagnosticsEngine) throws {
         assert(target.underlyingTarget is ClangTarget, "underlying target type mismatch \(target)")
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.target = target
+        self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
@@ -472,6 +478,11 @@ public final class SwiftTargetBuildDescription {
     /// The target described by this target.
     public let target: ResolvedTarget
 
+    /// The tools version of the package that declared the target.  This can
+    /// can be used to conditionalize semantically significant changes in how
+    /// a target is built.
+    public let toolsVersion: ToolsVersion
+
     /// The build parameters.
     let buildParameters: BuildParameters
 
@@ -555,6 +566,7 @@ public final class SwiftTargetBuildDescription {
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
+        toolsVersion: ToolsVersion,
         buildParameters: BuildParameters,
         pluginInvocationResults: [PluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
@@ -564,6 +576,7 @@ public final class SwiftTargetBuildDescription {
     ) throws {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
         self.target = target
+        self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
@@ -1018,6 +1031,11 @@ public final class ProductBuildDescription {
     /// The reference to the product.
     public let product: ResolvedProduct
 
+    /// The tools version of the package that declared the product.  This can
+    /// can be used to conditionalize semantically significant changes in how
+    /// a target is built.
+    public let toolsVersion: ToolsVersion
+
     /// The build parameters.
     let buildParameters: BuildParameters
 
@@ -1067,9 +1085,10 @@ public final class ProductBuildDescription {
     let diagnostics: DiagnosticsEngine
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
+    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
+        self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         self.fs = fs
         self.diagnostics = diagnostics
@@ -1327,9 +1346,11 @@ public class BuildPlan {
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
+            let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .vNext
             if let testManifestTarget = testProduct.testManifestTarget, !generate {
                 let desc = try SwiftTargetBuildDescription(
                     target: testManifestTarget,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true
                 )
@@ -1361,6 +1382,7 @@ public class BuildPlan {
 
                 let target = try SwiftTargetBuildDescription(
                     target: testManifestTarget,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true,
                     testDiscoveryTarget: true
@@ -1403,11 +1425,16 @@ public class BuildPlan {
                     }
                 }
             }
+            
+            // Determine the appropriate tools version to use for the target.
+            // This can affect what flags to pass and other semantics.
+            let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .vNext
 
             switch target.underlyingTarget {
             case is SwiftTarget:
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     target: target,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     pluginInvocationResults: pluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
@@ -1415,6 +1442,7 @@ public class BuildPlan {
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem,
                     diagnostics: diagnostics))
@@ -1448,8 +1476,14 @@ public class BuildPlan {
         // Create product description for each product we have in the package graph except
         // for automatic libraries and plugins, because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) && product.type != .plugin {
+
+            // Determine the appropriate tools version to use for the product.
+            // This can affect what flags to pass and other semantics.
+            let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .vNext
             productMap[product] = ProductBuildDescription(
-                product: product, buildParameters: buildParameters,
+                product: product,
+                toolsVersion: toolsVersion,
+                buildParameters: buildParameters,
                 fs: fileSystem,
                 diagnostics: diagnostics
             )
