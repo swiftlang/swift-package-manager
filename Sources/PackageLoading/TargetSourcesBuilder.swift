@@ -86,13 +86,15 @@ public struct TargetSourcesBuilder {
         
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
-                self.diags.emit(warning: "Invalid Exclude: \(exclude): \(message)")
+                let warning = "Invalid Exclude '\(exclude)': \(message)."
+                self.diags.emit(warning: warning)
             }
         }
         
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
-                self.diags.emit(warning: "Invalid Source: \(source): \(message)")
+                let warning = "Invalid Source '\(source)': \(message)."
+                self.diags.emit(warning: warning)
             }
         }
 
@@ -103,19 +105,15 @@ public struct TargetSourcesBuilder {
 
     @discardableResult
     private func validTargetPath(at: AbsolutePath) -> Error? {
-        guard let cwd = self.fs.currentWorkingDirectory else {
-            return StringError("Unknown Current Working Directory")
-        }
-        
         // Check if paths that are enumerated in targets: [] exist
         guard self.fs.exists(at) else {
-            return StringError("\(at) could not be found")
+            return StringError("File not found")
         }
 
         // Excludes, Sources, and Resources should be found at the root of the package and or
         // its subdirectories
-        guard at.pathString.hasPrefix(cwd.pathString) else {
-            return StringError("\(at) should be found within the root of \(cwd)")
+        guard at.pathString.hasPrefix(self.packagePath.pathString) else {
+            return StringError("File must be within the package directory structure")
         }
         
         return nil
@@ -169,6 +167,7 @@ public struct TargetSourcesBuilder {
         diagnoseLocalizedAndUnlocalizedVariants(in: resources)
         diagnoseMissingDevelopmentRegionResource(in: resources)
         diagnoseInfoPlistConflicts(in: resources)
+        diagnoseInvalidResource(in: resources)
 
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
@@ -195,10 +194,6 @@ public struct TargetSourcesBuilder {
                     diags.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
                 }
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
-            }
-            
-            if let message = validTargetPath(at: resourcePath) {
-                self.diags.emit(warning: "Invalid Resource: \(resourcePath): \(message)")
             }
         }
 
@@ -346,6 +341,15 @@ public struct TargetSourcesBuilder {
                 diags.emit(.infoPlistResourceConflict(
                     path: resource.path.relative(to: targetPath),
                     targetName: target.name))
+            }
+        }
+    }
+    
+    private func diagnoseInvalidResource(in resources: [Resource]) {
+        resources.forEach { resource in
+            if let message = validTargetPath(at: resource.path) {
+                let warning = "Invalid Resource '\(resource.path)': \(message)."
+                self.diags.emit(warning: warning)
             }
         }
     }
