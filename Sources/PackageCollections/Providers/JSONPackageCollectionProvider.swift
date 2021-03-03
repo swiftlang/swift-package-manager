@@ -25,9 +25,6 @@ import TSCBasic
 private typealias JSONModel = PackageCollectionModel.V1
 
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
-    // FIXME: remove
-    static let enableSignatureCheck = ProcessInfo.processInfo.environment["ENABLE_COLLECTION_SIGNATURE_CHECK"] != nil
-
     // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
     // module depends on are available on all Apple platforms.
     #if os(macOS) || os(Linux) || os(Windows)
@@ -135,10 +132,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         do {
             // This fails if collection is not signed (i.e., no "signature")
             let signedCollection = try self.decoder.decode(JSONModel.SignedCollection.self, from: data)
-
-            if !Self.enableSignatureCheck {
-                return callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
-            }
 
             if source.skipSignatureCheck {
                 // Don't validate signature; set isVerified=false
