@@ -167,7 +167,7 @@ public struct TargetSourcesBuilder {
         diagnoseLocalizedAndUnlocalizedVariants(in: resources)
         diagnoseMissingDevelopmentRegionResource(in: resources)
         diagnoseInfoPlistConflicts(in: resources)
-        diagnoseInvalidResource(in: resources)
+        diagnoseInvalidResource(in: target.resources)
 
         // It's an error to contain mixed language source files.
         if sources.containsMixedLanguage {
@@ -345,9 +345,10 @@ public struct TargetSourcesBuilder {
         }
     }
     
-    private func diagnoseInvalidResource(in resources: [Resource]) {
+    private func diagnoseInvalidResource(in resources: [TargetDescription.Resource]) {
         resources.forEach { resource in
-            if let message = validTargetPath(at: resource.path) {
+            let resourcePath = self.targetPath.appending(RelativePath(resource.path))
+            if let message = validTargetPath(at: resourcePath) {
                 let warning = "Invalid Resource '\(resource.path)': \(message)."
                 self.diags.emit(warning: warning)
             }

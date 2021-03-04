@@ -518,6 +518,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             diags: diags
         )
 
+        XCTAssertEqual(diags.diagnostics.count, 2)
         diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Exclude")) }
     }
     
@@ -551,8 +552,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             fs: fs,
             diags: diags
         )
+        _ = try builder.run()
 
-        let _ = builder.computeContents().map{ $0.pathString }.sorted()
+        XCTAssertEqual(diags.diagnostics.count, 2)
         diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Resource")) }
     }
     
@@ -588,6 +590,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             diags: diags
         )
 
+        XCTAssertEqual(diags.diagnostics.count, 3)
         diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Source")) }
     }
 }
