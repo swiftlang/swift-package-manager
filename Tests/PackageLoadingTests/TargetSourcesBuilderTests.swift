@@ -593,4 +593,38 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(diags.diagnostics.count, 3)
         diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Source")) }
     }
+
+    func testXcodeSpecificResourcesAreNotIncludedByDefault() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/File.swift",
+            "/Foo.xcdatamodel"
+        ])
+
+        let diags = DiagnosticsEngine()
+
+        let builder = TargetSourcesBuilder(
+            packageName: "",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .vNext,
+            fs: fs,
+            diags: diags
+        )
+        _ = try builder.run()
+
+        XCTAssertEqual(diags.diagnostics.map { $0.description }, ["found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n"])
+    }
 }

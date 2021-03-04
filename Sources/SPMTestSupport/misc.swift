@@ -227,7 +227,8 @@ public func loadPackageGraph(
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
     allowPluginTargets: Bool = false,
-    createREPLProduct: Bool = false
+    createREPLProduct: Bool = false,
+    useXCBuildFileRules: Bool = false
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind == .root }
     let externalManifests = manifests.filter { $0.packageKind != .root }
@@ -238,6 +239,7 @@ public func loadPackageGraph(
     return try PackageGraph.load(
         root: graphRoot,
         identityResolver: identityResolver,
+        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : [],
         externalManifests: externalManifests,
         binaryArtifacts: binaryArtifacts,
         diagnostics: diagnostics,

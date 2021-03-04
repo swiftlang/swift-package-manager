@@ -1709,7 +1709,8 @@ class PIFBuilderTests: XCTestCase {
                     ],
                     targets: [
                         .init(name: "foo", resources: [
-                            .init(rule: .process, path: "Resources")
+                            // This is intentionally specific to test that we pick up `.xcdatamodel` implicitly.
+                            .init(rule: .process, path: "Resources/Data.plist")
                         ]),
                         .init(name: "FooLib", resources: [
                             .init(rule: .process, path: "Resources")
@@ -1719,7 +1720,8 @@ class PIFBuilderTests: XCTestCase {
                         ], type: .test),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            useXCBuildFileRules: true
         )
 
         let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)

@@ -66,7 +66,12 @@ public struct TargetSourcesBuilder {
         self.defaultLocalization = defaultLocalization
         self.diags = diags
         self.targetPath = path
-        self.rules = FileRuleDescription.builtinRules
+        if toolsVersion <= ToolsVersion.v5_4 {
+            // In version 5.4 and earlier, we did not support `additionalFileRules` and always implicitly included XCBuild file types.
+            self.rules = FileRuleDescription.builtinRules + FileRuleDescription.xcbuildFileTypes
+        } else {
+            self.rules = FileRuleDescription.builtinRules + additionalFileRules
+        }
         self.toolsVersion = toolsVersion
         self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
@@ -607,7 +612,7 @@ public struct FileRuleDescription {
         asm,
         modulemap,
         header,
-    ] + xcbuildFileTypes
+    ]
 
     /// List of file types that requires the Xcode build system.
     public static let xcbuildFileTypes: [FileRuleDescription] = [
