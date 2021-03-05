@@ -354,7 +354,7 @@ extension PackageModel.ProductType {
             self = .library(.init(from: libraryType))
         case .executable:
             self = .executable
-        case .extension:
+        case .plugin:
             self = .plugin
         case .test:
             self = .test

@@ -325,8 +325,8 @@ extension PackageCollectionModel.V1 {
         /// An executable product.
         case executable
         
-        /// An extension product.
-        case `extension`
+        /// An plugin product.
+        case plugin
 
         /// A test product.
         case test
@@ -335,7 +335,7 @@ extension PackageCollectionModel.V1 {
 
 extension PackageCollectionModel.V1.ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, `extension`, test
+        case library, executable, plugin, test
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -346,8 +346,8 @@ extension PackageCollectionModel.V1.ProductType: Codable {
             try unkeyedContainer.encode(a1)
         case .executable:
             try container.encodeNil(forKey: .executable)
-        case .extension:
-            try container.encodeNil(forKey: .extension)
+        case .plugin:
+            try container.encodeNil(forKey: .plugin)
         case .test:
             try container.encodeNil(forKey: .test)
         }
@@ -367,8 +367,8 @@ extension PackageCollectionModel.V1.ProductType: Codable {
             self = .test
         case .executable:
             self = .executable
-        case .extension:
-            self = .extension
+        case .plugin:
+            self = .plugin
         }
     }
 }
