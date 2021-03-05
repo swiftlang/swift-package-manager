@@ -4266,7 +4266,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads = [Foundation.URL: AbsolutePath]()
+        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -4301,7 +4301,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         // create a dummy xcframework directory from the request archive
-        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
                 let name: String
                 switch archivePath.basename {
@@ -4441,7 +4441,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadWithPreviousState() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads = [Foundation.URL: AbsolutePath]()
+        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -4478,7 +4478,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         // create a dummy xcframework directory from the request archive
-        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
                 let name: String
                 switch archivePath.basename {
@@ -4731,7 +4731,7 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-        let archiver = MockArchiver(extract: { _, _, destinationPath, completion in
+        let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
             XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
             completion(.failure(DummyError()))
         })
@@ -4871,7 +4871,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        var downloads = [Foundation.URL: AbsolutePath]()
+        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
         let hostToolchain = try UserToolchain(destination: .hostDestination())
 
         let ariFiles = [
@@ -4951,7 +4951,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         // create a dummy xcframework directory from the request archive
-        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
                 let name: String
                 switch archivePath.basename {
@@ -5338,7 +5338,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         // create a dummy xcframework directory from the request archive
-        let archiver = MockArchiver(extract: { archiver, archivePath, destinationPath, completion in
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
             do {
                 let name: String
                 switch archivePath.basename {
