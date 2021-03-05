@@ -157,14 +157,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
-    /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - at: The absolute path of the package root.
-    ///     - kind: The kind of package the manifest is from.
-    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
-    ///         Its associated resources will be used by the loader.
-    // FIXME: take identity?
+    // deprecated 3/21, remove once clients migrated over
+    @available(*, deprecated, message: "use loadRootManifest instead")
     public static func loadManifest(
         at path: AbsolutePath,
         kind: PackageReference.Kind,
@@ -200,6 +194,51 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///   - at: The absolute path of the package root.
+    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
+    ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - diagnostics: Optional.  The diagnostics engine.
+    ///   - on: The dispatch queue to perform asynchronous operations on.
+    ///   - completion: The completion handler .
+    public static func loadRootManifest(
+        at path: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        identityResolver: IdentityResolver,
+        diagnostics: DiagnosticsEngine? = nil,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        do {
+            let fileSystem = localFileSystem
+            let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+            let loader = ManifestLoader(manifestResources: resources)
+            let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
+            let packageLocation = path.basename == Manifest.filename ? path.parentDirectory : path
+            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
+            loader.load(
+                at: path,
+                packageIdentity: packageIdentity,
+                packageKind: .root,
+                packageLocation: packageLocation.pathString,
+                version: nil,
+                revision: nil,
+                toolsVersion: toolsVersion,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                diagnostics: diagnostics,
+                on: queue,
+                completion: completion
+            )
+        } catch {
+            return completion(.failure(error))
+        }
+    }
+
+    // deprecated 3/21, remove once clients migrated over
     @available(*, deprecated, message: "use load(at: packageIdentity:, ...) variant instead")
     public func load(
         at path: AbsolutePath,
@@ -262,16 +301,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    /// Create a manifest by loading a specific manifest file from the given `path`.
-    ///
-    /// - Parameters:
-    ///   - at: The path to the manifest file (or a package root).
-    ///   - packageIdentity: The identity of package the manifest is from.
-    ///   - packageKind: The kind of package the manifest is from.
-    ///   - packageLocation: The location the manifest was loaded from.
-    ///   - version: The version the manifest is from, if known.
-    ///   - revision: The revision the manifest is from, if known.
-    ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
     private func loadFile(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,

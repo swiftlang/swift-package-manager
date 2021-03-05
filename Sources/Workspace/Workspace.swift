@@ -341,7 +341,8 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         repositoryManager: RepositoryManager? = nil,
-        delegate: WorkspaceDelegate? = nil
+        delegate: WorkspaceDelegate? = nil,
+        identityResolver: IdentityResolver? = nil
     ) -> Workspace {
         return Workspace(
             dataPath: packagePath.appending(component: ".build"),
@@ -349,7 +350,8 @@ public class Workspace {
             pinsFile: packagePath.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
             repositoryManager: repositoryManager,
-            delegate: delegate
+            delegate: delegate,
+            identityResolver: identityResolver
         )
     }
 }
@@ -499,7 +501,7 @@ extension Workspace {
         }
     }
 
-    /// Cleans the build artefacts from workspace data.
+    /// Cleans the build artifacts from workspace data.
     ///
     /// - Parameters:
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
@@ -554,7 +556,7 @@ extension Workspace {
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
+        let graphRoot = try PackageGraphRoot(input: root, manifests: rootManifests)
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
@@ -620,12 +622,9 @@ extension Workspace {
         return nil
     }
 
-    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - packagePath: The absolute path of the root package.
-    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
-    ///         Its associated resources will be used by the loader.
+
+    // deprecated 3/21, remove once clients migrated over
+    @available(*, deprecated, message: "use loadRootPackage instead")
     public static func loadGraph(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -633,9 +632,28 @@ extension Workspace {
         identityResolver: IdentityResolver,
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
+        return try Self.loadRootGraph(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags, identityResolver: identityResolver, diagnostics: diagnostics)
+    }
+
+    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///   - at: The absolute path of the root package.
+    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
+    ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - diagnostics: Optional.  The diagnostics engine.
+    ///   - on: The dispatch queue to perform asynchronous operations on.
+    ///   - completion: The completion handler .
+    public static func loadRootGraph(
+        at packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        identityResolver: IdentityResolver? = nil,
+        diagnostics: DiagnosticsEngine
+    ) throws -> PackageGraph {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
-        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, identityResolver: identityResolver)
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
@@ -1072,24 +1090,20 @@ extension Workspace {
             }
 
             // Root packages are always allowed to use unsafe flags.
-            result.formUnion(root.packageRefs)
+            result.formUnion(root.packageReferences)
 
             return result
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            // FIXME: use PackageIdentity.root?
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
-                self.root.manifests.map { (workspace.identityResolver.resolveIdentity(for: $0.packageLocation), $0) } +
-                self.dependencies.map { (workspace.identityResolver.resolveIdentity(for: $0.manifest.packageLocation), $0.manifest) })
+                self.root.packages.map { ($0.key, $0.value.manifest) } +
+                self.dependencies.map { ($0.dependency.packageIdentity, $0.manifest) }) // FIXME: use dependency identity
 
             var inputIdentities: Set<PackageReference> = []
-            let inputNodes: [GraphLoadingNode] = self.root.manifests.map{ manifest in
-                // FIXME: use PackageIdentity.root?
-                let identity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let package = PackageReference(identity: identity, kind: manifest.packageKind, location: manifest.packageLocation)
-                inputIdentities.insert(package)
-                let node = GraphLoadingNode(identity: identity, manifest: manifest, productFilter: .everything)
+            let inputNodes: [GraphLoadingNode] = self.root.packages.map{ identity, package in
+                inputIdentities.insert(package.packageReference)
+                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
                 let package = dependency.createPackageRef()
@@ -1241,12 +1255,18 @@ extension Workspace {
         root: PackageGraphRoot,
         diagnostics: DiagnosticsEngine
     ) throws -> DependencyManifests {
+        // Utility Just because a raw tuple cannot be hashable.
+        struct Key: Hashable {
+            let identity: PackageIdentity
+            let url: String
+            let productFilter: ProductFilter
+        }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
         let dependenciesToCheck = Array(state.dependencies)
         // Remove any managed dependency which has become a root.
         for dependency in dependenciesToCheck {
-            if root.packageRefs.contains(dependency.packageRef) {
+            if root.packages.keys.contains(dependency.packageRef.identity) {
                 diagnostics.wrap {
                     try self.remove(package: dependency.packageRef)
                 }
@@ -1262,53 +1282,51 @@ extension Workspace {
         // optimization: preload in parallel
         let rootDependencyManifestsURLs = root.dependencies.map{ $0.location }
         let rootDependencyManifests = try temp_await { self.loadManifests(forURLs: rootDependencyManifestsURLs, diagnostics: diagnostics, completion: $0) }
+            .spm_createDictionary{ (self.identityResolver.resolveIdentity(for: $0.packageLocation), $0) }
 
-        let inputManifests = root.manifests + rootDependencyManifests
+        let inputManifests = root.manifests.merging(rootDependencyManifests, uniquingKeysWith: { lhs, rhs in
+            return lhs // prefer roots!
+        })
 
-        // Map of loaded manifests. We do this to avoid reloading the shared nodes.
-
-        // Compute the transitive closure of available dependencies.
-        struct URLAndFilter: Hashable { // Just because a raw tuple cannot be hashable.
-            let url: String
-            let productFilter: ProductFilter
-        }
-
+        // Create a map of loaded manifests. We do this to avoid reloading the shared nodes.
         // optimization: preload manifest we know about in parallel
-        let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ $0.location } }.flatMap { $0 }
-        // FIXME: this should not block
-        var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) }
+        let inputManifestsDependenciesURLs = inputManifests.values.map { $0.dependencies.map{ $0.location } }.flatMap { $0 }
+        var loadedManifests = try temp_await { self.loadManifests(forURLs: inputManifestsDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) } // FIXME: this should not block
 
-        // continue to load the rest of the manifest for this graph
-        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: .everything)) }) { node in
-            return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
+        // Continue to load the rest of the manifest for this graph
+        // Compute the transitive closure of available dependencies.
+        let inputPairs = inputManifests.map { identity, manifest -> KeyedPair<Manifest, Key> in
+            let key = Key(identity: identity, url: manifest.packageLocation, productFilter: .everything)
+            return KeyedPair(manifest, key: key)
+        }
+        let allManifestsWithPossibleDuplicates = try topologicalSort(inputPairs) { pair in
+            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap{ dependency in
                 let location = dependency.location
                 // FIXME: this should not block
                 // note: loadManifest emits diagnostics in case it fails
                 let manifest = loadedManifests[location] ?? temp_await { self.loadManifest(forURL: location, diagnostics: diagnostics, completion: $0) }
                 loadedManifests[location] = manifest
-                return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: dependency.productFilter)) }
+                return manifest.flatMap { KeyedPair($0, key: Key(identity: dependency.identity, url: $0.packageLocation, productFilter: dependency.productFilter)) }
             }
         }
 
         // remove duplicates of the same manifest (by identity)
         var deduplication = [PackageIdentity: Int]()
         var allManifests = [(manifest: Manifest, productFilter: ProductFilter)]()
-        for node in allManifestsWithPossibleDuplicates {
-            // FIXME: add identity to "filter"?
-            let identity = self.identityResolver.resolveIdentity(for: node.item.packageLocation)
-            if let index = deduplication[identity]  {
-                let productFilter = allManifests[index].productFilter.merge(node.key.productFilter)
-                allManifests[index] = (node.item, productFilter)
+        for pair in allManifestsWithPossibleDuplicates {
+            if let index = deduplication[pair.key.identity]  {
+                let productFilter = allManifests[index].productFilter.merge(pair.key.productFilter)
+                allManifests[index] = (pair.item, productFilter)
             } else {
-                deduplication[identity] = allManifests.count
-                allManifests.append((node.item, node.key.productFilter))
+                deduplication[pair.key.identity] = allManifests.count
+                allManifests.append((pair.item, pair.key.productFilter))
             }
         }
 
-        let dependencyManifests = allManifests.filter{ !root.manifests.contains($0.manifest) }
+        let dependencyManifests = allManifests.filter{ !root.manifests.values.contains($0.manifest) }
 
         // check for overrides attempts with same name but different path
-        let rootManifestsByName = root.manifests.spm_createDictionary{ ($0.name, $0) }
+        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.name, $0) }
         dependencyManifests.forEach { manifest, _ in
             if let override = rootManifestsByName[manifest.name], override.packageLocation != manifest.packageLocation  {
                 diagnostics.emit(error: "unable to override package '\(manifest.name)' because its identity '\(PackageIdentity(url: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(url: override.packageLocation))'")
@@ -1535,14 +1553,14 @@ extension Workspace {
     }
 
     private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
-        let packageAndManifests: [(PackageReference, Manifest)] =
-            zip(manifests.root.packageRefs, manifests.root.manifests) + // Root package and manifests.
-            manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
+        let packageAndManifests: [(manifest: Manifest, packageReference: PackageReference)] =
+            manifests.root.packages.values + // Root package and manifests.
+            manifests.dependencies.map({ manifest, managed, _ in (manifest, managed.packageRef) }) // Dependency package and manifests.
 
         var localArtifacts: [ManagedArtifact] = []
         var remoteArtifacts: [RemoteArtifact] = []
 
-        for (packageRef, manifest) in packageAndManifests {
+        for (manifest, packageReference) in packageAndManifests {
             for target in manifest.targets where target.type == .binary {
                 if let path = target.path {
                     // TODO: find a better way to get the base path (not via the manifest)
@@ -1550,14 +1568,14 @@ extension Workspace {
                     let absolutePath = manifest.path.parentDirectory.appending(RelativePath(path))
                     localArtifacts.append(
                         .local(
-                            packageRef: packageRef,
+                            packageRef: packageReference,
                             targetName: target.name,
                             path: absolutePath)
                     )
                 } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
                     remoteArtifacts.append(
                         .init(
-                            packageRef: packageRef,
+                            packageRef: packageReference,
                             targetName: target.name,
                             url: url,
                             checksum: checksum)
@@ -1763,7 +1781,7 @@ extension Workspace {
 
         // FIXME: this should not block
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = try PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
 
         // Load the pins store or abort now.
         guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }), !diagnostics.hasErrors else {
@@ -1857,9 +1875,12 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
+        guard !diagnostics.hasErrors else {
+            throw Diagnostics.fatalError
+        }
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = try PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         guard !diagnostics.hasErrors else {
             return currentManifests
@@ -2014,16 +2035,11 @@ extension Workspace {
         let constraints =
             root.constraints() +
             // Include constraints from the manifests in the graph root.
-            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything) }) +
+            root.manifests.values.flatMap({ $0.dependencyConstraints(productFilter: .everything) }) +
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 
-        let precomputationProvider = ResolverPrecomputationProvider(
-            root: root,
-            dependencyManifests: dependencyManifests,
-            identityResolver: self.identityResolver
-        )
-
+        let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
         let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
         let result = resolver.solve(constraints: constraints)
 
@@ -2196,7 +2212,7 @@ extension Workspace {
 
             case .unversioned:
                 // Ignore the root packages.
-                if root.packageRefs.contains(packageRef) {
+                if root.packages.keys.contains(packageRef.identity) {
                     continue
                 }
 

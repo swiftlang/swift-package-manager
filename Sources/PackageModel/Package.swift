@@ -59,7 +59,7 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
     }
 
     /// The name of the package as entered in the manifest.
-    @available(*, deprecated, message: "use identity instead")
+    /// This should rarely be used beyond presentation purposes
     public var manifestName: String {
         return manifest.name
     }

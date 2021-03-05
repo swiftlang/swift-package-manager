@@ -170,16 +170,16 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
 
-            let manifests = try temp_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
             }
-            guard let manifest = manifests.first else { return }
-            // FIXME: use PackageIdentity.root?
-            let packageIdentity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
+            guard let rootManifest = rootManifests.first else {
+                throw StringError("invalid manifests at \(root.packages)")
+            }
 
             let builder = PackageBuilder(
-                identity: packageIdentity,
-                manifest: manifest,
+                identity: .root(name: rootManifest.name),
+                manifest: rootManifest,
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
                 xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
@@ -240,15 +240,16 @@ extension SwiftPackageTool {
             // Get the root package.
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            let manifest = try temp_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
-            }[0]
-            // FIXME: use PackageIdentity.root?
-            let packageIdentity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
+            }
+            guard let rootManifest = rootManifests.first else {
+                throw StringError("invalid manifests at \(root.packages)")
+            }
 
             let builder = PackageBuilder(
-                identity: packageIdentity,
-                manifest: manifest,
+                identity: .root(name: rootManifest.name),
+                manifest: rootManifest,
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
                 xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
@@ -372,15 +373,17 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
 
-            let manifests = try temp_await {
+            let rootManifests = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
             }
-            guard let manifest = manifests.first else { return }
+            guard let rootManifest = rootManifests.first else {
+                throw StringError("invalid manifests at \(root.packages)")
+            }
 
             let encoder = JSONEncoder.makeWithDefaults()
             encoder.userInfo[Manifest.dumpPackageKey] = true
 
-            let jsonData = try encoder.encode(manifest)
+            let jsonData = try encoder.encode(rootManifest)
             let jsonString = String(data: jsonData, encoding: .utf8)!
             print(jsonString)
         }

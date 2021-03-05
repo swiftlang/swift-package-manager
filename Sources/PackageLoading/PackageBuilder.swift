@@ -298,14 +298,8 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
 
-    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - path: The absolute path of the package root.
-    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
-    ///         Its associated resources will be used by the loader.
-    ///     - kind: The kind of package.
-    // FIXME: use PackageIdentity.root? tae identity?
+    // deprecated 3/21, remove once clients migrated over
+    @available(*, deprecated, message: "use loadRootPackage instead")
     public static func loadPackage(
         at path: AbsolutePath,
         kind: PackageReference.Kind = .root,
@@ -324,6 +318,46 @@ public final class PackageBuilder {
                                     swiftCompilerFlags: swiftCompilerFlags,
                                     identityResolver: identityResolver,
                                     on: queue) { result in
+            let result = result.tryMap { manifest -> Package in
+                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
+                let builder = PackageBuilder(
+                    identity: identity,
+                    manifest: manifest,
+                    productFilter: .everything,
+                    path: path,
+                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    diagnostics: diagnostics)
+                return try builder.construct()
+            }
+            completion(result)
+        }
+    }
+
+    /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///   - at: The absolute path of the package root.
+    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
+    ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - diagnostics: Optional.  The diagnostics engine.
+    ///   - on: The dispatch queue to perform asynchronous operations on.
+    ///   - completion: The completion handler .
+    public static func loadRootPackage(
+        at path: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+        identityResolver: IdentityResolver,
+        diagnostics: DiagnosticsEngine,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Package, Error>) -> Void
+    ) {
+        ManifestLoader.loadRootManifest(at: path,
+                                        swiftCompiler: swiftCompiler,
+                                        swiftCompilerFlags: swiftCompilerFlags,
+                                        identityResolver: identityResolver,
+                                        diagnostics: diagnostics,
+                                        on: queue) { result in
             let result = result.tryMap { manifest -> Package in
                 let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
                 let builder = PackageBuilder(

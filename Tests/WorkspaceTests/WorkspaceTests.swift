@@ -404,7 +404,7 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        workspace.checkPackageGraph(roots: ["Foo", "Nested/Foo"]) { _, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Foo", "Nested/Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("found multiple top-level packages named 'Foo'"), behavior: .error)
             }
@@ -2140,17 +2140,17 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Foo"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
-        workspace.checkPackageGraph(roots: ["Bar"]) { _, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Bar"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"), behavior: .error, location: "/tmp/ws/roots/Bar")
             }
         }
-        workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Foo", "Bar"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"), behavior: .error, location: "/tmp/ws/roots/Bar")
             }
         }
-        workspace.checkPackageGraph(roots: ["Baz"]) { _, diagnostics in
+        workspace.checkPackageGraphFailure(roots: ["Baz"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(diagnostic: .equal("package at '/tmp/ws/roots/Baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"), behavior: .error, location: "/tmp/ws/roots/Baz")
             }
@@ -3788,28 +3788,31 @@ final class WorkspaceTests: XCTestCase {
         // From here the API should be simple and straightforward:
         let diagnostics = DiagnosticsEngine()
         let manifest = try tsc_await {
-            ManifestLoader.loadManifest(at: packagePath,
-                                        kind: .local,
-                                        swiftCompiler: swiftCompiler,
-                                        swiftCompilerFlags: [],
-                                        identityResolver: identityResolver,
-                                        on: .global(),
-                                        completion: $0)
+            ManifestLoader.loadRootManifest(
+                at: packagePath,
+                swiftCompiler: swiftCompiler,
+                swiftCompilerFlags: [],
+                identityResolver: identityResolver,
+                on: .global(),
+                completion: $0
+            )
         }
 
         let loadedPackage = try tsc_await {
-            PackageBuilder.loadPackage(at: packagePath,
-                                       swiftCompiler: swiftCompiler,
-                                       swiftCompilerFlags: [],
-                                       xcTestMinimumDeploymentTargets: [:],
-                                       identityResolver: identityResolver,
-                                       diagnostics: diagnostics,
-                                       on: .global(),
-                                       completion: $0)
+            PackageBuilder.loadRootPackage(
+                at: packagePath,
+                swiftCompiler: swiftCompiler,
+                swiftCompilerFlags: [],
+                xcTestMinimumDeploymentTargets: [:],
+                identityResolver: identityResolver,
+                diagnostics: diagnostics,
+                on: .global(),
+                completion: $0
+            )
         }
 
-        let graph = try Workspace.loadGraph(
-            packagePath: packagePath,
+        let graph = try Workspace.loadRootGraph(
+            at: packagePath,
             swiftCompiler: swiftCompiler,
             swiftCompilerFlags: [],
             identityResolver: identityResolver,

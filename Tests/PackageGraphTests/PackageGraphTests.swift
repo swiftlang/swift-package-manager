@@ -188,7 +188,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", behavior: .error)
+        }
     }
 
     func testCycle2() throws {
@@ -215,7 +217,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Foo")
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Foo", behavior: .error)
+        }
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -297,7 +301,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].description, "multiple targets named 'Bar' in: 'bar', 'foo'")
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'", behavior: .error)
+        }
     }
 
     func testMultipleDuplicateModules() throws {

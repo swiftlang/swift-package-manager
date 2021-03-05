@@ -35,14 +35,12 @@ extension PackageGraph {
     ) throws -> PackageGraph {
 
         // Create a map of the manifests, keyed by their identity.
-        //
-        // FIXME: For now, we have to compute the identity of dependencies from
-        // the URL but that shouldn't be needed after <rdar://problem/33693433>
-        // Ensure that identity and package name are the same once we have an
-        // API to specify identity in the manifest file
-        // FIXME: use PackageIdentity.root?
-        let manifestMapSequence = (root.manifests + externalManifests).map({ (identityResolver.resolveIdentity(for: $0.packageLocation), $0) })
-        let manifestMap = Dictionary(uniqueKeysWithValues: manifestMapSequence)
+        let rootManifestsMap = root.packages.mapValues { $0.manifest }
+        let externalManifestsMap = externalManifests.map{ (identityResolver.resolveIdentity(for: $0.packageLocation), $0) }
+        let manifestMap = rootManifestsMap.merging(externalManifestsMap, uniquingKeysWith: { lhs, rhs in
+            return rhs // 👀 this was not possible before (the dictionary creation would crash), is preferring external correct?
+        })
+
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap{ dependency in
                 return manifestMap[dependency.identity].map { manifest in
@@ -52,14 +50,14 @@ extension PackageGraph {
         }
 
         // Construct the root manifest and root dependencies set.
-        let rootManifestSet = Set(root.manifests)
+        let rootManifestSet = Set(root.manifests.values)
         let rootDependencies = Set(root.dependencies.compactMap{
             manifestMap[$0.identity]
         })
-        let rootManifestNodes = root.manifests.map {
+        let rootManifestNodes = root.packages.map { identity, package in
             // FIXME: use PackageIdentity.root?
-            GraphLoadingNode(identity: identityResolver.resolveIdentity(for: $0.packageLocation),
-                             manifest: $0,
+            GraphLoadingNode(identity: identity,
+                             manifest: package.manifest,
                              productFilter: .everything)
         }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
