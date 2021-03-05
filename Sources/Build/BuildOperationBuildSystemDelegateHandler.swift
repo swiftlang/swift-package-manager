@@ -373,6 +373,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
     private var errorMessagesByTarget: [String: [String]] = [:]
+    public var targetErrorMessages: [String: [String]] { get { return errorMessagesByTarget } }
     
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]

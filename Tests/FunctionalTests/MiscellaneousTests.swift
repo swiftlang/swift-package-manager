@@ -438,6 +438,28 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
     
+    func testFixItForMissingModuleWithDependency() throws {
+        fixture(name: "Miscellaneous/MissingModule/WithDependency") { prefix in
+            let app = prefix.appending(component: "Bar")
+            
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+            
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("depends on one of the following dependencies"), "Didn't find expected output: \(output)")
+        }
+    }
+    
+        func testFixItForMissingModuleWithoutDependency() throws {
+        fixture(name: "Miscellaneous/MissingModule/WithoutDependency") { prefix in
+            let app = prefix.appending(component: "Bar")
+            
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+            
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("has a missing dependency."), "Didn't find expected output: \(output)")
+        }
+    }
+    
     func testUnicode() {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in

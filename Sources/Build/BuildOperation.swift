@@ -130,7 +130,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         buildSystemDelegate?.buildComplete(success: success)
         delegate?.buildSystem(self, didFinishWithResult: success)
-        guard success else { throw Diagnostics.fatalError }
+        guard success else {
+            if let errorMessages = self.buildSystemDelegate?.targetErrorMessages {
+                errorMessages.forEach { key, value in
+                    value.forEach { entry in
+                        if entry.contains("could not build Objective-C module") || entry.contains("no such module") {
+                            if let missingImport = entry.split(separator: "'").last {
+                                suggestMissingDependency(missingImport: String(missingImport), sourceTarget: key)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            throw Diagnostics.fatalError
+        }
 
         // Create backwards-compatibility symlink to old build path.
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
@@ -281,6 +295,30 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return false
         }
         return true
+    }
+    
+    public func suggestMissingDependency(missingImport: String, sourceTarget: String) {
+        // Often times a package dependency will be added to the manifest, but then not
+        // included in a target's dependencies before being used.
+        // Here we interate over all of the packages checking for which product has the
+        // desired target.
+        // If we can't find a product we just let the user know there's a missing dependency
+        // for the offending target.
+        var possibleDependencies = [String]()
+        
+        self.packageGraph?.packages.forEach { package in
+            package.products.forEach { product in
+                if product.targets.contains(where: { $0.name == missingImport }) {
+                    possibleDependencies.append(product.name)
+                }
+            }
+        }
+        
+        if !possibleDependencies.isEmpty {
+            self.diagnostics.emit(Diagnostic.Message.remark("Target: '\(sourceTarget)' depends on one of the following dependencies \(possibleDependencies)"))
+        } else {
+            self.diagnostics.emit(Diagnostic.Message.remark("Target: '\(sourceTarget)' has a missing dependency."))
+        }
     }
 }
 
