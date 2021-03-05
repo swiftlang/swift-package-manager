@@ -25,6 +25,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
+                                    packageIdentity: .root(name: "Root"),
                                     packageKind: .root,
                                     packageLocation: packageDir.pathString,
                                     version: nil,
@@ -41,6 +42,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
             let newManifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
+                                    packageIdentity: .root(name: "Root"),
                                     packageKind: .root,
                                     packageLocation: packageDir.pathString,
                                     version: nil,

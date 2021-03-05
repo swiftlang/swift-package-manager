@@ -167,6 +167,7 @@ private struct LocalPackageContainer: PackageContainer {
         if let packageRef = dependency?.packageRef {
             return packageRef
         } else {
+            // FIXME: reuse the identity from the package?
             let identity = self.identityResolver.resolveIdentity(for: manifest.packageLocation)
             return .root(identity: identity, path: manifest.path)
         }

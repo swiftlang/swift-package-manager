@@ -174,8 +174,11 @@ extension SwiftPackageTool {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
             }
             guard let manifest = manifests.first else { return }
+            // FIXME: use PackageIdentity.root?
+            let packageIdentity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
 
             let builder = PackageBuilder(
+                identity: packageIdentity,
                 manifest: manifest,
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
@@ -240,8 +243,11 @@ extension SwiftPackageTool {
             let manifest = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
             }[0]
+            // FIXME: use PackageIdentity.root?
+            let packageIdentity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
 
             let builder = PackageBuilder(
+                identity: packageIdentity,
                 manifest: manifest,
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
@@ -582,7 +588,7 @@ extension SwiftPackageTool {
                 destination = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()
-                let packageName = graph.rootPackages[0].name
+                let packageName = graph.rootPackages[0].manifestName // TODO: use identity instead?
                 destination = packageRoot.appending(component: "\(packageName).zip")
             }
 
@@ -657,10 +663,10 @@ extension SwiftPackageTool {
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
-                projectName = graph.rootPackages[0].name
+                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
             case _:
                 dstdir = try swiftTool.getPackageRoot()
-                projectName = graph.rootPackages[0].name
+                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 

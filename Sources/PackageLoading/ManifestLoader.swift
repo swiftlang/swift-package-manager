@@ -75,6 +75,7 @@ public protocol ManifestLoaderProtocol {
     ///
     /// - Parameters:
     ///   - at: The root path of the package.
+    ///   - packageIdentity: the identity of the package
     ///   - packageKind: The kind of package the manifest is from.
     ///   - packageLocation: The location the package the manifest was loaded from.
     ///   - version: Optional. The version the manifest is from, if known.
@@ -87,6 +88,7 @@ public protocol ManifestLoaderProtocol {
     ///   - completion: The completion handler .
     func load(
         at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
         version: Version?,
@@ -162,6 +164,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///     - kind: The kind of package the manifest is from.
     ///     - swiftCompiler: The absolute path of a `swiftc` executable.
     ///         Its associated resources will be used by the loader.
+    // FIXME: take identity?
     public static func loadManifest(
         at path: AbsolutePath,
         kind: PackageReference.Kind,
@@ -176,10 +179,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
             let loader = ManifestLoader(manifestResources: resources)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
+            let packageLocation = path.pathString
+            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
             loader.load(
                 at: path,
+                packageIdentity: packageIdentity,
                 packageKind: kind,
-                packageLocation: path.pathString,
+                packageLocation: packageLocation,
                 version: nil,
                 revision: nil,
                 toolsVersion: toolsVersion,
@@ -194,6 +200,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    @available(*, deprecated, message: "use load(at: packageIdentity:, ...) variant instead")
     public func load(
         at path: AbsolutePath,
         packageKind: PackageReference.Kind,
@@ -207,9 +214,37 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
+        let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
+        self.load(at: path,
+                  packageIdentity: packageIdentity,
+                  packageKind: packageKind,
+                  packageLocation: packageLocation,
+                  version: version,
+                  revision: revision,
+                  toolsVersion: toolsVersion,
+                  identityResolver: identityResolver,
+                  fileSystem: fileSystem,
+                  diagnostics: diagnostics,
+                  on: queue,
+                  completion: completion)
+    }
+
+    public func load(
+        at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        version: Version?,
+        revision: String?,
+        toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        diagnostics: DiagnosticsEngine? = nil,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
         do {
             let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
-            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
             self.loadFile(at: manifestPath,
                           packageIdentity: packageIdentity,
                           packageKind: packageKind,
@@ -220,10 +255,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                           identityResolver: identityResolver,
                           fileSystem: fileSystem,
                           diagnostics: diagnostics,
-                          on: queue) { result in
-
-                completion(result)
-            }
+                          on: queue,
+                          completion: completion)
         } catch {
             return completion(.failure(error))
         }

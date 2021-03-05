@@ -3817,7 +3817,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         XCTAssertEqual(manifest.name, "SwiftPM")
-        XCTAssertEqual(loadedPackage.name, "SwiftPM")
+        XCTAssertEqual(loadedPackage.manifestName, manifest.name)
         XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
     }
 
@@ -5619,7 +5619,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
                     behavior: .error,
                     location: "'Root' /tmp/ws/roots/Root"
                 )
@@ -5627,7 +5627,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateExplicitDependencyNameAtRoot() throws {
+    func testDuplicateExplicitDependencyName_AtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5681,7 +5681,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
                     behavior: .error,
                     location: "'Root' /tmp/ws/roots/Root"
                 )
@@ -5746,7 +5746,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDuplicateManifestNameAtRoot_ExplicitTargetDependecy() throws {
+    func testDuplicateManifestName_ExplicitProductPackage_AtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5803,7 +5803,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testExplicitDependencyNameAndManifestNameMismatchAtRoot() throws {
+    func testExplicitDependencyNam_ManifestNameMismatch_AtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5856,12 +5856,12 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/foo' has an explicit name 'MyPackage1' which does not match the name 'MyPackage' set for '/tmp/ws/pkgs/foo'",
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/foo' has an explicit name 'MyPackage1' which does not match the name 'MyPackage' set for '/tmp/ws/pkgs/foo'",
                     behavior: .error,
                     location: "'Root' /tmp/ws/roots/Root"
                 )
                 result.check(
-                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar' has an explicit name 'MyPackage2' which does not match the name 'MyPackage' set for '/tmp/ws/pkgs/bar'",
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' has an explicit name 'MyPackage2' which does not match the name 'MyPackage' set for '/tmp/ws/pkgs/bar'",
                     behavior: .error,
                     location: "'Root' /tmp/ws/roots/Root"
                 )
@@ -5869,7 +5869,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflictAtRoot_Pre52() throws {
+    func testManifestNameAndIdentityConflict_AtRoot_Pre52() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5926,7 +5926,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflictAtRoot_Post52_Incorrect() throws {
+    func testManifestNameAndIdentityConflict_AtRoot_Post52_Incorrect() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5992,7 +5992,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflictAtRoot_Post52_Correct() throws {
+    func testManifestNameAndIdentityConflict_AtRoot_Post52_Correct() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6049,7 +6049,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testManifestNameAndIdentityConflictWithExplicitDependencyNamesAtRoot() throws {
+    func testManifestNameAndIdentityConflict_ExplicitDependencyNames_AtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6061,8 +6061,8 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            "FooPackage",
-                            "BarPackage"
+                            "FooProduct",
+                            "BarProduct"
                         ]),
                     ],
                     products: [],
@@ -6102,7 +6102,68 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "'Root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+            }
+        }
+    }
+
+    func testManifestNameAndIdentityConflict_ExplicitDependencyNames_ExplicitProductPackage_AtRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .git(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "foo",
+                    path: "foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "foo",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
                     behavior: .error,
                     location: "'Root' /tmp/ws/roots/Root"
                 )
@@ -6182,7 +6243,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "'BarPackage' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
+                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
                     behavior: .error,
                     location: "'BarPackage' /tmp/ws/pkgs/bar"
                 )
@@ -6262,7 +6323,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "product 'OtherUtilityProduct' not found in package 'OtherUtilityPackage'. it is required by package 'BarPackage' target 'BarTarget'.",
+                    diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'OtherUtilityPackage'.",
                     behavior: .error,
                     location: "'BarPackage' /tmp/ws/pkgs/bar"
                 )
@@ -6504,13 +6565,6 @@ final class WorkspaceTests: XCTestCase {
                 )
             }
         }
-    }
-}
-
-extension PackageGraph {
-    /// Finds the package matching the given name.
-    func lookup(_ name: String) -> ResolvedPackage {
-        return packages.first { $0.name == name }!
     }
 }
 

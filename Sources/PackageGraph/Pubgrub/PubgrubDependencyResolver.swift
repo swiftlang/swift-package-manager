@@ -153,7 +153,7 @@ public struct PubgrubDependencyResolver {
     /// Execute the resolution algorithm to find a valid assignment of versions.
     public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
         let root = DependencyResolutionNode.root(package: .root(
-            identity: PackageIdentity(url: "<synthesized-root>"),
+            identity: .root(name: "<synthesized-root>"),
             path: .root
         ))
 
@@ -988,7 +988,7 @@ private struct DiagnosticReportBuilder {
 
     // FIXME: This is duplicated and wrong.
     private func isFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == PackageIdentity(url: "<synthesized-root>")
+        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == .root(name: "<synthesized-root>")
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) throws -> String {

@@ -25,6 +25,7 @@ public final class Manifest: ObjectIdentifierProtocol {
 
     /// FIXME: deprecate this, there is no value in this once we have real package identifiers
     /// The name of the package.
+    //@available(*, deprecated)
     public let name: String
 
     // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
@@ -32,6 +33,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     // to the repository state, it shouldn't matter where it is.
     //
     /// The path of the manifest file.
+    //@available(*, deprecated)
     public let path: AbsolutePath
 
     // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
@@ -42,7 +44,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     public let packageLocation: String
 
     // FIXME: deprecated 2/2021, remove once clients migrate
-    @available(*, deprecated)
+    @available(*, deprecated, message: "use packageLocation instead")
     public var url: String {
         get {
             self.packageLocation
@@ -363,7 +365,7 @@ public final class Manifest: ObjectIdentifierProtocol {
 
 extension Manifest: CustomStringConvertible {
     public var description: String {
-        return "<Manifest: \(name)>"
+        return "<Manifest: \(self.name)>"
     }
 }
 
@@ -381,7 +383,7 @@ extension Manifest: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
+        try container.encode(self.name, forKey: .name)
 
         // Hide the keys that users shouldn't see when
         // we're encoding for the dump-package command.

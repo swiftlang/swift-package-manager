@@ -2243,6 +2243,7 @@ final class PackageBuilderTester {
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
+                identity: PackageIdentity(url: manifest.packageLocation), // FIXME
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,

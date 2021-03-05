@@ -728,7 +728,8 @@ extension Workspace {
         var rootManifests = [Manifest]()
         Set(packages).forEach { package in
             sync.enter()
-            self.loadManifest(packagePath: package, packageLocation: package.pathString, packageKind: .root, diagnostics: diagnostics) { result in
+            // TODO: this does not use the identity resolver which is probably fine since its the root packages
+            self.loadManifest(packageIdentity: PackageIdentity(path: package), packageKind: .root, packagePath: package, packageLocation: package.pathString, diagnostics: diagnostics) { result in
                 defer { sync.leave() }
                 if case .success(let manifest) = result {
                     lock.withLock {
@@ -822,9 +823,10 @@ extension Workspace {
         if fileSystem.exists(destination) {
             // FIXME: this should not block
             let manifest = try temp_await {
-                self.loadManifest(packagePath: destination,
-                                  packageLocation: dependency.packageRef.repository.url,
+                self.loadManifest(packageIdentity: dependency.packageRef.identity,
                                   packageKind: .local,
+                                  packagePath: destination,
+                                  packageLocation: dependency.packageRef.repository.url,
                                   diagnostics: diagnostics,
                                   completion: $0)
             }
@@ -1076,22 +1078,24 @@ extension Workspace {
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
+            // FIXME: use PackageIdentity.root?
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
                 self.root.manifests.map { (workspace.identityResolver.resolveIdentity(for: $0.packageLocation), $0) } +
                 self.dependencies.map { (workspace.identityResolver.resolveIdentity(for: $0.manifest.packageLocation), $0.manifest) })
 
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = self.root.manifests.map{ manifest in
+                // FIXME: use PackageIdentity.root?
                 let identity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
                 let package = PackageReference(identity: identity, kind: manifest.packageKind, location: manifest.packageLocation)
                 inputIdentities.insert(package)
-                let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
+                let node = GraphLoadingNode(identity: identity, manifest: manifest, productFilter: .everything)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
                 let package = dependency.createPackageRef()
                 inputIdentities.insert(package)
                 return manifestsMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
                 }
             }
 
@@ -1102,7 +1106,7 @@ extension Workspace {
                     let package = dependency.createPackageRef()
                     requiredIdentities.insert(package)
                     return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
                     }
                 }
             }
@@ -1290,6 +1294,7 @@ extension Workspace {
         var deduplication = [PackageIdentity: Int]()
         var allManifests = [(manifest: Manifest, productFilter: ProductFilter)]()
         for node in allManifestsWithPossibleDuplicates {
+            // FIXME: add identity to "filter"?
             let identity = self.identityResolver.resolveIdentity(for: node.item.packageLocation)
             if let index = deduplication[identity]  {
                 let productFilter = allManifests[index].productFilter.merge(node.key.productFilter)
@@ -1343,10 +1348,11 @@ extension Workspace {
         let packagePath = path(to: managedDependency)
 
         // Load and return the manifest.
-        self.loadManifest(packagePath: packagePath,
+        self.loadManifest(packageIdentity: managedDependency.packageRef.identity,
+                          packageKind: packageKind,
+                          packagePath: packagePath,
                           packageLocation: managedDependency.packageRef.location,
                           version: version,
-                          packageKind: packageKind,
                           diagnostics: diagnostics) { result in
             // error is added to diagnostics in the function above
             completion(try? result.get())
@@ -1379,10 +1385,11 @@ extension Workspace {
     ///
     /// This is just a helper wrapper to the manifest loader.
     fileprivate func loadManifest(
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,
         packageLocation: String,
         version: Version? = nil,
-        packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -1399,6 +1406,7 @@ extension Workspace {
 
                 // Load the manifest.
                 manifestLoader.load(at: packagePath,
+                                    packageIdentity: packageIdentity,
                                     packageKind: packageKind,
                                     packageLocation: packageLocation,
                                     version: version,
