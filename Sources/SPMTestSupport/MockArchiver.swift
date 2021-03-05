@@ -8,17 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
-import Foundation
 
 public class MockArchiver: Archiver {
-    public typealias Extract = (
-        MockArchiver,
-        AbsolutePath,
-        AbsolutePath,
-        (Result<Void, Error>) -> Void
-    ) -> Void
+    public typealias Handler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) -> Void
 
     public struct Extraction: Equatable {
         public let archivePath: AbsolutePath
@@ -31,14 +26,11 @@ public class MockArchiver: Archiver {
     }
 
     public let supportedExtensions: Set<String> = ["zip"]
-    public var extractions: [Extraction] = []
-    public var extract: Extract!
+    public let extractions = ThreadSafeArrayStore<Extraction>()
+    public let handler: Handler?
 
-    public init(extract: Extract? = nil) {
-        self.extract = extract ?? { archiver, archivePath, destinationPath, completion in
-            self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
-            completion(.success(()))
-        }
+    public init(handler: Handler? = nil) {
+        self.handler = handler
     }
 
     public func extract(
@@ -46,6 +38,11 @@ public class MockArchiver: Archiver {
         to destinationPath: AbsolutePath,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        self.extract(self, archivePath, destinationPath, completion)
+        if let handler = self.handler {
+            handler(self, archivePath, destinationPath, completion)
+        } else {
+            self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
+            completion(.success(()))
+        }
     }
 }

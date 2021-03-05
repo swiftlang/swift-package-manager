@@ -67,6 +67,12 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
         }
     }
 
+    public func map<T>(_ transform: ((key: Key, value: Value)) throws -> T) rethrows -> [T] {
+        try self.lock.withLock {
+            try self.underlying.map(transform)
+        }
+    }
+
     public func mapValues<T>(_ transform: (Value) throws -> T) rethrows -> [Key: T] {
         try self.lock.withLock {
             try self.underlying.mapValues(transform)
