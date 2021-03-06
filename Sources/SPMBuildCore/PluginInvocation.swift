@@ -316,7 +316,7 @@ public protocol PluginScriptRunner {
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)
 
-    @available(*, deprecated, message: "used runPlugin() instead")
+    @available(*, deprecated, message: "use runPluginScript() instead")
     func runExtension(
         sources: Sources,
         inputJSON: Data,
