@@ -1098,7 +1098,8 @@ extension Workspace {
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
                 self.root.packages.map { ($0.key, $0.value.manifest) } +
-                self.dependencies.map { ($0.dependency.packageIdentity, $0.manifest) }) // FIXME: use dependency identity
+                self.dependencies.map { ($0.dependency.packageIdentity, $0.manifest) }
+            )
 
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = self.root.packages.map{ identity, package in

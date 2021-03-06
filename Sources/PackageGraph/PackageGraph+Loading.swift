@@ -55,7 +55,6 @@ extension PackageGraph {
             manifestMap[$0.identity]
         })
         let rootManifestNodes = root.packages.map { identity, package in
-            // FIXME: use PackageIdentity.root?
             GraphLoadingNode(identity: identity,
                              manifest: package.manifest,
                              productFilter: .everything)
@@ -273,7 +272,6 @@ private func createResolvedPackages(
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependencyIdentity)
-                    //let diagnosticLocation = PackageLocation.Local(name: package.name, packagePath: package.path)
                     return diagnostics.emit(error, location: package.diagnosticLocation)
                 }
                 // check that the explicit package dependency name matches the package name.
@@ -366,9 +364,6 @@ private func createResolvedPackages(
     // Do another pass and establish product dependencies of each target.
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
-
-        // The diagnostics location for this package.
-        //let diagnosticLocation = { PackageLocation.Local(name: package.name, packagePath: package.path) }
 
         // Get all implicit system library dependencies in this package.
         let implicitSystemTargetDeps = packageBuilder.dependencies
