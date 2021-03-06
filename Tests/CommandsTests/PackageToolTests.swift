@@ -1011,10 +1011,9 @@ final class PackageToolTests: XCTestCase {
                 XCTAssert(stdoutOutput.contains("Created Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
             }
 
-            // Runnning with output as relative path,
-            // which in execution context is outside package root
-            do {
-                let destination = RelativePath("Bar-1.2.3.zip")
+            // Running with output is outside the package root
+            try withTemporaryDirectory { tempDirectory in
+                let destination = tempDirectory.appending(component: "Bar-1.2.3.zip")
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
