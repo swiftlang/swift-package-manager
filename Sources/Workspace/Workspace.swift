@@ -647,7 +647,7 @@ extension Workspace {
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
         diagnostics: DiagnosticsEngine,
-        allowExtensionTargets: Bool = false,
+        allowPluginTargets: Bool = false,
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil
     ) throws -> PackageGraph {
 
@@ -685,7 +685,7 @@ extension Workspace {
             diagnostics: diagnostics,
             fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
-            allowExtensionTargets: allowExtensionTargets,
+            allowPluginTargets: allowPluginTargets,
             createREPLProduct: createREPLProduct
         )
     }

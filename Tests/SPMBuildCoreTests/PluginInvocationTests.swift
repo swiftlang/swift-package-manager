@@ -20,7 +20,7 @@ import SPMTestSupport
 class PluginInvocationTests: XCTestCase {
     
     func testBasics() throws {
-        // Construct a canned file system and package graph with a single package and a library that uses an extension that uses a tool.
+        // Construct a canned file system and package graph with a single package and a library that uses a plugin that uses a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/SomeFile.abc",
@@ -62,7 +62,7 @@ class PluginInvocationTests: XCTestCase {
                     ]
                 )
             ],
-            allowExtensionTargets: true
+            allowPluginTargets: true
         )
         
         // Check the basic integrity before running plugins.
@@ -82,9 +82,9 @@ class PluginInvocationTests: XCTestCase {
             }
         }
         
-        // A fake ExtensionRunner that just checks the input conditions and returns canned output.
-        struct MockExtensionRunner: ExtensionRunner {
-            func runExtension(
+        // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
+        struct MockPluginScriptRunner: PluginScriptRunner {
+            func runPluginScript(
                 sources: Sources,
                 inputJSON: Data,
                 toolsVersion: ToolsVersion,
@@ -130,12 +130,12 @@ class PluginInvocationTests: XCTestCase {
             }
         }
         
-        // Construct a canned input and run plugins using our MockExtensionRunner().
+        // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let buildEnv = BuildEnvironment(platform: .macOS, configuration: .debug)
         let execsDir = AbsolutePath("/Foo/.build/debug")
         let outputDir = AbsolutePath("/Foo/.build")
-        let extRunner = MockExtensionRunner()
-        let results = try graph.evaluateExtensions(buildEnvironment: buildEnv, execsDir: execsDir, outputDir: outputDir, extensionRunner: extRunner, diagnostics: diagnostics, fileSystem: fileSystem)
+        let pluginRunner = MockPluginScriptRunner()
+        let results = try graph.invokePlugins(buildEnvironment: buildEnv, execsDir: execsDir, outputDir: outputDir, pluginScriptRunner: pluginRunner, diagnostics: diagnostics, fileSystem: fileSystem)
         
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(diagnostics)

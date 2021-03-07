@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -30,7 +30,7 @@ extension PackageGraph {
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
-        allowExtensionTargets: Bool = false,
+        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
 
@@ -114,7 +114,7 @@ extension PackageGraph {
                         fileSystem: fileSystem,
                         diagnostics: diagnostics,
                         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                        allowPluginTargets: allowExtensionTargets,
+                        allowPluginTargets: allowPluginTargets,
                         createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
                     )
                     let package = try builder.construct()
