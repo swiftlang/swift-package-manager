@@ -14,7 +14,9 @@ import TSCBasic
 
 class PluginTests: XCTestCase {
     
-    func testUseOfBuildToolPluginTargetByExecutableInSamePackage() {
+    func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
+        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 999.0.
+        try XCTSkipUnless(doesHostSwiftCompilerSupportRenamingMainSymbol(), "skipping because host compiler doesn't support '-entry-point-function-name'")
         
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -31,7 +33,10 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testUseOfBuildToolPluginProductByExecutableAcrossPackages() {
+    func testUseOfBuildToolPluginProductByExecutableAcrossPackages() throws {
+        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 999.0.
+        try XCTSkipUnless(doesHostSwiftCompilerSupportRenamingMainSymbol(), "skipping because host compiler doesn't support '-entry-point-function-name'")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenClient"), configuration: .Debug, extraArgs: ["--product", "MyTool"], env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
@@ -47,7 +52,10 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() {
+    func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() throws {
+        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 999.0.
+        try XCTSkipUnless(doesHostSwiftCompilerSupportRenamingMainSymbol(), "skipping because host compiler doesn't support '-entry-point-function-name'")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyOtherLocalTool"], env: ["SWIFTPM_ENABLE_PLUGINS": "1"])

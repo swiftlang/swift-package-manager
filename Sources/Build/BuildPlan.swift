@@ -121,6 +121,18 @@ extension BuildParameters {
         return args
     }
 
+    /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
+    fileprivate func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
+        var args: [String] = []
+        if self.triple.isDarwin() {
+            args = ["-alias", "_\(target.c99name)_main", "_main"]
+        }
+        else if self.triple.isLinux() {
+            args = ["--defsym", "main=\(target.c99name)_main"]
+        }
+        return args.flatMap { ["-Xlinker", $0] }
+    }
+
     /// Returns the scoped view of build settings for a given target.
     fileprivate func createScope(for target: ResolvedTarget) -> BuildSettings.Scope {
         return BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
@@ -195,6 +207,11 @@ public final class ClangTargetBuildDescription {
     public var clangTarget: ClangTarget {
         return target.underlyingTarget as! ClangTarget
     }
+    
+    /// The tools version of the package that declared the target.  This can
+    /// can be used to conditionalize semantically significant changes in how
+    /// a target is built.
+    public let toolsVersion: ToolsVersion
 
     /// The build parameters.
     let buildParameters: BuildParameters
@@ -249,11 +266,12 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Create a new target description with target and build parameters.
-    init(target: ResolvedTarget, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem, diagnostics: DiagnosticsEngine) throws {
+    init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem, diagnostics: DiagnosticsEngine) throws {
         assert(target.underlyingTarget is ClangTarget, "underlying target type mismatch \(target)")
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.target = target
+        self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
@@ -472,6 +490,11 @@ public final class SwiftTargetBuildDescription {
     /// The target described by this target.
     public let target: ResolvedTarget
 
+    /// The tools version of the package that declared the target.  This can
+    /// can be used to conditionalize semantically significant changes in how
+    /// a target is built.
+    public let toolsVersion: ToolsVersion
+
     /// The build parameters.
     let buildParameters: BuildParameters
 
@@ -504,7 +527,9 @@ public final class SwiftTargetBuildDescription {
 
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
-        let dirPath = (target.type == .executable) ? tempsPath : buildParameters.buildPath
+        // If we're an executable and we're not allowing test targets to link against us, we hide the module.
+        let allowLinkingAgainstExecutables = (buildParameters.triple.isDarwin() || buildParameters.triple.isLinux()) && toolsVersion >= .vNext
+        let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? tempsPath : buildParameters.buildPath
         return dirPath.appending(component: target.c99name + ".swiftmodule")
     }
 
@@ -555,6 +580,7 @@ public final class SwiftTargetBuildDescription {
     /// Create a new target description with target and build parameters.
     init(
         target: ResolvedTarget,
+        toolsVersion: ToolsVersion,
         buildParameters: BuildParameters,
         pluginInvocationResults: [PluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
@@ -564,6 +590,7 @@ public final class SwiftTargetBuildDescription {
     ) throws {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
         self.target = target
+        self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
@@ -676,6 +703,24 @@ public final class SwiftTargetBuildDescription {
         args += stdlibArguments
         args += buildParameters.sanitizers.compileSwiftFlags()
         args += ["-parseable-output"]
+
+        // If we're compiling the main module of an executable other than the one that
+        // implements a test suite, and if the package tools version indicates that we
+        // should, we rename the `_main` entry point to `_<modulename>_main`.
+        //
+        // This will allow tests to link against the module without any conflicts. And
+        // when we link the executable, we will ask the linker to rename the entry point
+        // symbol to just `_main` again (or if the linker doesn't support it, we'll
+        // generate a source containing a redirect).
+        if target.type == .executable && !isTestTarget && toolsVersion >= .vNext {
+            // We only do this if the linker supports it, as indicated by whether we
+            // can construct the linker flags. In the future we will use a generated
+            // code stub for the cases in which the linker doesn't support it, so that
+            // we can rename the symbol unconditionally.
+            if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
+                args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
+            }
+        }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !libraryBinaryPaths.isEmpty {
@@ -1018,6 +1063,11 @@ public final class ProductBuildDescription {
     /// The reference to the product.
     public let product: ResolvedProduct
 
+    /// The tools version of the package that declared the product.  This can
+    /// can be used to conditionalize semantically significant changes in how
+    /// a target is built.
+    public let toolsVersion: ToolsVersion
+
     /// The build parameters.
     let buildParameters: BuildParameters
 
@@ -1029,7 +1079,7 @@ public final class ProductBuildDescription {
         return buildParameters.binaryPath(for: product)
     }
 
-    /// The objects in this product.
+    /// All object files to link into this product.
     ///
     // Computed during build planning.
     public fileprivate(set) var objects = SortedArray<AbsolutePath>()
@@ -1067,9 +1117,10 @@ public final class ProductBuildDescription {
     let diagnostics: DiagnosticsEngine
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
+    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
+        self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
         self.fs = fs
         self.diagnostics = diagnostics
@@ -1148,6 +1199,20 @@ public final class ProductBuildDescription {
                 }
             }
             args += ["-emit-executable"]
+            
+            // If we're linking an executable whose main module is implemented in Swift,
+            // we rename the `_<modulename>_main` entry point symbol to `_main` again.
+            // This is because executable modules implemented in Swift are compiled with
+            // a main symbol named that way to allow tests to link against it without
+            // conflicts. If we're using a linker that doesn't support symbol renaming,
+            // we will instead have generated a source file containing the redirect.
+            // Support for linking tests againsts executables is conditional on the tools
+            // version of the package that defines the executable product.
+            if product.executableModule.underlyingTarget is SwiftTarget, toolsVersion >= .vNext {
+                if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: product.executableModule) {
+                    args += flags
+                }
+            }
         case .plugin:
             throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
         }
@@ -1327,9 +1392,11 @@ public class BuildPlan {
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
+            let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .vNext
             if let testManifestTarget = testProduct.testManifestTarget, !generate {
                 let desc = try SwiftTargetBuildDescription(
                     target: testManifestTarget,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true
                 )
@@ -1361,6 +1428,7 @@ public class BuildPlan {
 
                 let target = try SwiftTargetBuildDescription(
                     target: testManifestTarget,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true,
                     testDiscoveryTarget: true
@@ -1403,11 +1471,16 @@ public class BuildPlan {
                     }
                 }
             }
+            
+            // Determine the appropriate tools version to use for the target.
+            // This can affect what flags to pass and other semantics.
+            let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .vNext
 
             switch target.underlyingTarget {
             case is SwiftTarget:
                 targetMap[target] = try .swift(SwiftTargetBuildDescription(
                     target: target,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     pluginInvocationResults: pluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
@@ -1415,6 +1488,7 @@ public class BuildPlan {
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
+                    toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem,
                     diagnostics: diagnostics))
@@ -1448,8 +1522,14 @@ public class BuildPlan {
         // Create product description for each product we have in the package graph except
         // for automatic libraries and plugins, because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) && product.type != .plugin {
+
+            // Determine the appropriate tools version to use for the product.
+            // This can affect what flags to pass and other semantics.
+            let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .vNext
             productMap[product] = ProductBuildDescription(
-                product: product, buildParameters: buildParameters,
+                product: product,
+                toolsVersion: toolsVersion,
+                buildParameters: buildParameters,
                 fs: fileSystem,
                 diagnostics: diagnostics
             )
@@ -1635,9 +1715,21 @@ public class BuildPlan {
             switch dependency {
             case .target(let target, _):
                 switch target.type {
-                // Include executable and tests only if they're top level contents
-                // of the product. Otherwise they are just build time dependency.
-                case .executable, .test:
+                // Executable target have historically only been included if they are directly in the product's
+                // target list.  Otherwise they have always been just build-time dependencies.
+                // In tool version .vNext or greater, we also include executable modules implemented in Swift in
+                // any test products... this is to allow testing of executables.  Note that they are also still
+                // built as separate products that the test can invoke as subprocesses.
+                case .executable:
+                    if product.targets.contains(target) {
+                        staticTargets.append(target)
+                    } else if product.type == .test && target.underlyingTarget is SwiftTarget {
+                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .vNext {
+                            staticTargets.append(target)
+                        }
+                    }
+                // Test targets should be included only if they are directly in the product's target list.
+                case .test:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     }

@@ -11,6 +11,8 @@ Swift v.Next
    * Improvements
    
    Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, branch: String)`.
+   
+   Test targets can now link against executable targets as if they were libraries, so that they can test any data strutures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `vNext` or newer. 
 
 
 
