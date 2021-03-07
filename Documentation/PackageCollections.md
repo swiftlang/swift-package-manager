@@ -187,7 +187,7 @@ This subcommand searches for packages by keywords or module names within importe
 
 #### String-based search
 
-The search command does a string-based search when using the `--keyword` option and returns the list of packages that matches the query:
+The search command does a string-based search when using the `--keywords` option and returns the list of packages that matches the query:
 
 ```bash
 $ swift package-collection search --keywords yaml
