@@ -60,13 +60,13 @@ extension PackageGraph {
             // Evaluate each plugin in turn, creating a list of results (one for each plugin used by the target).
             var evalResults: [PluginInvocationResult] = []
             for pluginTarget in pluginTargets {
-                // Give each invocation of an extension a separate output directory.
-                let extOutputDir = outputDir.appending(components: package.name, target.name, pluginTarget.name)
+                // Give each invocation of a plugin a separate output directory.
+                let pluginOutputDir = outputDir.appending(components: package.name, target.name, pluginTarget.name)
                 do {
-                    try fileSystem.createDirectory(extOutputDir, recursive: true)
+                    try fileSystem.createDirectory(pluginOutputDir, recursive: true)
                 }
                 catch {
-                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: extOutputDir, underlyingError: error)
+                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: pluginOutputDir, underlyingError: error)
                 }
                 
                 // Create the input context to pass to the plugin.
@@ -81,7 +81,7 @@ extension PackageGraph {
                     dependencies: dependencyTargets.map {
                         .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
                     },
-                    outputDir: extOutputDir.pathString,
+                    outputDir: pluginOutputDir.pathString,
                     toolsDir: execsDir.pathString
                 )
                 
@@ -163,24 +163,6 @@ extension PackageGraph {
             evalResultsByTarget[target] = evalResults
         }
         return evalResultsByTarget
-    }
-    
-    @available(*, deprecated, message: "used evaluationPlugins() instead")
-    public func evaluateExtensions(
-        buildEnvironment: BuildEnvironment,
-        execsDir: AbsolutePath,
-        outputDir: AbsolutePath,
-        extensionRunner: PluginScriptRunner,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem
-    ) throws -> [ResolvedTarget: [PluginInvocationResult]] {
-        return try self.invokePlugins(
-            buildEnvironment: buildEnvironment,
-            execsDir: execsDir,
-            outputDir: outputDir,
-            pluginScriptRunner: extensionRunner,
-            diagnostics: diagnostics,
-            fileSystem: fileSystem)
     }
     
     
@@ -282,7 +264,6 @@ public struct PluginInvocationResult {
     /// Any textual output emitted by the plugin.
     public var textOutput: String
 }
-public typealias ExtensionEvaluationResult = PluginInvocationResult
 
 
 /// An error in plugin evaluation.
@@ -291,7 +272,6 @@ public enum PluginEvaluationError: Swift.Error {
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
-public typealias ExtensionEvaluationError = PluginEvaluationError
 
 
 /// Implements the mechanics of running a plugin script (implemented as a set of Swift source files) as a process.
@@ -315,50 +295,10 @@ public protocol PluginScriptRunner {
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)
-
-    @available(*, deprecated, message: "use runPluginScript() instead")
-    func runExtension(
-        sources: Sources,
-        inputJSON: Data,
-        toolsVersion: ToolsVersion,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem
-    ) throws -> (outputJSON: Data, stdoutText: Data)
 }
-extension PluginScriptRunner {
-    public func runPluginScript(
-        sources: Sources,
-        inputJSON: Data,
-        toolsVersion: ToolsVersion,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem
-    ) throws -> (outputJSON: Data, stdoutText: Data) {
-        return try self.runExtension(
-            sources: sources,
-            inputJSON: inputJSON,
-            toolsVersion: toolsVersion,
-            diagnostics: diagnostics,
-            fileSystem: fileSystem)
-    }
-    public func runExtension(
-        sources: Sources,
-        inputJSON: Data,
-        toolsVersion: ToolsVersion,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem
-    ) throws -> (outputJSON: Data, stdoutText: Data) {
-        return try self.runPluginScript(
-            sources: sources,
-            inputJSON: inputJSON,
-            toolsVersion: toolsVersion,
-            diagnostics: diagnostics,
-            fileSystem: fileSystem)
-    }
-}
-public typealias ExtensionRunner = PluginScriptRunner
 
 
-/// Serializable context that's passed as input to the evaluation of the extension.
+/// Serializable context that's passed as input to the invocation of the plugin.
 struct PluginScriptRunnerInput: Codable {
     var targetName: String
     var moduleName: String
@@ -378,7 +318,7 @@ struct PluginScriptRunnerInput: Codable {
 }
 
 
-/// Deserializable result that's received as output from the evaluation of the extension.
+/// Deserializable result that's received as output from the invocation of the plugin.
 struct PluginScriptRunnerOutput: Codable {
     var version: Int
     var diagnostics: [Diagnostic]
