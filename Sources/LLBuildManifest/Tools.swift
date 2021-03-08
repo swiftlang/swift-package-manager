@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -97,6 +97,8 @@ public struct ShellTool: ToolProtocol {
     public var inputs: [Node]
     public var outputs: [Node]
     public var args: [String]
+    public var environ: [String: String]
+    public var workingDir: String?
     public var allowMissingInputs: Bool
 
     init(
@@ -104,18 +106,28 @@ public struct ShellTool: ToolProtocol {
         inputs: [Node],
         outputs: [Node],
         args: [String],
+        environ: [String: String] = [:],
+        workingDir: String? = nil,
         allowMissingInputs: Bool = false
     ) {
         self.description = description
         self.inputs = inputs
         self.outputs = outputs
         self.args = args
+        self.environ = environ
+        self.workingDir = workingDir
         self.allowMissingInputs = allowMissingInputs
     }
 
     public func write(to stream: ManifestToolStream) {
         stream["description"] = description
         stream["args"] = args
+        if !environ.isEmpty {
+            stream["env"] = environ
+        }
+        if let workingDir = workingDir {
+            stream["working-directory"] = workingDir
+        }
         if allowMissingInputs {
             stream["allow-missing-inputs"] = true
         }

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -51,6 +51,61 @@ final class LLBuildManifestTests: XCTestCase {
                 tool: phony
                 inputs: ["/some/file.c","/some/dir/","/some/dir/structure/"]
                 outputs: ["<Foo>"]
+
+
+            """)
+    }
+
+    func testShellCommands() throws {
+        var manifest = BuildManifest()
+
+        manifest.defaultTarget = "main"
+        manifest.addShellCmd(
+            name: "shelley",
+            description: "Shelley, Keats, and Byron",
+            inputs: [
+                .file(AbsolutePath("/file.in]"))
+            ],
+            outputs: [
+                .file(AbsolutePath("/file.out"))
+            ],
+            args: [
+                "foo", "bar", "baz"
+            ],
+            environ: [
+                "ABC": "DEF",
+                "G H": "I J K",
+            ],
+            workingDir: "/wdir",
+            allowMissingInputs: true
+        )
+
+        manifest.addNode(.file(AbsolutePath("/file.out")), toTarget: "main")
+
+        let fs = InMemoryFileSystem()
+        try ManifestWriter(fs).write(manifest, at: AbsolutePath("/manifest.yaml"))
+
+        let contents = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
+
+        XCTAssertEqual(contents, """
+            client:
+              name: basic
+            tools: {}
+            targets:
+              "main": ["/file.out"]
+            default: "main"
+            commands:
+              "shelley":
+                tool: shell
+                inputs: ["/file.in]"]
+                outputs: ["/file.out"]
+                description: "Shelley, Keats, and Byron"
+                args: ["foo","bar","baz"]
+                env:
+                  "ABC": "DEF"
+                  "G H": "I J K"
+                working-directory: "/wdir"
+                allow-missing-inputs: true
 
 
             """)

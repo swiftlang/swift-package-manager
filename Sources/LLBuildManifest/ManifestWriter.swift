@@ -134,6 +134,16 @@ public final class ManifestToolStream {
             stream <<< "    \(key): " <<< Format.asJSON(newValue) <<< "\n"
         }
     }
+
+    public subscript(key: String) -> [String: String] {
+        get { fatalError() }
+        set {
+            stream <<< "    \(key):\n"
+            for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
+                stream <<< "      " <<< Format.asJSON(key) <<< ": " <<< Format.asJSON(value) <<< "\n"
+            }
+        }
+    }
 }
 
 extension Format {
