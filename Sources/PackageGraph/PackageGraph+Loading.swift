@@ -38,7 +38,7 @@ extension PackageGraph {
         let rootManifestsMap = root.packages.mapValues { $0.manifest }
         let externalManifestsMap = externalManifests.map{ (identityResolver.resolveIdentity(for: $0.packageLocation), $0) }
         let manifestMap = rootManifestsMap.merging(externalManifestsMap, uniquingKeysWith: { lhs, rhs in
-            return rhs // 👀 this was not possible before (the dictionary creation would crash), is preferring external correct?
+            return lhs
         })
 
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in

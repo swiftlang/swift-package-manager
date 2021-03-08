@@ -88,7 +88,6 @@ private final class DotDumper: DependenciesDumper {
             let url = package.manifest.packageLocation
             if nodesAlreadyPrinted.contains(url) { return }
             let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            // 👀 is this correct? or manifest name is better?
             stream <<< #""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"# <<< "\n"
             nodesAlreadyPrinted.insert(url)
         }
