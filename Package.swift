@@ -11,7 +11,7 @@
 */
 
 import PackageDescription
-import class Foundation.ProcessInfo
+import class Foundation.ProcessInfo 
 
 // We default to a 10.10 minimum deployment target for clients of libSwiftPM,
 // but allow overriding it when building for a toolchain.
