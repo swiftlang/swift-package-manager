@@ -21,7 +21,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !os(macOS)
+#if os(Linux) || os(Windows)
 import Foundation
 
 @_implementationOnly import CCryptoBoringSSL

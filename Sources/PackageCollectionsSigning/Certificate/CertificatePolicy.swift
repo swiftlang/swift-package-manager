@@ -19,7 +19,7 @@ import TSCBasic
 
 #if os(macOS)
 import Security
-#else
+#elseif os(Linux) || os(Windows)
 @_implementationOnly import CCryptoBoringSSL
 @_implementationOnly import PackageCollectionsSigningLibc
 #endif
@@ -88,7 +88,7 @@ extension CertificatePolicy {
         }
     }
 
-    #else
+    #elseif os(Linux) || os(Windows)
     typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
 
     /// Verifies a certificate chain.
@@ -188,7 +188,7 @@ extension CertificatePolicy {
     #endif
 }
 
-#if !os(macOS)
+#if os(Linux) || os(Windows)
 private let ocspClient = BoringSSLOCSPClient()
 
 private struct BoringSSLOCSPClient {
@@ -384,7 +384,7 @@ extension CertificatePolicy {
             throw CertificatePolicyError.extensionFailure
         }
         return !dict.isEmpty
-        #else
+        #elseif os(Linux) || os(Windows)
         let nid = CCryptoBoringSSL_OBJ_create(oid, "ObjectShortName", "ObjectLongName")
         let index = CCryptoBoringSSL_X509_get_ext_by_NID(certificate.underlying, nid, -1)
         return index >= 0
@@ -401,7 +401,7 @@ extension CertificatePolicy {
             return false
         }
         return usages.first(where: { $0 == usage.data }) != nil
-        #else
+        #elseif os(Linux) || os(Windows)
         let eku = CCryptoBoringSSL_X509_get_extended_key_usage(certificate.underlying)
         return eku & UInt32(usage.flag) > 0
         #endif
@@ -421,7 +421,7 @@ extension CertificatePolicy {
             return false
         }
         return infoAccessValue.first(where: { valueDict in valueDict[kSecPropertyKeyValue] as? String == "1.3.6.1.5.5.7.48.1" }) != nil
-        #else
+        #elseif os(Linux) || os(Windows)
         // Check that there is at least one OCSP responder URL, in which case OCSP check will take place in `verify`.
         let ocspURLs = CCryptoBoringSSL_X509_get1_ocsp(certificate.underlying)
         defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
@@ -444,7 +444,7 @@ enum CertificateExtendedKeyUsage {
         }
     }
 
-    #else
+    #elseif os(Linux) || os(Windows)
     var flag: CInt {
         switch self {
         case .codeSigning:
@@ -511,7 +511,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine
 
-    #if !os(macOS)
+    #if os(Linux) || os(Windows)
     private let httpClient: HTTPClient
     #endif
 
@@ -528,6 +528,9 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
     init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+        #if !(os(macOS) || os(Linux) || os(Windows))
+        fatalError("Unsupported: \(#function)")
+        #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
             trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
@@ -540,12 +543,16 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
 
-        #if !os(macOS)
+        #if os(Linux) || os(Windows)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        #endif
         #endif
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
+        #if !(os(macOS) || os(Linux) || os(Windows))
+        fatalError("Unsupported: \(#function)")
+        #else
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
 
         guard !certChain.isEmpty else {
@@ -572,12 +579,13 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
-            #else
+            #elseif os(Linux) || os(Windows)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
         }
+        #endif
     }
 }
 
@@ -597,7 +605,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine
 
-    #if !os(macOS)
+    #if os(Linux) || os(Windows)
     private let httpClient: HTTPClient
     #endif
 
@@ -614,6 +622,9 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
     init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+        #if !(os(macOS) || os(Linux) || os(Windows))
+        fatalError("Unsupported: \(#function)")
+        #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
             trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
@@ -626,12 +637,16 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
 
-        #if !os(macOS)
+        #if os(Linux) || os(Windows)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        #endif
         #endif
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
+        #if !(os(macOS) || os(Linux) || os(Windows))
+        fatalError("Unsupported: \(#function)")
+        #else
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
 
         guard !certChain.isEmpty else {
@@ -670,12 +685,13 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
-            #else
+            #elseif os(Linux) || os(Windows)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
         }
+        #endif
     }
 }
 

@@ -25,7 +25,7 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
-#else
+#elseif os(Linux) || os(Windows)
 @_implementationOnly import CCryptoBoringSSL
 #endif
 
@@ -59,7 +59,7 @@ extension CoreRSAPublicKey {
 
 // MARK: - MessageSigner and MessageValidator conformance using BoringSSL
 
-#else
+#elseif os(Linux) || os(Windows)
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSASigner.swift
 extension BoringSSLRSAPrivateKey: BoringSSLSigning {
     private static let algorithm = BoringSSLEVP(type: .sha256)
@@ -111,6 +111,21 @@ extension BoringSSLRSAPublicKey: BoringSSLSigning {
             numericCast(signature.count),
             self.underlying
         ) == 1
+    }
+}
+
+// MARK: - MessageSigner and MessageValidator conformance for unsupported platforms
+
+#else
+extension UnsupportedRSAPrivateKey {
+    func sign(message: Data) throws -> Data {
+        fatalError("Unsupported: \(#function)")
+    }
+}
+
+extension UnsupportedRSAPublicKey {
+    func isValidSignature(_ signature: Data, for message: Data) throws -> Bool {
+        fatalError("Unsupported: \(#function)")
     }
 }
 #endif

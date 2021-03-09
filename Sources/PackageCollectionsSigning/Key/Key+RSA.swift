@@ -25,16 +25,19 @@ import Foundation
 
 #if os(macOS)
 import Security
-#else
+#elseif os(Linux) || os(Windows)
 @_implementationOnly import CCryptoBoringSSL
 #endif
 
 #if os(macOS)
 typealias RSAPublicKey = CoreRSAPublicKey
 typealias RSAPrivateKey = CoreRSAPrivateKey
-#else
+#elseif os(Linux) || os(Windows)
 typealias RSAPublicKey = BoringSSLRSAPublicKey
 typealias RSAPrivateKey = BoringSSLRSAPrivateKey
+#else
+typealias RSAPublicKey = UnsupportedRSAPublicKey
+typealias RSAPrivateKey = UnsupportedRSAPrivateKey
 #endif
 
 // MARK: - RSA key implementations using the Security framework
@@ -103,7 +106,7 @@ struct CoreRSAPublicKey: PublicKey {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSAKey.swift
 
-#else
+#elseif os(Linux) || os(Windows)
 final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
 
@@ -170,6 +173,33 @@ final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
         }
 
         self.underlying = pointer
+    }
+}
+
+// MARK: - RSA key implementations for unsupported platforms
+
+#else
+struct UnsupportedRSAPrivateKey: PrivateKey {
+    var sizeInBits: Int {
+        fatalError("Unsupported")
+    }
+
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
+        fatalError("Unsupported: \(#function)")
+    }
+}
+
+struct UnsupportedRSAPublicKey: PublicKey {
+    var sizeInBits: Int {
+        fatalError("Unsupported")
+    }
+
+    init(data: Data) throws {
+        fatalError("Unsupported: \(#function)")
+    }
+
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
+        fatalError("Unsupported: \(#function)")
     }
 }
 #endif

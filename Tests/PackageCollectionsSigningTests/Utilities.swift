@@ -173,5 +173,10 @@ extension String {
 }
 
 extension XCTestCase {
-    func skipIfUnsupportedPlatform() throws {}
+    func skipIfUnsupportedPlatform() throws {
+        #if os(macOS) || os(Linux) || os(Windows)
+        #else
+        throw XCTSkip("Skipping test on unsupported platform")
+        #endif
+    }
 }

@@ -12,14 +12,16 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
-#else
+#elseif os(Linux) || os(Windows)
 @_implementationOnly import CCryptoBoringSSL
 #endif
 
 #if os(macOS)
 typealias Certificate = CoreCertificate
-#else
+#elseif os(Linux) || os(Windows)
 typealias Certificate = BoringSSLCertificate
+#else
+typealias Certificate = UnsupportedCertificate
 #endif
 
 // MARK: - Certificate implementation using the Security framework
@@ -107,7 +109,7 @@ struct CoreCertificate {
 
 // MARK: - Certificate implementation using BoringSSL
 
-#else
+#elseif os(Linux) || os(Windows)
 final class BoringSSLCertificate {
     let underlying: UnsafeMutablePointer<X509>
 
@@ -217,6 +219,31 @@ private extension UnsafeMutablePointer where Pointee == X509_NAME {
         }
 
         return String.decodeCString(value, as: UTF8.self, repairingInvalidCodeUnits: true)?.result
+    }
+}
+
+// MARK: - Certificate implementation for unsupported platforms
+
+#else
+struct UnsupportedCertificate {
+    init(derEncoded data: Data) throws {
+        fatalError("Unsupported: \(#function)")
+    }
+
+    func subject() throws -> CertificateName {
+        fatalError("Unsupported: \(#function)")
+    }
+
+    func issuer() throws -> CertificateName {
+        fatalError("Unsupported: \(#function)")
+    }
+
+    func publicKey() throws -> PublicKey {
+        fatalError("Unsupported: \(#function)")
+    }
+
+    func keyType() throws -> KeyType {
+        fatalError("Unsupported: \(#function)")
     }
 }
 #endif
