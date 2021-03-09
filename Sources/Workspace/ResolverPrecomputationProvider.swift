@@ -131,7 +131,7 @@ private struct LocalPackageContainer: PackageContainer {
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         precondition(dependency?.checkoutState?.version == version)
-        return manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
     func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
@@ -139,7 +139,7 @@ private struct LocalPackageContainer: PackageContainer {
         if let checkoutState = dependency?.checkoutState,
             checkoutState.version == nil,
             checkoutState.revision.identifier == revision {
-            return manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter)
         }
 
         throw ResolverPrecomputationError.differentRequirement(
@@ -159,7 +159,7 @@ private struct LocalPackageContainer: PackageContainer {
             )
         }
 
-        return manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
     // Gets the package reference from the managed dependency or computes it for root packages.

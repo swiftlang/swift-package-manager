@@ -567,7 +567,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints()
 
         // Create constraints based on root manifest and pins for the update resolution.
-        updateConstraints += graphRoot.constraints()
+        updateConstraints += try graphRoot.constraints()
 
         let pinsMap: PinsStore.PinsMap
         if packages.isEmpty {
@@ -1122,7 +1122,7 @@ extension Workspace {
         }
 
         /// Returns constraints of the dependencies, including edited package constraints.
-        func dependencyConstraints() -> [PackageContainerConstraint] {
+        func dependencyConstraints() throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
 
             for (externalManifest, managedDependency, productFilter) in dependencies {
@@ -1144,7 +1144,7 @@ extension Workspace {
                 case .checkout, .local:
                     break
                 }
-                allConstraints += externalManifest.dependencyConstraints(productFilter: productFilter)
+                allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
             }
             return allConstraints
         }
@@ -1811,7 +1811,7 @@ extension Workspace {
 
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
-        let precomputationResult = precomputeResolution(
+        let precomputationResult = try precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
             pinsStore: pinsStore
@@ -1874,7 +1874,7 @@ extension Workspace {
         } else if !extraConstraints.isEmpty || forceResolution {
             delegate?.willResolveDependencies(reason: .forced)
         } else {
-            let result = precomputeResolution(
+            let result = try precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
@@ -1897,7 +1897,7 @@ extension Workspace {
         // Create the constraints.
         var constraints = [PackageContainerConstraint]()
         constraints += currentManifests.editedPackagesConstraints()
-        constraints += graphRoot.constraints() + extraConstraints
+        constraints += try graphRoot.constraints() + extraConstraints
 
         // Perform dependency resolution.
         let resolver = createResolver(pinsMap: pinsStore.pinsMap)
@@ -2002,11 +2002,11 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
         extraConstraints: [PackageContainerConstraint] = []
-    ) -> ResolutionPrecomputationResult {
+    ) throws -> ResolutionPrecomputationResult {
         let constraints =
-            root.constraints() +
+            try root.constraints() +
             // Include constraints from the manifests in the graph root.
-            root.manifests.flatMap({ $0.dependencyConstraints(productFilter: .everything) }) +
+            root.manifests.flatMap({ try $0.dependencyConstraints(productFilter: .everything) }) +
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 

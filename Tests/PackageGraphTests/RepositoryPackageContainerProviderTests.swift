@@ -387,10 +387,10 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             "Bar2": .specific(["B2", "Bar1", "Bar3"]),
             "Bar3": .specific(["Bar1", "Bar3"]),
         ]
-        let v5Constraints = dependencies.map {
+        let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
-                requirement: $0.toConstraintRequirement(),
+                requirement: try $0.toConstraintRequirement(),
                 products: v5ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
             )
         }
@@ -399,10 +399,10 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             "Bar2": .specific(["B2"]),
             "Bar3": .specific(["Bar3"]),
         ]
-        let v5_2Constraints = dependencies.map {
+        let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
-                requirement: $0.toConstraintRequirement(),
+                requirement: try $0.toConstraintRequirement(),
                 products: v5_2ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
             )
         }
@@ -420,7 +420,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                manifest
+                try manifest
                     .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
@@ -444,7 +444,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                manifest
+                try manifest
                     .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
@@ -468,7 +468,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                manifest
+                try manifest
                     .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
@@ -492,7 +492,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                manifest
+                try manifest
                     .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })))
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
