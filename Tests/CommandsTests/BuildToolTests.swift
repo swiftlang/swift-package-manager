@@ -65,7 +65,7 @@ final class BuildToolTests: XCTestCase {
         do {
             _ = try Sanitizer(argument: "invalid")
             XCTFail("Should have failed to create Sanitizer")
-        } catch let error as ArgumentConversionError {
+        } catch let error as StringError {
             XCTAssertEqual(
                 error.description, "valid sanitizers: address, thread, undefined, scudo")
         }

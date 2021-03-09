@@ -69,12 +69,3 @@ public struct EnabledSanitizers: Encodable {
         try container.encode(sanitizers.sorted{ $0.rawValue < $1.rawValue }, forKey: .sanitizers)
     }
 }
-
-extension Sanitizer: StringEnumArgument {
-    public static let completion: ShellCompletion = .values([
-        (address.rawValue, "enable Address sanitizer"),
-        (thread.rawValue, "enable Thread sanitizer"),
-        (undefined.rawValue, "enable Undefined Behavior sanitizer"),
-        (scudo.rawValue, "enable Scudo hardened allocator")
-    ])
-}

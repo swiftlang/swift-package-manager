@@ -194,7 +194,7 @@ public final class ThreadSafeBox<Value> {
 
 public enum Concurrency {
     public static var maxOperations: Int {
-        return (try? ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].map(Int.init)) ?? ProcessInfo.processInfo.activeProcessorCount
+        return ProcessEnv.vars["SWIFTPM_MAX_CONCURRENT_OPERATIONS"].flatMap(Int.init) ?? ProcessInfo.processInfo.activeProcessorCount
     }
 }
 
