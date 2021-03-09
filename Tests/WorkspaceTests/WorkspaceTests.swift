@@ -5507,7 +5507,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 completion(.success(.okay(body: contents)))
             } catch {
-                completion(.failure( DownloaderError.clientError(error)))
+                completion(.failure(error))
             }
         })
 

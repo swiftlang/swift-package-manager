@@ -102,7 +102,7 @@ public extension Sanitizer {
             return
         }
 
-        throw ArgumentConversionError.custom("valid sanitizers: \(Sanitizer.formattedValues)")
+        throw StringError("valid sanitizers: \(Sanitizer.formattedValues)")
     }
 
     /// All sanitizer options in a comma separated string
