@@ -153,7 +153,7 @@ extension CertificatePolicy {
             CCryptoBoringSSL_X509_STORE_CTX_set_time(x509StoreCtx, 0, numericCast(Int(verifyDate.timeIntervalSince1970)))
             ctxFlags = ctxFlags | X509_V_FLAG_USE_CHECK_TIME
         }
-        CCryptoBoringSSL_X509_STORE_CTX_set_flags(x509StoreCtx, UInt(ctxFlags))
+        CCryptoBoringSSL_X509_STORE_CTX_set_flags(x509StoreCtx, numericCast(UInt(ctxFlags)))
 
         let verifyCallback: BoringSSLVerifyCallback = { result, ctx in
             // Success
