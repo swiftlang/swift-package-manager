@@ -28,8 +28,6 @@
 extern "C" {
 #endif
 
-#define NID_id_pkix_OCSP_basic          365
-
 typedef struct ocsp_cert_id_st OCSP_CERTID;
 
 DEFINE_STACK_OF(OCSP_CERTID)

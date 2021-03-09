@@ -12,6 +12,7 @@
 #define C_PACKAGE_COLLECTION_SIGNING_H
 
 #include "CPackageCollectionSigning_asn1.h"
+#include "CPackageCollectionSigning_obj_mac.h"
 #include "CPackageCollectionSigning_ocsp.h"
 #include "CPackageCollectionSigning_ocsp_local.h"
 

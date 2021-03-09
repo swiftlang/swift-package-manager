@@ -21,6 +21,7 @@
 #include <CCryptoBoringSSL_obj.h>
 #include "CPackageCollectionSigning_ocsp.h"
 #include "CPackageCollectionSigning_ocsp_local.h"
+#include "CPackageCollectionSigning_obj_mac.h"
 
 /*
  * Utility functions related to sending OCSP requests and extracting relevant
