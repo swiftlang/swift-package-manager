@@ -133,9 +133,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         guard success else {
             if let errorMessages = self.buildSystemDelegate?.targetErrorMessages {
                 errorMessages.forEach { key, value in
-                    value.forEach { entry in
-                        if entry.contains("could not build Objective-C module") || entry.contains("no such module") {
-                            if let missingImport = entry.split(separator: "'").last {
+                    value.forEach {
+                        if $0.contains("could not build Objective-C module") || $0.contains("no such module") {
+                            if let missingImport = $0.split(separator: "'").last {
                                 suggestMissingDependency(missingImport: String(missingImport), sourceTarget: key)
                             }
                         }
