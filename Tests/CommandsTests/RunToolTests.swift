@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -23,15 +23,18 @@ final class RunToolTests: XCTestCase {
     }
 
     func testUsage() throws {
-        XCTAssert(try execute(["--help"]).stdout.contains("USAGE: swift run <options>"))
+        let stdout = try execute(["-help"]).stdout
+        XCTAssert(stdout.contains("USAGE: swift run <options>"), "got stdout:\n" + stdout)
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift build, swift package, swift test"))
+        let stdout = try execute(["--help"]).stdout
+        XCTAssert(stdout.contains("SEE ALSO: swift build, swift package, swift test"), "got stdout:\n" + stdout)
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
+        let stdout = try execute(["--version"]).stdout
+        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
     func testUnkownProductAndArgumentPassing() throws {
