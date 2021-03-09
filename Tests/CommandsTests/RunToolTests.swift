@@ -24,7 +24,7 @@ final class RunToolTests: XCTestCase {
 
     func testUsage() throws {
         let stdout = try execute(["-help"]).stdout
-        XCTAssert(stdout.contains("USAGE: swift run <options>"), "got stdout:\n" + stdout)
+        XCTAssert(stdout.contains("USAGE: swift run <options>") || stdout.contains("USAGE: swift run [<options>]"), "got stdout:\n" + stdout)
     }
 
     func testSeeAlso() throws {
