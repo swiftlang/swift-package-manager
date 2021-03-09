@@ -296,7 +296,7 @@ To defend against these attacks, SwiftPM has certificate-pinning configuration t
 - Restrict what certificate can be used for signing — this defends against "signature replacement".
 
 The process for collection publishers to define their certificate-pinning configuration is as follows:
-1. Edit the [source file](../Sources/PackageCollections/PackageCollections+CertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
+1. Edit [`PackageCollectionSourceCertificatePolicy`](../Sources/PackageCollections/PackageCollections+CertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
 
 ```swift
 private static let defaultSourceCertPolicies: [String: CertificatePolicyConfig] = [
@@ -316,7 +316,9 @@ private static let defaultSourceCertPolicies: [String: CertificatePolicyConfig] 
 ]
 ```
 
-2. Open a pull request for review. The requestor must be able to provide proof of their identity and ownership on the domain.
+2. Open a pull request for review. The requestor must be able to provide proof of their identity and ownership on the domain:
+    - The requestor must provide the actual certificate files (DER-encoded). The SwiftPM team will verify that the certificate chain is valid and the values provided in the PR are correct.
+    - The requestor must add a TXT record referencing the pull request. The SwiftPM team will run `dig -t txt <DOMAIN>` to verify. This would act as proof of domain ownership.
 3. After the changes are accepted, they will take effect in the next SwiftPM release.
 
 Since certificate-pinning configuration is associated with web domains, it can only be applied to signed collections hosted on the web (i.e., URL begins with  `https://`) and does 
