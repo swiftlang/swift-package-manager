@@ -517,6 +517,7 @@ public class SwiftTool {
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
         let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
+        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: try editablesPath(),
@@ -527,6 +528,7 @@ public class SwiftTool {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             netrcFilePath: try resolvedNetrcFilePath(),
+            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : [],
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
