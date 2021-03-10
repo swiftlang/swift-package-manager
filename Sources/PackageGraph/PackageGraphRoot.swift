@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import TSCUtility
-
+import Basics
 import PackageModel
 import SourceControl
+import TSCBasic
+import TSCUtility
 
 /// Represents the input to the package graph root.
 public struct PackageGraphRootInput {
@@ -33,23 +33,33 @@ public struct PackageGraphRootInput {
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
-    /// The list of root manifests.
-    public let manifests: [Manifest]
+    /// The root packages.
+    public let packages: [PackageIdentity: (manifest: Manifest, packageReference: PackageReference)]
+
+    /// The root manifests.
+    public var manifests: [PackageIdentity: Manifest] {
+        return self.packages.mapValues { $0.manifest }
+    }
 
     /// The root package references.
-    public let packageRefs: [PackageReference]
+    public var packageReferences: [PackageReference] {
+        return self.packages.values.map { $0.packageReference }
+    }
 
     /// The top level dependencies.
     public let dependencies: [PackageDependencyDescription]
 
     /// Create a package graph root.
-    public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
-        // TODO: this does not use the identity resolver which is probably fine since its the root packages
-        self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
-            let identity = PackageIdentity(url: manifest.packageLocation)
-            return .root(identity: identity, path: path)
-        }
-        self.manifests = manifests
+    public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) throws {
+        self.packages = try input.packages.reduce(into: .init(), { partial, inputPath in
+            let manifestPath = inputPath.basename == Manifest.filename ? inputPath : inputPath.appending(component: Manifest.filename)
+            let packagePath = manifestPath.parentDirectory
+            guard let manifest = (manifests.first{ $0.path == manifestPath}) else {
+                throw InternalError("manifest for \(inputPath) not found")
+            }
+            let identity = PackageIdentity(path: packagePath) // this does not use the identity resolver which is fine since these are the root packages
+            partial[identity] = (manifest, .root(identity: identity, path: packagePath))
+        })
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -70,7 +80,7 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints() -> [PackageContainerConstraint] {
-        let constraints = packageRefs.map{
+        let constraints = self.packageReferences.map {
             PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
         }
         return constraints + dependencies.map{

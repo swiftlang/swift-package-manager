@@ -188,7 +188,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar")
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", behavior: .error)
+        }
     }
 
     func testCycle2() throws {
@@ -215,7 +217,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].description, "cyclic dependency declaration found: Foo -> Foo")
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Foo", behavior: .error)
+        }
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
@@ -297,7 +301,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics[0].description, "multiple targets named 'Bar' in: Bar, Foo")
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'", behavior: .error)
+        }
     }
 
     func testMultipleDuplicateModules() throws {
@@ -361,7 +367,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: First, Fourth, Second, Third", behavior: .error)
+            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth', 'second', 'third'", behavior: .error)
         }
     }
 
@@ -426,8 +432,8 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Bar' in: Fourth, Third", behavior: .error)
-            result.check(diagnostic: "multiple targets named 'Foo' in: First, Second", behavior: .error)
+            result.check(diagnostic: "multiple targets named 'Bar' in: 'fourth', 'third'", behavior: .error)
+            result.check(diagnostic: "multiple targets named 'Foo' in: 'first', 'second'", behavior: .error)
         }
     }
 
@@ -499,7 +505,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: First, Fourth", behavior: .error)
+            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth'", behavior: .error)
         }
     }
 
@@ -563,7 +569,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' not found. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -589,7 +595,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' not found in package 'Bar'. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found in package 'Bar'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -615,7 +621,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' not found. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -807,9 +813,9 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "dependency 'Baz' is not used by any target", behavior: .warning)
+            result.check(diagnostic: "dependency 'baz' is not used by any target", behavior: .warning)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            result.check(diagnostic: "dependency 'Biz' is not used by any target", behavior: .warning)
+            result.check(diagnostic: "dependency 'biz' is not used by any target", behavior: .warning)
             #endif
         }
     }
@@ -901,7 +907,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Foo' in: Dep2, Start", behavior: .error)
+            result.check(diagnostic: "multiple targets named 'Foo' in: 'dep2', 'start'", behavior: .error)
         }
     }
 
@@ -952,7 +958,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.description.contains("multiple products named 'Bar' in: Bar, Baz") }), "\(diagnostics.diagnostics)")
+        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.description.contains("multiple products named 'Bar' in: 'bar', 'baz'") }), "\(diagnostics.diagnostics)")
     }
 
     func testUnsafeFlags() throws {
@@ -1061,7 +1067,7 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
-                    'Foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
+                    'foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
                     """,
                 behavior: .error,
                 location: "'Foo' /Foo"
@@ -1351,7 +1357,7 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
-                    product 'Unknown' not found. it is required by package 'Foo' target 'Foo'.
+                    product 'Unknown' required by package 'foo' target 'Foo' not found.
                     """,
                 behavior: .error,
                 location: "'Foo' /Foo"
@@ -1437,7 +1443,7 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
-                    product 'Unknown' not found. it is required by package 'Foo' target 'Foo'.
+                    product 'Unknown' required by package 'foo' target 'Foo' not found.
                     """,
                 behavior: .error,
                 location: "'Foo' /Foo"
@@ -1844,7 +1850,7 @@ class PackageGraphTests: XCTestCase {
             DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
                 result.check(
                     diagnostic: """
-                        'Foo' dependency on '/Bar' has an explicit name 'Bar' which does not match the name 'Some-Bar' set for '/Bar'
+                        'foo' dependency on '/Bar' has an explicit name 'Bar' which does not match the name 'Some-Bar' set for '/Bar'
                         """,
                     behavior: .error,
                     location: "'Foo' /Foo"

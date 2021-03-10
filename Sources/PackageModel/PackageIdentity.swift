@@ -36,20 +36,26 @@ public struct PackageIdentity: Hashable, CustomStringConvertible {
 
     /// Creates a package identity from a string.
     /// - Parameter string: A string used to identify a package.
-    init(_ string: String) {
-        self.description = Self.provider.init(string).description
+    init(_ description: String) {
+        self.description = description
     }
 
     /// Creates a package identity from a URL.
     /// - Parameter url: The package's URL.
     public init(url: String) { // TODO: Migrate to Foundation.URL
-        self.init(url)
+        self.description = Self.provider.init(url).description
     }
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
     public init(path: AbsolutePath) {
-        self.init(path.pathString)
+        self.description = Self.provider.init(path.pathString).description
+    }
+
+    /// Creates a package identity for a root package
+    /// - Parameter name: The name of the package, will be used unmodified
+    public static func root(name: String) -> PackageIdentity {
+        PackageIdentity(name)
     }
 }
 

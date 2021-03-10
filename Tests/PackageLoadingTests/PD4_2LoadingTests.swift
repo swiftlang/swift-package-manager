@@ -760,6 +760,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             // warm up caches
             let manifest = try tsc_await { manifestLoader.load(at: manifestPath.parentDirectory,
+                                                               packageIdentity: .root(name: "Trivial"),
                                                                packageKind: .local,
                                                                packageLocation: manifestPath.pathString,
                                                                version: nil,
@@ -777,6 +778,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             for _ in 0 ..< total {
                 sync.enter()
                 manifestLoader.load(at: manifestPath.parentDirectory,
+                                    packageIdentity: .root(name: "Trivial"),
                                     packageKind: .local,
                                     packageLocation: manifestPath.pathString,
                                     version: nil,
@@ -840,6 +842,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
                 sync.enter()
                 manifestLoader.load(at: manifestPath.parentDirectory,
+                                    packageIdentity: .root(name: "Trivial-\(random)"),
                                     packageKind: .local,
                                     packageLocation: manifestPath.pathString,
                                     version: nil,
