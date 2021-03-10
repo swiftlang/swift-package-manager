@@ -20,13 +20,17 @@ import TSCUtility
 /// - SeeAlso: DependencyResolutionNode
 public struct GraphLoadingNode: Equatable, Hashable {
 
+    /// The package identity.
+    public let identity: PackageIdentity
+
     /// The package manifest.
     public let manifest: Manifest
 
     /// The product filter applied to the package.
     public let productFilter: ProductFilter
 
-    public init(manifest: Manifest, productFilter: ProductFilter) {
+    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter) {
+        self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
     }
@@ -41,9 +45,9 @@ extension GraphLoadingNode: CustomStringConvertible {
     public var description: String {
         switch productFilter {
         case .everything:
-            return manifest.name
+            return self.manifest.name
         case .specific(let set):
-            return "\(manifest.name)[\(set.sorted().joined(separator: ", "))]"
+            return "\(self.manifest.name)[\(set.sorted().joined(separator: ", "))]"
         }
     }
 }

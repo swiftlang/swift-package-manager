@@ -76,6 +76,10 @@ public final class ManagedDependency {
     /// unedit a package.
     public internal(set) var basedOn: ManagedDependency?
 
+    public var packageIdentity: PackageIdentity {
+        self.packageRef.identity
+    }
+
     public init(
         packageRef: PackageReference,
         subpath: RelativePath,

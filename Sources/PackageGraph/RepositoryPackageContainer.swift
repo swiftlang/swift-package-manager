@@ -302,16 +302,17 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         // FIXME: this should not block
         return try temp_await {
             self.manifestLoader.load(at: AbsolutePath.root,
-                                packageKind: package.kind,
-                                packageLocation: packageLocation,
-                                version: version,
-                                revision: nil,
-                                toolsVersion: toolsVersion,
-                                identityResolver: identityResolver,
-                                fileSystem: fileSystem,
-                                diagnostics: nil,
-                                on: .sharedConcurrent,
-                                completion: $0)
+                                     packageIdentity: self.package.identity,
+                                     packageKind: self.package.kind,
+                                     packageLocation: packageLocation,
+                                     version: version,
+                                     revision: nil,
+                                     toolsVersion: toolsVersion,
+                                     identityResolver: self.identityResolver,
+                                     fileSystem: fileSystem,
+                                     diagnostics: nil,
+                                     on: .sharedConcurrent,
+                                     completion: $0)
         }
     }
 

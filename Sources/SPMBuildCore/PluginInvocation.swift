@@ -91,7 +91,7 @@ extension PackageGraph {
                 })
                 
                 // Give each invocation of a plugin a separate output directory.
-                let pluginOutputDir = outputDir.appending(components: package.name, target.name, pluginTarget.name)
+                let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
                 do {
                     try fileSystem.createDirectory(pluginOutputDir, recursive: true)
                 }
