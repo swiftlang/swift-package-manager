@@ -69,14 +69,14 @@ final class LLBuildManifestTests: XCTestCase {
             outputs: [
                 .file(AbsolutePath("/file.out"))
             ],
-            args: [
+            arguments: [
                 "foo", "bar", "baz"
             ],
-            environ: [
+            environment: [
                 "ABC": "DEF",
                 "G H": "I J K",
             ],
-            workingDir: "/wdir",
+            workingDirectory: "/wdir",
             allowMissingInputs: true
         )
 

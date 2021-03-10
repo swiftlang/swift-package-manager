@@ -281,7 +281,7 @@ extension LLBuildManifestBuilder {
                     description: description,
                     inputs: manifestNodeInputs,
                     outputs: jobOutputs,
-                    args: arguments
+                    arguments: arguments
                 )
             } else {
                 manifest.addShellCmd(
@@ -289,7 +289,7 @@ extension LLBuildManifestBuilder {
                     description: description,
                     inputs: manifestNodeInputs,
                     outputs: jobOutputs,
-                    args: arguments
+                    arguments: arguments
                 )
             }
         }
@@ -461,7 +461,7 @@ extension LLBuildManifestBuilder {
             description: "Emitting module for \(target.target.name)",
             inputs: inputs,
             outputs: [moduleNode],
-            args: target.emitModuleCommandLine()
+            arguments: target.emitModuleCommandLine()
         )
 
         let cmdName = target.target.getCommandName(config: buildConfig)
@@ -470,7 +470,7 @@ extension LLBuildManifestBuilder {
             description: "Compiling module \(target.target.name)",
             inputs: inputs,
             outputs: objectNodes,
-            args: try target.emitObjectsCommandLine()
+            arguments: try target.emitObjectsCommandLine()
         )
     }
 
@@ -492,10 +492,10 @@ extension LLBuildManifestBuilder {
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: target.objects,
-            otherArgs: target.compileArguments(),
+            otherArguments: target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
-            WMO: buildParameters.configuration == .release
+            wholeModuleOptimization: buildParameters.configuration == .release
         )
     }
 
@@ -592,9 +592,9 @@ extension LLBuildManifestBuilder {
                     description: displayName,
                     inputs: [.file(execPath)] + inputPaths.map{ .file($0) },
                     outputs: outputPaths.map{ .file($0) },
-                    args: [execPath.pathString] + arguments,
-                    environ: environment,
-                    workingDir: workingDirectory?.pathString)
+                    arguments: [execPath.pathString] + arguments,
+                    environment: environment,
+                    workingDirectory: workingDirectory?.pathString)
             }
         }
 
@@ -635,7 +635,7 @@ extension LLBuildManifestBuilder {
             description: "Wrapping AST for \(target.target.name) for debugging",
             inputs: [.file(target.moduleOutputPath)],
             outputs: [.file(target.wrappedModuleOutputPath)],
-            args: moduleWrapArgs)
+            arguments: moduleWrapArgs)
     }
 }
 
@@ -729,8 +729,8 @@ extension LLBuildManifestBuilder {
                 description: "Compiling \(target.target.name) \(path.filename)",
                 inputs: inputs + [.file(path.source)],
                 outputs: [objectFileNode],
-                args: args,
-                deps: path.deps.pathString
+                arguments: args,
+                dependencies: path.deps.pathString
             )
         }
 
@@ -804,7 +804,7 @@ extension LLBuildManifestBuilder {
                 description: "Linking \(buildProduct.binary.prettyPath())",
                 inputs: inputs.map(Node.file),
                 outputs: [.file(buildProduct.binary)],
-                args: try buildProduct.linkArguments()
+                arguments: try buildProduct.linkArguments()
             )
         }
 
