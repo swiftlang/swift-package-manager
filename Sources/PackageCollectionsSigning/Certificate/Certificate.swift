@@ -121,7 +121,7 @@ final class BoringSSLCertificate {
         let bytes = data.copyBytes()
         let x509 = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> UnsafeMutablePointer<X509> in
             var pointer = ptr.baseAddress
-            guard let x509 = CCryptoBoringSSL_d2i_X509(nil, &pointer, numericCast(bytes.count)) else {
+            guard let x509 = CCryptoBoringSSL_d2i_X509(nil, &pointer, numericCast(ptr.count)) else {
                 throw CertificateError.initializationFailure
             }
             return x509
