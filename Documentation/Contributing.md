@@ -226,14 +226,20 @@ To run smoke test suite with the trunk compiler and other projects use:
 
 This is **required** before a pull-request can be merged.
 
+
 To run just the self-hosted test suite (faster turnaround times so it can be used to get quick feedback) use:
+
+```
+@swift-ci please smoke test self hosted
+```
+
+
+To run the swift toolchain test suite including SwiftPM use:
 
 ```
 @swift-ci please test
 ```
 
-
-Note: Smoke tests are still required for merging pull-requests.
 
 To run package compatibility test suite (validates we do not break 3rd party packages) use:
 
