@@ -218,17 +218,28 @@ $> Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 ## Using Continuous Integration
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask one of the code owners to trigger them for you.
 
-Run tests with the trunk compiler and other projects. This is **required** before
-a pull-request can be merged.
+To run smoke test suite with the trunk compiler and other projects use:
 
 ```
 @swift-ci please smoke test
 ```
 
-Run just the self-hosted tests. This has fast turnaround times so it can be used
-to get quick feedback.
+This is **required** before a pull-request can be merged.
+
+To run just the self-hosted test suite (faster turnaround times so it can be used to get quick feedback) use:
+
+```
+@swift-ci please test
+```
+
 
 Note: Smoke tests are still required for merging pull-requests.
+
+To run package compatibility test suite (validates we do not break 3rd party packages) use:
+
+```
+@swift-ci please test package compatibility
+```
 
 ## Advanced
 ### Using Custom Swift Compilers
