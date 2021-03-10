@@ -96,37 +96,37 @@ public struct ShellTool: ToolProtocol {
     public var description: String
     public var inputs: [Node]
     public var outputs: [Node]
-    public var args: [String]
-    public var environ: [String: String]
-    public var workingDir: String?
+    public var arguments: [String]
+    public var environment: [String: String]
+    public var workingDirectory: String?
     public var allowMissingInputs: Bool
 
     init(
         description: String,
         inputs: [Node],
         outputs: [Node],
-        args: [String],
-        environ: [String: String] = [:],
-        workingDir: String? = nil,
+        arguments: [String],
+        environment: [String: String] = [:],
+        workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
         self.description = description
         self.inputs = inputs
         self.outputs = outputs
-        self.args = args
-        self.environ = environ
-        self.workingDir = workingDir
+        self.arguments = arguments
+        self.environment = environment
+        self.workingDirectory = workingDirectory
         self.allowMissingInputs = allowMissingInputs
     }
 
     public func write(to stream: ManifestToolStream) {
         stream["description"] = description
-        stream["args"] = args
-        if !environ.isEmpty {
-            stream["env"] = environ
+        stream["args"] = arguments
+        if !environment.isEmpty {
+            stream["env"] = environment
         }
-        if let workingDir = workingDir {
-            stream["working-directory"] = workingDir
+        if let workingDirectory = workingDirectory {
+            stream["working-directory"] = workingDirectory
         }
         if allowMissingInputs {
             stream["allow-missing-inputs"] = true
@@ -140,28 +140,28 @@ public struct ClangTool: ToolProtocol {
     public var description: String
     public var inputs: [Node]
     public var outputs: [Node]
-    public var args: [String]
-    public var deps: String?
+    public var arguments: [String]
+    public var dependencies: String?
 
     init(
         description: String,
         inputs: [Node],
         outputs: [Node],
-        args: [String],
-        deps: String? = nil
+        arguments: [String],
+        dependencies: String? = nil
     ) {
         self.description = description
         self.inputs = inputs
         self.outputs = outputs
-        self.args = args
-        self.deps = deps
+        self.arguments = arguments
+        self.dependencies = dependencies
     }
 
     public func write(to stream: ManifestToolStream) {
         stream["description"] = description
-        stream["args"] = args
-        if let deps = deps {
-            stream["deps"] = deps
+        stream["args"] = arguments
+        if let dependencies = dependencies {
+            stream["deps"] = dependencies
         }
     }
 }
@@ -186,24 +186,24 @@ public struct SwiftFrontendTool: ToolProtocol {
     public var description: String
     public var inputs: [Node]
     public var outputs: [Node]
-    public var args: [String]
+    public var arguments: [String]
 
     init(
         moduleName: String,
         description: String,
         inputs: [Node],
         outputs: [Node],
-        args: [String]
+        arguments: [String]
     ) {
         self.moduleName = moduleName
         self.description = description
         self.inputs = inputs
         self.outputs = outputs
-        self.args = args
+        self.arguments = arguments
     }
 
     public func write(to stream: ManifestToolStream) {
-      ShellTool(description: description, inputs: inputs, outputs: outputs, args: args)
+      ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments)
         .write(to: stream)
     }
 }
@@ -223,10 +223,10 @@ public struct SwiftCompilerTool: ToolProtocol {
     public var importPath: AbsolutePath
     public var tempsPath: AbsolutePath
     public var objects: [AbsolutePath]
-    public var otherArgs: [String]
+    public var otherArguments: [String]
     public var sources: [AbsolutePath]
     public var isLibrary: Bool
-    public var WMO: Bool
+    public var wholeModuleOptimization: Bool
 
     init(
         inputs: [Node],
@@ -237,10 +237,10 @@ public struct SwiftCompilerTool: ToolProtocol {
         importPath: AbsolutePath,
         tempsPath: AbsolutePath,
         objects: [AbsolutePath],
-        otherArgs: [String],
+        otherArguments: [String],
         sources: [AbsolutePath],
         isLibrary: Bool,
-        WMO: Bool
+        wholeModuleOptimization: Bool
     ) {
         self.inputs = inputs
         self.outputs = outputs
@@ -250,10 +250,10 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.importPath = importPath
         self.tempsPath = tempsPath
         self.objects = objects
-        self.otherArgs = otherArgs
+        self.otherArguments = otherArguments
         self.sources = sources
         self.isLibrary = isLibrary
-        self.WMO = WMO
+        self.wholeModuleOptimization = wholeModuleOptimization
     }
 
     public func write(to stream: ManifestToolStream) {
@@ -263,10 +263,10 @@ public struct SwiftCompilerTool: ToolProtocol {
         stream["import-paths"] = [importPath]
         stream["temps-path"] = tempsPath
         stream["objects"] = objects
-        stream["other-args"] = otherArgs
+        stream["other-args"] = otherArguments
         stream["sources"] = sources
         stream["is-library"] = isLibrary
-        stream["enable-whole-module-optimization"] = WMO
+        stream["enable-whole-module-optimization"] = wholeModuleOptimization
         stream["num-threads"] = Self.numThreads
      }
 }
