@@ -91,6 +91,7 @@ extension PackageGraph {
                     sources: pluginTarget.sources,
                     input: pluginInput,
                     toolsVersion: package.manifest.toolsVersion,
+                    writableDirectories: [pluginOutputDir],
                     pluginScriptRunner: pluginScriptRunner,
                     diagnostics: diagnostics,
                     fileSystem: fileSystem
@@ -168,7 +169,7 @@ extension PackageGraph {
     
     /// Private helper function that serializes a PluginEvaluationInput as input JSON, calls the plugin runner to invoke the plugin, and finally deserializes the output JSON it emits to a PluginEvaluationOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
     /// FIXME: This should be asynchronous, taking a queue and a completion closure.
-    fileprivate func runPluginScript(sources: Sources, input: PluginScriptRunnerInput, toolsVersion: ToolsVersion, pluginScriptRunner: PluginScriptRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: PluginScriptRunnerOutput, stdoutText: Data) {
+    fileprivate func runPluginScript(sources: Sources, input: PluginScriptRunnerInput, toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], pluginScriptRunner: PluginScriptRunner, diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (output: PluginScriptRunnerOutput, stdoutText: Data) {
         // Serialize the PluginEvaluationInput to JSON.
         let encoder = JSONEncoder()
         let inputJSON = try encoder.encode(input)
@@ -178,6 +179,7 @@ extension PackageGraph {
             sources: sources,
             inputJSON: inputJSON,
             toolsVersion: toolsVersion,
+            writableDirectories: writableDirectories,
             diagnostics: diagnostics,
             fileSystem: fileSystem)
 
@@ -292,6 +294,7 @@ public protocol PluginScriptRunner {
         sources: Sources,
         inputJSON: Data,
         toolsVersion: ToolsVersion,
+        writableDirectories: [AbsolutePath],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)

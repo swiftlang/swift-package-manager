@@ -88,6 +88,7 @@ class PluginInvocationTests: XCTestCase {
                 sources: Sources,
                 inputJSON: Data,
                 toolsVersion: ToolsVersion,
+                writableDirectories: [AbsolutePath],
                 diagnostics: DiagnosticsEngine,
                 fileSystem: FileSystem
             ) throws -> (outputJSON: Data, stdoutText: Data) {
