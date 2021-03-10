@@ -19,16 +19,16 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?)
+    case productDependencyNotFound(dependencyProductName: String, dependencyPackageName: String?, packageName: String, targetName: String)
 
     /// The package dependency name does not match the package name.
-    case incorrectPackageDependencyName(package: String, dependencyName: String, dependencyLocation: String, resolvedPackageManifestName: String, resolvedPackageURL: String)
+    case incorrectPackageDependencyName(dependencyPackageName: String, dependencyName: String, dependencyLocation: String, resolvedPackageName: String, resolvedPackageURL: String)
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByIdentifier(package: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
+    case dependencyAlreadySatisfiedByIdentifier(dependencyPackageName: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
 
     /// The package dependency already satisfied by a different dependency package
-    case dependencyAlreadySatisfiedByName(package: String, dependencyLocation: String, otherDependencyURL: String, name: String)
+    case dependencyAlreadySatisfiedByName(dependencyPackageName: String, dependencyLocation: String, otherDependencyURL: String, name: String)
 
     /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
     case productDependencyMissingPackage(
@@ -192,20 +192,20 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName):
-            return "product '\(dependencyProductName)' required by package '\(package)' target '\(targetName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found")."
+        case .productDependencyNotFound(let dependencyProductName, let dependencyPackageName, let packageName, let targetName):
+            return "product '\(dependencyProductName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found"). it is required by package '\(packageName)' target '\(targetName)'."
 
-        case .incorrectPackageDependencyName(let package, let dependencyName, let dependencyURL, let resolvedPackageManifestName, let resolvedPackageURL):
+        case .incorrectPackageDependencyName(let dependencyPackageName, let dependencyName, let dependencyURL, let resolvedPackageName, let resolvedPackageURL):
             return """
-                '\(package)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \
-                name '\(resolvedPackageManifestName)' set for '\(resolvedPackageURL)'
+                '\(dependencyPackageName)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \
+                name '\(resolvedPackageName)' set for '\(resolvedPackageURL)'
                 """
 
-        case .dependencyAlreadySatisfiedByIdentifier(let package, let dependencyURL, let otherDependencyURL, let identity):
-            return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
+        case .dependencyAlreadySatisfiedByIdentifier(let dependencyPackageName, let dependencyURL, let otherDependencyURL, let identity):
+            return "'\(dependencyPackageName)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
 
-        case .dependencyAlreadySatisfiedByName(let package, let dependencyURL, let otherDependencyURL, let name):
-            return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"
+        case .dependencyAlreadySatisfiedByName(let dependencyPackageName, let dependencyURL, let otherDependencyURL, let name):
+            return "'\(dependencyPackageName)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"
 
         case .productDependencyMissingPackage(
                 let productName,
@@ -221,7 +221,7 @@ extension PackageGraphError: CustomStringConvertible {
             return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
 
         case .duplicateProduct(let product, let packages):
-            return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
+            return "multiple products named '\(product)' in: \(packages.joined(separator: ", "))"
         }
     }
 }

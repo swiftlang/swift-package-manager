@@ -50,7 +50,6 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
 
     public func load(
         at path: TSCBasic.AbsolutePath,
-        packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
         version: Version?,
@@ -87,9 +86,7 @@ extension ManifestLoader {
         diagnostics: TSCBasic.DiagnosticsEngine? = nil
     ) throws -> Manifest{
         try tsc_await {
-            // FIXME: take identity?
             self.load(at: path,
-                      packageIdentity: identityResolver.resolveIdentity(for: packageLocation),
                       packageKind: packageKind,
                       packageLocation: packageLocation,
                       version: nil,

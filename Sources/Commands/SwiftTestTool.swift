@@ -224,12 +224,9 @@ public struct SwiftTestTool: SwiftCommand {
         case .codeCovPath:
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            let rootManifests = try temp_await {
+            let rootManifest = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)                
-            }
-            guard let rootManifest = rootManifests.first else {
-                throw StringError("invalid manifests at \(root.packages)")
-            }
+            }[0]
             let buildParameters = try swiftTool.buildParametersForTest()
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
 
@@ -355,15 +352,6 @@ public struct SwiftTestTool: SwiftCommand {
 
     /// Processes the code coverage data and emits a json.
     private func processCodeCoverage(_ testProducts: [BuiltTestProduct], swiftTool: SwiftTool) throws {
-        let workspace = try swiftTool.getActiveWorkspace()
-        let root = try swiftTool.getWorkspaceRoot()
-        let rootManifests = try temp_await {
-            workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
-        }
-        guard let rootManifest = rootManifests.first else {
-            throw StringError("invalid manifests at \(root.packages)")
-        }
-
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
@@ -372,7 +360,7 @@ public struct SwiftTestTool: SwiftCommand {
             // Export the codecov data as JSON.
             let jsonPath = codeCovAsJSONPath(
                 buildParameters: buildParameters,
-                packageName: rootManifest.name)
+                packageName: product.packageName)
             try exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftTool: swiftTool)
         }
     }

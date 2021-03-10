@@ -80,8 +80,8 @@ extension ModuleError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .duplicateModule(let name, let packages):
-            let packages = packages.joined(separator: "', '")
-            return "multiple targets named '\(name)' in: '\(packages)'"
+            let packages = packages.joined(separator: ", ")
+            return "multiple targets named '\(name)' in: \(packages)"
         case .moduleNotFound(let target, let type):
             let folderName = type == .test ? "Tests" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
@@ -215,9 +215,6 @@ public struct BinaryArtifact {
 /// The 'builder' here refers to the builder pattern and not any build system
 /// related function.
 public final class PackageBuilder {
-    /// The identity for the package being constructed.
-    private let identity: PackageIdentity
-
     /// The manifest for the package being constructed.
     private let manifest: Manifest
 
@@ -260,7 +257,6 @@ public final class PackageBuilder {
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
-    ///   - identity: The identity of this package.
     ///   - manifest: The manifest of this package.
     ///   - path: The root path of the package.
     ///   - artifactPaths: Paths to the downloaded binary target artifacts.
@@ -269,7 +265,6 @@ public final class PackageBuilder {
     ///   - createMultipleTestProducts: If enabled, create one test product for
     ///     each test target.
     public init(
-        identity: PackageIdentity,
         manifest: Manifest,
         productFilter: ProductFilter,
         path: AbsolutePath,
@@ -283,7 +278,6 @@ public final class PackageBuilder {
         allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) {
-        self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
         self.packagePath = path
@@ -298,8 +292,13 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
 
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use loadRootPackage instead")
+    /// Loads a package from a package repository using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - packagePath: The absolute path of the package root.
+    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
+    ///         Its associated resources will be used by the loader.
+    ///     - kind: The kind of package.
     public static func loadPackage(
         at path: AbsolutePath,
         kind: PackageReference.Kind = .root,
@@ -319,49 +318,7 @@ public final class PackageBuilder {
                                     identityResolver: identityResolver,
                                     on: queue) { result in
             let result = result.tryMap { manifest -> Package in
-                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
                 let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    path: path,
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
-                return try builder.construct()
-            }
-            completion(result)
-        }
-    }
-
-    /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///   - at: The absolute path of the package root.
-    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
-    ///   - identityResolver: A helper to resolve identities based on configuration
-    ///   - diagnostics: Optional.  The diagnostics engine.
-    ///   - on: The dispatch queue to perform asynchronous operations on.
-    ///   - completion: The completion handler .
-    public static func loadRootPackage(
-        at path: AbsolutePath,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-        identityResolver: IdentityResolver,
-        diagnostics: DiagnosticsEngine,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Package, Error>) -> Void
-    ) {
-        ManifestLoader.loadRootManifest(at: path,
-                                        swiftCompiler: swiftCompiler,
-                                        swiftCompilerFlags: swiftCompilerFlags,
-                                        identityResolver: identityResolver,
-                                        diagnostics: diagnostics,
-                                        on: queue) { result in
-            let result = result.tryMap { manifest -> Package in
-                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let builder = PackageBuilder(
-                    identity: identity,
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
@@ -375,24 +332,23 @@ public final class PackageBuilder {
 
     /// Build a new package following the conventions.
     public func construct() throws -> Package {
-        let targets = try self.constructTargets()
-        let products = try self.constructProducts(targets)
+        let targets = try constructTargets()
+        let products = try constructProducts(targets)
         // Find the special directory for targets.
         let targetSpecialDirs = findTargetSpecialDirs(targets)
 
         return Package(
-            identity: self.identity,
-            manifest: self.manifest,
-            path: self.packagePath,
+            manifest: manifest,
+            path: packagePath,
             targets: targets,
             products: products,
-            targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
-            testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
+            targetSearchPath: packagePath.appending(component: targetSpecialDirs.targetDir),
+            testTargetSearchPath: packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
     }
 
-    private var diagnosticLocation: DiagnosticLocation {
-        return PackageLocation.Local(name: self.manifest.name, packagePath: self.packagePath)
+    private func diagnosticLocation() -> DiagnosticLocation {
+        return PackageLocation.Local(name: manifest.name, packagePath: packagePath)
     }
 
     /// Computes the special directory where targets are present or should be placed in future.
@@ -439,7 +395,7 @@ public final class PackageBuilder {
 
             // Diagnose broken symlinks.
             if fileSystem.isSymlink(path) {
-                diagnostics.emit(.brokenSymlink(path), location: self.diagnosticLocation)
+                diagnostics.emit(.brokenSymlink(path), location: diagnosticLocation())
             }
 
             return false
@@ -492,26 +448,24 @@ public final class PackageBuilder {
             if !manifest.targets.isEmpty {
                 diagnostics.emit(
                     .systemPackageDeclaresTargets(targets: Array(manifest.targets.map({ $0.name }))),
-                    location: self.diagnosticLocation
+                    location: diagnosticLocation()
                 )
             }
 
             // Emit deprecation notice.
             if manifest.toolsVersion >= .v4_2 {
-                diagnostics.emit(.systemPackageDeprecation, location: self.diagnosticLocation)
+                diagnostics.emit(.systemPackageDeprecation, location: diagnosticLocation())
             }
 
             // Package contains a modulemap at the top level, so we assuming
             // it's a system library target.
             return [
                 SystemLibraryTarget(
-                    name: self.manifest.name,
+                    name: manifest.name,
                     platforms: self.platforms(),
-                    path: self.packagePath,
-                    isImplicit: true,
-                    pkgConfig: self.manifest.pkgConfig,
-                    providers: self.manifest.providers
-                )
+                    path: packagePath, isImplicit: true,
+                    pkgConfig: manifest.pkgConfig,
+                    providers: manifest.providers)
             ]
         }
 
@@ -519,12 +473,12 @@ public final class PackageBuilder {
         // system target specific configuration.
         guard manifest.pkgConfig == nil else {
             throw ModuleError.invalidManifestConfig(
-                self.manifest.name, "the 'pkgConfig' property can only be used with a System Module Package")
+                manifest.name, "the 'pkgConfig' property can only be used with a System Module Package")
         }
 
         guard manifest.providers == nil else {
             throw ModuleError.invalidManifestConfig(
-                self.manifest.name, "the 'providers' property can only be used with a System Module Package")
+                manifest.name, "the 'providers' property can only be used with a System Module Package")
         }
 
         return try constructV4Targets()
@@ -583,7 +537,7 @@ public final class PackageBuilder {
                 let path = packagePath.appending(relativeSubPath)
                 // Make sure the target is inside the package root.
                 guard path.contains(packagePath) else {
-                    throw ModuleError.targetOutsidePackage(package: self.manifest.name, target: target.name)
+                    throw ModuleError.targetOutsidePackage(package: manifest.name, target: target.name)
                 }
                 if fileSystem.isDirectory(path) {
                     return path
@@ -608,7 +562,7 @@ public final class PackageBuilder {
 
             // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
             if fileSystem.isDirectory(path) {
-                diagnostics.emit(.targetNameHasIncorrectCase(target: target.name), location: self.diagnosticLocation)
+                diagnostics.emit(.targetNameHasIncorrectCase(target: target.name), location: diagnosticLocation())
                 return path
             }
             throw ModuleError.moduleNotFound(target.name, target.type)
@@ -813,15 +767,15 @@ public final class PackageBuilder {
         }
 
         let sourcesBuilder = TargetSourcesBuilder(
-            packageName: self.manifest.name,
-            packagePath: self.packagePath,
+            packageName: manifest.name,
+            packagePath: packagePath,
             target: manifestTarget,
             path: potentialModule.path,
-            defaultLocalization: self.manifest.defaultLocalization,
-            additionalFileRules: self.additionalFileRules,
-            toolsVersion: self.manifest.toolsVersion,
-            fs: self.fileSystem,
-            diags: self.diagnostics
+            defaultLocalization: manifest.defaultLocalization,
+            additionalFileRules: additionalFileRules,
+            toolsVersion: manifest.toolsVersion,
+            fs: fileSystem,
+            diags: diagnostics
         )
         let (sources, resources, headers, others) = try sourcesBuilder.run()
 
@@ -832,7 +786,7 @@ public final class PackageBuilder {
         }
 
         // The name of the bundle, if one is being generated.
-        let bundleName = resources.isEmpty ? nil : self.manifest.name + "_" + potentialModule.name
+        let bundleName = resources.isEmpty ? nil : manifest.name + "_" + potentialModule.name
 
         if sources.relativePaths.isEmpty && resources.isEmpty {
             return nil
@@ -1166,7 +1120,7 @@ public final class PackageBuilder {
         // It is an error if there are multiple linux main files.
         if testManifestFiles.count > 1 {
             throw ModuleError.multipleTestManifestFilesFound(
-                package: self.manifest.name, files: testManifestFiles.map({ $0 }))
+                package: manifest.name, files: testManifestFiles.map({ $0 }))
         }
         return testManifestFiles.first
     }
@@ -1181,7 +1135,7 @@ public final class PackageBuilder {
             if !inserted {
                 diagnostics.emit(
                     .duplicateProduct(product: product),
-                    location: self.diagnosticLocation
+                    location: diagnosticLocation()
                 )
             }
         }
@@ -1251,7 +1205,7 @@ public final class PackageBuilder {
                 if product.type != .library(.automatic) || targets.count != 1 {
                     self.diagnostics.emit(
                         .systemPackageProductValidation(product: product.name),
-                        location: self.diagnosticLocation
+                        location: self.diagnosticLocation()
                     )
                     continue
                 }
@@ -1319,11 +1273,11 @@ public final class PackageBuilder {
             if libraryTargets.isEmpty {
                 self.diagnostics.emit(
                     .noLibraryTargetsForREPL,
-                    location: self.diagnosticLocation
+                    location: self.diagnosticLocation()
                 )
             } else {
                 let replProduct = Product(
-                    name: self.manifest.name + Product.replProductSuffix,
+                    name: manifest.name + Product.replProductSuffix,
                     type: .library(.dynamic),
                     targets: libraryTargets
                 )
@@ -1341,18 +1295,18 @@ public final class PackageBuilder {
                 if let target = targets.spm_only {
                     diagnostics.emit(
                         .executableProductTargetNotExecutable(product: product.name, target: target.name),
-                        location: self.diagnosticLocation
+                        location: diagnosticLocation()
                     )
                 } else {
                     diagnostics.emit(
                         .executableProductWithoutExecutableTarget(product: product.name),
-                        location: self.diagnosticLocation
+                        location: diagnosticLocation()
                     )
                 }
             } else {
                 diagnostics.emit(
                     .executableProductWithMoreThanOneExecutableTarget(product: product.name),
-                    location: self.diagnosticLocation
+                    location: diagnosticLocation()
                 )
             }
 
@@ -1367,14 +1321,14 @@ public final class PackageBuilder {
         guard nonPluginTargets.isEmpty else {
             diagnostics.emit(
                 .pluginProductWithNonPluginTargets(product: product.name, otherTargets: nonPluginTargets.map{ $0.name }),
-                location: self.diagnosticLocation
+                location: diagnosticLocation()
             )
             return false
         }
         guard !targets.isEmpty else {
             diagnostics.emit(
                 .pluginProductWithNoTargets(product: product.name),
-                location: self.diagnosticLocation
+                location: diagnosticLocation()
             )
             return false
         }

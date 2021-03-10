@@ -25,11 +25,11 @@ public final class PackageGraphResult {
     }
 
     public func check(roots: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.rootPackages.map{$0.manifestName}.sorted(), roots.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.rootPackages.map{$0.name}.sorted(), roots.sorted(), file: file, line: line)
     }
 
     public func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.manifestName}.sorted(), packages.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.map {$0.name}.sorted(), packages.sorted(), file: file, line: line)
     }
 
     public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {

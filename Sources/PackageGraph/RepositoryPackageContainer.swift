@@ -282,13 +282,12 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             // FIXME: this should not block
             return try temp_await {
                 manifestLoader.load(at: AbsolutePath.root,
-                                    packageIdentity: self.package.identity,
-                                    packageKind: self.package.kind,
+                                    packageKind: package.kind,
                                     packageLocation: packageLocation,
                                     version: version,
                                     revision: nil,
                                     toolsVersion: toolsVersion,
-                                    identityResolver: self.identityResolver,
+                                    identityResolver: identityResolver,
                                     fileSystem: fs,
                                     diagnostics: nil,
                                     on: .global(),

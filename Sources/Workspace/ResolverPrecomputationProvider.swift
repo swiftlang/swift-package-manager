@@ -38,16 +38,21 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The managed manifests to make available to the resolver.
     let dependencyManifests: Workspace.DependencyManifests
 
+    /// The identity resolver
+    let identityResolver: IdentityResolver
+
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
 
     init(
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
+        identityResolver: IdentityResolver,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion
     ) {
         self.root = root
         self.dependencyManifests = dependencyManifests
+        self.identityResolver = identityResolver
         self.currentToolsVersion = currentToolsVersion
     }
 
@@ -64,17 +69,20 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                     package: package,
                     manifest: manifest.manifest,
                     dependency: manifest.dependency,
+                    identityResolver: self.identityResolver,
                     currentToolsVersion: self.currentToolsVersion
                 )
                 return completion(.success(container))
             }
 
             // Continue searching from the Workspace's root manifests.
-            if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
+            // FIXME: We might want to use a dictionary for faster lookups.
+            if let index = self.dependencyManifests.root.packageRefs.firstIndex(of: package) {
                 let container = LocalPackageContainer(
                     package: package,
-                    manifest: rootPackage.manifest,
+                    manifest: self.dependencyManifests.root.manifests[index],
                     dependency: nil,
+                    identityResolver: self.identityResolver,
                     currentToolsVersion: self.currentToolsVersion
                 )
 
@@ -92,6 +100,7 @@ private struct LocalPackageContainer: PackageContainer {
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
     let dependency: ManagedDependency?
+    let identityResolver: IdentityResolver
     let currentToolsVersion: ToolsVersion
 
     func versionsAscending() throws -> [Version] {
@@ -158,7 +167,8 @@ private struct LocalPackageContainer: PackageContainer {
         if let packageRef = dependency?.packageRef {
             return packageRef
         } else {
-            return .root(identity: self.package.identity, path: self.manifest.path)
+            let identity = self.identityResolver.resolveIdentity(for: manifest.packageLocation)
+            return .root(identity: identity, path: manifest.path)
         }
     }
 }
