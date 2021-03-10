@@ -355,7 +355,7 @@ public final class MockWorkspace {
 
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map { $0.name }), dependencies: [])
         let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics, completion: $0) }
-        let root = try PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
 
         let dependencyManifests = try workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
 
@@ -508,7 +508,7 @@ public final class MockWorkspace {
             packages: rootPaths(for: roots), dependencies: dependencies
         )
         let rootManifests = try tsc_await { workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics, completion: $0) }
-        let graphRoot = try PackageGraphRoot(input: rootInput, manifests: rootManifests)
+        let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
         let manifests = try workspace.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
         result(manifests, diagnostics)
     }

@@ -106,7 +106,7 @@ public final class PIFBuilder {
         try memoize(to: &pif) {
             let rootPackage = graph.rootPackages[0]
 
-            let sortedPackages = graph.packages.sorted { $0.manifestName < $1.manifestName } // TODO: use identity instead?
+            let sortedPackages = graph.packages.sorted { $0.name < $1.name }
             var projects: [PIFProjectBuilder] = try sortedPackages.map { package in
                 try PackagePIFProjectBuilder(
                     package: package,
@@ -120,7 +120,7 @@ public final class PIFBuilder {
 
             let workspace = PIF.Workspace(
                 guid: "Workspace:\(rootPackage.path.pathString)",
-                name: rootPackage.manifestName,  // TODO: use identity instead?
+                name: rootPackage.name,
                 path: rootPackage.path,
                 projects: try projects.map { try $0.construct() }
             )
@@ -239,7 +239,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         super.init()
 
         guid = package.pifProjectGUID
-        name = package.manifestName // TODO: use identity instead?
+        name = package.name
         path = package.path
         projectDirectory = package.path
         developmentRegion = package.manifest.defaultLocalization ?? "en"
@@ -766,7 +766,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             return nil
         }
 
-        let bundleName = "\(package.manifestName)_\(target.name)" // TODO: use identity instead?
+        let bundleName = "\(package.name)_\(target.name)"
         let resourcesTarget = addTarget(
             guid: target.pifResourceTargetGUID,
             name: bundleName,
@@ -784,7 +784,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.TARGET_NAME] = bundleName
         settings[.PRODUCT_NAME] = bundleName
         settings[.PRODUCT_MODULE_NAME] = bundleName
-        let bundleIdentifier = "\(package.manifestName).\(target.name).resources".spm_mangledToBundleIdentifier() // TODO: use identity instead?
+        let bundleIdentifier = "\(package.name).\(target.name).resources".spm_mangledToBundleIdentifier()
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = bundleIdentifier
         settings[.GENERATE_INFOPLIST_FILE] = "YES"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"

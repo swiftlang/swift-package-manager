@@ -44,7 +44,7 @@ private final class PlainTextDumper: DependenciesDumper {
 
                 let pkgVersion = package.manifest.version?.description ?? "unspecified"
 
-                stream <<< "\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\n"
+                stream <<< "\(hanger)\(package.name)<\(package.manifest.packageLocation)@\(pkgVersion)>\n"
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
@@ -69,7 +69,7 @@ private final class FlatListDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
-                stream <<< package.identity.description <<< "\n"
+                stream <<< package.name <<< "\n"
                 if !package.dependencies.isEmpty {
                     recursiveWalk(packages: package.dependencies)
                 }
@@ -88,7 +88,7 @@ private final class DotDumper: DependenciesDumper {
             let url = package.manifest.packageLocation
             if nodesAlreadyPrinted.contains(url) { return }
             let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            stream <<< #""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"# <<< "\n"
+            stream <<< #""\#(url)" [label="\#(package.name)\n\#(url)\n\#(pkgVersion)"]"# <<< "\n"
             nodesAlreadyPrinted.insert(url)
         }
         
@@ -130,7 +130,7 @@ private final class JSONDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
-                "name": .string(package.manifestName), // TODO: remove? add identity?
+                "name": .string(package.name),
                 "url": .string(package.manifest.packageLocation),
                 "version": .string(package.manifest.version?.description ?? "unspecified"),
                 "path": .string(package.path.pathString),

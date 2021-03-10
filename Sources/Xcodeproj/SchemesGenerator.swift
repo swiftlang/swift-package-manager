@@ -86,7 +86,7 @@ public final class SchemesGenerator {
             }
         })
         schemes.append(Scheme(
-            name: rootPackage.manifestName + "-Package", // TODO: use identity instead?
+            name: rootPackage.name + "-Package",
             regularTargets: regularTargets,
             testTargets: rootPackage.targets.filter({ $0.type == .test })
         ))

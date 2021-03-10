@@ -215,8 +215,13 @@ public struct BuildDescription: Codable {
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
 
-        self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
+        self.builtTestProducts = try plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
+            // FIXME(perf): Provide faster lookups.
+            guard let package = (plan.graph.packages.first{ $0.products.contains(desc.product) }) else {
+                throw InternalError("package with product \(desc.product) not found")
+            }
             return BuiltTestProduct(
+                packageName: package.name,
                 productName: desc.product.name,
                 binaryPath: desc.binary
             )

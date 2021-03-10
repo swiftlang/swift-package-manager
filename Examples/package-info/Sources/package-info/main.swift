@@ -32,9 +32,9 @@ let packagePath = localFileSystem.currentWorkingDirectory!
 // Each takes longer to load than the level above it, but provides more detail.
 let diagnostics = DiagnosticsEngine()
 let identityResolver = DefaultIdentityResolver()
-let manifest = try tsc_await { ManifestLoader.loadRootManifest(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], identityResolver: identityResolver, on: .global(), completion: $0) }
-let loadedPackage = try tsc_await { PackageBuilder.loadRootPackage(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], identityResolver: identityResolver, diagnostics: diagnostics, on: .global(), completion: $0) }
-let graph = try Workspace.loadRootGraph(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], identityResolver: identityResolver, diagnostics: diagnostics)
+let manifest = try tsc_await { ManifestLoader.loadManifest(at: packagePath, kind: .local, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], identityResolver: identityResolver, on: .global(), completion: $0) }
+let loadedPackage = try tsc_await { PackageBuilder.loadPackage(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], identityResolver: identityResolver, diagnostics: diagnostics, on: .global(), completion: $0) }
+let graph = try Workspace.loadGraph(packagePath: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: [], identityResolver: identityResolver, diagnostics: diagnostics)
 
 // EXAMPLES
 // ========

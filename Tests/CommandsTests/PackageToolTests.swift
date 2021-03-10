@@ -461,10 +461,10 @@ final class PackageToolTests: XCTestCase {
         }
         
         let expectedLines: [Substring] = [
-            #""/PackageA" [label="packagea\n/PackageA\nunspecified"]"#,
-            #""/PackageB" [label="packageb\n/PackageB\nunspecified"]"#,
-            #""/PackageC" [label="packagec\n/PackageC\nunspecified"]"#,
-            #""/PackageD" [label="packaged\n/PackageD\nunspecified"]"#,
+            #""/PackageA" [label="PackageA\n/PackageA\nunspecified"]"#,
+            #""/PackageB" [label="PackageB\n/PackageB\nunspecified"]"#,
+            #""/PackageC" [label="PackageC\n/PackageC\nunspecified"]"#,
+            #""/PackageD" [label="PackageD\n/PackageD\nunspecified"]"#,
             #""/PackageA" -> "/PackageB""#,
             #""/PackageA" -> "/PackageC""#,
             #""/PackageB" -> "/PackageC""#,

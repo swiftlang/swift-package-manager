@@ -41,12 +41,11 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         for package in graph.rootPackages {
             for product in package.products where product.type == .test {
                 let binaryPath = buildParameters.binaryPath(for: product)
-                builtProducts.append(
-                    BuiltTestProduct(
-                        productName: product.name,
-                        binaryPath: binaryPath
-                    )
-                )
+                builtProducts.append(BuiltTestProduct(
+                    packageName: package.name,
+                    productName: product.name,
+                    binaryPath: binaryPath
+                ))
             }
         }
 

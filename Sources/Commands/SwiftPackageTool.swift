@@ -170,16 +170,13 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
 
-            let rootManifests = try temp_await {
+            let manifests = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
             }
-            guard let rootManifest = rootManifests.first else {
-                throw StringError("invalid manifests at \(root.packages)")
-            }
+            guard let manifest = manifests.first else { return }
 
             let builder = PackageBuilder(
-                identity: .root(name: rootManifest.name),
-                manifest: rootManifest,
+                manifest: manifest,
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
                 xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
@@ -240,16 +237,12 @@ extension SwiftPackageTool {
             // Get the root package.
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            let rootManifests = try temp_await {
+            let manifest = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
-            }
-            guard let rootManifest = rootManifests.first else {
-                throw StringError("invalid manifests at \(root.packages)")
-            }
+            }[0]
 
             let builder = PackageBuilder(
-                identity: .root(name: rootManifest.name),
-                manifest: rootManifest,
+                manifest: manifest,
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
                 xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
@@ -373,17 +366,15 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
 
-            let rootManifests = try temp_await {
+            let manifests = try temp_await {
                 workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
             }
-            guard let rootManifest = rootManifests.first else {
-                throw StringError("invalid manifests at \(root.packages)")
-            }
+            guard let manifest = manifests.first else { return }
 
             let encoder = JSONEncoder.makeWithDefaults()
             encoder.userInfo[Manifest.dumpPackageKey] = true
 
-            let jsonData = try encoder.encode(rootManifest)
+            let jsonData = try encoder.encode(manifest)
             let jsonString = String(data: jsonData, encoding: .utf8)!
             print(jsonString)
         }
@@ -591,7 +582,7 @@ extension SwiftPackageTool {
                 destination = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()
-                let packageName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                let packageName = graph.rootPackages[0].name
                 destination = packageRoot.appending(component: "\(packageName).zip")
             }
 
@@ -666,10 +657,10 @@ extension SwiftPackageTool {
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].name
             case _:
                 dstdir = try swiftTool.getPackageRoot()
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].name
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 
