@@ -234,7 +234,7 @@ To run just the self-hosted test suite (faster turnaround times so it can be use
 ```
 
 
-To run the swift toolchain test suite including swift-pm use:
+To run the swift toolchain test suite including SwiftPM use:
 
 ```
 @swift-ci please test
