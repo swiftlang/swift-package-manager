@@ -131,82 +131,92 @@ extension CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.noTrustedRootCertsConfigured))
         }
 
-        // Cert chain
-        let x509Stack = CCryptoBoringSSL_sk_X509_new_null()
-        defer { CCryptoBoringSSL_sk_X509_free(x509Stack) }
+        // Make sure certChain and underlying pointers stay in scope for sk_X509 until we are done verifying
+        let error: Error? = withExtendedLifetime(certChain) {
+            // Cert chain
+            let x509Stack = CCryptoBoringSSL_sk_X509_new_null()
+            defer { CCryptoBoringSSL_sk_X509_free(x509Stack) }
 
-        for i in 1 ..< certChain.count {
-            guard certChain[i].withUnsafeMutablePointer({ CCryptoBoringSSL_sk_X509_push(x509Stack, $0) }) > 0 else {
-                return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
-            }
-        }
-
-        // Trusted certs
-        let x509Store = CCryptoBoringSSL_X509_STORE_new()
-        defer { CCryptoBoringSSL_X509_STORE_free(x509Store) }
-
-        let x509StoreCtx = CCryptoBoringSSL_X509_STORE_CTX_new()
-        defer { CCryptoBoringSSL_X509_STORE_CTX_free(x509StoreCtx) }
-
-        // !-safe since certChain cannot be empty
-        guard certChain.first!.withUnsafeMutablePointer({ CCryptoBoringSSL_X509_STORE_CTX_init(x509StoreCtx, x509Store, $0, x509Stack) }) == 1 else {
-            return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
-        }
-        CCryptoBoringSSL_X509_STORE_CTX_set_purpose(x509StoreCtx, X509_PURPOSE_ANY)
-
-        anchorCerts.forEach { anchorCert in
-            // add_cert returns 0 for all error types, including when we add duplicate cert, so we don't check for result > 0 here.
-            // If an anchor cert didn't get added, trust evaluation should fail anyway.
-            _ = anchorCert.withUnsafeMutablePointer { CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0) }
-        }
-
-        var ctxFlags: CInt = 0
-        if let verifyDate = verifyDate {
-            CCryptoBoringSSL_X509_STORE_CTX_set_time(x509StoreCtx, 0, numericCast(Int(verifyDate.timeIntervalSince1970)))
-            ctxFlags = ctxFlags | X509_V_FLAG_USE_CHECK_TIME
-        }
-        CCryptoBoringSSL_X509_STORE_CTX_set_flags(x509StoreCtx, numericCast(UInt(ctxFlags)))
-
-        let verifyCallback: BoringSSLVerifyCallback = { result, ctx in
-            // Success
-            if result == 1 { return result }
-
-            // Custom error handling
-            let errorCode = CCryptoBoringSSL_X509_STORE_CTX_get_error(ctx)
-            // Certs could have unknown critical extensions and cause them to be rejected.
-            // Check if they are tolerable.
-            if errorCode == X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION {
-                guard let cert = ctx?.pointee.current_cert else {
-                    return result
+            for i in 1 ..< certChain.count {
+                guard certChain[i].withUnsafeMutablePointer({ CCryptoBoringSSL_sk_X509_push(x509Stack, $0) }) > 0 else {
+                    return CertificatePolicyError.trustSetupFailure
                 }
-                for i in 0 ..< CCryptoBoringSSL_X509_get_ext_count(cert) {
-                    let ext = CCryptoBoringSSL_X509_get_ext(cert, numericCast(i))
-                    // Skip if extension is not critical or it is supported by BoringSSL
-                    if CCryptoBoringSSL_X509_EXTENSION_get_critical(ext) <= 0 || CCryptoBoringSSL_X509_supported_extension(ext) > 0 { continue }
+            }
 
-                    // Extract OID of the critical extension
+            // Trusted certs
+            let x509Store = CCryptoBoringSSL_X509_STORE_new()
+            defer { CCryptoBoringSSL_X509_STORE_free(x509Store) }
+
+            let x509StoreCtx = CCryptoBoringSSL_X509_STORE_CTX_new()
+            defer { CCryptoBoringSSL_X509_STORE_CTX_free(x509StoreCtx) }
+
+            // !-safe since certChain cannot be empty
+            guard certChain.first!.withUnsafeMutablePointer({ CCryptoBoringSSL_X509_STORE_CTX_init(x509StoreCtx, x509Store, $0, x509Stack) }) == 1 else {
+                return CertificatePolicyError.trustSetupFailure
+            }
+            CCryptoBoringSSL_X509_STORE_CTX_set_purpose(x509StoreCtx, X509_PURPOSE_ANY)
+
+            anchorCerts.forEach { anchorCert in
+                // add_cert returns 0 for all error types, including when we add duplicate cert, so we don't check for result > 0 here.
+                // If an anchor cert didn't get added, trust evaluation should fail anyway.
+                _ = anchorCert.withUnsafeMutablePointer { CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0) }
+            }
+
+            var ctxFlags: CInt = 0
+            if let verifyDate = verifyDate {
+                CCryptoBoringSSL_X509_STORE_CTX_set_time(x509StoreCtx, 0, numericCast(Int(verifyDate.timeIntervalSince1970)))
+                ctxFlags = ctxFlags | X509_V_FLAG_USE_CHECK_TIME
+            }
+            CCryptoBoringSSL_X509_STORE_CTX_set_flags(x509StoreCtx, numericCast(UInt(ctxFlags)))
+
+            let verifyCallback: BoringSSLVerifyCallback = { result, ctx in
+                // Success
+                if result == 1 { return result }
+
+                // Custom error handling
+                let errorCode = CCryptoBoringSSL_X509_STORE_CTX_get_error(ctx)
+                // Certs could have unknown critical extensions and cause them to be rejected.
+                // Check if they are tolerable.
+                if errorCode == X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION {
+                    guard let cert = ctx?.pointee.current_cert else {
+                        return result
+                    }
+
                     let capacity = 100
                     let oidBuffer = UnsafeMutablePointer<Int8>.allocate(capacity: capacity)
                     defer { oidBuffer.deallocate() }
 
-                    let extObj = CCryptoBoringSSL_X509_EXTENSION_get_object(ext)
-                    guard CCryptoBoringSSL_OBJ_obj2txt(oidBuffer, numericCast(capacity), extObj, numericCast(1)) > 0,
-                        let oid = String(cString: oidBuffer, encoding: .utf8),
-                        supportedCriticalExtensions.contains(oid) else {
-                        return result
-                    }
-                }
-                // No actual unhandled critical extension found, so trust the cert chain
-                return 1
-            }
-            return result
-        }
-        CCryptoBoringSSL_X509_STORE_CTX_set_verify_cb(x509StoreCtx, verifyCallback)
+                    for i in 0 ..< CCryptoBoringSSL_X509_get_ext_count(cert) {
+                        let ext = CCryptoBoringSSL_X509_get_ext(cert, numericCast(i))
+                        // Skip if extension is not critical or it is supported by BoringSSL
+                        if CCryptoBoringSSL_X509_EXTENSION_get_critical(ext) <= 0 || CCryptoBoringSSL_X509_supported_extension(ext) > 0 { continue }
 
-        guard CCryptoBoringSSL_X509_verify_cert(x509StoreCtx) == 1 else {
-            let error = CCryptoBoringSSL_X509_verify_cert_error_string(numericCast(CCryptoBoringSSL_X509_STORE_CTX_get_error(x509StoreCtx)))
-            diagnosticsEngine.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
-            return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
+                        // Extract OID of the critical extension
+                        let extObj = CCryptoBoringSSL_X509_EXTENSION_get_object(ext)
+                        guard CCryptoBoringSSL_OBJ_obj2txt(oidBuffer, numericCast(capacity), extObj, numericCast(1)) > 0,
+                            let oid = String(cString: oidBuffer, encoding: .utf8),
+                            supportedCriticalExtensions.contains(oid) else {
+                            return result
+                        }
+                    }
+                    // No actual unhandled critical extension found, so trust the cert chain
+                    return 1
+                }
+                return result
+            }
+            CCryptoBoringSSL_X509_STORE_CTX_set_verify_cb(x509StoreCtx, verifyCallback)
+
+            guard CCryptoBoringSSL_X509_verify_cert(x509StoreCtx) == 1 else {
+                let error = CCryptoBoringSSL_X509_verify_cert_error_string(numericCast(CCryptoBoringSSL_X509_STORE_CTX_get_error(x509StoreCtx)))
+                diagnosticsEngine.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
+                return CertificatePolicyError.invalidCertChain
+            }
+
+            return nil
+        }
+
+        if let error = error {
+            return wrappedCallback(.failure(error))
         }
 
         if certChain.count > 1, let httpClient = httpClient {
