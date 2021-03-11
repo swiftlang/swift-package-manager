@@ -15,8 +15,8 @@ import XCTest
 @testable import PackageCollectionsSigning
 import TSCBasic
 
-// Update this when running ENABLE_REAL_CERT_TEST tests
-let expectedSubjectUserID = "<USER ID>"
+// Set `REAL_CERT_USER_ID` env var when running ENABLE_REAL_CERT_TEST tests
+let expectedSubjectUserID = ProcessInfo.processInfo.environment["REAL_CERT_USER_ID"] ?? "<USER ID>"
 
 let callbackQueue = DispatchQueue(label: "org.swift.swiftpm.PackageCollectionsSigningTests", attributes: .concurrent)
 let diagnosticsEngine = DiagnosticsEngine()

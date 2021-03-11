@@ -24,6 +24,15 @@ import Security
 @_implementationOnly import PackageCollectionsSigningLibc
 #endif
 
+let appleDistributionIOSMarker = "1.2.840.113635.100.6.1.4"
+let appleDistributionMacOSMarker = "1.2.840.113635.100.6.1.7"
+let appleIntermediateMarker = "1.2.840.113635.100.6.2.1"
+
+// For BoringSSL only - the Security framework recognizes these marker extensions
+#if os(Linux) || os(Windows)
+let supportedCriticalExtensions: Set<String> = [appleDistributionIOSMarker, appleDistributionMacOSMarker]
+#endif
+
 protocol CertificatePolicy {
     /// Validates the given certificate chain.
     ///
@@ -162,9 +171,29 @@ extension CertificatePolicy {
             // Custom error handling
             let errorCode = CCryptoBoringSSL_X509_STORE_CTX_get_error(ctx)
             // Certs could have unknown critical extensions and cause them to be rejected.
-            // Instead of disabling all critical extension checks with X509_V_FLAG_IGNORE_CRITICAL
-            // we will just ignore this specific error.
+            // Check if they are tolerable.
             if errorCode == X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION {
+                guard let cert = ctx?.pointee.current_cert else {
+                    return result
+                }
+                for i in 0 ..< CCryptoBoringSSL_X509_get_ext_count(cert) {
+                    let ext = CCryptoBoringSSL_X509_get_ext(cert, numericCast(i))
+                    // Skip if extension is not critical or it is supported by BoringSSL
+                    if CCryptoBoringSSL_X509_EXTENSION_get_critical(ext) <= 0 || CCryptoBoringSSL_X509_supported_extension(ext) > 0 { continue }
+
+                    // Extract OID of the critical extension
+                    let capacity = 100
+                    let oidBuffer = UnsafeMutablePointer<Int8>.allocate(capacity: capacity)
+                    defer { oidBuffer.deallocate() }
+
+                    let extObj = CCryptoBoringSSL_X509_EXTENSION_get_object(ext)
+                    guard CCryptoBoringSSL_OBJ_obj2txt(oidBuffer, numericCast(capacity), extObj, numericCast(1)) > 0,
+                        let oid = String(cString: oidBuffer, encoding: .utf8),
+                        supportedCriticalExtensions.contains(oid) else {
+                        return result
+                    }
+                }
+                // No actual unhandled critical extension found, so trust the cert chain
                 return 1
             }
             return result
@@ -173,7 +202,7 @@ extension CertificatePolicy {
 
         guard CCryptoBoringSSL_X509_verify_cert(x509StoreCtx) == 1 else {
             let error = CCryptoBoringSSL_X509_verify_cert_error_string(numericCast(CCryptoBoringSSL_X509_STORE_CTX_get_error(x509StoreCtx)))
-            diagnosticsEngine.emit(warning: "The certificate is invalid: \(String(describing: error))")
+            diagnosticsEngine.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
             return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
         }
 
@@ -481,6 +510,7 @@ enum CertificatePolicyError: Error, Equatable {
     case unexpectedCertChainLength
     case missingRequiredExtension
     case extensionFailure
+    case unhandledCriticalException
     case noTrustedRootCertsConfigured
     case ocspSetupFailure
     case ocspFailure
@@ -595,9 +625,6 @@ struct DefaultCertificatePolicy: CertificatePolicy {
 /// marker extensions for Apple Distribution certifiications.
 struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     private static let expectedCertChainLength = 3
-    private static let appleDistributionIOSMarker = "1.2.840.113635.100.6.1.4"
-    private static let appleDistributionMacOSMarker = "1.2.840.113635.100.6.1.7"
-    private static let appleIntermediateMarker = "1.2.840.113635.100.6.2.1"
 
     let trustedRoots: [Certificate]?
     let expectedSubjectUserID: String?
@@ -666,10 +693,10 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
             }
 
             // Check marker extensions (certificates issued post WWDC 2019 have both extensions but earlier ones have just one depending on platform)
-            guard try (self.hasExtension(oid: Self.appleDistributionIOSMarker, in: certChain[0]) || self.hasExtension(oid: Self.appleDistributionMacOSMarker, in: certChain[0])) else {
+            guard try (self.hasExtension(oid: appleDistributionIOSMarker, in: certChain[0]) || self.hasExtension(oid: appleDistributionMacOSMarker, in: certChain[0])) else {
                 return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
             }
-            guard try self.hasExtension(oid: Self.appleIntermediateMarker, in: certChain[1]) else {
+            guard try self.hasExtension(oid: appleIntermediateMarker, in: certChain[1]) else {
                 return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
             }
 
