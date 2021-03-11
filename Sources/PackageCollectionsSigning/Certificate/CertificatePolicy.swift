@@ -255,7 +255,6 @@ private struct BoringSSLOCSPClient {
             }
         }
         let request = OCSP_REQUEST_new()
-//        defer { OCSP_CERTID_free(certid) }
         defer { OCSP_REQUEST_free(request) }
 
         guard OCSP_request_add0_id(request, certid) != nil else {
@@ -263,20 +262,20 @@ private struct BoringSSLOCSPClient {
         }
 
         // Write the request binary to memory bio
-        guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()),
-            i2d_OCSP_REQUEST_bio(bio, request) > 0 else {
+        let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
+        defer { CCryptoBoringSSL_BIO_free(bio) }
+        guard i2d_OCSP_REQUEST_bio(bio, request) > 0 else {
             return wrappedCallback(.failure(CertificatePolicyError.ocspSetupFailure))
         }
-        defer { CCryptoBoringSSL_BIO_free(bio) }
 
         // Copy from bio to byte array then convert to Data
         var count = 0
-        let out = UnsafeMutablePointer<UnsafePointer<UInt8>?>.allocate(capacity: 1)
-        guard CCryptoBoringSSL_BIO_mem_contents(bio, out, &count) > 0 else {
+        var out: UnsafePointer<UInt8>?
+        guard CCryptoBoringSSL_BIO_mem_contents(bio, &out, &count) > 0 else {
             return wrappedCallback(.failure(CertificatePolicyError.ocspSetupFailure))
         }
 
-        let requestData = Data(UnsafeBufferPointer(start: out.pointee, count: count))
+        let requestData = Data(UnsafeBufferPointer(start: out, count: count))
 
         let results = ThreadSafeArrayStore<Result<Bool, Error>>()
         let group = DispatchGroup()
@@ -301,7 +300,11 @@ private struct BoringSSLOCSPClient {
 
             var headers = HTTPClientHeaders()
             headers.add(name: "Content-Type", value: "application/ocsp-request")
-            url.host.map { headers.add(name: "Host", value: "\($0)") }
+            guard let host = url.host else {
+                results.append(.failure(OCSPError.badURL))
+                continue
+            }
+            headers.add(name: "Host", value: host)
 
             var options = HTTPClientRequest.Options()
             options.validResponseCodes = [200]
@@ -320,25 +323,27 @@ private struct BoringSSLOCSPClient {
                     }
 
                     let bytes = responseData.copyBytes()
+
                     // Convert response to bio then OCSP response
-                    guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()),
-                        CCryptoBoringSSL_BIO_write(bio, bytes, numericCast(bytes.count)) > 0,
-                        let response = d2i_OCSP_RESPONSE_bio(bio, nil) else {
+                    let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem())
+                    defer { CCryptoBoringSSL_BIO_free(bio) }
+                    guard CCryptoBoringSSL_BIO_write(bio, bytes, numericCast(bytes.count)) > 0 else {
                         results.append(.failure(OCSPError.responseConversionFailure))
                         return
                     }
-                    defer { CCryptoBoringSSL_BIO_free(bio) }
+
+                    let response = d2i_OCSP_RESPONSE_bio(bio, nil)
                     defer { OCSP_RESPONSE_free(response) }
+                    let basicResp = OCSP_response_get1_basic(response)
+                    defer { OCSP_BASICRESP_free(basicResp) }
 
                     // This is just the OCSP response status, not the certificate's status
                     guard OCSP_response_status(response) == OCSP_RESPONSE_STATUS_SUCCESSFUL,
-                        CCryptoBoringSSL_OBJ_obj2nid(response.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic,
-                        let basicResp = OCSP_response_get1_basic(response),
-                        let basicRespData = basicResp.pointee.tbsResponseData?.pointee else {
+                        CCryptoBoringSSL_OBJ_obj2nid(response?.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic,
+                        let basicRespData = basicResp?.pointee.tbsResponseData.pointee else {
                         results.append(.failure(OCSPError.badResponse))
                         return
                     }
-                    defer { OCSP_BASICRESP_free(basicResp) }
 
                     // Inspect the OCSP response
                     for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
