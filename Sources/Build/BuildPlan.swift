@@ -1967,64 +1967,16 @@ public class BuildPlan {
     /// Extracts the library information from an XCFramework.
     private func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: target) {
-            let metadata = try XCFrameworkMetadata.parse(fileSystem: self.fileSystem, rootPath: target.artifactPath)
-
-            // Check that it supports the target platform and architecture.
-            guard let library = metadata.libraries.first(where: {
-                $0.platform == buildParameters.triple.os.asXCFrameworkPlatformString && $0.architectures.contains(buildParameters.triple.arch.rawValue)
-            }) else {
-                throw StringError("""
-                    artifact '\(target.name)' does not support the target platform and architecture \
-                    ('\(buildParameters.triple)')
-                    """)
-            }
-
-            let libraryDirectory = target.artifactPath.appending(component: library.libraryIdentifier)
-            let libraryPath = libraryDirectory.appending(RelativePath(library.libraryPath))
-            let headersPath = library.headersPath.map({ libraryDirectory.appending(RelativePath($0)) })
-
-            return [LibraryInfo(libraryPath: libraryPath, headersPath: headersPath)]
+            return try target.parseXCFrameworks(for: self.buildParameters, fileSystem: self.fileSystem)
         }
     }
 
     /// Extracts the artifacts  from an artifactsArchive
     private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: target) {
-            let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: self.fileSystem, rootPath: target.artifactPath)
-
-            // filter the artifacts that are relevant to the triple
-            // FIXME: this filter needs to become more sophisticated
-            let supportedArtifacts = metadata.artifacts.filter { $0.value.variants.contains(where: { $0.supportedTriples.contains(buildParameters.triple) }) }
-            // TODO: add support for libraries
-            let executables = supportedArtifacts.filter { $0.value.type == .executable }
-
-            // flatten the results for easy access
-            return executables.reduce(into: [ExecutableInfo](), { partial, entry in
-                let executables = entry.value.variants.map {
-                    ExecutableInfo(name: entry.key, executablePath: target.artifactPath.appending(RelativePath($0.path)))
-                }
-                partial.append(contentsOf: executables)
-            })
+            return try target.parseArtifactArchives(for: self.buildParameters, fileSystem: self.fileSystem)
         }
     }
-}
-
-/// Information about a library from a binary dependency.
-private struct LibraryInfo: Equatable {
-    /// The path to the binary.
-    let libraryPath: AbsolutePath
-
-    /// The path to the headers directory, if one exists.
-    let headersPath: AbsolutePath?
-}
-
-/// Information about an executable from a binary dependency.
-private struct ExecutableInfo: Equatable {
-    /// The tool name
-    let name: String
-
-    /// The path to the executable.
-    let executablePath: AbsolutePath
 }
 
 private extension Diagnostic.Message {
@@ -2106,18 +2058,6 @@ private func generateResourceInfoPlist(
 
     try fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     return true
-}
-
-fileprivate extension Triple.OS {
-    /// Returns a representation of the receiver that can be compared with platform strings declared in an XCFramework.
-    var asXCFrameworkPlatformString: String? {
-        switch self {
-        case .darwin, .linux, .wasi, .windows:
-            return nil // XCFrameworks do not support any of these platforms today.
-        case .macOS:
-            return "macos"
-        }
-    }
 }
 
 fileprivate extension Triple {

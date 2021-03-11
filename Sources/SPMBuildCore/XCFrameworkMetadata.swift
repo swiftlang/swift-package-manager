@@ -10,7 +10,6 @@
 
 import Foundation
 import PackageModel
-import SPMBuildCore
 import TSCBasic
 import TSCUtility
 

@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Build
+import SPMBuildCore
 import TSCBasic
 import XCTest
 

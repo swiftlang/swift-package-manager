@@ -7,6 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SPMBuildCore
+  ArtifactsArchiveMetadata.swift
+  BinaryTarget+Extensions.swift
   BuildParameters.swift
   BuildSystem.swift
   BuildSystemCommand.swift
@@ -15,7 +17,8 @@ add_library(SPMBuildCore
   PluginInvocation.swift
   PrebuildCommandResult.swift
   Sanitizers.swift
-  Toolchain.swift)
+  Toolchain.swift
+  XCFrameworkMetadata.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMBuildCore PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
