@@ -135,8 +135,8 @@ extension CertificatePolicy {
         let x509Stack = CCryptoBoringSSL_sk_X509_new_null()
         defer { CCryptoBoringSSL_sk_X509_free(x509Stack) }
 
-        certChain[1...].forEach { certificate in
-            guard CCryptoBoringSSL_sk_X509_push(x509Stack, certificate.underlying) > 0 else {
+        for i in 1 ..< certChain.count {
+            guard certChain[i].withUnsafeMutablePointer({ CCryptoBoringSSL_sk_X509_push(x509Stack, $0) }) > 0 else {
                 return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
             }
         }
@@ -148,13 +148,16 @@ extension CertificatePolicy {
         let x509StoreCtx = CCryptoBoringSSL_X509_STORE_CTX_new()
         defer { CCryptoBoringSSL_X509_STORE_CTX_free(x509StoreCtx) }
 
-        guard CCryptoBoringSSL_X509_STORE_CTX_init(x509StoreCtx, x509Store, certChain.first!.underlying, x509Stack) == 1 else { // !-safe since certChain cannot be empty
+        // !-safe since certChain cannot be empty
+        guard certChain.first!.withUnsafeMutablePointer({ CCryptoBoringSSL_X509_STORE_CTX_init(x509StoreCtx, x509Store, $0, x509Stack) }) == 1 else {
             return wrappedCallback(.failure(CertificatePolicyError.trustSetupFailure))
         }
         CCryptoBoringSSL_X509_STORE_CTX_set_purpose(x509StoreCtx, X509_PURPOSE_ANY)
 
-        anchorCerts.forEach {
-            CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0.underlying)
+        anchorCerts.forEach { anchorCert in
+            // add_cert returns 0 for all error types, including when we add duplicate cert, so we don't check for result > 0 here.
+            // If an anchor cert didn't get added, trust evaluation should fail anyway.
+            _ = anchorCert.withUnsafeMutablePointer { CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0) }
         }
 
         var ctxFlags: CInt = 0
@@ -206,7 +209,7 @@ extension CertificatePolicy {
             return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
         }
 
-        if certChain.count >= 1, let httpClient = httpClient {
+        if certChain.count > 1, let httpClient = httpClient {
             // Whether cert chain can be trusted depends on OCSP result
             ocspClient.checkStatus(certificate: certChain[0], issuer: certChain[1], httpClient: httpClient,
                                    diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
@@ -237,7 +240,7 @@ private struct BoringSSLOCSPClient {
                      callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
 
-        let ocspURLs = CCryptoBoringSSL_X509_get1_ocsp(certificate.underlying)
+        let ocspURLs = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get1_ocsp($0) }
         defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
 
         let ocspURLCount = CCryptoBoringSSL_sk_OPENSSL_STRING_num(ocspURLs)
@@ -246,12 +249,18 @@ private struct BoringSSLOCSPClient {
 
         // Construct the OCSP request
         let digest = CCryptoBoringSSL_EVP_sha1()
-        guard let certid = OCSP_cert_to_id(digest, certificate.underlying, issuer.underlying),
-            let request = OCSP_REQUEST_new(),
-            OCSP_request_add0_id(request, certid) != nil else {
+        let certid = certificate.withUnsafeMutablePointer { certPtr in
+            issuer.withUnsafeMutablePointer { issPtr in
+                OCSP_cert_to_id(digest, certPtr, issPtr)
+            }
+        }
+        let request = OCSP_REQUEST_new()
+//        defer { OCSP_CERTID_free(certid) }
+        defer { OCSP_REQUEST_free(request) }
+
+        guard OCSP_request_add0_id(request, certid) != nil else {
             return wrappedCallback(.failure(CertificatePolicyError.ocspSetupFailure))
         }
-        defer { OCSP_REQUEST_free(request) }
 
         // Write the request binary to memory bio
         guard let bio = CCryptoBoringSSL_BIO_new(CCryptoBoringSSL_BIO_s_mem()),
@@ -415,7 +424,7 @@ extension CertificatePolicy {
         return !dict.isEmpty
         #elseif os(Linux) || os(Windows)
         let nid = CCryptoBoringSSL_OBJ_create(oid, "ObjectShortName", "ObjectLongName")
-        let index = CCryptoBoringSSL_X509_get_ext_by_NID(certificate.underlying, nid, -1)
+        let index = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get_ext_by_NID($0, nid, -1) }
         return index >= 0
         #endif
     }
@@ -431,7 +440,7 @@ extension CertificatePolicy {
         }
         return usages.first(where: { $0 == usage.data }) != nil
         #elseif os(Linux) || os(Windows)
-        let eku = CCryptoBoringSSL_X509_get_extended_key_usage(certificate.underlying)
+        let eku = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get_extended_key_usage($0) }
         return eku & UInt32(usage.flag) > 0
         #endif
     }
@@ -452,7 +461,7 @@ extension CertificatePolicy {
         return infoAccessValue.first(where: { valueDict in valueDict[kSecPropertyKeyValue] as? String == "1.3.6.1.5.5.7.48.1" }) != nil
         #elseif os(Linux) || os(Windows)
         // Check that there is at least one OCSP responder URL, in which case OCSP check will take place in `verify`.
-        let ocspURLs = CCryptoBoringSSL_X509_get1_ocsp(certificate.underlying)
+        let ocspURLs = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get1_ocsp($0) }
         defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
 
         return CCryptoBoringSSL_sk_OPENSSL_STRING_num(ocspURLs) > 0

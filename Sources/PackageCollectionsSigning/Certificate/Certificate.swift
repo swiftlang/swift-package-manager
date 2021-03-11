@@ -111,7 +111,7 @@ struct CoreCertificate {
 
 #elseif os(Linux) || os(Windows)
 final class BoringSSLCertificate {
-    let underlying: UnsafeMutablePointer<X509>
+    private let underlying: UnsafeMutablePointer<X509>
 
     deinit {
         CCryptoBoringSSL_X509_free(self.underlying)
@@ -127,6 +127,10 @@ final class BoringSSLCertificate {
             return x509
         }
         self.underlying = x509
+    }
+
+    func withUnsafeMutablePointer<R>(_ body: (UnsafeMutablePointer<X509>) throws -> R) rethrows -> R {
+        return try body(self.underlying)
     }
 
     func subject() throws -> CertificateName {
