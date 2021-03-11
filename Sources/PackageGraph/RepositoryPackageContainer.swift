@@ -222,7 +222,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         productFilter: ProductFilter
     ) throws -> (Manifest, [Constraint]) {
         let manifest = try self.loadManifest(at: revision, version: version)
-        return (manifest, manifest.dependencyConstraints(productFilter: productFilter))
+        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter))
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [Constraint] {

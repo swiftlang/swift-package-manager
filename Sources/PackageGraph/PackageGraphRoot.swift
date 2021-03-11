@@ -69,43 +69,49 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints() -> [PackageContainerConstraint] {
+    public func constraints() throws -> [PackageContainerConstraint] {
         let constraints = packageRefs.map{
             PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
         }
-        return constraints + dependencies.map{
+        
+        let depend = try dependencies.map{
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
-                requirement: $0.toConstraintRequirement(),
+                requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter
             )
         }
+        return constraints + depend
     }
 }
 
 extension PackageDependencyDescription {
     /// Returns the constraint requirement representation.
-    public func toConstraintRequirement() -> PackageRequirement {
+    public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
         case .local:
             return .unversioned
         case .scm(let data):
-            return data.requirement.toConstraintRequirement()
+            return try data.requirement.toConstraintRequirement()
         }
     }
 }
 
 extension PackageDependencyDescription.Requirement {
     /// Returns the constraint requirement representation.
-    public func toConstraintRequirement() -> PackageRequirement {
+    public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
         case .revision(let identifier):
-            assert(Git.checkRefFormat(ref: identifier))
+            guard Git.checkRefFormat(ref: identifier) else {
+                throw StringError("Could not find revision: '\(identifier)'")
+            }
             return .revision(identifier)
         case .branch(let identifier):
-            assert(Git.checkRefFormat(ref: identifier))
+            guard Git.checkRefFormat(ref: identifier) else {
+                throw StringError("Could not find branch: '\(identifier)'")
+            }
             return .revision(identifier)
         case .exact(let version):
             return .versionSet(.exact(version))

@@ -359,7 +359,7 @@ public final class MockWorkspace {
 
         let dependencyManifests = try workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
 
-        let result = workspace.precomputeResolution(
+        let result = try workspace.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
             pinsStore: pinsStore,
