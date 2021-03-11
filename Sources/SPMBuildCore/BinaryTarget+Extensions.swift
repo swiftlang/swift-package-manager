@@ -38,29 +38,36 @@ public struct ExecutableInfo: Equatable {
 
 extension BinaryTarget {
     
-    public func parseXCFrameworks(for buildParameters: BuildParameters, fileSystem: FileSystem) throws -> [LibraryInfo] {
+    public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
+        // At the moment we return at most a single library.
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
+        // Filter the libraries that are relevant to the triple.
+        // FIXME: this filter needs to become more sophisticated
         guard let library = metadata.libraries.first(where: {
-            $0.platform == buildParameters.triple.os.asXCFrameworkPlatformString &&
-            $0.architectures.contains(buildParameters.triple.arch.rawValue)
+            $0.platform == triple.os.asXCFrameworkPlatformString &&
+            $0.architectures.contains(triple.arch.rawValue)
         }) else {
             return []
         }
+        // Construct a LibraryInfo for the library.
         let libraryDir = self.artifactPath.appending(component: library.libraryIdentifier)
         let libraryFile = libraryDir.appending(RelativePath(library.libraryPath))
-        let headersDir = library.headersPath.map({ libraryDir.appending(RelativePath($0)) })
+        let headersDir = library.headersPath.map{ libraryDir.appending(RelativePath($0)) }
         return [LibraryInfo(libraryPath: libraryFile, headersPath: headersDir)]
     }
 
-    public func parseArtifactArchives(for buildParameters: BuildParameters, fileSystem: FileSystem) throws -> [ExecutableInfo] {
+    public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
+        // We return at most a single variant of each artifact.
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
-        // filter the artifacts that are relevant to the triple
-        // FIXME: this filter needs to become more sophisticated
-        let supportedArtifacts = metadata.artifacts.filter { $0.value.variants.contains(where: { $0.supportedTriples.contains(buildParameters.triple) }) }
-        // TODO: add support for libraries
-        let executables = supportedArtifacts.filter { $0.value.type == .executable }
+        // Currently we filter out everything except executables.
+        // TODO: Add support for libraries
+        let executables = metadata.artifacts.filter { $0.value.type == .executable }
+        // Construct an ExecutableInfo for each matching variant.
         return executables.flatMap { entry in
-            entry.value.variants.map{ ExecutableInfo(name: entry.key, executablePath: self.artifactPath.appending(RelativePath($0.path))) }
+            // FIXME: this filter needs to become more sophisticated
+            entry.value.variants.filter{ $0.supportedTriples.contains(triple) }.map{
+                ExecutableInfo(name: entry.key, executablePath: self.artifactPath.appending(RelativePath($0.path)))
+            }
         }
     }
 }

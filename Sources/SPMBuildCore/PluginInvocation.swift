@@ -13,27 +13,27 @@ import Basics
 import PackageModel
 import PackageGraph
 import TSCBasic
+import TSCUtility
 
 
 extension PackageGraph {
 
-    /// Traverses the graph of reachable targets in a package graph and evaluates plugins as needed.  Each plugin is passed an input context that provides information about the target to which it is being applied (and some information from its dependency closure), and can generate an output in the form of commands that will later be run during the build.  This function returns a mapping of resolved targets to the results of running each of the plugins against the target in turn.  This include an ordered list of generated commands to run for each plugin capability.  This function may cache anything it wants to under the `cacheDir` directory.  The `execsDir` directory is where executables for any dependencies of targets will be made available.  Any warnings and errors related to running the plugin will be emitted to `diagnostics`, and this function will throw an error if evaluation of any plugin fails.  Note that warnings emitted by the the plugin itself will be returned in the PluginEvaluationResult structures and not added directly to the diagnostics engine.
+    /// Traverses the graph of reachable targets in a package graph and evaluates plugins as needed.  Each plugin is passed an input context that provides information about the target to which it is being applied (and some information from its dependency closure), and can generate an output in the form of commands that will later be run during the build.  This function returns a mapping of resolved targets to the results of running each of the plugins against the target in turn.  This include an ordered list of generated commands to run for each plugin capability.  This function may cache anything it wants to under the `cacheDir` directory.  The `builtToolsDir` directory is where executables for any dependencies of targets will be made available.  Any warnings and errors related to running the plugin will be emitted to `diagnostics`, and this function will throw an error if evaluation of any plugin fails.  Note that warnings emitted by the the plugin itself will be returned in the PluginEvaluationResult structures and not added directly to the diagnostics engine.
     public func invokePlugins(
-        buildEnvironment: BuildEnvironment,
-        execsDir: AbsolutePath,
         outputDir: AbsolutePath,
+        builtToolsDir: AbsolutePath,
         pluginScriptRunner: PluginScriptRunner,
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
     ) throws -> [ResolvedTarget: [PluginInvocationResult]] {
         // TODO: Convert this to be asynchronous, taking a completion closure.  This may require changes to package graph APIs.
-        var evalResultsByTarget: [ResolvedTarget: [PluginInvocationResult]] = [:]
+        var pluginResultsByTarget: [ResolvedTarget: [PluginInvocationResult]] = [:]
         
         for target in self.reachableTargets {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.  Although plugin usage is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
-            for dependency in target.dependencies(satisfying: buildEnvironment) {
+            for dependency in target.dependencies {
                 switch dependency {
                 case .target(let target, _):
                     if let pluginTarget = target.underlyingTarget as? PluginTarget {
@@ -53,13 +53,24 @@ extension PackageGraph {
             }
             
             /// Determine the package that contains the target.
-            guard let package = self.packages.first(where: { $0.targets.contains(target) }) else {
-                throw InternalError("could not find package for target \(target)")
+            guard let package = self.package(for: target) else {
+                throw InternalError("could not determine package for target \(target)")
             }
             
             // Evaluate each plugin in turn, creating a list of results (one for each plugin used by the target).
-            var evalResults: [PluginInvocationResult] = []
+            var pluginResults: [PluginInvocationResult] = []
             for pluginTarget in pluginTargets {
+                // Determine the tools that this plugin has access to, and create a name-to-path sdadoiadasdasdasdasdasdimapping from name to.
+                let accessibleTools = pluginTarget.accessibleTools(for: pluginScriptRunner.hostTriple)
+                let tools = accessibleTools.reduce(into: [String: PluginScriptRunnerInput.Tool](), { partial, tool in
+                    switch tool {
+                    case .builtTool(let name, let path):
+                        partial[name] = .init(name: name, path: builtToolsDir.appending(path).pathString)
+                    case .vendedTool(let name, let path):
+                        partial[name] = .init(name: name, path: path.pathString)
+                    }
+                })
+                
                 // Give each invocation of a plugin a separate output directory.
                 let pluginOutputDir = outputDir.appending(components: package.name, target.name, pluginTarget.name)
                 do {
@@ -82,7 +93,7 @@ extension PackageGraph {
                         .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
                     },
                     outputDir: pluginOutputDir.pathString,
-                    toolsDir: execsDir.pathString
+                    tools: tools
                 )
                 
                 // Run the plugin in the context of the target, and generate commands from the output.
@@ -157,13 +168,13 @@ extension PackageGraph {
                 let prebuildOutputDirectories = pluginOutput.prebuildOutputDirectories.map{ AbsolutePath($0) }
 
                 // Create an evaluation result from the usage of the plugin by the target.
-                evalResults.append(PluginInvocationResult(plugin: pluginTarget, commands: commands, diagnostics: diagnostics, derivedSourceFiles: generatedOutputFiles, prebuildOutputDirectories: prebuildOutputDirectories, textOutput: textOutput))
+                pluginResults.append(PluginInvocationResult(plugin: pluginTarget, commands: commands, diagnostics: diagnostics, derivedSourceFiles: generatedOutputFiles, prebuildOutputDirectories: prebuildOutputDirectories, textOutput: textOutput))
             }
             
             // Associate the list of results with the target.  The list will have one entry for each plugin used by the target.
-            evalResultsByTarget[target] = evalResults
+            pluginResultsByTarget[target] = pluginResults
         }
-        return evalResultsByTarget
+        return pluginResultsByTarget
     }
     
     
@@ -193,6 +204,42 @@ extension PackageGraph {
             throw PluginEvaluationError.decodingPluginOutputFailed(json: outputJSON, underlyingError: error)
         }
         return (output: output, stdoutText: stdoutText)
+    }
+}
+
+
+/// A description of a tool to which a plugin has access.
+enum PluginAccessibleTool: Hashable {
+    /// A tool that is built by an ExecutableTarget (the path is relative to the built-products directory).
+    case builtTool(name: String, path: RelativePath)
+    
+    /// A tool that is vended by a BinaryTarget (the path is absolute and refers to an unpackaged binary target).
+    case vendedTool(name: String, path: AbsolutePath)
+}
+
+extension PluginTarget {
+    
+    /// The set of tools that are accessible to this plugin.
+    func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
+        return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
+            if case .target(let target, _) = dependency {
+                // For a binary target we create a `vendedTool`.
+                if let target = target as? BinaryTarget {
+                    // TODO: Memoize this result for the host triple
+                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: localFileSystem) else {
+                        // TODO: Deal better with errors in parsing the artifacts
+                        return []
+                    }
+                    return execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath) }
+                }
+                // For an executable target we create a `builtTool`.
+                else if target.type == .executable {
+                    // TODO: How do we determine what the executable name will be for the host platform?
+                    return [.builtTool(name: target.name, path: RelativePath(target.name))]
+                }
+            }
+            return []
+        })
     }
 }
 
@@ -298,6 +345,10 @@ public protocol PluginScriptRunner {
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)
+    
+    /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
+    /// tools should be selected.
+    var hostTriple: Triple { get }
 }
 
 
@@ -311,13 +362,17 @@ struct PluginScriptRunnerInput: Codable {
     var resourceFiles: [String]
     var otherFiles: [String]
     var dependencies: [DependencyTarget]
-    public struct DependencyTarget: Codable {
+    struct DependencyTarget: Codable {
         var targetName: String
         var moduleName: String
         var targetDir: String
     }
     var outputDir: String
-    var toolsDir: String
+    var tools: [String: Tool]
+    struct Tool: Codable {
+        var name: String
+        var path: String
+    }
 }
 
 

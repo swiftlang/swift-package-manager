@@ -10,6 +10,7 @@
 
 import XCTest
 import TSCBasic
+import TSCUtility
 
 import PackageGraph
 import PackageModel
@@ -84,6 +85,9 @@ class PluginInvocationTests: XCTestCase {
         
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
+            var hostTriple: Triple {
+                return Resources.default.toolchain.triple
+            }
             func runPluginScript(
                 sources: Sources,
                 inputJSON: Data,
@@ -132,11 +136,10 @@ class PluginInvocationTests: XCTestCase {
         }
         
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
-        let buildEnv = BuildEnvironment(platform: .macOS, configuration: .debug)
-        let execsDir = AbsolutePath("/Foo/.build/debug")
         let outputDir = AbsolutePath("/Foo/.build")
+        let builtToolsDir = AbsolutePath("/Foo/.build/debug")
         let pluginRunner = MockPluginScriptRunner()
-        let results = try graph.invokePlugins(buildEnvironment: buildEnv, execsDir: execsDir, outputDir: outputDir, pluginScriptRunner: pluginRunner, diagnostics: diagnostics, fileSystem: fileSystem)
+        let results = try graph.invokePlugins(outputDir: outputDir, builtToolsDir: builtToolsDir, pluginScriptRunner: pluginRunner, diagnostics: diagnostics, fileSystem: fileSystem)
         
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(diagnostics)
