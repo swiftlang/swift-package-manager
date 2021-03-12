@@ -372,22 +372,11 @@ private struct BoringSSLOCSPClient {
         }
 
         group.notify(queue: callbackQueue) {
-            // If there's no result then something must have gone wrong
-            guard !results.isEmpty else {
-                return wrappedCallback(.failure(CertificatePolicyError.ocspFailure))
-            }
-
-            let statuses = results.compactMap { $0.success }
-            // We got results but they are all failures
-            guard !statuses.isEmpty else {
-                diagnosticsEngine.emit(error: "OCSP failed. All results: \(results)")
-                return wrappedCallback(.failure(CertificatePolicyError.ocspFailure))
-            }
-            // If at least one response is "bad status" then the chain is invalid
+            // Fail open: As long as no one says the cert is revoked we assume it's ok. If we receive no responses or
+            // all of them are failures we'd still assume the cert is not revoked.
             guard results.compactMap({ $0.success }).first(where: { !$0 }) == nil else {
                 return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
             }
-            // Good status
             wrappedCallback(.success(()))
         }
     }
@@ -542,7 +531,6 @@ enum CertificatePolicyError: Error, Equatable {
     case unhandledCriticalException
     case noTrustedRootCertsConfigured
     case ocspSetupFailure
-    case ocspFailure
 }
 
 private enum OCSPError: Error {
