@@ -375,14 +375,21 @@ private struct BoringSSLOCSPClient {
 
         group.notify(queue: callbackQueue) {
             // If there's no result then something must have gone wrong
-            guard !results.isEmpty, results.compactMap({ $0.failure }).isEmpty else {
+            guard !results.isEmpty else {
+                return wrappedCallback(.failure(CertificatePolicyError.ocspFailure))
+            }
+
+            let statuses = results.compactMap { $0.success }
+            // We got results but they are all failures
+            guard !statuses.isEmpty else {
                 diagnosticsEngine.emit(error: "OCSP failed. All results: \(results)")
                 return wrappedCallback(.failure(CertificatePolicyError.ocspFailure))
             }
-            // Is there response "bad status" response?
+            // If at least one response is "bad status" then the chain is invalid
             guard results.compactMap({ $0.success }).first(where: { !$0 }) == nil else {
                 return wrappedCallback(.failure(CertificatePolicyError.invalidCertChain))
             }
+            // Good status
             wrappedCallback(.success(()))
         }
     }
