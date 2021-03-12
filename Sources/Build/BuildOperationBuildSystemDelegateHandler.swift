@@ -609,7 +609,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func buildComplete(success: Bool) {
-        queue.async {
+        queue.sync {
             if success {
                 self.progressAnimation.update(
                     step: self.taskTracker.finishedCount,
