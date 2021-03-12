@@ -13,33 +13,33 @@ import SourceControl
 
 extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
-    public func createPackageRef(mirrors: DependencyMirrors) -> PackageReference {
-        let effectiveURL = mirrors.effectiveURL(forURL: url)
-
-        // FIXME: The identity of a package dependency is currently based on
-        //        on a name computed from the package's effective URL.  This
-        //        is because the name of the package that's in the manifest
-        //        is not known until the manifest has been parsed.
-        //        We should instead use the declared URL of a package dependency
-        //        as its identity, as it will be needed for supporting package
-        //        registries.
-        let identity = PackageIdentity(url: effectiveURL)
-        
+    public func createPackageRef() -> PackageReference {
+        // TODO (next steps): move the location into PackageKind to preserve path vs. location
+        let packageKind: PackageReference.Kind
+        let location: String
+        switch self {
+        case .local(let data):
+            packageKind = .local
+            location = data.path.pathString
+        case .scm(let data):
+            packageKind = .remote
+            location = data.location
+        }
         return PackageReference(
-            identity: identity,
-            path: effectiveURL,
-            kind: requirement == .localPackage ? .local : .remote
+            identity: self.identity,
+            kind: packageKind,
+            location: location
         )
     }
 }
 
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter, mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
-        return dependenciesRequired(for: productFilter).map({
+    public func dependencyConstraints(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        return try dependenciesRequired(for: productFilter).map({
             return PackageContainerConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
-                requirement: $0.requirement.toConstraintRequirement(),
+                package: $0.createPackageRef(),
+                requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter)
         })
     }
@@ -49,16 +49,17 @@ extension PackageContainerConstraint {
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
-            return [.root(package: identifier)]
+            return [.root(package: self.package)]
         case .specific:
             switch products {
             case .everything:
-                fatalError("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+                assertionFailure("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+                return []
             case .specific(let set):
                 if set.isEmpty { // Pointing at the package without a particular product.
-                    return [.empty(package: identifier)]
+                    return [.empty(package: self.package)]
                 } else {
-                    return set.sorted().map { .product($0, package: identifier) }
+                    return set.sorted().map { .product($0, package: self.package) }
                 }
             }
         }
@@ -71,6 +72,6 @@ extension PackageReference {
     /// This should only be accessed when the reference is not local.
     public var repository: RepositorySpecifier {
         precondition(kind == .remote)
-        return RepositorySpecifier(url: path)
+        return RepositorySpecifier(url: self.location)
     }
 }

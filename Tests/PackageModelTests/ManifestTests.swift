@@ -20,19 +20,19 @@ class ManifestTests: XCTestCase {
         ]
 
         let targets = [
-            TargetDescription(name: "Foo", dependencies: ["Bar"]),
-            TargetDescription(name: "Bar", dependencies: ["Baz"]),
-            TargetDescription(name: "Baz", dependencies: []),
-            TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+            try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+            try TargetDescription(name: "Baz", dependencies: []),
+            try TargetDescription(name: "FooBar", dependencies: []),
         ]
 
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 products: products,
                 targets: targets
             )
@@ -49,9 +49,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 products: products,
                 targets: targets
             )
@@ -67,10 +67,10 @@ class ManifestTests: XCTestCase {
     }
 
     func testRequiredDependencies() throws {
-        let dependencies = [
-            PackageDependencyDescription(name: "Bar1", url: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(name: "Bar2", url: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            PackageDependencyDescription(name: "Bar3", url: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+        let dependencies: [PackageDependencyDescription] = [
+            .scm(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -78,46 +78,27 @@ class ManifestTests: XCTestCase {
         ]
 
         let targets = [
-            TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
-            TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
-            TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
+            try TargetDescription(name: "Foo1", dependencies: ["Foo2", "Bar1"]),
+            try TargetDescription(name: "Foo2", dependencies: [.product(name: "B2", package: "Bar2")]),
+            try TargetDescription(name: "Foo3", dependencies: ["Bar3"]),
         ]
 
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5,
                 packageKind: .root,
-                dependencies: dependencies,
-                products: products,
-                targets: targets
-            )
-
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.name }).sorted(), [
-                "Bar1",
-                "Bar2",
-                "Bar3",
-            ])
-        }
-
-        do {
-            let manifest = Manifest.createManifest(
-                name: "Foo",
-                path: "/Foo",
-                url: "/Foo",
+                packageLocation: "/Foo",
                 v: .v5,
-                packageKind: .local,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.name }).sorted(), [
-                "Bar1", // Foo → Foo1 → Bar1
-                "Bar2", // Foo → Foo1 → Foo2 → Bar2
-                "Bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
+            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+                "bar1",
+                "bar2",
+                "bar3",
             ])
         }
 
@@ -125,18 +106,37 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
+                packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5,
+                dependencies: dependencies,
+                products: products,
+                targets: targets
+            )
+
+            XCTAssertEqual(manifest.dependenciesRequired(for: .specific(["Foo"])).map({ $0.identity.description }).sorted(), [
+                "bar1", // Foo → Foo1 → Bar1
+                "bar2", // Foo → Foo1 → Foo2 → Bar2
+                "bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
+            ])
+        }
+
+        do {
+            let manifest = Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
                 packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.name }).sorted(), [
-                "Bar1",
-                "Bar2",
-                "Bar3",
+            XCTAssertEqual(manifest.dependenciesRequired(for: .everything).map({ $0.identity.description }).sorted(), [
+                "bar1",
+                "bar2",
+                "bar3",
             ])
         }
 
@@ -144,9 +144,9 @@ class ManifestTests: XCTestCase {
             let manifest = Manifest.createManifest(
                 name: "Foo",
                 path: "/Foo",
-                url: "/Foo",
-                v: .v5_2,
                 packageKind: .local,
+                packageLocation: "/Foo",
+                v: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets

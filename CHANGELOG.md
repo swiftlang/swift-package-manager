@@ -1,6 +1,22 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
-Swift Next
+Swift v.Next
+ -----------
+ * [#3310]
+    * Improvements
+
+    Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, revision: String)`.
+
+* [#3292]
+   * Improvements
+   
+   Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, branch: String)`.
+   
+   Test targets can now link against executable targets as if they were libraries, so that they can test any data strutures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `vNext` or newer. 
+
+
+
+Swift 5.4
 -----------
 * [#2937]
   
@@ -8,7 +24,7 @@ Swift Next
     
     `Package` manifests can now have any combination of leading whitespace characters. This allows more flexibility in formatting the manifests.
     
-    [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters surrounding `swift-tools-version`, if and only if the specified version ≥ `Next`. For example, `//swift-tools-version:	Next` and `//		 swift-tools-version: Next` are valid.
+    [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters surrounding `swift-tools-version`, if and only if the specified version ≥ `5.4`. For example, `//swift-tools-version:	5.4` and `//		 swift-tools-version: 5.4` are valid.
   
     All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are now recognised in `Package` manifests. This ensures correctness in parsing manifests that are edited and/or built on many non-Unix-like platforms that use ASCII or Unicode encodings. 
   
@@ -22,7 +38,7 @@ Swift Next
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
     
-    The package manager no longer silently falls back to using Swift 3.1 as the lowest supported version. Instead, a descriptive error is thrown for each misspelling or malformation in the manifest file.
+
 
 Swift 4.2
 ---------

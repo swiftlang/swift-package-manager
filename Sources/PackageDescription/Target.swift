@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -30,6 +30,8 @@ public final class Target {
         case system
         /// A target that references a binary artifact.
         case binary
+        /// A target that provides a package plugin.
+        case plugin
     }
 
     /// The different types of a target's dependency on another entity.
@@ -113,13 +115,28 @@ public final class Target {
 
     /// The `pkgconfig` name to use for a system library target.
     ///
-    /// If present, the Swift Package Manager tries to
-    /// search for the `<name>.pc` file to get the additional flags needed for the
-    /// system target.
+    /// If present, the Swift Package Manager tries for every pkg-config 
+    /// name separated by a space to search for the `<name>.pc` file 
+    /// to get the additional flags needed for the system target.
     public let pkgConfig: String?
 
     /// The providers array for a system library target.
     public let providers: [SystemPackageProvider]?
+    
+    /// The capability provided by a package plugin target.
+    @available(_PackageDescription, introduced: 999.0)
+    public var pluginCapability: PluginCapability? {
+        get { return _pluginCapability }
+        set { _pluginCapability = newValue }
+    }
+    private var _pluginCapability: PluginCapability?
+    
+    /// The different types of capability that a plugin can provide.
+    public enum PluginCapability {
+        case _prebuild
+        case _buildTool
+        case _postbuild
+    }
 
     /// The target's C build settings.
     @available(_PackageDescription, introduced: 5)
@@ -161,6 +178,18 @@ public final class Target {
     }
     public var _checksum: String?
 
+    /// The usages of package plugins by the target.
+    @available(_PackageDescription, introduced: 999.0)
+    public var plugins: [PluginUsage]? {
+        get { return _pluginUsages }
+        set { _pluginUsages = newValue }
+    }
+    private var _pluginUsages: [PluginUsage]?
+
+    public enum PluginUsage {
+        case _pluginItem(name: String, package: String?)
+    }
+
     /// Construct a target.
     private init(
         name: String,
@@ -174,11 +203,13 @@ public final class Target {
         type: TargetType,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
+        pluginCapability: PluginCapability? = nil,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        checksum: String? = nil
+        checksum: String? = nil,
+        pluginUsages: [PluginUsage]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -191,11 +222,13 @@ public final class Target {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self._pluginCapability = pluginCapability
         self._cSettings = cSettings
         self._cxxSettings = cxxSettings
         self._swiftSettings = swiftSettings
         self._linkerSettings = linkerSettings
         self._checksum = checksum
+        self._pluginUsages = pluginUsages
 
         switch type {
         case .regular, .executable, .test:
@@ -203,6 +236,7 @@ public final class Target {
                 url == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
+                pluginCapability == nil &&
                 checksum == nil
             )
         case .system:
@@ -213,11 +247,13 @@ public final class Target {
                 sources == nil &&
                 resources == nil &&
                 publicHeadersPath == nil &&
+                pluginCapability == nil &&
                 cSettings == nil &&
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                checksum == nil
+                checksum == nil &&
+                pluginUsages == nil
             )
         case .binary:
             precondition(
@@ -228,10 +264,28 @@ public final class Target {
                 publicHeadersPath == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
+                pluginCapability == nil &&
                 cSettings == nil &&
                 cxxSettings == nil &&
                 swiftSettings == nil &&
-                linkerSettings == nil
+                linkerSettings == nil &&
+                pluginUsages == nil
+            )
+        case .plugin:
+            precondition(
+                url == nil &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability != nil &&
+                cSettings == nil &&
+                cxxSettings == nil &&
+                swiftSettings == nil &&
+                linkerSettings == nil &&
+                pluginUsages == nil
             )
         }
     }
@@ -347,7 +401,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -377,12 +431,11 @@ public final class Target {
         )
     }
 
-    /// Creates an executable target.
+    /// Creates a regular target.
     ///
-    /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
-    /// is built as an executable module that can be used as the main target of an executable product.  The target
-    /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
-    ///  file that contains the `@main` keyword.
+    /// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
+    /// a regular module that can be included in a library or executable product, but that cannot itself be used as
+    /// the main target of an executable product.
     ///
     /// - Parameters:
     ///   - name: The name of the target.
@@ -401,7 +454,64 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plugins used by this target.
     @available(_PackageDescription, introduced: 999.0)
+    public static func target(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .regular,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            pluginUsages: plugins
+        )
+    }
+
+    /// Creates an executable target.
+    ///
+    /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
+    /// is built as an executable module that can be used as the main target of an executable product. The target
+    /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
+    /// file that contains the `@main` keyword.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the `sources` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    @available(_PackageDescription, introduced: 5.4, obsoleted: 999.0)
     public static func executableTarget(
        name: String,
        dependencies: [Dependency] = [],
@@ -431,6 +541,63 @@ public final class Target {
        )
     }
     
+    /// Creates an executable target.
+    ///
+    /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
+    /// is built as an executable module that can be used as the main target of an executable product. The target
+    /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
+    /// file that contains the `@main` keyword.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the `sources` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plugins used by this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func executableTarget(
+       name: String,
+       dependencies: [Dependency] = [],
+       path: String? = nil,
+       exclude: [String] = [],
+       sources: [String]? = nil,
+       resources: [Resource]? = nil,
+       publicHeadersPath: String? = nil,
+       cSettings: [CSetting]? = nil,
+       cxxSettings: [CXXSetting]? = nil,
+       swiftSettings: [SwiftSetting]? = nil,
+       linkerSettings: [LinkerSetting]? = nil,
+       plugins: [PluginUsage]? = nil
+    ) -> Target {
+       return Target(
+           name: name,
+           dependencies: dependencies,
+           path: path,
+           exclude: exclude,
+           sources: sources,
+           resources: resources,
+           publicHeadersPath: publicHeadersPath,
+           type: .executable,
+           cSettings: cSettings,
+           cxxSettings: cxxSettings,
+           swiftSettings: swiftSettings,
+           linkerSettings: linkerSettings,
+           pluginUsages: plugins
+       )
+    }
+
     /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
@@ -534,7 +701,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -560,6 +727,59 @@ public final class Target {
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings
+        )
+    }
+
+    /// Creates a test target.
+    ///
+    /// Write test targets using the XCTest testing framework.
+    /// Test targets generally declare a dependency on the targets they test.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the `sources` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       the Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plugins used by this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: nil,
+            type: .test,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            pluginUsages: plugins
         )
     }
 
@@ -650,6 +870,56 @@ public final class Target {
             publicHeadersPath: nil,
             type: .binary)
     }
+
+    /// Defines a new package plugin target with a given name, declaring it as
+    /// providing a capability of adding custom build commands to SwiftPM (and to
+    /// any IDEs based on libSwiftPM).
+    ///
+    /// The capability determines what kind of build commands it can add. Besides
+    /// determining at what point in the build those commands run, the capability
+    /// determines the context that is available to the plugin and the kinds of
+    /// commands it can create.
+    ///
+    /// In the initial version of this proposal, three capabilities are provided:
+    /// prebuild, build tool, and postbuild. See the declaration of each capability
+    /// under `PluginCapability` for more information.
+    ///
+    /// The package plugin itself is implemented using a Swift script that is
+    /// invoked for each target that uses it. The script is invoked after the
+    /// package graph has been resolved, but before the build system creates its
+    /// dependency graph. It is also invoked after changes to the target or the
+    /// build parameters.
+    ///
+    /// Note that the role of the package plugin is only to define the commands
+    /// that will run before, during, or after the build. It does not itself run
+    /// those commands. The commands are defined in an IDE-neutral way, and are
+    /// run as appropriate by the build system that builds the package. The exten-
+    /// sion itself is only a procedural way of generating commands and their input
+    /// and output dependencies.
+    ///
+    /// The package plugin may specify the executable targets or binary targets
+    /// that provide the build tools that will be used by the generated commands
+    /// during the build. In the initial implementation, prebuild actions can only
+    /// depend on binary targets. Build tool and postbuild plugins can depend
+    /// on executables as well as binary targets. This is because of limitations
+    /// in how SwiftPM constructs its build plan, and the goal is to remove this
+    /// restriction in a future release.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func plugin(
+        name: String,
+        capability: PluginCapability,
+        dependencies: [Dependency] = []
+    ) -> Target {
+      return Target(
+          name: name,
+          dependencies: dependencies,
+          path: nil,
+          exclude: [],
+          sources: nil,
+          publicHeadersPath: nil,
+          type: .plugin,
+          pluginCapability: capability)
+    }
   #endif
 }
 
@@ -666,11 +936,13 @@ extension Target: Encodable {
         case type
         case pkgConfig
         case providers
+        case pluginCapability
         case cSettings
         case cxxSettings
         case swiftSettings
         case linkerSettings
         case checksum
+        case pluginUsages
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -687,6 +959,7 @@ extension Target: Encodable {
         try container.encode(type, forKey: .type)
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
+        try container.encode(_pluginCapability, forKey: .pluginCapability)
         try container.encode(_checksum, forKey: .checksum)
 
         if let cSettings = self._cSettings {
@@ -703,6 +976,10 @@ extension Target: Encodable {
 
         if let linkerSettings = self._linkerSettings {
             try container.encode(linkerSettings, forKey: .linkerSettings)
+        }
+        
+        if let pluginUsages = self._pluginUsages {
+            try container.encode(pluginUsages, forKey: .pluginUsages)
         }
     }
 }
@@ -805,6 +1082,63 @@ extension Target.Dependency {
   #endif
 }
 
+extension Target.PluginCapability {
+
+    /// Specifies that the plugin provides a prebuild capability.
+    /// The commands generated by the plugin are prebuild actions that
+    /// should unconditionally run before the build starts. Such commands are
+    /// esponsible for their down dependency caching in order to avoid doing
+    /// unncessary work.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func prebuild() -> Target.PluginCapability {
+        return ._prebuild
+    }
+
+    /// Specifies that the plugin provides a build-tool capability.
+    /// The commands generated by the plugin should run at appropriate
+    /// times during the build based on its declared dependencies. The must
+    /// declare the input and output paths so that the build system knows
+    /// when to run the command. This is usually the best capability for
+    /// the plugin to provide when the inputs and outputs of the command
+    /// are known ahead of time.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func buildTool() -> Target.PluginCapability {
+        return ._buildTool
+    }
+
+    /// Specifies that the plugin provides a postbuild capability.
+    /// The commands generated by the plugin are postbuild actions that
+    /// should unconditionally run after the build finishes. Such commands
+    /// are responsible for their down dependency caching in order to avoid
+    /// doing unncessary work.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func postbuild() -> Target.PluginCapability {
+        return ._postbuild
+    }
+}
+
+extension Target.PluginUsage {
+    /// Specifies use of a plugin target in the same package.
+    ///
+    /// - parameters:
+    ///   - name: The name of the plugin target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func plugin(name: String) -> Target.PluginUsage {
+        return ._pluginItem(name: name, package: nil)
+    }
+
+    /// Specifies use of a plugin product in a package dependency.
+    ///
+    /// - parameters:
+    ///   - name: The name of the plugin product.
+    ///   - package: The name of the package in which it is defined.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func plugin(name: String, package: String) -> Target.PluginUsage {
+        return ._pluginItem(name: name, package: package)
+    }
+}
+
+
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency: ExpressibleByStringLiteral {
@@ -821,6 +1155,20 @@ extension Target.Dependency: ExpressibleByStringLiteral {
       #endif
     }
 }
+
+extension Target.PluginUsage: ExpressibleByStringLiteral {
+
+    /// Specifies use of a plugin target in the same package.
+    ///
+    /// - parameters:
+    ///   - value: A string literal.
+    public init(stringLiteral value: String) {
+        self = ._pluginItem(name: value, package: nil)
+    }
+}
+
+
+// MARK: Encodable
 
 /// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition: Encodable {
@@ -841,5 +1189,25 @@ public struct TargetDependencyCondition: Encodable {
         // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil))
         return TargetDependencyCondition(platforms: platforms)
+    }
+}
+
+extension Target.PluginUsage: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type, name, package
+    }
+
+    private enum Kind: String, Codable {
+        case plugin
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case ._pluginItem(let name, let package):
+            try container.encode(Kind.plugin, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(package, forKey: .package)
+        }
     }
 }

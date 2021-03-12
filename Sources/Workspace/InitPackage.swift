@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import TSCBasic
 import PackageModel
 
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion(version: "5.3.0")
+    public static let newPackageToolsVersion = ToolsVersion.currentToolsVersion
 
     /// Options for the template package.
     public struct InitPackageOptions {
@@ -42,6 +43,7 @@ public final class InitPackage {
         case executable = "executable"
         case systemModule = "system-module"
         case manifest = "manifest"
+        case `extension` = "extension"
 
         public var description: String {
             return rawValue
@@ -185,18 +187,34 @@ public final class InitPackage {
                 """)
 
             if packageType == .library || packageType == .executable || packageType == .manifest {
-                pkgParams.append("""
+                var param = ""
+
+                param += """
                     targets: [
                         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
                         // Targets can depend on other targets in this package, and on products in packages this package depends on.
-                        .target(
+
+                """
+                if packageType == .executable {
+                    param += """
+                            .executableTarget(
+                    """
+                } else {
+                    param += """
+                            .target(
+                    """
+                }
+                param += """
+
                             name: "\(pkgname)",
                             dependencies: []),
                         .testTarget(
                             name: "\(pkgname)Tests",
                             dependencies: ["\(pkgname)"]),
                     ]
-                """)
+                """
+
+                pkgParams.append(param)
             }
 
             stream <<< pkgParams.joined(separator: ",\n") <<< "\n)\n"
@@ -269,23 +287,26 @@ public final class InitPackage {
         let sourceFileName = (packageType == .executable) ? "main.swift" : "\(typeName).swift"
         let sourceFile = moduleDir.appending(RelativePath(sourceFileName))
 
+        let content: String
+        switch packageType {
+        case .library:
+            content = """
+                struct \(typeName) {
+                    var text = "Hello, World!"
+                }
+
+                """
+        case .executable:
+            content = """
+                print("Hello, world!")
+
+                """
+        case .systemModule, .empty, .manifest, .`extension`:
+            throw InternalError("invalid packageType \(packageType)")
+        }
+
         try writePackageFile(sourceFile) { stream in
-            switch packageType {
-            case .library:
-                stream <<< """
-                    struct \(typeName) {
-                        var text = "Hello, World!"
-                    }
-
-                    """
-            case .executable:
-                stream <<< """
-                    print("Hello, world!")
-
-                    """
-            case .systemModule, .empty, .manifest:
-                fatalError("invalid")
-            }
+            stream.write(content)
         }
     }
 
@@ -322,7 +343,7 @@ public final class InitPackage {
         try makeDirectories(tests)
 
         switch packageType {
-        case .systemModule, .empty, .manifest: break
+        case .systemModule, .empty, .manifest, .`extension`: break
         case .library, .executable:
             try writeTestFileStubs(testsPath: tests)
         }
@@ -417,7 +438,7 @@ public final class InitPackage {
 
         let testClassFile = testModule.appending(RelativePath("\(moduleName)Tests.swift"))
         switch packageType {
-        case .systemModule, .empty, .manifest: break
+        case .systemModule, .empty, .manifest, .`extension`: break
         case .library:
             try writeLibraryTestsFile(testClassFile)
         case .executable:
@@ -452,6 +473,8 @@ extension PackageModel.Platform {
             return "tvOS"
         case .watchOS:
             return "watchOS"
+        case .driverKit:
+            return "DriverKit"
         default:
             fatalError("unexpected manifest name call for platform \(self)")
         }
@@ -464,7 +487,7 @@ extension SupportedPlatform {
             guard self.version.patch == 0 else {
                 return false
             }
-        } else if [Platform.macOS, .iOS, .watchOS, .tvOS].contains(platform) {
+        } else if [Platform.macOS, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
             guard self.version.minor == 0, self.version.patch == 0 else {
                 return false
             }
@@ -483,6 +506,8 @@ extension SupportedPlatform {
             return (9...14).contains(version.major)
         case .watchOS:
             return (2...7).contains(version.major)
+        case .driverKit:
+            return (19...20).contains(version.major)
 
         default:
             return false

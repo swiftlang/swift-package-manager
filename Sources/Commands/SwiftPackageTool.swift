@@ -30,7 +30,7 @@ public struct SwiftPackageTool: ParsableCommand {
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages",
         discussion: "SEE ALSO: swift build, swift run, swift test",
-        version: Versioning.currentVersion.completeDisplayString,
+        version: SwiftVersion.currentVersion.completeDisplayString,
         subcommands: [
             Clean.self,
             PurgeCache.self,
@@ -56,6 +56,7 @@ public struct SwiftPackageTool: ParsableCommand {
             ToolsVersionCommand.self,
             GenerateXcodeProject.self,
             ComputeChecksum.self,
+            ArchiveSource.self,
             CompletionTool.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
@@ -132,11 +133,25 @@ extension SwiftPackageTool {
                 diagnostics: swiftTool.diagnostics,
                 dryRun: dryRun
             )
-            
-            if let pinsStore = swiftTool.diagnostics.wrap({ try workspace.pinsStore.load() }),
-                let changes = changes,
-                dryRun {
+
+            // try to load the graph which will emit any errors
+            if !swiftTool.diagnostics.hasErrors {
+                _ = try workspace.loadPackageGraph(
+                    rootInput: swiftTool.getWorkspaceRoot(),
+                    diagnostics: swiftTool.diagnostics
+                )
+            }
+
+            if let pinsStore = swiftTool.diagnostics.wrap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
                 logPackageChanges(changes: changes, pins: pinsStore)
+            }
+
+            if !dryRun {
+                // Throw if there were errors when loading the graph.
+                // The actual errors will be printed before exiting.
+                guard !swiftTool.diagnostics.hasErrors else {
+                    throw ExitCode.failure
+                }
             }
         }
     }
@@ -154,9 +169,10 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            
-            let manifests = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: swiftTool.diagnostics)
+
+            let manifests = try temp_await {
+                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+            }
             guard let manifest = manifests.first else { return }
 
             let builder = PackageBuilder(
@@ -221,8 +237,9 @@ extension SwiftPackageTool {
             // Get the root package.
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            let manifest = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: swiftTool.diagnostics)[0]
+            let manifest = try temp_await {
+                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+            }[0]
 
             let builder = PackageBuilder(
                 manifest: manifest,
@@ -283,7 +300,7 @@ extension SwiftPackageTool {
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try swiftTool.createBuildOperation(useBuildManifestCaching: false)
+            let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
             // Dump JSON for the current package.
@@ -329,7 +346,7 @@ extension SwiftPackageTool {
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
-            let buildOp = try swiftTool.createBuildOperation(useBuildManifestCaching: false)
+            let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
             try symbolGraphExtract.dumpSymbolGraph(
@@ -348,9 +365,10 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            
-            let manifests = workspace.loadRootManifests(
-                packages: root.packages, diagnostics: swiftTool.diagnostics)
+
+            let manifests = try temp_await {
+                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+            }
             guard let manifest = manifests.first else { return }
 
             let encoder = JSONEncoder.makeWithDefaults()
@@ -536,6 +554,47 @@ extension SwiftPackageTool {
             }
 
             stdoutStream <<< checksum <<< "\n"
+            stdoutStream.flush()
+        }
+    }
+
+    struct ArchiveSource: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "archive-source",
+            abstract: "Create a source archive for the package"
+        )
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        @Option(
+            name: [.short, .long],
+            help: "The absolute or relative path for the generated source archive"
+        )
+        var output: AbsolutePath?
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let packageRoot = try swiftOptions.packagePath ?? swiftTool.getPackageRoot()
+            let repository = GitRepository(path: packageRoot)
+
+            let destination: AbsolutePath
+            if let output = output {
+                destination = output
+            } else {
+                let graph = try swiftTool.loadPackageGraph()
+                let packageName = graph.rootPackages[0].name
+                destination = packageRoot.appending(component: "\(packageName).zip")
+            }
+
+            try repository.archive(to: destination)
+
+            if destination.contains(packageRoot) {
+                let relativePath = destination.relative(to: packageRoot)
+                stdoutStream <<< "Created \(relativePath.pathString)" <<< "\n"
+            } else {
+                stdoutStream <<< "Created \(destination.pathString)" <<< "\n"
+            }
+
             stdoutStream.flush()
         }
     }

@@ -236,7 +236,7 @@ public final class ManagedDependencies {
     }
 
     public func add(_ dependency: ManagedDependency) {
-        dependencyMap[dependency.packageRef.path] = dependency
+        dependencyMap[dependency.packageRef.location] = dependency
     }
 
     public func remove(forURL url: String) {
@@ -268,7 +268,7 @@ extension ManagedDependencies: Collection {
 extension ManagedDependencies: JSONMappable, JSONSerializable {
     public convenience init(json: JSON) throws {
         let dependencies = try Array<ManagedDependency>(json: json)
-        let dependencyMap = Dictionary(uniqueKeysWithValues: dependencies.lazy.map({ ($0.packageRef.path, $0) }))
+        let dependencyMap = Dictionary(uniqueKeysWithValues: dependencies.lazy.map({ ($0.packageRef.location, $0) }))
         self.init(dependencyMap: dependencyMap)
     }
 

@@ -11,6 +11,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import class Foundation.ProcessInfo
 
 import ArgumentParser
+import Basics
 import TSCBasic
 import SPMBuildCore
 import Build
@@ -190,7 +191,7 @@ public struct SwiftTestTool: SwiftCommand {
         _superCommandName: "swift",
         abstract: "Build and run tests",
         discussion: "SEE ALSO: swift build, swift run, swift package",
-        version: Versioning.currentVersion.completeDisplayString,
+        version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -211,7 +212,7 @@ public struct SwiftTestTool: SwiftCommand {
         case .listTests:
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
-            let tests = testSuites
+            let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.testCaseSkip)
 
@@ -223,12 +224,26 @@ public struct SwiftTestTool: SwiftCommand {
         case .codeCovPath:
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
-            let rootManifest = workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics)[0]
+            let rootManifest = try temp_await {
+                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)                
+            }[0]
             let buildParameters = try swiftTool.buildParametersForTest()
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
 
         case .generateLinuxMain:
-            return // warning emitted by validateArguments
+            // this functionality is deprecated as of 12/2020
+            // but we are keeping it here for transition purposes
+            // to be removed in future releases
+            // deprecation warning is emitted by validateArguments
+            #if os(Linux)
+            swiftTool.diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
+            #endif
+            let graph = try swiftTool.loadPackageGraph()
+            let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
+            let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
+            let allTestSuites = testSuites.values.flatMap { $0 }
+            let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
+            try generator.generate()
 
         case .runSerial:
             let toolchain = try swiftTool.getToolchain()
@@ -259,7 +274,7 @@ public struct SwiftTestTool: SwiftCommand {
 
                 // Find the tests we need to run.
                 let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
-                let tests = testSuites
+                let tests = try testSuites
                     .filteredTests(specifier: options.testCaseSpecifier)
                     .skippedTests(specifier: options.testCaseSkip)
 
@@ -295,7 +310,7 @@ public struct SwiftTestTool: SwiftCommand {
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
-            let tests = testSuites
+            let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.testCaseSkip)
             let buildParameters = try swiftTool.buildParametersForTest()
@@ -428,7 +443,7 @@ public struct SwiftTestTool: SwiftCommand {
     /// Note: It is a fatalError if we are not able to locate the tool.
     ///
     /// - Returns: Path to XCTestHelper tool.
-    private func xctestHelperPath(swiftTool: SwiftTool) -> AbsolutePath {
+    private func xctestHelperPath(swiftTool: SwiftTool) throws -> AbsolutePath {
         let xctestHelperBin = "swiftpm-xctest-helper"
         let binDirectory = AbsolutePath(CommandLine.arguments.first!,
             relativeTo: swiftTool.originalWorkingDirectory).parentDirectory
@@ -443,7 +458,7 @@ public struct SwiftTestTool: SwiftCommand {
         if localFileSystem.isFile(path) {
             return path
         }
-        fatalError("XCTestHelper binary not found.")
+        throw InternalError("XCTestHelper binary not found.")
     }
 
     fileprivate func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool) throws -> [AbsolutePath: [TestSuite]] {
@@ -466,7 +481,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Run the correct tool.
       #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            let args = [try xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
@@ -952,7 +967,7 @@ fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite]
     }
 
     /// Return tests matching the provided specifier
-    func filteredTests(specifier: TestCaseSpecifier) -> [UnitTest] {
+    func filteredTests(specifier: TestCaseSpecifier) throws -> [UnitTest] {
         switch specifier {
         case .none:
             return allTests
@@ -966,14 +981,14 @@ fileprivate extension Dictionary where Key == AbsolutePath, Value == [TestSuite]
         case .specific(let name):
             return allTests.filter{ $0.specifier == name }
         case .skip:
-            fatalError("Tests to skip should never have been passed here.")
+            throw InternalError("Tests to skip should never have been passed here.")
         }
     }
 }
 
 fileprivate extension Array where Element == UnitTest {
     /// Skip tests matching the provided specifier
-    func skippedTests(specifier: TestCaseSpecifier) -> [UnitTest] {
+    func skippedTests(specifier: TestCaseSpecifier) throws -> [UnitTest] {
         switch specifier {
         case .none:
             return self
@@ -986,7 +1001,7 @@ fileprivate extension Array where Element == UnitTest {
             }
             return result
         case .regex, .specific:
-            fatalError("Tests to filter should never have been passed here.")
+            throw InternalError("Tests to filter should never have been passed here.")
         }
     }
 }

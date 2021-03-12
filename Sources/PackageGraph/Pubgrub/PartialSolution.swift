@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import struct TSCUtility.Version
+import Basics
 import TSCBasic
+import struct TSCUtility.Version
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.
@@ -88,7 +89,7 @@ public struct PartialSolution {
 
     /// Returns the first Assignment in this solution such that the list of
     /// assignments up to and including that entry satisfies term.
-    public func satisfier(for term: Term) -> Assignment {
+    public func satisfier(for term: Term) throws -> Assignment {
         var assignedTerm: Term?
 
         for assignment in assignments {
@@ -102,7 +103,7 @@ public struct PartialSolution {
             }
         }
 
-        fatalError("term \(term) not satisfied")
+        throw InternalError("term \(term) not satisfied")
     }
 
     /// Backtrack to a specific decision level by dropping all assignments with

@@ -31,7 +31,7 @@ public struct MockTarget {
         url: String? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil
-    ) {
+    ) throws {
         self.name = name
         self.dependencies = dependencies
         self.type = type
@@ -41,10 +41,10 @@ public struct MockTarget {
         self.checksum = checksum
     }
 
-    func convert() -> TargetDescription {
+    func convert() throws -> TargetDescription {
         switch self.type {
         case .regular:
-            return TargetDescription(
+            return try TargetDescription(
                 name: self.name,
                 dependencies: self.dependencies,
                 path: self.path,
@@ -55,7 +55,7 @@ public struct MockTarget {
                 settings: self.settings
             )
         case .test:
-            return TargetDescription(
+            return try TargetDescription(
                 name: self.name,
                 dependencies: self.dependencies,
                 path: self.path,
@@ -66,7 +66,7 @@ public struct MockTarget {
                 settings: self.settings
             )
         case .binary:
-            return TargetDescription(
+            return try TargetDescription(
                 name: self.name,
                 dependencies: self.dependencies,
                 path: self.path,

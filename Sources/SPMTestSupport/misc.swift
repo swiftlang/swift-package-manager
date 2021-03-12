@@ -33,6 +33,7 @@ import class Foundation.Bundle
 /// the name were a relative path.
 public func fixture(
     name: String,
+    createGitRepo: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> Void
@@ -71,12 +72,14 @@ public func fixture(
                 try body(dstDir)
             } else {
                 // Copy each of the package directories and construct a git repo in it.
-                for fileName in try! localFileSystem.getDirectoryContents(fixtureDir).sorted() {
+                for fileName in try localFileSystem.getDirectoryContents(fixtureDir).sorted() {
                     let srcDir = fixtureDir.appending(component: fileName)
                     guard localFileSystem.isDirectory(srcDir) else { continue }
                     let dstDir = tmpDirPath.appending(component: fileName)
                     try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
-                    initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+                    if createGitRepo {
+                        initGitRepo(dstDir, tag: "1.2.3", addFile: false)
+                    }
                 }
 
                 // Invoke the block, passing it the path of the copied fixture.
@@ -129,6 +132,7 @@ public func initGitRepo(
         for tag in tags {
             try repo.tag(name: tag)
         }
+        try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
     } catch {
         XCTFail("\(error)", file: file, line: line)
     }
@@ -215,25 +219,33 @@ private func swiftArgs(
 }
 
 public func loadPackageGraph(
+    identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fs: FileSystem,
     diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
+    binaryArtifacts: [BinaryArtifact] = [],
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
-    createREPLProduct: Bool = false
-) -> PackageGraph {
+    allowPluginTargets: Bool = false,
+    createREPLProduct: Bool = false,
+    useXCBuildFileRules: Bool = false
+) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind == .root }
     let externalManifests = manifests.filter { $0.packageKind != .root }
     let packages = rootManifests.map { $0.path }
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
 
-    return PackageGraph.load(
+    return try PackageGraph.load(
         root: graphRoot,
+        identityResolver: identityResolver,
+        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : [],
         externalManifests: externalManifests,
+        binaryArtifacts: binaryArtifacts,
         diagnostics: diagnostics,
         fileSystem: fs,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+        allowPluginTargets: allowPluginTargets,
         createREPLProduct: createREPLProduct
     )
 }

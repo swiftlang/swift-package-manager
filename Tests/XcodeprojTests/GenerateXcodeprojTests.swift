@@ -35,13 +35,13 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModuleName"),
                         ])
@@ -87,13 +87,13 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "bar.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Bar",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "Bar"),
                         ])
@@ -122,13 +122,13 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "example.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Modules",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "Modules"),
                         ])
@@ -157,14 +157,14 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(packagePath.appending(component: "a.txt"), bytes: "dummy_data")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -192,14 +192,14 @@ class GenerateXcodeprojTests: XCTestCase {
             initGitRepo(packagePath, addFile: false)
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -226,14 +226,14 @@ class GenerateXcodeprojTests: XCTestCase {
             initGitRepo(packagePath, addFile: false)
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -264,14 +264,14 @@ class GenerateXcodeprojTests: XCTestCase {
             initGitRepo(packagePath, addFile: false)
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -307,14 +307,14 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(packagePath.appending(component: "ignored_file"), bytes: "dummy_data")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(
+            let graph = try loadPackageGraph(
                 fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: packagePath.pathString,
-                        url: packagePath.pathString,
                         packageKind: .root,
+                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -350,14 +350,14 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(bar2TargetPath.appending(component: "Sources.swift"), bytes: "")
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: fooPackagePath.pathString,
-                        url: fooPackagePath.pathString,
+                        packageLocation: fooPackagePath.pathString,
                         dependencies: [
-                            PackageDependencyDescription(name: "Bar", url: barPackagePath.pathString, requirement: .localPackage)
+                            .local(name: "Bar", path: barPackagePath)
                         ],
                         targets: [
                             TargetDescription(name: "Foo", dependencies: [
@@ -367,8 +367,8 @@ class GenerateXcodeprojTests: XCTestCase {
                     Manifest.createV4Manifest(
                         name: "Bar",
                         path: barPackagePath.pathString,
-                        url: barPackagePath.pathString,
                         packageKind: .remote,
+                        packageLocation: barPackagePath.pathString,
                         products: [
                             ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar1"])
                         ],

@@ -12,6 +12,7 @@ import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.JSONDecoder
+import class Foundation.NSError
 import struct Foundation.URL
 import TSCBasic
 import TSCUtility
@@ -25,13 +26,25 @@ import CRT
 #endif
 
 public protocol HTTPClientProtocol {
-    func execute(_ request: HTTPClientRequest, callback: @escaping (Result<HTTPClientResponse, Error>) -> Void)
+    typealias ProgressHandler = (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void
+    typealias CompletionHandler = (Result<HTTPClientResponse, Error>) -> Void
+
+    /// Execute an HTTP request asynchronously
+    ///
+    /// - Parameters:
+    ///   - request: The `HTTPClientRequest` to perform.
+    ///   - callback: A closure to be notified of the completion of the request.
+    func execute(_ request: HTTPClientRequest,
+                 progress: ProgressHandler?,
+                 completion: @escaping CompletionHandler)
 }
 
 public enum HTTPClientError: Error, Equatable {
     case invalidResponse
     case badResponseStatusCode(Int)
     case circuitBreakerTriggered
+    case responseTooLarge(Int64)
+    case downloadError(String)
 }
 
 // MARK: - HTTPClient
@@ -40,7 +53,7 @@ public struct HTTPClient: HTTPClientProtocol {
     public typealias Configuration = HTTPClientConfiguration
     public typealias Request = HTTPClientRequest
     public typealias Response = HTTPClientResponse
-    public typealias Handler = (Request, @escaping (Result<Response, Error>) -> Void) -> Void
+    public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
 
     public var configuration: HTTPClientConfiguration
     private let diagnosticsEngine: DiagnosticsEngine?
@@ -57,7 +70,7 @@ public struct HTTPClient: HTTPClientProtocol {
         self.underlying = handler ?? URLSessionHTTPClient().execute
     }
 
-    public func execute(_ request: Request, callback: @escaping (Result<Response, Error>) -> Void) {
+    public func execute(_ request: Request, progress: ProgressHandler? = nil, completion: @escaping CompletionHandler) {
         // merge configuration
         var request = request
         if request.options.callbackQueue == nil {
@@ -72,6 +85,9 @@ public struct HTTPClient: HTTPClientProtocol {
         if request.options.timeout == nil {
             request.options.timeout = self.configuration.requestTimeout
         }
+        if request.options.authorizationProvider == nil {
+            request.options.authorizationProvider = self.configuration.authorizationProvider
+        }
         // add additional headers
         if let additionalHeaders = self.configuration.requestHeaders {
             additionalHeaders.forEach {
@@ -79,45 +95,70 @@ public struct HTTPClient: HTTPClientProtocol {
             }
         }
         if request.options.addUserAgent, !request.headers.contains("User-Agent") {
-            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(Versioning.currentVersion.displayString)")
+            request.headers.add(name: "User-Agent", value: "SwiftPackageManager/\(SwiftVersion.currentVersion.displayString)")
+        }
+        if let authorization = request.options.authorizationProvider?(request.url), !request.headers.contains("Authorization") {
+            request.headers.add(name: "Authorization", value: authorization)
         }
         // execute
-        self._execute(request: request, requestNumber: 0) { result in
-            let callbackQueue = request.options.callbackQueue ?? self.configuration.callbackQueue
-            callbackQueue.async {
-                callback(result)
-            }
-        }
-    }
-
-    private func _execute(request: Request, requestNumber: Int, callback: @escaping (Result<Response, Error>) -> Void) {
-        if self.shouldCircuitBreak(request: request) {
-            diagnosticsEngine?.emit(warning: "Circuit breaker triggered for \(request.url)")
-            return callback(.failure(HTTPClientError.circuitBreakerTriggered))
-        }
-
-        self.underlying(request) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let response):
-                // record host errors for circuit breaker
-                self.recordErrorIfNecessary(response: response, request: request)
-                // handle retry strategy
-                if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
-                    self.diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
-                    // TODO: dedicated retry queue?
-                    return DispatchQueue.global().asyncAfter(deadline: .now() + retryDelay) {
-                        self._execute(request: request, requestNumber: requestNumber + 1, callback: callback)
+        let callbackQueue = request.options.callbackQueue ?? self.configuration.callbackQueue
+        self._execute(
+            request: request, requestNumber: 0,
+            progress: progress.map { handler in
+                { received, expected in
+                    callbackQueue.async {
+                        handler(received, expected)
                     }
                 }
-                // check for valid response codes
-                if let validResponseCodes = request.options.validResponseCodes, !validResponseCodes.contains(response.statusCode) {
-                    return callback(.failure(HTTPClientError.badResponseStatusCode(response.statusCode)))
+            },
+            completion: { result in
+                callbackQueue.async {
+                    completion(result)
                 }
-                callback(.success(response))
             }
+        )
+    }
+
+    private func _execute(request: Request, requestNumber: Int, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+        if self.shouldCircuitBreak(request: request) {
+            diagnosticsEngine?.emit(warning: "Circuit breaker triggered for \(request.url)")
+            return completion(.failure(HTTPClientError.circuitBreakerTriggered))
         }
+
+        self.underlying(
+            request,
+            { received, expected in
+                if let max = request.options.maximumResponseSizeInBytes {
+                    guard received < max else {
+                        // FIXME: cancel the request?
+                        return completion(.failure(HTTPClientError.responseTooLarge(received)))
+                    }
+                }
+                progress?(received, expected)
+            },
+            { result in
+                switch result {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success(let response):
+                    // record host errors for circuit breaker
+                    self.recordErrorIfNecessary(response: response, request: request)
+                    // handle retry strategy
+                    if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
+                        self.diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
+                        // TODO: dedicated retry queue?
+                        return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
+                            self._execute(request: request, requestNumber: requestNumber + 1, progress: progress, completion: completion)
+                        }
+                    }
+                    // check for valid response codes
+                    if let validResponseCodes = request.options.validResponseCodes, !validResponseCodes.contains(response.statusCode) {
+                        return completion(.failure(HTTPClientError.badResponseStatusCode(response.statusCode)))
+                    }
+                    completion(.success(response))
+                }
+            }
+        )
     }
 
     private func shouldRetry(response: Response, request: Request, requestNumber: Int) -> DispatchTimeInterval? {
@@ -179,32 +220,35 @@ public struct HTTPClient: HTTPClientProtocol {
 }
 
 public extension HTTPClient {
-    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), callback: callback)
+    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), completion: completion)
     }
 
-    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), callback: callback)
+    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), completion: completion)
     }
 
-    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), callback: callback)
+    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), completion: completion)
     }
 
-    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), callback: callback)
+    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), completion: completion)
     }
 
-    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), callback: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), callback: callback)
+    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), completion: completion)
     }
 }
 
 // MARK: - HTTPClientConfiguration
 
+public typealias HTTPClientAuthorizationProvider = (URL) -> String?
+
 public struct HTTPClientConfiguration {
     public var requestHeaders: HTTPClientHeaders?
     public var requestTimeout: DispatchTimeInterval?
+    public var authorizationProvider: HTTPClientAuthorizationProvider?
     public var retryStrategy: HTTPClientRetryStrategy?
     public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
     public var callbackQueue: DispatchQueue
@@ -212,6 +256,7 @@ public struct HTTPClientConfiguration {
     public init() {
         self.requestHeaders = .none
         self.requestTimeout = .none
+        self.authorizationProvider = .none
         self.retryStrategy = .none
         self.circuitBreakerStrategy = .none
         self.callbackQueue = .global()
@@ -229,23 +274,58 @@ public enum HTTPClientCircuitBreakerStrategy {
 // MARK: - HTTPClientRequest
 
 public struct HTTPClientRequest {
-    public let method: Method
+    public let kind: Kind
     public let url: URL
     public var headers: HTTPClientHeaders
     public var body: Data?
     public var options: Options
 
-    public init(method: Method = .get,
+    public init(kind: Kind,
                 url: URL,
                 headers: HTTPClientHeaders = .init(),
                 body: Data? = nil,
-                options: Options = .init())
-    {
-        self.method = method
+                options: Options = .init()) {
+        self.kind = kind
         self.url = url
         self.headers = headers
         self.body = body
         self.options = options
+    }
+
+    // generic request
+    public init(method: Method = .get,
+                url: URL,
+                headers: HTTPClientHeaders = .init(),
+                body: Data? = nil,
+                options: Options = .init()) {
+        self.init(kind: .generic(method), url: url, headers: headers, body: body, options: options)
+    }
+
+    // download request
+    public static func download(url: URL,
+                                headers: HTTPClientHeaders = .init(),
+                                options: Options = .init(),
+                                fileSystem: FileSystem,
+                                destination: AbsolutePath) -> HTTPClientRequest {
+        HTTPClientRequest(kind: .download(fileSystem: fileSystem, destination: destination),
+                          url: url,
+                          headers: headers,
+                          body: nil,
+                          options: options)
+    }
+
+    public var method: Method {
+        switch self.kind {
+        case .generic(let method):
+            return method
+        case .download:
+            return .get
+        }
+    }
+
+    public enum Kind {
+        case generic(Method)
+        case download(fileSystem: FileSystem, destination: AbsolutePath)
     }
 
     public enum Method {
@@ -260,6 +340,8 @@ public struct HTTPClientRequest {
         public var addUserAgent: Bool
         public var validResponseCodes: [Int]?
         public var timeout: DispatchTimeInterval?
+        public var maximumResponseSizeInBytes: Int64?
+        public var authorizationProvider: HTTPClientAuthorizationProvider?
         public var retryStrategy: HTTPClientRetryStrategy?
         public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
         public var callbackQueue: DispatchQueue?
@@ -268,6 +350,8 @@ public struct HTTPClientRequest {
             self.addUserAgent = true
             self.validResponseCodes = .none
             self.timeout = .none
+            self.maximumResponseSizeInBytes = .none
+            self.authorizationProvider = .none
             self.retryStrategy = .none
             self.circuitBreakerStrategy = .none
             self.callbackQueue = .none
@@ -286,8 +370,7 @@ public struct HTTPClientResponse {
     public init(statusCode: Int,
                 statusText: String? = nil,
                 headers: HTTPClientHeaders = .init(),
-                body: Data? = nil)
-    {
+                body: Data? = nil) {
         self.statusCode = statusCode
         self.statusText = statusText
         self.headers = headers
@@ -296,6 +379,20 @@ public struct HTTPClientResponse {
 
     public func decodeBody<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = .init()) throws -> T? {
         try self.body.flatMap { try decoder.decode(type, from: $0) }
+    }
+}
+
+extension HTTPClientResponse {
+    public static func okay(body: String? = nil) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 200, body: body?.data(using: .utf8))
+    }
+
+    public static func notFound(reason: String? = nil) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 404, body: (reason ?? "Not Found").data(using: .utf8))
+    }
+
+    public static func serverError(reason: String? = nil) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 500, body: (reason ?? "Internal Server Error").data(using: .utf8))
     }
 }
 

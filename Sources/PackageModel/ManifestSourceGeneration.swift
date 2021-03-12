@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -109,6 +109,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "tvOS", string: platform.version)
         case "watchos":
             self.init(enum: "watchOS", string: platform.version)
+        case "driverkit":
+            self.init(enum: "DriverKit", string: platform.version)
         default:
             self.init(enum: platform.platformName, string: platform.version)
         }
@@ -117,23 +119,24 @@ fileprivate extension SourceCodeFragment {
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
     init(from dependency: PackageDependencyDescription) {
         var params: [SourceCodeFragment] = []
-        if let explicitName = dependency.explicitName {
+        if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
-        if dependency.requirement != .localPackage {
-            params.append(SourceCodeFragment(key: "url", string: dependency.url))
-        }
-        switch dependency.requirement {
-        case .exact(let version):
-            params.append(SourceCodeFragment(enum: "exact", string: version.description))
-        case .range(let range):
-            params.append(SourceCodeFragment(enum: "range", string: range.description))
-        case .revision(let revision):
-            params.append(SourceCodeFragment(enum: "revision", string: revision))
-        case .branch(let branch):
-            params.append(SourceCodeFragment(enum: "branch", string: branch))
-        case .localPackage:
-            params.append(SourceCodeFragment(key: "path", string: dependency.url))
+        switch dependency {
+        case .local(let data):
+            params.append(SourceCodeFragment(key: "path", string: data.path.pathString))
+        case .scm(let data):
+            params.append(SourceCodeFragment(key: "url", string: data.location))
+            switch data.requirement {
+            case .exact(let version):
+                params.append(SourceCodeFragment(enum: "exact", string: version.description))
+            case .range(let range):
+                params.append(SourceCodeFragment(enum: "range", string: range.description))
+            case .revision(let revision):
+                params.append(SourceCodeFragment(enum: "revision", string: revision))
+            case .branch(let branch):
+                params.append(SourceCodeFragment(enum: "branch", string: branch))
+            }
         }
         self.init(enum: "package", subnodes: params)
     }
@@ -153,6 +156,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "library", subnodes: params, multiline: true)
         case .executable:
             self.init(enum: "executable", subnodes: params, multiline: true)
+        case .plugin:
+            self.init(enum: "plugin", subnodes: params, multiline: true)
         case .test:
             self.init(enum: "test", subnodes: params, multiline: true)
         }
@@ -164,6 +169,11 @@ fileprivate extension SourceCodeFragment {
 
         params.append(SourceCodeFragment(key: "name", string: target.name))
         
+        if let pluginCapability = target.pluginCapability {
+            let node = SourceCodeFragment(from: pluginCapability)
+            params.append(SourceCodeFragment(key: "capability", subnode: node))
+        }
+
         if !target.dependencies.isEmpty {
             let nodes = target.dependencies.map{ SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
@@ -242,6 +252,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "systemLibrary", subnodes: params, multiline: true)
         case .binary:
             self.init(enum: "binaryTarget", subnodes: params, multiline: true)
+        case .plugin:
+            self.init(enum: "plugin", subnodes: params, multiline: true)
         }
     }
 
@@ -288,6 +300,7 @@ fileprivate extension SourceCodeFragment {
             case "ios": return SourceCodeFragment(enum: "iOS")
             case "tvos": return SourceCodeFragment(enum: "tvOS")
             case "watchos": return SourceCodeFragment(enum: "watchOS")
+            case "driverkit": return SourceCodeFragment(enum: "DriverKit")
             default: return SourceCodeFragment(enum: platformName)
             }
         }
@@ -343,6 +356,18 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)
+        }
+    }
+
+    /// Instantiates a SourceCodeFragment to represent a single plugin capability.
+    init(from capability: TargetDescription.PluginCapability) {
+        switch capability {
+        case .prebuild:
+            self.init(enum: "prebuild", subnodes: [])
+        case .buildTool:
+            self.init(enum: "buildTool", subnodes: [])
+        case .postbuild:
+            self.init(enum: "postbuild", subnodes: [])
         }
     }
 

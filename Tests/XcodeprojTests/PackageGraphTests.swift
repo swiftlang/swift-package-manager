@@ -34,13 +34,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .local,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -58,10 +58,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(name: "Foo", url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(name: "Foo", location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -199,13 +199,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Foo"])
                     ],
@@ -240,13 +240,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     targets: [
                         TargetDescription(name: "Sea", dependencies: []),
                         TargetDescription(name: "Sea2", dependencies: []),
@@ -256,23 +256,23 @@ class PackageGraphTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-		let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
-		XcodeProjectTester(project) { result in
-      	    result.check(target: "swift") { targetResult in
-      	        XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
-      	            "$(inherited)", "-Xcc",
-      	            "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
-      	        ])
-      	        XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
-      	            "$(inherited)",
-      	            "$(SRCROOT)/Sources/Sea2/include",
-      	            "$(SRCROOT)/Sources/Sea/include",
-      	        ])
-      	    }
-      	    result.check(target: "Sea") { targetResult in
-      	        XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, nil)
-      	    }
-      	}
+        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+        XcodeProjectTester(project) { result in
+            result.check(target: "swift") { targetResult in
+                XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
+                    "$(inherited)", "-Xcc",
+                    "-fmodule-map-file=$(SRCROOT)/Sources/Sea2/include/module.modulemap",
+                ])
+                XCTAssertEqual(targetResult.target.buildSettings.common.HEADER_SEARCH_PATHS ?? [], [
+                    "$(inherited)",
+                    "$(SRCROOT)/Sources/Sea2/include",
+                    "$(SRCROOT)/Sources/Sea/include",
+                ])
+            }
+            result.check(target: "Sea") { targetResult in
+                XCTAssertEqual(targetResult.target.buildSettings.common.MODULEMAP_FILE, nil)
+            }
+        }
     }
 
     func testModuleLinkage() throws {
@@ -283,13 +283,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
                     path: "/Pkg",
-                    url: "/Pkg",
                     packageKind: .root,
+                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "HelperTool", dependencies: []),
                         TargetDescription(name: "Library", dependencies: []),
@@ -332,27 +332,27 @@ class PackageGraphTests: XCTestCase {
 
     func testSchemes() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-      	    "/Foo/Sources/a/main.swift",
-      	    "/Foo/Sources/b/main.swift",
-      	    "/Foo/Sources/c/main.swift",
-      	    "/Foo/Sources/d/main.swift",
-      	    "/Foo/Sources/libd/libd.swift",
+            "/Foo/Sources/a/main.swift",
+            "/Foo/Sources/b/main.swift",
+            "/Foo/Sources/c/main.swift",
+            "/Foo/Sources/d/main.swift",
+            "/Foo/Sources/libd/libd.swift",
 
-      	    "/Foo/Tests/aTests/fooTests.swift",
-      	    "/Foo/Tests/bcTests/fooTests.swift",
-      	    "/Foo/Tests/dTests/fooTests.swift",
-      	    "/Foo/Tests/libdTests/fooTests.swift",
-      	    "/end"
-      	)
+            "/Foo/Tests/aTests/fooTests.swift",
+            "/Foo/Tests/bcTests/fooTests.swift",
+            "/Foo/Tests/dTests/fooTests.swift",
+            "/Foo/Tests/libdTests/fooTests.swift",
+            "/end"
+        )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     targets: [
                         TargetDescription(name: "a"),
                         TargetDescription(name: "b", dependencies: ["a"]),
@@ -369,7 +369,7 @@ class PackageGraphTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        let generatedSchemes = SchemesGenerator(
+        let generatedSchemes = try SchemesGenerator(
             graph: graph,
             container: "Foo.xcodeproj",
             schemesDir: AbsolutePath("/Foo.xcodeproj/xcshareddata/xcschemes"),
@@ -399,13 +399,13 @@ class PackageGraphTests: XCTestCase {
             )
 
             let diagnostics = DiagnosticsEngine()
-            let graph = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
                         path: "/Foo",
-                        url: "/Foo",
                         packageKind: .root,
+                        packageLocation: "/Foo",
                         swiftLanguageVersions: [SwiftLanguageVersion(string: swiftVersion)!],
                         targets: [
                             TargetDescription(name: "a"),

@@ -14,39 +14,58 @@
       "summary": "Package One",
       "keywords": ["sample package"],
       "readmeURL": "https://www.example.com/repos/RepoOne/README",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.example.com/repos/RepoOne/LICENSE"
+      },
       "versions": [
         {
           "version": "0.1.0",
-          "packageName": "PackageOne",
-          "targets": [
+          "summary": "Fixed a few bugs",
+          "manifests": {
+            "5.1": {
+              "toolsVersion": "5.1",
+              "packageName": "PackageOne",
+              "targets": [
+                {
+                  "name": "Foo",
+                  "moduleName": "Foo"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Foo",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Foo"]
+                }
+              ],
+              "minimumPlatformVersions": [
+                { "name": "macOS", "version": "10.15" }
+              ]
+            }
+          },
+          "defaultToolsVersion": "5.1",
+          "verifiedCompatibility": [
             {
-              "name": "Foo",
-              "moduleName": "Foo"
+              "platform": { "name": "macOS" },
+              "swiftVersion": "5.1"
+            },
+            {
+              "platform": { "name": "iOS" },
+              "swiftVersion": "5.1"
+            },
+            {
+              "platform": { "name": "Linux" },
+              "swiftVersion": "5.1"
             }
           ],
-          "products": [
-            {
-              "name": "Foo",
-              "type": {
-                "library": ["automatic"]
-              },
-              "targets": ["Foo"]
-            }
-          ],
-          "toolsVersion": "5.1",
-          "minimumPlatformVersions": [
-            { "name": "macOS", "version": "10.15" }
-          ],
-          "verifiedPlatforms": [
-            { "name": "macOS" },
-            { "name": "iOS" },
-            { "name": "Linux" }
-          ],
-          "verifiedSwiftVersions": ["5.1"],
           "license": {
             "name": "Apache-2.0",
             "url": "https://www.example.com/repos/RepoOne/LICENSE"
-          }
+          },
+          "createdAt": "2020-10-21T09:25:36Z"
         }
       ]
     },
@@ -57,43 +76,53 @@
       "versions": [
         {
           "version": "2.1.0",
-          "packageName": "PackageTwo",
-          "targets": [
-            {
-              "name": "Bar",
-              "moduleName": "Bar"
+          "manifests": {
+            "5.2": {
+              "toolsVersion": "5.2",
+              "packageName": "PackageTwo",
+              "targets": [
+                {
+                  "name": "Bar",
+                  "moduleName": "Bar"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Bar",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Bar"]
+                }
+              ]
             }
-          ],
-          "products": [
-            {
-              "name": "Bar",
-              "type": {
-                "library": ["automatic"]
-              },
-              "targets": ["Bar"]
-            }
-          ],
-          "toolsVersion": "5.2"
+          },
+          "defaultToolsVersion": "5.2"
         },
         {
           "version": "1.8.3",
-          "packageName": "PackageTwo",
-          "targets": [
-            {
-              "name": "Bar",
-              "moduleName": "Bar"
+          "manifests": {
+            "5.0": {
+              "toolsVersion": "5.0",
+              "packageName": "PackageTwo",
+              "targets": [
+                {
+                  "name": "Bar",
+                  "moduleName": "Bar"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Bar",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Bar"]
+                }
+              ]
             }
-          ],
-          "products": [
-            {
-              "name": "Bar",
-              "type": {
-                "library": ["automatic"]
-              },
-              "targets": ["Bar"]
-            }
-          ],
-          "toolsVersion": "5.0"
+          },
+          "defaultToolsVersion": "5.0"
         }
       ]
     }

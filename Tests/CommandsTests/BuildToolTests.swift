@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -41,15 +41,18 @@ final class BuildToolTests: XCTestCase {
     }
     
     func testUsage() throws {
-        XCTAssert(try execute(["-help"]).stdout.contains("USAGE: swift build"))
+        let stdout = try execute(["-help"]).stdout
+        XCTAssert(stdout.contains("USAGE: swift build"), "got stdout:\n" + stdout)
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift run, swift package, swift test"))
+        let stdout = try execute(["--help"]).stdout
+        XCTAssert(stdout.contains("SEE ALSO: swift run, swift package, swift test"), "got stdout:\n" + stdout)
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
+        let stdout = try execute(["--version"]).stdout
+        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
     func testCreatingSanitizers() throws {
@@ -62,7 +65,7 @@ final class BuildToolTests: XCTestCase {
         do {
             _ = try Sanitizer(argument: "invalid")
             XCTFail("Should have failed to create Sanitizer")
-        } catch let error as ArgumentConversionError {
+        } catch let error as StringError {
             XCTAssertEqual(
                 error.description, "valid sanitizers: address, thread, undefined, scudo")
         }
@@ -239,6 +242,24 @@ final class BuildToolTests: XCTestCase {
                 XCTAssert(result.binContents.contains("B.swiftinterface"))
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
+            }
+        }
+    }
+
+    func testBuildCompleteMessage() {
+        fixture(name: "DependencyResolution/Internal/Simple") { path in
+            do {
+                let result = try execute([], packagePath: path)
+                #if os(macOS)
+                XCTAssertTrue(result.stdout.contains("[6/6] Build complete!"), result.stdout)
+                #else
+                XCTAssertTrue(result.stdout.contains("[8/8] Build complete!"), result.stdout)
+                #endif
+            }
+
+            do {
+                let result = try execute([], packagePath: path)
+                XCTAssertTrue(result.stdout.contains("[0/0] Build complete!"), result.stdout)
             }
         }
     }

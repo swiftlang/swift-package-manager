@@ -136,7 +136,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
         let name: String? = json.get("package")
         let url: String = try json.get("repositoryURL")
         let identity = PackageIdentity(url: url)
-        let ref = PackageReference(identity: identity, path: url)
+        let ref = PackageReference.remote(identity: identity, location: url)
         self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")
     }
@@ -145,7 +145,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
     public func toJSON() -> JSON {
         return .init([
             "package": packageRef.name.toJSON(),
-            "repositoryURL": packageRef.path,
+            "repositoryURL": packageRef.location,
             "state": state
         ])
     }

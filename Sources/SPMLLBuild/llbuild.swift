@@ -58,7 +58,7 @@ public final class LLBuildEngine {
         }
 
         func lookupRule(_ key: Key) -> Rule {
-            let ruleKey = RuleKey(key)
+            let ruleKey = try! RuleKey(key)
             return delegate.lookupRule(
                 rule: ruleKey.rule, key: Key(ruleKey.data))
         }
@@ -84,8 +84,8 @@ public final class LLBuildEngine {
         // Clear out any errors from the previous build.
         delegate.errors.removeAll()
 
-        let encodedKey = RuleKey(
-            rule: T.BuildRule.ruleName, data: key.toKey().data).toKey()
+        let encodedKey = try RuleKey(
+            rule: T.BuildRule.ruleName, data: try key.toKey().data).toKey()
         let value = engine.build(key: encodedKey)
 
         // Throw if the engine encountered any fatal error during the build.
@@ -114,14 +114,14 @@ public class LLTaskBuildEngine {
         self.engine = engine
     }
 
-    public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) {
-        let encodedKey = RuleKey(
-            rule: T.BuildRule.ruleName, data: key.toKey().data).toKey()
+    public func taskNeedsInput<T: LLBuildKey>(_ key: T, inputID: Int) throws {
+        let encodedKey = try RuleKey(
+            rule: T.BuildRule.ruleName, data: try key.toKey().data).toKey()
         engine.taskNeedsInput(encodedKey, inputID: inputID)
     }
 
-    public func taskIsComplete<T: LLBuildValue>(_ result: T) {
-        engine.taskIsComplete(result.toValue(), forceChange: false)
+    public func taskIsComplete<T: LLBuildValue>(_ result: T) throws {
+        engine.taskIsComplete(try result.toValue(), forceChange: false)
     }
 }
 
@@ -182,25 +182,25 @@ private struct RuleKey: Codable {
         self.data = data
     }
 
-    init(_ key: Key) {
-        self.init(key.data)
+    init(_ key: Key) throws {
+        try self.init(key.data)
     }
 
-    init(_ data: [UInt8]) {
-        self = try! fromBytes(data)
+    init(_ data: [UInt8]) throws {
+        self = try fromBytes(data)
     }
 
-    func toKey() -> Key {
-        return try! Key(toBytes(self))
+    func toKey() throws -> Key {
+        return try Key(toBytes(self))
     }
 }
 
 public extension LLBuildKey {
-    init(_ key: Key) {
-        self.init(key.data)
+    init(_ key: Key) throws {
+        try self.init(key.data)
     }
 
-    init(_ data: [UInt8]) {
+    init(_ data: [UInt8]) throws {
         do {
             self = try fromBytes(data)
         } catch {
@@ -210,12 +210,12 @@ public extension LLBuildKey {
             } else {
                 stringValue = String(describing: data)
             }
-            fatalError("Please file a bug at https://bugs.swift.org with this info -- LLBuildKey: ###\(error)### ----- ###\(stringValue)###")
+            throw InternalError("LLBuildKey: ###\(error)### ----- ###\(stringValue)###")
         }
     }
 
-    func toKey() -> Key {
-        return try! Key(toBytes(self))
+    func toKey() throws -> Key {
+        return try Key(toBytes(self))
     }
 }
 
@@ -224,8 +224,8 @@ public extension LLBuildValue {
         self = try fromBytes(value.data)
     }
 
-    func toValue() -> Value {
-        return try! Value(toBytes(self))
+    func toValue() throws -> Value {
+        return try Value(toBytes(self))
     }
 }
 

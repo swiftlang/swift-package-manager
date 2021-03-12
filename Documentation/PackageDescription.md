@@ -296,6 +296,26 @@ static func package(url: String, from version: Version) -> Package.Dependency
 ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
 static func package(url: String, _ requirement: Package.Dependency.Requirement) -> Package.Dependency
 
+/// Adds a remote package dependency given a branch requirement.
+///
+///    .package(url: "https://example.com/example-package.git", branch: "main"),
+///
+/// - Parameters:
+///     - name: The name of the package, or nil to deduce it from the URL.
+///     - url: The valid Git URL of the package.
+///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+static func package(name: String? = nil, url: String, branch: String) -> Package.Dependency
+
+/// Adds a remote package dependency given a revision requirement.
+///
+///    .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
+///
+/// - Parameters:
+///     - name: The name of the package, or nil to deduce it from the URL.
+///     - url: The valid Git URL of the package.
+///     - revision: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
+static func package(name: String? = nil, url: String, revision: String) -> Package.Dependency
+
 /// Add a package dependency starting with a specific minimum version, up to
 /// but not including a specified maximum version.
 ///
@@ -492,11 +512,11 @@ A target may depend on other targets within the same package and on products ven
 ## Methods
 
 ```swift
-/// Creates a library or executable target.
+/// Creates a regular target.
 ///
-/// A target can contain either Swift or C-family source files, but not both. The Swift Package Manager
-/// considers a target to be an executable target if its directory contains a `main.swift`, `main.m`, `main.c`,
-/// or `main.cpp` file. The Swift Package Manager considers all other targets to be library targets.
+/// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
+/// a regular module that can be included in a library or executable product, but that cannot itself be used as
+/// the main target of an executable product.
 ///
 /// - Parameters:
 ///   - name: The name of the target.
@@ -516,6 +536,44 @@ A target may depend on other targets within the same package and on products ven
 ///   - swiftSettings: The Swift settings for this target.
 ///   - linkerSettings: The linker settings for this target.
 static func target(
+    name: String,
+    dependencies: [Target.Dependency] = [],
+    path: String? = nil,
+    exclude: [String] = [],
+    sources: [String]? = nil,
+    resources: [Resource]? = nil,
+    publicHeadersPath: String? = nil,
+    cSettings: [CSetting]? = nil,
+    cxxSettings: [CXXSetting]? = nil,
+    swiftSettings: [SwiftSetting]? = nil,
+    linkerSettings: [LinkerSetting]? = nil
+) -> Target
+
+/// Creates an executable target.
+///
+/// An executable target can contain either Swift or C-family source files, but not both. It contains code that
+/// is built as an executable module that can be used as the main target of an executable product. The target
+/// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
+/// file that contains the `@main` keyword.
+///
+/// - Parameters:
+///   - name: The name of the target.
+///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+///       for example, `[PackageRoot]/Sources/[TargetName]`.
+///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+///       A path is relative to the target's directory.
+///       This parameter has precedence over the `sources` parameter.
+///   - sources: An explicit list of source files. If you provide a path to a directory,
+///       the Swift Package Manager searches for valid source files recursively.
+///   - resources: An explicit list of resources files.
+///   - publicHeadersPath: The directory containing public headers of a C-family library target.
+///   - cSettings: The C settings for this target.
+///   - cxxSettings: The C++ settings for this target.
+///   - swiftSettings: The Swift settings for this target.
+///   - linkerSettings: The linker settings for this target.
+static func executableTarget(
     name: String,
     dependencies: [Target.Dependency] = [],
     path: String? = nil,
@@ -702,7 +760,7 @@ For example, you don’t need to declare XIB files, storyboards, Core Data file 
 as resources in your package manifest.
 
 However, you must explicitly declare other file types—for example image files—as resources
-using the `process(_:localization:)`` or `copy(_:)`` rules.
+using the `process(_:localization:)` or `copy(_:)` rules.
 
 Alternatively, exclude resource files from a target
 by passing them to the target initializer’s `exclude` parameter.
@@ -1018,35 +1076,48 @@ The supported C language standard to use for compiling C sources in the package.
 enum CLanguageStandard {
     case c89
     case c90
-    case iso9899_1990
-    case iso9899_199409
+    case c99
+    case c11
+    case c17
+    case c18
+    case c2x
     case gnu89
     case gnu90
-    case c99
-    case iso9899_1999
     case gnu99
-    case c11
-    case iso9899_2011
     case gnu11
+    case gnu17
+    case gnu18
+    case gnu2x
+    case iso9899_1990 = "iso9899:1990"
+    case iso9899_199409 = "iso9899:199409"
+    case iso9899_1999 = "iso9899:1999"
+    case iso9899_2011 = "iso9899:2011"
+    case iso9899_2017 = "iso9899:2017"
+    case iso9899_2018 = "iso9899:2018"
 }
 ```
+
 # CXXLanguageStandard
 
 `enum CXXLanguageStandard`
 
-The supported C++ language standards to use for compiling C++ sources in the package.
+The supported C++ language standard to use for compiling C++ sources in the package.
 
 ```swift
 enum CXXLanguageStandard {
     case cxx98 = "c++98"
     case cxx03 = "c++03"
+    case cxx11 = "c++11"
+    case cxx14 = "c++14"
+    case cxx17 = "c++17"
+    case cxx1z = "c++1z"
+    case cxx20 = "c++20"
     case gnucxx98 = "gnu++98"
     case gnucxx03 = "gnu++03"
-    case cxx11 = "c++11"
     case gnucxx11 = "gnu++11"
-    case cxx14 = "c++14"
     case gnucxx14 = "gnu++14"
-    case cxx1z = "c++1z"
+    case gnucxx17 = "gnu++17"
     case gnucxx1z = "gnu++1z"
+    case gnucxx20 = "gnu++20"
 }
 ```

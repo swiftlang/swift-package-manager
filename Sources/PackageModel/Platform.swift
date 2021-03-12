@@ -29,6 +29,7 @@ public struct Platform: Equatable, Hashable, Codable {
     public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "9.0")
     public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "9.0")
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "2.0")
+    public static let driverKit: Platform = Platform(name: "driverkit", oldestSupportedVersion: "19.0")
     public static let linux: Platform = Platform(name: "linux", oldestSupportedVersion: .unknown)
     public static let android: Platform = Platform(name: "android", oldestSupportedVersion: .unknown)
     public static let windows: Platform = Platform(name: "windows", oldestSupportedVersion: .unknown)

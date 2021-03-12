@@ -49,7 +49,7 @@ public extension MockDependencyGraph {
         self.result = Dictionary(uniqueKeysWithValues: result.map { value in
             let (container, version) = value
             guard case .string(let str) = version else { fatalError() }
-            let package = PackageReference(identity: PackageIdentity(url: container.lowercased()), path: "/\(container)")
+            let package = PackageReference.remote(identity: PackageIdentity(url: container.lowercased()), location: "/\(container)")
             return (package, Version(string: str)!)
         })
         self.name = name
@@ -72,7 +72,7 @@ private extension MockPackageContainer {
                 .map { constraint in
                     switch constraint.requirement {
                     case .versionSet(let versionSet):
-                        return (constraint.identifier.identity.description, versionSet)
+                        return (constraint.package.identity.description, versionSet)
                     case .unversioned:
                         fatalError()
                     case .revision:
@@ -91,8 +91,8 @@ private extension MockPackageContainer.Constraint {
         guard case .string(let identifier)? = dict["identifier"] else { fatalError() }
         guard let requirement = dict["requirement"] else { fatalError() }
         let products: ProductFilter = try! JSON(dict).get("products")
-        let id = PackageReference(identity: PackageIdentity(url: identifier), path: "", kind: .remote)
-        self.init(container: id, versionRequirement: VersionSetSpecifier(requirement), products: products)
+        let ref = PackageReference.remote(identity: PackageIdentity(url: identifier), location: "")
+        self.init(package: ref, versionRequirement: VersionSetSpecifier(requirement), products: products)
     }
 }
 

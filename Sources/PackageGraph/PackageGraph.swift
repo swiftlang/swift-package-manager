@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -19,19 +19,21 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(name: String, target: String)
+    case productDependencyNotFound(dependencyProductName: String, dependencyPackageName: String?, packageName: String, targetName: String)
 
-    /// The product dependency was found but the package name did not match.
-    case productDependencyIncorrectPackage(name: String, package: String)
+    /// The package dependency name does not match the package name.
+    case incorrectPackageDependencyName(dependencyPackageName: String, dependencyName: String, dependencyLocation: String, resolvedPackageName: String, resolvedPackageURL: String)
 
-    /// The package dependency name does not match the package name.w
-    case incorrectPackageDependencyName(dependencyName: String, dependencyURL: String, packageName: String)
+    /// The package dependency already satisfied by a different dependency package
+    case dependencyAlreadySatisfiedByIdentifier(dependencyPackageName: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
+
+    /// The package dependency already satisfied by a different dependency package
+    case dependencyAlreadySatisfiedByName(dependencyPackageName: String, dependencyLocation: String, otherDependencyURL: String, name: String)
 
     /// The product dependency was found but the package name was not referenced correctly (tools version > 5.2).
     case productDependencyMissingPackage(
         productName: String,
         targetName: String,
-        packageName: String,
         packageDependency: PackageDependencyDescription
     )
 
@@ -77,6 +79,18 @@ public struct PackageGraph {
         return rootPackages.contains(package)
     }
 
+    /// Returns the package that contains the target, or nil if the target isn't in the graph.
+    public func package(for target: ResolvedTarget) -> ResolvedPackage? {
+        return self.targetsToPackages[target]
+    }
+    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
+
+    /// Returns the package that contains the product, or nil if the product isn't in the graph.
+     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
+         return self.productsToPackages[product]
+     }
+    private let productsToPackages: [ResolvedProduct: ResolvedPackage]
+
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
 
@@ -84,12 +98,19 @@ public struct PackageGraph {
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
-        requiredDependencies: Set<PackageReference>
-    ) {
+        dependencies requiredDependencies: Set<PackageReference>
+    ) throws {
         self.rootPackages = rootPackages
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
-        self.packages = try! topologicalSort(inputPackages, successors: { $0.dependencies })
+        self.packages = try topologicalSort(inputPackages, successors: { $0.dependencies })
+        
+        // Create a mapping from targets to the packages that define them.  Here
+        // we include all targets, including tests in non-root packages, since
+        // this is intended for lookup and not traversal.
+        self.targetsToPackages = packages.reduce(into: [:], { partial, package in
+            package.targets.forEach{ partial[$0] = package }
+        })
 
         allTargets = Set(packages.flatMap({ package -> [ResolvedTarget] in
             if rootPackages.contains(package) {
@@ -100,6 +121,13 @@ public struct PackageGraph {
                 return package.targets.filter({ $0.type != .test })
             }
         }))
+
+        // Create a mapping from products to the packages that define them.  Here
+        // we include all products, including tests in non-root packages, since
+        // this is intended for lookup and not traversal.
+        self.productsToPackages = packages.reduce(into: [:], { partial, package in
+            package.products.forEach{ partial[$0] = package }
+        })
 
         allProducts = Set(packages.flatMap({ package -> [ResolvedProduct] in
             if rootPackages.contains(package) {
@@ -114,14 +142,14 @@ public struct PackageGraph {
         // Compute the reachable targets and products.
         let inputTargets = inputPackages.flatMap { $0.targets }
         let inputProducts = inputPackages.flatMap { $0.products }
-        let recursiveDependencies = inputTargets.lazy.flatMap { $0.recursiveDependencies() }
+        let recursiveDependencies = try inputTargets.lazy.flatMap { try $0.recursiveDependencies() }
 
         self.reachableTargets = Set(inputTargets).union(recursiveDependencies.compactMap { $0.target })
         self.reachableProducts = Set(inputProducts).union(recursiveDependencies.compactMap { $0.product })
     }
 
     /// Computes a map from each executable target in any of the root packages to the corresponding test targets.
-    public func computeTestTargetsForExecutableTargets() -> [ResolvedTarget: [ResolvedTarget]] {
+    public func computeTestTargetsForExecutableTargets() throws -> [ResolvedTarget: [ResolvedTarget]] {
         var result = [ResolvedTarget: [ResolvedTarget]]()
 
         let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
@@ -136,7 +164,7 @@ public struct PackageGraph {
 
         for target in rootTargets where target.type == .executable {
             // Find all dependencies of this target within its package.
-            let dependencies = try! topologicalSort(target.dependencies, successors: {
+            let dependencies = try topologicalSort(target.dependencies, successors: {
                 $0.dependencies.compactMap { $0.target }.map { .target($0, conditions: []) }
             }).compactMap({ $0.target })
 
@@ -164,47 +192,32 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let name, let target):
-            return "product '\(name)' not found. It is required by target '\(target)'."
+        case .productDependencyNotFound(let dependencyProductName, let dependencyPackageName, let packageName, let targetName):
+            return "product '\(dependencyProductName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found"). it is required by package '\(packageName)' target '\(targetName)'."
 
-        case .productDependencyIncorrectPackage(let name, let package):
-            return "product dependency '\(name)' in package '\(package)' not found"
-
-        case .incorrectPackageDependencyName(let dependencyName, let dependencyURL, let packageName):
+        case .incorrectPackageDependencyName(let dependencyPackageName, let dependencyName, let dependencyURL, let resolvedPackageName, let resolvedPackageURL):
             return """
-                declared name '\(dependencyName)' for package dependency '\(dependencyURL)' does not match the actual \
-                package name '\(packageName)'
+                '\(dependencyPackageName)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \
+                name '\(resolvedPackageName)' set for '\(resolvedPackageURL)'
                 """
+
+        case .dependencyAlreadySatisfiedByIdentifier(let dependencyPackageName, let dependencyURL, let otherDependencyURL, let identity):
+            return "'\(dependencyPackageName)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
+
+        case .dependencyAlreadySatisfiedByName(let dependencyPackageName, let dependencyURL, let otherDependencyURL, let name):
+            return "'\(dependencyPackageName)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"
 
         case .productDependencyMissingPackage(
                 let productName,
                 let targetName,
-                let packageName,
                 let packageDependency
             ):
 
-            var solutionSteps: [String] = []
+            let solution = """
+            reference the package in the target dependency with '.product(name: "\(productName)", package: \
+            "\(packageDependency.nameForTargetDependencyResolutionOnly)")'
+            """
 
-            // If the package dependency name is the same as the package name, or if the product name and package name
-            // don't correspond, we need to rewrite the target dependency to explicit specify the package name.
-            if packageDependency.name == packageName || productName != packageName {
-                solutionSteps.append("""
-                    reference the package in the target dependency with '.product(name: "\(productName)", package: \
-                    "\(packageName)")'
-                    """)
-            }
-
-            // If the name of the product and the package are the same, or if the package dependency implicit name
-            // deduced from the URL is not correct, we need to rewrite the package dependency declaration to specify the
-            // package name.
-            if productName == packageName || packageDependency.name != packageName {
-                let dependencySwiftRepresentation = packageDependency.swiftRepresentation(overridingName: packageName)
-                solutionSteps.append("""
-                    provide the name of the package dependency with '\(dependencySwiftRepresentation)'
-                    """)
-            }
-
-            let solution = solutionSteps.joined(separator: " and ")
             return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
 
         case .duplicateProduct(let product, let packages):
@@ -217,16 +230,16 @@ fileprivate extension PackageDependencyDescription {
     func swiftRepresentation(overridingName: String? = nil) -> String {
         var parameters: [String] = []
 
-        if let name = overridingName ?? explicitName {
+        if let name = overridingName ?? self.explicitNameForTargetDependencyResolutionOnly {
             parameters.append("name: \"\(name)\"")
         }
 
-        if requirement == .localPackage {
-            parameters.append("path: \"\(url)\"")
-        } else {
-            parameters.append("url: \"\(url)\"")
-
-            switch requirement {
+        switch self {
+        case .local(let data):
+            parameters.append("path: \"\(data.path)\"")
+        case .scm(let data):
+            parameters.append("url: \"\(data.location)\"")
+            switch data.requirement {
             case .branch(let branch):
                 parameters.append(".branch(\"\(branch)\")")
             case .exact(let version):
@@ -241,8 +254,6 @@ fileprivate extension PackageDependencyDescription {
                 } else {
                     parameters.append(".upToNextMinor(\"\(range.lowerBound)\"..<\"\(range.upperBound)\")")
                 }
-            case .localPackage:
-                fatalError("handled above")
             }
         }
 

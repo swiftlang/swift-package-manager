@@ -87,21 +87,21 @@ public final class ResolvedTarget: ObjectIdentifierProtocol {
     }
 
     /// Returns the recursive dependencies, accross the whole package-graph.
-    public func recursiveDependencies() -> [Dependency] {
-        return try! topologicalSort(self.dependencies) { $0.dependencies }
+    public func recursiveDependencies() throws -> [Dependency] {
+        return try topologicalSort(self.dependencies) { $0.dependencies }
     }
 
     /// Returns the recursive target dependencies, accross the whole package-graph.
-    public func recursiveTargetDependencies() -> [ResolvedTarget] {
-        return try! topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
+    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
+        return try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
     }
 
     /// Returns the recursive dependencies, accross the whole package-graph, which satisfy the input build environment,
     /// based on their conditions.
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
-    public func recursiveDependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
-        return try! topologicalSort(dependencies(satisfying: environment)) { dependency in
+    public func recursiveDependencies(satisfying environment: BuildEnvironment) throws -> [Dependency] {
+        return try topologicalSort(dependencies(satisfying: environment)) { dependency in
             return dependency.dependencies.filter { $0.satisfies(environment) }
         }
     }

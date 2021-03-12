@@ -30,8 +30,8 @@ final class PinsStoreTests: XCTestCase {
         let fooRepo = RepositorySpecifier(url: fooPath.pathString)
         let barRepo = RepositorySpecifier(url: barPath.pathString)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
-        let fooRef = PackageReference(identity: foo, path: fooRepo.url)
-        let barRef = PackageReference(identity: bar, path: barRepo.url)
+        let fooRef = PackageReference.remote(identity: foo, location: fooRepo.url)
+        let barRef = PackageReference.remote(identity: bar, location: barRepo.url)
 
         let state = CheckoutState(revision: revision, version: v1)
         let pin = PinsStore.Pin(packageRef: fooRef, state: state)
@@ -153,7 +153,7 @@ final class PinsStoreTests: XCTestCase {
 
         let fooPath = AbsolutePath("/foo")
         let foo = PackageIdentity(path: fooPath)
-        let fooRef = PackageReference(identity: foo, path: fooPath.pathString)
+        let fooRef = PackageReference.remote(identity: foo, location: fooPath.pathString)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
         store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1))
 

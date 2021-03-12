@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -17,6 +17,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         ClangTarget.self,
         SystemLibraryTarget.self,
         BinaryTarget.self,
+        PluginTarget.self,
     ]
 
     /// The target kind.
@@ -26,6 +27,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         case systemModule = "system-target"
         case test
         case binary
+        case plugin
     }
 
     /// A reference to a product from a target dependency.
@@ -92,6 +94,12 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         }
     }
 
+    /// A usage of a plugin target or product. Implemented as a dependency
+    /// for now and added to the `dependencies` array, since they currently
+    /// have exactly the same characteristics and to avoid duplicating the
+    /// implementation for now.
+    public typealias PluginUsage = Dependency
+
     /// The name of the target.
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
@@ -121,6 +129,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The resource files in the target.
     public let resources: [Resource]
+    
+    /// Other kinds of files in the target.
+    public let others: [AbsolutePath]
 
     /// The list of platforms that are supported by this target.
     public let platforms: [SupportedPlatform]
@@ -132,6 +143,9 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
+    
+    /// The usages of package plugins by this target.
+    public let pluginUsages: [PluginUsage]
 
     fileprivate init(
         name: String,
@@ -141,8 +155,10 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
+        others: [AbsolutePath] = [],
         dependencies: [Target.Dependency],
-        buildSettings: BuildSettings.AssignmentTable
+        buildSettings: BuildSettings.AssignmentTable,
+        pluginUsages: [PluginUsage]
     ) {
         self.name = name
         self.bundleName = bundleName
@@ -151,13 +167,15 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.type = type
         self.sources = sources
         self.resources = resources
+        self.others = others
         self.dependencies = dependencies
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = buildSettings
+        self.pluginUsages = pluginUsages
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, bundleName, defaultLocalization, platforms, type, sources, resources, buildSettings
+        case name, bundleName, defaultLocalization, platforms, type, sources, resources, others, buildSettings, pluginUsages
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -172,7 +190,10 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         try container.encode(type, forKey: .type)
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
+        try container.encode(others, forKey: .others)
         try container.encode(buildSettings, forKey: .buildSettings)
+        // FIXME: pluginUsages property is skipped on purpose as it points to
+        // the actual target dependency object.
     }
 
     required public init(from decoder: Decoder) throws {
@@ -184,11 +205,15 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         self.type = try container.decode(Kind.self, forKey: .type)
         self.sources = try container.decode(Sources.self, forKey: .sources)
         self.resources = try container.decode([Resource].self, forKey: .resources)
+        self.others = try container.decode([AbsolutePath].self, forKey: .others)
         // FIXME: dependencies property is skipped on purpose as it points to
         // the actual target dependency object.
         self.dependencies = []
         self.c99name = self.name.spm_mangledToC99ExtendedIdentifier()
         self.buildSettings = try container.decode(BuildSettings.AssignmentTable.self, forKey: .buildSettings)
+        // FIXME: pluginUsages property is skipped on purpose as it points to
+        // the actual target dependency object.
+        self.pluginUsages = []
     }
 }
 
@@ -213,7 +238,8 @@ public final class SwiftTarget: Target {
             type: .executable,
             sources: testDiscoverySrc,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -228,9 +254,11 @@ public final class SwiftTarget: Target {
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
+        others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         swiftVersion: SwiftLanguageVersion,
-        buildSettings: BuildSettings.AssignmentTable = .init()
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        pluginUsages: [PluginUsage] = []
     ) {
         self.swiftVersion = swiftVersion
         super.init(
@@ -241,8 +269,10 @@ public final class SwiftTarget: Target {
             type: type,
             sources: sources,
             resources: resources,
+            others: others,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            pluginUsages: pluginUsages
         )
     }
 
@@ -272,7 +302,8 @@ public final class SwiftTarget: Target {
             type: .executable,
             sources: sources,
             dependencies: dependencies,
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -329,7 +360,8 @@ public final class SystemLibraryTarget: Target {
             type: .systemModule,
             sources: sources,
             dependencies: [],
-            buildSettings: .init()
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
@@ -411,7 +443,8 @@ public final class ClangTarget: Target {
             sources: sources,
             resources: resources,
             dependencies: dependencies,
-            buildSettings: buildSettings
+            buildSettings: buildSettings,
+            pluginUsages: []
         )
     }
 
@@ -443,9 +476,90 @@ public final class ClangTarget: Target {
 }
 
 public final class BinaryTarget: Target {
+    /// The kind of binary artifact.
+    public let kind: Kind
 
     /// The original source of the binary artifact.
-    public enum ArtifactSource: Equatable, Codable {
+    public let origin: Origin
+
+    /// The binary artifact path.
+    public var artifactPath: AbsolutePath {
+        return self.sources.root
+    }
+
+    public init(
+        name: String,
+        kind: Kind,
+        platforms: [SupportedPlatform] = [],
+        path: AbsolutePath,
+        origin: Origin
+    ) {
+        self.origin = origin
+        self.kind = kind
+        let sources = Sources(paths: [], root: path)
+        super.init(
+            name: name,
+            defaultLocalization: nil,
+            platforms: platforms,
+            type: .binary,
+            sources: sources,
+            dependencies: [],
+            buildSettings: .init(),
+            pluginUsages: []
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case origin
+        case artifactSource // backwards compatibility 2/2021
+    }
+
+    public override func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.origin, forKey: .origin)
+        try container.encode(self.kind, forKey: .kind)
+    }
+
+    required public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // backwards compatibility 2/2021
+        if !container.contains(.kind) {
+            self.kind = .xcframework
+        } else {
+            self.kind = try container.decode(Kind.self, forKey: .kind)
+        }
+        // backwards compatibility 2/2021
+        if container.contains(.artifactSource)  {
+            self.origin = try container.decode(Origin.self, forKey: .artifactSource)
+        } else {
+            self.origin = try container.decode(Origin.self, forKey: .origin)
+        }
+        try super.init(from: decoder)
+    }
+
+    public enum Kind: String, RawRepresentable, Codable, CaseIterable {
+        case xcframework
+        case artifactsArchive
+
+        public var fileExtension: String {
+            switch self {
+            case .xcframework:
+                return "xcframework"
+            case .artifactsArchive:
+                return "arar"
+            }
+        }
+
+        public static func forFileExtension(_ fileExtension: String) throws -> Kind {
+            guard let kind = Kind.allCases.first(where: { $0.fileExtension == fileExtension }) else {
+                throw StringError("unknown binary artifact file extension '\(fileExtension)'")
+            }
+            return kind
+        }
+    }
+
+    public enum Origin: Equatable, Codable {
 
         /// Represents an artifact that was downloaded from a remote URL.
         case remote(url: String)
@@ -483,46 +597,82 @@ public final class BinaryTarget: Target {
             }
         }
     }
+}
 
-    /// The binary artifact's source.
-    public let artifactSource: ArtifactSource
+public final class PluginTarget: Target {
 
-    /// The binary artifact path.
-    public var artifactPath: AbsolutePath {
-        return sources.root
-    }
-
+    public let capability: PluginCapability
+    
     public init(
         name: String,
         platforms: [SupportedPlatform] = [],
-        path: AbsolutePath,
-        artifactSource: ArtifactSource
+        sources: Sources,
+        pluginCapability: PluginCapability,
+        dependencies: [Target.Dependency] = []
     ) {
-        self.artifactSource = artifactSource
-        let sources = Sources(paths: [], root: path)
+        self.capability = pluginCapability
         super.init(
             name: name,
             defaultLocalization: nil,
             platforms: platforms,
-            type: .binary,
+            type: .plugin,
             sources: sources,
-            dependencies: [],
-            buildSettings: .init()
+            dependencies: dependencies,
+            buildSettings: .init(),
+            pluginUsages: []
         )
     }
 
     private enum CodingKeys: String, CodingKey {
-        case artifactSource
+        case capability
     }
 
     public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(artifactSource, forKey: .artifactSource)
+        try container.encode(self.capability, forKey: .capability)
+        try super.encode(to: encoder)
     }
 
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.artifactSource = try container.decode(ArtifactSource.self, forKey: .artifactSource)
+        self.capability = try container.decode(PluginCapability.self, forKey: .capability)
         try super.init(from: decoder)
+    }
+}
+
+public enum PluginCapability: Equatable, Codable {
+    case prebuild
+    case buildTool
+    case postbuild
+
+    private enum CodingKeys: String, CodingKey {
+        case prebuild, buildTool, postbuild
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .prebuild:
+            try container.encodeNil(forKey: .prebuild)
+        case .buildTool:
+            try container.encodeNil(forKey: .buildTool)
+        case .postbuild:
+            try container.encodeNil(forKey: .postbuild)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .prebuild:
+            self = .prebuild
+        case .buildTool:
+            self = .buildTool
+        case .postbuild:
+            self = .postbuild
+        }
     }
 }

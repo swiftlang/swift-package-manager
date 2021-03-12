@@ -99,13 +99,26 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
         precondition(!localFileSystem.exists(path))
+
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         try self.callGit("clone", "--mirror", repository.url, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.url)",
                          progress: progress)
     }
-
+    
+    public func isValidDirectory(_ directory: String) -> Bool {
+        // Provides better feedback when mistakingly using url: for a dependency that
+        // is a local package. Still allows for using url with a local package that has
+        // also been initialized by git
+        do {
+            try self.callGit("-C", directory, "rev-parse", "--git-dir", repository: RepositorySpecifier(url: directory))
+            return true
+        } catch {
+            return false
+        }
+    }
+    
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         try localFileSystem.copy(from: sourcePath, to: destinationPath)
     }
@@ -479,6 +492,19 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func archive(to path: AbsolutePath) throws {
+        precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
+
+        try self.queue.sync(flags: .barrier) {
+            try callGit("archive",
+                        "--format", "zip",
+                        "--output", path.pathString,
+                        "HEAD",
+                        failureMessage: "Couldn’t create an archive")
+            return
+        }
+    }
+
     /// Returns true if there is an alternative object store in the repository and it is valid.
     public func isAlternateObjectStoreValid() -> Bool {
         let objectStoreFile = self.path.appending(components: ".git", "objects", "info", "alternates")
@@ -752,7 +778,7 @@ private class GitFileSystemView: FileSystem {
     }
 
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
-        fatalError("Unsupported")
+        throw InternalError("changeCurrentWorkingDirectory not supported")
     }
 
     func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
@@ -774,7 +800,7 @@ private class GitFileSystemView: FileSystem {
             throw FileSystemError(.isDirectory, path)
         }
         guard entry.type != .symlink else {
-            fatalError("FIXME: not implemented")
+            throw InternalError("symlinks not supported")
         }
         return try self.repository.read(blob: entry.hash)
     }

@@ -373,6 +373,7 @@ public struct Xcode {
             public var IPHONEOS_DEPLOYMENT_TARGET: String?
             public var TVOS_DEPLOYMENT_TARGET: String?
             public var WATCHOS_DEPLOYMENT_TARGET: String?
+            public var DRIVERKIT_DEPLOYMENT_TARGET: String?
             public var MODULEMAP_FILE: String?
             public var ONLY_ACTIVE_ARCH: String?
             public var OTHER_CFLAGS: [String]?
@@ -421,6 +422,7 @@ public struct Xcode {
                 IPHONEOS_DEPLOYMENT_TARGET: String? = nil,
                 TVOS_DEPLOYMENT_TARGET: String? = nil,
                 WATCHOS_DEPLOYMENT_TARGET: String? = nil,
+                DRIVERKIT_DEPLOYMENT_TARGET: String? = nil,
                 MODULEMAP_FILE: String? = nil,
                 ONLY_ACTIVE_ARCH: String? = nil,
                 OTHER_CFLAGS: [String]? = nil,
@@ -468,6 +470,7 @@ public struct Xcode {
                 self.IPHONEOS_DEPLOYMENT_TARGET = IPHONEOS_DEPLOYMENT_TARGET
                 self.TVOS_DEPLOYMENT_TARGET = TVOS_DEPLOYMENT_TARGET
                 self.WATCHOS_DEPLOYMENT_TARGET = WATCHOS_DEPLOYMENT_TARGET
+                self.DRIVERKIT_DEPLOYMENT_TARGET = DRIVERKIT_DEPLOYMENT_TARGET
                 self.MODULEMAP_FILE = MODULEMAP_FILE
                 self.ONLY_ACTIVE_ARCH = ONLY_ACTIVE_ARCH
                 self.OTHER_CFLAGS = OTHER_CFLAGS

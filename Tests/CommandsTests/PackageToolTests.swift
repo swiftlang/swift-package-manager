@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -34,15 +34,18 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testUsage() throws {
-        XCTAssert(try execute(["--help"]).stdout.contains("USAGE: swift package"))
+        let stdout = try execute(["-help"]).stdout
+        XCTAssert(stdout.contains("USAGE: swift package"), "got stdout:\n" + stdout)
     }
 
     func testSeeAlso() throws {
-        XCTAssert(try execute(["--help"]).stdout.contains("SEE ALSO: swift build, swift run, swift test"))
+        let stdout = try execute(["--help"]).stdout
+        XCTAssert(stdout.contains("SEE ALSO: swift build, swift run, swift test"), "got stdout:\n" + stdout)
     }
 
     func testVersion() throws {
-        XCTAssert(try execute(["--version"]).stdout.contains("Swift Package Manager"))
+        let stdout = try execute(["--version"]).stdout
+        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
     
     func testNetrcSupportedOS() throws {
@@ -163,20 +166,21 @@ final class PackageToolTests: XCTestCase {
     func testCache() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
-            let cachePath = prefix.appending(component: "cache")
             let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
+            let cachePath = prefix.appending(component: "cache")
+            let repositoriesCachePath = cachePath.appending(component: "repositories")
 
             // Perform an initial fetch and populate the cache
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
-            // we have to check for the prefix here since the hash value changes becasue spm sees the `prefix`
+            // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
             // directory `/var/...` as `/private/var/...`.
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
-            XCTAssert(try localFileSystem.getDirectoryContents(cachePath).contains { $0.hasPrefix("Foo-") })
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
 
             // Remove .build folder
             _ = try execute(["reset"], packagePath: packageRoot)
 
-            // Perfom another cache this time from the cache
+            // Perform another cache this time from the cache
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
 
@@ -187,11 +191,26 @@ final class PackageToolTests: XCTestCase {
             // Perfom another fetch
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
-            XCTAssert(try localFileSystem.getDirectoryContents(cachePath).contains { $0.hasPrefix("Foo-") })
+            XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
         }
     }
 
     func testDescribe() throws {
+        
+        fixture(name: "Miscellaneous/ExeTest") { prefix in
+            // Generate the JSON description.
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonOutput = try jsonResult.utf8Output()
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+
+            // Check that tests don't appear in the product memberships.
+            XCTAssertEqual(json["name"]?.string, "ExeTest")
+            let jsonTarget0 = try XCTUnwrap(json["targets"]?.array?[0])
+            XCTAssertNil(jsonTarget0["product_memberships"])
+            let jsonTarget1 = try XCTUnwrap(json["targets"]?.array?[1])
+            XCTAssertEqual(jsonTarget1["product_memberships"]?.array?[0].stringValue, "Exe")
+        }
+
         fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
             // Generate the JSON description.
             let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
@@ -213,11 +232,13 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(jsonTarget1["c99name"]?.stringValue, "SeaExec")
             XCTAssertEqual(jsonTarget1["type"]?.stringValue, "executable")
             XCTAssertEqual(jsonTarget1["module_type"]?.stringValue, "SwiftTarget")
+            XCTAssertEqual(jsonTarget1["product_memberships"]?.array?[0].stringValue, "SeaExec")
             let jsonTarget2 = try XCTUnwrap(json["targets"]?.array?[2])
             XCTAssertEqual(jsonTarget2["name"]?.stringValue, "CExec")
             XCTAssertEqual(jsonTarget2["c99name"]?.stringValue, "CExec")
             XCTAssertEqual(jsonTarget2["type"]?.stringValue, "executable")
             XCTAssertEqual(jsonTarget2["module_type"]?.stringValue, "ClangTarget")
+            XCTAssertEqual(jsonTarget2["product_memberships"]?.array?[0].stringValue, "CExec")
 
             // Generate the text description.
             let textResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=text"], packagePath: prefix)
@@ -273,6 +294,25 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(textChunk6.contains("Sources:\n        main.c"), textChunk6)
         }
     }
+    
+    func testDescribePackageUsingPlugins() throws {
+        fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { prefix in
+            // Generate the JSON description.
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
+            XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
+
+            // Check the contents of the JSON.
+            XCTAssertEqual(try XCTUnwrap(json["name"]).string, "MySourceGenPlugin")
+            let targetsArray = try XCTUnwrap(json["targets"]?.array)
+            let buildToolPluginTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenBuildToolPlugin" }?.dictionary)
+            XCTAssertEqual(buildToolPluginTarget["module_type"]?.string, "PluginTarget")
+            XCTAssertEqual(buildToolPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
+            let prebuildPluginTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenPrebuildPlugin" }?.dictionary)
+            XCTAssertEqual(prebuildPluginTarget["module_type"]?.string, "PluginTarget")
+            XCTAssertEqual(prebuildPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "prebuild")
+        }
+    }
 
     func testDumpPackage() throws {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
@@ -324,7 +364,7 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
-    func testShowDependencies_dotFormat_sr12016() {
+    func testShowDependencies_dotFormat_sr12016() throws {
         // Confirm that SR-12016 is resolved.
         // See https://bugs.swift.org/browse/SR-12016
         
@@ -338,73 +378,74 @@ final class PackageToolTests: XCTestCase {
         let manifestA = Manifest.createManifest(
             name: "PackageA",
             path: "/PackageA",
-            url: "/PackageA",
-            v: .currentToolsVersion,
             packageKind: .root,
+            packageLocation: "/PackageA",
+            v: .v5_3,
             dependencies: [
-                .init(name: "PackageB", url: "/PackageB", requirement: .localPackage),
-                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
+                .local(name: "PackageB", path: "/PackageB"),
+                .local(name: "PackageC", path: "/PackageC"),
             ],
             products: [
                 .init(name: "exe", type: .executable, targets: ["TargetA"])
             ],
             targets: [
-                .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
+                try .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
             ]
         )
         
         let manifestB = Manifest.createManifest(
             name: "PackageB",
             path: "/PackageB",
-            url: "/PackageB",
-            v: .currentToolsVersion,
             packageKind: .local,
+            packageLocation: "/PackageB",
+            v: .v5_3,
             dependencies: [
-                .init(name: "PackageC", url: "/PackageC", requirement: .localPackage),
-                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+                .local(name: "PackageC", path: "/PackageC"),
+                .local(name: "PackageD", path: "/PackageD"),
             ],
             products: [
                 .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
             ],
             targets: [
-                .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
+                try .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
             ]
         )
         
         let manifestC = Manifest.createManifest(
             name: "PackageC",
             path: "/PackageC",
-            url: "/PackageC",
-            v: .currentToolsVersion,
             packageKind: .local,
+            packageLocation: "/PackageC",
+            v: .v5_3,
             dependencies: [
-                .init(name: "PackageD", url: "/PackageD", requirement: .localPackage),
+                .local(name: "PackageD", path: "/PackageD"),
             ],
             products: [
                 .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
             ],
             targets: [
-                .init(name: "TargetC", dependencies: ["PackageD"])
+                try .init(name: "TargetC", dependencies: ["PackageD"])
             ]
         )
         
         let manifestD = Manifest.createManifest(
             name: "PackageD",
             path: "/PackageD",
-            url: "/PackageD",
-            v: .currentToolsVersion,
             packageKind: .local,
+            packageLocation: "/PackageD",
+            v: .v5_3,
             products: [
                 .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],
             targets: [
-                .init(name: "TargetD")
+                try .init(name: "TargetD")
             ]
         )
         
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
-                                     manifests: [manifestA, manifestB, manifestC, manifestD])
+        let graph = try loadPackageGraph(fs: fileSystem,
+                                         diagnostics: diagnostics,
+                                         manifests: [manifestA, manifestB, manifestC, manifestD])
         XCTAssertNoDiagnostics(diagnostics)
         
         let output = BufferedOutputByteStream()
@@ -939,5 +980,73 @@ final class PackageToolTests: XCTestCase {
             }
         }
       #endif
+    }
+
+    func testArchiveSource() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+
+            // Running without arguments or options
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: packageRoot)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+
+                let stdoutOutput = try result.utf8Output()
+                XCTAssert(stdoutOutput.contains("Created Bar.zip"), #"actual: "\#(stdoutOutput)""#)
+
+                // Running without arguments or options again, overwriting existing archive
+                do {
+                    let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: packageRoot)
+                    XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+
+                    let stdoutOutput = try result.utf8Output()
+                    XCTAssert(stdoutOutput.contains("Created Bar.zip"), #"actual: "\#(stdoutOutput)""#)
+                }
+            }
+
+            // Runnning with output as absolute path within package root
+            do {
+                let destination = packageRoot.appending(component: "Bar-1.2.3.zip")
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+
+                let stdoutOutput = try result.utf8Output()
+                XCTAssert(stdoutOutput.contains("Created Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
+            }
+
+            // Running with output is outside the package root
+            try withTemporaryDirectory { tempDirectory in
+                let destination = tempDirectory.appending(component: "Bar-1.2.3.zip")
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+
+                let stdoutOutput = try result.utf8Output()
+                XCTAssert(stdoutOutput.hasPrefix("Created /"), #"actual: "\#(stdoutOutput)""#)
+                XCTAssert(stdoutOutput.contains("Bar-1.2.3.zip"), #"actual: "\#(stdoutOutput)""#)
+            }
+
+            // Running without arguments or options in non-package directory
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: prefix)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
+
+                let stderrOutput = try result.utf8stderrOutput()
+                XCTAssert(stderrOutput.contains("error: root manifest not found"), #"actual: "\#(stderrOutput)""#)
+            }
+
+            // Runnning with output as absolute path to existing directory
+            do {
+                let destination = AbsolutePath.root
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source", "--output", destination.pathString], packagePath: packageRoot)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
+
+                let stderrOutput = try result.utf8stderrOutput()
+                XCTAssert(
+                    stderrOutput.contains("error: Couldn’t create an archive:") &&
+                        stderrOutput.contains("fatal: could not create archive file '/': Is a directory"),
+                    #"actual: "\#(stderrOutput)""#
+                )
+            }
+        }
     }
 }

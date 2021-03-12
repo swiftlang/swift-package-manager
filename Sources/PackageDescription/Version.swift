@@ -55,7 +55,7 @@ public struct Version {
     /// Initializes a version struct with the provided components of a semantic version.
     ///
     /// - Parameters:
-    ///     - major: The major version numner.
+    ///     - major: The major version number.
     ///     - minor: The minor version number.
     ///     - patch: The patch version number.
     ///     - prereleaseIdentifiers: The pre-release identifier.

@@ -48,6 +48,7 @@ public struct UserManifestResources: ManifestResourceProvider {
         self.init(
             swiftCompiler: swiftCompiler,
             swiftCompilerFlags: swiftCompilerFlags,
-            libDir: UserManifestResources.libDir(forBinDir: binDir))
+            libDir: UserManifestResources.libDir(forBinDir: binDir)
+        )
     }
 }

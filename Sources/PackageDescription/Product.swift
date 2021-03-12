@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -128,6 +128,29 @@ public class Product: Encodable {
         }
     }
 
+    /// The plugin product of a Swift package.
+    public final class Plugin: Product {
+        private enum PluginCodingKeys: CodingKey {
+            case targets
+        }
+
+        /// The name of the plugin target to vend as a product.
+        public let targets: [String]
+
+        init(name: String, targets: [String]) {
+            self.targets = targets
+            super.init(name: name)
+        }
+
+        public override func encode(to encoder: Encoder) throws {
+            try super.encode(to: encoder)
+            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
+            try productContainer.encode("plugin", forKey: .type)
+            var pluginContainer = encoder.container(keyedBy: PluginCodingKeys.self)
+            try pluginContainer.encode(targets, forKey: .targets)
+        }
+    }
+
     /// Creates a library product to allow clients that declare a dependency on this package
     /// to use the package's functionality.
     ///
@@ -139,7 +162,7 @@ public class Product: Encodable {
     /// - Parameters:
     ///     - name: The name of the library product.
     ///     - type: The optional type of the library that's used to determine how to link to the library.
-    ///         Leave this parameter unspecified to let to let the Swift Package Manager choose between static or dynamic linking (recommended).
+    ///         Leave this parameter unspecified to let the Swift Package Manager choose between static or dynamic linking (recommended).
     ///         If you don't support both linkage types, use `.static` or `.dynamic` for this parameter. 
     ///     - targets: The targets that are bundled into a library product.
     public static func library(
@@ -160,6 +183,19 @@ public class Product: Encodable {
         targets: [String]
     ) -> Product {
         return Executable(name: name, targets: targets)
+    }
+    
+    /// Creates an plugin package product.
+    ///
+    /// - Parameters:
+    ///     - name: The name of the plugin product.
+    ///     - targets: The plugin targets to vend as a product.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func plugin(
+        name: String,
+        targets: [String]
+    ) -> Product {
+        return Plugin(name: name, targets: targets)
     }
 
     public func encode(to encoder: Encoder) throws {

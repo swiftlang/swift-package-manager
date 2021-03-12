@@ -1,13 +1,14 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import PackageGraph
 import PackageModel
@@ -389,8 +390,8 @@ public func xcodeProject(
             productType = .framework
         case .test:
             productType = .unitTest
-        case .systemModule, .binary:
-            fatalError()
+        case .systemModule, .binary, .plugin:
+            throw InternalError("\(target.type) not supported")
         }
 
         // Warn if the target name is invalid.
@@ -433,6 +434,8 @@ public func xcodeProject(
                     targetSettings.common.TVOS_DEPLOYMENT_TARGET = version
                 case .watchOS:
                     targetSettings.common.WATCHOS_DEPLOYMENT_TARGET = version
+                case .driverKit:
+                    targetSettings.common.DRIVERKIT_DEPLOYMENT_TARGET = version
                 default:
                     break
                 }
@@ -488,7 +491,7 @@ public func xcodeProject(
 
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
-        for depModule in [target] + target.recursiveTargetDependencies() {
+        for depModule in try [target] + target.recursiveTargetDependencies() {
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the target how it contributes
             // to the overall build environment for client targets, which can
@@ -623,7 +626,7 @@ public func xcodeProject(
                     }
                 }
                 let config = assignment.conditions.compactMap { $0 as? ConfigurationCondition }.first?.configuration
-                appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
+                try appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
             }
         }
     }
@@ -639,7 +642,7 @@ public func xcodeProject(
 
         // For each target on which this one depends, add a target dependency
         // and also link against the target's product.
-        for case .target(let dependency, _) in target.recursiveDependencies() {
+        for case .target(let dependency, _) in try target.recursiveDependencies() {
             // We should never find ourself in the list of dependencies.
             assert(dependency != target)
 
@@ -737,7 +740,7 @@ private extension SupportedLanguageExtension {
 }
 
 private extension ResolvedTarget {
-    func fileType(forSource source: RelativePath) -> String {
+    func fileType(forSource source: RelativePath) throws -> String {
         switch underlyingTarget {
         case is SwiftTarget:
             // SwiftModules only has one type of source so just always return this.
@@ -745,18 +748,18 @@ private extension ResolvedTarget {
 
         case is ClangTarget:
             guard let suffix = source.suffix else {
-                fatalError("Source \(source) doesn't have an extension in C family target \(name)")
+                throw InternalError("Source \(source) doesn't have an extension in C family target \(name)")
             }
             // Suffix includes `.` so drop it.
             assert(suffix.hasPrefix("."))
             let fileExtension = String(suffix.dropFirst())
             guard let ext = SupportedLanguageExtension(rawValue: fileExtension) else {
-                fatalError("Unknown source extension \(source) in C family target \(name)")
+                throw InternalError("Unknown source extension \(source) in C family target \(name)")
             }
             return ext.xcodeFileType
 
         default:
-            fatalError("unexpected target type")
+            throw InternalError("unexpected target type")
         }
     }
 }
@@ -780,7 +783,7 @@ func appendSetting(
     forDecl decl: BuildSettings.Declaration,
     to table: Xcode.BuildSettingsTable,
     config: BuildConfiguration? = nil
-) {
+) throws {
     switch decl {
     // FIXME: This switch case is kind of sad but we need to convert Xcode's
     // build model to be of reference type in order to avoid it.
@@ -875,6 +878,6 @@ func appendSetting(
         }
 
     default:
-        fatalError("Unhandled decl \(decl)")
+        throw InternalError("Unhandled decl \(decl)")
     }
 }

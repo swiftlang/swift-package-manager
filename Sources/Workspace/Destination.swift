@@ -76,9 +76,9 @@ public struct Destination: Encodable, Equatable {
     /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
     private static func hostBinDir(
         originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
-    ) -> AbsolutePath {
+    ) throws -> AbsolutePath {
         guard let cwd = originalWorkingDirectory else {
-            return try! AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
+            return try AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
         }
         return AbsolutePath(CommandLine.arguments[0], relativeTo: cwd).parentDirectory
     }
@@ -93,7 +93,7 @@ public struct Destination: Encodable, Equatable {
         let customBinDir = ProcessEnv
             .vars["SWIFTPM_CUSTOM_BINDIR"]
             .flatMap{ try? AbsolutePath(validating: $0) }
-        let binDir = customBinDir ?? binDir ?? Destination.hostBinDir(
+        let binDir = try customBinDir ?? binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)
 
         let sdkPath: AbsolutePath?

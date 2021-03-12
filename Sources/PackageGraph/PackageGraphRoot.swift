@@ -22,14 +22,11 @@ public struct PackageGraphRootInput {
     /// Top level dependencies to the graph.
     public let dependencies: [PackageDependencyDescription]
 
-    /// Dependency mirrors for the graph.
-    public let mirrors: DependencyMirrors
 
     /// Create a package graph root.
-    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = [], mirrors: DependencyMirrors = [:]) {
+    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = []) {
         self.packages = packages
         self.dependencies = dependencies
-        self.mirrors = mirrors
     }
 }
 
@@ -47,9 +44,10 @@ public struct PackageGraphRoot {
 
     /// Create a package graph root.
     public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
+        // TODO: this does not use the identity resolver which is probably fine since its the root packages
         self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
-            let identity = PackageIdentity(url: manifest.url)
-            return PackageReference(identity: identity, path: path.pathString, kind: .root)
+            let identity = PackageIdentity(url: manifest.packageLocation)
+            return .root(identity: identity, path: path)
         }
         self.manifests = manifests
 
@@ -71,43 +69,52 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints(mirrors: DependencyMirrors) -> [PackageContainerConstraint] {
-        let constraints = packageRefs.map({
-            PackageContainerConstraint(container: $0, requirement: .unversioned, products: .everything)
-        })
-        return constraints + dependencies.map({
+    public func constraints() throws -> [PackageContainerConstraint] {
+        let constraints = packageRefs.map{
+            PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
+        }
+        
+        let depend = try dependencies.map{
             PackageContainerConstraint(
-                container: $0.createPackageRef(mirrors: mirrors),
-                requirement: $0.requirement.toConstraintRequirement(),
+                package: $0.createPackageRef(),
+                requirement: try $0.toConstraintRequirement(),
                 products: $0.productFilter
             )
-        })
+        }
+        return constraints + depend
+    }
+}
+
+extension PackageDependencyDescription {
+    /// Returns the constraint requirement representation.
+    public func toConstraintRequirement() throws -> PackageRequirement {
+        switch self {
+        case .local:
+            return .unversioned
+        case .scm(let data):
+            return try data.requirement.toConstraintRequirement()
+        }
     }
 }
 
 extension PackageDependencyDescription.Requirement {
-
     /// Returns the constraint requirement representation.
-    public func toConstraintRequirement() -> PackageRequirement {
+    public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
-
         case .revision(let identifier):
-            assert(Git.checkRefFormat(ref: identifier))
-
+            guard Git.checkRefFormat(ref: identifier) else {
+                throw StringError("Could not find revision: '\(identifier)'")
+            }
             return .revision(identifier)
-
         case .branch(let identifier):
-            assert(Git.checkRefFormat(ref: identifier))
-
+            guard Git.checkRefFormat(ref: identifier) else {
+                throw StringError("Could not find branch: '\(identifier)'")
+            }
             return .revision(identifier)
-
         case .exact(let version):
             return .versionSet(.exact(version))
-
-        case .localPackage:
-            return .unversioned
         }
     }
 }

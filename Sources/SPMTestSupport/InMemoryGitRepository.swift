@@ -91,9 +91,9 @@ public final class InMemoryGitRepository {
     }
 
     /// Copy/clone this repository.
-    fileprivate func copy(at newPath: AbsolutePath? = nil) -> InMemoryGitRepository {
+    fileprivate func copy(at newPath: AbsolutePath? = nil)  throws -> InMemoryGitRepository {
         let path = newPath ?? self.path
-        try! self.fs.createDirectory(path, recursive: true)
+        try self.fs.createDirectory(path, recursive: true)
         let repo = InMemoryGitRepository(path: path, fs: self.fs)
         self.lock.withLock {
             for (revision, state) in self.history {
@@ -107,7 +107,7 @@ public final class InMemoryGitRepository {
 
     /// Commits the current state of the repository filesystem and returns the commit identifier.
     @discardableResult
-    public func commit() -> String {
+    public func commit() throws -> String {
         // Create a fake hash for thie commit.
         let hash = String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
         self.lock.withLock {
@@ -118,7 +118,7 @@ public final class InMemoryGitRepository {
             self.isDirty = false
         }
         // Install the current HEAD i.e. this commit to the filesystem that was passed.
-        try! installHead()
+        try installHead()
         return hash
     }
 
@@ -394,13 +394,13 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
         let repo = specifierMap[RepositorySpecifier(url: repository.url.spm_dropGitSuffix())]!
-        fetchedMap[path] = repo.copy()
+        fetchedMap[path] = try repo.copy()
         add(specifier: RepositorySpecifier(url: path.asURL.absoluteString), repository: repo)
     }
 
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         let repo = fetchedMap[sourcePath]!
-        fetchedMap[destinationPath] = repo.copy()
+        fetchedMap[destinationPath] = try repo.copy()
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository {
@@ -413,7 +413,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         to destinationPath: AbsolutePath,
         editable: Bool
     ) throws {
-        let checkout = fetchedMap[sourcePath]!.copy(at: destinationPath)
+        let checkout = try fetchedMap[sourcePath]!.copy(at: destinationPath)
         checkoutsMap[destinationPath] = checkout
     }
 

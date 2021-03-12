@@ -59,15 +59,15 @@ class GitRepositoryTests: XCTestCase {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
             }
 
-            let master = try repository.resolveRevision(identifier: "master")
+            let main = try repository.resolveRevision(identifier: "main")
 
-            XCTAssertEqual(master.identifier,
+            XCTAssertEqual(main.identifier,
                 try Process.checkNonZeroExit(
-                    args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "master").spm_chomp())
+                    args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "main").spm_chomp())
 
             // Check that git hashes resolve to themselves.
-            let masterIdentifier = try repository.resolveRevision(identifier: master.identifier)
-            XCTAssertEqual(master.identifier, masterIdentifier.identifier)
+            let mainIdentifier = try repository.resolveRevision(identifier: main.identifier)
+            XCTAssertEqual(main.identifier, mainIdentifier.identifier)
 
             // Check that invalid identifier doesn't resolve.
             if let revision = try? repository.resolveRevision(identifier: "invalid") {
@@ -157,7 +157,7 @@ class GitRepositoryTests: XCTestCase {
             try repo.stageEverything()
             try repo.commit()
             // We should be able to read a repo which as a submdoule.
-            _ = try repo.read(tree: try repo.resolveHash(treeish: "master"))
+            _ = try repo.read(tree: try repo.resolveHash(treeish: "main"))
         }
     }
 
@@ -365,7 +365,7 @@ class GitRepositoryTests: XCTestCase {
             // We should have commits which are not pushed.
             XCTAssert(try checkoutRepo.hasUnpushedCommits())
             // Push the changes and check again.
-            try checkoutTestRepo.push(remote: "origin", branch: "master")
+            try checkoutTestRepo.push(remote: "origin", branch: "main")
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
         }
     }
@@ -437,7 +437,7 @@ class GitRepositoryTests: XCTestCase {
             let repo = GitRepository(path: testRepoPath)
             var currentRevision = try repo.getCurrentRevision()
             // This is the default branch of a new repo.
-            XCTAssert(repo.exists(revision: Revision(identifier: "master")))
+            XCTAssert(repo.exists(revision: Revision(identifier: "main")))
             // Check a non existent revision.
             XCTAssertFalse(repo.exists(revision: Revision(identifier: "nonExistent")))
             // Checkout a new branch using command line.
@@ -470,9 +470,9 @@ class GitRepositoryTests: XCTestCase {
                 try repo.stage(file: "test.txt")
             }
 
-            try repo.checkout(revision: Revision(identifier: "master"))
-            // Current branch must be master.
-            XCTAssertEqual(try repo.currentBranch(), "master")
+            try repo.checkout(revision: Revision(identifier: "main"))
+            // Current branch must be main.
+            XCTAssertEqual(try repo.currentBranch(), "main")
             // Create a new branch.
             try repo.checkout(newBranch: "TestBranch")
             XCTAssertEqual(try repo.currentBranch(), "TestBranch")
@@ -657,9 +657,9 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(testRepoPath)
             let repo = GitRepository(path: testRepoPath)
             
-            // Create a `main` branch and remove `master`.
-            try repo.checkout(newBranch: "main")
-            try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "branch", "-D", "master"])
+            // Create a `newMain` branch and remove `main`.
+            try repo.checkout(newBranch: "newMain")
+            try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "branch", "-D", "main"])
             
             // Change the branch name to something non-existent.
             try systemQuietly([Git.tool, "-C", testRepoPath.pathString, "symbolic-ref", "HEAD", "refs/heads/_non_existent_branch_"])
@@ -679,7 +679,7 @@ class GitRepositoryTests: XCTestCase {
             let checkoutRepo = try provider.openCheckout(at: checkoutPath)
 
             // Try to check out the `main` branch.
-            try checkoutRepo.checkout(revision: Revision(identifier: "main"))
+            try checkoutRepo.checkout(revision: Revision(identifier: "newMain"))
             XCTAssertTrue(localFileSystem.exists(checkoutPath.appending(component: "file.swift")))
 
             // The following will throw if HEAD was set incorrectly and we didn't do a no-checkout clone.

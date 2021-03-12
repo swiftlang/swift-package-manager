@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -13,6 +13,7 @@ import struct Foundation.URL
 
 import PackageModel
 import SourceControl
+import TSCBasic
 import TSCUtility
 
 public enum PackageCollectionsModel {}
@@ -30,7 +31,7 @@ extension PackageCollectionsModel {
         public let identifier: Identifier
 
         /// Where the collection and its contents are obtained
-        public let source: Source
+        public internal(set) var source: Source
 
         /// The name of the collection
         public let name: String
@@ -53,6 +54,14 @@ extension PackageCollectionsModel {
         /// When this collection was last processed locally
         public let lastProcessedAt: Date
 
+        /// The collection's signature metadata
+        public let signature: SignatureData?
+
+        /// Indicates if the collection is signed
+        public var isSigned: Bool {
+            self.signature != nil
+        }
+
         /// Initializes a `Collection`
         init(
             source: Source,
@@ -62,6 +71,7 @@ extension PackageCollectionsModel {
             packages: [Package],
             createdAt: Date,
             createdBy: Author?,
+            signature: SignatureData?,
             lastProcessedAt: Date = Date()
         ) {
             self.identifier = .init(from: source)
@@ -72,6 +82,7 @@ extension PackageCollectionsModel {
             self.packages = packages
             self.createdAt = createdAt
             self.createdBy = createdBy
+            self.signature = signature
             self.lastProcessedAt = lastProcessedAt
         }
     }
@@ -86,9 +97,35 @@ extension PackageCollectionsModel {
         /// URL of the source file
         public let url: URL
 
-        public init(type: CollectionSourceType, url: URL) {
+        /// Indicates if the source is explicitly trusted or untrusted by the user
+        public var isTrusted: Bool?
+
+        /// Indicates if the source can skip signature validation
+        public var skipSignatureCheck: Bool
+
+        /// The source's absolute file system path, if its URL is of 'file' scheme.
+        let absolutePath: AbsolutePath?
+
+        public init(type: CollectionSourceType, url: URL, isTrusted: Bool? = nil, skipSignatureCheck: Bool = false) {
             self.type = type
             self.url = url
+            self.isTrusted = isTrusted
+            self.skipSignatureCheck = skipSignatureCheck
+
+            if url.scheme?.lowercased() == "file", let absolutePath = try? AbsolutePath(validating: url.path) {
+                self.absolutePath = absolutePath
+            } else {
+                self.absolutePath = nil
+            }
+        }
+
+        public static func == (lhs: CollectionSource, rhs: CollectionSource) -> Bool {
+            lhs.type == rhs.type && lhs.url == rhs.url
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(self.type)
+            hasher.combine(self.url)
         }
     }
 
@@ -155,5 +192,61 @@ extension PackageCollectionsModel.Collection {
     public struct Author: Equatable, Codable {
         /// The name of the author
         public let name: String
+    }
+}
+
+extension PackageCollectionsModel {
+    /// Package collection signature metadata
+    public struct SignatureData: Equatable, Codable {
+        /// Details about the certificate used to generate the signature
+        public let certificate: Certificate
+
+        /// Indicates if the signature has been validated. This is set to false if signature check didn't take place.
+        public let isVerified: Bool
+
+        public init(certificate: Certificate, isVerified: Bool) {
+            self.certificate = certificate
+            self.isVerified = isVerified
+        }
+
+        public struct Certificate: Equatable, Codable {
+            /// Subject of the certificate
+            public let subject: Name
+
+            /// Issuer of the certificate
+            public let issuer: Name
+
+            /// Creates a `Certificate`
+            public init(subject: Name, issuer: Name) {
+                self.subject = subject
+                self.issuer = issuer
+            }
+
+            /// Generic certificate name (e.g., subject, issuer)
+            public struct Name: Equatable, Codable {
+                /// User ID
+                public let userID: String?
+
+                /// Common name
+                public let commonName: String?
+
+                /// Organizational unit
+                public let organizationalUnit: String?
+
+                /// Organization
+                public let organization: String?
+
+                /// Creates a `Name`
+                public init(userID: String?,
+                            commonName: String?,
+                            organizationalUnit: String?,
+                            organization: String?) {
+                    self.userID = userID
+                    self.commonName = commonName
+                    self.organizationalUnit = organizationalUnit
+                    self.organization = organization
+                }
+            }
+        }
     }
 }

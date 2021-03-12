@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -28,13 +28,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .local,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -45,10 +45,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -59,9 +59,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
+                    packageLocation: "/Baz",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Baz", dependencies: ["Bar"]),
@@ -79,6 +79,15 @@ class PackageGraphTests: XCTestCase {
             result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
             result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
+
+        let fooPackage = try XCTUnwrap(g.packages.first{ $0.name == "Foo" })
+        let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
+        let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
+        XCTAssert(g.package(for: fooTarget) == fooPackage)
+        XCTAssert(g.package(for: fooDepTarget) == fooPackage)
+        let barPackage = try XCTUnwrap(g.packages.first{ $0.name == "Bar" })
+        let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
+        XCTAssert(g.package(for: barTarget) == barPackage)
     }
 
     func testProductDependencies() throws {
@@ -89,15 +98,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar", "CBar"]),
@@ -105,8 +114,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
                         ProductDescription(name: "CBar", type: .library(.automatic), targets: ["CBar"]),
@@ -135,15 +144,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -151,10 +160,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -165,10 +174,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
                     packageKind: .local,
+                    packageLocation: "/Baz",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
@@ -190,15 +199,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -220,15 +229,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let g = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -237,8 +246,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .local,
+                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -264,15 +273,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -280,8 +289,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
@@ -300,13 +309,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
-                    url: "/Fourth",
                     packageKind: .local,
+                    packageLocation: "/Fourth",
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
@@ -316,8 +325,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Third",
                     path: "/Third",
-                    url: "/Third",
                     packageKind: .local,
+                    packageLocation: "/Third",
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"])
                     ],
@@ -327,8 +336,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Second",
                     path: "/Second",
-                    url: "/Second",
                     packageKind: .local,
+                    packageLocation: "/Second",
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"])
                     ],
@@ -338,12 +347,12 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "First",
                     path: "/First",
-                    url: "/First",
                     packageKind: .root,
+                    packageLocation: "/First",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "First", dependencies: ["Second", "Third", "Fourth"]),
@@ -365,13 +374,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
-                    url: "/Fourth",
                     packageKind: .local,
+                    packageLocation: "/Fourth",
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -381,8 +390,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Third",
                     path: "/Third",
-                    url: "/Third",
                     packageKind: .local,
+                    packageLocation: "/Third",
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -392,8 +401,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Second",
                     path: "/Second",
-                    url: "/Second",
                     packageKind: .local,
+                    packageLocation: "/Second",
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -403,12 +412,12 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "First",
                     path: "/First",
-                    url: "/First",
                     packageKind: .root,
+                    packageLocation: "/First",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Second", "Third", "Fourth"]),
@@ -431,13 +440,13 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
                     path: "/Fourth",
-                    url: "/Fourth",
                     packageKind: .local,
+                    packageLocation: "/Fourth",
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
@@ -447,10 +456,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Third",
                     path: "/Third",
-                    url: "/Third",
                     packageKind: .local,
+                    packageLocation: "/Third",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third"])
@@ -461,10 +470,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Second",
                     path: "/Second",
-                    url: "/Second",
                     packageKind: .local,
+                    packageLocation: "/Second",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second"])
@@ -475,10 +484,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "First",
                     path: "/First",
-                    url: "/First",
                     packageKind: .root,
+                    packageLocation: "/First",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "First", type: .library(.automatic), targets: ["First"])
@@ -501,15 +510,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -517,8 +526,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -536,25 +545,77 @@ class PackageGraphTests: XCTestCase {
 
     func testProductDependencyNotFound() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift"
+            "/Foo/Sources/FooTarget/foo.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Barx"]),
+                        TargetDescription(name: "FooTarget", dependencies: ["Barx"]),
                     ]),
             ]
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' not found. It is required by target 'Foo'.", behavior: .error, location: "'Foo' /Foo")
+            result.check(diagnostic: "product 'Barx' not found. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+        }
+    }
+
+    func testProductDependencyNotFoundWithName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/FooTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    toolsVersion: .v5_2,
+                    targets: [
+                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx", package: "Bar")]),
+                    ]
+                )
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' not found in package 'Bar'. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
+        }
+    }
+
+    func testProductDependencyNotFoundWithNoName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/FooTarget/foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    toolsVersion: .v5_2,
+                    targets: [
+                        TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")]),
+                    ]
+                )
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' not found. it is required by package 'Foo' target 'FooTarget'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
 
@@ -567,18 +628,18 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
                     dependencies: [
-                        PackageDependencyDescription(name: "Bar", url: "/Bar", requirement: .branch("master")),
-                        PackageDependencyDescription(url: "/BizPath", requirement: .exact("1.2.3")),
-                        PackageDependencyDescription(url: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
+                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/BizPath", requirement: .exact("1.2.3")),
+                        .scm(location: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"]),
@@ -586,8 +647,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .remote,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"])
                     ],
@@ -597,9 +658,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Biz",
                     path: "/BizPath",
-                    url: "/BizPath",
-                    version: "1.2.3",
                     packageKind: .remote,
+                    packageLocation: "/BizPath",
+                    version: "1.2.3",
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
@@ -609,9 +670,9 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Fiz",
                     path: "/FizPath",
-                    url: "/FizPath",
-                    version: "1.2.3",
                     packageKind: .remote,
+                    packageLocation: "/FizPath",
+                    version: "1.2.3",
                     products: [
                         ProductDescription(name: "FizLib", type: .library(.automatic), targets: ["FizLib"])
                     ],
@@ -622,19 +683,27 @@ class PackageGraphTests: XCTestCase {
         )
 
         DiagnosticsEngineTester(diagnostics) { result in
-            result.checkUnordered(diagnostic: """
-                dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target \
-                dependency with '.product(name: "BarLib", package: "Bar")'
-                """, behavior: .error, location: "'Foo' /Foo")
-            result.checkUnordered(diagnostic: """
-                dependency 'Biz' in target 'Foo' requires explicit declaration; provide the name of the package \
-                dependency with '.package(name: "Biz", url: "/BizPath", .exact("1.2.3"))'
-                """, behavior: .error, location: "'Foo' /Foo")
-            result.checkUnordered(diagnostic: """
-                dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target \
-                dependency with '.product(name: "FizLib", package: "Fiz")' and provide the name of the package \
-                dependency with '.package(name: "Fiz", url: "/FizPath", from: "1.1.2")'
-                """, behavior: .error, location: "'Foo' /Foo")
+            result.checkUnordered(
+                diagnostic: """
+                dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
+                """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+            result.checkUnordered(
+                diagnostic: """
+                dependency 'Biz' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Biz", package: "BizPath")'
+                """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+            result.checkUnordered(
+                diagnostic: """
+                dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "FizLib", package: "FizPath")'
+                """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
         }
     }
 
@@ -645,16 +714,16 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
                     dependencies: [
-                        PackageDependencyDescription(name: "UnBar", url: "/Bar", requirement: .branch("master")),
+                        .scm(name: "UnBar", location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
@@ -662,8 +731,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "UnBar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .remote,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -686,17 +755,17 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Biz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BarLibrary"]),
@@ -704,8 +773,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Biz",
                     path: "/Biz",
-                    url: "/Biz",
                     packageKind: .local,
+                    packageLocation: "/Biz",
                     products: [
                         ProductDescription(name: "biz", type: .executable, targets: ["Biz"])
                     ],
@@ -715,8 +784,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -726,8 +795,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
                     packageKind: .local,
+                    packageLocation: "/Baz",
                     products: [
                         ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -752,15 +821,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .root,
+                    packageLocation: "/Bar",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
@@ -768,8 +837,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
-                    packageKind: .local),
+                    packageKind: .local,
+                    packageLocation: "/Foo"),
             ]
         )
 
@@ -787,15 +856,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Start",
                     path: "/Start",
-                    url: "/Start",
                     packageKind: .root,
+                    packageLocation: "/Start",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BazLibrary"]),
@@ -804,10 +873,10 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Dep1",
                     path: "/Dep1",
-                    url: "/Dep1",
                     packageKind: .local,
+                    packageLocation: "/Dep1",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
@@ -818,8 +887,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Dep2",
                     path: "/Dep2",
-                    url: "/Dep2",
                     packageKind: .local,
+                    packageLocation: "/Dep2",
                     products: [
                         ProductDescription(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"]),
                         ProductDescription(name: "BamLibrary", type: .library(.automatic), targets: ["Bam"]),
@@ -844,16 +913,16 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        PackageDependencyDescription(url: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -861,8 +930,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -872,8 +941,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Baz",
                     path: "/Baz",
-                    url: "/Baz",
                     packageKind: .local,
+                    packageLocation: "/Baz",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -898,15 +967,15 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -915,8 +984,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
                         ProductDescription(name: "TransitiveBar", type: .library(.automatic), targets: ["TransitiveBar"]),
@@ -955,22 +1024,22 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    func testInvalidExplicitPackageDependencyName() {
+    func testInvalidExplicitPackageDependencyName() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Baar/bar.swift"
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
                     packageKind: .root,
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(name: "Baar", url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(name: "Baar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Baar"]),
@@ -978,8 +1047,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Bar",
                     path: "/Bar",
-                    url: "/Bar",
                     packageKind: .local,
+                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Baar", type: .library(.automatic), targets: ["Baar"])
                     ],
@@ -992,7 +1061,7 @@ class PackageGraphTests: XCTestCase {
         DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
-                    declared name 'Baar' for package dependency '/Bar' does not match the actual package name 'Bar'
+                    'Foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
                     """,
                 behavior: .error,
                 location: "'Foo' /Foo"
@@ -1009,16 +1078,16 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
                     path: "/Foo",
-                    url: "/Foo",
+                    packageLocation: "/Foo",
                     dependencies: [
-                        PackageDependencyDescription(url: "/Biz", requirement: .localPackage),
+                        .local(path: "/Biz"),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [
@@ -1042,8 +1111,8 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createV4Manifest(
                     name: "Biz",
                     path: "/Biz",
-                    url: "/Biz",
                     packageKind: .remote,
+                    packageLocation: "/Biz",
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
@@ -1094,18 +1163,18 @@ class PackageGraphTests: XCTestCase {
         )
 
         let diagnostics = DiagnosticsEngine()
-        _ = loadPackageGraph(
+        _ = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Root",
                     path: "/Root",
-                    url: "/Root",
-                    v: .v5_2,
                     packageKind: .root,
+                    packageLocation: "/Root",
+                    v: .v5_2,
                     dependencies: [
-                        PackageDependencyDescription(name: "Immediate", url: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(name: "Immediate", location: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Root", dependencies: [
@@ -1116,18 +1185,18 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Immediate",
                     path: "/Immediate",
-                    url: "/Immediate",
-                    v: .v5_2,
                     packageKind: .local,
+                    packageLocation: "/Immediate",
+                    v: .v5_2,
                     dependencies: [
-                        PackageDependencyDescription(
+                        .scm(
                             name: "Transitive",
-                            url: "/Transitive",
+                            location: "/Transitive",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
-                        PackageDependencyDescription(
+                        .scm(
                             name: "Nonexistent",
-                            url: "/Nonexistent",
+                            location: "/Nonexistent",
                             requirement: .upToNextMajor(from: "1.0.0")
                         )
                     ],
@@ -1148,13 +1217,13 @@ class PackageGraphTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Transitive",
                     path: "/Transitive",
-                    url: "/Transitive",
-                    v: .v5_2,
                     packageKind: .local,
+                    packageLocation: "/Transitive",
+                    v: .v5_2,
                     dependencies: [
-                        PackageDependencyDescription(
+                        .scm(
                             name: "Nonexistent",
-                            url: "/Nonexistent",
+                            location: "/Nonexistent",
                             requirement: .upToNextMajor(from: "1.0.0")
                         )
                     ],
@@ -1202,5 +1271,629 @@ class PackageGraphTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles: [])
         let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs)
         XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
+    }
+
+    func testTargetDependencies_Pre52() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+    }
+
+    func testTargetDependencies_Pre52_UnknownProduct() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Unknown"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(
+                diagnostic: """
+                    product 'Unknown' not found. it is required by package 'Foo' target 'Foo'.
+                    """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+        }
+    }
+
+    func testTargetDependencies_Post52_NamesAligned() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5_2,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+    }
+
+    func testTargetDependencies_Post52_UnknownProduct() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    v: .v5_2,
+                    dependencies: [
+                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: ["Unknown"]),
+                    ]),
+                Manifest.createManifest(
+                    name: "Bar",
+                    path: "/Bar",
+                    packageKind: .local,
+                    packageLocation: "/Bar",
+                    v: .v5_2,
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar"),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(
+                diagnostic: """
+                    product 'Unknown' not found. it is required by package 'Foo' target 'Foo'.
+                    """,
+                behavior: .error,
+                location: "'Foo' /Foo"
+            )
+        }
+    }
+
+    func testTargetDependencies_Post52_ProductPackageNoMatch() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Bar",
+                packageKind: .local,
+                packageLocation: "/Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fixit
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_ProductPackageNoMatch_DependencyExplicitName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Bar",
+                packageKind: .local,
+                packageLocation: "/Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+
+        // fixit
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fixit
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "Bar", package: "Some-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fix it
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Foo-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+
+    // test backwards compatibility 5.2 < 5.4
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_WithDependencyName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+    }
+
+    // test backwards compatibility 5.2 < 5.4
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch_WithDependencyName() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Some-Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Bar",
+                path: "/Some-Bar",
+                packageKind: .local,
+                packageLocation: "/Some-Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fix it
+
+        do {
+            let fixedManifests = try [
+                manifests[0].withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+    
+    func testTargetDependencies_Post52_ManifestNameNotMatchedWithURL() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/foo.swift",
+            "/Bar/Sources/Bar/bar.swift"
+        )
+
+        let manifests = try [
+            Manifest.createManifest(
+                name: "Foo",
+                path: "/Foo",
+                packageKind: .root,
+                packageLocation: "/Foo",
+                v: .v5_2,
+                dependencies: [
+                    .scm(name: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ],
+                targets: [
+                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
+                ]),
+            Manifest.createManifest(
+                name: "Some-Bar",
+                path: "/Bar",
+                packageKind: .local,
+                packageLocation: "/Bar",
+                v: .v5_2,
+                products: [
+                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
+                ],
+                targets: [
+                    TargetDescription(name: "Bar"),
+                ]),
+        ]
+
+        do {
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
+            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+                result.check(
+                    diagnostic: """
+                        'Foo' dependency on '/Bar' has an explicit name 'Bar' which does not match the name 'Some-Bar' set for '/Bar'
+                        """,
+                    behavior: .error,
+                    location: "'Foo' /Foo"
+                )
+            }
+        }
+
+        // fix it
+
+        do {
+            let fixedManifests = [
+                try manifests[0].withDependencies([
+                    .scm(name: "Some-Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                ]).withTargets([
+                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
+                ]),
+                manifests[1] // same
+            ]
+
+            let diagnostics = DiagnosticsEngine()
+            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
+            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        }
+    }
+}
+
+
+extension Manifest {
+    func withTargets(_ targets: [TargetDescription]) -> Manifest {
+        Manifest.createManifest(
+            name: self.name,
+            path: self.path.parentDirectory.pathString,
+            packageKind: self.packageKind,
+            packageLocation: self.packageLocation,
+            v: self.toolsVersion,
+            dependencies: self.dependencies,
+            targets: targets
+        )
+    }
+
+    func withDependencies(_ dependencies: [PackageDependencyDescription]) -> Manifest {
+        Manifest.createManifest(
+            name: self.name,
+            path: self.path.parentDirectory.pathString,
+            packageKind: self.packageKind,
+            packageLocation: self.packageLocation,
+            v: self.toolsVersion,
+            dependencies: dependencies,
+            targets: self.targets
+        )
     }
 }

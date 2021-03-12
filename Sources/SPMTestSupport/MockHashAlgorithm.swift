@@ -6,24 +6,27 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
+import Basics
 import TSCBasic
 
 public class MockHashAlgorithm: HashAlgorithm {
-    public typealias Hash = (ByteString) -> ByteString
+    public typealias Handler = (ByteString) -> ByteString
 
-    public private(set) var hashes: [ByteString] = []
-    private var hashFunction: Hash!
+    public private(set) var hashes = ThreadSafeArrayStore<ByteString>()
+    private let handler: Handler?
 
-    public init(hash: Hash? = nil) {
-        hashFunction = hash ?? { hash in
+    public init(handler: Handler? = nil) {
+        self.handler = handler
+    }
+
+    public func hash(_ hash: ByteString) -> ByteString {
+        if let handler = self.handler {
+            return handler(hash)
+        } else {
             self.hashes.append(hash)
             return ByteString(hash.contents.reversed())
         }
-    }
-
-    public func hash(_ bytes: ByteString) -> ByteString {
-        return hashFunction(bytes)
     }
 }

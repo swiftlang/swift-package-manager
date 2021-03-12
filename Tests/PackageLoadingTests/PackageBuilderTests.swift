@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -28,7 +28,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -47,7 +47,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -73,7 +73,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "foo"),
+                    try TargetDescription(name: "foo"),
                 ]
             )
 
@@ -103,7 +103,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "bar"),
+                    try TargetDescription(name: "bar"),
                 ]
             )
 
@@ -121,8 +121,8 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(name: "MyPackage"),
-                TargetDescription(name: "MyPackageTests", dependencies: ["MyPackage"], type: .test),
+                try TargetDescription(name: "MyPackage"),
+                try TargetDescription(name: "MyPackageTests", dependencies: ["MyPackage"], type: .test),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -160,7 +160,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "pkg"),
+                try TargetDescription(name: "pkg"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -183,7 +183,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: name,
             targets: [
-                TargetDescription(name: name),
+                try TargetDescription(name: name),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -204,7 +204,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(name: "clib"),
+                try TargetDescription(name: "clib"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -230,7 +230,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "clib",
                     path: "Sources",
                     sources: ["clib", "clib"],
@@ -261,19 +261,19 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "swift.lib"
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "swiftlib1",
                     path: "Sources/swiftlib1",
                     sources: ["swift.lib"]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "swiftlib2",
                     path: "Sources/swiftlib2/swift.lib"
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "swiftlib3",
                     path: "Sources/swiftlib3/swift.lib"
                 ),
@@ -307,7 +307,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "MyPackage",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "clib",
                     path: "Sources",
                     sources: ["clib", "clib/subfolder"]
@@ -321,7 +321,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testDeclaredExecutableProducts() {
+    func testDeclaredExecutableProducts() throws {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -335,8 +335,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
             ],
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "exec"),
+                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "exec"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -351,8 +351,8 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             products: [],
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "exec"),
+                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "exec"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -371,8 +371,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
             ],
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "exec"),
+                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "exec"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -384,7 +384,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testExecutableTargets() {
+    func testExecutableTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec1/exec.swift",
             "/Sources/exec2/main.swift",
@@ -399,8 +399,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
             ],
             targets: [
-                TargetDescription(name: "exec1", type: .executable),
-                TargetDescription(name: "lib"),
+                try TargetDescription(name: "exec1", type: .executable),
+                try TargetDescription(name: "lib"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -417,8 +417,8 @@ class PackageBuilderTests: XCTestCase {
             toolsVersion: .vNext,
             products: [],
             targets: [
-                TargetDescription(name: "exec1", type: .executable),
-                TargetDescription(name: "lib"),
+                try TargetDescription(name: "exec1", type: .executable),
+                try TargetDescription(name: "lib"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -437,8 +437,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
-                TargetDescription(name: "lib"),
-                TargetDescription(name: "exec1", type: .executable),
+                try TargetDescription(name: "lib"),
+                try TargetDescription(name: "exec1", type: .executable),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -457,8 +457,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
-                TargetDescription(name: "lib"),
-                TargetDescription(name: "exec1", type: .executable),
+                try TargetDescription(name: "lib"),
+                try TargetDescription(name: "exec1", type: .executable),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -477,12 +477,12 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
             ],
             targets: [
-                TargetDescription(name: "lib"),
-                TargetDescription(name: "exec2"),
+                try TargetDescription(name: "lib"),
+                try TargetDescription(name: "exec2"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "in tools version 999.0.0 and later, use 'executableTarget()' to declare executable targets", behavior: .warning)
+            diagnostics.check(diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'", behavior: .warning)
             package.checkModule("lib") { _ in }
             package.checkModule("exec2") { _ in }
             package.checkProduct("exec2") { product in
@@ -491,8 +491,8 @@ class PackageBuilderTests: XCTestCase {
         }
     }
     
-    func testTestManifestFound() {
-        SwiftTarget.testManifestNames.forEach { name in
+    func testTestManifestFound() throws {
+        try SwiftTarget.testManifestNames.forEach { name in
             let fs = InMemoryFileSystem(emptyFiles:
                 "/swift/exe/foo.swift",
                 "/\(name)",
@@ -502,8 +502,8 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "exe", path: "swift/exe"),
-                    TargetDescription(name: "tests", path: "swift/tests", type: .test),
+                    try TargetDescription(name: "exe", path: "swift/exe"),
+                    try TargetDescription(name: "tests", path: "swift/tests", type: .test),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -525,7 +525,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testTestManifestSearch() {
+    func testTestManifestSearch() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/foo.swift",
             "/pkg/footests.swift"
@@ -534,12 +534,12 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "exe",
                     path: "./",
                     sources: ["foo.swift"]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "tests",
                     path: "./",
                     sources: ["footests.swift"],
@@ -558,7 +558,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testMultipleTestManifestError() {
+    func testMultipleTestManifestError() throws {
         let name = SwiftTarget.testManifestNames.first!
         let fs = InMemoryFileSystem(emptyFiles:
             "/\(name)",
@@ -569,7 +569,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "tests",
                     path: "swift/tests",
                     type: .test
@@ -581,7 +581,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-	func testCustomTargetPaths() {
+    func testCustomTargetPaths() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/mah/target/exe/swift/exe/main.swift",
             "/mah/target/exe/swift/exe/foo.swift",
@@ -598,17 +598,17 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "exe",
                     path: "mah/target/exe",
                     sources: ["swift"]),
-                TargetDescription(
+                try TargetDescription(
                     name: "clib",
                     path: "mah/target/exe",
                     sources: ["foo.c"]),
-                TargetDescription(
+                try TargetDescription(
                     name: "foo"),
-                TargetDescription(
+                try TargetDescription(
                     name: "bar",
                     path: "bar",
                     exclude: ["bar/excluded.swift", "bar/fixture"],
@@ -643,7 +643,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testCustomTargetPathsOverlap() {
+    func testCustomTargetPathsOverlap() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/target/bar/bar.swift",
             "/target/bar/Tests/barTests.swift"
@@ -652,10 +652,10 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "bar",
                     path: "target/bar"),
-                TargetDescription(
+                try TargetDescription(
                     name: "barTests",
                     path: "target/bar/Tests",
                     type: .test),
@@ -668,11 +668,11 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "bar",
                     path: "target/bar",
                     exclude: ["Tests"]),
-                TargetDescription(
+                try TargetDescription(
                     name: "barTests",
                     path: "target/bar/Tests",
                     type: .test),
@@ -709,10 +709,10 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "Foo",
                     publicHeadersPath: "inc"),
-                TargetDescription(
+                try TargetDescription(
                     name: "Bar"),
             ]
         )
@@ -751,10 +751,10 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "Foo",
                     publicHeadersPath: "/inc"),
-                TargetDescription(
+                try TargetDescription(
                     name: "Bar"),
             ]
         )
@@ -774,10 +774,10 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
-                TargetDescription(name: "A"),
-                TargetDescription(name: "TheTestOfA", dependencies: ["A"], type: .test),
-                TargetDescription(name: "ATests", type: .test),
-                TargetDescription(name: "B", type: .test),
+                try TargetDescription(name: "A"),
+                try TargetDescription(name: "TheTestOfA", dependencies: ["A"], type: .test),
+                try TargetDescription(name: "ATests", type: .test),
+                try TargetDescription(name: "B", type: .test),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -811,7 +811,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testMultipleTestProducts() {
+    func testMultipleTestProducts() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/foo.swift",
             "/Tests/fooTests/foo.swift",
@@ -821,9 +821,9 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "fooTests", type: .test),
-                TargetDescription(name: "barTests", type: .test),
+                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "fooTests", type: .test),
+                try TargetDescription(name: "barTests", type: .test),
             ]
         )
 
@@ -859,9 +859,9 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "Foo", dependencies: ["Bar"]),
-                TargetDescription(name: "Bar"),
-                TargetDescription(name: "Baz"),
+                try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                try TargetDescription(name: "Bar"),
+                try TargetDescription(name: "Baz"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -883,9 +883,9 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "Foo", dependencies: ["Bar"]),
-                TargetDescription(name: "Bar", dependencies: ["Baz"]),
-                TargetDescription(name: "Baz"),
+                try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                try TargetDescription(name: "Bar", dependencies: ["Baz"]),
+                try TargetDescription(name: "Baz"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -917,9 +917,9 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "Bar"),
-                TargetDescription(name: "Baz"),
-                TargetDescription(
+                try TargetDescription(name: "Bar"),
+                try TargetDescription(name: "Baz"),
+                try TargetDescription(
                     name: "Foo",
                     dependencies: ["Bar", "Baz", "Bam"]),
             ]
@@ -953,7 +953,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "Random"),
+                    try TargetDescription(name: "Random"),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -968,7 +968,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")]),
+                    try TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")]),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -982,8 +982,8 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "pkg", dependencies: []),
-                    TargetDescription(name: "pkgTests", dependencies: [], type: .test),
+                    try TargetDescription(name: "pkg", dependencies: []),
+                    try TargetDescription(name: "pkgTests", dependencies: [], type: .test),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -998,7 +998,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
+                    try TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1013,7 +1013,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "foo"),
+                    try TargetDescription(name: "foo"),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnotics in
@@ -1027,12 +1027,12 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
+                    try TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
                 ]
             )
 
-            let remoteArtifacts = [RemoteArtifact(url: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
-            PackageBuilderTester(manifest, remoteArtifacts: remoteArtifacts, in: fs) { package, _ in
+            let binaryArtifacts = [BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
+            PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, _ in
                 package.checkModule("foo")
             }
         }
@@ -1047,9 +1047,9 @@ class PackageBuilderTests: XCTestCase {
             var manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
-                    TargetDescription(name: "pkg2", dependencies: ["pkg3"]),
-                    TargetDescription(name: "pkg3", dependencies: ["pkg1"]),
+                    try TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
+                    try TargetDescription(name: "pkg2", dependencies: ["pkg3"]),
+                    try TargetDescription(name: "pkg3", dependencies: ["pkg1"]),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1059,9 +1059,9 @@ class PackageBuilderTests: XCTestCase {
             manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
-                    TargetDescription(name: "pkg2", dependencies: ["pkg3"]),
-                    TargetDescription(name: "pkg3", dependencies: ["pkg2"]),
+                    try TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
+                    try TargetDescription(name: "pkg2", dependencies: ["pkg3"]),
+                    try TargetDescription(name: "pkg3", dependencies: ["pkg2"]),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1078,8 +1078,8 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
-                    TargetDescription(name: "pkg2"),
+                    try TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
+                    try TargetDescription(name: "pkg2"),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1099,7 +1099,7 @@ class PackageBuilderTests: XCTestCase {
             var manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
-                    TargetDescription(name: "Foo", publicHeadersPath: "../inc"),
+                    try TargetDescription(name: "Foo", publicHeadersPath: "../inc"),
                 ]
             )
 
@@ -1110,7 +1110,7 @@ class PackageBuilderTests: XCTestCase {
             manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
-                    TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo"),
+                    try TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo"),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1126,7 +1126,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
-                    TargetDescription(name: "Foo", path: "../foo"),
+                    try TargetDescription(name: "Foo", path: "../foo"),
                 ]
             )
             PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
@@ -1141,7 +1141,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
-                    TargetDescription(name: "Foo", path: "/foo"),
+                    try TargetDescription(name: "Foo", path: "/foo"),
                 ]
             )
             PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
@@ -1157,7 +1157,7 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "Foo",
                 targets: [
-                    TargetDescription(name: "Foo", path: "~/foo"),
+                    try TargetDescription(name: "Foo", path: "~/foo"),
                 ]
             )
             PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
@@ -1166,7 +1166,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testExecutableAsADep() {
+    func testExecutableAsADep() throws {
         // Executable as dependency.
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec/main.swift",
@@ -1175,8 +1175,8 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(name: "lib", dependencies: ["exec"]),
-                TargetDescription(name: "exec"),
+                try TargetDescription(name: "lib", dependencies: ["exec"]),
+                try TargetDescription(name: "exec"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1244,17 +1244,17 @@ class PackageBuilderTests: XCTestCase {
             "/foo/main.swift"
         )
 
-        func createManifest(swiftVersions: [SwiftLanguageVersion]?) -> Manifest {
+        func createManifest(swiftVersions: [SwiftLanguageVersion]?) throws -> Manifest {
             return Manifest.createV4Manifest(
                 name: "pkg",
                 swiftLanguageVersions: swiftVersions,
                 targets: [
-                    TargetDescription(name: "foo", path: "foo"),
+                    try TargetDescription(name: "foo", path: "foo"),
                 ]
             )
         }
 
-        var manifest = createManifest(swiftVersions: [.v3, .v4])
+        var manifest = try createManifest(swiftVersions: [.v3, .v4])
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { module in
@@ -1263,7 +1263,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = createManifest(swiftVersions: [.v3])
+        manifest = try createManifest(swiftVersions: [.v3])
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { module in
                 module.check(swiftVersion: "3")
@@ -1271,7 +1271,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = createManifest(swiftVersions: [.v4])
+        manifest = try createManifest(swiftVersions: [.v4])
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { module in
                 module.check(swiftVersion: "4")
@@ -1279,7 +1279,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = createManifest(swiftVersions: nil)
+        manifest = try createManifest(swiftVersions: nil)
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { module in
                 module.check(swiftVersion: "4")
@@ -1287,19 +1287,19 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("foo") { _ in }
         }
 
-        manifest = createManifest(swiftVersions: [])
+        manifest = try createManifest(swiftVersions: [])
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(diagnostic: "package 'pkg' supported Swift language versions is empty", behavior: .error)
         }
 
-        manifest = createManifest(
+        manifest = try createManifest(
             swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(diagnostic: "package 'pkg' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))", behavior: .error)
         }
     }
 
-    func testPredefinedTargetSearchError() {
+    func testPredefinedTargetSearchError() throws {
 
         do {
             // We should look only in one of the predefined search paths.
@@ -1310,8 +1310,8 @@ class PackageBuilderTests: XCTestCase {
             let manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "Foo", dependencies: ["Bar"]),
-                    TargetDescription(name: "Bar"),
+                    try TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                    try TargetDescription(name: "Bar"),
                 ]
             )
 
@@ -1330,8 +1330,8 @@ class PackageBuilderTests: XCTestCase {
             var manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "BarTests", type: .test),
-                    TargetDescription(name: "FooTests", type: .test),
+                    try TargetDescription(name: "BarTests", type: .test),
+                    try TargetDescription(name: "FooTests", type: .test),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1342,8 +1342,8 @@ class PackageBuilderTests: XCTestCase {
             manifest = Manifest.createV4Manifest(
                 name: "pkg",
                 targets: [
-                    TargetDescription(name: "BarTests", path: "Source/BarTests", type: .test),
-                    TargetDescription(name: "FooTests", type: .test),
+                    try TargetDescription(name: "BarTests", path: "Source/BarTests", type: .test),
+                    try TargetDescription(name: "FooTests", type: .test),
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1358,13 +1358,13 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSpecifiedCustomPathDoesNotExist() {
+    func testSpecifiedCustomPathDoesNotExist() throws {
         let fs = InMemoryFileSystem(emptyFiles: "/Foo.swift")
 
         let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
-                TargetDescription(name: "Foo", path: "./NotExist")
+                try TargetDescription(name: "Foo", path: "./NotExist")
             ]
         )
 
@@ -1373,7 +1373,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSpecialTargetDir() {
+    func testSpecialTargetDir() throws {
         // Special directory should be src because both target and test target are under it.
         let fs = InMemoryFileSystem(emptyFiles:
             "/src/A/Foo.swift",
@@ -1382,8 +1382,8 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "Foo",
             targets: [
-                TargetDescription(name: "A"),
-                TargetDescription(name: "ATests", type: .test),
+                try TargetDescription(name: "A"),
+                try TargetDescription(name: "ATests", type: .test),
             ]
         )
 
@@ -1401,7 +1401,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testExcludes() {
+    func testExcludes() throws {
         // The exclude should win if a file is in exclude as well as sources.
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/bar/barExcluded.swift",
@@ -1411,7 +1411,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "pkg",
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "bar",
                     exclude: ["barExcluded.swift",],
                     sources: ["bar.swift", "barExcluded.swift"]
@@ -1426,7 +1426,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testDuplicateProducts() {
+    func testDuplicateProducts() throws {
         // Check that declaring executable product doesn't collide with the
         // inferred products.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -1442,7 +1442,7 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "foo-dy", type: .library(.dynamic), targets: ["foo"]),
             ],
             targets: [
-                TargetDescription(name: "foo"),
+                try TargetDescription(name: "foo"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1464,7 +1464,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSystemPackageDeclaresTargetsDiagnostic() {
+    func testSystemPackageDeclaresTargetsDiagnostic() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/module.modulemap",
             "/Sources/foo/main.swift",
@@ -1474,8 +1474,8 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "SystemModulePackage",
             targets: [
-                TargetDescription(name: "foo"),
-                TargetDescription(name: "bar"),
+                try TargetDescription(name: "foo"),
+                try TargetDescription(name: "bar"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1490,7 +1490,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSystemLibraryTarget() {
+    func testSystemLibraryTarget() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift"
@@ -1502,8 +1502,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
             ],
             targets: [
-                TargetDescription(name: "foo", type: .system),
-                TargetDescription(name: "bar", dependencies: ["foo"]),
+                try TargetDescription(name: "foo", type: .system),
+                try TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1522,7 +1522,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testSystemLibraryTargetDiagnostics() {
+    func testSystemLibraryTargetDiagnostics() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift"
@@ -1534,8 +1534,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
             ],
             targets: [
-                TargetDescription(name: "foo", type: .system),
-                TargetDescription(name: "bar", dependencies: ["foo"]),
+                try TargetDescription(name: "foo", type: .system),
+                try TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1553,8 +1553,8 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
             ],
             targets: [
-                TargetDescription(name: "foo", type: .system),
-                TargetDescription(name: "bar", dependencies: ["foo"]),
+                try TargetDescription(name: "foo", type: .system),
+                try TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1572,7 +1572,7 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
             ],
             targets: [
-                TargetDescription(name: "bar", type: .system)
+                try TargetDescription(name: "bar", type: .system)
             ]
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
@@ -1583,7 +1583,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testBadExecutableProductDecl() {
+    func testBadExecutableProductDecl() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo1/main.swift",
             "/Sources/foo2/main.swift",
@@ -1599,10 +1599,10 @@ class PackageBuilderTests: XCTestCase {
                 ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
             ],
             targets: [
-                TargetDescription(name: "foo1"),
-                TargetDescription(name: "foo2"),
-                TargetDescription(name: "FooLib1"),
-                TargetDescription(name: "FooLib2"),
+                try TargetDescription(name: "foo1"),
+                try TargetDescription(name: "foo2"),
+                try TargetDescription(name: "FooLib1"),
+                try TargetDescription(name: "FooLib2"),
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
@@ -1631,7 +1631,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testBadREPLPackage() {
+    func testBadREPLPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exe/main.swift"
         )
@@ -1639,7 +1639,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createV4Manifest(
             name: "Pkg",
             targets: [
-                TargetDescription(name: "exe"),
+                try TargetDescription(name: "exe"),
             ]
         )
 
@@ -1653,7 +1653,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testPlatforms() {
+    func testPlatforms() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift",
@@ -1670,10 +1670,10 @@ class PackageBuilderTests: XCTestCase {
             ],
             v: .v5,
             targets: [
-                TargetDescription(name: "foo", type: .system),
-                TargetDescription(name: "cbar"),
-                TargetDescription(name: "bar", dependencies: ["foo"]),
-                TargetDescription(name: "test", type: .test)
+                try TargetDescription(name: "foo", type: .system),
+                try TargetDescription(name: "cbar"),
+                try TargetDescription(name: "bar", dependencies: ["foo"]),
+                try TargetDescription(name: "test", type: .test)
             ]
         )
 
@@ -1682,6 +1682,7 @@ class PackageBuilderTests: XCTestCase {
             "macos": "10.12",
             "ios": "9.0",
             "tvos": "9.0",
+            "driverkit": "19.0",
             "watchos": "2.0",
             "android": "0.0",
             "windows": "0.0",
@@ -1727,9 +1728,9 @@ class PackageBuilderTests: XCTestCase {
             ],
             v: .v5,
             targets: [
-                TargetDescription(name: "foo", type: .system),
-                TargetDescription(name: "cbar"),
-                TargetDescription(name: "bar", dependencies: ["foo"]),
+                try TargetDescription(name: "foo", type: .system),
+                try TargetDescription(name: "cbar"),
+                try TargetDescription(name: "bar", dependencies: ["foo"]),
             ]
         )
 
@@ -1739,6 +1740,7 @@ class PackageBuilderTests: XCTestCase {
             "linux": "0.0",
             "ios": "9.0",
             "watchos": "2.0",
+            "driverkit": "19.0",
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
@@ -1770,7 +1772,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             v: .v4_2,
             targets: [
-                TargetDescription(name: "lib", dependencies: []),
+                try TargetDescription(name: "lib", dependencies: []),
             ]
         )
 
@@ -1794,7 +1796,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Pkg",
             v: .v5,
             targets: [
-                TargetDescription(name: "lib", dependencies: []),
+                try TargetDescription(name: "lib", dependencies: []),
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -1818,7 +1820,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             v: .v5_2,
             targets: [
-                TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
+                try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
             ]
         )
 
@@ -1843,7 +1845,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             v: .v5_3,
             targets: [
-                TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
+                try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
             ]
         )
 
@@ -1856,7 +1858,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testBuildSettings() {
+    func testBuildSettings() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exe/main.swift",
             "/Sources/bar/bar.swift",
@@ -1869,7 +1871,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             v: .v5,
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "cbar",
                     settings: [
                         .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
@@ -1883,7 +1885,7 @@ class PackageBuilderTests: XCTestCase {
                         .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
                     ]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "bar", dependencies: ["foo"],
                     settings: [
                         .init(tool: .swift, name: .define, value: ["SOMETHING"]),
@@ -1893,7 +1895,7 @@ class PackageBuilderTests: XCTestCase {
                         .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
                     ]
                 ),
-                TargetDescription(
+                try TargetDescription(
                     name: "exe", dependencies: ["bar"],
                     settings: [
                         .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
@@ -1968,7 +1970,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testInvalidHeaderSearchPath() {
+    func testInvalidHeaderSearchPath() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/Sources/exe/main.swift"
         )
@@ -1977,7 +1979,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             v: .v5,
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "exe",
                     settings: [
                         .init(tool: .c, name: .headerSearchPath, value: ["/Sources/headers"]),
@@ -1994,7 +1996,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             v: .v5,
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "exe",
                     settings: [
                         .init(tool: .c, name: .headerSearchPath, value: ["../../.."]),
@@ -2019,10 +2021,10 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(url: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "Foo",
                     dependencies: [
                         "Bar",
@@ -2030,19 +2032,19 @@ class PackageBuilderTests: XCTestCase {
                         "Foo2",
                         "Foo2",
                     ]),
-                TargetDescription(name: "Foo2"),
+                try TargetDescription(name: "Foo2"),
             ]
         )
 
         PackageBuilderTester(manifest1, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
             package.checkModule("Foo")
             package.checkModule("Foo2")
-            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo'", behavior: .warning)
-            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo'", behavior: .warning)
+            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package 'Foo'", behavior: .warning)
+            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package 'Foo'", behavior: .warning)
         }
     }
 
-    func testConditionalDependencies() {
+    func testConditionalDependencies() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/main.swift",
             "/Sources/Bar/bar.swift",
@@ -2053,10 +2055,10 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                PackageDependencyDescription(url: "/Biz", requirement: .localPackage),
+                .local(path: "/Biz"),
             ],
             targets: [
-                TargetDescription(
+                try TargetDescription(
                     name: "Foo",
                     dependencies: [
                         .target(name: "Bar", condition: PackageConditionDescription(
@@ -2073,8 +2075,8 @@ class PackageBuilderTests: XCTestCase {
                         )),
                     ]
                 ),
-                TargetDescription(name: "Bar"),
-                TargetDescription(name: "Baz"),
+                try TargetDescription(name: "Bar"),
+                try TargetDescription(name: "Baz"),
             ]
         )
 
@@ -2117,7 +2119,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5_3,
             targets: [
-                TargetDescription(name: "Foo", resources: [
+                try TargetDescription(name: "Foo", resources: [
                     .init(rule: .process, path: "Resources")
                 ]),
             ]
@@ -2141,7 +2143,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5_3,
             targets: [
-                TargetDescription(name: "Foo"),
+                try TargetDescription(name: "Foo"),
             ]
         )
 
@@ -2157,6 +2159,47 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testExtensionTargetsAreGuardededByFeatureFlag() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/MyPlugin/plugin.swift",
+            "/Foo/Sources/MyLibrary/library.swift"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "Foo",
+            v: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "MyPlugin",
+                    dependencies: [
+                        .target(name: "MyLibrary"),
+                    ],
+                    type: .plugin,
+                    pluginCapability: .buildTool
+                ),
+                try TargetDescription(
+                    name: "MyLibrary",
+                    type: .regular
+                ),
+            ]
+        )
+
+        // Check that plugin targets are set up correctly when the feature flag is set.
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: true, in: fs) { package, diagnostics in
+            package.checkModule("MyPlugin") { target in
+                target.check(pluginCapability: .buildTool)
+                target.check(dependencies: ["MyLibrary"])
+            }
+            package.checkModule("MyLibrary")
+        }
+        
+        // Check that the right diagnostics are emitted when the feature flag isn't set.
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: false, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "plugin target 'MyPlugin' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)", behavior: .error)
+        }
+    }
+
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -2187,8 +2230,9 @@ final class PackageBuilderTester {
     init(
         _ manifest: Manifest,
         path: AbsolutePath = .root,
-        remoteArtifacts: [RemoteArtifact] = [],
+        binaryArtifacts: [BinaryArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
+        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
@@ -2202,12 +2246,13 @@ final class PackageBuilderTester {
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,
-                remoteArtifacts: remoteArtifacts,
+                binaryArtifacts: binaryArtifacts,
                 xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
                 fileSystem: fs,
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
+                allowPluginTargets: allowPluginTargets,
                 createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
@@ -2388,6 +2433,13 @@ final class PackageBuilderTester {
         func checkPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
             let platform = target.getSupportedPlatform(for: platform)
             XCTAssertEqual(platform?.options, options, file: file, line: line)
+        }
+        
+        func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
+            guard case let target as PluginTarget = target else {
+                return XCTFail("Plugin capability is being checked on a target", file: file, line: line)
+            }
+            XCTAssertEqual(target.capability, pluginCapability, file: file, line: line)
         }
     }
 

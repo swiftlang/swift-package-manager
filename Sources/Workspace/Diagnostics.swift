@@ -141,12 +141,12 @@ extension Diagnostic.Message {
         .error("checksum of downloaded artifact of binary target '\(targetName)' (\(actualChecksum)) does not match checksum specified by the manifest (\(expectedChecksum))")
     }
 
-    static func artifactFailedDownload(targetName: String, reason: String) -> Diagnostic.Message {
-        .error("artifact of binary target '\(targetName)' failed download: \(reason)")
+    static func artifactFailedDownload(artifactURL: Foundation.URL, targetName: String, reason: String) -> Diagnostic.Message {
+        .error("failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
-    static func artifactFailedExtraction(targetName: String, reason: String) -> Diagnostic.Message {
-        .error("artifact of binary target '\(targetName)' failed extraction: \(reason)")
+    static func artifactFailedExtraction(artifactURL: Foundation.URL, targetName: String, reason: String) -> Diagnostic.Message {
+        .error("failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
     static func artifactNotFound(targetName: String, artifactName: String) -> Diagnostic.Message {

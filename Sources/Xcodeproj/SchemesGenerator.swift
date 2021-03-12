@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -58,12 +58,12 @@ public final class SchemesGenerator {
         self.fs = fs
     }
 
-    public func buildSchemes() -> [Scheme] {
+    public func buildSchemes() throws -> [Scheme] {
         let rootPackage = graph.rootPackages[0]
 
         var schemes: [Scheme] = []
 
-        let testTargetsMap = graph.computeTestTargetsForExecutableTargets()
+        let testTargetsMap = try graph.computeTestTargetsForExecutableTargets()
 
         // Create one scheme per executable target.
         for target in rootPackage.targets where target.type == .executable {
@@ -79,7 +79,7 @@ public final class SchemesGenerator {
         // Finally, create one master scheme for the entire package.
         let regularTargets = rootPackage.targets.filter({ 
             switch $0.type {
-            case .test, .systemModule, .binary:
+            case .test, .systemModule, .binary, .plugin:
                 return false
             case .executable, .library:
                 return true
@@ -95,7 +95,7 @@ public final class SchemesGenerator {
     }
 
     func generate() throws {
-        let schemes = buildSchemes()
+        let schemes = try self.buildSchemes()
         for scheme in schemes {
             try create(scheme)
         }

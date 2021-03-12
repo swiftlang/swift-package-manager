@@ -78,7 +78,6 @@ public enum DependencyResolutionNode {
 
     /// Assembles the product filter to use on the manifest for this node to determine its dependencies.
     public var productFilter: ProductFilter {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         switch self {
         case .empty:
             return .specific([])
@@ -87,9 +86,6 @@ public enum DependencyResolutionNode {
         case .root:
             return .everything
         }
-        #else
-        return .everything
-        #endif
     }
 
     /// Returns the dependency that a product has on its own package, if relevant.
@@ -99,7 +95,7 @@ public enum DependencyResolutionNode {
         // Don’t create a version lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
-            container: package,
+            package: package,
             versionRequirement: .exact(version),
             products: .specific([])
         )
@@ -112,7 +108,7 @@ public enum DependencyResolutionNode {
         // Don’t create a revision lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
-            container: package,
+            package: package,
             requirement: .revision(revision),
             products: .specific([])
         )

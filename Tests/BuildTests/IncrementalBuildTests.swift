@@ -95,28 +95,49 @@ final class IncrementalBuildTests: XCTestCase {
         fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
             @discardableResult
             func build() throws -> String {
-                return try executeSwiftBuild(prefix, extraArgs: ["--enable-build-manifest-caching"]).stdout
+                return try executeSwiftBuild(prefix).stdout
             }
 
             // Perform a full build.
-            try build()
+            let log1 = try build()
+            XCTAssertTrue(log1.contains("Compiling Library"), log1)
+
             // Ensure manifest caching kicks in.
-            try build()
+            let log2 =  try build()
+            XCTAssertTrue(log2.contains("Planning build"), log2)
 
             // Check that we're not re-planning when nothing has changed.
-            let log1 = try build()
-            XCTAssertFalse(log1.contains("PackageStructure") || log1.contains("Planning build"), log1)
+            let log3 = try build()
+            XCTAssertFalse(log3.contains("Planning build"), log3)
 
             // Check that we do run planning when a new source file is added.
             let sourceFile = prefix.appending(components: "Sources", "Library", "new.swift")
             try localFileSystem.writeFileContents(sourceFile, bytes: "")
-            let log2 = try build()
-            XCTAssertTrue(log2.contains("PackageStructure") || log2.contains("Planning build"), log2)
+            let log4 = try build()
+            XCTAssertTrue(log4.contains("Compiling Library"), log4)
+            XCTAssertTrue(log4.contains("Planning build"), log4)
 
             // Check that we don't run planning when a source file is modified.
             try localFileSystem.writeFileContents(sourceFile, bytes: "\n\n\n\n")
-            let log3 = try build()
-            XCTAssertFalse(log3.contains("PackageStructure") || log3.contains("Planning build"), log3)
+            let log5 = try build()
+            XCTAssertFalse(log5.contains("Planning build"), log5)
+        }
+    }
+
+    func testDisableBuildManifestCaching() {
+        fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
+            @discardableResult
+            func build() throws -> String {
+                return try executeSwiftBuild(prefix, extraArgs: ["--disable-build-manifest-caching"]).stdout
+            }
+
+            // Perform a full build.
+            let log1 = try build()
+            XCTAssertTrue(log1.contains("Compiling Library"), log1)
+
+            // Ensure manifest caching does not kick in.
+            let log2 = try build()
+            XCTAssertFalse(log2.contains("Planning build"), log2)
         }
     }
 }

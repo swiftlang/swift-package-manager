@@ -8,6 +8,7 @@ cd "${__dir}/.."
 echo "Current directory is ${PWD}"
 
 CONFIGURATION=debug
+export SWIFTCI_IS_SELF_HOSTED=1
 
 set -x
 
@@ -16,9 +17,7 @@ swift package update
 swift build -c $CONFIGURATION
 swift test -c $CONFIGURATION --parallel --enable-test-discovery
 
-# FIXME: Disabled until we get some version of Xcode 11.4 on Swift CI.
-#
 # Run the integration tests with just built SwiftPM.
-# export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
-# cd IntegrationTests
-# $SWIFTPM_BIN_DIR/swift-test --parallel --enable-test-discovery
+export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
+cd IntegrationTests
+$SWIFTPM_BIN_DIR/swift-test --parallel --enable-test-discovery

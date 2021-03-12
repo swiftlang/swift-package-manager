@@ -9,7 +9,9 @@
 */
 
 import func XCTest.XCTFail
+import Dispatch
 
+import Basics
 import TSCBasic
 import PackageModel
 import PackageLoading
@@ -40,26 +42,61 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    public var manifests: [Key: Manifest]
+    public let manifests: ThreadSafeKeyValueStore<Key, Manifest>
 
     public init(manifests: [Key: Manifest]) {
-        self.manifests = manifests
+        self.manifests = ThreadSafeKeyValueStore<Key, Manifest>(manifests)
     }
 
     public func load(
-        packagePath path: TSCBasic.AbsolutePath,
-        baseURL: String,
+        at path: TSCBasic.AbsolutePath,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
         version: Version?,
         revision: String?,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
-        fileSystem: FileSystem?,
-        diagnostics: DiagnosticsEngine?
-    ) throws -> PackageModel.Manifest {
-        let key = Key(url: baseURL, version: version)
-        if let result = manifests[key] {
-            return result
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        diagnostics: DiagnosticsEngine?,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        queue.async {
+            let key = Key(url: packageLocation, version: version)
+            if let result = self.manifests[key] {
+                return completion(.success(result))
+            } else {
+                return completion(.failure(MockManifestLoaderError.unknownRequest("\(key)")))
+            }
         }
-        throw MockManifestLoaderError.unknownRequest("\(key)")
+    }
+
+    public func resetCache() throws {}
+    public func purgeCache() throws {}
+}
+
+extension ManifestLoader {
+    public func load(
+        at path: TSCBasic.AbsolutePath,
+        packageKind: PackageModel.PackageReference.Kind,
+        packageLocation: String,
+        toolsVersion: PackageModel.ToolsVersion,
+        identityResolver: IdentityResolver = DefaultIdentityResolver(),
+        fileSystem: PackageLoading.FileSystem,
+        diagnostics: TSCBasic.DiagnosticsEngine? = nil
+    ) throws -> Manifest{
+        try tsc_await {
+            self.load(at: path,
+                      packageKind: packageKind,
+                      packageLocation: packageLocation,
+                      version: nil,
+                      revision: nil,
+                      toolsVersion: toolsVersion,
+                      identityResolver: identityResolver,
+                      fileSystem: fileSystem,
+                      diagnostics: diagnostics,
+                      on: .global(),
+                      completion: $0)
+        }
     }
 }

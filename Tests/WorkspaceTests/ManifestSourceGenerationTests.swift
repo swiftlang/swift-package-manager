@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -22,27 +22,50 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
             let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-            let manifest = try manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root)
+            let identityResolver = DefaultIdentityResolver()
+            let manifest = try tsc_await {
+                manifestLoader.load(at: packageDir,
+                                    packageKind: .root,
+                                    packageLocation: packageDir.pathString,
+                                    version: nil,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
+                                    identityResolver: identityResolver,
+                                    fileSystem: fs,
+                                    on: .global(),
+                                    completion: $0)
+            }
 
             // Generate source code for the loaded manifest, write it out to replace the manifest file contents, and load it again.
             let newContents = manifest.generatedManifestFileContents
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
-            print(newContents)
-            let newManifest = try manifestLoader.load(package: packageDir, baseURL: packageDir.pathString, toolsVersion: toolsVersion, packageKind: .root)
+            let newManifest = try tsc_await {
+                manifestLoader.load(at: packageDir,
+                                    packageKind: .root,
+                                    packageLocation: packageDir.pathString,
+                                    version: nil,
+                                    revision: nil,
+                                    toolsVersion: toolsVersion,
+                                    identityResolver: identityResolver,
+                                    fileSystem: fs,
+                                    on: .global(),
+                                    completion: $0)
+            }
             
             // Check that all the relevant properties survived.
-            XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion)
-            XCTAssertEqual(newManifest.name, manifest.name)
-            XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization)
-            XCTAssertEqual(newManifest.platforms, manifest.platforms)
-            XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig)
-            XCTAssertEqual(newManifest.providers, manifest.providers)
-            XCTAssertEqual(newManifest.products, manifest.products)
-            XCTAssertEqual(newManifest.dependencies, manifest.dependencies)
-            XCTAssertEqual(newManifest.targets, manifest.targets)
-            XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions)
-            XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard)
-            XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard)
+            let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
+            XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, failureDetails)
+            XCTAssertEqual(newManifest.name, manifest.name, failureDetails)
+            XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, failureDetails)
+            XCTAssertEqual(newManifest.platforms, manifest.platforms, failureDetails)
+            XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, failureDetails)
+            XCTAssertEqual(newManifest.providers, manifest.providers, failureDetails)
+            XCTAssertEqual(newManifest.products, manifest.products, failureDetails)
+            XCTAssertEqual(newManifest.dependencies, manifest.dependencies, failureDetails)
+            XCTAssertEqual(newManifest.targets, manifest.targets, failureDetails)
+            XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, failureDetails)
+            XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, failureDetails)
+            XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, failureDetails)
         }
     }
 
@@ -202,5 +225,27 @@ class ManifestSourceGenerationTests: XCTestCase {
             )
             """
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+    }
+
+    func testPluginTargets() throws {
+        let manifestContents = """
+            // swift-tools-version:999.0
+            import PackageDescription
+
+            let package = Package(
+                name: "Plugins",
+                targets: [
+                    .plugin(
+                        name: "MyPlugin",
+                        capability: .buildTool(),
+                        dependencies: ["MyTool"]
+                    ),
+                    .executableTarget(
+                        name: "MyTool"
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .vNext)
     }
 }

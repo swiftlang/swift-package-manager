@@ -152,6 +152,13 @@ For example, if the latest tag is 0.3.1:
 $> git clone https://github.com/apple/swift-argument-parser --branch 0.3.1
 ```
 
+5. Clone [swift-crypto](https://github.com/apple/swift-crypto) beside the SwiftPM directory and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
+
+For example, if the latest tag is 1.1.3:
+```bash
+$> git clone https://github.com/apple/swift-crypto --branch 1.1.3
+```
+
 #### Building
 
 ```bash
@@ -211,17 +218,34 @@ $> Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 ## Using Continuous Integration
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask one of the code owners to trigger them for you.
 
-Run tests with the trunk compiler and other projects. This is **required** before
-a pull-request can be merged.
+To run smoke test suite with the trunk compiler and other projects use:
 
 ```
 @swift-ci please smoke test
 ```
 
-Run just the self-hosted tests. This has fast turnaround times so it can be used
-to get quick feedback.
+This is **required** before a pull-request can be merged.
 
-Note: Smoke tests are still required for merging pull-requests.
+
+To run just the self-hosted test suite (faster turnaround times so it can be used to get quick feedback) use:
+
+```
+@swift-ci please smoke test self hosted
+```
+
+
+To run the swift toolchain test suite including SwiftPM use:
+
+```
+@swift-ci please test
+```
+
+
+To run package compatibility test suite (validates we do not break 3rd party packages) use:
+
+```
+@swift-ci please test package compatibility
+```
 
 ## Advanced
 ### Using Custom Swift Compilers

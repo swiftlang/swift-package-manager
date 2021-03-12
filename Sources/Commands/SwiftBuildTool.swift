@@ -9,11 +9,12 @@
 */
 
 import ArgumentParser
-import TSCUtility
-import TSCBasic
+import Basics
+import Build
 import PackageGraph
 import SPMBuildCore
-import Build
+import TSCBasic
+import TSCUtility
 
 extension BuildSubset {
     var argumentName: String {
@@ -79,7 +80,7 @@ public struct SwiftBuildTool: SwiftCommand {
         _superCommandName: "swift",
         abstract: "Build sources into binary products",
         discussion: "SEE ALSO: swift run, swift package, swift test",
-        version: Versioning.currentVersion.completeDisplayString,
+        version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()

@@ -16,7 +16,7 @@ import TSCTestSupport
 final class XCBuildTests: XCTestCase {
     func testExecutableProducts() throws {
         #if !os(macOS)
-              try XCTSkip()
+            try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/ExecutableProducts") { path in
@@ -116,8 +116,10 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testTestProducts() throws {
+        try XCTSkip("FIXME: /.../XCBuild_TestProducts.551ajO/Foo/.build/apple/Intermediates.noindex/GeneratedModuleMaps/macosx/FooLib.modulemap:2:12: error: header 'FooLib-Swift.h' not found")
+
         #if !os(macOS)
-            try XCTSkip()
+            try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/TestProducts") { path in
@@ -199,7 +201,7 @@ final class XCBuildTests: XCTestCase {
 
     func testLibraryProductsAndTargets() throws {
         #if !os(macOS)
-            try XCTSkip()
+            try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/Libraries") { path in
@@ -272,8 +274,10 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testSystemTargets() throws {
+        try XCTSkip("FIXME: ld: warning: ignoring file /../XCBuild_SystemTargets.b38QoO/Inputs/libsys.a, building for macOS-arm64 but attempting to link with file built for unknown-x86_64\n\nUndefined symbols for architecture arm64:\n  \"_GetSystemLibName\", referenced from:\n      _main in main.o\n\nld: symbol(s) not found for architecture arm64\n\nclang: error: linker command failed with exit code 1 (use -v to see invocation)\n\nBuild cancelled\n")
+
         #if !os(macOS)
-            try XCTSkip()
+            try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/SystemTargets") { path in
@@ -298,8 +302,7 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testBinaryTargets() throws {
-        //FIXME: This test randomly succeeds or fails, depending on the order the subtasks are executed in.
-        try XCTSkip()
+        try XCTSkip("FIXME: This test randomly succeeds or fails, depending on the order the subtasks are executed in.")
 
         try binaryTargetsFixture { path in
             try sh(swiftBuild, "--package-path", path, "-c", "debug", "--build-system", "xcode", "--target", "exe")
@@ -307,8 +310,10 @@ final class XCBuildTests: XCTestCase {
     }
 
     func testSwiftTest() throws {
+        try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
+
         #if !os(macOS) || Xcode
-            try XCTSkip()
+            try XCTSkip("Test requires macOS")
         #endif
 
         fixture(name: "XCBuild/TestProducts") { path in

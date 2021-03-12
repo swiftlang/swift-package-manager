@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -62,15 +62,19 @@ fileprivate struct DescribedPackage: Encodable {
         self.dependencies = package.manifest.dependencies.map { DescribedPackageDependency(from: $0) }
         self.defaultLocalization = package.manifest.defaultLocalization
         self.platforms = package.manifest.platforms.map { DescribedPlatformRestriction(from: $0) }
-        self.products = package.products.map {
+        // SwiftPM considers tests to be products, which is not how things are presented in the manifest.
+        let nonTestProducts = package.products.filter{ $0.type != .test }
+        self.products = nonTestProducts.map {
             DescribedProduct(from: $0, in: package)
         }
         // Create a mapping from the targets to the products to which they contribute directly.  This excludes any
         // contributions that occur through `.product()` dependencies, but since those targets are still part of a
         // product of the package, the set of targets that contribute to products still accurately represents the
         // set of targets reachable from external clients.
-        let targetProductPairs = package.products.flatMap{ p in transitiveClosure(p.targets, successors: {
-            $0.dependencies.compactMap{ $0.target } }).map{ t in (t, p) }
+        let targetProductPairs = nonTestProducts.flatMap{ p in
+            transitiveClosure(p.targets, successors: {
+                $0.dependencies.compactMap{ $0.target }
+            }).union(p.targets).map{ t in (t, p) }
         }
         let targetsToProducts = Dictionary(targetProductPairs.map{ ($0.0, [$0.1]) }, uniquingKeysWith: { $0 + $1 })
         self.targets = package.targets.map {
@@ -96,14 +100,22 @@ fileprivate struct DescribedPackage: Encodable {
     
     /// Represents a package dependency for the sole purpose of generating a description.
     struct DescribedPackageDependency: Encodable {
+        let identity: PackageIdentity
         let name: String?
         let url: String?
         let requirement: PackageDependencyDescription.Requirement?
 
         init(from dependency: PackageDependencyDescription) {
-            self.name = dependency.explicitName
-            self.url = dependency.url
-            self.requirement = dependency.requirement
+            self.identity = dependency.identity
+            self.name = dependency.explicitNameForTargetDependencyResolutionOnly
+            switch dependency {
+            case .local(let data):
+                self.url = data.path.pathString
+                self.requirement = nil
+            case .scm(let data):
+                self.url = data.location
+                self.requirement = data.requirement
+            }
         }
     }
 
@@ -120,12 +132,29 @@ fileprivate struct DescribedPackage: Encodable {
         }
     }
 
+    /// Represents a plugin capability for the sole purpose of generating a description.
+    struct DescribedPluginCapability: Encodable {
+        let type: String
+
+        init(from capability: PluginCapability, in package: Package) {
+            switch capability {
+            case .prebuild:
+                self.type = "prebuild"
+            case .buildTool:
+                self.type = "buildTool"
+            case .postbuild:
+                self.type = "postbuild"
+            }
+        }
+    }
+
     /// Represents a target for the sole purpose of generating a description.
     struct DescribedTarget: Encodable {
         let name: String
         let type: String
         let c99name: String?
         let moduleType: String?
+        let pluginCapability: DescribedPluginCapability?
         let path: String
         let sources: [String]
         let resources: [PackageModel.Resource]?
@@ -137,6 +166,7 @@ fileprivate struct DescribedPackage: Encodable {
             self.type = target.type.rawValue
             self.c99name = target.c99name
             self.moduleType = String(describing: Swift.type(of: target))
+            self.pluginCapability = (target as? PluginTarget).map{ DescribedPluginCapability(from: $0.capability, in: package) }
             self.path = target.sources.root.relative(to: package.path).pathString
             self.sources = target.sources.relativePaths.map{ $0.pathString }
             self.resources = target.resources.isEmpty ? nil : target.resources

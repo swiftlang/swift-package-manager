@@ -35,11 +35,11 @@ let toolchainPath: AbsolutePath = {
 
   #if os(macOS)
     let swiftcPath = try! AbsolutePath(sh("xcrun", "--find", "swift").stdout.spm_chomp())
+  #else
+    let swiftcPath = try! AbsolutePath(sh("which", "swift").stdout.spm_chomp())
+  #endif
     let toolchainPath = swiftcPath.parentDirectory.parentDirectory.parentDirectory
     return toolchainPath
-  #else
-    fatalError("TOOLCHAIN_PATH environment variable required")
-  #endif
 }()
 
 let clang: AbsolutePath = {
@@ -89,7 +89,7 @@ let lldb: AbsolutePath = {
         return toolchainLLDBPath
     }
 
-    #if os(macOS)
+  #if os(macOS)
     let lldbPath = try! AbsolutePath(sh("xcrun", "--find", "lldb").stdout.spm_chomp())
     return lldbPath
   #else
@@ -121,6 +121,10 @@ let swiftRun: AbsolutePath = {
     return swiftpmBinaryDirectory.appending(component: "swift-run")
 }()
 
+let isSelfHosted: Bool = {
+    return ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+}()
+
 @discardableResult
 func sh(
     _ arguments: CustomStringConvertible...,
@@ -131,7 +135,11 @@ func sh(
     let result = try _sh(arguments, env: env, file: file, line: line)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
-    XCTAssertEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
+
+    if result.exitStatus != .terminated(code: 0) {
+        XCTFail("Command failed with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)", file: file, line: line)
+    }
+
     return (stdout, stderr)
 }
 
@@ -145,7 +153,11 @@ func shFails(
     let result = try _sh(arguments, env: env, file: file, line: line)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
-    XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), stderr, file: file, line: line)
+
+    if result.exitStatus == .terminated(code: 0) {
+        XCTFail("Command unexpectedly succeeded with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)", file: file, line: line)
+    }
+
     return (stdout, stderr)
 }
 
@@ -313,6 +325,20 @@ func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
     }
 }
 
-func XCTSkip() throws {
-    throw XCTSkip()
+func XCTSkip(_ message: String? = nil) throws {
+    throw XCTSkip(message)
+}
+
+extension ProcessResult {
+    var integrationTests_debugDescription: String {
+        return """
+        command: \(arguments.map { $0.description }.joined(separator: " "))
+
+        stdout:
+        \((try? utf8Output()) ?? "")
+
+        stderr:
+        \((try? utf8stderrOutput()) ?? "")
+        """
+    }
 }

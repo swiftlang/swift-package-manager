@@ -10,6 +10,7 @@
 
 @testable import Basics
 import TSCTestSupport
+import TSCUtility
 import XCTest
 
 final class HTTPClientTest: XCTestCase {
@@ -20,11 +21,11 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody: Data? = nil
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .head, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            callback(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -52,11 +53,11 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .get, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            callback(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -85,12 +86,12 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .post, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
             XCTAssertEqual(request.body, requestBody, "body should match")
-            callback(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -119,12 +120,12 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .put, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
             XCTAssertEqual(request.body, requestBody, "body should match")
-            callback(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -152,11 +153,11 @@ final class HTTPClientTest: XCTestCase {
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = UUID().uuidString.data(using: .utf8)
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
             XCTAssertEqual(request.method, .delete, "method should match")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            callback(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
+            completion(.success(HTTPClient.Response(statusCode: responseStatus, headers: responseHeaders, body: responseBody)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -182,11 +183,11 @@ final class HTTPClientTest: XCTestCase {
         let globalHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             var expectedHeaders = globalHeaders
             expectedHeaders.merge(requestHeaders)
             self.assertRequestHeaders(request.headers, expected: expectedHeaders)
-            callback(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(HTTPClient.Response(statusCode: 200)))
         }
 
         var httpClient = HTTPClient(handler: handler)
@@ -213,10 +214,10 @@ final class HTTPClientTest: XCTestCase {
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertTrue(request.headers.contains("User-Agent"), "expecting User-Agent")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            callback(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(HTTPClient.Response(statusCode: 200)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -241,10 +242,10 @@ final class HTTPClientTest: XCTestCase {
         let url = URL(string: "http://test")!
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
 
-        let handler = { (request: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertFalse(request.headers.contains("User-Agent"), "expecting User-Agent")
             self.assertRequestHeaders(request.headers, expected: requestHeaders)
-            callback(.success(HTTPClient.Response(statusCode: 200)))
+            completion(.success(HTTPClient.Response(statusCode: 200)))
         }
 
         let httpClient = HTTPClient(handler: handler)
@@ -265,10 +266,41 @@ final class HTTPClientTest: XCTestCase {
         wait(for: [promise], timeout: 1)
     }
 
+    func testAuthorization() {
+        let url = Foundation.URL(string: "http://test")!
+        let authorization = UUID().uuidString
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            XCTAssertTrue(request.headers.contains("Authorization"), "expecting Authorization")
+            XCTAssertEqual(request.headers.get("Authorization").first, authorization, "expecting Authorization to match")
+            completion(.success(HTTPClient.Response(statusCode: 200)))
+        }
+
+        let httpClient = HTTPClient(handler: handler)
+        var request = HTTPClient.Request(method: .get, url: url)
+
+        request.options.authorizationProvider = { requestUrl in
+            requestUrl == url ? authorization : nil
+        }
+
+        let promise = XCTestExpectation(description: "completed")
+        httpClient.execute(request) { result in
+            switch result {
+            case .failure(let error):
+                XCTFail("unexpected error \(error)")
+            case .success(let response):
+                XCTAssertEqual(response.statusCode, 200, "statusCode should match")
+            }
+            promise.fulfill()
+        }
+
+        wait(for: [promise], timeout: 1)
+    }
+
     func testValidResponseCodes() {
         let statusCode = Int.random(in: 201 ..< 500)
-        let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
-            callback(.success(HTTPClient.Response(statusCode: statusCode)))
+        let brokenHandler: HTTPClient.Handler = { _, _, completion in
+            completion(.success(HTTPClient.Response(statusCode: statusCode)))
         }
 
         let httpClient = HTTPClient(handler: brokenHandler)
@@ -296,14 +328,14 @@ final class HTTPClientTest: XCTestCase {
         let errorCode = Int.random(in: 500 ..< 600)
         let delay = DispatchTimeInterval.milliseconds(100)
 
-        let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let brokenHandler: HTTPClient.Handler = { _, _, completion in
             let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
             let delta = lastCall.flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 
             count += 1
             lastCall = Date()
-            callback(.success(HTTPClient.Response(statusCode: errorCode)))
+            completion(.success(HTTPClient.Response(statusCode: errorCode)))
         }
 
         let httpClient = HTTPClient(handler: brokenHandler)
@@ -332,9 +364,9 @@ final class HTTPClientTest: XCTestCase {
         let maxErrors = 5
         let age = DispatchTimeInterval.milliseconds(100)
 
-        let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let brokenHandler: HTTPClient.Handler = { _, _, completion in
             count += 1
-            callback(.success(HTTPClient.Response(statusCode: errorCode)))
+            completion(.success(HTTPClient.Response(statusCode: errorCode)))
         }
 
         let host = "http://tes-\(UUID().uuidString).com"
@@ -374,14 +406,14 @@ final class HTTPClientTest: XCTestCase {
         let maxErrors = 5
         let age = DispatchTimeInterval.milliseconds(100)
 
-        let brokenHandler = { (_: HTTPClient.Request, callback: @escaping (Result<HTTPClient.Response, Error>) -> Void) in
+        let brokenHandler: HTTPClient.Handler = { _, _, completion in
             if count < maxErrors / 2 {
                 // immediate
-                callback(.success(HTTPClient.Response(statusCode: errorCode)))
+                completion(.success(HTTPClient.Response(statusCode: errorCode)))
             } else {
                 // age it
                 DispatchQueue.global().asyncAfter(deadline: .now() + age) {
-                    callback(.success(HTTPClient.Response(statusCode: errorCode)))
+                    completion(.success(HTTPClient.Response(statusCode: errorCode)))
                 }
             }
             count += 1

@@ -41,11 +41,6 @@ func handle(error: Swift.Error) {
     switch error {
     case Diagnostics.fatalError:
         break
-
-    case ArgumentParserError.expectedArguments(let parser, _):
-        print(error: error)
-        parser.printUsage(on: stderrStream)
-
     default:
         print(error: error)
     }

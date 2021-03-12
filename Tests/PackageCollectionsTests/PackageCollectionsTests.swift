@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -19,6 +19,8 @@ import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
     func testBasicRegistration() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -44,6 +46,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testAddDuplicates() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -69,7 +73,157 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
+    func testAddUnsigned() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 3, signed: false)
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+        }
+
+        // User trusted
+        _ = try tsc_await { callback in packageCollections.addCollection(mockCollections[0].source, order: nil, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
+        // User untrusted
+        XCTAssertThrowsError(
+            try tsc_await { callback in
+                packageCollections.addCollection(mockCollections[1].source, order: nil, trustConfirmationProvider: { _, cb in cb(false) }, callback: callback)
+            }) { error in
+            guard case PackageCollectionError.untrusted = error else {
+                return XCTFail("Expected PackageCollectionError.untrusted")
+            }
+        }
+        // User preference unknown
+        XCTAssertThrowsError(
+            try tsc_await { callback in packageCollections.addCollection(mockCollections[2].source, order: nil, trustConfirmationProvider: nil, callback: callback) }) { error in
+            guard case PackageCollectionError.trustConfirmationRequired = error else {
+                return XCTFail("Expected PackageCollectionError.trustConfirmationRequired")
+            }
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 1, "list count should match")
+        }
+    }
+
+    func testInvalidCollectionNotAdded() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        // add fails because collection is not found
+        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+            return XCTFail("expected error")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+    }
+
+    func testCollectionPendingTrustConfirmIsKeptOnAdd() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1, signed: false).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+            return XCTFail("expected error")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 1, "sources should match")
+        }
+    }
+
+    func testCollectionWithInvalidSignatureNotAdded() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollection = makeMockCollections(count: 1).first!
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection], collectionsWithInvalidSignature: [mockCollection.source])]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+
+        // add fails because collection's signature is invalid
+        guard case .failure(let error) = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }),
+            PackageCollectionError.invalidSignature == error as? PackageCollectionError else {
+            return XCTFail("expected PackageCollectionError.invalidSignature")
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list count should match")
+
+            let sources = try tsc_await { callback in storage.sources.list(callback: callback) }
+            XCTAssertEqual(sources.count, 0, "sources should be empty")
+        }
+    }
+
     func testDelete() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -119,6 +273,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testDeleteFromBothStorages() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -152,6 +308,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testOrdering() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -221,6 +379,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testReorder() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -320,11 +480,64 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
+    func testUpdateTrust() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 1, signed: false)
+
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+        }
+
+        // User preference unknown - collection not saved to storage
+        _ = try? tsc_await { callback in packageCollections.addCollection(mockCollections.first!.source, order: nil, trustConfirmationProvider: nil, callback: callback) }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+        }
+
+        var source = mockCollections.first!.source
+
+        // Update to trust the source. It will trigger a collection refresh which will save collection to storage.
+        source.isTrusted = true
+        _ = try tsc_await { callback in packageCollections.updateCollection(source, callback: callback) }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 1, "list count should match")
+        }
+
+        // Update to untrust the source. It will trigger a collection refresh which will remove collection from storage.
+        source.isTrusted = false
+        XCTAssertThrowsError(try tsc_await { callback in packageCollections.updateCollection(source, callback: callback) }) { error in
+            guard case PackageCollectionError.untrusted = error else {
+                return XCTFail("Expected PackageCollectionError.untrusted")
+            }
+        }
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+        }
+    }
+
     func testListPerformance() throws {
         #if ENABLE_COLLECTION_PERF_TESTS
         #else
         try XCTSkipIf(true)
         #endif
+
+        try skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -354,6 +567,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testPackageSearch() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -366,24 +581,30 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
                             PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let toolsVersion = ToolsVersion(string: "5.2")!
+        let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
+            toolsVersion: toolsVersion,
+            packageName: UUID().uuidString,
+            targets: mockTargets,
+            products: mockProducts,
+            minimumPlatformVersions: nil
+        )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  packageName: UUID().uuidString,
-                                                                  targets: mockTargets,
-                                                                  products: mockProducts,
-                                                                  toolsVersion: .currentToolsVersion,
-                                                                  minimumPlatformVersions: nil,
-                                                                  verifiedPlatforms: nil,
-                                                                  verifiedSwiftVersions: nil,
-                                                                  license: nil)
+                                                                  summary: nil,
+                                                                  manifests: [toolsVersion: mockManifest],
+                                                                  defaultToolsVersion: toolsVersion,
+                                                                  verifiedCompatibility: nil,
+                                                                  license: nil,
+                                                                  createdAt: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: .init(url: "https://packages.mock/\(UUID().uuidString)"),
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
-                                                          latestVersion: mockVersion,
                                                           watchersCount: nil,
                                                           readmeURL: nil,
+                                                          license: nil,
                                                           authors: nil)
 
         let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
@@ -392,7 +613,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
                                                                 packages: [mockPackage],
                                                                 createdAt: Date(),
-                                                                createdBy: nil)
+                                                                createdBy: nil,
+                                                                signature: nil)
 
         let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
@@ -400,7 +622,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
                                                                  packages: [mockPackage],
                                                                  createdAt: Date(),
-                                                                 createdBy: nil)
+                                                                 createdBy: nil,
+                                                                 signature: nil)
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -412,12 +635,12 @@ final class PackageCollectionsTests: XCTestCase {
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, callback: callback) }
+            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
 
         do {
             // search by package name
-            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockVersion.packageName, callback: callback) }
+            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockManifest.packageName, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
             XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "list count should match")
         }
@@ -477,6 +700,8 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -505,6 +730,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testTargetsSearch() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -517,24 +744,30 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockProducts = [PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: [mockTargets.first!]),
                             PackageCollectionsModel.Product(name: UUID().uuidString, type: .executable, targets: mockTargets)]
+        let toolsVersion = ToolsVersion(string: "5.2")!
+        let mockManifest = PackageCollectionsModel.Package.Version.Manifest(
+            toolsVersion: toolsVersion,
+            packageName: UUID().uuidString,
+            targets: mockTargets,
+            products: mockProducts,
+            minimumPlatformVersions: nil
+        )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
-                                                                  packageName: UUID().uuidString,
-                                                                  targets: mockTargets,
-                                                                  products: mockProducts,
-                                                                  toolsVersion: .currentToolsVersion,
-                                                                  minimumPlatformVersions: nil,
-                                                                  verifiedPlatforms: nil,
-                                                                  verifiedSwiftVersions: nil,
-                                                                  license: nil)
+                                                                  summary: nil,
+                                                                  manifests: [toolsVersion: mockManifest],
+                                                                  defaultToolsVersion: toolsVersion,
+                                                                  verifiedCompatibility: nil,
+                                                                  license: nil,
+                                                                  createdAt: nil)
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://packages.mock/\(UUID().uuidString)"),
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
-                                                          latestVersion: mockVersion,
                                                           watchersCount: nil,
                                                           readmeURL: nil,
+                                                          license: nil,
                                                           authors: nil)
 
         let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
@@ -543,7 +776,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                                 keywords: [UUID().uuidString, UUID().uuidString],
                                                                 packages: [mockPackage],
                                                                 createdAt: Date(),
-                                                                createdBy: nil)
+                                                                createdBy: nil,
+                                                                signature: nil)
 
         let mockCollection2 = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                  name: UUID().uuidString,
@@ -551,7 +785,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                                  keywords: [UUID().uuidString, UUID().uuidString],
                                                                  packages: [mockPackage],
                                                                  createdAt: Date(),
-                                                                 createdBy: nil)
+                                                                 createdBy: nil,
+                                                                 signature: nil)
 
         let expectedCollections = [mockCollection, mockCollection2]
         let expectedCollectionsIdentifiers = expectedCollections.map { $0.identifier }.sorted()
@@ -563,7 +798,7 @@ final class PackageCollectionsTests: XCTestCase {
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
-            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, callback: callback) }
+            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
 
         do {
@@ -595,6 +830,8 @@ final class PackageCollectionsTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -615,7 +852,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         // search by target name
         let start = Date()
-        let targetName = mockCollections.last!.packages.last!.versions.last!.targets.last!.name
+        let targetName = mockCollections.last!.packages.last!.versions.last!.defaultManifest!.targets.last!.name
         let searchResult = try tsc_await { callback in packageCollections.findTargets(targetName, searchType: .exactMatch, callback: callback) }
         XCTAssert(searchResult.items.count > 0, "should get results")
         let delta = Date().timeIntervalSince(start)
@@ -623,6 +860,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testHappyRefresh() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -643,6 +882,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testBrokenRefresh() throws {
+        try skipIfUnsupportedPlatform()
+
         struct BrokenProvider: PackageCollectionProvider {
             let brokenSources: [PackageCollectionsModel.CollectionSource]
             let error: Error
@@ -656,7 +897,14 @@ final class PackageCollectionsTests: XCTestCase {
                 if self.brokenSources.contains(source) {
                     callback(.failure(self.error))
                 } else {
-                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil)))
+                    let signature = PackageCollectionsModel.SignatureData(
+                        certificate: PackageCollectionsModel.SignatureData.Certificate(
+                            subject: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil),
+                            issuer: .init(userID: nil, commonName: nil, organizationalUnit: nil, organization: nil)
+                        ),
+                        isVerified: true
+                    )
+                    callback(.success(PackageCollectionsModel.Collection(source: source, name: "", overview: nil, keywords: nil, packages: [], createdAt: Date(), createdBy: nil, signature: signature)))
                 }
             }
         }
@@ -707,7 +955,69 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(list.count, goodSources.count + 1, "list count should match")
     }
 
+    func testRefreshOne() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 1)
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        try mockCollections.forEach { collection in
+            // save directly to storage to circumvent refresh on add
+            _ = try tsc_await { callback in storage.sources.add(source: collection.source, order: nil, callback: callback) }
+        }
+        _ = try tsc_await { callback in packageCollections.refreshCollection(mockCollections.first!.source, callback: callback) }
+
+        let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+        XCTAssertEqual(list.count, mockCollections.count, "list count should match")
+    }
+
+    func testRefreshOneTrustedUnsigned() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 1, signed: false)
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        // User trusted
+        let collection = try tsc_await { callback in packageCollections.addCollection(mockCollections[0].source, order: nil, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
+        XCTAssertEqual(true, collection.source.isTrusted) // isTrusted is nil-able
+
+        // `isTrusted` should be true so refreshCollection should succeed
+        XCTAssertNoThrow(try tsc_await { callback in packageCollections.refreshCollection(collection.source, callback: callback) })
+    }
+
+    func testRefreshOneNotFound() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 1, signed: false)
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        // Don't add collection so it's not found in the config
+        XCTAssertThrowsError(try tsc_await { callback in packageCollections.refreshCollection(mockCollections[0].source, callback: callback) }, "expected error") { error in
+            XCTAssert(error is NotFoundError)
+        }
+    }
+
     func testListTargets() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -731,11 +1041,11 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         let targetsList = try tsc_await { callback in packageCollections.listTargets(callback: callback) }
-        let expectedTargets = Set(mockCollections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.targets.map { $0.name } } } })
+        let expectedTargets = Set(mockCollections.flatMap { $0.packages.flatMap { $0.versions.flatMap { $0.defaultManifest!.targets.map { $0.name } } } })
         XCTAssertEqual(Set(targetsList.map { $0.target.name }), expectedTargets, "targets should match")
 
         let targetsPackagesList = Set(targetsList.flatMap { $0.packages })
-        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
+        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.defaultManifest!.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
         XCTAssertEqual(targetsPackagesList.count, expectedPackages.count, "pacakges should match")
 
         let targetsCollectionsList = Set(targetsList.flatMap { $0.packages.flatMap { $0.collections } })
@@ -744,6 +1054,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataHappy() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -778,6 +1090,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataInOrder() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -810,7 +1124,9 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
-    func testMergedPackageMetadata() {
+    func testMergedPackageMetadata() throws {
+        try skipIfUnsupportedPlatform()
+
         let packageId = UUID().uuidString
 
         let targets = (0 ..< Int.random(in: 1 ... 5)).map {
@@ -819,33 +1135,43 @@ final class PackageCollectionsTests: XCTestCase {
         let products = (0 ..< Int.random(in: 1 ... 3)).map {
             PackageCollectionsModel.Product(name: "product-\($0)", type: .executable, targets: targets)
         }
+        let toolsVersion = ToolsVersion(string: "5.2")!
+        let manifest = PackageCollectionsModel.Package.Version.Manifest(
+            toolsVersion: toolsVersion,
+            packageName: "package-\(packageId)",
+            targets: targets,
+            products: products,
+            minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))]
+        )
 
         let versions = (0 ... 3).map {
             PackageCollectionsModel.Package.Version(version: TSCUtility.Version($0, 0, 0),
-                                                    packageName: "package-\(packageId)",
-                                                    targets: targets,
-                                                    products: products,
-                                                    toolsVersion: .currentToolsVersion,
-                                                    minimumPlatformVersions: [.init(platform: .macOS, version: .init("10.15"))],
-                                                    verifiedPlatforms: [.iOS, .linux],
-                                                    verifiedSwiftVersions: SwiftLanguageVersion.knownSwiftLanguageVersions,
-                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!))
+                                                    summary: "\($0) description",
+                                                    manifests: [toolsVersion: manifest],
+                                                    defaultToolsVersion: toolsVersion,
+                                                    verifiedCompatibility: [
+                                                        .init(platform: .iOS, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
+                                                        .init(platform: .linux, swiftVersion: SwiftLanguageVersion.knownSwiftLanguageVersions.randomElement()!),
+                                                    ],
+                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!),
+                                                    createdAt: Date())
         }
 
         let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageId)"),
                                                           summary: "package \(packageId) description",
                                                           keywords: [UUID().uuidString],
                                                           versions: versions,
-                                                          latestVersion: versions.first,
                                                           watchersCount: Int.random(in: 0 ... 50),
                                                           readmeURL: URL(string: "https://package-\(packageId)-readme")!,
+                                                          license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!),
                                                           authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) })
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
-                                                                        versions: mockPackage.versions.map { TSCUtility.Version($0.version.major, 1, 0) },
+                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, summary: "\($0.summary!) 2", createdAt: Date(), publishedAt: nil) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
                                                                         readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
+                                                                        license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "\(mockPackage.license!.url.absoluteString)-2")!),
                                                                         authors: mockPackage.authors.flatMap { $0.map { .init(username: "\($0.username + "2")", url: nil, service: nil) } },
                                                                         processedAt: Date())
 
@@ -859,23 +1185,32 @@ final class PackageCollectionsTests: XCTestCase {
             let metadataVersion = metadata.versions.first(where: { $0.version == version.version })
             XCTAssertNotNil(metadataVersion)
 
-            XCTAssertEqual(version.packageName, metadataVersion?.packageName, "packageName should match")
-            XCTAssertEqual(version.targets, metadataVersion?.targets, "targets should match")
-            XCTAssertEqual(version.products, metadataVersion?.products, "products should match")
-            XCTAssertEqual(version.toolsVersion, metadataVersion?.toolsVersion, "toolsVersion should match")
-            XCTAssertEqual(version.minimumPlatformVersions, metadataVersion?.minimumPlatformVersions, "minimumPlatformVersions should match")
-            XCTAssertEqual(version.verifiedPlatforms, metadataVersion?.verifiedPlatforms, "verifiedPlatforms should match")
-            XCTAssertEqual(version.verifiedSwiftVersions, metadataVersion?.verifiedSwiftVersions, "verifiedSwiftVersions should match")
+            let mockMetadataVersion = mockMetadata.versions.first(where: { $0.version == version.version })
+            XCTAssertNotNil(mockMetadataVersion)
+
+            let manifest = version.defaultManifest!
+            let metadataManifest = metadataVersion?.defaultManifest
+            XCTAssertEqual(manifest.packageName, metadataManifest?.packageName, "packageName should match")
+            XCTAssertEqual(manifest.targets, metadataManifest?.targets, "targets should match")
+            XCTAssertEqual(manifest.products, metadataManifest?.products, "products should match")
+            XCTAssertEqual(manifest.toolsVersion, metadataManifest?.toolsVersion, "toolsVersion should match")
+            XCTAssertEqual(manifest.minimumPlatformVersions, metadataManifest?.minimumPlatformVersions, "minimumPlatformVersions should match")
+            XCTAssertEqual(version.verifiedCompatibility, metadataVersion?.verifiedCompatibility, "verifiedCompatibility should match")
             XCTAssertEqual(version.license, metadataVersion?.license, "license should match")
+            XCTAssertEqual(mockMetadataVersion?.summary, metadataVersion?.summary, "summary should match")
+            XCTAssertEqual(mockMetadataVersion?.createdAt, metadataVersion?.createdAt, "createdAt should match")
         }
         XCTAssertEqual(metadata.latestVersion, metadata.versions.first, "versions should be sorted")
         XCTAssertEqual(metadata.latestVersion?.version, versions.last?.version, "latestVersion should match")
         XCTAssertEqual(metadata.watchersCount, mockMetadata.watchersCount, "watchersCount should match")
         XCTAssertEqual(metadata.readmeURL, mockMetadata.readmeURL, "readmeURL should match")
+        XCTAssertEqual(metadata.license, mockMetadata.license, "license should match")
         XCTAssertEqual(metadata.authors, mockMetadata.authors, "authors should match")
     }
 
     func testFetchMetadataNotFoundInCollections() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -897,6 +1232,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataNotFoundByProvider() throws {
+        try skipIfUnsupportedPlatform()
+
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -930,6 +1267,8 @@ final class PackageCollectionsTests: XCTestCase {
     }
 
     func testFetchMetadataProviderError() throws {
+        try skipIfUnsupportedPlatform()
+
         struct BrokenMetadataProvider: PackageMetadataProvider {
             var name: String = "BrokenMetadataProvider"
 
@@ -963,9 +1302,10 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        XCTAssertThrowsError(try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }, "expected error") { error in
-            XCTAssert(error is BrokenMetadataProvider.TerribleThing)
-        }
+        // Despite metadata provider error we should still get back data from storage
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
+        XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
     func testFetchMetadataPerformance() throws {
@@ -973,6 +1313,8 @@ final class PackageCollectionsTests: XCTestCase {
         #else
         try XCTSkipIf(true)
         #endif
+
+        try skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
@@ -1000,24 +1342,12 @@ final class PackageCollectionsTests: XCTestCase {
         let delta = Date().timeIntervalSince(start)
         XCTAssert(delta < 1.0, "should fetch quickly, took \(delta)")
     }
+}
 
-    func testSourceValidation() throws {
-        let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed.mock.io")!)
-        XCTAssertNil(httpsSource.validate(), "not expecting errors")
-
-        let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HTTPS://feed.mock.io")!)
-        XCTAssertNil(httpsSource2.validate(), "not expecting errors")
-
-        let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HttpS://feed.mock.io")!)
-        XCTAssertNil(httpsSource3.validate(), "not expecting errors")
-
-        let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "http://feed.mock.io")!)
-        XCTAssertEqual(httpSource.validate()?.count, 1, "expecting errors")
-
-        let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "ftp://feed.mock.io")!)
-        XCTAssertEqual(otherProtocolSource.validate()?.count, 1, "expecting errors")
-
-        let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "blah")!)
-        XCTAssertEqual(brokenUrlSource.validate()?.count, 1, "expecting errors")
+private extension XCTestCase {
+    func skipIfUnsupportedPlatform() throws {
+        if !PackageCollections.isSupportedPlatform {
+            throw XCTSkip("Skipping test on unsupported platform")
+        }
     }
 }

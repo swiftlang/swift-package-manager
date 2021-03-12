@@ -1,23 +1,26 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2015 - 2019 Apple Inc. and the Swift project authors
+ Copyright 2015 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
+import LLBuildManifest
+import PackageGraph
+import PackageModel
+import SPMBuildCore
+import SPMLLBuild
 import TSCBasic
 import TSCUtility
 
-import PackageGraph
-import PackageModel
-import LLBuildManifest
-import SPMLLBuild
-import SPMBuildCore
-
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
+
+    /// The delegate used by the build system.
+    public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
     /// The build parameters.
     public let buildParameters: BuildParameters
@@ -27,15 +30,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
+    
+    /// The closure for invoking plugins in the package graph.
+    let pluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]]
 
-    /// The build delegate reference.
-    private var buildDelegate: BuildDelegate?
+    /// The llbuild build delegate reference.
+    private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
 
-    /// The build system reference.
+    /// The llbuild build system reference.
     private var buildSystem: SPMLLBuild.BuildSystem?
 
     /// If build manifest caching should be enabled.
-    public let useBuildManifestCaching: Bool
+    public let cacheBuildManifest: Bool
 
     /// The build plan that was computed, if any.
     public private(set) var buildPlan: BuildPlan?
@@ -55,14 +61,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public init(
         buildParameters: BuildParameters,
-        useBuildManifestCaching: Bool,
+        cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
+        pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
         diagnostics: DiagnosticsEngine,
         stdoutStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
-        self.useBuildManifestCaching = useBuildManifestCaching
+        self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
+        self.pluginInvoker = pluginInvoker
         self.diagnostics = diagnostics
         self.stdoutStream = stdoutStream
     }
@@ -72,31 +80,36 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             try self.packageGraphLoader()
         }
     }
+    
+    public func getPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+        return try self.pluginInvoker(graph)
+    }
 
-    /// Compute and return the latest build descroption.
+    /// Compute and return the latest build description.
     ///
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
     public func getBuildDescription() throws -> BuildDescription {
         try memoize(to: &buildDescription) {
-            if useBuildManifestCaching {
-                try buildPackageStructure()
-
-                // Return the build description that's on disk. We trust the above build to
-                // update the build description when needed.
+            if self.cacheBuildManifest {
                 do {
-                    return try BuildDescription.load(from: buildParameters.buildDescriptionPath)
-                } catch {
-                    // Silently regnerate the build description if we failed to decode (which could happen
-                    // because the existing file was created by different version of swiftpm).
-                    if !(error is DecodingError) {
-                        diagnostics.emit(warning: "failed to load the build description; running build planning: \(error)")
+                    try self.buildPackageStructure()
+                    // confirm the step above created the build description as expected
+                    // we trust it to update the build description when needed
+                    let buildDescriptionPath = self.buildParameters.buildDescriptionPath
+                    guard localFileSystem.exists(buildDescriptionPath) else {
+                        throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                     }
+                    // return the build description that's on disk.
+                    return try BuildDescription.load(from: buildDescriptionPath)
+                } catch {
+                    // since caching is an optimization, warn about failing to load the cached version
+                    diagnostics.emit(warning: "failed to load the cached build description: \(error)")
                 }
             }
 
             // We need to perform actual planning if we reach here.
-            return try plan()
+            return try self.plan()
         }
     }
 
@@ -115,10 +128,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)
 
-        buildDelegate?.progressAnimation.complete(success: success)
+        buildSystemDelegate?.buildComplete(success: success)
+        delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
-        // Create backwards-compatibilty symlink to old build path.
+        // Create backwards-compatibility symlink to old build path.
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
             component: buildParameters.configuration.dirname
         )
@@ -151,20 +165,34 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Create the build plan and return the build description.
     private func plan() throws -> BuildDescription {
+        // Load the package graph.
         let graph = try getPackageGraph()
+        
+        // Invoke any plugins in the graph, and get the results.
+        let pluginInvocationResults = try getPluginInvocationResults(for: graph)
+
+        // Run any prebuild commands provided by plugins. Any failure stops the build.
+        let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
+            partial[target] = try pluginInvocationResults[target].map { try runPrebuildCommands(for: $0) }
+        })
+        
+        // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
+            pluginInvocationResults: pluginInvocationResults,
+            prebuildCommandResults: prebuildCommandResults,
             diagnostics: diagnostics
         )
         self.buildPlan = plan
-
+        
+        // Finally create the llbuild manifest from the plan.
         return try BuildDescription.create(with: plan)
     }
 
     /// Build the package structure target.
     private func buildPackageStructure() throws {
-        let buildSystem = try createBuildSystem(with: nil)
+        let buildSystem = try self.createBuildSystem(with: nil)
         self.buildSystem = buildSystem
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
@@ -194,24 +222,27 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
 
         // Create the build delegate.
-        let buildDelegate = BuildDelegate(
+        let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
+            buildSystem: self,
             bctx: bctx,
             diagnostics: diagnostics,
             outputStream: self.stdoutStream,
-            progressAnimation: progressAnimation
+            progressAnimation: progressAnimation,
+            delegate: self.delegate
         )
-        self.buildDelegate = buildDelegate
-        buildDelegate.isVerbose = isVerbose
+        self.buildSystemDelegate = buildSystemDelegate
+        buildSystemDelegate.isVerbose = isVerbose
 
         let databasePath = buildParameters.dataPath.appending(component: "build.db").pathString
-        let buildSystem = BuildSystem(
+        let buildSystem = SPMLLBuild.BuildSystem(
             buildFile: buildParameters.llbuildManifest.pathString,
             databaseFile: databasePath,
-            delegate: buildDelegate,
+            delegate: buildSystemDelegate,
             schedulerLanes: buildParameters.jobs
         )
-        buildDelegate.onCommmandFailure = {
+        buildSystemDelegate.onCommmandFailure = {
             buildSystem.cancel()
+            self.delegate?.buildSystemDidCancel(self)
         }
 
         return buildSystem
@@ -265,7 +296,7 @@ extension BuildDescription {
         let copyCommands = llbuild.manifest.getCmdToolMap(kind: CopyTool.self)
 
         // Create the build description.
-        let buildDescription = BuildDescription(
+        let buildDescription = try BuildDescription(
             plan: plan,
             swiftCommands: swiftCommands,
             swiftFrontendCommands: swiftFrontendCommands,
@@ -305,7 +336,9 @@ extension BuildSubset {
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
-            return product.getLLBuildTargetName(config: config)
+            return diagnostics.wrap {
+                try product.getLLBuildTargetName(config: config)
+            }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
                 diagnostics.emit(error: "no target named '\(targetName)'")

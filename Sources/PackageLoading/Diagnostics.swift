@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -34,7 +34,7 @@ extension Diagnostic.Message {
         switch product.type {
         case .library(.automatic):
             typeString = ""
-        case .executable, .test,
+        case .executable, .plugin, .test,
              .library(.dynamic), .library(.static):
             typeString = " (\(product.type))"
         }
@@ -42,8 +42,8 @@ extension Diagnostic.Message {
         return .warning("ignoring duplicate product '\(product.name)'\(typeString)")
     }
 
-    static func duplicateTargetDependency(dependency: String, target: String) -> Diagnostic.Message {
-        .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)'")
+    static func duplicateTargetDependency(dependency: String, target: String, package: String) -> Diagnostic.Message {
+        .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)' from package '\(package)'")
     }
 
     static var systemPackageDeprecation: Diagnostic.Message {
@@ -74,6 +74,14 @@ extension Diagnostic.Message {
 
     static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Diagnostic.Message {
         .error("executable product '\(product)' should not have more than one executable target")
+    }
+
+    static func pluginProductWithNoTargets(product: String) -> Diagnostic.Message {
+        .error("plugin product '\(product)' should have at least one plugin target")
+    }
+
+    static func pluginProductWithNonPluginTargets(product: String, otherTargets: [String]) -> Diagnostic.Message {
+        .error("plugin product '\(product)' should have only plugin targets (it has \(otherTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
     static var noLibraryTargetsForREPL: Diagnostic.Message {

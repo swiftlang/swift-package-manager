@@ -8,7 +8,7 @@
 
 add_library(PackageLoading
   Diagnostics.swift
-  ManifestBuilder.swift
+  IdentityResolver.swift
   ManifestLoader.swift
   MinimumDeploymentTarget.swift
   ModuleMapGenerator.swift
@@ -23,6 +23,7 @@ target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
   PackageModel
+  SourceControl
   TSCUtility)
 if(Foundation_FOUND)
   target_link_libraries(PackageLoading PUBLIC

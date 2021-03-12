@@ -16,10 +16,10 @@ public extension Manifest {
     static func createV4Manifest(
         name: String,
         path: String = "/",
-        url: String = "/",
+        packageKind: PackageReference.Kind = .root,
+        packageLocation: String = "/",
         version: TSCUtility.Version? = nil,
         toolsVersion: ToolsVersion = .v4,
-        packageKind: PackageReference.Kind = .root,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -31,12 +31,12 @@ public extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
-            platforms: [],
             path: AbsolutePath(path).appending(component: Manifest.filename),
-            url: url,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            platforms: [],
             version: version,
             toolsVersion: toolsVersion,
-            packageKind: packageKind,
             pkgConfig: pkgConfig,
             providers: providers,
             cLanguageStandard: cLanguageStandard,
@@ -50,13 +50,13 @@ public extension Manifest {
 
     static func createManifest(
         name: String,
+        path: String = "/",
+        packageKind: PackageReference.Kind = .root,
+        packageLocation: String = "/",
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
-        path: String = "/",
-        url: String = "/",
         version: TSCUtility.Version? = nil,
         v: ToolsVersion,
-        packageKind: PackageReference.Kind = .root,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -68,13 +68,13 @@ public extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
+            path: AbsolutePath(path).appending(component: Manifest.filename),
+            packageKind: packageKind,
+            packageLocation: packageLocation,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
-            path: AbsolutePath(path).appending(component: Manifest.filename),
-            url: url,
             version: version,
             toolsVersion: v,
-            packageKind: packageKind,
             pkgConfig: pkgConfig,
             providers: providers,
             cLanguageStandard: cLanguageStandard,
@@ -86,23 +86,23 @@ public extension Manifest {
         )
     }
 
-    func with(url: String) -> Manifest {
+    func with(location: String) -> Manifest {
         return Manifest(
-            name: name,
-            platforms: platforms,
-            path: path,
-            url: url,
-            version: version,
-            toolsVersion: toolsVersion,
-            packageKind: packageKind,
-            pkgConfig: pkgConfig,
-            providers: providers,
-            cLanguageStandard: cLanguageStandard,
-            cxxLanguageStandard: cxxLanguageStandard,
-            swiftLanguageVersions: swiftLanguageVersions,
-            dependencies: dependencies,
-            products: products,
-            targets: targets
+            name: self.name,
+            path: self.path,
+            packageKind: self.packageKind,
+            packageLocation: location,
+            platforms: self.platforms,
+            version: self.version,
+            toolsVersion: self.toolsVersion,
+            pkgConfig: self.pkgConfig,
+            providers: self.providers,
+            cLanguageStandard: self.cLanguageStandard,
+            cxxLanguageStandard: self.cxxLanguageStandard,
+            swiftLanguageVersions: self.swiftLanguageVersions,
+            dependencies: self.dependencies,
+            products: self.products,
+            targets: self.targets
         )
     }
 }

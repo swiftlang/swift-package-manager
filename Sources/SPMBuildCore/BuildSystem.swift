@@ -29,6 +29,9 @@ public enum BuildSubset {
 /// implementation details between SwiftPM's `BuildOperation` and the XCBuild backed `XCBuildSystem`.
 public protocol BuildSystem {
 
+    /// The delegate used by the build system.
+    var delegate: BuildSystemDelegate? { get }
+
     /// The test products that this build system will build.
     var builtTestProducts: [BuiltTestProduct] { get }
 

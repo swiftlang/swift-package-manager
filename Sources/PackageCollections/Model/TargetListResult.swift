@@ -10,6 +10,7 @@
 
 import Foundation
 
+import PackageModel
 import SourceControl
 import TSCUtility
 
@@ -48,11 +49,18 @@ extension PackageCollectionsModel.TargetListResult {
 
 extension PackageCollectionsModel.TargetListResult {
     /// Represents a package version
-    public struct PackageVersion: Hashable, Encodable {
+    public struct PackageVersion: Hashable, Encodable, Comparable {
         /// The version
         public let version: TSCUtility.Version
 
+        /// Tools version
+        public let toolsVersion: ToolsVersion
+
         /// Package name
         public let packageName: String
+
+        public static func < (lhs: PackageVersion, rhs: PackageVersion) -> Bool {
+            lhs.version < rhs.version && lhs.toolsVersion < rhs.toolsVersion
+        }
     }
 }

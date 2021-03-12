@@ -6,8 +6,8 @@ license](https://swift.org/LICENSE.txt).
 ---
 
 Before submitting the pull request, please make sure you have tested your
-changes and that they follow the Swift project [guidelines for contributing
-code](https://swift.org/contributing/#contributing-code).
+changes and that they follow the SwiftPM project [guidelines for contributing
+code](Documentation/Contributing.md).
 
 ---
 

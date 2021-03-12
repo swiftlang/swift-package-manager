@@ -95,8 +95,8 @@ struct APIDigesterBaselineDumper {
             repositoryManager: repositoryManager
         )
 
-        let graph = workspace.loadPackageGraph(
-            root: baselinePackageRoot, diagnostics: diags)
+        let graph = try workspace.loadPackageGraph(
+            rootPath: baselinePackageRoot, diagnostics: diags)
 
         // Abort if we weren't able to load the package graph.
         if diags.hasErrors {
@@ -110,8 +110,9 @@ struct APIDigesterBaselineDumper {
         // Build the baseline module.
         let buildOp = BuildOperation(
             buildParameters: buildParameters,
-            useBuildManifestCaching: false,
+            cacheBuildManifest: false,
             packageGraphLoader: { graph },
+            pluginInvoker: { _ in [:] },
             diagnostics: diags,
             stdoutStream: stdoutStream
         )

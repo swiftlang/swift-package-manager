@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -38,110 +38,103 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         guard reference.kind == .remote else {
             return callback(.failure(Errors.invalidReferenceType(reference)))
         }
-        guard let baseURL = self.apiURL(reference.path) else {
-            return callback(.failure(Errors.invalidGitURL(reference.path)))
+        guard let baseURL = self.apiURL(reference.location) else {
+            return callback(.failure(Errors.invalidGitURL(reference.location)))
         }
 
         let metadataURL = baseURL
-        let tagsURL = baseURL.appendingPathComponent("tags")
+        // TODO: make `per_page` configurable? GitHub API's max/default is 100
+        let releasesURL = URL(string: baseURL.appendingPathComponent("releases").absoluteString + "?per_page=20") ?? baseURL.appendingPathComponent("releases")
         let contributorsURL = baseURL.appendingPathComponent("contributors")
         let readmeURL = baseURL.appendingPathComponent("readme")
+        let licenseURL = baseURL.appendingPathComponent("license")
 
         let sync = DispatchGroup()
-        var results = [URL: Result<HTTPClientResponse, Error>]()
-        let resultsLock = Lock()
+        let results = ThreadSafeKeyValueStore<URL, Result<HTTPClientResponse, Error>>()
 
         // get the main data
         sync.enter()
-        var metadataHeaders = self.makeRequestHeaders(metadataURL)
+        var metadataHeaders = HTTPClientHeaders()
         metadataHeaders.add(name: "Accept", value: "application/vnd.github.mercy-preview+json")
         let metadataOptions = self.makeRequestOptions(validResponseCodes: [200, 401, 403, 404])
+        let hasAuthorization = metadataOptions.authorizationProvider?(metadataURL) != nil
         httpClient.get(metadataURL, headers: metadataHeaders, options: metadataOptions) { result in
             defer { sync.leave() }
-            resultsLock.withLock {
-                results[metadataURL] = result
-            }
+            results[metadataURL] = result
             if case .success(let response) = result {
                 let apiLimit = response.headers.get("X-RateLimit-Limit").first.flatMap(Int.init) ?? -1
                 let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
-                switch (response.statusCode, metadataHeaders.contains("Authorization"), apiRemaining) {
+                switch (response.statusCode, hasAuthorization, apiRemaining) {
                 case (_, _, 0):
                     self.diagnosticsEngine?.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
-                    }
+                    results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
                 case (401, true, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
-                    }
+                    results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
                 case (401, false, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
-                    }
+                    results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
                 case (403, _, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
-                    }
+                    results[metadataURL] = .failure(Errors.permissionDenied(metadataURL))
                 case (404, _, _):
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
-                    }
+                    results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
                 case (200, _, _):
                     if apiRemaining < self.configuration.apiLimitWarningThreshold {
                         self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
-                    [tagsURL, contributorsURL, readmeURL].forEach { url in
+                    [releasesURL, contributorsURL, readmeURL, licenseURL].forEach { url in
                         sync.enter()
-                        var headers = self.makeRequestHeaders(url)
+                        var headers = HTTPClientHeaders()
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
                         let options = self.makeRequestOptions(validResponseCodes: [200])
                         self.httpClient.get(url, headers: headers, options: options) { result in
                             defer { sync.leave() }
-                            resultsLock.withLock {
-                                results[url] = result
-                            }
+                            results[url] = result
                         }
                     }
                 default:
-                    resultsLock.withLock {
-                        results[metadataURL] = .failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
-                    }
+                    results[metadataURL] = .failure(Errors.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)"))
                 }
             }
         }
-        sync.wait()
 
         // process results
+        sync.notify(queue: self.httpClient.configuration.callbackQueue) {
+            do {
+                // check for main request error state
+                switch results[metadataURL] {
+                case .none:
+                    throw Errors.invalidResponse(metadataURL, "Response missing")
+                case .some(.failure(let error)):
+                    throw error
+                case .some(.success(let metadataResponse)):
+                    guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
+                        throw Errors.invalidResponse(metadataURL, "Empty body")
+                    }
+                    let releases = try results[releasesURL]?.success?.decodeBody([Release].self, using: self.decoder) ?? []
+                    let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
+                    let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
+                    let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
 
-        do {
-            // check for main request error state
-            switch results[metadataURL] {
-            case .none:
-                throw Errors.invalidResponse(metadataURL, "Response missing")
-            case .some(.failure(let error)):
-                throw error
-            case .some(.success(let metadataResponse)):
-                guard let metadata = try metadataResponse.decodeBody(GetRepositoryResponse.self, using: self.decoder) else {
-                    throw Errors.invalidResponse(metadataURL, "Empty body")
+                    callback(.success(.init(
+                        summary: metadata.description,
+                        keywords: metadata.topics,
+                        // filters out non-semantic versioned tags
+                        versions: releases.compactMap {
+                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(string:)) else {
+                                return nil
+                            }
+                            return Model.PackageBasicVersionMetadata(version: version, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
+                        },
+                        watchersCount: metadata.watchersCount,
+                        readmeURL: readme?.downloadURL,
+                        license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
+                        authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
+                        processedAt: Date()
+                    )))
                 }
-                let tags = try results[tagsURL]?.success?.decodeBody([Tag].self, using: self.decoder) ?? []
-                let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
-                let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
-
-                callback(.success(.init(
-                    summary: metadata.description,
-                    keywords: metadata.topics,
-                    // filters out non-semantic versioned tags
-                    versions: tags.compactMap { TSCUtility.Version(string: $0.name) },
-                    watchersCount: metadata.watchersCount,
-                    readmeURL: readme?.downloadURL,
-                    authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
-                    processedAt: Date()
-                )))
+            } catch {
+                return callback(.failure(error))
             }
-        } catch {
-            return callback(.failure(error))
         }
     }
 
@@ -169,15 +162,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         var options = HTTPClientRequest.Options()
         options.addUserAgent = true
         options.validResponseCodes = validResponseCodes
-        return options
-    }
-
-    private func makeRequestHeaders(_ url: URL) -> HTTPClientHeaders {
-        var headers = HTTPClientHeaders()
-        if let host = url.host, let token = self.configuration.authTokens?[.github(host)] {
-            headers.add(name: "Authorization", value: "token \(token)")
+        options.authorizationProvider = { url in
+            url.host.flatMap { host in
+                self.configuration.authTokens?[.github(host)].flatMap { token in
+                    "token \(token)"
+                }
+            }
         }
-        return headers
+        return options
     }
 
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
@@ -225,7 +217,6 @@ extension GitHubPackageMetadataProvider {
         let tagsURL: Foundation.URL
         let contributorsURL: Foundation.URL
         let language: String?
-        let license: License?
         let watchersCount: Int
         let forksCount: Int
 
@@ -243,7 +234,6 @@ extension GitHubPackageMetadataProvider {
             case tagsURL = "tags_url"
             case contributorsURL = "contributors_url"
             case language
-            case license
             case watchersCount = "watchers_count"
             case forksCount = "forks_count"
         }
@@ -251,9 +241,21 @@ extension GitHubPackageMetadataProvider {
 }
 
 extension GitHubPackageMetadataProvider {
-    fileprivate struct License: Codable {
-        let key: String
+    fileprivate struct Release: Codable {
         let name: String
+        let tagName: String?
+        // This might contain rich-text
+        let body: String?
+        let createdAt: Date
+        let publishedAt: Date?
+
+        private enum CodingKeys: String, CodingKey {
+            case name
+            case tagName = "tag_name"
+            case body
+            case createdAt = "created_at"
+            case publishedAt = "published_at"
+        }
     }
 
     fileprivate struct Tag: Codable {
@@ -288,6 +290,30 @@ extension GitHubPackageMetadataProvider {
             case url
             case htmlURL = "html_url"
             case downloadURL = "download_url"
+        }
+    }
+
+    fileprivate struct License: Codable {
+        let url: Foundation.URL
+        let htmlURL: Foundation.URL
+        let downloadURL: Foundation.URL
+        let license: License
+
+        private enum CodingKeys: String, CodingKey {
+            case url
+            case htmlURL = "html_url"
+            case downloadURL = "download_url"
+            case license
+        }
+
+        fileprivate struct License: Codable {
+            let name: String
+            let spdxID: String
+
+            private enum CodingKeys: String, CodingKey {
+                case name
+                case spdxID = "spdx_id"
+            }
         }
     }
 }

@@ -11,11 +11,15 @@
 import PackageModel
 import SourceControl
 
-struct MultipleErrors: Error {
+struct MultipleErrors: Error, CustomStringConvertible {
     let errors: [Error]
 
     init(_ errors: [Error]) {
         self.errors = errors
+    }
+
+    var description: String {
+        "\(self.errors)"
     }
 }
 
@@ -54,8 +58,8 @@ extension PackageReference {
     init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
         self.init(
             identity: PackageIdentity(url: repository.url),
-            path: repository.url,
-            kind: kind
+            kind: kind,
+            location: repository.url
         )
     }
 }

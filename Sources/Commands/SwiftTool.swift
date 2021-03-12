@@ -145,7 +145,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             case .forced:
                 self.stdoutStream <<< "it was forced"
             case .newPackages(let packages):
-                let dependencies = packages.lazy.map({ "'\($0.path)'" }).joined(separator: ", ")
+                let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
                 self.stdoutStream <<< "the following dependencies were added: \(dependencies)"
             case .packageRequirementChange(let package, let state, let requirement):
                 self.stdoutStream <<< "dependency '\(package.name)' was "
@@ -318,6 +318,14 @@ public class SwiftTool {
     /// The stream to print standard output on.
     fileprivate(set) var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
 
+    /// Holds the currently active workspace.
+    ///
+    /// It is not initialized in init() because for some of the commands like package init , usage etc,
+    /// workspace is not needed, infact it would be an error to ask for the workspace object
+    /// for package init because the Manifest file should *not* present.
+    private var _workspace: Workspace?
+    private var _workspaceDelegate: ToolWorkspaceDelegate?
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
@@ -429,6 +437,10 @@ public class SwiftTool {
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
+
+        if options.shouldDisableManifestCaching {
+            diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+        }
     }
 
     func editablesPath() throws -> AbsolutePath {
@@ -461,6 +473,7 @@ public class SwiftTool {
     func getSwiftPMConfig() throws -> Workspace.Configuration {
         return try _swiftpmConfig.get()
     }
+
     private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
         return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
     }()
@@ -483,23 +496,48 @@ public class SwiftTool {
         return resolvedPath
     }
 
-    /// Holds the currently active workspace.
-    ///
-    /// It is not initialized in init() because for some of the commands like package init , usage etc,
-    /// workspace is not needed, infact it would be an error to ask for the workspace object
-    /// for package init because the Manifest file should *not* present.
-    private var _workspace: Workspace?
+    private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+        if let explicitCachePath = options.cachePath {
+            // Create the explicit cache path if necessary
+            if !fileSystem.exists(explicitCachePath) {
+                try fileSystem.createDirectory(explicitCachePath, recursive: true)
+            }
+            return explicitCachePath
+        }
+
+        do {
+            // Create the default cache directory.
+            let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
+            if !fileSystem.exists(idiomaticCachePath) {
+                try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
+            }
+            // Create ~/.swiftpm if necessary
+            if !fileSystem.exists(fileSystem.dotSwiftPM) {
+                try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
+            }
+            // Create ~/.swiftpm/cache symlink if necessary
+            let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
+            if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
+                try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
+            }
+            return idiomaticCachePath
+        } catch {
+            self.diagnostics.emit(warning: "Failed creating default cache locations, \(error)")
+            return nil
+        }
+    }
 
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
         if let workspace = _workspace {
             return workspace
         }
+
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
-        let defaultCachePath = localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
-        let cachePath = !options.skipCache ? options.cachePath ?? defaultCachePath : nil
+        let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
+        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = Workspace(
             dataPath: buildPath,
             editablesPath: try editablesPath(),
@@ -510,12 +548,14 @@ public class SwiftTool {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             netrcFilePath: try resolvedNetrcFilePath(),
+            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : [],
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
             cachePath: cachePath
         )
         _workspace = workspace
+        _workspaceDelegate = delegate
         return workspace
     }
 
@@ -531,9 +571,9 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+            try workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
         } else {
-            workspace.resolve(root: root, diagnostics: diagnostics)
+            try workspace.resolve(root: root, diagnostics: diagnostics)
         }
 
         // Throw if there were errors when loading the graph.
@@ -558,7 +598,7 @@ public class SwiftTool {
 
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
-                root: getWorkspaceRoot(),
+                rootInput: getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
@@ -576,6 +616,47 @@ public class SwiftTool {
             throw error
         }
     }
+    
+    /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
+    func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+        do {
+            // Configure the plugin invocation inputs.
+
+            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
+            // files related to all plugins in the workspace.
+            let buildEnvironment = try buildParameters().buildEnvironment
+            let dataDir = try self.getActiveWorkspace().dataPath
+            let pluginsDir = dataDir.appending(component: "plugins")
+            
+            // The `cache` directory is in the plugins directory and is where the plugin script runner caches
+            // compiled plugin binaries and any other derived information.
+            let cacheDir = pluginsDir.appending(component: "cache")
+            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, manifestResources: self._hostToolchain.get().manifestResources)
+            
+            // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
+            // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
+            // additional files, and to which it can configure tools to write their outputs, etc.
+            let outputDir = pluginsDir.appending(component: "outputs")
+            
+            // The `tools` directory contains any command line tools (executables) that are available for any commands
+            // defined by the executable.
+            // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
+            // with a map of the names of tools available to each plugin. In particular this would not work with any
+            // binary targets.
+            let execsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
+            let diagnostics = DiagnosticsEngine()
+            
+            // Create the cache directory, if needed.
+            try localFileSystem.createDirectory(cacheDir, recursive: true)
+
+            // Ask the graph to invoke plugins, and return the result.
+            let result = try graph.invokePlugins(buildEnvironment: buildEnvironment, execsDir: execsDir, outputDir: outputDir, pluginScriptRunner: pluginScriptRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
+            return result
+        }
+        catch {
+            throw error
+        }
+    }
 
     /// Returns the user toolchain to compile the actual product.
     func getToolchain() throws -> UserToolchain {
@@ -586,31 +667,41 @@ public class SwiftTool {
         return try _manifestLoader.get()
     }
 
-    private func canUseBuildManifestCaching() throws -> Bool {
+    private func canUseCachedBuildManifest() throws -> Bool {
+        if !self.options.cacheBuildManifest {
+            return false
+        }
+
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-        localFileSystem.exists(buildParameters.llbuildManifest) &&
-        localFileSystem.exists(buildParameters.buildDescriptionPath)
+            localFileSystem.exists(buildParameters.llbuildManifest) &&
+            localFileSystem.exists(buildParameters.buildDescriptionPath)
+
+        if !haveBuildManifestAndDescription {
+            return false
+        }
 
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        let hasEditedPackages = try self.getActiveWorkspace().state.dependencies.contains(where: { $0.isEdited })
+        if hasEditedPackages {
+            return false
+        }
 
-        let enableBuildManifestCaching = ProcessEnv.vars.keys.contains("SWIFTPM_ENABLE_BUILD_MANIFEST_CACHING") || options.enableBuildManifestCaching
-
-        return enableBuildManifestCaching && haveBuildManifestAndDescription && !hasEditedPackages
+        return true
     }
 
-    func createBuildOperation(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true) throws -> BuildOperation {
+    func createBuildOperation(explicitProduct: String? = nil, cacheBuildManifest: Bool = true) throws -> BuildOperation {
         // Load a custom package graph which has a special product for REPL.
         let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
         let buildOp = try BuildOperation(
             buildParameters: buildParameters(),
-            useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+            cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
+            pluginInvoker: { _ in [:] },
             diagnostics: diagnostics,
             stdoutStream: self.stdoutStream
         )
@@ -620,20 +711,23 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(explicitProduct: String? = nil, useBuildManifestCaching: Bool = true, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
+    func createBuildSystem(explicitProduct: String? = nil, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
+            let pluginInvoker = { try self.invokePlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
-                useBuildManifestCaching: useBuildManifestCaching && canUseBuildManifestCaching(),
+                cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
+                pluginInvoker: pluginInvoker,
                 diagnostics: diagnostics,
                 stdoutStream: stdoutStream
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
+            // FIXME: Implement the custom build command provider also.
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
@@ -652,6 +746,7 @@ public class SwiftTool {
     func buildParameters() throws -> BuildParameters {
         return try _buildParameters.get()
     }
+
     private lazy var _buildParameters: Result<BuildParameters, Swift.Error> = {
         return Result(catching: {
             let toolchain = try self.getToolchain()
@@ -744,11 +839,24 @@ public class SwiftTool {
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
-            try ManifestLoader(
+            let cachePath: AbsolutePath?
+            switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+            case (true, _):
+                // backwards compatibility
+                cachePath = nil
+            case (false, .none):
+                cachePath = nil
+            case (false, .local):
+                cachePath = self.buildPath
+            case (false, .shared):
+                cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
+            }
+
+            return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: self.options.shouldDisableManifestCaching ? nil : self.buildPath,
+                cacheDir: cachePath,
                 extraManifestFlags: self.options.manifestFlags
             )
         })

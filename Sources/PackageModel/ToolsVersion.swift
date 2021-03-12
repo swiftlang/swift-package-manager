@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-
+import Basics
 import Foundation
+import TSCBasic
 import TSCUtility
 
 /// Tools version represents version of the Swift toolchain.
@@ -22,13 +22,14 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     public static let v5 = ToolsVersion(version: "5.0.0")
     public static let v5_2 = ToolsVersion(version: "5.2.0")
     public static let v5_3 = ToolsVersion(version: "5.3.0")
+    public static let v5_4 = ToolsVersion(version: "5.4.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
     public static let currentToolsVersion = ToolsVersion(string:
-        "\(Versioning.currentVersion.major)." +
-        "\(Versioning.currentVersion.minor)." +
-        "\(Versioning.currentVersion.patch)")!
+        "\(SwiftVersion.currentVersion.major)." +
+        "\(SwiftVersion.currentVersion.minor)." +
+        "\(SwiftVersion.currentVersion.patch)")!
 
     /// The minimum tools version that is required by the package manager.
     public static let minimumRequired: ToolsVersion = .v4
@@ -105,7 +106,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
         packagePath: String
     ) throws {
         // We don't want to throw any error when using the special vNext version.
-        if Versioning.currentVersion.isDevelopment && self == .vNext {
+        if SwiftVersion.currentVersion.isDevelopment && self == .vNext {
             return
         }
 

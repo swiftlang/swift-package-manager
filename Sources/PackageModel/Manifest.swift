@@ -23,17 +23,34 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// The standard basename for the manifest.
     public static let basename = "Package"
 
+    /// FIXME: deprecate this, there is no value in this once we have real package identifiers
+    /// The name of the package.
+    public let name: String
+
+    // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
     // to the repository state, it shouldn't matter where it is.
     //
     /// The path of the manifest file.
     public let path: AbsolutePath
 
+    // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
     // to the repository state, it shouldn't matter where it is.
     //
     /// The repository URL the manifest was loaded from.
-    public let url: String
+    public let packageLocation: String
+
+    // FIXME: deprecated 2/2021, remove once clients migrate
+    @available(*, deprecated)
+    public var url: String {
+        get {
+            self.packageLocation
+        }
+    }
+
+    /// Whether kind of package this manifest is from.
+     public let packageKind: PackageReference.Kind
 
     /// The version this package was loaded from, if known.
     public let version: Version?
@@ -44,14 +61,8 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// The tools version declared in the manifest.
     public let toolsVersion: ToolsVersion
 
-    /// The name of the package.
-    public let name: String
-
     /// The default localization for resources.
     public let defaultLocalization: String?
-
-    /// Whether kind of package this manifest is from.
-    public let packageKind: PackageReference.Kind
 
     /// The declared platforms in the manifest.
     public let platforms: [PlatformDescription]
@@ -91,14 +102,14 @@ public final class Manifest: ObjectIdentifierProtocol {
 
     public init(
         name: String,
+        path: AbsolutePath,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription],
-        path: AbsolutePath,
-        url: String,
         version: TSCUtility.Version? = nil,
         revision: String? = nil,
         toolsVersion: ToolsVersion,
-        packageKind: PackageReference.Kind,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -109,14 +120,14 @@ public final class Manifest: ObjectIdentifierProtocol {
         targets: [TargetDescription] = []
     ) {
         self.name = name
+        self.path = path
+        self.packageKind = packageKind
+        self.packageLocation = packageLocation
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
-        self.path = path
-        self.url = url
         self.version = version
         self.revision = revision
         self.toolsVersion = toolsVersion
-        self.packageKind = packageKind
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.cLanguageStandard = cLanguageStandard
@@ -148,21 +159,39 @@ public final class Manifest: ObjectIdentifierProtocol {
             return targets
         }
         #else
-        return self.targets
+        return packageKind == .root ? self.targets : targetsRequired(for: products)
         #endif
     }
 
     /// Returns the package dependencies required for a particular products filter.
     public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependencyDescription] {
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calcualted it, returned the cached value.
-        if let dependencies = _requiredDependencies[productFilter] {
-            return dependencies
+        if let dependencies = self._requiredDependencies[productFilter] {
+            return self.dependencies
         } else {
-            let targets = targetsRequired(for: productFilter)
-            let dependencies = dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
-            _requiredDependencies[productFilter] = dependencies
-            return dependencies
+            let targets = self.targetsRequired(for: productFilter)
+            let dependencies = self.dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
+            self._requiredDependencies[productFilter] = dependencies
+            return self.dependencies
         }
+        #else
+        guard toolsVersion >= .v5_2 && packageKind != .root else {
+            return self.dependencies
+        }
+        
+        var requiredDependencyURLs: Set<PackageIdentity> = []
+        
+        for target in self.targetsRequired(for: products) {
+            for targetDependency in target.dependencies {
+                if let dependency = self.packageDependency(referencedBy: targetDependency) {
+                    requiredDependencyURLs.insert(dependency.identity)
+                }
+            }
+        }
+        
+        return self.dependencies.filter { requiredDependencyURLs.contains($0.identity) }
+        #endif
     }
 
     /// Returns the targets required for building the provided products.
@@ -183,20 +212,20 @@ public final class Manifest: ObjectIdentifierProtocol {
         })
 
         let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
-        let requiredTargets = requiredTargetNames.compactMap({ targetsByName[$0] })
+        let requiredTargets = requiredTargetNames.compactMap{ targetsByName[$0] }
         return requiredTargets
     }
 
     /// Returns the package dependencies required for building the provided targets.
     ///
     /// The returned dependencies have their particular product filters registered. (To determine product filters without removing any dependencies from the list, specify `keepUnused: true`.)
-    public func dependenciesRequired(
+    private func dependenciesRequired(
         for targets: [TargetDescription],
         keepUnused: Bool = false
     ) -> [PackageDependencyDescription] {
 
         var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
-        let availablePackages = Set(dependencies.lazy.map({ $0.name }))
+        let availablePackages = Set(dependencies.lazy.map{ $0.nameForTargetDependencyResolutionOnly })
 
         for target in targets {
             for targetDependency in target.dependencies {
@@ -215,8 +244,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         }
 
         return dependencies.compactMap { dependency in
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            if let filter = associations[dependency.name] {
+            if let filter = associations[dependency.nameForTargetDependencyResolutionOnly] {
                 return dependency.filtered(by: filter)
             } else if keepUnused {
                 // Register that while the dependency was kept, no products are needed.
@@ -225,9 +253,6 @@ public final class Manifest: ObjectIdentifierProtocol {
                 // Dependencies known to not have any relevant products are discarded.
                 return nil
             }
-            #else
-            return dependency.filtered(by: .everything)
-            #endif
         }
     }
 
@@ -247,7 +272,7 @@ public final class Manifest: ObjectIdentifierProtocol {
             return nil
         }
 
-        return dependencies.first(where: { $0.name == packageName })
+        return self.dependencies.first(where: { $0.nameForTargetDependencyResolutionOnly == packageName })
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.
@@ -342,7 +367,7 @@ extension Manifest: CustomStringConvertible {
     }
 }
 
-extension Manifest: Codable {
+extension Manifest: Encodable {
     private enum CodingKeys: CodingKey {
          case name, path, url, version, targetMap, toolsVersion,
               pkgConfig,providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
@@ -361,22 +386,22 @@ extension Manifest: Codable {
         // Hide the keys that users shouldn't see when
         // we're encoding for the dump-package command.
         if encoder.userInfo[Manifest.dumpPackageKey] == nil {
-            try container.encode(path, forKey: .path)
-            try container.encode(url, forKey: .url)
-            try container.encode(version, forKey: .version)
-            try container.encode(targetMap, forKey: .targetMap)
+            try container.encode(self.path, forKey: .path)
+            try container.encode(self.packageLocation, forKey: .url)
+            try container.encode(self.version, forKey: .version)
+            try container.encode(self.targetMap, forKey: .targetMap)
         }
 
-        try container.encode(toolsVersion, forKey: .toolsVersion)
-        try container.encode(pkgConfig, forKey: .pkgConfig)
-        try container.encode(providers, forKey: .providers)
-        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
-        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
-        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
-        try container.encode(dependencies, forKey: .dependencies)
-        try container.encode(products, forKey: .products)
-        try container.encode(targets, forKey: .targets)
-        try container.encode(platforms, forKey: .platforms)
-        try container.encode(packageKind, forKey: .packageKind)
+        try container.encode(self.toolsVersion, forKey: .toolsVersion)
+        try container.encode(self.pkgConfig, forKey: .pkgConfig)
+        try container.encode(self.providers, forKey: .providers)
+        try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(self.cxxLanguageStandard, forKey: .cxxLanguageStandard)
+        try container.encode(self.swiftLanguageVersions, forKey: .swiftLanguageVersions)
+        try container.encode(self.dependencies, forKey: .dependencies)
+        try container.encode(self.products, forKey: .products)
+        try container.encode(self.targets, forKey: .targets)
+        try container.encode(self.platforms, forKey: .platforms)
+        try container.encode(self.packageKind, forKey: .packageKind)
     }
 }

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -18,6 +18,7 @@ public struct TargetDescription: Equatable, Codable {
         case test
         case system
         case binary
+        case plugin
     }
 
     /// Represents a target's dependency on another entity.
@@ -102,12 +103,28 @@ public struct TargetDescription: Equatable, Codable {
 
     /// The providers of a system library target.
     public let providers: [SystemPackageProviderDescription]?
+    
+    /// The declared capability for a package plugin target.
+    public let pluginCapability: PluginCapability?
+    
+    /// Represents the declared capability of a package plugin.
+    public enum PluginCapability: Equatable {
+        case prebuild, buildTool, postbuild
+    }
 
     /// The target-specific build settings declared in this target.
     public let settings: [TargetBuildSettingDescription.Setting]
 
     /// The binary target checksum.
     public let checksum: String?
+    
+    /// The usages of package plugins by the target.
+    public let pluginUsages: [PluginUsage]?
+
+    /// Represents a target's usage of a plugin target or product.
+    public enum PluginUsage: Equatable {
+        case plugin(name: String, package: String?)
+    }
 
     public init(
         name: String,
@@ -121,39 +138,51 @@ public struct TargetDescription: Equatable, Codable {
         type: TargetType = .regular,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
+        pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
-        checksum: String? = nil
-    ) {
+        checksum: String? = nil,
+        pluginUsages: [PluginUsage]? = nil
+    ) throws {
         switch type {
         case .regular, .executable, .test:
-            precondition(
-                url == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                checksum == nil
-            )
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
         case .system:
-            precondition(
-                dependencies.isEmpty &&
-                exclude.isEmpty &&
-                sources == nil &&
-                resources.isEmpty &&
-                publicHeadersPath == nil &&
-                settings.isEmpty &&
-                checksum == nil
-            )
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         case .binary:
-            precondition(path != nil || url != nil)
-            precondition(
-                dependencies.isEmpty &&
-                exclude.isEmpty &&
-                sources == nil &&
-                resources.isEmpty &&
-                publicHeadersPath == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                settings.isEmpty
-            )
+            if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
+        case .plugin:
+            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
+            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
+            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
+            if pluginCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         }
 
         self.name = name
@@ -167,8 +196,10 @@ public struct TargetDescription: Equatable, Codable {
         self.type = type
         self.pkgConfig = pkgConfig
         self.providers = providers
+        self.pluginCapability = pluginCapability
         self.settings = settings
         self.checksum = checksum
+        self.pluginUsages = pluginUsages
     }
 }
 
@@ -225,5 +256,84 @@ extension TargetDescription.Dependency: Codable {
 extension TargetDescription.Dependency: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self = .byName(name: value, condition: nil)
+    }
+}
+
+extension TargetDescription.PluginCapability: Codable {
+    private enum CodingKeys: CodingKey {
+        case prebuild, buildTool, postbuild
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .prebuild:
+            try container.encodeNil(forKey: .prebuild)
+        case .buildTool:
+            try container.encodeNil(forKey: .buildTool)
+        case .postbuild:
+            try container.encodeNil(forKey: .postbuild)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .prebuild:
+            self = .prebuild
+        case .buildTool:
+            self = .buildTool
+        case .postbuild:
+            self = .postbuild
+        }
+    }
+}
+
+extension TargetDescription.PluginUsage: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case plugin
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .plugin(name, package):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .plugin)
+            try unkeyedContainer.encode(name)
+            try unkeyedContainer.encode(package)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .plugin:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let name = try unkeyedValues.decode(String.self)
+            let package = try unkeyedValues.decodeIfPresent(String.self)
+            self = .plugin(name: name, package: package)
+        }
+    }
+}
+
+import protocol Foundation.LocalizedError
+
+private enum Error: LocalizedError, Equatable {
+    case binaryTargetRequiresEitherPathOrURL(targetName: String)
+    case disallowedPropertyInTarget(targetName: String, propertyName: String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .binaryTargetRequiresEitherPathOrURL(let targetName):
+            return "binary target '\(targetName)' neither defines neither path nor URL for its artifacts"
+        case .disallowedPropertyInTarget(let targetName, let propertyName):
+            return "target '\(targetName)' contains a value for disallowed property '\(propertyName)'"
+        }
     }
 }

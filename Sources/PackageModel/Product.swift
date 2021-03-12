@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -69,6 +69,9 @@ public enum ProductType: Equatable {
 
     /// An executable product.
     case executable
+    
+    /// An plugin product.
+    case plugin
 
     /// A test product.
     case test
@@ -118,6 +121,17 @@ public enum ProductFilter: Equatable, Hashable {
             return set.contains(product)
         }
     }
+
+    public func merge(_ other: ProductFilter) -> ProductFilter {
+        switch (self, other) {
+        case (.everything, _):
+            return .everything
+        case (_, .everything):
+            return .everything
+        case (.specific(let mine), .specific(let other)):
+            return .specific(mine.union(other))
+        }
+    }
 }
 
 
@@ -145,6 +159,8 @@ extension ProductType: CustomStringConvertible {
             case .static:
                 return "static"
             }
+        case .plugin:
+            return "plugin"
         }
     }
 }
@@ -164,7 +180,7 @@ extension ProductFilter: CustomStringConvertible {
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, test
+        case library, executable, plugin, test
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -175,6 +191,8 @@ extension ProductType: Codable {
             try unkeyedContainer.encode(a1)
         case .executable:
             try container.encodeNil(forKey: .executable)
+        case .plugin:
+            try container.encodeNil(forKey: .plugin)
         case .test:
             try container.encodeNil(forKey: .test)
         }
@@ -194,6 +212,8 @@ extension ProductType: Codable {
             self = .test
         case .executable:
             self = .executable
+        case .plugin:
+            self = .plugin
         }
     }
 }

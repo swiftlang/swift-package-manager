@@ -1,45 +1,71 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import PackageModel
 import Foundation
+import SourceControl
 
-extension ManifestBuilder {
-    mutating func build(v4 json: JSON, toolsVersion: ToolsVersion) throws {
+enum ManifestJSONParser {
+     struct Result {
+         var name: String
+         var defaultLocalization: String?
+         var platforms: [PlatformDescription] = []
+         var targets: [TargetDescription] = []
+         var pkgConfig: String?
+         var swiftLanguageVersions: [SwiftLanguageVersion]?
+         var dependencies: [PackageDependencyDescription] = []
+         var providers: [SystemPackageProviderDescription]?
+         var products: [ProductDescription] = []
+         var cxxLanguageStandard: String?
+         var cLanguageStandard: String?
+         var errors: [String] = []
+     }
+
+    static func parse(
+        v4 jsonString: String,
+        toolsVersion: ToolsVersion,
+        packageLocation: String,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem
+    ) throws -> ManifestJSONParser.Result {
+        let json = try JSON(string: jsonString)
         let package = try json.getJSON("package")
-        self.name = try package.get(String.self, forKey: "name")
-        self.defaultLocalization = try? package.get(String.self, forKey: "defaultLocalization")
-        self.pkgConfig = package.get("pkgConfig")
-        self.platforms = try parsePlatforms(package)
-        self.swiftLanguageVersions = try parseSwiftLanguageVersion(package)
-        self.products = try package.getArray("products").map(ProductDescription.init(v4:))
-        self.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
-        self.targets = try package.getArray("targets").map(parseTarget(json:))
-        self.dependencies = try package.getArray("dependencies").map({
+        var result = Self.Result(name: try package.get(String.self, forKey: "name"))
+        result.defaultLocalization = try? package.get(String.self, forKey: "defaultLocalization")
+        result.pkgConfig = package.get("pkgConfig")
+        result.platforms = try Self.parsePlatforms(package)
+        result.swiftLanguageVersions = try Self.parseSwiftLanguageVersion(package)
+        result.products = try package.getArray("products").map(ProductDescription.init(v4:))
+        result.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
+        result.targets = try package.getArray("targets").map(Self.parseTarget(json:))
+        result.dependencies = try package.getArray("dependencies").map({
             try PackageDependencyDescription(
                 v4: $0,
                 toolsVersion: toolsVersion,
-                baseURL: self.baseURL,
-                fileSystem: self.fs
+                packageLocation: packageLocation,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem
             )
         })
 
-        self.cxxLanguageStandard = package.get("cxxLanguageStandard")
-        self.cLanguageStandard = package.get("cLanguageStandard")
+        result.cxxLanguageStandard = package.get("cxxLanguageStandard")
+        result.cLanguageStandard = package.get("cLanguageStandard")
 
-        self.errors = try json.get("errors")
+        result.errors = try json.get("errors")
+        return result
     }
 
-    func parseSwiftLanguageVersion(_ package: JSON) throws -> [SwiftLanguageVersion]?  {
+    private static func parseSwiftLanguageVersion(_ package: JSON) throws -> [SwiftLanguageVersion]?  {
         guard let versionJSON = try? package.getArray("swiftLanguageVersions") else {
             return nil
         }
@@ -49,7 +75,7 @@ extension ManifestBuilder {
         }
     }
 
-    func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
+    private static func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
         guard let platformsJSON = try? package.getJSON("platforms") else {
             return []
         }
@@ -112,10 +138,12 @@ extension ManifestBuilder {
         return platforms
     }
 
-    private func parseTarget(json: JSON) throws -> TargetDescription {
+    private static func parseTarget(json: JSON) throws -> TargetDescription {
         let providers = try? json
             .getArray("providers")
             .map(SystemPackageProviderDescription.init(v4:))
+        
+        let pluginCapability = try? TargetDescription.PluginCapability(v4: json.getJSON("pluginCapability"))
 
         let dependencies = try json
             .getArray("dependencies")
@@ -127,29 +155,31 @@ extension ManifestBuilder {
         let exclude: [String] = try json.get("exclude")
         try exclude.forEach{ _ = try RelativePath(validating: $0) }
 
-        return TargetDescription(
+        let pluginUsages = try? json
+            .getArray("pluginUsages")
+            .map(TargetDescription.PluginUsage.init(v4:))
+
+        return try TargetDescription(
             name: try json.get("name"),
             dependencies: dependencies,
             path: json.get("path"),
             url: json.get("url"),
             exclude: exclude,
             sources: sources,
-            resources: try parseResources(json),
+            resources: try Self.parseResources(json),
             publicHeadersPath: json.get("publicHeadersPath"),
             type: try .init(v4: json.get("type")),
             pkgConfig: json.get("pkgConfig"),
             providers: providers,
-            settings: try parseBuildSettings(json),
-            checksum: json.get("checksum")
+            pluginCapability: pluginCapability,
+            settings: try Self.parseBuildSettings(json),
+            checksum: json.get("checksum"),
+            pluginUsages: pluginUsages
         )
     }
 
-    func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
+    private static func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
         guard let resourcesJSON = try? json.getArray("resources") else { return [] }
-        if resourcesJSON.isEmpty {
-            throw ManifestParseError.runtimeManifestErrors(["resources cannot be an empty array; provide at least one value or remove it"])
-        }
-
         return try resourcesJSON.map { json in
             let rawRule = try json.get(String.self, forKey: "rule")
             let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
@@ -160,25 +190,25 @@ extension ManifestBuilder {
         }
     }
 
-    func parseBuildSettings(_ json: JSON) throws -> [TargetBuildSettingDescription.Setting] {
+    private static func parseBuildSettings(_ json: JSON) throws -> [TargetBuildSettingDescription.Setting] {
         var settings: [TargetBuildSettingDescription.Setting] = []
         for tool in TargetBuildSettingDescription.Tool.allCases {
             let key = tool.rawValue + "Settings"
             if let settingsJSON = try? json.getJSON(key) {
-                settings += try parseBuildSettings(settingsJSON, tool: tool, settingName: key)
+                settings += try Self.parseBuildSettings(settingsJSON, tool: tool, settingName: key)
             }
         }
         return settings
     }
 
-    func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool, settingName: String) throws -> [TargetBuildSettingDescription.Setting] {
+    private static func parseBuildSettings(_ json: JSON, tool: TargetBuildSettingDescription.Tool, settingName: String) throws -> [TargetBuildSettingDescription.Setting] {
         let declaredSettings = try json.getArray()
         return try declaredSettings.map({
-            try parseBuildSetting($0, tool: tool)
+            try Self.parseBuildSetting($0, tool: tool)
         })
     }
 
-    func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
+    private static func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
         let json = try json.getJSON("data")
         let name = try TargetBuildSettingDescription.SettingName(rawValue: json.get("name"))!
         let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
@@ -215,7 +245,7 @@ extension SystemPackageProviderDescription {
         case "apt":
             self = .apt(value)
         default:
-            fatalError()
+            throw InternalError("invalid provider \(name)")
         }
     }
 }
@@ -240,13 +270,16 @@ extension PackageModel.ProductType {
             case nil:
                 libraryType = .automatic
             default:
-                fatalError()
+                throw InternalError("invalid product type \(productType)")
             }
 
             self = .library(libraryType)
+            
+        case "plugin":
+            self = .plugin
 
         default:
-            fatalError("unexpected product type: \(json)")
+            throw InternalError("unexpected product type: \(json)")
         }
     }
 }
@@ -280,51 +313,87 @@ extension PackageDependencyDescription.Requirement {
             let identifier = try json.get(String.self, forKey: "identifier")
             self = .exact(Version(string: identifier)!)
 
-        case "localPackage":
-            self = .localPackage
-
         default:
-            fatalError()
+            throw InternalError("invalid dependency \(type)")
         }
     }
 }
 
 extension PackageDependencyDescription {
-    fileprivate init(v4 json: JSON, toolsVersion: ToolsVersion, baseURL: String, fileSystem: FileSystem) throws {
-        let isBaseURLRemote = URL.scheme(baseURL) != nil
+    fileprivate init(
+        v4 json: JSON,
+        toolsVersion: ToolsVersion,
+        packageLocation: String,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem
+    ) throws {
+        let filePrefix = "file://"
 
-        func fixURL(_ url: String, requirement: Requirement) throws -> String {
+        func fixLocation(_ dependencyLocation: String) throws -> String {
             // If base URL is remote (http/ssh), we can't do any "fixing".
-            if isBaseURLRemote {
-                return url
+            if URL.scheme(packageLocation) != nil {
+                return dependencyLocation
             }
 
-            // If the dependency URL starts with '~/', try to expand it.
-            if url.hasPrefix("~/") {
-                return fileSystem.homeDirectory.appending(RelativePath(String(url.dropFirst(2)))).pathString
-            }
-
-            // If the dependency URL is not remote, try to "fix" it.
-            if URL.scheme(url) == nil {
+            if dependencyLocation.hasPrefix("~/") {
+                // If the dependency URL starts with '~/', try to expand it.
+                return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
+            } else if dependencyLocation.hasPrefix(filePrefix) {
+                // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
+                // strip that. We need to design a Location data structure for SwiftPM.
+                return AbsolutePath(String(dependencyLocation.dropFirst(filePrefix.count))).pathString
+            } else if URL.scheme(dependencyLocation) == nil {
+                // If the dependency URL is not remote, try to "fix" it.
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-                return AbsolutePath(url, relativeTo: AbsolutePath(baseURL)).pathString
+                return AbsolutePath(dependencyLocation, relativeTo: AbsolutePath(packageLocation)).pathString
             }
 
-            if case .localPackage = requirement {
-                do {
-                    return try AbsolutePath(validating: url).pathString
-                } catch PathValidationError.invalidAbsolutePath(let path) {
-                    throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
-                }
-            }
-
-            return url
+            return dependencyLocation
         }
 
-        let requirement = try Requirement(v4: json.get("requirement"))
-        let url = try fixURL(json.get("url"), requirement: requirement)
         let name: String? = json.get("name")
-        self.init(name: name, url: url, requirement: requirement)
+        let location = try fixLocation(json.get("url"))
+
+        // backwards compatibility 2/2021
+        let requirementJSON: JSON = try json.get("requirement")
+        let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
+        switch requirementType {
+        // a local package on disk
+        case "localPackage":
+            let path: AbsolutePath
+            do {
+                path = try AbsolutePath(validating: location)
+            } catch PathValidationError.invalidAbsolutePath(let path) {
+                throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
+            }
+            let identity = identityResolver.resolveIdentity(for: path)
+            self = .local(identity: identity,
+                          name: name,
+                          path: path,
+                          productFilter: .everything)
+        // a package in a git location, may be a remote URL or on disk
+        // TODO: consider refining the behavior + validation when the package is on disk
+        // TODO: refactor this when adding registry support
+        default:
+            // location mapping (aka mirrors)
+            let location = identityResolver.resolveLocation(from: location)
+            
+            if let validPath = try? AbsolutePath(validating: location), fileSystem.exists(validPath) {
+                let gitRepoProvider = GitRepositoryProvider()
+                guard gitRepoProvider.isValidDirectory(location) else {
+                    throw StringError("Cannot clone from local directory \(location)\nPlease git init or use \"path:\" for \(location)")
+                }
+            }
+            
+            // in the future this will check with the registries for the identity of the URL
+            let identity = identityResolver.resolveIdentity(for: location)
+            let requirement = try Requirement(v4: requirementJSON)
+            self = .scm(identity: identity,
+                        name: name,
+                        location: location,
+                        requirement: requirement,
+                        productFilter: .everything)
+        }
     }
 }
 
@@ -341,8 +410,10 @@ extension TargetDescription.TargetType {
             self = .system
         case "binary":
             self = .binary
+        case "plugin":
+            self = .plugin
         default:
-            fatalError()
+            throw InternalError("invalid target \(string)")
         }
     }
 }
@@ -364,7 +435,38 @@ extension TargetDescription.Dependency {
             self = try .byName(name: json.get("name"), condition: condition)
 
         default:
-            fatalError()
+            throw InternalError("invalid type \(type)")
+        }
+    }
+}
+
+extension TargetDescription.PluginCapability {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        switch type {
+        case "prebuild":
+            self = .prebuild
+        case "buildTool":
+            self = .buildTool
+        case "postbuild":
+            self = .postbuild
+        default:
+            throw InternalError("invalid type \(type)")
+        }
+    }
+}
+
+extension TargetDescription.PluginUsage {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        switch type {
+        case "plugin":
+            let name = try json.get(String.self, forKey: "name")
+            let package = try? json.get(String.self, forKey: "package")
+            self = .plugin(name: name, package: package)
+
+        default:
+            throw InternalError("invalid type \(type)")
         }
     }
 }

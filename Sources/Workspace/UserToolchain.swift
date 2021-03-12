@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import PackageLoading
@@ -370,7 +371,7 @@ public final class UserToolchain: Toolchain {
             }
 
             if !foundPDLibDir {
-                fatalError("Couldn't find any SWIFTPM_PD_LIBS directory: \(pdLibDirEnvStr)")
+                throw InternalError("Couldn't find any SWIFTPM_PD_LIBS directory: \(pdLibDirEnvStr)")
             }
         }
 

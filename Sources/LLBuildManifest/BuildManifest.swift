@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -95,14 +95,18 @@ public struct BuildManifest {
         description: String,
         inputs: [Node],
         outputs: [Node],
-        args: [String],
+        arguments: [String],
+        environment: [String: String] = [:],
+        workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
         let tool = ShellTool(
             description: description,
             inputs: inputs,
             outputs: outputs,
-            args: args,
+            arguments: arguments,
+            environment: environment,
+            workingDirectory: workingDirectory,
             allowMissingInputs: allowMissingInputs
         )
         commands[name] = Command(name: name, tool: tool)
@@ -114,14 +118,14 @@ public struct BuildManifest {
         description: String,
         inputs: [Node],
         outputs: [Node],
-        args: [String]
+        arguments: [String]
     ) {
         let tool = SwiftFrontendTool(
                 moduleName: moduleName,
                 description: description,
                 inputs: inputs,
                 outputs: outputs,
-                args: args
+                arguments: arguments
         )
         commands[name] = Command(name: name, tool: tool)
     }
@@ -131,15 +135,15 @@ public struct BuildManifest {
         description: String,
         inputs: [Node],
         outputs: [Node],
-        args: [String],
-        deps: String? = nil
+        arguments: [String],
+        dependencies: String? = nil
     ) {
         let tool = ClangTool(
             description: description,
             inputs: inputs,
             outputs: outputs,
-            args: args,
-            deps: deps
+            arguments: arguments,
+            dependencies: dependencies
         )
         commands[name] = Command(name: name, tool: tool)
     }
@@ -154,10 +158,10 @@ public struct BuildManifest {
         importPath: AbsolutePath,
         tempsPath: AbsolutePath,
         objects: [AbsolutePath],
-        otherArgs: [String],
+        otherArguments: [String],
         sources: [AbsolutePath],
         isLibrary: Bool,
-        WMO: Bool
+        wholeModuleOptimization: Bool
     ) {
         let tool = SwiftCompilerTool(
             inputs: inputs,
@@ -168,10 +172,10 @@ public struct BuildManifest {
             importPath: importPath,
             tempsPath: tempsPath,
             objects: objects,
-            otherArgs: otherArgs,
+            otherArguments: otherArguments,
             sources: sources,
             isLibrary: isLibrary,
-            WMO: WMO
+            wholeModuleOptimization: wholeModuleOptimization
         )
       
         commands[name] = Command(name: name, tool: tool)

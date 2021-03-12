@@ -36,7 +36,7 @@ import struct TSCUtility.Version
 public protocol PackageContainer {
 
     /// The identifier for the package.
-    var identifier: PackageReference { get }
+    var package: PackageReference { get }
 
     /// Returns true if the tools version is compatible at the given version.
     func isToolsVersionCompatible(at version: Version) -> Bool
@@ -58,11 +58,6 @@ public protocol PackageContainer {
     /// Get the list of versions in the repository sorted in the descending order, that is the latest
     /// version appears first.
     func versionsDescending() throws -> [Version]
-
-    /// Get the list of versions in the repository sorted in the reverse order, that is the latest
-    /// version appears first.
-    @available(*, deprecated, message: "use versionsDescending instead")
-    func reversedVersions() throws -> [Version]
 
     // FIXME: We should perhaps define some particularly useful error codes
     // here, so the resolver can handle errors more meaningfully.
@@ -100,7 +95,6 @@ public protocol PackageContainer {
 }
 
 extension PackageContainer {
-    @available(*, deprecated, message: "use versionsDescending instead")
     public func reversedVersions() throws -> [Version] {
         try self.versionsDescending()
     }
@@ -116,7 +110,7 @@ extension PackageContainer {
 public struct PackageContainerConstraint: Equatable, Hashable {
 
     /// The identifier for the container the constraint is on.
-    public let identifier: PackageReference
+    public let package: PackageReference
 
     /// The constraint requirement.
     public let requirement: PackageRequirement
@@ -126,22 +120,22 @@ public struct PackageContainerConstraint: Equatable, Hashable {
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(container identifier: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
-        self.identifier = identifier
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
+        self.package = package
         self.requirement = requirement
         self.products = products
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(container identifier: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        self.init(container: identifier, requirement: .versionSet(versionRequirement), products: products)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
+        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
     }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(identifier), \(requirement), \(products)"
+        return "Constraint(\(self.package), \(requirement), \(products)"
     }
 }
 
@@ -151,7 +145,7 @@ extension PackageContainerConstraint: CustomStringConvertible {
 public protocol PackageContainerProvider {
     /// Get the container for a particular identifier asynchronously.
     func getContainer(
-        for identifier: PackageReference,
+        for package: PackageReference,
         skipUpdate: Bool,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
