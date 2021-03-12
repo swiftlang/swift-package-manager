@@ -341,7 +341,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         // go to db if not found
         self.queue.async {
             do {
-                let blobs = ThreadSafeArrayStore<Data>()
+                var blobs = [Data]()
                 if let identifiers = identifiers {
                     var index = 0
                     while index < identifiers.count {
@@ -374,7 +374,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     })
                 } else {
                     collections = .init()
-                    blobs.get().forEach { data in
+                    blobs.forEach { data in
                         self.queue.async(group: sync) {
                             if let collection = try? self.decoder.decode(Model.Collection.self, from: data) {
                                 collections.append(collection)

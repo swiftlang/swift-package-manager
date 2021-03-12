@@ -113,9 +113,9 @@ public struct PackageCollections: PackageCollectionsProtocol {
                             self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
                                 let count = refreshResults.append(refreshResult)
                                 if count == missingSources.count {
-                                    collections += refreshResults.compactMap { $0.success } // best-effort; not returning errors
-                                    collections.sort(by: sort)
-                                    callback(.success(collections))
+                                    var result = collections + refreshResults.compactMap { $0.success } // best-effort; not returning errors
+                                    result.sort(by: sort)
+                                    callback(.success(result))
                                 }
                             }
                         }
@@ -399,7 +399,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
             switch result {
             case .failure(let error):
                 callback(.failure(error))
-            case .success(var collection):
+            case .success(let collection):
                 // If collection is signed and signature is valid, save to storage. `provider.get`
                 // would have failed if signature were invalid.
                 if collection.isSigned {
@@ -436,6 +436,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                             callback(.failure(error))
                         case .success:
                             if userTrusted {
+                                var collection = collection
                                 collection.source = source
                                 self.storage.collections.put(collection: collection, callback: callback)
                             } else {
