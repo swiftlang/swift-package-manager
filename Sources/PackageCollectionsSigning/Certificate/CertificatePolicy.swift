@@ -303,8 +303,6 @@ private struct BoringSSLOCSPClient {
                 if cachedResult.timestamp + self.cacheTTL > DispatchTime.now() {
                     results.append(.success(cachedResult.isCertGood))
                     continue
-                } else {
-                    _ = self.resultCache.removeValue(forKey: cacheKey)
                 }
             }
 
