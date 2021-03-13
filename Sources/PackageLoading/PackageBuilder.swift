@@ -1383,13 +1383,25 @@ private extension Manifest {
 
 extension Sources {
     var hasSwiftSources: Bool {
-        paths.first?.extension == "swift"
+        return paths.contains { path in
+            guard let ext = path.extension else { return false }
+
+            return FileRuleDescription.swift.fileTypes.contains(ext)
+        }
+    }
+
+    var hasClangSources: Bool {
+        let supportedClangFileExtensions = FileRuleDescription.clang.fileTypes.union(FileRuleDescription.asm.fileTypes)
+
+        return paths.contains { path in
+            guard let ext = path.extension else { return false }
+
+            return supportedClangFileExtensions.contains(ext)
+        }
     }
 
     var containsMixedLanguage: Bool {
-        let swiftSources = relativePaths.filter{ $0.extension == "swift" }
-        if swiftSources.isEmpty { return false }
-        return swiftSources.count != relativePaths.count
+        return hasSwiftSources && hasClangSources
     }
     
     /// Determine target type based on the sources.
