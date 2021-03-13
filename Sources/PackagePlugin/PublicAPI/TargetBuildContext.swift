@@ -69,15 +69,32 @@ public final class TargetBuildContext: Decodable {
     /// target on which the package plugin target depends. Returns nil, but
     /// does not throw an error, if the tool isn't found. Plugins that re-
     /// quire the tool should emit an error diagnostic if it cannot be found.
-    public func lookupTool(named name: String) throws -> Path {
-        // TODO: Rather than just appending the name, this should instead use
-        // a mapping of tool names to paths (passed in from the context).
-        return self.toolsDir.appending(name)
+    public func tool(named name: String, line: UInt = #line) throws -> Tool {
+        if let tool = self.tools[name] { return tool }
+        throw TargetBuildContextError.toolNotFound(name: name, line: line)
     }
 
-    /// A directory in which any built or provided command line tools will be
-    /// available to the extension.
-    // TODO: This should instead be a mapping of tool names to paths (passed
-    // in from the context).
-    private let toolsDir: Path
+    /// A mapping from tool names to their definitions.
+    private let tools: [String: Tool]
+    public struct Tool: Codable {
+        public let name: String
+        public let path: Path
+    }
+}
+
+public enum TargetBuildContextError: Error {
+    /// Could not find a tool with the given name. This could be either because
+    /// it doesn't exist, or because the plugin doesn't have a dependency on it.
+    case toolNotFound(name: String, line: UInt)
+}
+
+extension TargetBuildContextError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .toolNotFound(let name, let line):
+            // FIXME: How to convey this line number to where it gets shown for errors at top level.
+            // Need to customize "Fatal error: Error raised at top level: plugin doesn’t have access to any tool named ‘MySourceGenBuildTools’ [5]: file Swift/ErrorType.swift, line 200"
+            return "plugin doesn’t have access to any tool named ‘\(name)’ [line \(line)]"
+        }
+    }
 }

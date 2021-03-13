@@ -10,8 +10,9 @@ for inputPath in targetBuildContext.otherFiles {
         displayName:
             "Generating \(outputName) from \(inputPath.filename)",
         executable:
-            try targetBuildContext.tool(named: "MySourceGenBuildTool").path,
+            try targetBuildContext.tool(named: "mytool").path,
         arguments: [
+            "--verbose",
             "\(inputPath)",
             "\(outputPath)"
         ],
