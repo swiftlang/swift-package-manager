@@ -1,0 +1,68 @@
+# This source file is part of the Swift.org open source project
+#
+# Copyright (c) 2021 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+
+# this file is not designed to be run directly
+# instead, use the docker-compose.<os>.<swift> files
+# eg docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.1804.52.yaml run test
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-package-manager:default
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  common: &common
+    image: swift-package-manager:default
+    depends_on: [runtime-setup]
+    volumes:
+      # ssh, caches
+      - ~/.ssh:/root/.ssh
+      - ~/.cache:/root/.cache
+      - ~/.swiftpm:/root/.swiftpm
+      # swift-package-manager code
+      - ../..:/code/swift-package-manager:z
+      # bootstrap script requires dependencies to be pre-fetched and in a specific place
+      - ../../../swift-tools-support-core:/code/swift-tools-support-core:z
+      - ../../../yams:/code/yams:z
+      - ../../../swift-argument-parser:/code/swift-argument-parser:z
+      - ../../../swift-driver:/code/swift-driver:z
+      - ../../../swift-crypto:/code/swift-crypto:z
+      - ../../../swift-llbuild:/code/llbuild:z
+    working_dir: /code/swift-package-manager
+    cap_drop:
+      - CAP_NET_RAW
+      - CAP_NET_BIND_SERVICE
+
+  build:
+    <<: *common
+    command: /bin/bash -cl "swift build"
+
+  test:
+    <<: *common
+    command: /bin/bash -cl "swift test --enable-test-discovery --parallel"
+
+  bootstrap-clean:
+    <<: *common
+    command: /bin/bash -cl "./Utilities/bootstrap clean"
+
+  bootstrap-build:
+    <<: *common
+    command: /bin/bash -cl "./Utilities/bootstrap build"
+
+  bootstrap-test:
+    <<: *common
+    command: /bin/bash -cl "./Utilities/bootstrap test"
+
+  # util
+
+  shell:
+    <<: *common
+    entrypoint: /bin/bash
