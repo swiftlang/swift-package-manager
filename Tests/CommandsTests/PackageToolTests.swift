@@ -528,10 +528,11 @@ final class PackageToolTests: XCTestCase {
     func testInitCustomNameExecutable() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
+            var path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
             _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
 
+            path = path.appending(RelativePath("CustomName"))
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"

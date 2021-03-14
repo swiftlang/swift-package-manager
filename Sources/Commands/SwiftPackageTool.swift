@@ -201,10 +201,19 @@ extension SwiftPackageTool {
         var packageName: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            // FIXME: Error handling.
-            let cwd = localFileSystem.currentWorkingDirectory!
-
-            let packageName = self.packageName ?? cwd.basename
+            guard var cwd = localFileSystem.currentWorkingDirectory else {
+                throw StringError("No Current Working Directory")
+            }
+            var packageName: String
+            
+            if let optionalPackageName = self.packageName {
+                try localFileSystem.createDirectory(cwd.appending(RelativePath(optionalPackageName)))
+                packageName = optionalPackageName
+                cwd = cwd.appending(RelativePath(optionalPackageName))
+            } else {
+                packageName = cwd.basename
+            }
+            
             let initPackage = try InitPackage(
                 name: packageName, destinationPath: cwd, packageType: initMode)
             initPackage.progressReporter = { message in

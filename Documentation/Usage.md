@@ -37,27 +37,24 @@ that contains Swift sources and a `Package.swift` manifest file at its root.
 ### Creating a Library Package
 
 A library package contains code which other packages can use and depend on. To
-get started, create a directory and run `swift package init`:
+get started run `swift package init --name MyPackage`:
 
-    $ mkdir MyPackage
-    $ cd MyPackage
-    $ swift package init # or swift package init --type library
+    $ swift package init --name MyPackage # or swift package init --name MyPackage --type library
     $ swift build
     $ swift test
 
 This will create the directory structure needed for a library package with a
 target and the corresponding test target to write unit tests. A library package
 can contain multiple targets as explained in [Target Format
-Reference](PackageDescription.md#target).
+Reference](PackageDescription.md#target).  Omitting the `--name` option will
+utilize the name of the current working directory for the package's name.
 
 ### Creating an Executable Package
 
 SwiftPM can create native binaries which can be executed from the command line. To
 get started:
 
-    $ mkdir MyExecutable
-    $ cd MyExecutable
-    $ swift package init --type executable
+    $ swift package init --name MyExecutable --type executable
     $ swift build
     $ swift run
     Hello, World!
@@ -122,12 +119,7 @@ for that library. Such a wrapper package does not contain any code of its own.
 Let's see an example of using [libgit2](https://libgit2.github.com) from an
 executable.
 
-First, create a directory called `example`, and initialize it as a package that
-builds an executable:
-
-    $ mkdir example
-    $ cd example
-    example$ swift package init --type executable
+    $ swift package init --name executable --type executable
 
 Edit the `Sources/example/main.swift` so it consists of this code:
 
@@ -151,13 +143,9 @@ differently from regular Swift packages.
 Note that the system library may be located elsewhere on your system, such as
 `/usr/` rather than `/usr/local/`.
 
-Create a directory called `Clibgit` next to the `example` directory and
-initialize it as a package that builds a system module:
-
-    example$ cd ..
-    $ mkdir Clibgit
-    $ cd Clibgit
-    Clibgit$ swift package init --type system-module
+Next to the `example` directory initialize `Clibgit` as a package that builds a system module: 
+    
+    $ swift package init --name Clibgit --type system-module
 
 This creates `Package.swift` and `module.modulemap` files in the directory.
 Edit `Package.swift` and add `pkgConfig` parameter:
@@ -233,12 +221,9 @@ executable:
 Let’s see another example of using [IJG’s JPEG library](http://www.ijg.org)
 from an executable, which has some caveats.
 
-Create a directory called `example`, and initialize it as a package that builds
-an executable:
+Create a package called `example` as a package that builds an executable:
 
-    $ mkdir example
-    $ cd example
-    example$ swift package init --type executable
+    $ swift package init --name example --type executable
 
 Edit the `Sources/main.swift` so it consists of this code:
 
@@ -251,13 +236,9 @@ print(jpegData)
 
 Install JPEG library using a system packager, e.g, `$ brew install jpeg`
 
-Create a directory called `CJPEG` next to the `example` directory and
-initialize it as a package that builds a system module:
-
-    example$ cd ..
-    $ mkdir CJPEG
-    $ cd CJPEG
-    CJPEG$ swift package init --type system-module
+Next to the `example` directory initialize `CJPEG` as a package that builds a system module: 
+    
+    $ swift package init --name CJPEG --type system-module
 
 This creates `Package.swift` and `module.modulemap` files in the directory.
 Edit `module.modulemap` so it consists of the following:
