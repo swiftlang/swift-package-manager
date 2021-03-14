@@ -1853,11 +1853,22 @@ public class BuildPlan {
         }
     }
 
-    public func createAPIDigesterArgs() -> [String] {
+    public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) -> [String] {
         let buildPath = buildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
-        arguments += buildParameters.toolchain.extraSwiftCFlags
+        var extraSwiftCFlags = buildParameters.toolchain.extraSwiftCFlags
+        if !includeLibrarySearchPaths {
+            for index in extraSwiftCFlags.indices.dropLast().reversed() {
+                if extraSwiftCFlags[index] == "-L" {
+                    // Remove the flag
+                    extraSwiftCFlags.remove(at: index)
+                    // Remove the argument
+                    extraSwiftCFlags.remove(at: index)
+                }
+            }
+        }
+        arguments += extraSwiftCFlags
 
         // Add the search path to the directory containing the modulemap file.
         for target in targets {

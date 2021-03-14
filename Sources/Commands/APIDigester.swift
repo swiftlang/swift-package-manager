@@ -125,7 +125,7 @@ struct APIDigesterBaselineDumper {
         try apiDigesterTool.dumpSDKJSON(
             at: sdkJSON,
             modules: graph.apiDigesterModules,
-            additionalArgs: buildOp.buildPlan!.createAPIDigesterArgs()
+            additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
         )
 
         return sdkJSON

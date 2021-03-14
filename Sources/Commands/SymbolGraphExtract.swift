@@ -42,8 +42,7 @@ public struct SymbolGraphExtract {
             args += ["-module-name", target.c99name]
             args += buildParameters.targetTripleArgs(for: target)
 
-            // FIXME: We should rename this to common Swift tools args or something.
-            args += buildPlan.createAPIDigesterArgs()
+            args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
             args += ["-module-cache-path", buildParameters.moduleCache.pathString]
 
             args += ["-output-dir", symbolGraphDirectory.pathString]

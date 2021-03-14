@@ -311,7 +311,7 @@ extension SwiftPackageTool {
             try apiDigesterTool.dumpSDKJSON(
                 at: currentSDKJSON,
                 modules: packageGraph.apiDigesterModules,
-                additionalArgs: buildOp.buildPlan!.createAPIDigesterArgs()
+                additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
             )
 
             // Dump JSON for the baseline package.
