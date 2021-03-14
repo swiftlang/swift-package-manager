@@ -1270,19 +1270,20 @@ extension Workspace {
         }
 
         // optimization: preload manifest we know about in parallel
+        // note: loadManifest emits diagnostics in case it fails
         let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ $0.location } }.flatMap { $0 }
-        // FIXME: this should not block
         var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) }
 
         // continue to load the rest of the manifest for this graph
         let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: .everything)) }) { node in
-            return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
-                let location = dependency.location
-                // FIXME: this should not block
-                // note: loadManifest emits diagnostics in case it fails
-                let manifest = loadedManifests[location] ?? temp_await { self.loadManifest(forURL: location, diagnostics: diagnostics, completion: $0) }
-                loadedManifests[location] = manifest
-                return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: dependency.productFilter)) }
+            // optimization: preload manifest we know about in parallel
+            let dependenciesRequired = node.item.dependenciesRequired(for: node.key.productFilter)
+            let dependenciesRequiredURLs = dependenciesRequired.map{ $0.location }.filter { !loadedManifests.keys.contains($0) }
+            // note: loadManifest emits diagnostics in case it fails
+            let dependenciesRequiredManifests = try temp_await { self.loadManifests(forURLs: dependenciesRequiredURLs, diagnostics: diagnostics, completion: $0) }
+            dependenciesRequiredManifests.forEach { loadedManifests[$0.packageLocation] = $0 }
+            return dependenciesRequired.compactMap{ dependency in
+                loadedManifests[dependency.location].flatMap { KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: dependency.productFilter)) }
             }
         }
 
