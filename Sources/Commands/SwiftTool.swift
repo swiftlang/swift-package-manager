@@ -48,8 +48,16 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         let totalBytesToDownload: Int64
     }
 
+    private struct FetchProgress {
+        let objectsFetched: Int
+        let totalObjectsToFetch: Int
+    }
+
     /// The progress of each individual downloads.
     private var downloadProgress: [String: DownloadProgress] = [:]
+
+    /// The progress of each individual fetch operation
+    private var fetchProgress: [String: FetchProgress] = [:]
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
     private let diagnostics: DiagnosticsEngine
@@ -79,7 +87,15 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
         queue.async {
-            self.fetchAnimation.complete(success: true)
+            if self.diagnostics.hasErrors {
+                self.fetchAnimation.clear()
+            }
+
+            self.fetchProgress.removeValue(forKey: repository)
+
+            if self.fetchProgress.isEmpty {
+                self.fetchAnimation.complete(success: true)
+            }
         }
     }
 
@@ -217,21 +233,21 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingRepository(progress: FetchProgress) {
-        let currentObjects = progress.step
-        guard let totalObjects = progress.totalSteps else { return }
-
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
         queue.async {
-            if let downloadProgress = progress.downloadProgress, let downloadSpeed = progress.downloadSpeed {
-                self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: "\(progress.message) \(downloadProgress) | \(downloadSpeed)")
-            } else {
-                self.fetchAnimation.update(step: currentObjects, total: totalObjects, text: progress.message)
-            }
+            self.fetchProgress[repository] = FetchProgress(
+                objectsFetched: objectsFetched,
+                totalObjectsToFetch: totalObjectsToFetch)
+
+            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
+            self.fetchAnimation.update(step: step, total: total, text: "Fetching objects")
         }
     }
+
 }
 
-/// Handler for the main DiagnosticsEngine used by the SwiftTool class.
+/// Handler for the main DiagnosticsEngine used by the SwiftTool class.ProgressAnimation.swift
 private final class DiagnosticsEngineHandler {
     /// The standard output stream.
     var stdoutStream = TSCBasic.stdoutStream

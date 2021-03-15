@@ -96,7 +96,7 @@ public protocol WorkspaceDelegate: AnyObject {
     func didDownloadBinaryArtifacts()
 
     /// Called every time the progress of the git fetch operation updates.
-    func fetchingRepository(progress: FetchProgress)
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
 }
 
 public extension WorkspaceDelegate {
@@ -117,13 +117,15 @@ public extension WorkspaceDelegate {
     func willResolveDependencies(reason: WorkspaceResolveReason) {}
     func dependenciesUpToDate() {}
     func resolvedFileChanged() {}
+
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {}
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
+
     func didDownloadBinaryArtifacts() {}
 
     func fetchingWillBegin(repository: String) {}
     func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {}
 
-    func fetchingRepository(progress: FetchProgress) {}
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -154,8 +156,8 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         workspaceDelegate.repositoryDidUpdate(handle.repository.url)
     }
 
-    func fetchingRepository(progress: FetchProgress) {
-        workspaceDelegate.fetchingRepository(progress: progress)
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+        workspaceDelegate.fetchingRepository(from: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
     }
 }
 

@@ -30,7 +30,8 @@ public protocol RepositoryManagerDelegate: AnyObject {
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle)
 
     /// Called every time the progress of a repository fetch operation updates.
-    func fetchingRepository(progress: FetchProgress)
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
+
 }
 
 public extension RepositoryManagerDelegate {
@@ -38,7 +39,7 @@ public extension RepositoryManagerDelegate {
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
-    func fetchingRepository(progress: FetchProgress) {}
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
 }
 
 /// Manages a collection of bare repositories.
@@ -351,7 +352,9 @@ public class RepositoryManager {
 
         func updateGitStatus(progress: FetchProgress) -> Void {
             queue.async {
-                self.delegate?.fetchingRepository(progress: progress)
+                if let total = progress.totalSteps, progress.message == "Receiving objects" {
+                    self.delegate?.fetchingRepository(from: handle.repository.url, objectsFetched: progress.step, totalObjectsToFetch: total)
+                }
             }
         }
 
