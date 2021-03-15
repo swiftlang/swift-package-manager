@@ -31,9 +31,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    // for concurrent for DB access
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.SQLitePackageCollectionsStorage", attributes: .concurrent)
-
     private var state = State.idle
     private let stateLock = Lock()
 
@@ -107,7 +104,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
             // This throws error if we have exhausted our attempts
             let delay = try exponentialBackoff.nextDelay()
-            self.queue.asyncAfter(deadline: .now() + delay) {
+            DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + delay) {
                 do {
                     try db.close()
                     callback(.success(()))
@@ -124,7 +121,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func put(collection: Model.Collection,
              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 // write to db
                 let query = "INSERT OR REPLACE INTO \(Self.packageCollectionsTableName) VALUES (?, ?);"
@@ -153,7 +150,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func remove(identifier: Model.CollectionIdentifier,
                 callback: @escaping (Result<Void, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 // write to db
                 let query = "DELETE FROM \(Self.packageCollectionsTableName) WHERE key = ?;"
@@ -185,7 +182,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         // go to db if not found
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 let query = "SELECT value FROM \(Self.packageCollectionsTableName) WHERE key = ? LIMIT 1;"
                 let collection = try self.executeStatement(query) { statement -> Model.Collection in
@@ -215,7 +212,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         // go to db if not found
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 var blobs = [Data]()
                 if let identifiers = identifiers {
@@ -251,7 +248,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 } else {
                     collections = .init()
                     blobs.forEach { data in
-                        self.queue.async(group: sync) {
+                        DispatchQueue.sharedConcurrent.async(group: sync) {
                             if let collection = try? self.decoder.decode(Model.Collection.self, from: data) {
                                 collections.append(collection)
                             }
@@ -259,7 +256,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                sync.notify(queue: self.queue) {
+                sync.notify(queue: .sharedConcurrent) {
                     if collections.count != blobs.count {
                         self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                     }
@@ -683,7 +680,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             self.targetTrieReady.memoize {
                 do {
                     // Use FTS to build the trie
@@ -829,15 +826,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     private func withStateLock<T>(_ body: () throws -> T) throws -> T {
         try self.stateLock.withLock(body)
-        /*switch self.location {
-        case .path(let path):
-            if !self.fileSystem.exists(path.parentDirectory) {
-                try self.fileSystem.createDirectory(path.parentDirectory)
-            }
-            return try self.fileSystem.withLock(on: path, type: .exclusive, body)
-        case .memory, .temporary:
-            return try self.stateLock.withLock(body)
-        }*/
+        /* switch self.location {
+         case .path(let path):
+             if !self.fileSystem.exists(path.parentDirectory) {
+                 try self.fileSystem.createDirectory(path.parentDirectory)
+             }
+             return try self.fileSystem.withLock(on: path, type: .exclusive, body)
+         case .memory, .temporary:
+             return try self.stateLock.withLock(body)
+         } */
     }
 
     private enum State {
@@ -899,7 +896,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             self.batchSize = 100
             self.maxSizeInMegabytes = 100
             // see https://www.sqlite.org/c3ref/busy_timeout.html
-            self.busyTimeoutMilliseconds = 1_000
+            self.busyTimeoutMilliseconds = 1000
         }
 
         var maxSizeInMegabytes: Int? {
