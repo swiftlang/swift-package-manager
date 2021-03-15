@@ -1967,14 +1967,14 @@ public class BuildPlan {
     /// Extracts the library information from an XCFramework.
     private func parseXCFramework(for target: BinaryTarget) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: target) {
-            return try target.parseXCFrameworks(for: self.buildParameters, fileSystem: self.fileSystem)
+            return try target.parseXCFrameworks(for: self.buildParameters.triple, fileSystem: self.fileSystem)
         }
     }
 
     /// Extracts the artifacts  from an artifactsArchive
     private func parseArtifactsArchive(for target: BinaryTarget) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: target) {
-            return try target.parseArtifactArchives(for: self.buildParameters, fileSystem: self.fileSystem)
+            return try target.parseArtifactArchives(for: self.buildParameters.triple, fileSystem: self.fileSystem)
         }
     }
 }

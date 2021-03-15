@@ -1,0 +1,29 @@
+#!/bin/bash
+
+print_usage() {
+    echo "usage: ${0##*/} [--verbose] <in> <out>"
+}
+
+# Parse arguments until we find '--' or an argument that isn't an option.
+until [ $# -eq 0 ]
+do
+    case "$1" in
+        --verbose) verbose=1; shift;;
+        --) shift; break;;
+        -*) echo "unknown option: ${1}"; print_usage; exit 1; shift;;
+        *) break;;
+    esac
+done
+
+# Print usage and leave if we don't have exactly two arguments.
+if [ $# -ne 2 ]; then
+    print_usage
+    exit 1
+fi
+
+# For our sample tool we just copy from one to the other.
+if [ $verbose != 0 ]; then
+    echo "[${0##*/}-linux] '$1' '$2'"
+fi
+
+cp "$1" "$2"

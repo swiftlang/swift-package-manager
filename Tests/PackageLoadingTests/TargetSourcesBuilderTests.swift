@@ -148,6 +148,40 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
+    func testDoesNotErrorWithAdditionalFileRules() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let files = [
+            "/Foo.swift",
+            "/Bar.swift",
+            "/Baz.something"
+        ]
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: files)
+
+        let somethingRule = FileRuleDescription(
+            rule: .compile,
+            toolsVersion: .vNext,
+            fileTypes: ["something"]
+        )
+
+        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .vNext, fs: fs) { sources, _, _, _,_  in
+            XCTAssertEqual(
+                sources.paths.map(\.pathString).sorted(),
+                files.sorted()
+            )
+        }
+    }
+
     func testResourceConflicts() throws {
         // Conflict between processed resources.
 

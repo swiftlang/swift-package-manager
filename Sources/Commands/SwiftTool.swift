@@ -643,14 +643,14 @@ public class SwiftTool {
             // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
             // with a map of the names of tools available to each plugin. In particular this would not work with any
             // binary targets.
-            let execsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
+            let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
             let diagnostics = DiagnosticsEngine()
             
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
             // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokePlugins(buildEnvironment: buildEnvironment, execsDir: execsDir, outputDir: outputDir, pluginScriptRunner: pluginScriptRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
+            let result = try graph.invokePlugins(outputDir: outputDir, builtToolsDir: builtToolsDir, pluginScriptRunner: pluginScriptRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
             return result
         }
         catch {

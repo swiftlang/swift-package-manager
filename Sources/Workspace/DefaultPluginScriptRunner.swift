@@ -38,6 +38,12 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let compiledExec = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
         return try self.invoke(compiledExec: compiledExec, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
     }
+    
+    public var hostTriple: Triple {
+        return Self._hostTriple.memoize {
+            Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
+        }
+    }
 
     /// Helper function that compiles a plugin script as an executable and returns the path to it.
     fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> AbsolutePath {
@@ -82,9 +88,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
         #if os(macOS)
-        let triple = Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
-        }
+        let triple = self.hostTriple
 
         let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
             (try Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
