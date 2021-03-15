@@ -350,10 +350,12 @@ public class RepositoryManager {
         var updatedCache = false
         var fromCache = false
 
-        func updateGitStatus(progress: FetchProgress) -> Void {
+        func updateFetchProgress(progress: FetchProgress) -> Void {
             queue.async {
                 if let total = progress.totalSteps, progress.message == "Receiving objects" {
-                    self.delegate?.fetchingRepository(from: handle.repository.url, objectsFetched: progress.step, totalObjectsToFetch: total)
+                    self.delegate?.fetchingRepository(from: handle.repository.url,
+                                                      objectsFetched: progress.step,
+                                                      totalObjectsToFetch: total)
                 }
             }
         }
@@ -371,9 +373,9 @@ public class RepositoryManager {
                         // Fetch the repository into the cache.
                         if (fileSystem.exists(cachedRepositoryPath)) {
                             let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
-                            try repo.fetch(progress: updateGitStatus(progress:))
+                            try repo.fetch(progress: updateFetchProgress(progress:))
                         } else {
-                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progress: updateGitStatus(progress:))
+                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progress: updateFetchProgress(progress:))
                         }
                         updatedCache = true
                         // Copy the repository from the cache into the repository path.
@@ -386,12 +388,12 @@ public class RepositoryManager {
                 print("Skipping cache due to an error: \(error)")
                 // It is possible that we already created the directory before failing, so clear leftover data if present.
                 try fileSystem.removeFileTree(repositoryPath)
-                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateGitStatus(progress:))
+                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateFetchProgress(progress:))
                 fromCache = false
             }
         } else {
             // Fetch without populating the cache when no `cachePath` is set.
-            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateGitStatus(progress:))
+            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateFetchProgress(progress:))
             fromCache = false
         }
         return FetchDetails(fromCache: fromCache, updatedCache: updatedCache)
