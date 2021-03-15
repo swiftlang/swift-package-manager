@@ -40,6 +40,7 @@ A library package contains code which other packages can use and depend on. To
 get started run `swift package init --name MyPackage`:
 
     $ swift package init --name MyPackage # or swift package init --name MyPackage --type library
+    $ cd MyPackage
     $ swift build
     $ swift test
 
@@ -119,7 +120,7 @@ for that library. Such a wrapper package does not contain any code of its own.
 Let's see an example of using [libgit2](https://libgit2.github.com) from an
 executable.
 
-    $ swift package init --name executable --type executable
+    $ swift package init --name example --type executable
 
 Edit the `Sources/example/main.swift` so it consists of this code:
 
