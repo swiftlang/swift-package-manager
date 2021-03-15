@@ -247,7 +247,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
 }
 
-/// Handler for the main DiagnosticsEngine used by the SwiftTool class.ProgressAnimation.swift
+/// Handler for the main DiagnosticsEngine used by the SwiftTool class.
 private final class DiagnosticsEngineHandler {
     /// The standard output stream.
     var stdoutStream = TSCBasic.stdoutStream

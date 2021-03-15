@@ -377,7 +377,7 @@ public class RepositoryManager {
                         }
                         updatedCache = true
                         // Copy the repository from the cache into the repository path.
-                        try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progress: updateGitStatus(progress:))
+                        try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
                         fromCache = true
                     }
                 }
