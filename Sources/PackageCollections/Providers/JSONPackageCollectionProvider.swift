@@ -55,7 +55,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.dotSwiftPM.appending(components: "config", "trust-root-certs").asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts,
-            callbackQueue: DispatchQueue.global(),
+            callbackQueue: .sharedConcurrent,
             diagnosticsEngine: diagnosticsEngine
         )
         self.sourceCertPolicy = sourceCertPolicy

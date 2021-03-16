@@ -259,7 +259,7 @@ public struct HTTPClientConfiguration {
         self.authorizationProvider = .none
         self.retryStrategy = .none
         self.circuitBreakerStrategy = .none
-        self.callbackQueue = .global()
+        self.callbackQueue = .sharedConcurrent
     }
 }
 

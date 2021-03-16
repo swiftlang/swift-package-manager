@@ -77,7 +77,7 @@ public class RepositoryManager {
         /// The status of the repository.
         fileprivate var status: Status = .uninitialized
 
-        /// Lock  to protect  the operations like updating the state
+        /// Lock to protect  the operations like updating the state
         /// of the handle and fetching the repositories from its remote.
         private let statusLock = Lock()
 
@@ -162,7 +162,7 @@ public class RepositoryManager {
     /// NOTE: This is to be used only for persistence support.
     private var serializedRepositories: [String: JSON] = [:]
 
-    /// Lock  to protect concurrent reads and mutations to repositories registry.
+    /// Lock to protect concurrent reads and mutations to repositories registry.
     private let lock = Lock()
 
     /// Operation queue to do concurrent operations on manager.
