@@ -237,6 +237,7 @@ let package = Package(
             name: "swiftpm-xctest-helper",
             dependencies: [],
             linkerSettings: [
+                .linkedFramework("XCTest", .when(platforms: [.iOS, .macOS, .tvOS, .watchOS])),
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
             ]),
 
@@ -245,7 +246,10 @@ let package = Package(
         .target(
             /** SwiftPM test support library */
             name: "SPMTestSupport",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Workspace", "Xcodeproj", "XCBuildSupport"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Workspace", "Xcodeproj", "XCBuildSupport"],
+            linkerSettings: [
+                .linkedFramework("XCTest", .when(platforms: [.iOS, .macOS, .tvOS, .watchOS])),
+            ]),
 
         // MARK: SwiftPM tests
 
