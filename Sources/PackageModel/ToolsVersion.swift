@@ -102,8 +102,8 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     /// version of the package manager.
     public func validateToolsVersion(
         _ currentToolsVersion: ToolsVersion,
-        version: String? = nil,
-        packagePath: String
+        packagePath: String,
+        packageVersion: String? = nil
     ) throws {
         // We don't want to throw any error when using the special vNext version.
         if SwiftVersion.currentVersion.isDevelopment && self == .vNext {
@@ -114,7 +114,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
         guard self >= .minimumRequired else {
             throw UnsupportedToolsVersion(
                 packagePath: packagePath,
-                version: version,
+                packageVersion: packageVersion,
                 currentToolsVersion: currentToolsVersion,
                 packageToolsVersion: self
             )
@@ -124,7 +124,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
         guard currentToolsVersion >= self else {
             throw RequireNewerTools(
                 packagePath: packagePath,
-                version: version,
+                packageVersion: packageVersion,
                 installedToolsVersion: currentToolsVersion,
                 packageToolsVersion: self
             )

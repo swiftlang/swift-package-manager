@@ -329,6 +329,11 @@ extension InMemoryGitRepository: Repository {
             return self.history[revision.identifier]!.fileSystem
         }
     }
+
+    public func openFileView(tag: String) throws -> FileSystem {
+        let revision = try self.resolveRevision(tag: tag)
+        return try self.openFileView(revision: revision)
+    }
 }
 
 extension InMemoryGitRepository: WorkingCheckout {

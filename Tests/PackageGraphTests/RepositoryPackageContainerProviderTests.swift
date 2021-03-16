@@ -73,6 +73,11 @@ private class MockRepository: Repository {
         // This is used for reading the tools version.
         return self.fs
     }
+
+    public func openFileView(tag: String) throws -> FileSystem {
+        let revision = try self.resolveRevision(tag: tag)
+        return try self.openFileView(revision: revision)
+    }
 }
 
 private class MockRepositories: RepositoryProvider {
