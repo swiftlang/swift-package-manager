@@ -187,37 +187,55 @@ use the following docker compose commands:
 Prepare the underlying image with the selected Ubuntu and Swift versions:
 
 ```bash
-docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml build
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \ 
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  build
 ```
 
 Start an interactive shell session:
 
 ```bash
-docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml run shell
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \ 
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm shell
 ```
 
 Build SwiftPM (using the pre-installed SwiftPM version).
 
 ```bash
-docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml run build
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \ 
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm build
 ```
 
 Test SwiftPM (using the pre-installed SwiftPM version).
 
 ```bash
-docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml run test
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \ 
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm test
 ```
 
 Build SwiftPM using the bootstrap script:
 
 ```bash
-docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml run bootstrap-build
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \ 
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm bootstrap-build
 ```
 
 Test SwiftPM using the bootstrap script:
 
 ```bash
-docker-compose -f Utilities/docker/docker-compose.yaml -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml run bootstrap-test
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \ 
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm bootstrap-test
 ```
 
 Note there are several Linux and Swift versions options to choose from, e.g.:
