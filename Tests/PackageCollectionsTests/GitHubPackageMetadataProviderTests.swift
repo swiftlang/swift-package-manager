@@ -226,10 +226,14 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 }
             }
 
+            // Disable cache so we hit the API
+            let configuration = GitHubPackageMetadataProvider.Configuration(cacheTTLInSeconds: -1)
+
             var httpClient = HTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
-            let provider = GitHubPackageMetadataProvider(httpClient: httpClient)
+
+            let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
             for index in 0 ... total * 2 {
                 if index >= total {
