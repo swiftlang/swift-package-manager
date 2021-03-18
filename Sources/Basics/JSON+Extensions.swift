@@ -100,14 +100,14 @@ extension JSONEncoder {
         if !escapeSlashes {
             #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
             if #available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *) {
-                encoder.outputFormatting.insert(.withoutEscapingSlashes)
+                outputFormatting.insert(.withoutEscapingSlashes)
             }
             #elseif compiler(>=5.3)
-            encoder.outputFormatting.insert(.withoutEscapingSlashes)
+            outputFormatting.insert(.withoutEscapingSlashes)
             #endif
         }
 
-        // date
+        encoder.outputFormatting = outputFormatting
         encoder.dateEncodingStrategy = dateEncodingStrategy
         return encoder
     }
