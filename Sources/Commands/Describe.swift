@@ -138,12 +138,8 @@ fileprivate struct DescribedPackage: Encodable {
 
         init(from capability: PluginCapability, in package: Package) {
             switch capability {
-            case .prebuild:
-                self.type = "prebuild"
             case .buildTool:
                 self.type = "buildTool"
-            case .postbuild:
-                self.type = "postbuild"
             }
         }
     }

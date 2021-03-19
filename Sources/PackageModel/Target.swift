@@ -641,23 +641,17 @@ public final class PluginTarget: Target {
 }
 
 public enum PluginCapability: Equatable, Codable {
-    case prebuild
     case buildTool
-    case postbuild
 
     private enum CodingKeys: String, CodingKey {
-        case prebuild, buildTool, postbuild
+        case buildTool
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .prebuild:
-            try container.encodeNil(forKey: .prebuild)
         case .buildTool:
             try container.encodeNil(forKey: .buildTool)
-        case .postbuild:
-            try container.encodeNil(forKey: .postbuild)
         }
     }
 
@@ -667,12 +661,8 @@ public enum PluginCapability: Equatable, Codable {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
         }
         switch key {
-        case .prebuild:
-            self = .prebuild
         case .buildTool:
             self = .buildTool
-        case .postbuild:
-            self = .postbuild
         }
     }
 }

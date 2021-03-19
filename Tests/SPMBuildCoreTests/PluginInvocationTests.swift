@@ -117,19 +117,22 @@ class PluginInvocationTests: XCTestCase {
                             line: 42
                         )
                     ],
-                    commands: [
+                    buildCommands: [
                         .init(
                             displayName: "Do something",
                             executable: "/bin/FooTool",
                             arguments: ["-c", "/Foo/Sources/Foo/SomeFile.abc"],
-                            workingDirectory: "/Foo/Sources/Foo",
                             environment: [
                                 "X": "Y"
                             ],
-                            inputPaths: [],
-                            outputPaths: []
+                            workingDirectory: "/Foo/Sources/Foo",
+                            inputFiles: [],
+                            outputFiles: []
                         )
-                ])
+                    ],
+                    prebuildCommands: [
+                    ]
+                )
                 let outputJSON = try encoder.encode(result)
                 return (outputJSON: outputJSON, stdoutText: "Hello Plugin!".data(using: .utf8)!)
             }
@@ -149,20 +152,16 @@ class PluginInvocationTests: XCTestCase {
         
         XCTAssertEqual(evalResults.count, 1)
         let evalFirstResult = try XCTUnwrap(evalResults.first)
-        XCTAssertEqual(evalFirstResult.commands.count, 1)
-        let evalFirstCommand = try XCTUnwrap(evalFirstResult.commands.first)
-        if case .buildToolCommand(let name, let exec, let args, let env, let wdir, let inputs, let outputs) = evalFirstCommand {
-            XCTAssertEqual(name, "Do something")
-            XCTAssertEqual(exec, "/bin/FooTool")
-            XCTAssertEqual(args, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
-            XCTAssertEqual(wdir, AbsolutePath("/Foo/Sources/Foo"))
-            XCTAssertEqual(env, ["X": "Y"])
-            XCTAssertEqual(inputs, [])
-            XCTAssertEqual(outputs, [])
-        }
-        else {
-            XCTFail("The command provided by the plugin didn't match expectations")
-        }
+        XCTAssertEqual(evalFirstResult.prebuildCommands.count, 0)
+        XCTAssertEqual(evalFirstResult.buildCommands.count, 1)
+        let evalFirstCommand = try XCTUnwrap(evalFirstResult.buildCommands.first)
+        XCTAssertEqual(evalFirstCommand.configuration.displayName, "Do something")
+        XCTAssertEqual(evalFirstCommand.configuration.executable, "/bin/FooTool")
+        XCTAssertEqual(evalFirstCommand.configuration.arguments, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
+        XCTAssertEqual(evalFirstCommand.configuration.environment, ["X": "Y"])
+        XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))
+        XCTAssertEqual(evalFirstCommand.inputFiles, [])
+        XCTAssertEqual(evalFirstCommand.outputFiles, [])
         
         XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
         let evalFirstDiagnostic = try XCTUnwrap(evalFirstResult.diagnostics.first)

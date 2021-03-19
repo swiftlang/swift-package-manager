@@ -444,12 +444,8 @@ extension TargetDescription.PluginCapability {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
         switch type {
-        case "prebuild":
-            self = .prebuild
         case "buildTool":
             self = .buildTool
-        case "postbuild":
-            self = .postbuild
         default:
             throw InternalError("invalid type \(type)")
         }

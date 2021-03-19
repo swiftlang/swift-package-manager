@@ -806,12 +806,8 @@ public final class PackageBuilder {
             // to the package model form.
             let capability: PluginCapability
             switch declaredCapability {
-            case .prebuild:
-                capability = .prebuild
             case .buildTool:
                 capability = .buildTool
-            case .postbuild:
-                capability = .postbuild
             }
             
             // Crate and return an PluginTarget configured with the information from the manifest.
