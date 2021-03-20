@@ -101,3 +101,15 @@ OCSP_RESPONSE *d2i_OCSP_RESPONSE_bio(BIO *in, OCSP_RESPONSE **res)
 {
     return (OCSP_RESPONSE *)ASN1_d2i_bio_of(OCSP_RESPONSE, OCSP_RESPONSE_new, d2i_OCSP_RESPONSE, in, res);
 }
+
+int OCSP_id_issuer_cmp(const OCSP_CERTID *a, const OCSP_CERTID *b)
+{
+    int ret;
+    ret = OBJ_cmp(a->hashAlgorithm->algorithm, b->hashAlgorithm->algorithm);
+    if (ret)
+        return ret;
+    ret = ASN1_OCTET_STRING_cmp(a->issuerNameHash, b->issuerNameHash);
+    if (ret)
+        return ret;
+    return ASN1_OCTET_STRING_cmp(a->issuerKeyHash, b->issuerKeyHash);
+}

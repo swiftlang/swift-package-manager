@@ -103,6 +103,23 @@ OCSP_RESPONSE *d2i_OCSP_RESPONSE_bio(BIO *in, OCSP_RESPONSE **res);
 int OCSP_response_status(OCSP_RESPONSE *resp);
 OCSP_BASICRESP *OCSP_response_get1_basic(OCSP_RESPONSE *resp);
 
+#define OCSP_NOINTERN                   0x2
+#define OCSP_NOSIGS                     0x4
+#define OCSP_NOCHAIN                    0x8
+#define OCSP_NOVERIFY                   0x10
+#define OCSP_NOEXPLICIT                 0x20
+#define OCSP_NOCHECKS                   0x100
+#define OCSP_TRUSTOTHER                 0x200
+#define OCSP_PARTIAL_CHAIN              0x1000
+
+int OCSP_id_issuer_cmp(const OCSP_CERTID *a, const OCSP_CERTID *b);
+
+#define OCSP_BASICRESP_verify(a,r) ASN1_item_verify(ASN1_ITEM_rptr(OCSP_RESPDATA),\
+        (a)->signatureAlgorithm,(a)->signature,(a)->tbsResponseData,r)
+
+int OCSP_basic_verify(OCSP_BASICRESP *bs, STACK_OF(X509) *certs,
+                      X509_STORE *st, unsigned long flags);
+
 #if defined(__cplusplus)
 }  // extern C
 #endif

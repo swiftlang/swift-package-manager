@@ -221,7 +221,7 @@ extension CertificatePolicy {
 
         if certChain.count > 1, let httpClient = httpClient {
             // Whether cert chain can be trusted depends on OCSP result
-            ocspClient.checkStatus(certificate: certChain[0], issuer: certChain[1], httpClient: httpClient,
+            ocspClient.checkStatus(certificate: certChain[0], issuer: certChain[1], anchorCerts: anchorCerts, httpClient: httpClient,
                                    diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
         } else {
             wrappedCallback(.success(()))
@@ -244,6 +244,7 @@ private struct BoringSSLOCSPClient {
 
     func checkStatus(certificate: Certificate,
                      issuer: Certificate,
+                     anchorCerts: [Certificate]?,
                      httpClient: HTTPClient,
                      diagnosticsEngine: DiagnosticsEngine,
                      callbackQueue: DispatchQueue,
@@ -286,6 +287,13 @@ private struct BoringSSLOCSPClient {
         }
 
         let requestData = Data(UnsafeBufferPointer(start: out, count: count))
+
+        // X509_STORE is freed up after all OCSP_basic_verify calls finish.
+        // Don't do defer-free here because it would get freed up. `withExtendedLifetime(anchorCerts)` doesn't help.
+        let x509Store = CCryptoBoringSSL_X509_STORE_new()
+        anchorCerts?.forEach { anchorCert in
+            _ = anchorCert.withUnsafeMutablePointer { CCryptoBoringSSL_X509_STORE_add_cert(x509Store, $0) }
+        }
 
         let results = ThreadSafeArrayStore<Result<Bool, Error>>()
         let group = DispatchGroup()
@@ -353,6 +361,12 @@ private struct BoringSSLOCSPClient {
                         return
                     }
 
+                    // Verify the OCSP response to make sure we can trust it
+                    guard OCSP_basic_verify(basicResp, nil, x509Store, 0) > 0 else {
+                        results.append(.failure(OCSPError.responseVerificationFailure))
+                        return
+                    }
+
                     // Inspect the OCSP response
                     for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
                         guard let singleResp = sk_OCSP_SINGLERESP_value(basicRespData.responses, numericCast(i)),
@@ -372,6 +386,8 @@ private struct BoringSSLOCSPClient {
         }
 
         group.notify(queue: callbackQueue) {
+            defer { CCryptoBoringSSL_X509_STORE_free(x509Store) }
+
             // Fail open: As long as no one says the cert is revoked we assume it's ok. If we receive no responses or
             // all of them are failures we'd still assume the cert is not revoked.
             guard results.compactMap({ $0.success }).first(where: { !$0 }) == nil else {
@@ -538,6 +554,7 @@ private enum OCSPError: Error {
     case emptyResponseBody
     case responseConversionFailure
     case badResponse
+    case responseVerificationFailure
 }
 
 // MARK: - Certificate policies

@@ -12,6 +12,7 @@ add_library(PackageCollectionsSigningLibc STATIC
   "ocsp_asn.c"
   "ocsp_cl.c"
   "ocsp_lib.c"
+  "ocsp_vfy.c"
 )
 target_link_libraries(PackageCollectionsSigningLibc PRIVATE
   CCryptoBoringSSL)
