@@ -1,0 +1,37 @@
+# This source file is part of the Swift.org open source project
+#
+# Copyright (c) 2021 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-package-manager:20.04-5.4
+    build:
+      args:
+        ubuntu_version: "focal"
+        swift_version: "5.4"
+        base_image: "swiftlang/swift:nightly-5.4-focal"
+
+  build:
+    image: swift-package-manager:20.04-5.4
+
+  test:
+    image: swift-package-manager:20.04-5.4
+
+  bootstrap-clean:
+    image: swift-package-manager:20.04-5.4
+
+  bootstrap-build:
+    image: swift-package-manager:20.04-5.4
+
+  bootstrap-test:
+    image: swift-package-manager:20.04-5.4
+
+  shell:
+    image: swift-package-manager:20.04-5.4
