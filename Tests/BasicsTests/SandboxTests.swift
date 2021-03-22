@@ -26,7 +26,7 @@ final class SandboxTest: XCTestCase {
         throw XCTSkip()
         #endif
 
-        let command = Sandbox.apply(command: ["curl", "http://localhost"], writableDirectories: [], strictness: .default)
+        let command = Sandbox.apply(command: ["ping", "-t", "1", "localhost"], writableDirectories: [], strictness: .default)
 
         XCTAssertThrowsError(try Process.checkNonZeroExit(arguments: command)) { error in
             guard case ProcessResult.Error.nonZeroExit(let result) = error else {
