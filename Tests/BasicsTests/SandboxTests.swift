@@ -75,7 +75,22 @@ final class SandboxTest: XCTestCase {
         }
     }
 
-    // FIXME: this should not be allowed outside very specific programs
+    // FIXME: rdar://75707545 this should not be allowed outside very specific read locations
+    func testReadAllowed() throws {
+        #if !os(macOS)
+        XCTSkip()
+        #endif
+
+        try withTemporaryDirectory { path in
+            let file = path.appending(component: UUID().uuidString)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: ["touch", file.pathString]))
+
+            let command = Sandbox.apply(command: ["cat", file.pathString], writableDirectories: [], strictness: .default)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command))
+        }
+    }
+
+    // FIXME: rdar://75707545 this should not be allowed outside very specific programs
     func testExecuteAllowed() throws {
         #if !os(macOS)
         XCTSkip()
