@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -321,7 +321,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
 
-                    let result = Model.PackageSearchResult(items: packageCollections.map { entry in
+                    // FTS results are not sorted by relevance at all (FTS5 supports ORDER BY rank but FTS4 requires additional SQL function)
+                    // Sort by package identity for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key < $1.key }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
@@ -354,7 +356,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
                     }
 
-                    let result = Model.PackageSearchResult(items: packageCollections.map { entry in
+                    // Sort by package identity for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key.identity < $1.key.identity }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
@@ -569,7 +572,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                let result = Model.TargetSearchResult(items: targetPackageVersions.map { target, packageVersions in
+                // Sort by target name for consistent ordering in results
+                let result = Model.TargetSearchResult(items: targetPackageVersions.sorted { $0.key.name < $1.key.name }.map { target, packageVersions in
                     let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
                         guard let packageEntry = packageCollections[identity] else {
                             return nil
