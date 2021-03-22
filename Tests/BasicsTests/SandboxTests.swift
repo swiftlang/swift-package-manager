@@ -14,79 +14,80 @@ import TSCUtility
 import XCTest
 
 final class SandboxTest: XCTestCase {
-    #if os(macOS)
-    func testSandbox() {
-        let writableDirectories = (0 ..< Int.random(in: 5 ..< 10)).map { AbsolutePath.root.appending(components: "writable", "\($0)") }
-        let command = Sandbox.apply(command: ["hello", "world"], writableDirectories: writableDirectories, strictness: .default)
-        XCTAssertEqual(command.count, 5)
-        XCTAssertEqual(command[0], "/usr/bin/sandbox-exec")
-        XCTAssertEqual(command[1], "-p")
-        XCTAssertEqual(command[3], "hello")
-        XCTAssertEqual(command[4], "world")
+    func testNetworkNotAllowed() throws {
+        #if !os(macOS)
+        XCTSkip()
+        #endif
 
-        let sandbox = Array(command[2].split(separator: "\n"))
-        XCTAssertEqual(sandbox.count, 5 + (writableDirectories.count + 2))
-        XCTAssertEqual(sandbox[0], "(version 1)")
-        XCTAssertEqual(sandbox[1], "(deny default)")
-        XCTAssertEqual(sandbox[2], "(import \"system.sb\")")
-        XCTAssertEqual(sandbox[3], "(allow file-read*)")
-        XCTAssertEqual(sandbox[4], "(allow process*)")
-        // writable directories
-        XCTAssertEqual(sandbox[5], "(allow file-write*")
-        for (index, directory) in writableDirectories.enumerated() {
-            XCTAssertEqual(sandbox[6 + index], "    (subpath \"\(directory)\")")
+        let command = Sandbox.apply(command: ["curl", "http://localhost"], writableDirectories: [], strictness: .default)
+
+        XCTAssertThrowsError(try Process.checkNonZeroExit(arguments: command)) { error in
+            guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+                return XCTFail("invalid error \(error)")
+            }
+            XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"))
         }
-        XCTAssertEqual(sandbox[6 + writableDirectories.count], ")")
     }
 
-    func testNonWritable() {
-        let command = Sandbox.apply(command: ["hello", "world"], writableDirectories: [], strictness: .default)
-        XCTAssertEqual(command.count, 5)
-        XCTAssertEqual(command[0], "/usr/bin/sandbox-exec")
-        XCTAssertEqual(command[1], "-p")
-        XCTAssertEqual(command[3], "hello")
-        XCTAssertEqual(command[4], "world")
+    func testWritableAllowed() throws {
+        #if !os(macOS)
+        XCTSkip()
+        #endif
 
-        let sandbox = Array(command[2].split(separator: "\n"))
-        XCTAssertEqual(sandbox.count, 5)
-        XCTAssertEqual(sandbox[0], "(version 1)")
-        XCTAssertEqual(sandbox[1], "(deny default)")
-        XCTAssertEqual(sandbox[2], "(import \"system.sb\")")
-        XCTAssertEqual(sandbox[3], "(allow file-read*)")
-        XCTAssertEqual(sandbox[4], "(allow process*)")
-
-        XCTAssertFalse(command[2].contains("allow file-write*"))
+        try withTemporaryDirectory { path in
+            let command = Sandbox.apply(command: ["touch", path.appending(component: UUID().uuidString).pathString], writableDirectories: [path], strictness: .default)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command))
+        }
     }
 
-    func testManifestPre53Sandbox() {
-        let darwinCacheDirectories = TSCUtility.Platform.darwinCacheDirectories()
-        let writableDirectories = (0 ..< Int.random(in: 5 ..< 10)).map { AbsolutePath.root.appending(components: "writable", "\($0)") }
-        let command = Sandbox.apply(command: ["hello", "world"], writableDirectories: writableDirectories, strictness: .manifest_pre_53)
-        XCTAssertEqual(command.count, 5)
-        XCTAssertEqual(command[0], "/usr/bin/sandbox-exec")
-        XCTAssertEqual(command[1], "-p")
-        XCTAssertEqual(command[3], "hello")
-        XCTAssertEqual(command[4], "world")
+    func testWritableNotAllowed() throws {
+        #if !os(macOS)
+        XCTSkip()
+        #endif
 
-        let sandbox = Array(command[2].split(separator: "\n"))
-        XCTAssertEqual(sandbox.count, 6 + (writableDirectories.count + darwinCacheDirectories.count + 2))
-        XCTAssertEqual(sandbox[0], "(version 1)")
-        XCTAssertEqual(sandbox[1], "(deny default)")
-        XCTAssertEqual(sandbox[2], "(import \"system.sb\")")
-        XCTAssertEqual(sandbox[3], "(allow file-read*)")
-        XCTAssertEqual(sandbox[4], "(allow process*)")
-        // manifest_pre_53
-        XCTAssertEqual(sandbox[5], "(allow sysctl*)")
-        // writable directories
-        XCTAssertEqual(sandbox[6], "(allow file-write*")
-        for (index, directory) in writableDirectories.enumerated() {
-            XCTAssertEqual(sandbox[7 + index], "    (subpath \"\(directory)\")")
+        try withTemporaryDirectory { path in
+            let command = Sandbox.apply(command: ["touch", path.appending(component: UUID().uuidString).pathString], writableDirectories: [], strictness: .default)
+            XCTAssertThrowsError(try Process.checkNonZeroExit(arguments: command)) { error in
+                guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"))
+            }
         }
-        for (index, directory) in darwinCacheDirectories.enumerated() {
-            XCTAssertEqual(sandbox[7 + writableDirectories.count + index], "    (regex #\"^\(directory)/org\\.llvm\\.clang.*\")")
-        }
-        XCTAssertEqual(sandbox[7 + writableDirectories.count + darwinCacheDirectories.count], ")")
     }
 
-    #endif
+    func testRemoveNotAllowed() throws {
+        #if !os(macOS)
+        XCTSkip()
+        #endif
+
+        try withTemporaryDirectory { path in
+            let file = path.appending(component: UUID().uuidString)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: ["touch", file.pathString]))
+
+            let command = Sandbox.apply(command: ["rm", file.pathString], writableDirectories: [], strictness: .default)
+            XCTAssertThrowsError(try Process.checkNonZeroExit(arguments: command)) { error in
+                guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+                    return XCTFail("invalid error \(error)")
+                }
+                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"))
+            }
+        }
+    }
+
+    // FIXME: this should not be allowed outside very specific programs
+    func testExecuteAllowed() throws {
+        #if !os(macOS)
+        XCTSkip()
+        #endif
+
+        try withTemporaryDirectory { path in
+            let file = path.appending(component: UUID().uuidString)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: ["touch", file.pathString]))
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: ["chmod", "+x", file.pathString]))
+
+            let command = Sandbox.apply(command: [file.pathString], writableDirectories: [], strictness: .default)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command))
+        }
+    }
 }
