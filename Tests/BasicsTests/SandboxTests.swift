@@ -32,7 +32,7 @@ final class SandboxTest: XCTestCase {
             guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                 return XCTFail("invalid error \(error)")
             }
-            XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"))
+            XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"), try! result.utf8stderrOutput())
         }
     }
 
@@ -58,7 +58,7 @@ final class SandboxTest: XCTestCase {
                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"))
+                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted") ,try! result.utf8stderrOutput())
             }
         }
     }
@@ -77,7 +77,7 @@ final class SandboxTest: XCTestCase {
                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"))
+                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"), try! result.utf8stderrOutput())
             }
         }
     }
