@@ -14,9 +14,16 @@ import TSCUtility
 import XCTest
 
 final class SandboxTest: XCTestCase {
+    func testSandboxOnAllPlatforms() throws {
+        try withTemporaryDirectory { path in
+            let command = Sandbox.apply(command: ["echo", "0"], writableDirectories: [], strictness: .default)
+            XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command))
+        }
+    }
+
     func testNetworkNotAllowed() throws {
         #if !os(macOS)
-        XCTSkip()
+        throw XCTSkip()
         #endif
 
         let command = Sandbox.apply(command: ["curl", "http://localhost"], writableDirectories: [], strictness: .default)
@@ -31,7 +38,7 @@ final class SandboxTest: XCTestCase {
 
     func testWritableAllowed() throws {
         #if !os(macOS)
-        XCTSkip()
+        throw XCTSkip()
         #endif
 
         try withTemporaryDirectory { path in
@@ -42,7 +49,7 @@ final class SandboxTest: XCTestCase {
 
     func testWritableNotAllowed() throws {
         #if !os(macOS)
-        XCTSkip()
+        throw XCTSkip()
         #endif
 
         try withTemporaryDirectory { path in
@@ -58,7 +65,7 @@ final class SandboxTest: XCTestCase {
 
     func testRemoveNotAllowed() throws {
         #if !os(macOS)
-        XCTSkip()
+        throw XCTSkip()
         #endif
 
         try withTemporaryDirectory { path in
@@ -78,7 +85,7 @@ final class SandboxTest: XCTestCase {
     // FIXME: rdar://75707545 this should not be allowed outside very specific read locations
     func testReadAllowed() throws {
         #if !os(macOS)
-        XCTSkip()
+        throw XCTSkip()
         #endif
 
         try withTemporaryDirectory { path in
@@ -93,7 +100,7 @@ final class SandboxTest: XCTestCase {
     // FIXME: rdar://75707545 this should not be allowed outside very specific programs
     func testExecuteAllowed() throws {
         #if !os(macOS)
-        XCTSkip()
+        throw XCTSkip()
         #endif
 
         try withTemporaryDirectory { path in
