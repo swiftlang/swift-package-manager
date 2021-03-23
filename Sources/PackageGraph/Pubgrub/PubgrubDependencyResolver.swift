@@ -114,9 +114,6 @@ public struct PubgrubDependencyResolver {
     // Log stream
     private let traceStream: OutputByteStream?
 
-    /// Queue to run async operations on
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.pubgrub", attributes: .concurrent)
-
     public init(
         provider: PackageContainerProvider,
         pinsMap: PinsStore.PinsMap = [:],
@@ -137,7 +134,7 @@ public struct PubgrubDependencyResolver {
                 try? LocalFileOutputByteStream(file, closeOnDeinit: true, buffered: false)
             }
         }
-        self.provider = ContainerProvider(provider: self.packageContainerProvider, queue: self.queue, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
+        self.provider = ContainerProvider(provider: self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
     }
 
     public init(
@@ -629,7 +626,7 @@ public struct PubgrubDependencyResolver {
             }
         }
 
-        sync.notify(queue: self.queue) {
+        sync.notify(queue: .sharedConcurrent) {
             do {
                 completion(.success(try results.mapValues { try $0.get() }))
             } catch {
@@ -1064,9 +1061,6 @@ private final class PubGrubPackageContainer {
     /// Reference to the pins map.
     private let pinsMap: PinsStore.PinsMap
 
-    /// Queue to run async operations on
-    private let queue: DispatchQueue
-
     /// The map of dependencies to version set that indicates the versions that have had their
     /// incompatibilities emitted.
     private var emittedIncompatibilities = ThreadSafeKeyValueStore<PackageReference, VersionSetSpecifier>()
@@ -1074,10 +1068,9 @@ private final class PubGrubPackageContainer {
     /// Whether we've emitted the incompatibilities for the pinned versions.
     private var emittedPinnedVersionIncompatibilities = ThreadSafeBox(false)
 
-    init(underlying: PackageContainer, pinsMap: PinsStore.PinsMap, queue: DispatchQueue) {
+    init(underlying: PackageContainer, pinsMap: PinsStore.PinsMap) {
         self.underlying = underlying
         self.pinsMap = pinsMap
-        self.queue = queue
     }
 
     var package: PackageReference {
@@ -1300,7 +1293,7 @@ private final class PubGrubPackageContainer {
         func preload(_ versions: [Version]) {
             let sync = DispatchGroup()
             for version in versions {
-                self.queue.async(group: sync) {
+                DispatchQueue.sharedConcurrent.async(group: sync) {
                     if self.underlying.isToolsVersionCompatible(at: version) {
                         _ = try? self.underlying.getDependencies(at: version, productFilter: products)
                     }
@@ -1363,12 +1356,12 @@ private final class PubGrubPackageContainer {
         let sync = DispatchGroup()
 
         var upperBounds = [PackageReference: Version]()
-        self.queue.async(group: sync) {
+        DispatchQueue.sharedConcurrent.async(group: sync) {
             upperBounds = compute(Array(versions.dropFirst(idx + 1)), upperBound: true)
         }
 
         var lowerBounds = [PackageReference: Version]()
-        self.queue.async(group: sync) {
+        DispatchQueue.sharedConcurrent.async(group: sync) {
             lowerBounds = compute(Array(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
         }
 
@@ -1395,18 +1388,14 @@ private final class ContainerProvider {
     /// Reference to the pins store.
     private let pinsMap: PinsStore.PinsMap
 
-    /// Queue to run async operations on
-    private let queue: DispatchQueue
-
     //// Store cached containers
     private var containersCache = ThreadSafeKeyValueStore<PackageReference, PubGrubPackageContainer>()
 
     //// Store prefetches synchronization
     private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
 
-    init(provider underlying: PackageContainerProvider, queue: DispatchQueue, skipUpdate: Bool, pinsMap: PinsStore.PinsMap) {
+    init(provider underlying: PackageContainerProvider, skipUpdate: Bool, pinsMap: PinsStore.PinsMap) {
         self.underlying = underlying
-        self.queue = queue
         self.skipUpdate = skipUpdate
         self.pinsMap = pinsMap
     }
@@ -1428,7 +1417,7 @@ private final class ContainerProvider {
 
         if let prefetchSync = self.prefetches[package] {
             // If this container is already being prefetched, wait for that to complete
-            prefetchSync.notify(queue: self.queue) {
+            prefetchSync.notify(queue: .sharedConcurrent) {
                 if let container = self.containersCache[package] {
                     // should be in the cache once prefetch completed
                     return completion(.success(container))
@@ -1440,9 +1429,9 @@ private final class ContainerProvider {
             }
         } else {
             // Otherwise, fetch the container from the provider
-            self.underlying.getContainer(for: package, skipUpdate: skipUpdate, on: self.queue) { result in
+            self.underlying.getContainer(for: package, skipUpdate: skipUpdate, on: .sharedConcurrent) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
-                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap, queue: self.queue)
+                    let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
                     // only cache positive results
                     self.containersCache[package] = pubGrubContainer
                     return pubGrubContainer
@@ -1464,11 +1453,11 @@ private final class ContainerProvider {
                 return group
             }
             if needsFetching {
-                self.underlying.getContainer(for: identifier, skipUpdate: skipUpdate, on: self.queue) { result in
+                self.underlying.getContainer(for: identifier, skipUpdate: skipUpdate, on: .sharedConcurrent) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
-                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap, queue: self.queue)
+                        self.containersCache[identifier] = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
                     }
                 }
             }

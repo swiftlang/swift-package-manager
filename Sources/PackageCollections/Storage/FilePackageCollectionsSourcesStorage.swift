@@ -24,8 +24,6 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.FilePackageCollectionsSourcesStorage")
-
     init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.fileSystem = fileSystem
 
@@ -37,7 +35,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     }
 
     func list(callback: @escaping (Result<[Model.CollectionSource], Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 let sources = try self.withLock {
                     try self.loadFromDisk()
@@ -52,7 +50,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     func add(source: Model.CollectionSource,
              order: Int?,
              callback: @escaping (Result<Void, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 try self.withLock {
                     var sources = try self.loadFromDisk()
@@ -70,7 +68,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
 
     func remove(source: Model.CollectionSource,
                 callback: @escaping (Result<Void, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 try self.withLock {
                     var sources = try self.loadFromDisk()
@@ -87,7 +85,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     func move(source: Model.CollectionSource,
               to order: Int,
               callback: @escaping (Result<Void, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 try self.withLock {
                     var sources = try self.loadFromDisk()
@@ -105,7 +103,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
 
     func exists(source: Model.CollectionSource,
                 callback: @escaping (Result<Bool, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 let sources = try self.withLock {
                     try self.loadFromDisk()
@@ -119,7 +117,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
 
     func update(source: PackageCollectionsModel.CollectionSource,
                 callback: @escaping (Result<Void, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 try self.withLock {
                     var sources = try self.loadFromDisk()

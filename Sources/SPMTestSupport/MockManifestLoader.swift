@@ -95,7 +95,7 @@ extension ManifestLoader {
                       identityResolver: identityResolver,
                       fileSystem: fileSystem,
                       diagnostics: diagnostics,
-                      on: .global(),
+                      on: .sharedConcurrent,
                       completion: $0)
         }
     }

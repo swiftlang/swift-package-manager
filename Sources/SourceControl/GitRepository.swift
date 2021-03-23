@@ -267,7 +267,8 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Concurrent queue to execute git cli on.
     private let git: GitShellHelper
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.git", attributes: .concurrent)
+    // lock top protect concurrent modifications to the repository
+    private let lock = Lock()
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool
@@ -309,7 +310,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     ///   - url: The new url of the remote.
     public func setURL(remote: String, url: String) throws {
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("remote", "set-url", remote, url,
                         failureMessage: "Couldn’t set the URL of the remote ‘\(remote)’ to ‘\(url)’")
             return
@@ -320,7 +321,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     ///
     /// - Returns: An array of tuple containing name and url of the remote.
     public func remotes() throws -> [(name: String, url: String)] {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             // Get the remote names.
             let remoteNamesOutput = try callGit("remote",
                                                 failureMessage: "Couldn’t get the list of remotes")
@@ -340,7 +341,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func getTags() throws -> [String] {
         // Get the contents using `ls-tree`.
         try self.cachedTags.memoize {
-            try self.queue.sync {
+            try self.lock.withLock {
                 let tagList = try callGit("tag", "-l",
                                           failureMessage: "Couldn’t get the list of tags")
                 return tagList.split(separator: "\n").map(String.init)
@@ -358,7 +359,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     public func fetch() throws {
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("remote", "update", "-p",
                         failureMessage: "Couldn’t fetch updates from remote repositories")
             self.cachedTags.clear()
@@ -368,7 +369,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func hasUncommittedChanges() -> Bool {
         // Only a working repository can have changes.
         guard self.isWorkingRepo else { return false }
-        return self.queue.sync {
+        return self.lock.withLock {
             guard let result = try? callGit("status", "-s") else {
                 return false
             }
@@ -387,7 +388,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     // MARK: Working Checkout Interface
 
     public func hasUnpushedCommits() throws -> Bool {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             let hasOutput = try callGit("log", "--branches", "--not", "--remotes",
                                         failureMessage: "Couldn’t check for unpushed commits").isEmpty
             return !hasOutput
@@ -395,7 +396,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getCurrentRevision() throws -> Revision {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             return try Revision(identifier: callGit("rev-parse", "--verify", "HEAD",
                                                     failureMessage: "Couldn’t get current revision"))
         }
@@ -405,7 +406,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("reset", "--hard", tag,
                         failureMessage: "Couldn’t check out tag ‘\(tag)’")
             try self.updateSubmoduleAndCleanNotOnQueue()
@@ -416,7 +417,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("checkout", "-f", revision.identifier,
                         failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’")
             try self.updateSubmoduleAndCleanNotOnQueue()
@@ -432,7 +433,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     internal func checkoutExists() throws -> Bool {
-        self.queue.sync {
+        self.lock.withLock {
             do {
                 let output = try callGit("rev-parse", "--is-bare-repository",
                                          failureMessage: "Couldn’t test if check-out exists")
@@ -453,7 +454,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
-        return self.queue.sync {
+        return self.lock.withLock {
             return (try? callGit("rev-parse", "--verify", revision.identifier)) != nil
         }
     }
@@ -461,7 +462,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func checkout(newBranch: String) throws {
         precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("checkout", "-b", newBranch,
                         failureMessage: "Couldn’t check out new branch ‘\(newBranch)’")
             return
@@ -471,7 +472,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func archive(to path: AbsolutePath) throws {
         precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
 
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("archive",
                         "--format", "zip",
                         "--output", path.pathString,
@@ -496,7 +497,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if the file at `path` is ignored by `git`
     public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             let stringPaths = paths.map { $0.pathString }
 
             return try withTemporaryFile { pathsFile in
@@ -539,7 +540,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             specifier = treeish
         }
         return try self.cachedHashes.memoize(specifier) {
-            try self.queue.sync {
+            try self.lock.withLock {
                 let output = try callGit("rev-parse", "--verify", specifier,
                                          failureMessage: "Couldn’t get revision ‘\(specifier)’")
                 guard let hash = Hash(output) else {
@@ -572,7 +573,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func readTree(hash: Hash) throws -> Tree {
         let hashString = hash.bytes.description
         return try self.cachedTrees.memoize(hashString) {
-            try self.queue.sync {
+            try self.lock.withLock {
                 let output = try callGit("ls-tree", hashString,
                                          failureMessage: "Couldn’t read '\(hashString)'")
                 let entries = try self.parseTree(output)
@@ -583,7 +584,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     public func readTree(tag: String) throws -> Tree {
         try self.cachedTrees.memoize(tag) {
-            try self.queue.sync {
+            try self.lock.withLock {
                 let output = try callGit("ls-tree", tag,
                                          failureMessage: "Couldn’t read '\(tag)'")
                 let entries = try self.parseTree(output)
@@ -639,7 +640,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Read a blob object.
     func readBlob(hash: Hash) throws -> ByteString {
         try self.cachedBlobs.memoize(hash) {
-            try self.queue.sync {
+            try self.lock.withLock {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.

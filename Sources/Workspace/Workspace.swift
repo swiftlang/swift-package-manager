@@ -238,8 +238,6 @@ public class Workspace {
 
     fileprivate let additionalFileRules: [FileRuleDescription]
 
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.workspace", attributes: .concurrent)
-
     /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -738,7 +736,7 @@ extension Workspace {
             }
         }
 
-        sync.notify(queue: self.queue) {
+        sync.notify(queue: .sharedConcurrent) {
             // Check for duplicate root packages.
             let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
             if !duplicateRoots.isEmpty {
@@ -850,7 +848,7 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let handle = try temp_await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: self.queue, completion: $0)
+                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }
             let repo = try handle.open()
 
@@ -1371,7 +1369,7 @@ extension Workspace {
             }
         }
 
-        sync.notify(queue: self.queue) {
+        sync.notify(queue: .sharedConcurrent) {
             completion(.success(manifests))
         }
     }
@@ -1408,7 +1406,7 @@ extension Workspace {
                                     identityResolver: self.identityResolver,
                                     fileSystem: localFileSystem,
                                     diagnostics: diagnostics,
-                                    on: self.queue) { result in
+                                    on: .sharedConcurrent) { result in
 
                     switch result {
                     case .failure(let error):
@@ -1771,7 +1769,7 @@ extension Workspace {
         let pins = pinsStore.pins.map({ $0 })
         DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
             _ = try? temp_await {
-                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: self.queue, completion: $0)
+                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }
         }
 
@@ -2210,7 +2208,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 guard let container = (try temp_await {
-                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: self.queue, completion: $0)
+                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: .sharedConcurrent, completion: $0)
                 }) as? RepositoryPackageContainer else {
                     throw InternalError("invalid container for \(packageRef) expected a RepositoryPackageContainer")
                 }
@@ -2440,7 +2438,7 @@ extension Workspace {
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
         let handle = try temp_await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: self.queue, completion: $0)
+            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
         }
 
         // Clone the repository into the checkouts.
@@ -2512,7 +2510,7 @@ extension Workspace {
             // this?
             // FIXME: this should not block
             guard let container = (try temp_await {
-                containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0)
+                containerProvider.getContainer(for: package, skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }) as? RepositoryPackageContainer else {
                 throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
             }

@@ -56,7 +56,7 @@ public final class LocalPackageContainer: PackageContainer {
                                     identityResolver: identityResolver,
                                     fileSystem: fileSystem,
                                     diagnostics: nil,
-                                    on: .global(),
+                                    on: .sharedConcurrent,
                                     completion: $0)
             }
         }

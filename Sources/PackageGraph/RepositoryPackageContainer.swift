@@ -310,7 +310,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                                 identityResolver: identityResolver,
                                 fileSystem: fileSystem,
                                 diagnostics: nil,
-                                on: .global(),
+                                on: .sharedConcurrent,
                                 completion: $0)
         }
     }
