@@ -6,7 +6,7 @@ for inputPath in targetBuildContext.otherFiles {
     guard inputPath.suffix == ".dat" else { continue }
     let outputName = inputPath.basename + ".swift"
     let outputPath = targetBuildContext.outputDir.appending(outputName)
-    commandConstructor.createCommand(
+    commandConstructor.createBuildCommand(
         displayName:
             "Generating \(outputName) from \(inputPath.filename)",
         executable:
@@ -18,12 +18,11 @@ for inputPath in targetBuildContext.otherFiles {
         environment: [
             "VARIABLE_NAME_PREFIX": "PREFIX_"
         ],
-        inputPaths: [
+        inputFiles: [
             inputPath,
         ],
-        outputPaths: [
+        outputFiles: [
             outputPath
         ]
     )
-    commandConstructor.addGeneratedOutputFile(path: outputPath)
 }

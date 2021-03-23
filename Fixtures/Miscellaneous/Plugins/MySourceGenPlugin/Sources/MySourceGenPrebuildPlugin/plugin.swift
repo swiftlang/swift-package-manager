@@ -7,14 +7,14 @@ let outputPaths: [Path] = targetBuildContext.otherFiles.filter{ $0.suffix == ".d
 }
 
 if !outputPaths.isEmpty {
-    commandConstructor.createCommand(
+    commandConstructor.createPrebuildCommand(
         displayName:
             "Running prebuild command for target \(targetBuildContext.targetName)",
         executable:
             Path("/usr/bin/touch"),
         arguments: 
-            outputPaths.map{ $0.string }
+            outputPaths.map{ $0.string },
+        outputDirectory:
+            targetBuildContext.outputDir
     )
 }
-
-commandConstructor.addPrebuildOutputDirectory(path: targetBuildContext.outputDir)

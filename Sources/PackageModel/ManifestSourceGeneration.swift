@@ -362,12 +362,8 @@ fileprivate extension SourceCodeFragment {
     /// Instantiates a SourceCodeFragment to represent a single plugin capability.
     init(from capability: TargetDescription.PluginCapability) {
         switch capability {
-        case .prebuild:
-            self.init(enum: "prebuild", subnodes: [])
         case .buildTool:
             self.init(enum: "buildTool", subnodes: [])
-        case .postbuild:
-            self.init(enum: "postbuild", subnodes: [])
         }
     }
 

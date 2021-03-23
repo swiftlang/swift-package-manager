@@ -598,20 +598,14 @@ extension Target.PluginCapability: Encodable {
     }
 
     private enum Capability: String, Encodable {
-        case prebuild
         case buildTool
-        case postbuild
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case ._prebuild:
-            try container.encode(Capability.prebuild, forKey: .type)
         case ._buildTool:
             try container.encode(Capability.buildTool, forKey: .type)
-        case ._postbuild:
-            try container.encode(Capability.postbuild, forKey: .type)
         }
     }
 }

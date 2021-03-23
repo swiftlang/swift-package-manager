@@ -21,27 +21,6 @@ class PackageDescriptionNextVersionLoadingTests: PackageDescriptionLoadingTests 
         .vNext
     }
 
-    func testPrebuildPluginTarget() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               targets: [
-                   .plugin(
-                       name: "Foo",
-                       capability: .prebuild()
-                    )
-               ]
-            )
-            """
-
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .plugin)
-            XCTAssertEqual(manifest.targets[0].pluginCapability, .prebuild)
-        }
-    }
-
     func testBuildToolPluginTarget() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -63,27 +42,6 @@ class PackageDescriptionNextVersionLoadingTests: PackageDescriptionLoadingTests 
         }
     }
 
-    func testPostbuildPluginTarget() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               targets: [
-                   .plugin(
-                       name: "Foo",
-                       capability: .postbuild()
-                    )
-               ]
-            )
-            """
-
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .plugin)
-            XCTAssertEqual(manifest.targets[0].pluginCapability, .postbuild)
-        }
-    }
-    
     func testPackageDependencies() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """

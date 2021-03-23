@@ -310,7 +310,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(buildToolPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
             let prebuildPluginTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenPrebuildPlugin" }?.dictionary)
             XCTAssertEqual(prebuildPluginTarget["module_type"]?.string, "PluginTarget")
-            XCTAssertEqual(prebuildPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "prebuild")
+            XCTAssertEqual(prebuildPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
         }
     }
 

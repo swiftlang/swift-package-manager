@@ -602,10 +602,10 @@ public final class SwiftTargetBuildDescription {
         self.pluginInvocationResults = pluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
 
-        // Add any derived source files that were declared in any plugin invocations.
-        for pluginResult in pluginInvocationResults {
+        // Add any derived source files that were declared for any commands from plugin invocations.
+        for command in pluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
             // TODO: What should we do if we find non-Swift sources here?
-            for absPath in pluginResult.derivedSourceFiles {
+            for absPath in command.outputFiles {
                 let relPath = absPath.relative(to: self.pluginDerivedSources.root)
                 self.pluginDerivedSources.relativePaths.append(relPath)
             }

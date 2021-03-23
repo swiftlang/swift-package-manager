@@ -7,7 +7,7 @@ let package = Package(
         // A local tool that uses a build tool plugin.
         .executableTarget(
             name: "MyLocalTool",
-            dependencies: [
+            plugins: [
                 "MySourceGenBuildToolPlugin",
             ]
         ),

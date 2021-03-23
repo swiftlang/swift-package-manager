@@ -109,7 +109,7 @@ public struct TargetDescription: Equatable, Codable {
     
     /// Represents the declared capability of a package plugin.
     public enum PluginCapability: Equatable {
-        case prebuild, buildTool, postbuild
+        case buildTool
     }
 
     /// The target-specific build settings declared in this target.
@@ -261,18 +261,14 @@ extension TargetDescription.Dependency: ExpressibleByStringLiteral {
 
 extension TargetDescription.PluginCapability: Codable {
     private enum CodingKeys: CodingKey {
-        case prebuild, buildTool, postbuild
+        case buildTool
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .prebuild:
-            try container.encodeNil(forKey: .prebuild)
         case .buildTool:
             try container.encodeNil(forKey: .buildTool)
-        case .postbuild:
-            try container.encodeNil(forKey: .postbuild)
         }
     }
 
@@ -282,12 +278,8 @@ extension TargetDescription.PluginCapability: Codable {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
         }
         switch key {
-        case .prebuild:
-            self = .prebuild
         case .buildTool:
             self = .buildTool
-        case .postbuild:
-            self = .postbuild
         }
     }
 }
