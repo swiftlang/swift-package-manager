@@ -607,6 +607,51 @@ class MiscellaneousTestCase: XCTestCase {
             }
         }
     }
+
+    func testEditModeEndToEnd() {
+        fixture(name: "Miscellaneous/Edit") { prefix in
+            let prefix = resolveSymlinks(prefix)
+            let appPath = prefix.appending(component: "App")
+
+            // prepare the dependencies as git repos
+            try ["Foo", "Bar"].forEach { directory in
+                let path = prefix.appending(component: directory)
+                _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "init")
+            }
+
+            do {
+                // make sure it builds
+                let output = try executeSwiftBuild(appPath)
+                XCTAssertTrue(output.stdout.contains("Cloning \(prefix)/Foo"))
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
+            }
+
+            // put foo into edit mode
+            _ = try executeSwiftPackage(appPath, extraArgs: ["edit", "Foo"])
+            XCTAssertTrue(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+
+            do {
+                // build again in edit mode
+                let output = try executeSwiftBuild(appPath)
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
+            }
+
+
+            do {
+                // take foo out of edit mode
+                let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
+                XCTAssertTrue(output.stdout.contains("Cloning \(prefix)/Foo"))
+                XCTAssertFalse(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+            }
+
+            // build again in edit mode
+            do {
+                let output = try executeSwiftBuild(appPath)
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
+            }
+        }
+
+    }
 }
 
 func doesHostSwiftCompilerSupportRenamingMainSymbol() throws -> Bool {
