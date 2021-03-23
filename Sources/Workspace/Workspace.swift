@@ -1132,7 +1132,7 @@ extension Workspace {
                     // We should get the correct one from managed dependency object.
                     let ref = PackageReference.local(
                         identity: managedDependency.packageRef.identity,
-                        path: AbsolutePath(managedDependency.packageRef.location)
+                        path: workspace.path(to: managedDependency)
                     )
                     let constraint = PackageContainerConstraint(
                         package: ref,

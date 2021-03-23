@@ -1,0 +1,2 @@
+public func hello() {
+}
