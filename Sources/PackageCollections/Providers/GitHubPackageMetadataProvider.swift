@@ -29,9 +29,6 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     private let cache: ThreadSafeKeyValueStore<PackageReference, (package: Model.PackageBasicMetadata, timestamp: DispatchTime)>?
 
-    // For cache cleanup
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.GitHubPackageMetadataProvider")
-
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
