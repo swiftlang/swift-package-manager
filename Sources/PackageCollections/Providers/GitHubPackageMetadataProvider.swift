@@ -148,11 +148,11 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         cache[reference] = (model, DispatchTime.now())
 
                         if cache.count > self.configuration.cacheSize {
-                            self.queue.async {
+                            DispatchQueue.sharedConcurrent.async {
                                 // Delete oldest entries with some room for growth
                                 let sortedCacheEntries = cache.get().sorted { $0.value.timestamp < $1.value.timestamp }
                                 let deleteCount = sortedCacheEntries.count - (self.configuration.cacheSize / 2)
-                                self.diagnosticsEngine?.emit(warning: "Cache size limit exceeded, deleting the oldest \(deleteCount) entries")
+                                self.diagnosticsEngine?.emit(note: "Cache size limit exceeded, deleting the oldest \(deleteCount) entries")
 
                                 for index in 0 ..< deleteCount {
                                     cache.removeValue(forKey: sortedCacheEntries[index].key)
