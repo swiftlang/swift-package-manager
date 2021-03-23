@@ -21,6 +21,12 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
         self.underlying = seed
     }
 
+    public func get() -> [Key: Value] {
+        self.lock.withLock {
+            self.underlying
+        }
+    }
+
     public subscript(key: Key) -> Value? {
         get {
             self.lock.withLock {

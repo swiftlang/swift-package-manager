@@ -29,6 +29,9 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     private let cache: ThreadSafeKeyValueStore<PackageReference, (package: Model.PackageBasicMetadata, timestamp: DispatchTime)>?
 
+    // For cache cleanup
+    private let queue = DispatchQueue(label: "org.swift.swiftpm.GitHubPackageMetadataProvider")
+
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
@@ -143,6 +146,19 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
                     if let cache = self.cache {
                         cache[reference] = (model, DispatchTime.now())
+
+                        if cache.count > self.configuration.cacheSize {
+                            self.queue.async {
+                                // Delete oldest entries with some room for growth
+                                let sortedCacheEntries = cache.get().sorted { $0.value.timestamp < $1.value.timestamp }
+                                let deleteCount = sortedCacheEntries.count - (self.configuration.cacheSize / 2)
+                                self.diagnosticsEngine?.emit(warning: "Cache size limit exceeded, deleting the oldest \(deleteCount) entries")
+
+                                for index in 0 ..< deleteCount {
+                                    cache.removeValue(forKey: sortedCacheEntries[index].key)
+                                }
+                            }
+                        }
                     }
                     callback(.success(model))
                 }
@@ -199,13 +215,16 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         public var apiLimitWarningThreshold: Int
         public var authTokens: [AuthTokenType: String]?
         public var cacheTTLInSeconds: Int
+        public var cacheSize: Int
 
         public init(authTokens: [AuthTokenType: String]? = nil,
                     apiLimitWarningThreshold: Int? = nil,
-                    cacheTTLInSeconds: Int? = nil) {
+                    cacheTTLInSeconds: Int? = nil,
+                    cacheSize: Int? = nil) {
             self.authTokens = authTokens
             self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
             self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
+            self.cacheSize = cacheSize ?? 1000
         }
     }
 
