@@ -670,7 +670,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
-            let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+            let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
 
             var cmd: [String] = []
             cmd += [resources.swiftCompiler.pathString]
@@ -720,7 +720,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             cmd += self.interpreterFlags(for: toolsVersion)
             if let moduleCachePath = moduleCachePath {
-                cmd += ["-module-cache-path", moduleCachePath]
+                cmd += ["-module-cache-path", moduleCachePath.pathString]
             }
 
             // Add the arguments for emitting serialized diagnostics, if requested.
@@ -771,20 +771,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #else
                 cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
 #endif
-
-              #if os(macOS)
-                // If enabled, use sandbox-exec on macOS. This provides some safety against
-                // arbitrary code execution when parsing manifest files. We only allow
-                // the permissions which are absolutely necessary for manifest parsing.
+                // If enabled, run command in a sandbox.
+                // This provides some safety against arbitrary code execution when parsing manifest files.
+                // We only allow the permissions which are absolutely necessary.
                 if isManifestSandboxEnabled {
-                    let cacheDirectories = [
-                        self.databaseCacheDir,
-                        moduleCachePath.map({ AbsolutePath($0) })
-                    ].compactMap({ $0 })
-                    let profile = sandboxProfile(toolsVersion: toolsVersion, cacheDirectories: cacheDirectories)
-                    cmd = ["/usr/bin/sandbox-exec", "-p", profile] + cmd
+                    let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                    let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
+                    cmd = Sandbox.apply(command: cmd, writableDirectories: cacheDirectories, strictness: strictness)
                 }
-              #endif
 
                 // Run the compiled manifest.
                 var environment = ProcessEnv.vars
@@ -902,41 +896,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         }
     }
-}
-
-/// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [AbsolutePath] = []) -> String {
-    let stream = BufferedOutputByteStream()
-    stream <<< "(version 1)" <<< "\n"
-    // Deny everything by default.
-    stream <<< "(deny default)" <<< "\n"
-    // Import the system sandbox profile.
-    stream <<< "(import \"system.sb\")" <<< "\n"
-    // Allow reading all files. Even in 5.3 we need to be able to read the PD dylibs.
-    stream <<< "(allow file-read*)" <<< "\n"
-    // This is needed to launch any processes.
-    stream <<< "(allow process*)" <<< "\n"
-
-    // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
-    if toolsVersion < .v5_3 {
-        // This is required by the Swift compiler.
-        stream <<< "(allow sysctl*)" <<< "\n"
-        // Allow writing in temporary locations.
-        stream <<< "(allow file-write*" <<< "\n"
-        for directory in Platform.threadSafeDarwinCacheDirectories.get() {
-            stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
-        }
-        for directory in cacheDirectories {
-            stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
-        }
-        stream <<< ")" <<< "\n"
-    }
-
-    return stream.bytes.description
-}
-
-extension TSCUtility.Platform {
-    internal static let threadSafeDarwinCacheDirectories = ThreadSafeArrayStore<AbsolutePath>(Self.darwinCacheDirectories())
 }
 
 extension TSCBasic.Diagnostic.Message {

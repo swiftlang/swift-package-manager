@@ -16,6 +16,7 @@ add_library(Basics
   HTPClient+URLSession.swift
   HTTPClient.swift
   JSON+Extensions.swift
+  Sandbox.swift
   SwiftVersion.swift)
 target_link_libraries(Basics PUBLIC
   TSCBasic
