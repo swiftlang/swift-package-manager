@@ -160,16 +160,18 @@ public struct SwiftAPIDigester {
     }
 
     public func diagnoseSDK(
-        currentSDKJSON: AbsolutePath,
-        baselineSDKJSON: AbsolutePath
+        baselineSDKJSON: AbsolutePath,
+        apiToolArgs: [String],
+        modules: [String]
     ) throws {
-        let args = [
+        var args = [
             "-diagnose-sdk",
-            "--input-paths",
-            baselineSDKJSON.pathString,
-            "-input-paths",
-            currentSDKJSON.pathString,
+            "-baseline-path", baselineSDKJSON.pathString,
         ]
+        args.append(contentsOf: apiToolArgs)
+        for module in modules {
+            args.append(contentsOf: ["-module", module])
+        }
 
         try runTool(args)
     }
