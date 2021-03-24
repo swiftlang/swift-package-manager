@@ -19,10 +19,12 @@ add_library(PackageCollectionsSigning
   Key/ASN1/Types/ASN1Integer.swift
   Key/ASN1/Types/ASN1ObjectIdentifier.swift
   Key/ASN1/Types/ASN1OctetString.swift
+  Key/BoringSSLKey.swift
   Key/Key.swift
   Key/Key+EC.swift
   Key/Key+RSA.swift
   PackageCollectionSigning.swift
+  Signing/BoringSSLSigning.swift
   Signing/Signature.swift
   Signing/Signing.swift
   Signing/Signing+ECKey.swift
@@ -36,7 +38,12 @@ target_link_libraries(PackageCollectionsSigning PUBLIC
   $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
   $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 target_link_libraries(PackageCollectionsSigning PRIVATE
-  Crypto)
+  Crypto
+  CCryptoBoringSSL
+  PackageCollectionsSigningLibc)
+target_include_directories(PackageCollectionsSigning PRIVATE
+  $<TARGET_PROPERTY:PackageCollectionsSigningLibc,INCLUDE_DIRECTORIES>)
+  
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageCollectionsSigning PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
