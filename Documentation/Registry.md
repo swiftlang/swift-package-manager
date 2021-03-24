@@ -158,7 +158,7 @@ A client SHOULD set the `Accept` header field
 to specify the API version of a request.
 
 ```http
-GET /@mona/LinkedList/list HTTP/1.1
+GET /mona/LinkedList/list HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+json
 ```
@@ -232,20 +232,19 @@ Swift Package Manager determines which version of that package should be used
 in a process called <dfn>package resolution</dfn>.
 
 Each external package is uniquely identified
-by a scoped identifier in the form `@scope/PackageName`.
+by a scoped identifier in the form `scope.package-name`.
 
 #### 3.6.1 Package scope
 
 A *scope* provides a namespace for related packages within a package registry.
-A package scope consists of
-an at-sign (`@`) followed by alphanumeric characters and hyphens.
+A package scope consists of alphanumeric characters and hyphens.
 Hyphens may not occur at the beginning or end,
 nor consecutively within a scope.
-The maximum length of a package scope is 40 characters.
+The maximum length of a package scope is 39 characters.
 A valid package scope matches the following regular expression pattern:
 
 ```regexp
-\A@[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,39}\z
+\A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,39}\z
 ```
 
 Package scopes are case-insensitive
@@ -304,7 +303,7 @@ the `application/vnd.swift.registry.v1+json` content type
 and MAY append the `.json` extension to the requested URI.
 
 ```http
-GET /@mona/LinkedList HTTP/1.1
+GET /mona/LinkedList HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+json
 ```
@@ -323,16 +322,16 @@ Content-Type: application/json
 Content-Version: 1
 Link: <https://github.com/mona/LinkedList>; rel="canonical",
       <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-      <https://packages.example.com/@mona/LinkedList/1.1.1>; rel="latest-version",
+      <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
       <https://github.com/sponsors/mona>; rel="payment"
 
 {
     "releases": {
         "1.1.1": {
-            "url": "https://packages.example.com/@mona/LinkedList/1.1.1"
+            "url": "https://packages.example.com/mona/LinkedList/1.1.1"
         },
         "1.1.0": {
-            "url": "https://packages.example.com/@mona/LinkedList/1.1.0",
+            "url": "https://packages.example.com/mona/LinkedList/1.1.0",
             "problem": {
                 "status": 410,
                 "title": "Gone",
@@ -340,7 +339,7 @@ Link: <https://github.com/mona/LinkedList>; rel="canonical",
             }
         },
         "1.0.0": {
-            "url": "https://packages.example.com/@mona/LinkedList/1.0.0"
+            "url": "https://packages.example.com/mona/LinkedList/1.0.0"
         }
     }
 }
@@ -392,11 +391,11 @@ For example,
 the `Link` header field in a response for the third page of paginated results:
 
 ```http
-Link: <https://packages.example.com/@mona/HashMap/5.0.3>; rel="latest-version",
-      <https://packages.example.com/@mona/HashMap?page=1>; rel="first",
-      <https://packages.example.com/@mona/HashMap?page=2>; rel="previous",
-      <https://packages.example.com/@mona/HashMap?page=4>; rel="next",
-      <https://packages.example.com/@mona/HashMap?page=10>; rel="last"
+Link: <https://packages.example.com/mona/HashMap/5.0.3>; rel="latest-version",
+      <https://packages.example.com/mona/HashMap?page=1>; rel="first",
+      <https://packages.example.com/mona/HashMap?page=2>; rel="previous",
+      <https://packages.example.com/mona/HashMap?page=4>; rel="next",
+      <https://packages.example.com/mona/HashMap?page=10>; rel="last"
 ```
 
 A server MAY respond with additional `Link` entries,
@@ -414,7 +413,7 @@ the `application/vnd.swift.registry.v1+json` content type,
 and MAY append the `.json` extension to the requested URI.
 
 ```http
-GET /@mona/LinkedList/1.1.1 HTTP/1.1
+GET /mona/LinkedList/1.1.1 HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+json
 ```
@@ -487,7 +486,7 @@ A client SHOULD set the `Accept` header to
 `application/vnd.swift.registry.v1+swift`.
 
 ```http
-GET /@mona/LinkedList/1.1.1/Package.swift HTTP/1.1
+GET /mona/LinkedList/1.1.1/Package.swift HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+swift
 ```
@@ -505,8 +504,8 @@ Content-Disposition: attachment; filename="Package.swift"
 Content-Length: 361
 Content-Version: 1
 ETag: 87e749848e0fc4cfc509e4090ca37773
-Link: <http://packages.example.com/@mona/LinkedList/Package.swift?swift-version=4>; rel="alternate",
-      <http://packages.example.com/@mona/LinkedList/Package.swift?swift-version=4.2>; rel="alternate"
+Link: <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4>; rel="alternate",
+      <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4.2>; rel="alternate"
 
 // swift-tools-version:5.0
 import PackageDescription
@@ -549,7 +548,7 @@ A client MAY specify a `swift-version` query parameter
 to request a manifest for a particular version of Swift.
 
 ```http
-GET /@mona/LinkedList/1.1.1/Package.swift?swift-version=4.2 HTTP/1.1
+GET /mona/LinkedList/1.1.1/Package.swift?swift-version=4.2 HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+swift
 ```
@@ -591,7 +590,7 @@ and redirect to the unqualified `Package.swift` resource.
 ```http
 HTTP/1.1 303 See Other
 Content-Version: 1
-Location: https://packages.example.com/@mona/LinkedList/1.1.1/Package.swift
+Location: https://packages.example.com/mona/LinkedList/1.1.1/Package.swift
 ```
 
 <a name="endpoint-4"></a>
@@ -606,7 +605,7 @@ A client SHOULD set the `Accept` header to
 and SHOULD append the `.zip` extension to the requested path.
 
 ```http
-GET /@mona/LinkedList/1.1.1.zip HTTP/1.1
+GET /mona/LinkedList/1.1.1.zip HTTP/1.1
 Host: packages.example.com
 Accept: application/vnd.swift.registry.v1+zip
 ```
@@ -669,7 +668,7 @@ and redirect to a hosted package archive if one is available.
 ```http
 HTTP/1.1 303 See Other
 Content-Version: 1
-Location: https://packages.example.com/@mona/LinkedList/1.1.1.zip
+Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
 ```
 
 ### 4.5 Lookup package identifiers registered for a URL
@@ -701,7 +700,7 @@ Content-Version: 1
 
 {
     "identifiers": [
-      "@mona/LinkedList"
+      "mona.LinkedList"
     ]
 }
 ```
@@ -964,7 +963,7 @@ components:
       type: object
       example:
         identifiers:
-          - "@mona/LinkedList"
+          - "mona.LinkedList"
       properties:
         identifiers:
           type: array
@@ -1021,8 +1020,8 @@ components:
       required: true
       schema:
         type: string
-        example: "@mona"
-        pattern: \A@[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,39}\z
+        example: "mona"
+        pattern: \A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,39}\z
     name:
       name: name
       in: path
@@ -1115,7 +1114,7 @@ components:
     identifiers:
       value:
         identifiers:
-          - "@mona/LinkedList"
+          - "mona.LinkedList"
   headers:
     contentVersion:
       required: true
