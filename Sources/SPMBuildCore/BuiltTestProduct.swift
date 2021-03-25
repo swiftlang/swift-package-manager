@@ -12,10 +12,6 @@ import TSCBasic
 
 /// Represents a test product which is built and is present on disk.
 public struct BuiltTestProduct: Codable {
-
-    /// The name of the package to which the test binary belongs.
-    public let packageName: String
-
     /// The test product name.
     public let productName: String
 
@@ -35,11 +31,9 @@ public struct BuiltTestProduct: Codable {
 
     /// Creates a new instance.
     /// - Parameters:
-    ///   - packageName: The name of the package to which the test binary belongs.
     ///   - productName: The test product name.
     ///   - binaryPath: The path of the test binary.
-    public init(packageName: String, productName: String, binaryPath: AbsolutePath) {
-        self.packageName = packageName
+    public init(productName: String, binaryPath: AbsolutePath) {
         self.productName = productName
         self.binaryPath = binaryPath
     }

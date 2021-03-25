@@ -25,7 +25,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let fs = InMemoryFileSystem(emptyFiles: files)
         
         var externalManifests = [Manifest]()
-        var rootManifests: [Manifest]!
+        var rootManifest: Manifest!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
             let location = "/" + name
@@ -59,7 +59,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 targets: targets
             )
             if isRoot {
-                rootManifests = [manifest]
+                rootManifest = manifest
             } else {
                 externalManifests.append(manifest)
             }
@@ -70,7 +70,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             let diagnostics = DiagnosticsEngine()
             let g = try! PackageGraph.load(
-                root: PackageGraphRoot(input: PackageGraphRootInput(packages: rootManifests.map({$0.path})), manifests: rootManifests),
+                root: PackageGraphRoot(input: PackageGraphRootInput(packages: [rootManifest.path]), manifests: [rootManifest.path: rootManifest]),
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 diagnostics: diagnostics,
