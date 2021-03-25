@@ -46,13 +46,13 @@ public func runPrebuildCommands(for pluginResults: [PluginInvocationResult]) thr
             }
 
             // Add any files found in the output directory declared for the prebuild command after the command ends.
-            let outputDir = command.outputDirectory
-            if let swiftFiles = try? localFileSystem.getDirectoryContents(outputDir).sorted() {
-                derivedSourceFiles.append(contentsOf: swiftFiles.map{ outputDir.appending(component: $0) })
+            let outputFilesDir = command.outputFilesDirectory
+            if let swiftFiles = try? localFileSystem.getDirectoryContents(outputFilesDir).sorted() {
+                derivedSourceFiles.append(contentsOf: swiftFiles.map{ outputFilesDir.appending(component: $0) })
             }
             
             // Add the output directory to the list of directories whose structure should affect the build plan.
-            prebuildOutputDirs.append(outputDir)
+            prebuildOutputDirs.append(outputFilesDir)
         }
         
         // Add the results of running any prebuild commands for this invocation.
