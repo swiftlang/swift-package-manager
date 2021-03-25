@@ -449,6 +449,8 @@ extension CertificatePolicy {
         let nid = CCryptoBoringSSL_OBJ_create(oid, "ObjectShortName", "ObjectLongName")
         let index = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get_ext_by_NID($0, nid, -1) }
         return index >= 0
+        #else
+        fatalError("Unsupported: \(#function)")
         #endif
     }
 
@@ -465,6 +467,8 @@ extension CertificatePolicy {
         #elseif os(Linux) || os(Windows)
         let eku = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get_extended_key_usage($0) }
         return eku & UInt32(usage.flag) > 0
+        #else
+        fatalError("Unsupported: \(#function)")
         #endif
     }
 
@@ -488,6 +492,8 @@ extension CertificatePolicy {
         defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
 
         return CCryptoBoringSSL_sk_OPENSSL_STRING_num(ocspURLs) > 0
+        #else
+        fatalError("Unsupported: \(#function)")
         #endif
     }
 }
