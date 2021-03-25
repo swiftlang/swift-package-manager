@@ -152,7 +152,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                                 self.diagnosticsEngine?.emit(note: "Cache size limit exceeded, deleting the oldest \(deleteCount) entries")
 
                                 for index in 0 ..< deleteCount {
-                                    cache.removeValue(forKey: sortedCacheEntries[index].key)
+                                    _ = cache.removeValue(forKey: sortedCacheEntries[index].key)
                                 }
                             }
                         }
