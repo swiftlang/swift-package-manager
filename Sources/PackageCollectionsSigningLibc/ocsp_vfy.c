@@ -267,7 +267,7 @@ static int ocsp_check_ids(STACK_OF(OCSP_SINGLERESP) *sresp, OCSP_CERTID **ret)
     OCSP_CERTID *tmpid, *cid;
     int i, idcount;
 
-    idcount = sk_OCSP_SINGLERESP_num(sresp);
+    idcount = (int)sk_OCSP_SINGLERESP_num(sresp);
     if (idcount <= 0) {
         return -1;
     }
@@ -311,7 +311,7 @@ static int ocsp_match_issuerid(X509 *cert, OCSP_CERTID *cid,
             return -1;
         }
 
-        mdlen = EVP_MD_size(dgst);
+        mdlen = (int)EVP_MD_size(dgst);
         if (mdlen < 0) {
             return -1;
         }

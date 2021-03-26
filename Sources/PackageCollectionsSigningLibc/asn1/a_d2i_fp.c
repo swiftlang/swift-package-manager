@@ -72,7 +72,7 @@ static int asn1_d2i_read_bio(BIO *in, BUF_MEM **pb)
             if (len + want < len || !BUF_MEM_grow_clean(b, len + want)) {
                 goto err;
             }
-            i = BIO_read(in, &(b->data[len]), want);
+            i = BIO_read(in, &(b->data[len]), (int)want);
             if ((i < 0) && ((len - off) == 0)) {
                 goto err;
             }
@@ -97,7 +97,7 @@ static int asn1_d2i_read_bio(BIO *in, BUF_MEM **pb)
             else
                 ERR_clear_error(); /* clear error */
         }
-        i = q - p;            /* header length */
+        i = (int)(q - p);            /* header length */
         off += i;               /* end of data */
 
         if (inf & 1) {
@@ -139,7 +139,7 @@ static int asn1_d2i_read_bio(BIO *in, BUF_MEM **pb)
                     }
                     want -= chunk;
                     while (chunk > 0) {
-                        i = BIO_read(in, &(b->data[len]), chunk);
+                        i = BIO_read(in, &(b->data[len]), (int)chunk);
                         if (i <= 0) {
                             goto err;
                         }
@@ -170,7 +170,7 @@ static int asn1_d2i_read_bio(BIO *in, BUF_MEM **pb)
     }
 
     *pb = b;
-    return off;
+    return (int)off;
  err:
     BUF_MEM_free(b);
     return -1;
