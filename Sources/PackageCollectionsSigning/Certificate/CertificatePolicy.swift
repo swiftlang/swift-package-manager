@@ -30,7 +30,9 @@ let appleIntermediateMarker = "1.2.840.113635.100.6.2.1"
 
 // For BoringSSL only - the Security framework recognizes these marker extensions
 #if os(Linux) || os(Windows)
-let supportedCriticalExtensions: Set<String> = [appleDistributionIOSMarker, appleDistributionMacOSMarker]
+let supportedCriticalExtensions: Set<String> = [appleDistributionIOSMarker, appleDistributionMacOSMarker,
+                                                // Support "Apple Development" cert markers--they are valid code signing certs after all and satisfy DefaultCertificatePolicy
+                                                "1.2.840.113635.100.6.1.2", "1.2.840.113635.100.6.1.12"]
 #endif
 
 protocol CertificatePolicy {
