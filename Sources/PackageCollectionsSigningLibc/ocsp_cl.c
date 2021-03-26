@@ -55,7 +55,7 @@ OCSP_ONEREQ *OCSP_request_add0_id(OCSP_REQUEST *req, OCSP_CERTID *cid)
 
 int OCSP_response_status(OCSP_RESPONSE *resp)
 {
-    return ASN1_ENUMERATED_get(resp->responseStatus);
+    return (int)ASN1_ENUMERATED_get(resp->responseStatus);
 }
 
 /*
