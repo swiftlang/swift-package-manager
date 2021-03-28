@@ -100,18 +100,21 @@ extension PackageGraph {
                 }
                 
                 // Create the input context to pass when applying the plugin to the target.
+                var inputFiles: [PluginScriptRunnerInput.FileInfo] = []
+                inputFiles += target.underlyingTarget.sources.paths.map{ .init(path: $0.pathString, type: .source) }
+                inputFiles += target.underlyingTarget.resources.map{ .init(path: $0.path.pathString, type: .resource) }
+                inputFiles += target.underlyingTarget.others.map{ .init(path: $0.pathString, type: .unknown) }
+                
                 let pluginInput = PluginScriptRunnerInput(
                     targetName: target.name,
                     moduleName: target.c99name,
-                    targetDir: target.sources.root.pathString,
-                    packageDir: package.path.pathString,
-                    sourceFiles: target.sources.paths.map{ $0.pathString },
-                    resourceFiles: target.underlyingTarget.resources.map{ $0.path.pathString },
-                    otherFiles: target.underlyingTarget.others.map { $0.pathString },
+                    targetDirectory: target.sources.root.pathString,
+                    packageDirectory: package.path.pathString,
+                    inputFiles: .init(files: inputFiles),
                     dependencies: dependencyTargets.map {
-                        .init(targetName: $0.name, moduleName: $0.c99name, targetDir: $0.sources.root.pathString)
+                        .init(targetName: $0.name, moduleName: $0.c99name, targetDirectory: $0.sources.root.pathString)
                     },
-                    outputDir: pluginOutputDir.pathString,
+                    outputDirectory: pluginOutputDir.pathString,
                     tools: tools
                 )
                 
@@ -173,7 +176,7 @@ extension PackageGraph {
                             arguments: cmd.arguments,
                             environment: cmd.environment ?? [:],
                             workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
-                        outputDirectory: AbsolutePath(cmd.outputDirectory))
+                        outputFilesDirectory: AbsolutePath(cmd.outputFilesDirectory))
                 }
                 
                 // Create an evaluation result from the usage of the plugin by the target.
@@ -298,7 +301,7 @@ public struct PluginInvocationResult {
         // TODO: In the future these should be folded into regular build commands when the build system can handle not
         // knowing the names of all the outputs before the command runs.
         public var configuration: CommandConfiguration
-        public var outputDirectory: AbsolutePath
+        public var outputFilesDirectory: AbsolutePath
     }
 
     /// Launch configuration of a command that can be run (including a display name to show in logs etc).
@@ -364,18 +367,28 @@ public protocol PluginScriptRunner {
 struct PluginScriptRunnerInput: Codable {
     var targetName: String
     var moduleName: String
-    var targetDir: String
-    var packageDir: String
-    var sourceFiles: [String]
-    var resourceFiles: [String]
-    var otherFiles: [String]
-    var dependencies: [DependencyTarget]
-    struct DependencyTarget: Codable {
+    var targetDirectory: String
+    var packageDirectory: String
+    var inputFiles: FileList
+    struct FileList: Codable {
+        var files: [FileInfo]
+    }
+    struct FileInfo: Codable {
+        var path: String
+        var type: FileType
+    }
+    enum FileType: String, Codable {
+        case source
+        case resource
+        case unknown
+    }
+    var dependencies: [DependencyTargetInfo]
+    struct DependencyTargetInfo: Codable {
         var targetName: String
         var moduleName: String
-        var targetDir: String
+        var targetDirectory: String
     }
-    var outputDir: String
+    var outputDirectory: String
     var tools: [String: Tool]
     struct Tool: Codable {
         var name: String
@@ -415,6 +428,6 @@ struct PluginScriptRunnerOutput: Codable {
         let arguments: [String]
         let environment: [String: String]?
         let workingDirectory: String?
-        let outputDirectory: String
+        let outputFilesDirectory: String
     }
 }

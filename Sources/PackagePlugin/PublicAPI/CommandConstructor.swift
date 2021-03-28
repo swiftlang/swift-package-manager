@@ -52,9 +52,9 @@ public final class CommandConstructor {
         executable: Path,
         arguments: [String],
         environment: [String: String]? = nil,
-        outputDirectory: Path
+        outputFilesDirectory: Path
     ) {
-        output.prebuildCommands.append(PrebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, outputDirectory: outputDirectory))
+        output.prebuildCommands.append(PrebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, outputFilesDirectory: outputFilesDirectory))
     }
 
     @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
@@ -64,9 +64,8 @@ public final class CommandConstructor {
         arguments: [String],
         environment: [String: String]? = nil,
         workingDirectory: Path? = nil,
-        inputPaths: [Path] = [],
-        outputDirectory: Path
+        outputFilesDirectory: Path
     ) {
-        output.prebuildCommands.append(PrebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, outputDirectory: outputDirectory))
+        output.prebuildCommands.append(PrebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, outputFilesDirectory: outputFilesDirectory))
     }
 }

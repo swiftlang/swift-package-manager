@@ -73,14 +73,13 @@ struct PrebuildCommand: Encodable {
     let arguments: [String]
     let environment: [String: String]?
     let workingDirectory: Path?
-    let outputDirectory: Path
+    let outputFilesDirectory: Path
 }
 
 struct Diagnostic: Encodable {
     enum Severity: String, Encodable {
         case error, warning, remark
     }
-
     let severity: Severity
     let message: String
     let file: Path?

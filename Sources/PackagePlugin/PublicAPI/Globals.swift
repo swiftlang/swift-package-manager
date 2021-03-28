@@ -19,18 +19,22 @@
  global, and can emit diagnostics using the `diagnosticsEmitter` global.
  */
 
-/// Provides information about the target being built, as well as contextual
-/// information such as the paths of the directories to which commands should
-/// be configured to write their outputs. This information should be used as
-/// part of generating the commands to be run during the build.
+/// The target build context provides information about the target to which
+/// the plugin is being applied, as well as contextual information such as
+/// the paths of the directories to which commands should be configured to
+/// write their outputs. This information should be used when generating the
+/// commands to be run during the build.
 public let targetBuildContext: TargetBuildContext = CreateTargetBuildContext()
 
-/// Constructs commands to run during the build, including full command lines.
-/// All paths should be based on the ones passed to the plugin in the target
-/// build context.
+/// The command constructor lets the plugin create commands that will run
+/// during the build, including their full command lines. All paths should
+/// be based on the ones passed to the plugin in the target build context.
 public let commandConstructor = CommandConstructor()
 
-/// Emits errors, warnings, and remarks to be shown as a result of running the
-/// plugin. After emitting one or more errors, the plugin should return a
-/// non-zero exit code.
+/// The diagnostics emitter lets the plugin emit errors, warnings, and remarks
+/// for issues discovered by the plugin. Note that diagnostics from the plugin
+/// itself are relatively rare, and relate such things as missing tools or to
+/// problems constructing the build command. Diagnostics from the build tools
+/// themselves are processed in the same way as any other output from a build
+/// tool.
 public let diagnosticsEmitter = DiagnosticsEmitter()
