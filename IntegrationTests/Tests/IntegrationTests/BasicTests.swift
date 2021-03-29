@@ -96,6 +96,8 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftPackageInitExec() throws {
+        try XCTSkipUnless(swiftcSupportsRenamingMainSymbol(), "skipping because host compiler doesn't support `-entry-point-function-name`")
+        
         try withTemporaryDirectory { dir in
             // Create a new package with an executable target.
             let projectDir = dir.appending(component: "Project")
@@ -181,6 +183,8 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftRun() throws {
+        try XCTSkipUnless(swiftcSupportsRenamingMainSymbol(), "skipping because host compiler doesn't support `-entry-point-function-name`")
+
         try withTemporaryDirectory { dir in
             let toolDir = dir.appending(component: "secho")
             try localFileSystem.createDirectory(toolDir)
