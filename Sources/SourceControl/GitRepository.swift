@@ -76,7 +76,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
                 let outputRedirection = Process.OutputRedirection.stream {
                     _ in
                 } stderr: {
-                    GitFetchProgress.gitStatusFilter($0, progress: progress)
+                    GitFetchProgress.gitFetchStatusFilter($0, progress: progress)
                 }
                 return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputRedirection)
             } else {
@@ -315,7 +315,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 let outputRedirection = Process.OutputRedirection.stream {
                     _ in
                 } stderr: {
-                    GitFetchProgress.gitStatusFilter($0, progress: progress)
+                    GitFetchProgress.gitFetchStatusFilter($0, progress: progress)
                 }
                 return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputRedirection)
             } else {
@@ -1041,7 +1041,7 @@ public enum GitFetchProgress: FetchProgress {
     }
 
     /// Processes stdout output and calls the progress callback with `GitStatus` objects.
-    static func gitStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
+    static func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
         guard let string = String(bytes: bytes, encoding: .utf8) else { return }
         let lines = string
             .split { $0 == "\r" || $0 == "\n"  }
@@ -1049,7 +1049,12 @@ public enum GitFetchProgress: FetchProgress {
 
         for line in lines {
             if let status = GitFetchProgress(from: line) {
-                progress(status)
+                switch status {
+                case .receivingObjects:
+                    progress(status)
+                default:
+                    continue
+                }
             }
         }
     }

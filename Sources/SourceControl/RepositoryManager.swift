@@ -352,7 +352,7 @@ public class RepositoryManager {
 
         func updateFetchProgress(progress: FetchProgress) -> Void {
             queue.async {
-                if let total = progress.totalSteps, progress.message == "Receiving objects" {
+                if let total = progress.totalSteps {
                     self.delegate?.fetchingRepository(from: handle.repository.url,
                                                       objectsFetched: progress.step,
                                                       totalObjectsToFetch: total)
