@@ -140,7 +140,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(stream.bytes, toolsVersion: ToolsVersion(string: "999.0")) { manifest in
+        loadManifest(stream.bytes, toolsVersion: ToolsVersion(string: "5.5")) { manifest in
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["foo2"], .scm(location: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))

@@ -73,7 +73,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or nil to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - branch: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.5)
     public static func package(
         name: String? = nil,
         url: String,
@@ -90,7 +90,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or nil to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - revision: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.5)
     public static func package(
         name: String? = nil,
         url: String,

@@ -168,7 +168,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// Configures the minimum deployment target version for the DriverKit platform.
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.5)
     public static func driverKit(_ version: SupportedPlatform.DriverKitVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: version.version)
     }
@@ -179,7 +179,7 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// The version string must be a series of two or three dot-separated integers, such as `19.0` or `19.0.1`.
     ///
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.5)
     public static func driverKit(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: SupportedPlatform.DriverKitVersion(string: versionString).version)
     }
@@ -398,11 +398,11 @@ extension SupportedPlatform {
         }
 
         /// The value that represents DriverKit 19.0.
-        @available(_PackageDescription, introduced: 999.0)
+        @available(_PackageDescription, introduced: 5.5)
         public static let v19: DriverKitVersion = .init(string: "19.0")
 
         /// The value that represents DriverKit 20.0.
-        @available(_PackageDescription, introduced: 999.0)
+        @available(_PackageDescription, introduced: 5.5)
         public static let v20: DriverKitVersion = .init(string: "20.0")
     }
 }

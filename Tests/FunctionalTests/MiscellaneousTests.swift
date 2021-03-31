@@ -580,7 +580,7 @@ class MiscellaneousTestCase: XCTestCase {
     
     func testTestsCanLinkAgainstExecutable() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.
-        try XCTSkipUnless(doesHostSwiftCompilerSupportRenamingMainSymbol(), "skipping because host compiler doesn't support '-entry-point-function-name'")
+        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
         
         fixture(name: "Miscellaneous/TestableExe") { prefix in
             do {
@@ -651,14 +651,5 @@ class MiscellaneousTestCase: XCTestCase {
             }
         }
 
-    }
-}
-
-func doesHostSwiftCompilerSupportRenamingMainSymbol() throws -> Bool {
-    try withTemporaryDirectory { tmpDir in
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
-        FileManager.default.createFile(atPath: "\(tmpDir)/foo.swift", contents: Data())
-        let result = try Process.popen(args: hostToolchain.swiftCompiler.pathString, "-c", "-Xfrontend", "-entry-point-function-name", "-Xfrontend", "foo", "\(tmpDir)/foo.swift", "-o", "\(tmpDir)/foo.o")
-        return try !result.utf8stderrOutput().contains("unknown argument: '-entry-point-function-name'")
     }
 }
