@@ -170,11 +170,11 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let somethingRule = FileRuleDescription(
             rule: .compile,
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             fileTypes: ["something"]
         )
 
-        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .vNext, fs: fs) { sources, _, _, _,_  in
+        build(target: target, additionalFileRules: [somethingRule], toolsVersion: .v5_5, fs: fs) { sources, _, _, _,_  in
             XCTAssertEqual(
                 sources.paths.map(\.pathString).sorted(),
                 files.sorted()
@@ -653,7 +653,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             target: target,
             path: .root,
             defaultLocalization: nil,
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             fs: fs,
             diags: diags
         )

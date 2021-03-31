@@ -75,6 +75,7 @@ public protocol ManifestLoaderProtocol {
     ///
     /// - Parameters:
     ///   - at: The root path of the package.
+    ///   - packageIdentity: the identity of the package
     ///   - packageKind: The kind of package the manifest is from.
     ///   - packageLocation: The location the package the manifest was loaded from.
     ///   - version: Optional. The version the manifest is from, if known.
@@ -87,6 +88,7 @@ public protocol ManifestLoaderProtocol {
     ///   - completion: The completion handler .
     func load(
         at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
         packageLocation: String,
         version: Version?,
@@ -155,13 +157,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
-    /// Loads a manifest from a package repository using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - at: The absolute path of the package root.
-    ///     - kind: The kind of package the manifest is from.
-    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
-    ///         Its associated resources will be used by the loader.
+    // deprecated 3/21, remove once clients migrated over
+    @available(*, deprecated, message: "use loadRootManifest instead")
     public static func loadManifest(
         at path: AbsolutePath,
         kind: PackageReference.Kind,
@@ -176,10 +173,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
             let loader = ManifestLoader(manifestResources: resources)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
+            let packageLocation = path.pathString
+            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
             loader.load(
                 at: path,
+                packageIdentity: packageIdentity,
                 packageKind: kind,
-                packageLocation: path.pathString,
+                packageLocation: packageLocation,
                 version: nil,
                 revision: nil,
                 toolsVersion: toolsVersion,
@@ -194,6 +194,52 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///   - at: The absolute path of the package root.
+    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
+    ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - diagnostics: Optional.  The diagnostics engine.
+    ///   - on: The dispatch queue to perform asynchronous operations on.
+    ///   - completion: The completion handler .
+    public static func loadRootManifest(
+        at path: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        identityResolver: IdentityResolver,
+        diagnostics: DiagnosticsEngine? = nil,
+        fileSystem: FileSystem = localFileSystem,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
+        do {
+            let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+            let loader = ManifestLoader(manifestResources: resources)
+            let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
+            let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
+            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
+            loader.load(
+                at: path,
+                packageIdentity: packageIdentity,
+                packageKind: .root,
+                packageLocation: packageLocation.pathString,
+                version: nil,
+                revision: nil,
+                toolsVersion: toolsVersion,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                diagnostics: diagnostics,
+                on: queue,
+                completion: completion
+            )
+        } catch {
+            return completion(.failure(error))
+        }
+    }
+
+    // deprecated 3/21, remove once clients migrated over
+    @available(*, deprecated, message: "use load(at: packageIdentity:, ...) variant instead")
     public func load(
         at path: AbsolutePath,
         packageKind: PackageReference.Kind,
@@ -207,9 +253,37 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
+        let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
+        self.load(at: path,
+                  packageIdentity: packageIdentity,
+                  packageKind: packageKind,
+                  packageLocation: packageLocation,
+                  version: version,
+                  revision: revision,
+                  toolsVersion: toolsVersion,
+                  identityResolver: identityResolver,
+                  fileSystem: fileSystem,
+                  diagnostics: diagnostics,
+                  on: queue,
+                  completion: completion)
+    }
+
+    public func load(
+        at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        version: Version?,
+        revision: String?,
+        toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        diagnostics: DiagnosticsEngine? = nil,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    ) {
         do {
             let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
-            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
             self.loadFile(at: manifestPath,
                           packageIdentity: packageIdentity,
                           packageKind: packageKind,
@@ -220,25 +294,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                           identityResolver: identityResolver,
                           fileSystem: fileSystem,
                           diagnostics: diagnostics,
-                          on: queue) { result in
-
-                completion(result)
-            }
+                          on: queue,
+                          completion: completion)
         } catch {
             return completion(.failure(error))
         }
     }
 
-    /// Create a manifest by loading a specific manifest file from the given `path`.
-    ///
-    /// - Parameters:
-    ///   - at: The path to the manifest file (or a package root).
-    ///   - packageIdentity: The identity of package the manifest is from.
-    ///   - packageKind: The kind of package the manifest is from.
-    ///   - packageLocation: The location the manifest was loaded from.
-    ///   - version: The version the manifest is from, if known.
-    ///   - revision: The revision the manifest is from, if known.
-    ///   - fileSystem: If given, the file system to load from (otherwise load from the local file system).
     private func loadFile(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
@@ -670,7 +732,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
-            let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+            let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
 
             var cmd: [String] = []
             cmd += [resources.swiftCompiler.pathString]
@@ -720,7 +782,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             cmd += self.interpreterFlags(for: toolsVersion)
             if let moduleCachePath = moduleCachePath {
-                cmd += ["-module-cache-path", moduleCachePath]
+                cmd += ["-module-cache-path", moduleCachePath.pathString]
             }
 
             // Add the arguments for emitting serialized diagnostics, if requested.
@@ -771,20 +833,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #else
                 cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
 #endif
-
-              #if os(macOS)
-                // If enabled, use sandbox-exec on macOS. This provides some safety against
-                // arbitrary code execution when parsing manifest files. We only allow
-                // the permissions which are absolutely necessary for manifest parsing.
+                // If enabled, run command in a sandbox.
+                // This provides some safety against arbitrary code execution when parsing manifest files.
+                // We only allow the permissions which are absolutely necessary.
                 if isManifestSandboxEnabled {
-                    let cacheDirectories = [
-                        self.databaseCacheDir,
-                        moduleCachePath.map({ AbsolutePath($0) })
-                    ].compactMap({ $0 })
-                    let profile = sandboxProfile(toolsVersion: toolsVersion, cacheDirectories: cacheDirectories)
-                    cmd = ["/usr/bin/sandbox-exec", "-p", profile] + cmd
+                    let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                    let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
+                    cmd = Sandbox.apply(command: cmd, writableDirectories: cacheDirectories, strictness: strictness)
                 }
-              #endif
 
                 // Run the compiled manifest.
                 var environment = ProcessEnv.vars
@@ -902,41 +958,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         }
     }
-}
-
-/// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(toolsVersion: ToolsVersion, cacheDirectories: [AbsolutePath] = []) -> String {
-    let stream = BufferedOutputByteStream()
-    stream <<< "(version 1)" <<< "\n"
-    // Deny everything by default.
-    stream <<< "(deny default)" <<< "\n"
-    // Import the system sandbox profile.
-    stream <<< "(import \"system.sb\")" <<< "\n"
-    // Allow reading all files. Even in 5.3 we need to be able to read the PD dylibs.
-    stream <<< "(allow file-read*)" <<< "\n"
-    // This is needed to launch any processes.
-    stream <<< "(allow process*)" <<< "\n"
-
-    // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
-    if toolsVersion < .v5_3 {
-        // This is required by the Swift compiler.
-        stream <<< "(allow sysctl*)" <<< "\n"
-        // Allow writing in temporary locations.
-        stream <<< "(allow file-write*" <<< "\n"
-        for directory in Platform.threadSafeDarwinCacheDirectories.get() {
-            stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
-        }
-        for directory in cacheDirectories {
-            stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
-        }
-        stream <<< ")" <<< "\n"
-    }
-
-    return stream.bytes.description
-}
-
-extension TSCUtility.Platform {
-    internal static let threadSafeDarwinCacheDirectories = ThreadSafeArrayStore<AbsolutePath>(Self.darwinCacheDirectories())
 }
 
 extension TSCBasic.Diagnostic.Message {

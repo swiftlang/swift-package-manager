@@ -231,6 +231,11 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// A tree object.
     public struct Tree {
+        public enum Location: Hashable {
+            case hash(Hash)
+            case tag(String)
+        }
+
         public struct Entry {
             public enum EntryType {
                 case blob
@@ -259,8 +264,8 @@ public final class GitRepository: Repository, WorkingCheckout {
                 }
             }
 
-            /// The hash of the object.
-            public let hash: Hash
+            /// The object location.
+            public let location: Location
 
             /// The type of object referenced.
             public let type: EntryType
@@ -269,8 +274,8 @@ public final class GitRepository: Repository, WorkingCheckout {
             public let name: String
         }
 
-        /// The object hash.
-        public let hash: Hash
+        /// The object location.
+        public let location: Location
 
         /// The list of contents.
         public let contents: [Entry]
@@ -281,7 +286,8 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Concurrent queue to execute git cli on.
     private let git: GitShellHelper
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.git", attributes: .concurrent)
+    // lock top protect concurrent modifications to the repository
+    private let lock = Lock()
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool
@@ -289,7 +295,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Dictionary for memoizing results of git calls that are not expected to change.
     private var cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
     private var cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
-    private var cachedTrees = ThreadSafeKeyValueStore<Hash, Tree>()
+    private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
 
     public init(path: AbsolutePath, isWorkingRepo: Bool = true) {
@@ -333,7 +339,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     ///   - url: The new url of the remote.
     public func setURL(remote: String, url: String) throws {
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("remote", "set-url", remote, url,
                         failureMessage: "Couldn’t set the URL of the remote ‘\(remote)’ to ‘\(url)’")
             return
@@ -344,7 +350,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     ///
     /// - Returns: An array of tuple containing name and url of the remote.
     public func remotes() throws -> [(name: String, url: String)] {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             // Get the remote names.
             let remoteNamesOutput = try callGit("remote",
                                                 failureMessage: "Couldn’t get the list of remotes")
@@ -364,7 +370,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func getTags() throws -> [String] {
         // Get the contents using `ls-tree`.
         try self.cachedTags.memoize {
-            try self.queue.sync {
+            try self.lock.withLock {
                 let tagList = try callGit("tag", "-l",
                                           failureMessage: "Couldn’t get the list of tags")
                 return tagList.split(separator: "\n").map(String.init)
@@ -386,7 +392,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     public func fetch(progress: FetchProgress.Handler? = nil) throws {
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("remote", "-v", "update", "-p",
                         failureMessage: "Couldn’t fetch updates from remote repositories", progress: progress)
             self.cachedTags.clear()
@@ -396,7 +402,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func hasUncommittedChanges() -> Bool {
         // Only a working repository can have changes.
         guard self.isWorkingRepo else { return false }
-        return self.queue.sync {
+        return self.lock.withLock {
             guard let result = try? callGit("status", "-s") else {
                 return false
             }
@@ -408,10 +414,14 @@ public final class GitRepository: Repository, WorkingCheckout {
         return try GitFileSystemView(repository: self, revision: revision)
     }
 
+    public func openFileView(tag: String) throws -> FileSystem {
+        return try GitFileSystemView(repository: self, tag: tag)
+    }
+
     // MARK: Working Checkout Interface
 
     public func hasUnpushedCommits() throws -> Bool {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             let hasOutput = try callGit("log", "--branches", "--not", "--remotes",
                                         failureMessage: "Couldn’t check for unpushed commits").isEmpty
             return !hasOutput
@@ -419,7 +429,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getCurrentRevision() throws -> Revision {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             return try Revision(identifier: callGit("rev-parse", "--verify", "HEAD",
                                                     failureMessage: "Couldn’t get current revision"))
         }
@@ -429,7 +439,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("reset", "--hard", tag,
                         failureMessage: "Couldn’t check out tag ‘\(tag)’")
             try self.updateSubmoduleAndCleanNotOnQueue()
@@ -440,7 +450,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         // FIXME: Audit behavior with off-branch tags in remote repositories, we
         // may need to take a little more care here.
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("checkout", "-f", revision.identifier,
                         failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’")
             try self.updateSubmoduleAndCleanNotOnQueue()
@@ -456,7 +466,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     internal func checkoutExists() throws -> Bool {
-        self.queue.sync {
+        self.lock.withLock {
             do {
                 let output = try callGit("rev-parse", "--is-bare-repository",
                                          failureMessage: "Couldn’t test if check-out exists")
@@ -477,7 +487,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if a revision exists.
     public func exists(revision: Revision) -> Bool {
-        return self.queue.sync {
+        return self.lock.withLock {
             return (try? callGit("rev-parse", "--verify", revision.identifier)) != nil
         }
     }
@@ -485,7 +495,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func checkout(newBranch: String) throws {
         precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
         // use barrier for write operations
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("checkout", "-b", newBranch,
                         failureMessage: "Couldn’t check out new branch ‘\(newBranch)’")
             return
@@ -495,7 +505,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     public func archive(to path: AbsolutePath) throws {
         precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
 
-        try self.queue.sync(flags: .barrier) {
+        try self.lock.withLock {
             try callGit("archive",
                         "--format", "zip",
                         "--output", path.pathString,
@@ -520,7 +530,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Returns true if the file at `path` is ignored by `git`
     public func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
-        return try self.queue.sync {
+        return try self.lock.withLock {
             let stringPaths = paths.map { $0.pathString }
 
             return try withTemporaryFile { pathsFile in
@@ -563,7 +573,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             specifier = treeish
         }
         return try self.cachedHashes.memoize(specifier) {
-            try self.queue.sync {
+            try self.lock.withLock {
                 let output = try callGit("rev-parse", "--verify", specifier,
                                          failureMessage: "Couldn’t get revision ‘\(specifier)’")
                 guard let hash = Hash(output) else {
@@ -575,7 +585,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Read the commit referenced by `hash`.
-    public func read(commit hash: Hash) throws -> Commit {
+    public func readCommit(hash: Hash) throws -> Commit {
         // Currently, we just load the tree, using the typed `rev-parse` syntax.
         let treeHash = try resolveHash(treeish: hash.bytes.description, type: "tree")
 
@@ -583,62 +593,87 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Read a tree object.
-    public func read(tree hash: Hash) throws -> Tree {
-        try self.cachedTrees.memoize(hash) {
-            try self.queue.sync {
-                // Get the contents using `ls-tree`.
-                let output = try callGit("ls-tree", hash.bytes.description,
-                                         failureMessage: "Couldn’t read ‘\(hash.bytes.description)’")
-                // construct tree
-                var contents: [Tree.Entry] = []
-                for line in output.components(separatedBy: "\n") {
-                    // Ignore empty lines.
-                    if line == "" { continue }
+    public func readTree(location: Tree.Location) throws -> Tree {
+        switch location {
+        case .hash(let hash):
+            return try self.readTree(hash: hash)
+        case .tag(let tag):
+            return try self.readTree(tag: tag)
+        }
+    }
 
-                    // Each line in the response should match:
-                    //
-                    //   `mode type hash\tname`
-                    //
-                    // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
-                    // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
-                    // the line is the file name.
-                    let bytes = ByteString(encodingAsUTF8: line)
-                    let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
-                    guard bytes.count > expectedBytesCount,
-                        bytes.contents[6] == UInt8(ascii: " "),
-                        // Search for the second space since `type` is of variable length.
-                        let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
-                        bytes.contents[secondSpace] == UInt8(ascii: " "),
-                        bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
-                        throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(output)'")
-                    }
-
-                    // Compute the mode.
-                    let mode = bytes.contents[0 ..< 6].reduce(0) { (acc: Int, char: UInt8) in
-                        (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
-                    }
-                    guard let type = Tree.Entry.EntryType(mode: mode),
-                        let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
-                        let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription else {
-                        throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(output)'")
-                    }
-
-                    // FIXME: We do not handle de-quoting of names, currently.
-                    if name.hasPrefix("\"") {
-                        throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(output)'")
-                    }
-
-                    contents.append(Tree.Entry(hash: hash, type: type, name: name))
-                }
-                return Tree(hash: hash, contents: contents)
+    /// Read a tree object.
+    public func readTree(hash: Hash) throws -> Tree {
+        let hashString = hash.bytes.description
+        return try self.cachedTrees.memoize(hashString) {
+            try self.lock.withLock {
+                let output = try callGit("ls-tree", hashString,
+                                         failureMessage: "Couldn’t read '\(hashString)'")
+                let entries = try self.parseTree(output)
+                return Tree(location: .hash(hash), contents: entries)
             }
         }
     }
 
+    public func readTree(tag: String) throws -> Tree {
+        try self.cachedTrees.memoize(tag) {
+            try self.lock.withLock {
+                let output = try callGit("ls-tree", tag,
+                                         failureMessage: "Couldn’t read '\(tag)'")
+                let entries = try self.parseTree(output)
+                return Tree(location: .tag(tag), contents: entries)
+            }
+        }
+    }
+
+    private func parseTree(_ text: String) throws -> [Tree.Entry] {
+        var entries = [Tree.Entry]()
+        for line in text.components(separatedBy: "\n") {
+            // Ignore empty lines.
+            if line == "" { continue }
+
+            // Each line in the response should match:
+            //
+            //   `mode type hash\tname`
+            //
+            // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
+            // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
+            // the line is the file name.
+            let bytes = ByteString(encodingAsUTF8: line)
+            let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
+            guard bytes.count > expectedBytesCount,
+                bytes.contents[6] == UInt8(ascii: " "),
+                // Search for the second space since `type` is of variable length.
+                let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
+                bytes.contents[secondSpace] == UInt8(ascii: " "),
+                bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t") else {
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+            }
+
+            // Compute the mode.
+            let mode = bytes.contents[0 ..< 6].reduce(0) { (acc: Int, char: UInt8) in
+                (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
+            }
+            guard let type = Tree.Entry.EntryType(mode: mode),
+                let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
+                let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription else {
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+            }
+
+            // FIXME: We do not handle de-quoting of names, currently.
+            if name.hasPrefix("\"") {
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+            }
+
+            entries.append(Tree.Entry(location: .hash(hash), type: type, name: name))
+        }
+        return entries
+    }
+
     /// Read a blob object.
-    func read(blob hash: Hash) throws -> ByteString {
+    func readBlob(hash: Hash) throws -> ByteString {
         try self.cachedBlobs.memoize(hash) {
-            try self.queue.sync {
+            try self.lock.withLock {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.
@@ -663,29 +698,31 @@ private class GitFileSystemView: FileSystem {
     // MARK: Git Object Model
 
     // The map of loaded trees.
-    var trees: [Hash: Tree] = [:]
+    var trees = ThreadSafeKeyValueStore<Tree.Location, Tree>()
 
     /// The underlying repository.
     let repository: GitRepository
 
-    /// The revision this is a view on.
-    let revision: Revision
-
     /// The root tree hash.
-    let root: GitRepository.Hash
+    //let root: GitRepository.Hash
+    let root: Tree.Location
 
     init(repository: GitRepository, revision: Revision) throws {
         self.repository = repository
-        self.revision = revision
-        self.root = try repository.read(commit: Hash(revision.identifier)!).tree
+        self.root = .hash(try repository.readCommit(hash: Hash(revision.identifier)!).tree)
     }
 
-    // MARK: FileSystem Implementation
+    init(repository: GitRepository, tag: String) throws {
+        self.repository = repository
+        self.root = .tag(tag)
+    }
+
+    // MARK: FileSystem Implementations
 
     private func getEntry(_ path: AbsolutePath) throws -> Tree.Entry? {
         // Walk the components resolving the tree (starting with a synthetic
         // root entry).
-        var current: Tree.Entry = Tree.Entry(hash: self.root, type: .tree, name: "/")
+        var current: Tree.Entry = Tree.Entry(location: self.root, type: .tree, name: "/")
         var currentPath = AbsolutePath.root
         for component in path.components.dropFirst(1) {
             // Skip the root pseudo-component.
@@ -698,7 +735,7 @@ private class GitFileSystemView: FileSystem {
             }
 
             // Fetch the tree.
-            let tree = try getTree(current.hash)
+            let tree = try self.getTree(current.location)
 
             // Search the tree for the component.
             //
@@ -713,15 +750,15 @@ private class GitFileSystemView: FileSystem {
         return current
     }
 
-    private func getTree(_ hash: Hash) throws -> Tree {
+    private func getTree(_ location: Tree.Location) throws -> Tree {
         // Check the cache.
-        if let tree = trees[hash] {
+        if let tree = trees[location] {
             return tree
         }
 
         // Otherwise, load it.
-        let tree = try repository.read(tree: hash)
-        self.trees[hash] = tree
+        let tree = try repository.readTree(location: location)
+        self.trees[location] = tree
         return tree
     }
 
@@ -788,8 +825,7 @@ private class GitFileSystemView: FileSystem {
         guard entry.type == .tree else {
             throw FileSystemError(.notDirectory, path)
         }
-
-        return try self.getTree(entry.hash).contents.map { $0.name }
+        return try self.getTree(entry.location).contents.map { $0.name }
     }
 
     func readFileContents(_ path: AbsolutePath) throws -> ByteString {
@@ -802,7 +838,10 @@ private class GitFileSystemView: FileSystem {
         guard entry.type != .symlink else {
             throw InternalError("symlinks not supported")
         }
-        return try self.repository.read(blob: entry.hash)
+        guard case .hash(let hash) = entry.location else {
+            throw InternalError("only hash locations supported")
+        }
+        return try self.repository.readBlob(hash: hash)
     }
 
     // MARK: Unsupported methods.

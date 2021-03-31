@@ -15,8 +15,11 @@ import XCTest
 @testable import PackageCollectionsSigning
 import TSCBasic
 
-// Update this when running ENABLE_REAL_CERT_TEST tests
-let expectedSubjectUserID = "<USER ID>"
+// Set `REAL_CERT_USER_ID` env var when running ENABLE_REAL_CERT_TEST tests
+let expectedSubjectUserID = ProcessInfo.processInfo.environment["REAL_CERT_USER_ID"] ?? "<USER ID>"
+
+let callbackQueue = DispatchQueue(label: "org.swift.swiftpm.PackageCollectionsSigningTests", attributes: .concurrent)
+let diagnosticsEngine = DiagnosticsEngine()
 
 // MARK: - CertificatePolicy for test certs
 
@@ -40,23 +43,26 @@ struct TestCertificatePolicy: CertificatePolicy {
     let anchorCerts: [Certificate]?
     let verifyDate: Date
 
-    let callbackQueue: DispatchQueue
-
-    init(anchorCerts: [Certificate]? = nil, verifyDate: Date = Self.testCertValidDate, callbackQueue: DispatchQueue = DispatchQueue.global()) {
+    init(anchorCerts: [Certificate]? = nil, verifyDate: Date = Self.testCertValidDate) {
         self.anchorCerts = anchorCerts
         self.verifyDate = verifyDate
-        self.callbackQueue = callbackQueue
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
         do {
             guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
-                return self.callbackQueue.async { callback(.failure(CertificatePolicyError.codeSigningCertRequired)) }
+                return callbackQueue.async { callback(.failure(CertificatePolicyError.codeSigningCertRequired)) }
             }
+
+            #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
-                        diagnosticsEngine: DiagnosticsEngine(), callbackQueue: self.callbackQueue, callback: callback)
+                        diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
+            #else
+            self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
+                        diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
+            #endif
         } catch {
-            return self.callbackQueue.async { callback(.failure(error)) }
+            return callbackQueue.async { callback(.failure(error)) }
         }
     }
 }
@@ -168,7 +174,7 @@ extension String {
 
 extension XCTestCase {
     func skipIfUnsupportedPlatform() throws {
-        #if os(macOS)
+        #if os(macOS) || os(Linux) || os(Windows)
         #else
         throw XCTSkip("Skipping test on unsupported platform")
         #endif

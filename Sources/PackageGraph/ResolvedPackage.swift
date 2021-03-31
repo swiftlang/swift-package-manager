@@ -17,19 +17,31 @@ public final class ResolvedPackage: ObjectIdentifierProtocol {
     /// The underlying package reference.
     public let underlyingPackage: Package
 
+    // The identity of the package.
+    public var identity: PackageIdentity {
+        return self.underlyingPackage.identity
+    }
+
     /// The manifest describing the package.
     public var manifest: Manifest {
-        return underlyingPackage.manifest
+        return self.underlyingPackage.manifest
     }
 
     /// The name of the package.
+    @available(*, deprecated, message: "use identity (or manifestName, but only if you must) instead")
     public var name: String {
-        return underlyingPackage.name
+        return self.underlyingPackage.name
+    }
+
+    /// The name of the package as entered in the manifest.
+    /// This should rarely be used beyond presentation purposes
+    public var manifestName: String {
+        return self.underlyingPackage.manifestName
     }
 
     /// The local path of the package.
     public var path: AbsolutePath {
-        return underlyingPackage.path
+        return self.underlyingPackage.path
     }
 
     /// The targets contained in the package.
@@ -56,6 +68,6 @@ public final class ResolvedPackage: ObjectIdentifierProtocol {
 
 extension ResolvedPackage: CustomStringConvertible {
     public var description: String {
-        return "<ResolvedPackage: \(name)>"
+        return "<ResolvedPackage: \(self.identity)>"
     }
 }

@@ -39,24 +39,25 @@ public final class LocalPackageContainer: PackageContainer {
     private func loadManifest() throws -> Manifest {
         try manifest.memoize() {
             // Load the tools version.
-            let toolsVersion = try toolsVersionLoader.load(at: AbsolutePath(package.location), fileSystem: fileSystem)
+            let toolsVersion = try self.toolsVersionLoader.load(at: AbsolutePath(self.package.location), fileSystem: self.fileSystem)
 
             // Validate the tools version.
-            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: package.location)
+            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: self.package.location)
 
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
-                manifestLoader.load(at: AbsolutePath(package.location),
-                                    packageKind: package.kind,
-                                    packageLocation: package.location,
+                manifestLoader.load(at: AbsolutePath(self.package.location),
+                                    packageIdentity: self.package.identity,
+                                    packageKind: self.package.kind,
+                                    packageLocation: self.package.location,
                                     version: nil,
                                     revision: nil,
                                     toolsVersion: toolsVersion,
-                                    identityResolver: identityResolver,
-                                    fileSystem: fileSystem,
+                                    identityResolver: self.identityResolver,
+                                    fileSystem: self.fileSystem,
                                     diagnostics: nil,
-                                    on: .global(),
+                                    on: .sharedConcurrent,
                                     completion: $0)
             }
         }

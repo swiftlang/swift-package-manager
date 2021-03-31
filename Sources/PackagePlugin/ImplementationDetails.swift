@@ -57,21 +57,29 @@ func CreateTargetBuildContext() -> TargetBuildContext {
 
 /// Private structures containing the information to send back to SwiftPM.
 
-struct Command: Encodable {
+struct BuildCommand: Encodable {
     let displayName: String?
     let executable: Path
     let arguments: [String]
     let environment: [String: String]?
     let workingDirectory: Path?
-    let inputPaths: [Path]
-    let outputPaths: [Path]
+    let inputFiles: [Path]
+    let outputFiles: [Path]
+}
+
+struct PrebuildCommand: Encodable {
+    let displayName: String?
+    let executable: Path
+    let arguments: [String]
+    let environment: [String: String]?
+    let workingDirectory: Path?
+    let outputFilesDirectory: Path
 }
 
 struct Diagnostic: Encodable {
     enum Severity: String, Encodable {
         case error, warning, remark
     }
-
     let severity: Severity
     let message: String
     let file: Path?
@@ -81,9 +89,8 @@ struct Diagnostic: Encodable {
 struct OutputStruct: Encodable {
     let version: Int
     var diagnostics: [Diagnostic] = []
-    var commands: [Command] = []
-    var generatedOutputFiles: [String] = []
-    var prebuildOutputDirectories: [String] = []
+    var buildCommands: [BuildCommand] = []
+    var prebuildCommands: [PrebuildCommand] = []
 }
 
 var output = OutputStruct(version: 1)

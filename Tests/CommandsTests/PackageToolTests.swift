@@ -310,7 +310,7 @@ final class PackageToolTests: XCTestCase {
             XCTAssertEqual(buildToolPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
             let prebuildPluginTarget = try XCTUnwrap(targetsArray.first{ $0["name"]?.string == "MySourceGenPrebuildPlugin" }?.dictionary)
             XCTAssertEqual(prebuildPluginTarget["module_type"]?.string, "PluginTarget")
-            XCTAssertEqual(prebuildPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "prebuild")
+            XCTAssertEqual(prebuildPluginTarget["plugin_capability"]?.dictionary?["type"]?.string, "buildTool")
         }
     }
 
@@ -461,10 +461,10 @@ final class PackageToolTests: XCTestCase {
         }
         
         let expectedLines: [Substring] = [
-            #""/PackageA" [label="PackageA\n/PackageA\nunspecified"]"#,
-            #""/PackageB" [label="PackageB\n/PackageB\nunspecified"]"#,
-            #""/PackageC" [label="PackageC\n/PackageC\nunspecified"]"#,
-            #""/PackageD" [label="PackageD\n/PackageD\nunspecified"]"#,
+            #""/PackageA" [label="packagea\n/PackageA\nunspecified"]"#,
+            #""/PackageB" [label="packageb\n/PackageB\nunspecified"]"#,
+            #""/PackageC" [label="packagec\n/PackageC\nunspecified"]"#,
+            #""/PackageD" [label="packaged\n/PackageD\nunspecified"]"#,
             #""/PackageA" -> "/PackageB""#,
             #""/PackageA" -> "/PackageC""#,
             #""/PackageB" -> "/PackageC""#,

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Dispatch
 import class Foundation.ProcessInfo
 import TSCBasic
 
@@ -18,6 +19,12 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
 
     public init(_ seed: [Key: Value] = [:]) {
         self.underlying = seed
+    }
+
+    public func get() -> [Key: Value] {
+        self.lock.withLock {
+            self.underlying
+        }
     }
 
     public subscript(key: Key) -> Value? {
@@ -210,4 +217,9 @@ public func temp_await<T, ErrorType>(_ body: (@escaping (Result<T, ErrorType>) -
 @inlinable
 public func temp_await<T>(_ body: (@escaping (T) -> Void) -> Void) -> T {
     return tsc_await(body)
+}
+
+public extension DispatchQueue {
+    // a shared concurrent queue for running concurrent asynchronous operations
+    static var sharedConcurrent = DispatchQueue(label: "swift.org.swiftpm.shared.concurrent", attributes: .concurrent)
 }

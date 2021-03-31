@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -19,42 +19,35 @@ import TSCBasic
 import TSCUtility
 
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
-    static let batchSize = 100
-
     private static let packageCollectionsTableName = "package_collections"
     private static let packagesFTSName = "fts_packages"
     private static let targetsFTSName = "fts_targets"
 
     let fileSystem: FileSystem
     let location: SQLite.Location
+    let configuration: Configuration
 
     private let diagnosticsEngine: DiagnosticsEngine?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    // for concurrent for DB access
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.SQLitePackageCollectionsStorage", attributes: .concurrent)
-
     private var state = State.idle
     private let stateLock = Lock()
 
     private let cache = ThreadSafeKeyValueStore<Model.CollectionIdentifier, Model.Collection>()
-    private let cacheLock = Lock()
-
-    private let isShuttingdown = ThreadSafeBox<Bool>()
 
     // Lock helps prevent concurrency errors with transaction statements during e.g. `refreshCollections`,
     // since only one transaction is allowed per SQLite connection. We need transactions to speed up bulk updates.
     // TODO: we could potentially optimize this with db connection pool
     private let ftsLock = Lock()
     // FTS not supported on some platforms; the code falls back to "slow path" in that case
-    let useSearchIndices = ThreadSafeBox<Bool>()
+    internal let useSearchIndices = ThreadSafeBox<Bool>() // internal for testing
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
     private var targetTrieReady = ThreadSafeBox<Bool>()
 
-    init(location: SQLite.Location? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
         case .path, .temporary:
@@ -62,6 +55,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         case .memory:
             self.fileSystem = InMemoryFileSystem()
         }
+        self.configuration = configuration
         self.diagnosticsEngine = diagnosticsEngine
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
@@ -74,14 +68,30 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     deinit {
-        guard case .disconnected = (self.stateLock.withLock { self.state }) else {
+        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+        guard case .disconnected = (try? self.withStateLock { self.state }) else {
             return assertionFailure("db should be closed")
         }
     }
 
     func close() throws {
         // Signal long-running operation (e.g., populateTargetTrie) to stop
-        self.isShuttingdown.put(true)
+        try self.withStateLock {
+            if case .connected(let db) = self.state {
+                self.state = .disconnecting(db)
+                do {
+                    try db.close()
+                } catch {
+                    do {
+                        var exponentialBackoff = ExponentialBackoff()
+                        try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+                    } catch {
+                        throw StringError("Failed to close database")
+                    }
+                }
+            }
+            self.state = .disconnected
+        }
 
         func retryClose(db: SQLite, exponentialBackoff: inout ExponentialBackoff) throws {
             let semaphore = DispatchSemaphore(value: 0)
@@ -94,7 +104,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
             // This throws error if we have exhausted our attempts
             let delay = try exponentialBackoff.nextDelay()
-            self.queue.asyncAfter(deadline: .now() + delay) {
+            DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + delay) {
                 do {
                     try db.close()
                     callback(.success(()))
@@ -107,57 +117,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 return try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
             }
         }
-
-        try self.stateLock.withLock {
-            if case .connected(let db) = self.state {
-                do {
-                    try db.close()
-                } catch {
-                    var exponentialBackoff = ExponentialBackoff()
-                    do {
-                        try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
-                    } catch {
-                        throw StringError("Failed to close database")
-                    }
-                }
-            }
-            self.state = .disconnected
-        }
-    }
-
-    private struct ExponentialBackoff {
-        let intervalInMilliseconds: Int
-        let randomizationFactor: Int
-        let maximumAttempts: Int
-
-        var attempts: Int = 0
-        var multipler: Int = 1
-
-        var canRetry: Bool {
-            self.attempts < self.maximumAttempts
-        }
-
-        init(intervalInMilliseconds: Int = 100, randomizationFactor: Int = 100, maximumAttempts: Int = 3) {
-            self.intervalInMilliseconds = intervalInMilliseconds
-            self.randomizationFactor = randomizationFactor
-            self.maximumAttempts = maximumAttempts
-        }
-
-        mutating func nextDelay() throws -> DispatchTimeInterval {
-            guard self.canRetry else {
-                throw StringError("Maximum attempts reached")
-            }
-            let delay = self.multipler * intervalInMilliseconds
-            let jitter = Int.random(in: 0 ... self.randomizationFactor)
-            self.attempts += 1
-            self.multipler *= 2
-            return .milliseconds(delay + jitter)
-        }
     }
 
     func put(collection: Model.Collection,
              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 // write to db
                 let query = "INSERT OR REPLACE INTO \(Self.packageCollectionsTableName) VALUES (?, ?);"
@@ -184,78 +148,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    private func insertToSearchIndices(collection: Model.Collection) throws {
-        guard self.useSearchIndices.get() ?? false else { return }
-
-        try self.ftsLock.withLock {
-            // Update search indices
-            try self.withDB { db in
-                try db.exec(query: "BEGIN TRANSACTION;")
-
-                // First delete existing data
-                try self.removeFromSearchIndices(identifier: collection.identifier)
-
-                let packagesStatement = try db.prepare(query: "INSERT INTO \(Self.packagesFTSName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")
-                let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSName) VALUES (?, ?, ?);")
-
-                // Then insert new data
-                try collection.packages.forEach { package in
-                    var targets = Set<String>()
-
-                    try package.versions.forEach { version in
-                        try version.manifests.values.forEach { manifest in
-                            // Packages FTS
-                            let packagesBindings: [SQLite.SQLiteValue] = [
-                                .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
-                                .string(package.reference.identity.description),
-                                .string(version.version.description),
-                                .string(manifest.packageName),
-                                .string(package.repository.url),
-                                package.summary.map { .string($0) } ?? .null,
-                                package.keywords.map { .string($0.joined(separator: ",")) } ?? .null,
-                                .string(manifest.products.map { $0.name }.joined(separator: ",")),
-                                .string(manifest.targets.map { $0.name }.joined(separator: ",")),
-                            ]
-                            try packagesStatement.bind(packagesBindings)
-                            try packagesStatement.step()
-
-                            try packagesStatement.clearBindings()
-                            try packagesStatement.reset()
-
-                            manifest.targets.forEach { targets.insert($0.name) }
-                        }
-                    }
-
-                    let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.reference.identity)
-                    try targets.forEach { target in
-                        // Targets in-memory trie
-                        self.targetTrie.insert(word: target.lowercased(), foundIn: collectionPackage)
-
-                        // Targets FTS
-                        let targetsBindings: [SQLite.SQLiteValue] = [
-                            .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
-                            .string(package.repository.url),
-                            .string(target),
-                        ]
-                        try targetsStatement.bind(targetsBindings)
-                        try targetsStatement.step()
-
-                        try targetsStatement.clearBindings()
-                        try targetsStatement.reset()
-                    }
-                }
-
-                try db.exec(query: "COMMIT;")
-
-                try packagesStatement.finalize()
-                try targetsStatement.finalize()
-            }
-        }
-    }
-
     func remove(identifier: Model.CollectionIdentifier,
                 callback: @escaping (Result<Void, Error>) -> Void) {
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 // write to db
                 let query = "DELETE FROM \(Self.packageCollectionsTableName) WHERE key = ?;"
@@ -279,28 +174,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    private func removeFromSearchIndices(identifier: Model.CollectionIdentifier) throws {
-        guard self.useSearchIndices.get() ?? false else { return }
-
-        let identifierBase64 = try self.encoder.encode(identifier.databaseKey()).base64EncodedString()
-
-        let packagesQuery = "DELETE FROM \(Self.packagesFTSName) WHERE collection_id_blob_base64 = ?;"
-        try self.executeStatement(packagesQuery) { statement -> Void in
-            let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
-            try statement.bind(bindings)
-            try statement.step()
-        }
-
-        let targetsQuery = "DELETE FROM \(Self.targetsFTSName) WHERE collection_id_blob_base64 = ?;"
-        try self.executeStatement(targetsQuery) { statement -> Void in
-            let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
-            try statement.bind(bindings)
-            try statement.step()
-        }
-
-        self.targetTrie.remove { $0.collection == identifier }
-    }
-
     func get(identifier: Model.CollectionIdentifier,
              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         // try read to cache
@@ -309,7 +182,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         // go to db if not found
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 let query = "SELECT value FROM \(Self.packageCollectionsTableName) WHERE key = ? LIMIT 1;"
                 let collection = try self.executeStatement(query) { statement -> Model.Collection in
@@ -339,13 +212,13 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         // go to db if not found
-        self.queue.async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 var blobs = [Data]()
                 if let identifiers = identifiers {
                     var index = 0
                     while index < identifiers.count {
-                        let slice = identifiers[index ..< min(index + Self.batchSize, identifiers.count)]
+                        let slice = identifiers[index ..< min(index + self.configuration.batchSize, identifiers.count)]
                         let query = "SELECT value FROM \(Self.packageCollectionsTableName) WHERE key in (\(slice.map { _ in "?" }.joined(separator: ",")));"
                         try self.executeStatement(query) { statement in
                             try statement.bind(slice.compactMap { .string($0.databaseKey()) })
@@ -353,7 +226,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                                 blobs.append(row.blob(at: 0))
                             }
                         }
-                        index += Self.batchSize
+                        index += self.configuration.batchSize
                     }
                 } else {
                     let query = "SELECT value FROM \(Self.packageCollectionsTableName);"
@@ -368,14 +241,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 // workaround is to decode in parallel if list is large enough to justify it
                 let sync = DispatchGroup()
                 let collections: ThreadSafeArrayStore<Model.Collection>
-                if blobs.count < Self.batchSize {
+                if blobs.count < self.configuration.batchSize {
                     collections = .init(blobs.compactMap { data -> Model.Collection? in
                         try? self.decoder.decode(Model.Collection.self, from: data)
                     })
                 } else {
                     collections = .init()
                     blobs.forEach { data in
-                        self.queue.async(group: sync) {
+                        DispatchQueue.sharedConcurrent.async(group: sync) {
                             if let collection = try? self.decoder.decode(Model.Collection.self, from: data) {
                                 collections.append(collection)
                             }
@@ -383,7 +256,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                sync.notify(queue: self.queue) {
+                sync.notify(queue: .sharedConcurrent) {
                     if collections.count != blobs.count {
                         self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                     }
@@ -445,7 +318,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
 
-                    let result = Model.PackageSearchResult(items: packageCollections.map { entry in
+                    // FTS results are not sorted by relevance at all (FTS5 supports ORDER BY rank but FTS4 requires additional SQL function)
+                    // Sort by package identity for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key < $1.key }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
@@ -478,7 +353,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
                     }
 
-                    let result = Model.PackageSearchResult(items: packageCollections.map { entry in
+                    // Sort by package identity for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key.identity < $1.key.identity }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
@@ -693,7 +569,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     }
                 }
 
-                let result = Model.TargetSearchResult(items: targetPackageVersions.map { target, packageVersions in
+                // Sort by target name for consistent ordering in results
+                let result = Model.TargetSearchResult(items: targetPackageVersions.sorted { $0.key.name < $1.key.name }.map { target, packageVersions in
                     let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
                         guard let packageEntry = packageCollections[identity] else {
                             return nil
@@ -712,12 +589,201 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
+    private func insertToSearchIndices(collection: Model.Collection) throws {
+        guard self.useSearchIndices.get() ?? false else { return }
+
+        try self.ftsLock.withLock {
+            // First delete existing data
+            try self.removeFromSearchIndices(identifier: collection.identifier)
+            // Update search indices
+            try self.withDB { db in
+                try db.exec(query: "BEGIN TRANSACTION;")
+
+                let packagesStatement = try db.prepare(query: "INSERT INTO \(Self.packagesFTSName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")
+                let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSName) VALUES (?, ?, ?);")
+
+                // Then insert new data
+                try collection.packages.forEach { package in
+                    var targets = Set<String>()
+
+                    try package.versions.forEach { version in
+                        try version.manifests.values.forEach { manifest in
+                            // Packages FTS
+                            let packagesBindings: [SQLite.SQLiteValue] = [
+                                .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
+                                .string(package.reference.identity.description),
+                                .string(version.version.description),
+                                .string(manifest.packageName),
+                                .string(package.repository.url),
+                                package.summary.map { .string($0) } ?? .null,
+                                package.keywords.map { .string($0.joined(separator: ",")) } ?? .null,
+                                .string(manifest.products.map { $0.name }.joined(separator: ",")),
+                                .string(manifest.targets.map { $0.name }.joined(separator: ",")),
+                            ]
+                            try packagesStatement.bind(packagesBindings)
+                            try packagesStatement.step()
+
+                            try packagesStatement.clearBindings()
+                            try packagesStatement.reset()
+
+                            manifest.targets.forEach { targets.insert($0.name) }
+                        }
+                    }
+
+                    let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.reference.identity)
+                    try targets.forEach { target in
+                        // Targets in-memory trie
+                        self.targetTrie.insert(word: target.lowercased(), foundIn: collectionPackage)
+
+                        // Targets FTS
+                        let targetsBindings: [SQLite.SQLiteValue] = [
+                            .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
+                            .string(package.repository.url),
+                            .string(target),
+                        ]
+                        try targetsStatement.bind(targetsBindings)
+                        try targetsStatement.step()
+
+                        try targetsStatement.clearBindings()
+                        try targetsStatement.reset()
+                    }
+                }
+
+                try db.exec(query: "COMMIT;")
+
+                try packagesStatement.finalize()
+                try targetsStatement.finalize()
+            }
+        }
+    }
+
+    private func removeFromSearchIndices(identifier: Model.CollectionIdentifier) throws {
+        guard self.useSearchIndices.get() ?? false else { return }
+
+        let identifierBase64 = try self.encoder.encode(identifier.databaseKey()).base64EncodedString()
+
+        let packagesQuery = "DELETE FROM \(Self.packagesFTSName) WHERE collection_id_blob_base64 = ?;"
+        try self.executeStatement(packagesQuery) { statement -> Void in
+            let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
+            try statement.bind(bindings)
+            try statement.step()
+        }
+
+        let targetsQuery = "DELETE FROM \(Self.targetsFTSName) WHERE collection_id_blob_base64 = ?;"
+        try self.executeStatement(targetsQuery) { statement -> Void in
+            let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
+            try statement.bind(bindings)
+            try statement.step()
+        }
+
+        self.targetTrie.remove { $0.collection == identifier }
+    }
+
+    internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
+        DispatchQueue.sharedConcurrent.async {
+            self.targetTrieReady.memoize {
+                do {
+                    // Use FTS to build the trie
+                    let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
+                    try self.executeStatement(query) { statement in
+                        while let row = try statement.step() {
+                            #if os(Linux)
+                            // lock not required since executeStatement locks
+                            guard case .connected = self.state else {
+                                return
+                            }
+                            #else
+                            guard case .connected = (try self.withStateLock { self.state }) else {
+                                return
+                            }
+                            #endif
+
+                            let targetName = row.string(at: 2)
+
+                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
+                                self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
+                            }
+                        }
+                    }
+                    callback(.success(()))
+                    return true
+                } catch {
+                    callback(.failure(error))
+                    return false
+                }
+            }
+        }
+    }
+
     // for testing
     internal func resetCache() {
         self.cache.clear()
     }
 
     // MARK: -  Private
+
+    private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
+        try self.withDB { db in
+            let result: Result<T, Error>
+            let statement = try db.prepare(query: query)
+            do {
+                result = .success(try body(statement))
+            } catch {
+                result = .failure(error)
+            }
+            try statement.finalize()
+            switch result {
+            case .failure(let error):
+                throw error
+            case .success(let value):
+                return value
+            }
+        }
+    }
+
+    private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
+        let createDB = { () throws -> SQLite in
+            let db = try SQLite(location: self.location, configuration: self.configuration.underlying)
+            try self.createSchemaIfNecessary(db: db)
+            return db
+        }
+
+        let db = try self.withStateLock { () -> SQLite in
+            let db: SQLite
+            switch (self.location, self.state) {
+            case (.path(let path), .connected(let database)):
+                if self.fileSystem.exists(path) {
+                    db = database
+                } else {
+                    try database.close()
+                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
+                    db = try createDB()
+                }
+            case (.path(let path), _):
+                if !self.fileSystem.exists(path) {
+                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
+                }
+                db = try createDB()
+            case (_, .connected(let database)):
+                db = database
+            case (_, _):
+                db = try createDB()
+            }
+            self.state = .connected(db)
+            return db
+        }
+
+        // FIXME: workaround linux sqlite concurrency issues causing CI failures
+        #if os(Linux)
+        return try self.withStateLock {
+            try body(db)
+        }
+        #else
+        return try body(db)
+        #endif
+    }
 
     private func createSchemaIfNecessary(db: SQLite) throws {
         let table = """
@@ -758,94 +824,25 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         try db.exec(query: "PRAGMA journal_mode=WAL;")
     }
 
+    private func withStateLock<T>(_ body: () throws -> T) throws -> T {
+        try self.stateLock.withLock(body)
+        /* switch self.location {
+         case .path(let path):
+             if !self.fileSystem.exists(path.parentDirectory) {
+                 try self.fileSystem.createDirectory(path.parentDirectory)
+             }
+             return try self.fileSystem.withLock(on: path, type: .exclusive, body)
+         case .memory, .temporary:
+             return try self.stateLock.withLock(body)
+         } */
+    }
+
     private enum State {
         case idle
         case connected(SQLite)
+        case disconnecting(SQLite)
         case disconnected
         case error
-    }
-
-    private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
-        try self.withDB { db in
-            let result: Result<T, Error>
-            let statement = try db.prepare(query: query)
-            do {
-                result = .success(try body(statement))
-            } catch {
-                result = .failure(error)
-            }
-            try statement.finalize()
-            switch result {
-            case .failure(let error):
-                throw error
-            case .success(let value):
-                return value
-            }
-        }
-    }
-
-    private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
-        let createDB = { () throws -> SQLite in
-            let db = try SQLite(location: self.location)
-            try self.createSchemaIfNecessary(db: db)
-            return db
-        }
-
-        let db = try stateLock.withLock { () -> SQLite in
-            let db: SQLite
-            switch (self.location, self.state) {
-            case (.path(let path), .connected(let database)):
-                if self.fileSystem.exists(path) {
-                    db = database
-                } else {
-                    try database.close()
-                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-                    db = try createDB()
-                }
-            case (.path(let path), _):
-                if !self.fileSystem.exists(path) {
-                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-                }
-                db = try createDB()
-            case (_, .connected(let database)):
-                db = database
-            case (_, _):
-                db = try createDB()
-            }
-            self.state = .connected(db)
-            return db
-        }
-
-        return try body(db)
-    }
-
-    func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
-        self.queue.async {
-            self.targetTrieReady.memoize {
-                do {
-                    // Use FTS to build the trie
-                    let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
-                    try self.executeStatement(query) { statement in
-                        while let row = try statement.step() {
-                            if self.isShuttingdown.get() ?? false { return }
-
-                            let targetName = row.string(at: 2)
-
-                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
-                                self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
-                            }
-                        }
-                    }
-                    callback(.success(()))
-                    return true
-                } catch {
-                    callback(.failure(error))
-                    return false
-                }
-            }
-        }
     }
 
     // For `Trie`
@@ -855,6 +852,69 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
         var description: String {
             "\(collection): \(package)"
+        }
+    }
+
+    // For shutdown
+    private struct ExponentialBackoff {
+        let intervalInMilliseconds: Int
+        let randomizationFactor: Int
+        let maximumAttempts: Int
+
+        var attempts: Int = 0
+        var multipler: Int = 1
+
+        var canRetry: Bool {
+            self.attempts < self.maximumAttempts
+        }
+
+        init(intervalInMilliseconds: Int = 100, randomizationFactor: Int = 100, maximumAttempts: Int = 3) {
+            self.intervalInMilliseconds = intervalInMilliseconds
+            self.randomizationFactor = randomizationFactor
+            self.maximumAttempts = maximumAttempts
+        }
+
+        mutating func nextDelay() throws -> DispatchTimeInterval {
+            guard self.canRetry else {
+                throw StringError("Maximum attempts reached")
+            }
+            let delay = self.multipler * intervalInMilliseconds
+            let jitter = Int.random(in: 0 ... self.randomizationFactor)
+            self.attempts += 1
+            self.multipler *= 2
+            return .milliseconds(delay + jitter)
+        }
+    }
+
+    struct Configuration {
+        var batchSize: Int
+
+        fileprivate var underlying: SQLite.Configuration
+
+        init() {
+            self.underlying = .init()
+            self.batchSize = 100
+            self.maxSizeInMegabytes = 100
+            // see https://www.sqlite.org/c3ref/busy_timeout.html
+            self.busyTimeoutMilliseconds = 1000
+        }
+
+        var maxSizeInMegabytes: Int? {
+            get {
+                self.underlying.maxSizeInMegabytes
+            }
+            set {
+                self.underlying.maxSizeInMegabytes = newValue
+            }
+        }
+
+        var busyTimeoutMilliseconds: Int32 {
+            get {
+                self.underlying.busyTimeoutMilliseconds
+            }
+            set {
+                self.underlying.busyTimeoutMilliseconds = newValue
+            }
         }
     }
 }

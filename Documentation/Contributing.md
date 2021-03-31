@@ -1,4 +1,5 @@
 # Contributing to Swift Package Manager
+
 There are several types of contributions one can make. Bug fixes, documentation and enhancements that do not materially change the user facing semantics of Swift Package Manager should be submitted directly as PR.
 
 Larger changes that do materially change the semantics of Swift Package Manager (e.g. changes to the manifest format or behavior) are required to go through [Swift Evolution Process](https://github.com/apple/swift-evolution/blob/master/process.md).
@@ -8,10 +9,11 @@ To see how previous evolution decisions for SwiftPM have been made and have some
 For more information about making contributions to the Swift project in general see [Swift Contribution Guide](https://swift.org/contributing/).
 
 ## Reporting issues
+
 * [SwiftPM JIRA Bug Tracker](https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22).
 * [Guide for filing quality bug reports](https://github.com/apple/swift-package-manager/blob/main/Documentation/Resources.md#reporting-a-good-swiftpm-bug).
 
-## Development environment
+## Setting up the development environment
 
 First, clone a copy of SwiftPM code from https://github.com/apple/swift-package-manager.
 
@@ -27,20 +29,19 @@ SwiftPM is typically built with a pre-existing version of SwiftPM present on the
 
 ### Using the Command Line
 
-If you are using macOS and have Xcode installed, you can use the command line even without downloading and installing a toolchain, otherwise, you first need to doownload and install one.
+If you are using macOS and have Xcode installed, you can use Swift from the command line immediately.
 
-#### Installing the toolchain
+If you are not using macOS or do not have Xcode installed, you need to download and install a toolchain.
+
+#### Installing a toolchain
 
 1. Download a toolchain from https://swift.org/download/
 2. Install it and verify the expected version of the toolchain was installed:
 
 **macOS**
+
 ```bash
 $> export TOOLCHAINS=swift
-```
-
-Verify that we're able to find the swift compiler from the installed toolchain.
-```bash
 $> xcrun --find swift
 /Library/Developer/Toolchains/swift-latest.xctoolchain/usr/bin/swift
 $> swift package --version
@@ -50,11 +51,9 @@ Apple Swift version 5.3
 ```
 
 **Linux**
+
 ```bash
 $> export PATH=/path/to/swift-toolchain/usr/bin:"${PATH}"
-```
-Verify that we're able to find the swift compiler from the installed toolchain.
-```bash
 $> which swift
 /path/to/swift-toolchain/usr/bin/swift
 $> swift package --version
@@ -63,24 +62,29 @@ $> swift --version
 Apple Swift version 5.3
 ```
 
-Note:  Alternatively use tools like [swiftenv](https://github.com/kylef/swiftenv) that help manage toolchains versions.
+Note: Alternatively use tools like [swiftenv](https://github.com/kylef/swiftenv) that help manage toolchains versions.
 
-#### Building
+## Local Development
+
+With a Swift toolchain installed and the SwiftPM code cloned, you are ready to make changes and test them locally.
+
+### Building
 
 ```bash
 $> swift build
 ```
 
 A successful build will create a `.build/` directory with the following approximate structure:
-```bash
-artifacts/
-checkouts/
-debug/
+
+```
+artifacts
+checkouts
+debug
 repositories
 x86_64-apple-macosx
 ```
 
-Binary artifacts are located in `x86_64-apple-macosx/` when building on macOS, 
+Binary artifacts are located in `x86_64-apple-macosx/` when building on macOS,
 or the equivalent on other architectures and operating systems.
 
 These binaries can be used to test the code modification. For example, to test the `swift package init` and `swift build` commands from the new SwiftPM artifacts in `.build/`:
@@ -91,7 +95,7 @@ $> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
 $> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
 ```
 
-#### Testing
+### Testing
 
 ```bash
 $> swift test
@@ -116,12 +120,12 @@ $> export TSC_ENABLE_PERF_TESTS=1
 $> swift test -c release --filter PerformanceTests
 ```
 
-### Using the bootstrap script
+### The bootstrap script
 
 The bootstrap script is designed for building SwiftPM on systems that do not have Xcode or a toolchain installed.
 It is used on bare systems to bootstrap the Swift toolchain (including SwiftPM), and as such not typically used outside the Swift team.
 
-the bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed. 
+the bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed.
 Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
 
 1. Clone [llbuild](https://github.com/apple/swift-llbuild) beside the SwiftPM directory.
@@ -173,35 +177,77 @@ See "Using the Command Line / Building" section above for more information on ho
 $> Utilities/bootstrap test
 ```
 
-## Testing locally
+## Working with Docker to build and test for Linux
 
-Before submitting code modification as Pull Requests, test locally across the supported platforms and build variants.
+When developing on macOS and need to test on Linux, install
+[Docker](https://www.docker.com/products/docker-desktop) and
+[Docker compose](https://docs.docker.com/compose/install/) and
+use the following docker compose commands:
 
-1. If using Xcode, run all the unit tests and verify they pass.
-2. If using the Command Line, run all the unit tests and verify they pass.
-
-```bash
-$> swift test
-```
-
-3. Optionally: Test with the bootstrap script as well.
+Prepare the underlying image with the selected Ubuntu and Swift versions:
 
 ```bash
-$> Utilities/bootstrap test
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  build
 ```
 
-When developing on macOS and need to test on Linux, install [Docker](https://www.docker.com/products/docker-desktop) and use the following commands:
+Start an interactive shell session:
 
 ```bash
-$> Utilities/Docker/docker-utils build # will build an image with the latest Swift snapshot
-$> Utilities/Docker/docker-utils bootstrap # will bootstrap SwiftPM on the Linux container
-$> Utilities/Docker/docker-utils run bash # to run an interactive Bash shell in the container
-$> Utilities/Docker/docker-utils swift-build # to run swift-build in the container
-$> Utilities/Docker/docker-utils swift-test # to run swift-test in the container
-$> Utilities/Docker/docker-utils swift-run # to run swift-run in the container
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm shell
 ```
+
+Build SwiftPM (using the pre-installed SwiftPM version).
+
+```bash
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm build
+```
+
+Test SwiftPM (using the pre-installed SwiftPM version).
+
+```bash
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm test
+```
+
+Build SwiftPM using the bootstrap script:
+
+```bash
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm bootstrap-build
+```
+
+Test SwiftPM using the bootstrap script:
+
+```bash
+docker-compose \
+  -f Utilities/docker/docker-compose.yaml \
+  -f Utilities/docker/docker-compose.<os-version>.<swift-version>.yaml \
+  run --rm bootstrap-test
+```
+
+Note there are several Linux and Swift versions options to choose from, e.g.:
+
+`docker-compose.1804.53.yaml` => Ubuntu 18.04, Swift 5.3
+
+`docker-compose.2004.54.yaml` => Ubuntu 20.04, Swift 5.4
+
+`docker-compose.2004.main.yaml` => Ubuntu 20.04, Swift nightly
 
 ## Creating Pull Requests
+
 1. Fork: https://github.com/apple/swift-package-manager
 2. Clone a working copy of your fork
 3. Create a new branch
@@ -215,7 +261,8 @@ $> Utilities/Docker/docker-utils swift-run # to run swift-run in the container
 11. Reviewers are going to be automatically added to your PR
 12. Merge pull request when you received approval from the reviewers (one or more)
 
-## Using Continuous Integration
+## Continuous Integration
+
 SwiftPM uses [swift-ci](https://ci.swift.org) infrastructure for its continuous integration testing. The bots can be triggered on pull-requests if you have commit access. Otherwise, ask one of the code owners to trigger them for you.
 
 To run smoke test suite with the trunk compiler and other projects use:
@@ -248,7 +295,9 @@ To run package compatibility test suite (validates we do not break 3rd party pac
 ```
 
 ## Advanced
+
 ### Using Custom Swift Compilers
+
 SwiftPM needs the Swift compiler to parse `Package.swift` manifest files and to
 compile Swift source files. You can use the `SWIFT_EXEC` and `SWIFT_EXEC_MANIFEST`
 environment variables to control which compiler to use for these operations.
@@ -267,6 +316,7 @@ $> SWIFT_EXEC=/path/to/my/built/swiftc swift build
 ```
 
 ### Overriding the Path to the Runtime Libraries
+
 SwiftPM computes the path of its runtime libraries relative to where it is
 installed. This path can be overridden by setting the environment variable
 `SWIFTPM_PD_LIBS` to a directory containing the libraries, or a colon-separated list of
@@ -275,14 +325,17 @@ path which exists on disk. If none of the paths are present on disk, it will fal
 back to built-in computation.
 
 ### Making changes in TSC targets
+
 SwiftPM uses [Tools Support Core](https://github.com/apple/swift-tools-support-core) (aka TSC) for many of its general purpose utilities. Changes in SwiftPM often require changes in TSC first. To coordinate changes, open a PR against TSC first, then a second one against SwiftPM pulling the correct TSC version.
 
 ## Community and Support
+
 If you want to connect with the Swift community you can:
 * Use Swift Forums: [https://forums.swift.org/c/development/SwiftPM](https://forums.swift.org/c/development/SwiftPM)
 * Contact the CODEOWNERS: https://github.com/apple/swift-package-manager/blob/main/CODEOWNERS
 
 ## Additional resources
+
 * `Swift.org` Contributing page
 [https://swift.org/contributing/](https://swift.org/contributing/)
 * License
@@ -291,6 +344,7 @@ If you want to connect with the Swift community you can:
 [https://swift.org/community/#code-of-conduct](https://swift.org/community/#code-of-conduct)
 
 ## Troubleshooting
+
 * If during `swift build` you encounter this error:
 ```bash
 /../apple-repos/swift-package-manager/.build/checkouts/swift-driver/Sources/SwiftDriver/Explicit Module Builds/InterModuleDependencyGraph.swift:102:3: error: unknown attribute '_spi'

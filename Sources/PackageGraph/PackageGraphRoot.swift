@@ -8,11 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import TSCUtility
-
+import Basics
 import PackageModel
 import SourceControl
+import TSCBasic
+import TSCUtility
 
 /// Represents the input to the package graph root.
 public struct PackageGraphRootInput {
@@ -21,7 +21,6 @@ public struct PackageGraphRootInput {
 
     /// Top level dependencies to the graph.
     public let dependencies: [PackageDependencyDescription]
-
 
     /// Create a package graph root.
     public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = []) {
@@ -33,23 +32,35 @@ public struct PackageGraphRootInput {
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
-    /// The list of root manifests.
-    public let manifests: [Manifest]
+    /// The root packages.
+    public let packages: [PackageIdentity: (reference: PackageReference, manifest: Manifest)]
+
+    /// The root manifests.
+    public var manifests: [PackageIdentity: Manifest] {
+        return self.packages.compactMapValues { $0.manifest }
+    }
 
     /// The root package references.
-    public let packageRefs: [PackageReference]
+    public var packageReferences: [PackageReference] {
+        return self.packages.values.map { $0.reference }
+    }
 
     /// The top level dependencies.
     public let dependencies: [PackageDependencyDescription]
 
     /// Create a package graph root.
-    public init(input: PackageGraphRootInput, manifests: [Manifest], explicitProduct: String? = nil) {
-        // TODO: this does not use the identity resolver which is probably fine since its the root packages
-        self.packageRefs = zip(input.packages, manifests).map { (path, manifest) in
-            let identity = PackageIdentity(url: manifest.packageLocation)
-            return .root(identity: identity, path: path)
-        }
-        self.manifests = manifests
+    /// Note this quietly skip inputs for which manifests are not found. this could be because the manifest  failed to load or for some other reasons
+    // FIXME: This API behavior wrt to non-found manifests is fragile, but required by IDEs
+    // it may lead to incorrect assumption in downstream code which may expect an error if a manifest was not found
+    // we should refactor this API to more clearly return errors for inputs that do not have a corresponding manifest
+    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest], explicitProduct: String? = nil) {
+        self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
+            if let manifest = manifests[inputPath]  {
+                let packagePath = manifest.path.parentDirectory
+                let identity = PackageIdentity(path: packagePath) // this does not use the identity resolver which is fine since these are the root packages
+                partial[identity] = (.root(identity: identity, path: packagePath), manifest)
+            }
+        })
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -60,7 +71,7 @@ public struct PackageGraphRoot {
         // at which time the current special casing can be deprecated.
         var adjustedDependencies = input.dependencies
         if let product = explicitProduct {
-            for dependency in manifests.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
+            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
                 adjustedDependencies.append(dependency.filtered(by: .specific([product])))
             }
         }
@@ -70,7 +81,7 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints() throws -> [PackageContainerConstraint] {
-        let constraints = packageRefs.map{
+        let constraints = self.packageReferences.map {
             PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
         }
         

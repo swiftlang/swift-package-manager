@@ -528,7 +528,7 @@ public final class SwiftTargetBuildDescription {
     /// The path to the swiftmodule file after compilation.
     var moduleOutputPath: AbsolutePath {
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
-        let allowLinkingAgainstExecutables = (buildParameters.triple.isDarwin() || buildParameters.triple.isLinux()) && toolsVersion >= .vNext
+        let allowLinkingAgainstExecutables = (buildParameters.triple.isDarwin() || buildParameters.triple.isLinux()) && toolsVersion >= .v5_5
         let dirPath = (target.type == .executable && !allowLinkingAgainstExecutables) ? tempsPath : buildParameters.buildPath
         return dirPath.appending(component: target.c99name + ".swiftmodule")
     }
@@ -602,10 +602,10 @@ public final class SwiftTargetBuildDescription {
         self.pluginInvocationResults = pluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
 
-        // Add any derived source files that were declared in any plugin invocations.
-        for pluginResult in pluginInvocationResults {
+        // Add any derived source files that were declared for any commands from plugin invocations.
+        for command in pluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
             // TODO: What should we do if we find non-Swift sources here?
-            for absPath in pluginResult.derivedSourceFiles {
+            for absPath in command.outputFiles {
                 let relPath = absPath.relative(to: self.pluginDerivedSources.root)
                 self.pluginDerivedSources.relativePaths.append(relPath)
             }
@@ -712,7 +712,7 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if target.type == .executable && !isTestTarget && toolsVersion >= .vNext {
+        if target.type == .executable && !isTestTarget && toolsVersion >= .v5_5 {
             // We only do this if the linker supports it, as indicated by whether we
             // can construct the linker flags. In the future we will use a generated
             // code stub for the cases in which the linker doesn't support it, so that
@@ -1208,7 +1208,7 @@ public final class ProductBuildDescription {
             // we will instead have generated a source file containing the redirect.
             // Support for linking tests againsts executables is conditional on the tools
             // version of the package that defines the executable product.
-            if product.executableModule.underlyingTarget is SwiftTarget, toolsVersion >= .vNext {
+            if product.executableModule.underlyingTarget is SwiftTarget, toolsVersion >= .v5_5 {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: product.executableModule) {
                     args += flags
                 }
@@ -1392,7 +1392,7 @@ public class BuildPlan {
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
-            let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .vNext
+            let toolsVersion = graph.package(for: testProduct)?.manifest.toolsVersion ?? .v5_5
             if let testManifestTarget = testProduct.testManifestTarget, !generate {
                 let desc = try SwiftTargetBuildDescription(
                     target: testManifestTarget,
@@ -1474,7 +1474,7 @@ public class BuildPlan {
             
             // Determine the appropriate tools version to use for the target.
             // This can affect what flags to pass and other semantics.
-            let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .vNext
+            let toolsVersion = graph.package(for: target)?.manifest.toolsVersion ?? .v5_5
 
             switch target.underlyingTarget {
             case is SwiftTarget:
@@ -1525,7 +1525,7 @@ public class BuildPlan {
 
             // Determine the appropriate tools version to use for the product.
             // This can affect what flags to pass and other semantics.
-            let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .vNext
+            let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .v5_5
             productMap[product] = ProductBuildDescription(
                 product: product,
                 toolsVersion: toolsVersion,
@@ -1717,14 +1717,14 @@ public class BuildPlan {
                 switch target.type {
                 // Executable target have historically only been included if they are directly in the product's
                 // target list.  Otherwise they have always been just build-time dependencies.
-                // In tool version .vNext or greater, we also include executable modules implemented in Swift in
+                // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
                 case .executable:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     } else if product.type == .test && target.underlyingTarget is SwiftTarget {
-                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .vNext {
+                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5 {
                             staticTargets.append(target)
                         }
                     }

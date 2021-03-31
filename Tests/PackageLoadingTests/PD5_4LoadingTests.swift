@@ -64,7 +64,7 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 999"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.5"))
         }
     }
 }

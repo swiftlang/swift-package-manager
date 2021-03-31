@@ -2,25 +2,24 @@ import PackagePlugin
  
 print("Hello from the Build Tool Plugin!")
 
-for inputPath in targetBuildContext.otherFiles {
-    guard inputPath.suffix == ".dat" else { continue }
-    let outputName = inputPath.basename + ".swift"
-    let outputPath = targetBuildContext.outputDir.appending(outputName)
-    commandConstructor.createCommand(
+for inputPath in targetBuildContext.inputFiles.map{ $0.path } {
+    guard inputPath.extension == "dat" else { continue }
+    let outputName = inputPath.stem + ".swift"
+    let outputPath = targetBuildContext.outputDirectory.appending(outputName)
+    commandConstructor.createBuildCommand(
         displayName:
-            "Generating \(outputName) from \(inputPath.filename)",
+            "Generating \(outputName) from \(inputPath.lastComponent)",
         executable:
             try targetBuildContext.tool(named: "MySourceGenBuildTool").path,
         arguments: [
             "\(inputPath)",
             "\(outputPath)"
         ],
-        inputPaths: [
+        inputFiles: [
             inputPath,
         ],
-        outputPaths: [
+        outputFiles: [
             outputPath
         ]
     )
-    commandConstructor.addGeneratedOutputFile(path: outputPath)
 }

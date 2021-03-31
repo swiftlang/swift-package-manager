@@ -135,7 +135,7 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
         let name: String? = json.get("package")
         let url: String = try json.get("repositoryURL")
-        let identity = PackageIdentity(url: url)
+        let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
         let ref = PackageReference.remote(identity: identity, location: url)
         self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
         self.state = try json.get("state")

@@ -1,4 +1,4 @@
-// swift-tools-version: 999.0
+// swift-tools-version: 5.5
 import PackageDescription
 
 let package = Package(
@@ -24,14 +24,14 @@ let package = Package(
         // A local tool that uses a build tool plugin.
         .executableTarget(
             name: "MyLocalTool",
-            dependencies: [
+            plugins: [
                 "MySourceGenBuildToolPlugin",
             ]
         ),
         // A local tool that uses a prebuild plugin.
         .executableTarget(
             name: "MyOtherLocalTool",
-            dependencies: [
+            plugins: [
                 "MySourceGenPrebuildPlugin",
             ]
         ),
@@ -46,7 +46,7 @@ let package = Package(
         // The plugin that generates prebuild commands (currently to invoke a system tool).
         .plugin(
             name: "MySourceGenPrebuildPlugin",
-            capability: .prebuild()
+            capability: .buildTool()
         ),
         // The command line tool that generates source files.
         .executableTarget(

@@ -8,18 +8,36 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Vapor open source project
+//
+// Copyright (c) 2017-2020 Vapor project authors
+// Licensed under MIT
+//
+// See LICENSE for license information
+//
+// SPDX-License-Identifier: MIT
+//
+//===----------------------------------------------------------------------===//
+
 import Foundation
 
 #if os(macOS)
 import Security
+#elseif os(Linux) || os(Windows)
+@_implementationOnly import CCryptoBoringSSL
 #endif
 
 #if os(macOS)
 typealias RSAPublicKey = CoreRSAPublicKey
 typealias RSAPrivateKey = CoreRSAPrivateKey
-#else
+#elseif os(Linux) || os(Windows)
 typealias RSAPublicKey = BoringSSLRSAPublicKey
 typealias RSAPrivateKey = BoringSSLRSAPrivateKey
+#else
+typealias RSAPublicKey = UnsupportedRSAPublicKey
+typealias RSAPrivateKey = UnsupportedRSAPrivateKey
 #endif
 
 // MARK: - RSA key implementations using the Security framework
@@ -86,29 +104,102 @@ struct CoreRSAPublicKey: PublicKey {
 
 // MARK: - RSA key implementations using BoringSSL
 
-#else
-final class BoringSSLRSAPrivateKey: PrivateKey {
+// Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSAKey.swift
+
+#elseif os(Linux) || os(Windows)
+final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
+    let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
+
+    deinit {
+        CCryptoBoringSSL_RSA_free(self.underlying)
+    }
+
     var sizeInBits: Int {
-        fatalError("Not implemented")
+        toBits(bytes: Int(CCryptoBoringSSL_RSA_size(self.underlying)))
     }
 
     init<Data>(pem data: Data) throws where Data: DataProtocol {
-        fatalError("Not implemented: \(#function)")
+        let key = try Self.load(pem: data) { bio in
+            CCryptoBoringSSL_PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+        }
+        defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
+
+        guard let pointer = CCryptoBoringSSL_EVP_PKEY_get1_RSA(key) else {
+            throw BoringSSLKeyError.rsaConversionFailure
+        }
+
+        self.underlying = pointer
     }
 }
 
-final class BoringSSLRSAPublicKey: PublicKey {
+final class BoringSSLRSAPublicKey: PublicKey, BoringSSLKey {
+    let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
+
+    deinit {
+        CCryptoBoringSSL_RSA_free(self.underlying)
+    }
+
     var sizeInBits: Int {
-        fatalError("Not implemented")
+        toBits(bytes: Int(CCryptoBoringSSL_RSA_size(self.underlying)))
     }
 
     /// `data` should be in the PKCS #1 format
     init(data: Data) throws {
-        fatalError("Not implemented: \(#function)")
+        let bytes = data.copyBytes()
+        let key = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> UnsafeMutablePointer<EVP_PKEY> in
+            var pointer = ptr.baseAddress
+            guard let key = CCryptoBoringSSL_d2i_PublicKey(EVP_PKEY_RSA, nil, &pointer, numericCast(data.count)) else {
+                throw BoringSSLKeyError.failedToLoadKeyFromBytes
+            }
+            return key
+        }
+        defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
+
+        guard let pointer = CCryptoBoringSSL_EVP_PKEY_get1_RSA(key) else {
+            throw BoringSSLKeyError.rsaConversionFailure
+        }
+
+        self.underlying = pointer
     }
 
     init<Data>(pem data: Data) throws where Data: DataProtocol {
-        fatalError("Not implemented: \(#function)")
+        let key = try Self.load(pem: data) { bio in
+            CCryptoBoringSSL_PEM_read_bio_PUBKEY(bio, nil, nil, nil)
+        }
+        defer { CCryptoBoringSSL_EVP_PKEY_free(key) }
+
+        guard let pointer = CCryptoBoringSSL_EVP_PKEY_get1_RSA(key) else {
+            throw BoringSSLKeyError.rsaConversionFailure
+        }
+
+        self.underlying = pointer
+    }
+}
+
+// MARK: - RSA key implementations for unsupported platforms
+
+#else
+struct UnsupportedRSAPrivateKey: PrivateKey {
+    var sizeInBits: Int {
+        fatalError("Unsupported")
+    }
+
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
+        fatalError("Unsupported: \(#function)")
+    }
+}
+
+struct UnsupportedRSAPublicKey: PublicKey {
+    var sizeInBits: Int {
+        fatalError("Unsupported")
+    }
+
+    init(data: Data) throws {
+        fatalError("Unsupported: \(#function)")
+    }
+
+    init<Data>(pem data: Data) throws where Data: DataProtocol {
+        fatalError("Unsupported: \(#function)")
     }
 }
 #endif

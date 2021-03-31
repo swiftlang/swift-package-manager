@@ -249,8 +249,6 @@ public class Workspace {
 
     fileprivate let additionalFileRules: [FileRuleDescription]
 
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.workspace", attributes: .concurrent)
-
     /// Create a new package workspace.
     ///
     /// This will automatically load the persisted state for the package, if
@@ -352,7 +350,8 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         repositoryManager: RepositoryManager? = nil,
-        delegate: WorkspaceDelegate? = nil
+        delegate: WorkspaceDelegate? = nil,
+        identityResolver: IdentityResolver? = nil
     ) -> Workspace {
         return Workspace(
             dataPath: packagePath.appending(component: ".build"),
@@ -360,7 +359,8 @@ public class Workspace {
             pinsFile: packagePath.appending(component: "Package.resolved"),
             manifestLoader: manifestLoader,
             repositoryManager: repositoryManager,
-            delegate: delegate
+            delegate: delegate,
+            identityResolver: identityResolver
         )
     }
 }
@@ -510,7 +510,7 @@ extension Workspace {
         }
     }
 
-    /// Cleans the build artefacts from workspace data.
+    /// Cleans the build artifacts from workspace data.
     ///
     /// - Parameters:
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
@@ -631,12 +631,9 @@ extension Workspace {
         return nil
     }
 
-    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - packagePath: The absolute path of the root package.
-    ///     - swiftCompiler: The absolute path of a `swiftc` executable.
-    ///         Its associated resources will be used by the loader.
+
+    // deprecated 3/21, remove once clients migrated over
+    @available(*, deprecated, message: "use loadRootPackage instead")
     public static func loadGraph(
         packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -644,9 +641,28 @@ extension Workspace {
         identityResolver: IdentityResolver,
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
+        return try Self.loadRootGraph(at: packagePath, swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags, identityResolver: identityResolver, diagnostics: diagnostics)
+    }
+
+    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///   - at: The absolute path of the root package.
+    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
+    ///   - identityResolver: A helper to resolve identities based on configuration
+    ///   - diagnostics: Optional.  The diagnostics engine.
+    ///   - on: The dispatch queue to perform asynchronous operations on.
+    ///   - completion: The completion handler .
+    public static func loadRootGraph(
+        at packagePath: AbsolutePath,
+        swiftCompiler: AbsolutePath,
+        swiftCompilerFlags: [String],
+        identityResolver: IdentityResolver? = nil,
+        diagnostics: DiagnosticsEngine
+    ) throws -> PackageGraph {
         let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
         let loader = ManifestLoader(manifestResources: resources)
-        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, identityResolver: identityResolver)
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
@@ -732,30 +748,31 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         diagnostics: DiagnosticsEngine,
-        completion: @escaping(Result<[Manifest], Error>) -> Void
+        completion: @escaping(Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
         let lock = Lock()
         let sync = DispatchGroup()
-        var rootManifests = [Manifest]()
+        var rootManifests = [AbsolutePath: Manifest]()
         Set(packages).forEach { package in
             sync.enter()
-            self.loadManifest(packagePath: package, packageLocation: package.pathString, packageKind: .root, diagnostics: diagnostics) { result in
+            // TODO: this does not use the identity resolver which is probably fine since its the root packages
+            self.loadManifest(packageIdentity: PackageIdentity(path: package), packageKind: .root, packagePath: package, packageLocation: package.pathString, diagnostics: diagnostics) { result in
                 defer { sync.leave() }
                 if case .success(let manifest) = result {
                     lock.withLock {
-                        rootManifests.append(manifest)
+                        rootManifests[package] = manifest
                     }
                 }
             }
         }
 
-        sync.notify(queue: self.queue) {
+        sync.notify(queue: .sharedConcurrent) {
             // Check for duplicate root packages.
-            let duplicateRoots = rootManifests.spm_findDuplicateElements(by: \.name)
+            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.name)
             if !duplicateRoots.isEmpty {
                 let name = duplicateRoots[0][0].name
                 diagnostics.emit(error: "found multiple top-level packages named '\(name)'")
-                return completion(.success([]))
+                return completion(.success([:]))
             }
 
             completion(.success(rootManifests))
@@ -833,9 +850,10 @@ extension Workspace {
         if fileSystem.exists(destination) {
             // FIXME: this should not block
             let manifest = try temp_await {
-                self.loadManifest(packagePath: destination,
-                                  packageLocation: dependency.packageRef.repository.url,
+                self.loadManifest(packageIdentity: dependency.packageRef.identity,
                                   packageKind: .local,
+                                  packagePath: destination,
+                                  packageLocation: dependency.packageRef.repository.url,
                                   diagnostics: diagnostics,
                                   completion: $0)
             }
@@ -861,7 +879,7 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let handle = try temp_await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: self.queue, completion: $0)
+                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }
             let repo = try handle.open()
 
@@ -1081,28 +1099,27 @@ extension Workspace {
             }
 
             // Root packages are always allowed to use unsafe flags.
-            result.formUnion(root.packageRefs)
+            result.formUnion(root.packageReferences)
 
             return result
         }
 
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
-                self.root.manifests.map { (workspace.identityResolver.resolveIdentity(for: $0.packageLocation), $0) } +
-                self.dependencies.map { (workspace.identityResolver.resolveIdentity(for: $0.manifest.packageLocation), $0.manifest) })
+                self.root.packages.map { ($0.key, $0.value.manifest) } +
+                self.dependencies.map { ($0.dependency.packageIdentity, $0.manifest) }
+            )
 
             var inputIdentities: Set<PackageReference> = []
-            let inputNodes: [GraphLoadingNode] = self.root.manifests.map{ manifest in
-                let identity = workspace.identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let package = PackageReference(identity: identity, kind: manifest.packageKind, location: manifest.packageLocation)
-                inputIdentities.insert(package)
-                let node = GraphLoadingNode(manifest: manifest, productFilter: .everything)
+            let inputNodes: [GraphLoadingNode] = self.root.packages.map{ identity, package in
+                inputIdentities.insert(package.reference)
+                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
                 let package = dependency.createPackageRef()
                 inputIdentities.insert(package)
                 return manifestsMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
                 }
             }
 
@@ -1113,7 +1130,7 @@ extension Workspace {
                     let package = dependency.createPackageRef()
                     requiredIdentities.insert(package)
                     return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(manifest: manifest, productFilter: dependency.productFilter)
+                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
                     }
                 }
             }
@@ -1145,7 +1162,7 @@ extension Workspace {
                     // We should get the correct one from managed dependency object.
                     let ref = PackageReference.local(
                         identity: managedDependency.packageRef.identity,
-                        path: AbsolutePath(managedDependency.packageRef.location)
+                        path: workspace.path(to: managedDependency)
                     )
                     let constraint = PackageContainerConstraint(
                         package: ref,
@@ -1248,12 +1265,18 @@ extension Workspace {
         root: PackageGraphRoot,
         diagnostics: DiagnosticsEngine
     ) throws -> DependencyManifests {
+        // Utility Just because a raw tuple cannot be hashable.
+        struct Key: Hashable {
+            let identity: PackageIdentity
+            let url: String
+            let productFilter: ProductFilter
+        }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
         let dependenciesToCheck = Array(state.dependencies)
         // Remove any managed dependency which has become a root.
         for dependency in dependenciesToCheck {
-            if root.packageRefs.contains(dependency.packageRef) {
+            if root.packages.keys.contains(dependency.packageRef.identity) {
                 diagnostics.wrap {
                     try self.remove(package: dependency.packageRef)
                 }
@@ -1269,52 +1292,54 @@ extension Workspace {
         // optimization: preload in parallel
         let rootDependencyManifestsURLs = root.dependencies.map{ $0.location }
         let rootDependencyManifests = try temp_await { self.loadManifests(forURLs: rootDependencyManifestsURLs, diagnostics: diagnostics, completion: $0) }
+            .spm_createDictionary{ (self.identityResolver.resolveIdentity(for: $0.packageLocation), $0) }
 
-        let inputManifests = root.manifests + rootDependencyManifests
+        let inputManifests = root.manifests.merging(rootDependencyManifests, uniquingKeysWith: { lhs, rhs in
+            return lhs // prefer roots!
+        })
 
-        // Map of loaded manifests. We do this to avoid reloading the shared nodes.
+        // Create a map of loaded manifests. We do this to avoid reloading the shared nodes.
+        // optimization: preload manifest we know about in parallel
+        // note: loadManifest emits diagnostics in case it fails
+        let inputManifestsDependenciesURLs = inputManifests.values.map { $0.dependencies.map{ $0.location } }.flatMap { $0 }
+        var loadedManifests = try temp_await { self.loadManifests(forURLs: inputManifestsDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) } // FIXME: this should not block
 
+        // Continue to load the rest of the manifest for this graph
         // Compute the transitive closure of available dependencies.
-        struct URLAndFilter: Hashable { // Just because a raw tuple cannot be hashable.
-            let url: String
-            let productFilter: ProductFilter
+        let inputPairs = inputManifests.map { identity, manifest -> KeyedPair<Manifest, Key> in
+            let key = Key(identity: identity, url: manifest.packageLocation, productFilter: .everything)
+            return KeyedPair(manifest, key: key)
         }
 
-        // optimization: preload manifest we know about in parallel
-        let inputDependenciesURLs = inputManifests.map { $0.dependencies.map{ $0.location } }.flatMap { $0 }
-        // FIXME: this should not block
-        var loadedManifests = try temp_await { self.loadManifests(forURLs: inputDependenciesURLs, diagnostics: diagnostics, completion: $0) }.spm_createDictionary{ ($0.packageLocation, $0) }
-
-        // continue to load the rest of the manifest for this graph
-        let allManifestsWithPossibleDuplicates = try topologicalSort(inputManifests.map{ KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: .everything)) }) { node in
-            return node.item.dependenciesRequired(for: node.key.productFilter).compactMap{ dependency in
-                let location = dependency.location
-                // FIXME: this should not block
-                // note: loadManifest emits diagnostics in case it fails
-                let manifest = loadedManifests[location] ?? temp_await { self.loadManifest(forURL: location, diagnostics: diagnostics, completion: $0) }
-                loadedManifests[location] = manifest
-                return manifest.flatMap { KeyedPair($0, key: URLAndFilter(url: $0.packageLocation, productFilter: dependency.productFilter)) }
+        let allManifestsWithPossibleDuplicates = try topologicalSort(inputPairs) { pair in
+            // optimization: preload manifest we know about in parallel
+            let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
+            let dependenciesRequiredURLs = dependenciesRequired.map{ $0.location }.filter { !loadedManifests.keys.contains($0) }
+            // note: loadManifest emits diagnostics in case it fails
+            let dependenciesRequiredManifests = try temp_await { self.loadManifests(forURLs: dependenciesRequiredURLs, diagnostics: diagnostics, completion: $0) }
+            dependenciesRequiredManifests.forEach { loadedManifests[$0.packageLocation] = $0 }
+            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap{ dependency in
+                loadedManifests[dependency.location].flatMap { KeyedPair($0, key: Key(identity: dependency.identity, url: $0.packageLocation, productFilter: dependency.productFilter)) }
             }
         }
 
         // remove duplicates of the same manifest (by identity)
         var deduplication = [PackageIdentity: Int]()
         var allManifests = [(manifest: Manifest, productFilter: ProductFilter)]()
-        for node in allManifestsWithPossibleDuplicates {
-            let identity = self.identityResolver.resolveIdentity(for: node.item.packageLocation)
-            if let index = deduplication[identity]  {
-                let productFilter = allManifests[index].productFilter.merge(node.key.productFilter)
-                allManifests[index] = (node.item, productFilter)
+        for pair in allManifestsWithPossibleDuplicates {
+            if let index = deduplication[pair.key.identity]  {
+                let productFilter = allManifests[index].productFilter.merge(pair.key.productFilter)
+                allManifests[index] = (pair.item, productFilter)
             } else {
-                deduplication[identity] = allManifests.count
-                allManifests.append((node.item, node.key.productFilter))
+                deduplication[pair.key.identity] = allManifests.count
+                allManifests.append((pair.item, pair.key.productFilter))
             }
         }
 
-        let dependencyManifests = allManifests.filter{ !root.manifests.contains($0.manifest) }
+        let dependencyManifests = allManifests.filter{ !root.manifests.values.contains($0.manifest) }
 
         // check for overrides attempts with same name but different path
-        let rootManifestsByName = root.manifests.spm_createDictionary{ ($0.name, $0) }
+        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.name, $0) }
         dependencyManifests.forEach { manifest, _ in
             if let override = rootManifestsByName[manifest.name], override.packageLocation != manifest.packageLocation  {
                 diagnostics.emit(error: "unable to override package '\(manifest.name)' because its identity '\(PackageIdentity(url: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(url: override.packageLocation))'")
@@ -1354,10 +1379,11 @@ extension Workspace {
         let packagePath = path(to: managedDependency)
 
         // Load and return the manifest.
-        self.loadManifest(packagePath: packagePath,
+        self.loadManifest(packageIdentity: managedDependency.packageRef.identity,
+                          packageKind: packageKind,
+                          packagePath: packagePath,
                           packageLocation: managedDependency.packageRef.location,
                           version: version,
-                          packageKind: packageKind,
                           diagnostics: diagnostics) { result in
             // error is added to diagnostics in the function above
             completion(try? result.get())
@@ -1381,7 +1407,7 @@ extension Workspace {
             }
         }
 
-        sync.notify(queue: self.queue) {
+        sync.notify(queue: .sharedConcurrent) {
             completion(.success(manifests))
         }
     }
@@ -1390,10 +1416,11 @@ extension Workspace {
     ///
     /// This is just a helper wrapper to the manifest loader.
     fileprivate func loadManifest(
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,
         packageLocation: String,
         version: Version? = nil,
-        packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -1410,6 +1437,7 @@ extension Workspace {
 
                 // Load the manifest.
                 manifestLoader.load(at: packagePath,
+                                    packageIdentity: packageIdentity,
                                     packageKind: packageKind,
                                     packageLocation: packageLocation,
                                     version: version,
@@ -1418,7 +1446,7 @@ extension Workspace {
                                     identityResolver: self.identityResolver,
                                     fileSystem: localFileSystem,
                                     diagnostics: diagnostics,
-                                    on: self.queue) { result in
+                                    on: .sharedConcurrent) { result in
 
                     switch result {
                     case .failure(let error):
@@ -1538,14 +1566,14 @@ extension Workspace {
     }
 
     private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
-        let packageAndManifests: [(PackageReference, Manifest)] =
-            zip(manifests.root.packageRefs, manifests.root.manifests) + // Root package and manifests.
+        let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
+            manifests.root.packages.values + // Root package and manifests.
             manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
 
         var localArtifacts: [ManagedArtifact] = []
         var remoteArtifacts: [RemoteArtifact] = []
 
-        for (packageRef, manifest) in packageAndManifests {
+        for (packageReference, manifest) in packageAndManifests {
             for target in manifest.targets where target.type == .binary {
                 if let path = target.path {
                     // TODO: find a better way to get the base path (not via the manifest)
@@ -1553,14 +1581,14 @@ extension Workspace {
                     let absolutePath = manifest.path.parentDirectory.appending(RelativePath(path))
                     localArtifacts.append(
                         .local(
-                            packageRef: packageRef,
+                            packageRef: packageReference,
                             targetName: target.name,
                             path: absolutePath)
                     )
                 } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
                     remoteArtifacts.append(
                         .init(
-                            packageRef: packageRef,
+                            packageRef: packageReference,
                             targetName: target.name,
                             url: url,
                             checksum: checksum)
@@ -1781,7 +1809,7 @@ extension Workspace {
         let pins = pinsStore.pins.map({ $0 })
         DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
             _ = try? temp_await {
-                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: self.queue, completion: $0)
+                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }
         }
 
@@ -1811,7 +1839,7 @@ extension Workspace {
         // Save state for local packages, if any.
         //
         // FIXME: This will only work for top-level local packages right now.
-        for rootManifest in rootManifests {
+        for rootManifest in rootManifests.values {
             let dependencies = rootManifest.dependencies.filter{ $0.isLocal }
             for localPackage in dependencies {
                 let package = localPackage.createPackageRef()
@@ -2017,16 +2045,11 @@ extension Workspace {
         let constraints =
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
-            root.manifests.flatMap({ try $0.dependencyConstraints(productFilter: .everything) }) +
+            root.manifests.values.flatMap{ try $0.dependencyConstraints(productFilter: .everything) } +
             dependencyManifests.dependencyConstraints() +
             extraConstraints
 
-        let precomputationProvider = ResolverPrecomputationProvider(
-            root: root,
-            dependencyManifests: dependencyManifests,
-            identityResolver: self.identityResolver
-        )
-
+        let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
         let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
         let result = resolver.solve(constraints: constraints)
 
@@ -2199,7 +2222,7 @@ extension Workspace {
 
             case .unversioned:
                 // Ignore the root packages.
-                if root.packageRefs.contains(packageRef) {
+                if root.packages.keys.contains(packageRef.identity) {
                     continue
                 }
 
@@ -2220,7 +2243,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 guard let container = (try temp_await {
-                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: self.queue, completion: $0)
+                    containerProvider.getContainer(for: packageRef, skipUpdate: true, on: .sharedConcurrent, completion: $0)
                 }) as? RepositoryPackageContainer else {
                     throw InternalError("invalid container for \(packageRef) expected a RepositoryPackageContainer")
                 }
@@ -2450,7 +2473,7 @@ extension Workspace {
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
         let handle = try temp_await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: self.queue, completion: $0)
+            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
         }
 
         // Clone the repository into the checkouts.
@@ -2522,7 +2545,7 @@ extension Workspace {
             // this?
             // FIXME: this should not block
             guard let container = (try temp_await {
-                containerProvider.getContainer(for: package, skipUpdate: true, on: self.queue, completion: $0)
+                containerProvider.getContainer(for: package, skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }) as? RepositoryPackageContainer else {
                 throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
             }

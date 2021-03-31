@@ -162,15 +162,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // changed, PackagePlugin will need to change as well (but no plugins need to change).
         var command = [compiledExec.pathString]
         command += [String(decoding: input, as: UTF8.self)]
-        
-        #if os(macOS)
-        // If enabled, use sandbox-exec on macOS.  This provides some safety against arbitrary code execution when invoking plugin scripts.
-        // <rdar://40235432> tracks implementing sandboxes for other platforms.
+
+        // If enabled, run command in a sandbox.
+        // This provides some safety against arbitrary code execution when invoking the plugin.
+        // We only allow the permissions which are absolutely necessary.
         if self.enableSandbox {
-            let profile = macOSSandboxProfile(toolsVersion: toolsVersion, writableDirectories: writableDirectories)
-            command = ["/usr/bin/sandbox-exec", "-p", profile] + command
+            command = Sandbox.apply(command: command, writableDirectories: writableDirectories)
         }
-        #endif
 
         // Invoke the plugin script as a subprocess.
         let result: ProcessResult
@@ -205,35 +203,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // Otherwise return the JSON data and any output text.
         return (outputJSON: json, stdoutText: stdoutData + stderrData)
     }
-
-    /// Constructs the sandbox profile to use for plugin scripts on macOS.  The tools version can affect what's allowed.
-    private func macOSSandboxProfile(toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath] = []) -> String {
-        var contents = "(version 1)\n"
-        
-        // Deny everything by default.
-        contents += "(deny default)\n"
-        
-        // Import the system sandbox profile.
-        contents += "(import \"system.sb\")\n"
-        
-        // Allow reading all files; ideally we'd only allow the package directory and any dependencies,
-        // but all kinds of system locations need to be accessible.
-        contents += "(allow file-read*)\n"
-        
-        // This is needed to launch any processes (even the compiled plugin itself).
-        contents += "(allow process*)\n"
-        
-        // Allow writing only to certain directories.
-        if !writableDirectories.isEmpty {
-            contents += "(allow file-write*\n"
-            for directory in writableDirectories {
-                contents += "    (subpath \"\(resolveSymlinks(directory).pathString)\")\n"
-            }
-            contents += ")\n"
-        }
-        return contents
-    }
-
 }
 
 

@@ -580,7 +580,7 @@ class MiscellaneousTestCase: XCTestCase {
     
     func testTestsCanLinkAgainstExecutable() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.
-        try XCTSkipUnless(doesHostSwiftCompilerSupportRenamingMainSymbol(), "skipping because host compiler doesn't support '-entry-point-function-name'")
+        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
         
         fixture(name: "Miscellaneous/TestableExe") { prefix in
             do {
@@ -607,13 +607,49 @@ class MiscellaneousTestCase: XCTestCase {
             }
         }
     }
-}
 
-func doesHostSwiftCompilerSupportRenamingMainSymbol() throws -> Bool {
-    try withTemporaryDirectory { tmpDir in
-        let hostToolchain = try UserToolchain(destination: .hostDestination())
-        FileManager.default.createFile(atPath: "\(tmpDir)/foo.swift", contents: Data())
-        let result = try Process.popen(args: hostToolchain.swiftCompiler.pathString, "-c", "-Xfrontend", "-entry-point-function-name", "-Xfrontend", "foo", "\(tmpDir)/foo.swift", "-o", "\(tmpDir)/foo.o")
-        return try !result.utf8stderrOutput().contains("unknown argument: '-entry-point-function-name'")
+    func testEditModeEndToEnd() {
+        fixture(name: "Miscellaneous/Edit") { prefix in
+            let prefix = resolveSymlinks(prefix)
+            let appPath = prefix.appending(component: "App")
+
+            // prepare the dependencies as git repos
+            try ["Foo", "Bar"].forEach { directory in
+                let path = prefix.appending(component: directory)
+                _ = try Process.checkNonZeroExit(args: "git", "-C", path.pathString, "init")
+            }
+
+            do {
+                // make sure it builds
+                let output = try executeSwiftBuild(appPath)
+                XCTAssertTrue(output.stdout.contains("Cloning \(prefix)/Foo"))
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
+            }
+
+            // put foo into edit mode
+            _ = try executeSwiftPackage(appPath, extraArgs: ["edit", "Foo"])
+            XCTAssertTrue(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+
+            do {
+                // build again in edit mode
+                let output = try executeSwiftBuild(appPath)
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
+            }
+
+
+            do {
+                // take foo out of edit mode
+                let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
+                XCTAssertTrue(output.stdout.contains("Cloning \(prefix)/Foo"))
+                XCTAssertFalse(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+            }
+
+            // build again in edit mode
+            do {
+                let output = try executeSwiftBuild(appPath)
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
+            }
+        }
+
     }
 }

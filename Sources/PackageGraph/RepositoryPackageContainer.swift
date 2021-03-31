@@ -67,7 +67,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     private var dependenciesCacheLock = Lock()
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
-    private var manifestsCache = ThreadSafeKeyValueStore<Revision, Manifest>()
+    private var manifestsCache = ThreadSafeKeyValueStore<String, Manifest>()
     private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
 
     /// This is used to remember if tools version of a particular version is
@@ -146,9 +146,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             guard let tag = try self.knownVersions()[version] else {
                 throw StringError("unknown tag \(version)")
             }
-            let revision = try repository.resolveRevision(tag: tag)
-            let fs = try repository.openFileView(revision: revision)
-            return try toolsVersionLoader.load(at: .root, fileSystem: fs)
+            let fileSystem = try repository.openFileView(tag: tag)
+            return try toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
         }
     }
 
@@ -158,8 +157,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                 guard let tag = try self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
-                let revision = try repository.resolveRevision(tag: tag)
-                return try self.loadDependencies(at: revision, version: version, productFilter: productFilter)
+                return try self.loadDependencies(tag: tag, version: version, productFilter: productFilter)
             }.1
         } catch {
             throw GetDependenciesError(
@@ -217,6 +215,16 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 
     /// Returns dependencies of a container at the given revision.
     private func loadDependencies(
+        tag: String,
+        version: Version? = nil,
+        productFilter: ProductFilter
+    ) throws -> (Manifest, [Constraint]) {
+        let manifest = try self.loadManifest(tag: tag, version: version)
+        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter))
+    }
+
+    /// Returns dependencies of a container at the given revision.
+    private func loadDependencies(
         at revision: Revision,
         version: Version? = nil,
         productFilter: ProductFilter
@@ -265,34 +273,46 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
     }
-   
+
+    private func loadManifest(tag: String, version: Version?) throws -> Manifest {
+        try self.manifestsCache.memoize(tag) {
+            let fileSystem = try repository.openFileView(tag: tag)
+            return try self.loadManifest(fileSystem: fileSystem, version: version, packageVersion: tag)
+        }
+    }
+
     private func loadManifest(at revision: Revision, version: Version?) throws -> Manifest {
-        try self.manifestsCache.memoize(revision) {
-            let fs = try repository.openFileView(revision: revision)
-            let packageLocation = package.repository.url
+        try self.manifestsCache.memoize(revision.identifier) {
+            let fileSystem = try self.repository.openFileView(revision: revision)
+            return try self.loadManifest(fileSystem: fileSystem, version: version, packageVersion: revision.identifier)
+        }
+    }
 
-            // Load the tools version.
-            let toolsVersion = try toolsVersionLoader.load(at: .root, fileSystem: fs)
+    private func loadManifest(fileSystem: FileSystem, version: Version?, packageVersion: String) throws -> Manifest {
+        let packageLocation = self.package.repository.url
 
-            // Validate the tools version.
-            try toolsVersion.validateToolsVersion(
-                self.currentToolsVersion, version: revision.identifier, packagePath: packageLocation)
+        // Load the tools version.
+        let toolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
 
-            // Load the manifest.
-            // FIXME: this should not block
-            return try temp_await {
-                manifestLoader.load(at: AbsolutePath.root,
-                                    packageKind: package.kind,
-                                    packageLocation: packageLocation,
-                                    version: version,
-                                    revision: nil,
-                                    toolsVersion: toolsVersion,
-                                    identityResolver: identityResolver,
-                                    fileSystem: fs,
-                                    diagnostics: nil,
-                                    on: .global(),
-                                    completion: $0)
-            }
+        // Validate the tools version.
+        try toolsVersion.validateToolsVersion(
+            self.currentToolsVersion, packagePath: packageLocation, packageVersion: packageVersion)
+
+        // Load the manifest.
+        // FIXME: this should not block
+        return try temp_await {
+            self.manifestLoader.load(at: AbsolutePath.root,
+                                     packageIdentity: self.package.identity,
+                                     packageKind: self.package.kind,
+                                     packageLocation: packageLocation,
+                                     version: version,
+                                     revision: nil,
+                                     toolsVersion: toolsVersion,
+                                     identityResolver: self.identityResolver,
+                                     fileSystem: fileSystem,
+                                     diagnostics: nil,
+                                     on: .sharedConcurrent,
+                                     completion: $0)
         }
     }
 

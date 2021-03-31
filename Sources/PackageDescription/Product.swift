@@ -190,7 +190,7 @@ public class Product: Encodable {
     /// - Parameters:
     ///     - name: The name of the plugin product.
     ///     - targets: The plugin targets to vend as a product.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.5)
     public static func plugin(
         name: String,
         targets: [String]

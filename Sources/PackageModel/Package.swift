@@ -43,6 +43,9 @@ import TSCUtility
 /// loaded. There is not currently a data structure for this, but it is the
 /// result after `PackageLoading.transmute()`.
 public final class Package: ObjectIdentifierProtocol, Encodable {
+    /// The identity of the package.
+    public let identity: PackageIdentity
+
     /// The manifest describing the package.
     public let manifest: Manifest
 
@@ -50,7 +53,14 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
     public let path: AbsolutePath
 
     /// The name of the package.
+    @available(*, deprecated, message: "use identity (or manifestName, but only if you must) instead")
     public var name: String {
+        return self.manifestName
+    }
+
+    /// The name of the package as entered in the manifest.
+    /// This should rarely be used beyond presentation purposes
+    public var manifestName: String {
         return manifest.name
     }
 
@@ -72,6 +82,7 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
     public let testTargetSearchPath: AbsolutePath
 
     public init(
+        identity: PackageIdentity,
         manifest: Manifest,
         path: AbsolutePath,
         targets: [Target],
@@ -79,6 +90,7 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
         targetSearchPath: AbsolutePath,
         testTargetSearchPath: AbsolutePath
     ) {
+        self.identity = identity
         self.manifest = manifest
         self.path = path
         self._targets = .init(wrappedValue: targets)
@@ -92,9 +104,15 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
     }
 }
 
+extension Package {
+    public var diagnosticLocation: DiagnosticLocation {
+        return PackageLocation.Local(name: self.manifest.name, packagePath: self.path)
+    }
+}
+
 extension Package: CustomStringConvertible {
     public var description: String {
-        return name
+        return self.identity.description
     }
 }
 

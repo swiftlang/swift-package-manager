@@ -1,0 +1,4 @@
+module PackageCollectionsSigningLibc {
+    header "PackageCollectionsSigningLibc.h"
+    export *
+}

@@ -27,11 +27,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     private let diagnosticsEngine: DiagnosticsEngine?
     private let decoder: JSONDecoder
 
+    private let cache: ThreadSafeKeyValueStore<PackageReference, (package: Model.PackageBasicMetadata, timestamp: DispatchTime)>?
+
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.diagnosticsEngine = diagnosticsEngine
         self.decoder = JSONDecoder.makeWithDefaults()
+        self.cache = configuration.cacheTTLInSeconds > 0 ? .init() : nil
     }
 
     func get(_ reference: PackageReference, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
@@ -40,6 +43,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
         guard let baseURL = self.apiURL(reference.location) else {
             return callback(.failure(Errors.invalidGitURL(reference.location)))
+        }
+
+        if let cachedMetadata = self.cache?[reference] {
+            if cachedMetadata.timestamp + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
+                return callback(.success(cachedMetadata.package))
+            }
         }
 
         let metadataURL = baseURL
@@ -115,7 +124,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
                     let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
 
-                    callback(.success(.init(
+                    let model = Model.PackageBasicMetadata(
                         summary: metadata.description,
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
@@ -130,7 +139,25 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
                         authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
                         processedAt: Date()
-                    )))
+                    )
+
+                    if let cache = self.cache {
+                        cache[reference] = (model, DispatchTime.now())
+
+                        if cache.count > self.configuration.cacheSize {
+                            DispatchQueue.sharedConcurrent.async {
+                                // Delete oldest entries with some room for growth
+                                let sortedCacheEntries = cache.get().sorted { $0.value.timestamp < $1.value.timestamp }
+                                let deleteCount = sortedCacheEntries.count - (self.configuration.cacheSize / 2)
+                                self.diagnosticsEngine?.emit(note: "Cache size limit exceeded, deleting the oldest \(deleteCount) entries")
+
+                                for index in 0 ..< deleteCount {
+                                    _ = cache.removeValue(forKey: sortedCacheEntries[index].key)
+                                }
+                            }
+                        }
+                    }
+                    callback(.success(model))
                 }
             } catch {
                 return callback(.failure(error))
@@ -184,11 +211,17 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     public struct Configuration {
         public var apiLimitWarningThreshold: Int
         public var authTokens: [AuthTokenType: String]?
+        public var cacheTTLInSeconds: Int
+        public var cacheSize: Int
 
         public init(authTokens: [AuthTokenType: String]? = nil,
-                    apiLimitWarningThreshold: Int? = nil) {
+                    apiLimitWarningThreshold: Int? = nil,
+                    cacheTTLInSeconds: Int? = nil,
+                    cacheSize: Int? = nil) {
             self.authTokens = authTokens
             self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
+            self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
+            self.cacheSize = cacheSize ?? 1000
         }
     }
 

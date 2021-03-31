@@ -55,7 +55,7 @@ fileprivate struct DescribedPackage: Encodable {
     let swiftLanguagesVersions: [String]?
 
     init(from package: Package) {
-        self.name = package.name
+        self.name = package.manifestName // TODO: rename property to manifestName?
         self.path = package.path.pathString
         self.toolsVersion = "\(package.manifest.toolsVersion.major).\(package.manifest.toolsVersion.minor)"
             + (package.manifest.toolsVersion.patch == 0 ? "" : ".\(package.manifest.toolsVersion.patch)")
@@ -138,12 +138,8 @@ fileprivate struct DescribedPackage: Encodable {
 
         init(from capability: PluginCapability, in package: Package) {
             switch capability {
-            case .prebuild:
-                self.type = "prebuild"
             case .buildTool:
                 self.type = "buildTool"
-            case .postbuild:
-                self.type = "postbuild"
             }
         }
     }

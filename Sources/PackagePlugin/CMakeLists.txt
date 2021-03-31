@@ -9,6 +9,7 @@
 add_library(PackagePlugin
     PublicAPI/CommandConstructor.swift
     PublicAPI/DiagnosticsEmitter.swift
+    PublicAPI/FileList.swift
     PublicAPI/Globals.swift
     PublicAPI/Path.swift
     PublicAPI/TargetBuildContext.swift

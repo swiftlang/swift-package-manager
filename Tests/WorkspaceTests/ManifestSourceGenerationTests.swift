@@ -25,6 +25,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
+                                    packageIdentity: .plain("Root"),
                                     packageKind: .root,
                                     packageLocation: packageDir.pathString,
                                     version: nil,
@@ -41,6 +42,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
             let newManifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
+                                    packageIdentity: .plain("Root"),
                                     packageKind: .root,
                                     packageLocation: packageDir.pathString,
                                     version: nil,
@@ -229,7 +231,7 @@ class ManifestSourceGenerationTests: XCTestCase {
 
     func testPluginTargets() throws {
         let manifestContents = """
-            // swift-tools-version:999.0
+            // swift-tools-version:5.5
             import PackageDescription
 
             let package = Package(
@@ -246,6 +248,6 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .vNext)
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
     }
 }

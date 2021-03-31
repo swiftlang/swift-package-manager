@@ -110,16 +110,22 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(initialCommitHash, GitRepository.Hash("a8b9fcbf893b3b02c0196609059ebae37aeb7f0b"))
 
             // Check commit loading.
-            let initialCommit = try repo.read(commit: initialCommitHash)
+            let initialCommit = try repo.readCommit(hash: initialCommitHash)
             XCTAssertEqual(initialCommit.hash, initialCommitHash)
             XCTAssertEqual(initialCommit.tree, GitRepository.Hash("9d463c3b538619448c5d2ecac379e92f075a8976"))
 
             // Check tree loading.
-            let initialTree = try repo.read(tree: initialCommit.tree)
-            XCTAssertEqual(initialTree.hash, initialCommit.tree)
+            let initialTree = try repo.readTree(hash: initialCommit.tree)
+            guard case .hash(let initialTreeHash) = initialTree.location else {
+                return XCTFail("wrong pointer")
+            }
+            XCTAssertEqual(initialTreeHash, initialCommit.tree)
             XCTAssertEqual(initialTree.contents.count, 1)
             guard let readmeEntry = initialTree.contents.first else { return XCTFail() }
-            XCTAssertEqual(readmeEntry.hash, GitRepository.Hash("92513075b3491a54c45a880be25150d92388e7bc"))
+            guard case .hash(let readmeEntryHash) = readmeEntry.location else {
+                return XCTFail("wrong pointer")
+            }
+            XCTAssertEqual(readmeEntryHash, GitRepository.Hash("92513075b3491a54c45a880be25150d92388e7bc"))
             XCTAssertEqual(readmeEntry.type, .blob)
             XCTAssertEqual(readmeEntry.name, "README.txt")
 
@@ -127,15 +133,15 @@ class GitRepositoryTests: XCTestCase {
             //
             // This is a commit which has a subdirectory 'funny-names' with
             // paths with special characters.
-            let funnyNamesCommit = try repo.read(commit: repo.resolveHash(treeish: "a7b19a7"))
-            let funnyNamesRoot = try repo.read(tree: funnyNamesCommit.tree)
+            let funnyNamesCommit = try repo.readCommit(hash: repo.resolveHash(treeish: "a7b19a7"))
+            let funnyNamesRoot = try repo.readTree(hash: funnyNamesCommit.tree)
             XCTAssertEqual(funnyNamesRoot.contents.map{ $0.name }, ["README.txt", "funny-names", "subdir"])
             guard funnyNamesRoot.contents.count == 3 else { return XCTFail() }
 
             // FIXME: This isn't yet supported.
             let funnyNamesSubdirEntry = funnyNamesRoot.contents[1]
             XCTAssertEqual(funnyNamesSubdirEntry.type, .tree)
-            if let _ = try? repo.read(tree: funnyNamesSubdirEntry.hash) {
+            if let _ = try? repo.readTree(location: funnyNamesSubdirEntry.location) {
                 XCTFail("unexpected success reading tree with funny names")
             }
        }
@@ -157,7 +163,7 @@ class GitRepositoryTests: XCTestCase {
             try repo.stageEverything()
             try repo.commit()
             // We should be able to read a repo which as a submdoule.
-            _ = try repo.read(tree: try repo.resolveHash(treeish: "main"))
+            _ = try repo.readTree(hash: try repo.resolveHash(treeish: "main"))
         }
     }
 

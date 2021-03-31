@@ -8,10 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Vapor open source project
+//
+// Copyright (c) 2017-2020 Vapor project authors
+// Licensed under MIT
+//
+// See LICENSE for license information
+//
+// SPDX-License-Identifier: MIT
+//
+//===----------------------------------------------------------------------===//
+
 import struct Foundation.Data
 
 #if os(macOS)
 import Security
+#elseif os(Linux) || os(Windows)
+@_implementationOnly import CCryptoBoringSSL
 #endif
 
 // MARK: - MessageSigner and MessageValidator conformance using the Security framework
@@ -44,16 +59,73 @@ extension CoreRSAPublicKey {
 
 // MARK: - MessageSigner and MessageValidator conformance using BoringSSL
 
-#else
-extension BoringSSLRSAPrivateKey {
+#elseif os(Linux) || os(Windows)
+// Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSASigner.swift
+extension BoringSSLRSAPrivateKey: BoringSSLSigning {
+    private static let algorithm = BoringSSLEVP(type: .sha256)
+
+    var algorithm: BoringSSLEVP {
+        Self.algorithm
+    }
+
     func sign(message: Data) throws -> Data {
-        fatalError("Not implemented: \(#function)")
+        let digest = try self.digest(message)
+
+        var signatureLength: UInt32 = 0
+        var signature = [UInt8](
+            repeating: 0,
+            count: Int(CCryptoBoringSSL_RSA_size(self.underlying))
+        )
+
+        guard CCryptoBoringSSL_RSA_sign(
+            CCryptoBoringSSL_EVP_MD_type(self.algorithm.underlying),
+            digest,
+            numericCast(digest.count),
+            &signature,
+            &signatureLength,
+            self.underlying
+        ) == 1 else {
+            throw SigningError.signFailure
+        }
+
+        return Data(signature[0 ..< numericCast(signatureLength)])
     }
 }
 
-extension BoringSSLRSAPublicKey {
+extension BoringSSLRSAPublicKey: BoringSSLSigning {
+    private static let algorithm = BoringSSLEVP(type: .sha256)
+
+    var algorithm: BoringSSLEVP {
+        Self.algorithm
+    }
+
     func isValidSignature(_ signature: Data, for message: Data) throws -> Bool {
-        fatalError("Not implemented: \(#function)")
+        let digest = try self.digest(message)
+        let signature = signature.copyBytes()
+
+        return CCryptoBoringSSL_RSA_verify(
+            CCryptoBoringSSL_EVP_MD_type(self.algorithm.underlying),
+            digest,
+            numericCast(digest.count),
+            signature,
+            numericCast(signature.count),
+            self.underlying
+        ) == 1
+    }
+}
+
+// MARK: - MessageSigner and MessageValidator conformance for unsupported platforms
+
+#else
+extension UnsupportedRSAPrivateKey {
+    func sign(message: Data) throws -> Data {
+        fatalError("Unsupported: \(#function)")
+    }
+}
+
+extension UnsupportedRSAPublicKey {
+    func isValidSignature(_ signature: Data, for message: Data) throws -> Bool {
+        fatalError("Unsupported: \(#function)")
     }
 }
 #endif

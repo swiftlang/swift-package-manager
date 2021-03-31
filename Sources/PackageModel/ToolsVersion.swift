@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -23,6 +23,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     public static let v5_2 = ToolsVersion(version: "5.2.0")
     public static let v5_3 = ToolsVersion(version: "5.3.0")
     public static let v5_4 = ToolsVersion(version: "5.4.0")
+    public static let v5_5 = ToolsVersion(version: "5.5.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
@@ -102,8 +103,8 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
     /// version of the package manager.
     public func validateToolsVersion(
         _ currentToolsVersion: ToolsVersion,
-        version: String? = nil,
-        packagePath: String
+        packagePath: String,
+        packageVersion: String? = nil
     ) throws {
         // We don't want to throw any error when using the special vNext version.
         if SwiftVersion.currentVersion.isDevelopment && self == .vNext {
@@ -114,7 +115,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
         guard self >= .minimumRequired else {
             throw UnsupportedToolsVersion(
                 packagePath: packagePath,
-                version: version,
+                packageVersion: packageVersion,
                 currentToolsVersion: currentToolsVersion,
                 packageToolsVersion: self
             )
@@ -124,7 +125,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable {
         guard currentToolsVersion >= self else {
             throw RequireNewerTools(
                 packagePath: packagePath,
-                version: version,
+                packageVersion: packageVersion,
                 installedToolsVersion: currentToolsVersion,
                 packageToolsVersion: self
             )

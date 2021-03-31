@@ -394,7 +394,7 @@ class PackageBuilderTests: XCTestCase {
         // Check that an explicitly declared target without a main source file works.
         var manifest = Manifest.createV4Manifest(
             name: "pkg",
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             products: [
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
             ],
@@ -414,7 +414,7 @@ class PackageBuilderTests: XCTestCase {
         // Check that products are inferred for explicitly declared executable targets.
         manifest = Manifest.createV4Manifest(
             name: "pkg",
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             products: [],
             targets: [
                 try TargetDescription(name: "exec1", type: .executable),
@@ -432,7 +432,7 @@ class PackageBuilderTests: XCTestCase {
         // Check that products are not inferred if there is an explicit executable product.
         manifest = Manifest.createV4Manifest(
             name: "pkg",
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             products: [
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
@@ -452,7 +452,7 @@ class PackageBuilderTests: XCTestCase {
         // Check that an explicitly declared target with a main source file still works.
         manifest = Manifest.createV4Manifest(
             name: "pkg",
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             products: [
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
@@ -472,7 +472,7 @@ class PackageBuilderTests: XCTestCase {
         // Check that a inferred target with a main source file still works but yields a warning.
         manifest = Manifest.createV4Manifest(
             name: "pkg",
-            toolsVersion: .vNext,
+            toolsVersion: .v5_5,
             products: [
                 ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
             ],
@@ -2168,7 +2168,7 @@ class PackageBuilderTests: XCTestCase {
 
         let manifest = Manifest.createManifest(
             name: "Foo",
-            v: .vNext,
+            v: .v5_5,
             targets: [
                 try TargetDescription(
                     name: "MyPlugin",
@@ -2243,6 +2243,7 @@ final class PackageBuilderTester {
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
+                identity: PackageIdentity(url: manifest.packageLocation), // FIXME
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,

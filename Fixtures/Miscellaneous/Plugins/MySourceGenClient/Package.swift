@@ -1,4 +1,4 @@
-// swift-tools-version: 999.0
+// swift-tools-version: 5.5
 import PackageDescription
 
 let package = Package(
@@ -10,8 +10,8 @@ let package = Package(
         // A tool that uses a plugin.
         .executableTarget(
             name: "MyTool",
-            dependencies: [
-                .product(name: "MySourceGenBuildToolPlugin", package: "MySourceGenPlugin")
+            plugins: [
+                .plugin(name: "MySourceGenBuildToolPlugin", package: "MySourceGenPlugin")
             ]
         ),
         // A unit test that uses the plugin.
