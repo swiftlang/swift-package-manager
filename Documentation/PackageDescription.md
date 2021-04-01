@@ -200,7 +200,7 @@ let package = Package(
         .library(name: "PaperDynamic", type: .dynamic, targets: ["Paper"]),
     ],
     dependencies: [
-        .package(url: "http://example.com.com/ExamplePackage/ExamplePackage", from: "1.2.3"),
+        .package(url: "http://example.com/ExamplePackage/ExamplePackage", from: "1.2.3"),
         .package(url: "http://some/other/lib", .exact("1.2.3")),
     ],
     targets: [
