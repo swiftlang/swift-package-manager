@@ -208,7 +208,7 @@ public struct SwiftRunTool: SwiftCommand {
     /// Returns the path to the correct executable based on options.
     private func findProductName(in graph: PackageGraph) throws -> String {
         if let executable = options.executable {
-            let executableExists = graph.allProducts.contains { $0.type == .executable && $0.name == executable }
+            let executableExists = graph.allProducts.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
             guard executableExists else {
                 throw RunError.executableNotFound(executable)
             }
@@ -218,7 +218,7 @@ public struct SwiftRunTool: SwiftCommand {
         // If the executable is implicit, search through root products.
         let rootExecutables = graph.rootPackages
             .flatMap { $0.products }
-            .filter { $0.type == .executable }
+            .filter { $0.type == .executable || $0.type == .snippet }
             .map { $0.name }
 
         // Error out if the package contains no executables.

@@ -14,6 +14,13 @@ add_library(Commands
   MultiRootSupport.swift
   Options.swift
   show-dependencies.swift
+  Snippets/CardEvent.swift
+  Snippets/Cards/SnippetCard.swift
+  Snippets/Cards/SnippetGroupCard.swift
+  Snippets/Cards/TopCard.swift
+  Snippets/CardStack.swift
+  Snippets/Card.swift
+  Snippets/Colorful.swift
   SwiftBuildTool.swift
   SwiftPackageCollectionsTool.swift
   SwiftPackageTool.swift

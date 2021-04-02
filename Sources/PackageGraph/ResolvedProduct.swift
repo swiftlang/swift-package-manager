@@ -36,8 +36,8 @@ public final class ResolvedProduct: ObjectIdentifierProtocol {
     ///
     /// Note: This property is only valid for executable products.
     public var executableModule: ResolvedTarget {
-        precondition(type == .executable, "This property should only be called for executable targets")
-        return targets.first(where: { $0.type == .executable })!
+        precondition(type == .executable || type == .snippet, "This property should only be called for executable targets")
+        return targets.first(where: { $0.type == .executable || $0.type == .snippet })!
     }
 
     public init(product: Product, targets: [ResolvedTarget]) {

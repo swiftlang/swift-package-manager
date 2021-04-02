@@ -22,6 +22,7 @@ import Xcodeproj
 import XCBuildSupport
 import Workspace
 import Foundation
+import PackageModel
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
@@ -59,7 +60,7 @@ public struct SwiftPackageTool: ParsableCommand {
             ComputeChecksum.self,
             ArchiveSource.self,
             CompletionTool.self,
-        ],
+        ] + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : [ParsableCommand.Type]()),
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -639,7 +640,7 @@ extension SwiftPackageTool {
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
     }
-    
+
     struct ToolsVersionCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "tools-version",
@@ -1047,6 +1048,7 @@ extension SwiftPackageTool {
             case generateFishScript = "generate-fish-script"
             case listDependencies = "list-dependencies"
             case listExecutables = "list-executables"
+            case listSnippets = "list-snippets"
         }
 
         /// A dummy version of the root `swift` command, to act as a parent
@@ -1092,7 +1094,103 @@ extension SwiftPackageTool {
                     stdoutStream <<< "\(executable.name)\n"
                 }
                 stdoutStream.flush()
+            case .listSnippets:
+                let graph = try swiftTool.loadPackageGraph()
+                let package = graph.rootPackages[0].underlyingPackage
+                let executables = package.targets.filter { $0.type == .snippet }
+                for executable in executables {
+                    stdoutStream <<< "\(executable.name)\n"
+                }
+                stdoutStream.flush()
             }
+        }
+    }
+}
+
+extension SwiftPackageTool {
+    struct Learn: SwiftCommand {
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        static let configuration = CommandConfiguration(abstract: "Learn about Swift and this package")
+
+        func files(in directory: AbsolutePath, fileExtension: String? = nil) throws -> [AbsolutePath] {
+            guard localFileSystem.isDirectory(directory) else {
+                return []
+            }
+
+            let files = try localFileSystem.getDirectoryContents(directory)
+                .map { directory.appending(RelativePath($0)) }
+                .filter { localFileSystem.isFile($0) }
+
+            guard let fileExtension = fileExtension else {
+                return files
+            }
+
+            return files.filter { $0.extension == fileExtension }
+        }
+
+        func subdirectories(in directory: AbsolutePath) throws -> [AbsolutePath] {
+            guard localFileSystem.isDirectory(directory) else {
+                return []
+            }
+            return try localFileSystem.getDirectoryContents(directory)
+                .map { directory.appending(RelativePath($0)) }
+                .filter { localFileSystem.isDirectory($0) }
+        }
+
+        func loadSnippetsAndSnippetGroups(from package: ResolvedPackage) throws -> [SnippetGroup] {
+            let snippetsDirectory = package.path.appending(component: "Snippets")
+            guard localFileSystem.isDirectory(snippetsDirectory) else {
+                return []
+            }
+
+            let topLevelSnippets = try files(in: snippetsDirectory, fileExtension: "swift")
+                .map { try Snippet(parsing: $0) }
+
+            let topLevelSnippetGroup = SnippetGroup(name: "Getting Started",
+                                                    baseDirectory: snippetsDirectory,
+                                                    snippets: topLevelSnippets,
+                                                    explanation: "")
+
+            let subdirectoryGroups = try subdirectories(in: snippetsDirectory)
+                .map { subdirectory -> SnippetGroup in
+                    let snippets = try files(in: subdirectory, fileExtension: "swift")
+                        .map { try Snippet(parsing: $0) }
+
+                    let explanationFile = subdirectory.appending(component: "Explanation.md")
+
+                    let snippetGroupExplanation: String
+                    if localFileSystem.isFile(explanationFile) {
+                        snippetGroupExplanation = try String(contentsOf: explanationFile.asURL)
+                    } else {
+                        snippetGroupExplanation = ""
+                    }
+
+                    return SnippetGroup(name: subdirectory.basename,
+                                        baseDirectory: subdirectory,
+                                        snippets: snippets,
+                                        explanation: snippetGroupExplanation)
+                }
+
+            let snippetGroups = [topLevelSnippetGroup] + subdirectoryGroups.sorted {
+                $0.baseDirectory.basename < $1.baseDirectory.basename
+            }
+
+            return snippetGroups.filter { !$0.snippets.isEmpty }
+        }
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let graph = try swiftTool.loadPackageGraph()
+            let package = graph.rootPackages[0]
+            print(package.products.map { $0.description })
+
+            let snippetGroups = try loadSnippetsAndSnippetGroups(from: package)
+
+            var cardStack = CardStack(package: package, snippetGroups: snippetGroups, swiftTool: swiftTool)
+
+            cardStack.run()
         }
     }
 }

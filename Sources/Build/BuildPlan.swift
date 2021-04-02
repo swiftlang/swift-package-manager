@@ -1214,7 +1214,7 @@ public final class ProductBuildDescription {
                 let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
-        case .executable:
+        case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 if buildParameters.triple.isDarwin() {
@@ -1256,7 +1256,7 @@ public final class ProductBuildDescription {
         if containsSwiftTargets {
           switch product.type {
           case .library, .plugin: break
-          case .test, .executable:
+          case .test, .executable, .snippet:
               if buildParameters.triple.isDarwin() {
                   let stdlib = buildParameters.toolchain.macosSwiftStdlib
                   args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
@@ -1732,7 +1732,7 @@ public class BuildPlan {
                 switch product.type {
                 case .library(.automatic), .library(.static), .plugin:
                     return product.targets.map { .target($0, conditions: []) }
-                case .library(.dynamic), .test, .executable:
+                case .library(.dynamic), .test, .executable, .snippet:
                     return []
                 }
             }
@@ -1754,7 +1754,7 @@ public class BuildPlan {
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
-                case .executable:
+                case .executable, .snippet:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     } else if product.type == .test && target.underlyingTarget is SwiftTarget {

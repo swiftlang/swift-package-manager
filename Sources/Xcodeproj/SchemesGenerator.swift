@@ -81,7 +81,7 @@ public final class SchemesGenerator {
             switch $0.type {
             case .test, .systemModule, .binary, .plugin:
                 return false
-            case .executable, .library:
+            case .executable, .snippet, .library:
                 return true
             }
         })

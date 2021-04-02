@@ -385,7 +385,7 @@ public func xcodeProject(
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
         switch target.type {
-        case .executable:
+        case .executable, .snippet:
             productType = .executable
         case .library:
             productType = .framework
