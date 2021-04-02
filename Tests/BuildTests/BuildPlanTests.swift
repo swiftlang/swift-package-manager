@@ -20,7 +20,7 @@ import XCTest
 
 let hostTriple = Resources.default.toolchain.triple
 #if os(macOS)
-    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.10")
+    let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.11")
 #else
     let defaultTargetTriple: String = hostTriple.tripleString
 #endif
