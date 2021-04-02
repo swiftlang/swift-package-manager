@@ -71,7 +71,11 @@ enum ManifestJSONParser {
         }
 
         return try versionJSON.map {
-            try SwiftLanguageVersion(string: String(json: $0))!
+            let languageVersionString = try String(json: $0)
+            guard let languageVersion = SwiftLanguageVersion(string: languageVersionString) else {
+                throw ManifestParseError.runtimeManifestErrors(["invalid Swift language version: \(languageVersionString)"])
+            }
+            return languageVersion
         }
     }
 

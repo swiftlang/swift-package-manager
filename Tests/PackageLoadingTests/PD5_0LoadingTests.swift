@@ -114,6 +114,26 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertMatch(message, .contains("'v3' is unavailable"))
             XCTAssertMatch(message, .contains("'v3' was obsoleted in PackageDescription 5"))
         }
+
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               swiftLanguageVersions: [.version("")]
+            )
+        """
+
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail()
+        } catch {
+            guard case let ManifestParseError.runtimeManifestErrors(messages) = error else {
+                return XCTFail("unexpected error: \(error)")
+            }
+
+            XCTAssertEqual(messages, ["invalid Swift language version: "])
+        }
     }
 
     func testPlatformOptions() throws {
