@@ -27,8 +27,8 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: [String: String] = Git.environment) throws -> String {
-        let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: .collect)
+    func run(arguments: [String], environment: [String: String] = Git.environment) throws -> String {
+        let process = Process(arguments: [Git.tool] + arguments, environment: environment, outputRedirection: .collect)
         let result: ProcessResult
         do {
             try self.processSet?.add(process)
@@ -56,19 +56,29 @@ private struct GitShellHelper {
 
 /// A `git` repository provider.
 public struct GitRepositoryProvider: RepositoryProvider {
+    private let configuration: Configuration
     private let git: GitShellHelper
 
-    public init(processSet: ProcessSet? = nil) {
+    public init(configuration: Configuration = .init(), processSet: ProcessSet? = nil) {
+        self.configuration = configuration
         self.git = GitShellHelper(processSet: processSet)
     }
 
     @discardableResult
-    private func callGit(_ args: String...,
+    private func callGit(_ arguments: String...,
+                         environment: [String: String] = Git.environment,
+                         repository: RepositorySpecifier,
+                         failureMessage: String = "") throws -> String {
+        try self.callGit(arguments: arguments, environment: environment, repository: repository, failureMessage: failureMessage)
+    }
+
+    @discardableResult
+    private func callGit(arguments: [String],
                          environment: [String: String] = Git.environment,
                          repository: RepositorySpecifier,
                          failureMessage: String = "") throws -> String {
         do {
-            return try self.git.run(args, environment: environment)
+            return try self.git.run(arguments: arguments, environment: environment)
         } catch let error as GitShellError {
             throw GitCloneError(repository: repository, message: failureMessage, result: error.result)
         }
@@ -83,7 +93,12 @@ public struct GitRepositoryProvider: RepositoryProvider {
         precondition(!localFileSystem.exists(path))
 
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
-        try self.callGit("clone", "--mirror", repository.url, path.pathString,
+        var arguments = ["clone", "--mirror", repository.url, path.pathString]
+        if self.configuration.cloneFilterBlobs {
+            arguments += ["--filter", "blob:none"]
+        }
+
+        try self.callGit(arguments: arguments,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.url)")
     }
@@ -153,6 +168,14 @@ public struct GitRepositoryProvider: RepositoryProvider {
 
     public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
+    }
+
+    public struct Configuration {
+        var cloneFilterBlobs: Bool
+
+        public init() {
+            self.cloneFilterBlobs = true
+        }
     }
 }
 
@@ -293,11 +316,11 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// path of the repository as the one to operate on.  The specified failure message is used only in case of error.
     /// This function waits for the invocation to finish and returns the output as a string.
     @discardableResult
-    private func callGit(_ args: String...,
+    private func callGit(_ arguments: String...,
                          environment: [String: String] = Git.environment,
                          failureMessage: String = "") throws -> String {
         do {
-            return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+            return try self.git.run(arguments: ["-C", self.path.pathString] + arguments, environment: environment)
         } catch let error as GitShellError {
             throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
         }

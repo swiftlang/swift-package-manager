@@ -70,7 +70,7 @@ public protocol RepositoryProvider {
     ///
     /// - Parameters:
     ///   - repository: The specifier of the repository to fetch.
-    ///   - path: The destiantion path for the fetch.
+    ///   - path: The destination path for the fetch.
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
 
