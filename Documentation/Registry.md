@@ -244,7 +244,7 @@ The maximum length of a package scope is 39 characters.
 A valid package scope matches the following regular expression pattern:
 
 ```regexp
-\A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,39}\z
+\A[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}\z
 ```
 
 Package scopes are case-insensitive
