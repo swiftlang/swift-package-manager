@@ -263,26 +263,21 @@ A valid package name matches the following regular expression pattern:
 > For more information,
 > see [Unicode Identifier and Pattern Syntax][UAX31].
 
-Package names are
-case-insensitive
-(for example, `mona` ≍ `MONA`),
-diacritic-insensitive
-(for example, `Å` ≍ `A`), and
-width-insensitive
-(for example, `Ａ` ≍ `A`).
 Package names are compared using
-[Normalization Form Compatible Composition (NFKC)][UAX36].
+[Normalization Form Compatible Composition (NFKC)][UAX15]
+with locale-independent case folding.
 
 ## 4. Endpoints
 
 A server MUST respond to the following endpoints:
 
-| Link                 | Method | Path                                                      | Description                                   |
-| -------------------- | ------ | --------------------------------------------------------- | --------------------------------------------- |
-| [\[1\]](#endpoint-1) | `GET`  | `/{scope}/{name}`                                         | List package releases                         |
-| [\[2\]](#endpoint-2) | `GET`  | `/{scope}/{name}/{version}`                               | Fetch metadata for a package release          |
-| [\[3\]](#endpoint-3) | `GET`  | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release          |
-| [\[4\]](#endpoint-4) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release |
+| Link                 | Method | Path                                                      | Description                                     |
+| -------------------- | ------ | --------------------------------------------------------- | ----------------------------------------------- |
+| [\[1\]](#endpoint-1) | `GET`  | `/{scope}/{name}`                                         | List package releases                           |
+| [\[2\]](#endpoint-2) | `GET`  | `/{scope}/{name}/{version}`                               | Fetch metadata for a package release            |
+| [\[3\]](#endpoint-3) | `GET`  | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release            |
+| [\[4\]](#endpoint-4) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release   |
+| [\[5\]](#endpoint-5) | `GET`  | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL |
 
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
@@ -668,6 +663,8 @@ HTTP/1.1 303 See Other
 Content-Version: 1
 Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
 ```
+
+<a name="endpoint-5"></a>
 
 ### 4.5 Lookup package identifiers registered for a URL
 
