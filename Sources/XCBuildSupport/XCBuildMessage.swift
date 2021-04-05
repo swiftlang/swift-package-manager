@@ -30,7 +30,7 @@ public enum XCBuildMessage {
     }
 
     public struct BuildOutputInfo {
-        let data: String
+        public let data: String
     }
 
     public struct DidUpdateProgressInfo {
@@ -62,31 +62,31 @@ public enum XCBuildMessage {
     }
 
     public struct TaskUpToDateInfo {
-        let targetID: Int?
-        let taskSignature: String
-        let parentTaskID: Int?
+        public let targetID: Int?
+        public let taskSignature: String
+        public let parentTaskID: Int?
     }
 
     public struct TaskStartedInfo {
-        let taskID: Int
-        let targetID: Int?
-        let taskSignature: String
-        let parentTaskID: Int?
-        let ruleInfo: String
-        let interestingPath: AbsolutePath?
-        let commandLineDisplayString: String?
-        let executionDescription: String
+        public let taskID: Int
+        public let targetID: Int?
+        public let taskSignature: String
+        public let parentTaskID: Int?
+        public let ruleInfo: String
+        public let interestingPath: AbsolutePath?
+        public let commandLineDisplayString: String?
+        public let executionDescription: String
     }
 
     public struct TaskDiagnosticInfo {
-        let taskID: Int
-        let targetID: Int?
-        let message: String
+        public let taskID: Int
+        public let targetID: Int?
+        public let message: String
     }
 
     public struct TaskOutputInfo {
-        let taskID: Int
-        let data: String
+        public let taskID: Int
+        public let data: String
     }
 
     public struct TaskCompleteInfo {
@@ -96,14 +96,14 @@ public enum XCBuildMessage {
             case cancelled
         }
 
-        let taskID: Int
-        let result: Result
-        let signalled: Bool
+        public let taskID: Int
+        public let result: Result
+        public let signalled: Bool
     }
 
     public struct TargetDiagnosticInfo {
-        let targetID: Int
-        let message: String
+        public let targetID: Int
+        public let message: String
     }
 
     case buildStarted
@@ -123,15 +123,15 @@ public enum XCBuildMessage {
     case targetDiagnostic(TargetDiagnosticInfo)
 }
 
-extension XCBuildMessage.BuildDiagnosticInfo: Decodable, Equatable {}
-extension XCBuildMessage.BuildCompletedInfo.Result: Decodable, Equatable {}
-extension XCBuildMessage.BuildCompletedInfo: Decodable, Equatable {}
-extension XCBuildMessage.BuildOutputInfo: Decodable, Equatable {}
-extension XCBuildMessage.TargetUpToDateInfo: Decodable, Equatable {}
-extension XCBuildMessage.TaskDiagnosticInfo: Decodable, Equatable {}
-extension XCBuildMessage.TargetDiagnosticInfo: Decodable, Equatable {}
+extension XCBuildMessage.BuildDiagnosticInfo: Codable, Equatable {}
+extension XCBuildMessage.BuildCompletedInfo.Result: Codable, Equatable {}
+extension XCBuildMessage.BuildCompletedInfo: Codable, Equatable {}
+extension XCBuildMessage.BuildOutputInfo: Codable, Equatable {}
+extension XCBuildMessage.TargetUpToDateInfo: Codable, Equatable {}
+extension XCBuildMessage.TaskDiagnosticInfo: Codable, Equatable {}
+extension XCBuildMessage.TargetDiagnosticInfo: Codable, Equatable {}
 
-extension XCBuildMessage.DidUpdateProgressInfo: Decodable, Equatable {
+extension XCBuildMessage.DidUpdateProgressInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case message
         case percentComplete
@@ -146,8 +146,8 @@ extension XCBuildMessage.DidUpdateProgressInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage.TargetStartedInfo.Kind: Decodable, Equatable {}
-extension XCBuildMessage.TargetStartedInfo: Decodable, Equatable {
+extension XCBuildMessage.TargetStartedInfo.Kind: Codable, Equatable {}
+extension XCBuildMessage.TargetStartedInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case targetID = "id"
         case targetGUID = "guid"
@@ -164,7 +164,7 @@ extension XCBuildMessage.TargetStartedInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage.TargetCompleteInfo: Decodable, Equatable {
+extension XCBuildMessage.TargetCompleteInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case targetID = "id"
     }
@@ -175,7 +175,7 @@ extension XCBuildMessage.TargetCompleteInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage.TaskUpToDateInfo: Decodable, Equatable {
+extension XCBuildMessage.TaskUpToDateInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case targetID
         case taskSignature = "signature"
@@ -190,7 +190,7 @@ extension XCBuildMessage.TaskUpToDateInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage.TaskStartedInfo: Decodable, Equatable {
+extension XCBuildMessage.TaskStartedInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case taskID = "id"
         case targetID
@@ -215,7 +215,7 @@ extension XCBuildMessage.TaskStartedInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage.TaskOutputInfo: Decodable, Equatable {
+extension XCBuildMessage.TaskOutputInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case taskID
         case data
@@ -228,8 +228,8 @@ extension XCBuildMessage.TaskOutputInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage.TaskCompleteInfo.Result: Decodable, Equatable {}
-extension XCBuildMessage.TaskCompleteInfo: Decodable, Equatable {
+extension XCBuildMessage.TaskCompleteInfo.Result: Codable, Equatable {}
+extension XCBuildMessage.TaskCompleteInfo: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case taskID = "id"
         case result
@@ -244,7 +244,7 @@ extension XCBuildMessage.TaskCompleteInfo: Decodable, Equatable {
     }
 }
 
-extension XCBuildMessage: Decodable, Equatable {
+extension XCBuildMessage: Codable, Equatable {
     enum CodingKeys: CodingKey {
         case kind
     }
@@ -285,6 +285,55 @@ extension XCBuildMessage: Decodable, Equatable {
             self = try .targetDiagnostic(TargetDiagnosticInfo(from: decoder))
         default:
             throw DecodingError.dataCorruptedError(forKey: .kind, in: container, debugDescription: "invalid kind \(kind)")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .buildStarted:
+            try container.encode("buildStarted", forKey: .kind)
+        case let .buildDiagnostic(info):
+            try container.encode("buildDiagnostic", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .buildCompleted(info):
+            try container.encode("buildCompleted", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .buildOutput(info):
+            try container.encode("buildOutput", forKey: .kind)
+            try info.encode(to: encoder)
+        case .preparationComplete:
+            try container.encode("preparationComplete", forKey: .kind)
+        case let .didUpdateProgress(info):
+            try container.encode("didUpdateProgress", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .targetUpToDate(info):
+            try container.encode("targetUpToDate", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .targetStarted(info):
+            try container.encode("targetStarted", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .targetComplete(info):
+            try container.encode("targetComplete", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .taskUpToDate(info):
+            try container.encode("taskUpToDate", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .taskStarted(info):
+            try container.encode("taskStarted", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .taskDiagnostic(info):
+            try container.encode("taskDiagnostic", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .taskOutput(info):
+            try container.encode("taskOutput", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .taskComplete(info):
+            try container.encode("taskComplete", forKey: .kind)
+            try info.encode(to: encoder)
+        case let .targetDiagnostic(info):
+            try container.encode("targetDiagnostic", forKey: .kind)
+            try info.encode(to: encoder)
         }
     }
 }
