@@ -1016,7 +1016,7 @@ components:
       schema:
         type: string
         example: "mona"
-        pattern: \A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,39}\z
+        pattern: \A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}\z
     name:
       name: name
       in: path
