@@ -252,9 +252,7 @@ Package scopes are case-insensitive
 
 #### 3.6.2 Package name
 
-A package's *name* is specified by the `name` parameter
-provided in its manifest (`Package.swift`) file.
-
+A package's *name* uniquely identifies a package in a scope.
 The maximum length of a package name is 128 characters.
 A valid package name matches the following regular expression pattern:
 
