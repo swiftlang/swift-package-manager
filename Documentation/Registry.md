@@ -1149,7 +1149,6 @@ components:
 [DUST]: https://doi.org/10.1145/1462148.1462151 "Bar-Yossef, Ziv, et al. Do Not Crawl in the DUST: Different URLs with Similar Text. Association for Computing Machinery, 17 Jan. 2009. January 2009"
 [OAS]: https://swagger.io/specification/ "OpenAPI Specification"
 [GitHub / Swift Package Management Service]: https://forums.swift.org/t/github-swift-package-management-service/30406
-
 [RubyGems]: https://rubygems.org "RubyGems: The Ruby community’s gem hosting service"
 [PyPI]: https://pypi.org "PyPI: The Python Package Index"
 [npm]: https://www.npmjs.com "The npm Registry"
