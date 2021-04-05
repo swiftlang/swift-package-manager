@@ -8,7 +8,7 @@
   - [3.3. Error handling](#33-error-handling)
   - [3.4. Rate limiting](#34-rate-limiting)
   - [3.5. API versioning](#35-api-versioning)
-  - [3.6. Package identificaation](#36-package-identificaation)
+  - [3.6. Package identification](#36-package-identification)
     - [3.6.1 Package scope](#361-package-scope)
     - [3.6.2 Package name](#362-package-name)
 - [4. Endpoints](#4-endpoints)
@@ -217,7 +217,7 @@ Content-Language: en
 }
 ```
 
-### 3.6. Package identificaation
+### 3.6. Package identification
 
 A package may declare external packages as dependencies in its manifest.
 Each package dependency may specify a requirement
