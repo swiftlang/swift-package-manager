@@ -1794,19 +1794,15 @@ extension Workspace {
         //
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
-        // FIXME: this should not block
-        let pins = pinsStore.pins.map({ $0 })
-        DispatchQueue.concurrentPerform(iterations: pins.count) { idx in
-            _ = try? temp_await {
-                containerProvider.getContainer(for: pins[idx].packageRef, skipUpdate: true, on: .sharedConcurrent, completion: $0)
-            }
+        for pin in pinsStore.pins {
+            containerProvider.getContainer(for: pin.packageRef, skipUpdate: true, on: .sharedConcurrent, completion: { _ in })
         }
-
+        
         // Compute the pins that we need to actually clone.
         //
         // We require cloning if there is no checkout or if the checkout doesn't
         // match with the pin.
-        let requiredPins = pins.filter({ pin in
+        let requiredPins = pinsStore.pins.filter{ pin in
             guard let dependency = state.dependencies[forURL: pin.packageRef.location] else {
                 return true
             }
@@ -1816,7 +1812,7 @@ extension Workspace {
             case .edited, .local:
                 return true
             }
-        })
+        }
 
         // Clone the required pins.
         for pin in requiredPins {
