@@ -305,7 +305,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // MARK: - Package Metadata
 
     public func getPackageMetadata(_ reference: PackageReference,
-                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        self.getPackageMetadata(reference, collections: nil, callback: callback)
+    }
+
+    public func getPackageMetadata(_ reference: PackageReference,
+                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         guard Self.isSupportedPlatform else {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))

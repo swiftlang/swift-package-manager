@@ -272,7 +272,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 let reference = PackageReference.remote(identity: identity, location: packageUrl)
 
                 do { // assume URL is for a package in an imported collection
-                    let result = try tsc_await { collections.getPackageMetadata(reference, collections: nil, callback: $0) }
+                    let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }
 
                     if let versionString = version {
                         guard let version = TSCUtility.Version(string: versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
@@ -324,7 +324,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             try JSONEncoder.makeWithDefaults().print(collection)
                         } else {
                             let signature = optionalRow("Signed By", collection.signature.map { "\($0.certificate.subject.commonName ?? "Unspecified") (\($0.isVerified ? "" : "not ")verified)" })
-                            
+
                             print("""
                                 Name: \(collection.name)
                                 Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
