@@ -110,9 +110,12 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - reference: The package reference
+    ///   - collections: Optional. If specified, only look for package in these collections. Data from the most recently
+    ///                  processed collection will be used.
     ///   - callback: The closure to invoke when result becomes available
     func getPackageMetadata(
         _ reference: PackageReference,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     )
 
