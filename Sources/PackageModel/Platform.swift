@@ -25,7 +25,7 @@ public struct Platform: Equatable, Hashable, Codable {
         self.oldestSupportedVersion = oldestSupportedVersion
     }
     
-    public static let macOS: Platform = Platform(name: "macos", oldestSupportedVersion: "10.11")
+    public static let macOS: Platform = Platform(name: "macos", oldestSupportedVersion: "10.10")
     public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "9.0")
     public static let tvOS: Platform = Platform(name: "tvos", oldestSupportedVersion: "9.0")
     public static let watchOS: Platform = Platform(name: "watchos", oldestSupportedVersion: "2.0")
