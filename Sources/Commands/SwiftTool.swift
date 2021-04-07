@@ -413,10 +413,13 @@ public class SwiftTool {
             diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
             #endif
         }
-        
+
+        // --enable-test-discovery should never be called on darwin based platforms
+        #if canImport(Darwin)
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
+        #endif
 
         if options.shouldDisableManifestCaching {
             diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")

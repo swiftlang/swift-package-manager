@@ -515,12 +515,34 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertMatch(diff, .contains("Func Foo.foo() has return type change from Swift.String to Swift.Int"))
         }
     }
-    
-    func testEnableTestDiscoveryDeprecation() {
+
+    func testEnableTestDiscoveryDeprecation() throws {
+        #if canImport(Darwin)
+        // should emit when LinuxMain is present
         fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: path)
             XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
         }
+
+        // should emit when LinuxMain is not present
+        fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            try localFileSystem.writeFileContents(path.appending(components: "Tests", SwiftTarget.testManifestNames.first!), bytes: "fatalError(\"boom\")")
+            let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: path)
+            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
+        }
+        #else
+        // should emit when LinuxMain is present
+        fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: path)
+            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
+        }
+        // should not emit when LinuxMain is present
+        fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
+            try localFileSystem.writeFileContents(path.appending(components: "Tests", SwiftTarget.testManifestNames.first!), bytes: "fatalError(\"boom\")")
+            let (_, stderr) = try SwiftPMProduct.SwiftTest.execute(["--enable-test-discovery"], packagePath: path)
+            XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
+        }
+        #endif
     }
 
     func testGenerateLinuxMainDeprecation() {
