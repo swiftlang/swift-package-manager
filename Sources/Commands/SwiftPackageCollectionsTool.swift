@@ -324,7 +324,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             try JSONEncoder.makeWithDefaults().print(collection)
                         } else {
                             let signature = optionalRow("Signed By", collection.signature.map { "\($0.certificate.subject.commonName ?? "Unspecified") (\($0.isVerified ? "" : "not ")verified)" })
-                            
+
                             print("""
                                 Name: \(collection.name)
                                 Source: \(collection.source.url)\(description)\(keywords)\(createdAt)

@@ -1124,6 +1124,40 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
     }
 
+    func testFetchMetadataInCollections() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 2)
+        let mockPackage = mockCollections.last!.packages.first!
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([:])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        do {
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, 0, "list should be empty")
+        }
+
+        do {
+            try mockCollections.forEach { collection in
+                _ = try tsc_await { callback in packageCollections.addCollection(collection.source, order: nil, callback: callback) }
+            }
+            let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+            XCTAssertEqual(list.count, mockCollections.count, "list count should match")
+        }
+
+        let collectionIdentifiers: Set<Model.CollectionIdentifier> = [mockCollections.last!.identifier]
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, collections: collectionIdentifiers, callback: callback) }
+        XCTAssertEqual(Set(metadata.collections), collectionIdentifiers, "collections should match")
+
+        let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
+        XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+    }
+
     func testMergedPackageMetadata() throws {
         try skipIfUnsupportedPlatform()
 

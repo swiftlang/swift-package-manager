@@ -306,12 +306,18 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     public func getPackageMetadata(_ reference: PackageReference,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        self.getPackageMetadata(reference, collections: nil, callback: callback)
+    }
+
+    public func getPackageMetadata(_ reference: PackageReference,
+                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         guard Self.isSupportedPlatform else {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
         // first find in storage
-        self.findPackage(identifier: reference.identity) { result in
+        self.findPackage(identifier: reference.identity, collections: collections) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -453,17 +459,21 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     func findPackage(identifier: PackageIdentity,
+                     collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
-                let identifiers = sources.map { Model.CollectionIdentifier(from: $0) }
-                if identifiers.isEmpty {
+                var collectionIdentifiers = sources.map { Model.CollectionIdentifier(from: $0) }
+                if let collections = collections {
+                    collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
+                }
+                if collectionIdentifiers.isEmpty {
                     return callback(.failure(NotFoundError("\(identifier)")))
                 }
-                self.storage.collections.findPackage(identifier: identifier, collectionIdentifiers: identifiers, callback: callback)
+                self.storage.collections.findPackage(identifier: identifier, collectionIdentifiers: collectionIdentifiers, callback: callback)
             }
         }
     }
