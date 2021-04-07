@@ -25,14 +25,14 @@ import Foundation
 
 #if os(macOS)
 import Security
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 @_implementationOnly import CCryptoBoringSSL
 #endif
 
 #if os(macOS)
 typealias RSAPublicKey = CoreRSAPublicKey
 typealias RSAPrivateKey = CoreRSAPrivateKey
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 typealias RSAPublicKey = BoringSSLRSAPublicKey
 typealias RSAPrivateKey = BoringSSLRSAPrivateKey
 #else
@@ -106,7 +106,7 @@ struct CoreRSAPublicKey: PublicKey {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSAKey.swift
 
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 final class BoringSSLRSAPrivateKey: PrivateKey, BoringSSLKey {
     let underlying: UnsafeMutablePointer<CCryptoBoringSSL.RSA>
 

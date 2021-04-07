@@ -12,13 +12,13 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 @_implementationOnly import CCryptoBoringSSL
 #endif
 
 #if os(macOS)
 typealias Certificate = CoreCertificate
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 typealias Certificate = BoringSSLCertificate
 #else
 typealias Certificate = UnsupportedCertificate
@@ -109,7 +109,7 @@ struct CoreCertificate {
 
 // MARK: - Certificate implementation using BoringSSL
 
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 final class BoringSSLCertificate {
     private let underlying: UnsafeMutablePointer<X509>
 

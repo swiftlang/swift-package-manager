@@ -798,6 +798,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         """
         try db.exec(query: table)
 
+        #if os(Android)
+        // FTS queries for strings containing hyphens isn't working in SQLite on
+        // Android, so disable for now.
+        useSearchIndices.put(false)
+        #else
         do {
             let ftsPackages = """
                 CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.packagesFTSName) USING fts4(
@@ -824,6 +829,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             // consistent results we will not fallback to FTS3 and just give up if FTS4 is not available.
             useSearchIndices.put(false)
         }
+        #endif
 
         try db.exec(query: "PRAGMA journal_mode=WAL;")
     }

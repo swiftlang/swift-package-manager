@@ -247,7 +247,7 @@ class PackageCollectionSigningTests: XCTestCase {
                     signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
                 })
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -339,7 +339,7 @@ class PackageCollectionSigningTests: XCTestCase {
                     signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
                 })
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -412,7 +412,7 @@ class PackageCollectionSigningTests: XCTestCase {
             XCTAssertNoThrow(try tsc_await { callback in
                 signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
             })
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -467,7 +467,7 @@ class PackageCollectionSigningTests: XCTestCase {
             XCTAssertNoThrow(try tsc_await { callback in
                 signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
             })
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
