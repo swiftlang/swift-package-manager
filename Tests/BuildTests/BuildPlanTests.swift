@@ -246,9 +246,9 @@ final class BuildPlanTests: XCTestCase {
                 XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
                 XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
                 XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
-                XCTAssertMatch(contents, .contains("A-dependencies.json"))
-                XCTAssertMatch(contents, .contains("B-dependencies.json"))
-                XCTAssertMatch(contents, .contains("C-dependencies.json"))
+                XCTAssertMatch(contents, .contains("A-dependencies"))
+                XCTAssertMatch(contents, .contains("B-dependencies"))
+                XCTAssertMatch(contents, .contains("C-dependencies"))
             } catch Driver.Error.unableToDecodeFrontendTargetInfo {
                 // If the toolchain being used is sufficiently old, the integrated driver
                 // will not be able to parse the `-print-target-info` output. In which case,
