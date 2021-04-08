@@ -75,24 +75,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func close() throws {
-        // Signal long-running operation (e.g., populateTargetTrie) to stop
-        try self.withStateLock {
-            if case .connected(let db) = self.state {
-                self.state = .disconnecting(db)
-                do {
-                    try db.close()
-                } catch {
-                    do {
-                        var exponentialBackoff = ExponentialBackoff()
-                        try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
-                    } catch {
-                        throw StringError("Failed to close database")
-                    }
-                }
-            }
-            self.state = .disconnected
-        }
-
         func retryClose(db: SQLite, exponentialBackoff: inout ExponentialBackoff) throws {
             let semaphore = DispatchSemaphore(value: 0)
             let callback = { (result: Result<Void, Error>) in
@@ -116,6 +98,28 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             guard case .success = semaphore.wait(timeout: .now() + delay + .milliseconds(50)) else {
                 return try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
             }
+        }
+
+        // Signal long-running operation (e.g., populateTargetTrie) to stop
+        if case .connected(let db) = try self.withStateLock({ self.state }) {
+            try self.withStateLock {
+                self.state = .disconnecting(db)
+            }
+
+            do {
+                try db.close()
+            } catch {
+                do {
+                    var exponentialBackoff = ExponentialBackoff()
+                    try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+                } catch {
+                    throw StringError("Failed to close database")
+                }
+            }
+        }
+
+        try self.withStateLock {
+            self.state = .disconnected
         }
     }
 
