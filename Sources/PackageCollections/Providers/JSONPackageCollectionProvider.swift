@@ -277,7 +277,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
         var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
-        client.configuration.requestTimeout = .seconds(1)
+        client.configuration.requestTimeout = .seconds(5)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
         client.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: 50, age: .seconds(30))
         return client
