@@ -40,6 +40,7 @@ extension Model {
 
     struct PackageBasicVersionMetadata: Equatable {
         let version: TSCUtility.Version
+        let title: String?
         let summary: String?
         let createdAt: Date
         let publishedAt: Date?

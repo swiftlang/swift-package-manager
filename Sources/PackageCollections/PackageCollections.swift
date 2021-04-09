@@ -532,6 +532,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             let versionMetadata = basicVersionMetadata[packageVersion.version]
             return .init(version: packageVersion.version,
+                         title: versionMetadata?.title ?? packageVersion.title,
                          summary: versionMetadata?.summary ?? packageVersion.summary,
                          manifests: packageVersion.manifests,
                          defaultToolsVersion: packageVersion.defaultToolsVersion,

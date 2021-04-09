@@ -591,6 +591,7 @@ final class PackageCollectionsTests: XCTestCase {
         )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
+                                                                  title: nil,
                                                                   summary: nil,
                                                                   manifests: [toolsVersion: mockManifest],
                                                                   defaultToolsVersion: toolsVersion,
@@ -754,6 +755,7 @@ final class PackageCollectionsTests: XCTestCase {
         )
 
         let mockVersion = PackageCollectionsModel.Package.Version(version: TSCUtility.Version(1, 0, 0),
+                                                                  title: nil,
                                                                   summary: nil,
                                                                   manifests: [toolsVersion: mockManifest],
                                                                   defaultToolsVersion: toolsVersion,
@@ -1180,6 +1182,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let versions = (0 ... 3).map {
             PackageCollectionsModel.Package.Version(version: TSCUtility.Version($0, 0, 0),
+                                                    title: "\($0) title",
                                                     summary: "\($0) description",
                                                     manifests: [toolsVersion: manifest],
                                                     defaultToolsVersion: toolsVersion,
@@ -1202,7 +1205,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
-                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, summary: "\($0.summary!) 2", createdAt: Date(), publishedAt: nil) },
+                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, title: "\($0.title!) 2", summary: "\($0.summary!) 2", createdAt: Date(), publishedAt: nil) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
                                                                         readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
                                                                         license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "\(mockPackage.license!.url.absoluteString)-2")!),
