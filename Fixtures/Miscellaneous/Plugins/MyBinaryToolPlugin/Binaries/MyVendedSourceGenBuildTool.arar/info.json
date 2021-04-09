@@ -6,11 +6,11 @@
             "version": "1.2.3",
             "variants": [
                 {
-                    "path": "x86_64-apple-macosx/mytool",
-                    "supportedTriples": ["x86_64-apple-macosx"]
+                    "path": "mytool-macos/mytool",
+                    "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                 },
                 {
-                    "path": "x86_64-unknown-linux-gnu/mytool",
+                    "path": "mytool-linux/mytool",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                 }
             ]
