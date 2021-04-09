@@ -208,7 +208,7 @@ extension LLBuildManifestBuilder {
         } else if buildParameters.emitSwiftModuleSeparately {
             try self.addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else {
-            self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
+            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
         }
 
         self.addTargetCmd(target, cmdOutputs: cmdOutputs)
@@ -478,7 +478,7 @@ extension LLBuildManifestBuilder {
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
         cmdOutputs: [Node]
-    ) {
+    ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: buildConfig)
 
@@ -492,7 +492,7 @@ extension LLBuildManifestBuilder {
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: target.objects,
-            otherArguments: target.compileArguments(),
+            otherArguments:  try target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
             wholeModuleOptimization: buildParameters.configuration == .release
