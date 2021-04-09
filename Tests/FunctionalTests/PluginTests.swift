@@ -111,7 +111,6 @@ class PluginTests: XCTestCase {
     func testUseOfVendedBinaryTool() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
         try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #if arch(x86_64)
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -124,7 +123,6 @@ class PluginTests: XCTestCase {
                 throw error
             }
         }
-        #endif
         #endif
     }
 }
