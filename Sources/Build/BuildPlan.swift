@@ -1381,14 +1381,17 @@ public class BuildPlan {
 
     private static func makeTestManifestTargets(
         _ buildParameters: BuildParameters,
-        _ graph: PackageGraph
+        _ graph: PackageGraph,
+        _ diagnostics: DiagnosticsEngine
     ) throws -> [(product: ResolvedProduct, targetBuildDescription: SwiftTargetBuildDescription)] {
         guard case .manifest(let generate) = buildParameters.testDiscoveryStrategy else {
             preconditionFailure("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
         }
 
+        var generateRedundant = generate
         var result: [(ResolvedProduct, SwiftTargetBuildDescription)] = []
         for testProduct in graph.allProducts where testProduct.type == .test {
+            generateRedundant = generateRedundant && nil == testProduct.testManifestTarget
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
@@ -1437,6 +1440,11 @@ public class BuildPlan {
                 result.append((testProduct, target))
             }
         }
+
+        if generateRedundant {
+            diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+        }
+
         return result
     }
 
@@ -1511,7 +1519,7 @@ public class BuildPlan {
 
         // Plan the test manifest target.
         if case .manifest = buildParameters.testDiscoveryStrategy {
-            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph)
+            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph, diagnostics)
             for item in testManifestTargets {
                 targetMap[item.targetBuildDescription.target] = .swift(item.targetBuildDescription)
                 testManifestTargetsMap[item.product] = item.targetBuildDescription.target
