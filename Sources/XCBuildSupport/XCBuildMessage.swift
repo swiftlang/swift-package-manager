@@ -210,7 +210,7 @@ extension XCBuildMessage.TaskStartedInfo: Codable, Equatable {
         parentTaskID = try container.decodeIntOrStringIfPresent(forKey: .parentTaskID)
         ruleInfo = try container.decode(String.self, forKey: .ruleInfo)
         interestingPath = try AbsolutePath(validatingOrNilIfEmpty: container.decodeIfPresent(String.self, forKey: .interestingPath))
-        commandLineDisplayString = try container.decode(String.self, forKey: .commandLineDisplayString)
+        commandLineDisplayString = try container.decodeIfPresent(String.self, forKey: .commandLineDisplayString)
         executionDescription = try container.decode(String.self, forKey: .executionDescription)
     }
 }
