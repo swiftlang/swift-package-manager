@@ -87,16 +87,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         let headers = self.makeRequestHeaders()
         self.httpClient.head(source.url, headers: headers, options: headOptions) { result in
             switch result {
-            case .failure(let error):
-                if case HTTPClientError.badResponseStatusCode(let statusCode) = error {
-                    if statusCode == 404 {
-                        return callback(.failure(Errors.collectionNotFound(source.url)))
-                    } else {
-                        return callback(.failure(Errors.collectionUnavailable(source.url, statusCode)))
-                    }
+            case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
+                if statusCode == 404 {
+                    return callback(.failure(Errors.collectionNotFound(source.url)))
                 } else {
-                    return callback(.failure(error))
+                    return callback(.failure(Errors.collectionUnavailable(source.url, statusCode)))
                 }
+            case .failure(let error):
+                return callback(.failure(error))
             case .success(let response):
                 guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
                     return callback(.failure(Errors.invalidResponse(source.url, "Missing Content-Length header")))
@@ -179,7 +177,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
             // Collection is unsigned
             guard let collection = try? self.decoder.decode(JSONModel.Collection.self, from: data) else {
-                return callback(.failure(Errors.invalidJSON(source.url, error)))
+                return callback(.failure(Errors.invalidJSON(source.url)))
             }
             callback(self.makeCollection(from: collection, source: source, signature: nil))
         }
@@ -348,8 +346,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
     }
 
-    public enum Errors: Error, CustomStringConvertible {
-        case invalidJSON(URL, Error)
+    public enum Errors: Error, Equatable, CustomStringConvertible {
+        case invalidJSON(URL)
         case invalidResponse(URL, String)
         case responseTooLarge(URL, Int64)
         case collectionNotFound(URL)
@@ -357,8 +355,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
         public var description: String {
             switch self {
-            case .invalidJSON(let url, let error):
-                return "The package collection at \(url.absoluteString) contains invalid JSON: \(error)"
+            case .invalidJSON(let url):
+                return "The package collection at \(url.absoluteString) contains invalid JSON."
             case .invalidResponse(let url, let message):
                 return "Received invalid response for package collection at \(url.absoluteString): \(message)"
             case .responseTooLarge(let url, _):
