@@ -109,7 +109,7 @@ final class PackageCollectionsModelTests: XCTestCase {
             guard case .error = messages[0].level else {
                 return XCTFail("Expected .error")
             }
-            XCTAssertNotNil(messages[0].message.range(of: "non-local files not allowed", options: .caseInsensitive))
+            XCTAssertNotNil(messages[0].message.range(of: "either a non-local path or the file does not exist", options: .caseInsensitive))
         }
     }
 }
