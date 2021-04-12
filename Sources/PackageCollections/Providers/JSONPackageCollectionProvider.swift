@@ -107,16 +107,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 getOptions.maximumResponseSizeInBytes = self.configuration.maximumSizeInBytes
                 self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
                     switch result {
-                    case .failure(let error):
-                        if case HTTPClientError.badResponseStatusCode(let statusCode) = error {
-                            if statusCode == 404 {
-                                return callback(.failure(Errors.collectionNotFound(source.url)))
-                            } else {
-                                return callback(.failure(Errors.collectionUnavailable(source.url, statusCode)))
-                            }
+                    case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
+                        if statusCode == 404 {
+                            return callback(.failure(Errors.collectionNotFound(source.url)))
                         } else {
-                            return callback(.failure(error))
+                            return callback(.failure(Errors.collectionUnavailable(source.url, statusCode)))
                         }
+                    case .failure(let error):
+                        return callback(.failure(error))
                     case .success(let response):
                         // check content length again so we can record this as a bad actor
                         // if not returning head and exceeding size
