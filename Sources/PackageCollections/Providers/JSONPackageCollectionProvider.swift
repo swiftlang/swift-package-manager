@@ -236,6 +236,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 let license = version.license.flatMap { Model.License(from: $0) }
 
                 return .init(version: parsedVersion,
+                             title: nil,
                              summary: version.summary,
                              manifests: manifests,
                              defaultToolsVersion: defaultToolsVersion,

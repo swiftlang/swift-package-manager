@@ -132,7 +132,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                             guard let version = $0.tagName.flatMap(TSCUtility.Version.init(string:)) else {
                                 return nil
                             }
-                            return Model.PackageBasicVersionMetadata(version: version, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
+                            return Model.PackageBasicVersionMetadata(version: version, title: $0.name, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
                         },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,

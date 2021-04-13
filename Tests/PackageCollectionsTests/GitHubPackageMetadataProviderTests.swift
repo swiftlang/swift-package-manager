@@ -95,6 +95,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             XCTAssertEqual(metadata.summary, "This your first repo!")
             XCTAssertEqual(metadata.versions.count, 1)
             XCTAssertEqual(metadata.versions[0].version, TSCUtility.Version("1.0.0"))
+            XCTAssertEqual(metadata.versions[0].title, "1.0.0")
             XCTAssertEqual(metadata.versions[0].summary, "Description of the release")
             XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
                                                                                      url: URL(string: "https://api.github.com/users/octocat")!,

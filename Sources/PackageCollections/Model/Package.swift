@@ -113,6 +113,9 @@ extension PackageCollectionsModel.Package {
         /// The version
         public let version: TSCUtility.Version
 
+        /// The title or name of the version
+        public let title: String?
+
         /// Package version description
         public let summary: String?
 
