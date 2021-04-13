@@ -730,7 +730,7 @@ public final class SwiftTargetBuildDescription {
             // we can rename the symbol unconditionally.
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
-            let flags: Set = ["Xfrontend", "entry-point-function-name"]
+            let flags: Set = ["entry-point-function-name"]
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: flags, fs: self.fs) {
                 if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
                     args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]

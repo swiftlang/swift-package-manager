@@ -602,7 +602,7 @@ class MiscellaneousTestCase: XCTestCase {
     
     func testTestsCanLinkAgainstExecutable() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol(flags: ["Xfrontend", "entry-point-function-name"], fs: localFileSystem), "skipping because host compiler doesn't support '-entry-point-function-name'")
+        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
         
         fixture(name: "Miscellaneous/TestableExe") { prefix in
             do {

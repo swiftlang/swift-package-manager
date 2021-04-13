@@ -67,8 +67,5 @@ public class Resources: ManifestResourceProvider {
         return Resources.default.binDir == nil
     }
     
-    public func swiftCompilerSupportsRenamingMainSymbol(flags: Set<String>, fs: FileSystem) throws -> Bool {
-        // Note that the flags should not have a leading `-`
-        return SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: flags, fs: fs)
-    }
+    public let swiftCompilerSupportsRenamingMainSymbol = SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fs: localFileSystem)
 }

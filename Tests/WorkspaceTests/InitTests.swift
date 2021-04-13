@@ -86,7 +86,7 @@ class InitTests: XCTestCase {
                 ["FooTests"])
             
             // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).
-            if (try Resources.default.swiftCompilerSupportsRenamingMainSymbol(flags: ["Xfrontend", "entry-point-function-name"], fs: fs)) {
+            if (Resources.default.swiftCompilerSupportsRenamingMainSymbol) {
                 XCTAssertBuilds(path)
                 let triple = Resources.default.toolchain.triple
                 let binPath = path.appending(components: ".build", triple.tripleString, "debug")
