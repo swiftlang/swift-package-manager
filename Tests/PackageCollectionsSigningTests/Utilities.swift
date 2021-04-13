@@ -25,10 +25,14 @@ let diagnosticsEngine = DiagnosticsEngine()
 
 struct TestCertificatePolicy: CertificatePolicy {
     static let testCertValidDate: Date = {
+        // This is the datetime that the tests use to validate test certs (Test_rsa.cer, Test_ec.cer).
+        // Make sure it falls within the certs' validity period, across timezones.
+        // For example, suppose the current date is April 12, 2021, the cert validation runs as if
+        // the date were November 18, 2020.
         var dateComponents = DateComponents()
         dateComponents.year = 2020
         dateComponents.month = 11
-        dateComponents.day = 16
+        dateComponents.day = 18
         return Calendar.current.date(from: dateComponents)!
     }()
 
