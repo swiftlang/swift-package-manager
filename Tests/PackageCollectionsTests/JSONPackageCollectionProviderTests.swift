@@ -152,12 +152,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case HTTPClientError.responseTooLarge(let size):
-                XCTAssertEqual(size, maxSize * 2)
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .responseTooLarge(url, maxSize * 2))
         })
     }
 
@@ -186,12 +181,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case HTTPClientError.responseTooLarge(let size):
-                XCTAssertEqual(size, maxSize * 2)
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .responseTooLarge(url, maxSize * 2))
         })
     }
 
@@ -211,12 +201,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case JSONPackageCollectionProvider.Errors.invalidResponse(let error):
-                XCTAssertEqual(error, "Missing Content-Length header")
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .invalidResponse(url, "Missing Content-Length header"))
         })
     }
 
@@ -244,12 +229,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case HTTPClientError.responseTooLarge(let size):
-                XCTAssertEqual(size, maxSize * 2)
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2))
         })
     }
 
@@ -269,7 +249,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode))
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionUnavailable(url, statusCode))
         })
     }
 
@@ -295,7 +275,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode))
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionUnavailable(url, statusCode))
         })
     }
 
@@ -323,12 +303,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case JSONPackageCollectionProvider.Errors.invalidJSON:
-                break
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .invalidJSON(url))
         })
     }
 
