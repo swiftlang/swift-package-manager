@@ -492,7 +492,7 @@ extension LLBuildManifestBuilder {
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: target.objects,
-            otherArguments:  try target.compileArguments(),
+            otherArguments: target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
             wholeModuleOptimization: buildParameters.configuration == .release

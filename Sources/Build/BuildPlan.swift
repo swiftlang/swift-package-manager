@@ -676,14 +676,18 @@ public final class SwiftTargetBuildDescription {
         try fs.writeIfChanged(path: path, bytes: stream.bytes)
     }
     
-    public static func checkSupportedFrontendFlags(flags: Set<String>, fs: FileSystem) throws -> Bool {
-        let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fs), fileSystem: fs, env: [:])
-        let driver = try Driver(args: ["swiftc"], executor: executor)
-        return driver.supportedFrontendFlags.intersection(flags) == flags
+    public static func checkSupportedFrontendFlags(flags: Set<String>, fs: FileSystem) -> Bool {
+        do {
+            let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fs), fileSystem: fs, env: [:])
+            let driver = try Driver(args: ["swiftc"], executor: executor)
+            return driver.supportedFrontendFlags.intersection(flags) == flags
+        } catch {
+            return false
+        }
     }
     
     /// The arguments needed to compile this target.
-    public func compileArguments() throws -> [String] {
+    public func compileArguments() -> [String] {
         var args = [String]()
         args += buildParameters.targetTripleArgs(for: target)
         args += ["-swift-version", swiftVersion.rawValue]
@@ -727,7 +731,7 @@ public final class SwiftTargetBuildDescription {
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
             let flags: Set = ["Xfrontend", "entry-point-function-name"]
-            if try SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: flags, fs: self.fs) {
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: flags, fs: self.fs) {
                 if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
                     args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
                 }
@@ -807,7 +811,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += try self.compileArguments()
+        result += self.compileArguments()
         return result
      }
 
