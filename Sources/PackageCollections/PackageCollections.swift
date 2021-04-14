@@ -262,13 +262,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
-        if let errors = source.validate()?.errors() {
-            return callback(.failure(MultipleErrors(errors)))
-        }
-
         self.storage.collections.get(identifier: .init(from: source)) { result in
             switch result {
             case .failure:
+                // The collection is not in storage. Validate the source before fetching it.
+                if let errors = source.validate()?.errors() {
+                    return callback(.failure(MultipleErrors(errors)))
+                }
                 guard let provider = self.collectionProviders[source.type] else {
                     return callback(.failure(UnknownProvider(source.type)))
                 }
