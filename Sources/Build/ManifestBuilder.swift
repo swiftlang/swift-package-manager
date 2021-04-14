@@ -478,7 +478,7 @@ extension LLBuildManifestBuilder {
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
         cmdOutputs: [Node]
-    ) throws {
+    ) {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: buildConfig)
 
