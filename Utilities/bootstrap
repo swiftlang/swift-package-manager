@@ -144,6 +144,9 @@ def add_build_args(parser):
         dest="cross_compile_hosts",
         help="List of cross compile hosts targets.",
         default=[])
+    parser.add_argument(
+        "--cross-compile-config",
+        help="Swift flags to cross-compile SPM with itself")
 
 def add_test_args(parser):
     """Configures the parser with the arguments necessary for the test action."""
@@ -197,8 +200,14 @@ def parse_build_args(args):
     args.clang_path = get_clang_path(args)
     args.cmake_path = get_cmake_path(args)
     args.ninja_path = get_ninja_path(args)
-    if args.cross_compile_hosts: # Use XCBuild target directory when building for multiple arches.
-        args.target_dir = os.path.join(args.build_dir, "apple/Products")
+    if args.cross_compile_hosts:
+        if "macosx-arm64" in args.cross_compile_hosts:
+            # Use XCBuild target directory when building for multiple arches.
+            args.target_dir = os.path.join(args.build_dir, "apple/Products")
+        elif re.match('android-', args.cross_compile_hosts):
+            args.target_dir = os.path.join(
+                                  args.build_dir,
+                                  get_build_target(args,cross_compile=True))
     else:
         args.target_dir = os.path.join(args.build_dir, get_build_target(args))
     args.bootstrap_dir = os.path.join(args.target_dir, "bootstrap")
@@ -272,10 +281,15 @@ def get_ninja_path(args):
     else:
         return call_output(["which", "ninja"], verbose=args.verbose)
 
-def get_build_target(args):
-    """Returns the target-triple of the current machine."""
+def get_build_target(args, cross_compile=False):
+    """Returns the target-triple of the current machine or for cross-compilation."""
     try:
-        target_info_json = subprocess.check_output([args.swiftc_path, '-print-target-info'], stderr=subprocess.PIPE, universal_newlines=True).strip()
+        command = [args.swiftc_path, '-print-target-info']
+        if cross_compile:
+            cross_compile_json = json.load(open(args.cross_compile_config))
+            command += ['-target', cross_compile_json["target"]]
+        target_info_json = subprocess.check_output(command,
+                               stderr=subprocess.PIPE, universal_newlines=True).strip()
         args.target_info = json.loads(target_info_json)
         return args.target_info["target"]["unversionedTriple"]
     except Exception as e:
@@ -310,8 +324,8 @@ def build(args):
         build_swift_argument_parser(args)
         build_swift_driver(args)
         build_swift_crypto(args)
+        build_swiftpm_with_cmake(args)
 
-    build_swiftpm_with_cmake(args)
     build_swiftpm_with_swiftpm(args,integrated_swift_driver=False)
 
 def test(args):
@@ -469,7 +483,7 @@ def install_binary(args, binary, dest_dir):
 # Build functions
 # -----------------------------------------------------------
 
-def build_with_cmake(args, cmake_args, source_path, build_dir, targets=[]):
+def build_with_cmake(args, cmake_args, source_path, build_dir):
     """Runs CMake if needed, then builds with Ninja."""
     cache_path = os.path.join(build_dir, "CMakeCache.txt")
     if args.reconfigure or not os.path.isfile(cache_path) or not args.swiftc_path in open(cache_path).read():
@@ -499,8 +513,6 @@ def build_with_cmake(args, cmake_args, source_path, build_dir, targets=[]):
 
     if args.verbose:
         ninja_cmd.append("-v")
-
-    ninja_cmd += targets
 
     call(ninja_cmd, cwd=build_dir, verbose=args.verbose)
 
@@ -607,26 +619,20 @@ def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     note("Building SwiftPM (with CMake)")
 
-    if args.bootstrap:
-        cmake_flags = [
-            get_llbuild_cmake_arg(args),
-            "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
-            "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
-            "-DArgumentParser_DIR=" + os.path.join(args.swift_argument_parser_build_dir, "cmake/modules"),
-            "-DSwiftDriver_DIR=" + os.path.join(args.swift_driver_build_dir, "cmake/modules"),
-            "-DSwiftCrypto_DIR=" + os.path.join(args.swift_crypto_build_dir, "cmake/modules"),
-            "-DFIND_PM_DEPS:BOOL=YES",
-        ]
-    else:
-        cmake_flags = [ "-DFIND_PM_DEPS:BOOL=NO" ]
+    cmake_flags = [
+        get_llbuild_cmake_arg(args),
+        "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
+        "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
+        "-DArgumentParser_DIR=" + os.path.join(args.swift_argument_parser_build_dir, "cmake/modules"),
+        "-DSwiftDriver_DIR=" + os.path.join(args.swift_driver_build_dir, "cmake/modules"),
+        "-DSwiftCrypto_DIR=" + os.path.join(args.swift_crypto_build_dir, "cmake/modules"),
+    ]
 
     if platform.system() == 'Darwin':
         cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
-    targets = [] if args.bootstrap else ["PD4", "PD4_2"]
-
-    build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir, targets)
+    build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir)
 
     if args.llbuild_link_framework:
         add_rpath_for_cmake_build(args, args.llbuild_build_dir)
@@ -812,7 +818,8 @@ def get_swiftpm_flags(args):
         )
 
     # Don't use GNU strerror_r on Android.
-    if 'ANDROID_DATA' in os.environ:
+    if 'ANDROID_DATA' in os.environ or (args.cross_compile_hosts and re.match(
+        'android-', args.cross_compile_hosts)):
         build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
 
     # On ELF platforms, remove the host toolchain's stdlib absolute rpath from
@@ -824,6 +831,8 @@ def get_swiftpm_flags(args):
     cross_compile_hosts = args.cross_compile_hosts
     if build_target == 'x86_64-apple-macosx' and "macosx-arm64" in cross_compile_hosts:
         build_flags += ["--arch", "x86_64", "--arch", "arm64"]
+    elif cross_compile_hosts and re.match('android-', cross_compile_hosts):
+        build_flags.extend(["--destination", args.cross_compile_config])
     elif cross_compile_hosts:
         error("cannot cross-compile for %s" % cross_compile_hosts)
 
