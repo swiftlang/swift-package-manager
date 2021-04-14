@@ -15,7 +15,7 @@ import TSCBasic
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol {
     // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
-    #if os(macOS) || os(Linux) || os(Windows)
+    #if os(macOS) || os(Linux) || os(Windows) || os(Android)
     static let isSupportedPlatform = true
     #else
     static let isSupportedPlatform = false

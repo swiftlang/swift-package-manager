@@ -79,7 +79,7 @@ class CertificatePolicyTests: XCTestCase {
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                 }
-                #elseif os(Linux) || os(Windows)
+                #elseif os(Linux) || os(Windows) || os(Android)
                 guard CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.noTrustedRootCertsConfigured")
                 }
@@ -142,7 +142,7 @@ class CertificatePolicyTests: XCTestCase {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
                 }
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -192,7 +192,7 @@ class CertificatePolicyTests: XCTestCase {
                                                       callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -257,7 +257,7 @@ class CertificatePolicyTests: XCTestCase {
                                                              callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -327,7 +327,7 @@ class CertificatePolicyTests: XCTestCase {
                     }
                 }
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
@@ -395,7 +395,7 @@ class CertificatePolicyTests: XCTestCase {
                     }
                 }
             }
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))

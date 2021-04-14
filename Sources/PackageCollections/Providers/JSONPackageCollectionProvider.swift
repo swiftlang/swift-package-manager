@@ -27,7 +27,7 @@ private typealias JSONModel = PackageCollectionModel.V1
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
     // module depends on are available on all Apple platforms.
-    #if os(macOS) || os(Linux) || os(Windows)
+    #if os(macOS) || os(Linux) || os(Windows) || os(Android)
     static let isSignatureCheckSupported = true
     #else
     static let isSignatureCheckSupported = false
