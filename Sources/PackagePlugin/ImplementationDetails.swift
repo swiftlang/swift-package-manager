@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
+@_implementationOnly import Foundation
 
 // The way in which SwiftPM communicates with the package plugin is an im-
 // plementation detail, but the way it currently works is that the plugin
