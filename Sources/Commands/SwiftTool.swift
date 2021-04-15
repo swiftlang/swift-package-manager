@@ -95,17 +95,17 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func cloning(repository: String) {
+    func willMoveToWorkingDirectory(repository: String, to path: AbsolutePath) {
         queue.async {
-            self.stdoutStream <<< "Cloning \(repository)"
+            self.stdoutStream <<< "Moving \(repository) to working directory"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
         }
     }
 
-    func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
+    func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
         queue.async {
-            self.stdoutStream <<< "Resolving \(repository) at \(reference)"
+            self.stdoutStream <<< "Resolving \(repository) at \(revision)"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
         }

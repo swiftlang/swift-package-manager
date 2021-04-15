@@ -61,13 +61,21 @@ public protocol WorkspaceDelegate: AnyObject {
     func dependenciesUpToDate()
 
     /// The workspace is about to clone a repository from the local cache to a working directory.
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated, message: "use willMoveToWorkingDirectory")
     func willClone(repository url: String, to path: AbsolutePath)
+    func willMoveToWorkingDirectory(repository url: String, to path: AbsolutePath)
 
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated, message: "use didMoveToWorkingDirectory")
     func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?)
+    func didMoveToWorkingDirectory(repository url: String, to path: AbsolutePath, error: Diagnostic?)
 
-    /// The workspace has started cloning this repository. This callback is marginally deprecated in favor of the willClone/didClone pair.
-    func cloning(repository: String)
+    /// The workspace has started cloning this repository  from the local cache to a working directory. This callback is marginally deprecated in favor of the willClone/didClone pair.
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated, message: "use didMoveToWorkingDirectory")
+    func cloning(repository url: String)
 
     /// The workspace is about to check out a particular revision of a working directory.
     func willCheckOut(repository url: String, revision: String, at path: AbsolutePath)
@@ -75,7 +83,9 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
     func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?)
 
+    // deprecated 04/2021, remove once clients moved over
     /// The workspace is checking out a repository. This callback is marginally deprecated in favor of the willCheckOut/didCheckOut pair.
+    @available(*, deprecated, message: "use didCheckOut")
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath)
 
     /// The workspace is removing this repository because it is no longer needed.
@@ -99,16 +109,30 @@ public protocol WorkspaceDelegate: AnyObject {
 public extension WorkspaceDelegate {
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
     func willClone(repository url: String, to path: AbsolutePath) {
         cloning(repository: url)
     }
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
+    func cloning(repository url: String) {}
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
     func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?) {}
-    func cloning(repository: String) {}
+    func willMoveToWorkingDirectory(repository url: String, to path: AbsolutePath) {
+        willClone(repository: url, to: path)
+    }
+    func didMoveToWorkingDirectory(repository url: String, to path: AbsolutePath, error: Diagnostic?) {
+        didClone(repository: url, to: path, error: error)
+    }
     func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
         checkingOut(repository: url, atReference: revision, to: path)
     }
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
+    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
     func willResolveDependencies(reason: WorkspaceResolveReason) {}
@@ -2468,9 +2492,9 @@ extension Workspace {
         try fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        delegate?.willClone(repository: handle.repository.url, to: path)
+        delegate?.willMoveToWorkingDirectory(repository: handle.repository.url, to: path)
         try handle.cloneCheckout(to: path, editable: false)
-        delegate?.didClone(repository: handle.repository.url, to: path, error: nil)
+        delegate?.didMoveToWorkingDirectory(repository: handle.repository.url, to: path, error: nil)
 
         return path
     }
