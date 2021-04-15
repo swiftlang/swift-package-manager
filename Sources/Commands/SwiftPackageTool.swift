@@ -190,14 +190,20 @@ extension SwiftPackageTool {
         }
     }
 
-    struct Init: SwiftCommand {
+    struct Init: SwiftCommand, CustomReflectable {
+        var customMirror: Mirror {
+            return Mirror(self, children: ["initMode": self._initMode, "packageName": self._packageName as Any])
+        }
+        
         static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
+        
+        static let includeSuperCommandInHelp = false
 
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Option(name: .customLong("type"))
+        @Option(name: .customLong("type"), help: "Package type: empty | library | executable | system-module | manifest")
         var initMode: InitPackage.PackageType = .library
         
         @Option(name: .customLong("name"), help: "Provide custom package name")
