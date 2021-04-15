@@ -16,7 +16,7 @@
 @_implementationOnly import ucrt
 @_implementationOnly import struct WinSDK.HANDLE
 #endif
-import Foundation
+@_implementationOnly import Foundation
 
 /// The configuration of a Swift package.
 ///
