@@ -564,6 +564,27 @@ public final class SwiftTargetBuildDescription {
 
     /// True if this is the test discovery target.
     public let testDiscoveryTarget: Bool
+    
+    /// True if this module needs to be parsed as a library based on the target type and the configuration
+    /// of the source code (for example because it has a single source file whose name isn't "main.swift").
+    /// This deactivates heuristics in the Swift compiler that treats single-file modules and source files
+    /// named "main.swift" specially w.r.t. whether they can have an entry point.
+    ///
+    /// See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
+    /// convey the intent to build an executable module to the compiler regardless of the number of files
+    /// in the module or their names.
+    var needsToBeParsedAsLibrary: Bool {
+        switch target.type {
+        case .library, .test:
+            return true
+        case .executable:
+            guard toolsVersion >= .v5_5 else { return false }
+            let sources = self.sources
+            return sources.count == 1 && sources.first?.basename != "main.swift"
+        default:
+            return false
+        }
+    }
 
     /// The filesystem to operate on.
     let fs: FileSystem
@@ -773,12 +794,8 @@ public final class SwiftTargetBuildDescription {
         // FIXME: Eliminate side effect.
         result.append(try writeOutputFileMap().pathString)
 
-        switch target.type {
-        case .library, .test:
+        if self.needsToBeParsedAsLibrary {
             result.append("-parse-as-library")
-
-        case .executable, .systemModule, .binary, .plugin:
-            do { }
         }
 
         if buildParameters.useWholeModuleOptimization {
@@ -817,7 +834,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-experimental-skip-non-inlinable-function-bodies")
         result.append("-force-single-frontend-invocation")
 
-        if target.type == .library || target.type == .test {
+        if self.needsToBeParsedAsLibrary {
             result.append("-parse-as-library")
         }
 
@@ -864,7 +881,7 @@ public final class SwiftTargetBuildDescription {
         // FIXME: Eliminate side effect.
         result.append(try writeOutputFileMap().pathString)
 
-        if target.type == .library || target.type == .test {
+        if self.needsToBeParsedAsLibrary {
             result.append("-parse-as-library")
         }
         // FIXME: Handle WMO
