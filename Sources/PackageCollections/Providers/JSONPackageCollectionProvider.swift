@@ -255,7 +255,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                          watchersCount: nil,
                          readmeURL: package.readmeURL,
                          license: package.license.flatMap { Model.License(from: $0) },
-                         authors: nil)
+                         authors: nil,
+                         languages: nil)
         }
 
         if !serializationOkay {

@@ -606,7 +606,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                           watchersCount: nil,
                                                           readmeURL: nil,
                                                           license: nil,
-                                                          authors: nil)
+                                                          authors: nil,
+                                                          languages: nil)
 
         let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                 name: UUID().uuidString,
@@ -770,7 +771,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                           watchersCount: nil,
                                                           readmeURL: nil,
                                                           license: nil,
-                                                          authors: nil)
+                                                          authors: nil,
+                                                          languages: nil)
 
         let mockCollection = PackageCollectionsModel.Collection(source: .init(type: .json, url: URL(string: "https://feed.mock/\(UUID().uuidString)")!),
                                                                 name: UUID().uuidString,
@@ -1201,7 +1203,8 @@ final class PackageCollectionsTests: XCTestCase {
                                                           watchersCount: Int.random(in: 0 ... 50),
                                                           readmeURL: URL(string: "https://package-\(packageId)-readme")!,
                                                           license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "http://apache.license")!),
-                                                          authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) })
+                                                          authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
+                                                          languages: nil)
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
@@ -1210,6 +1213,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                         readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
                                                                         license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "\(mockPackage.license!.url.absoluteString)-2")!),
                                                                         authors: mockPackage.authors.flatMap { $0.map { .init(username: "\($0.username + "2")", url: nil, service: nil) } },
+                                                                        languages: ["Swift"],
                                                                         processedAt: Date())
 
         let metadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
@@ -1243,6 +1247,7 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(metadata.readmeURL, mockMetadata.readmeURL, "readmeURL should match")
         XCTAssertEqual(metadata.license, mockMetadata.license, "license should match")
         XCTAssertEqual(metadata.authors, mockMetadata.authors, "authors should match")
+        XCTAssertEqual(metadata.languages, mockMetadata.languages, "languages should match")
     }
 
     func testFetchMetadataNotFoundInCollections() throws {

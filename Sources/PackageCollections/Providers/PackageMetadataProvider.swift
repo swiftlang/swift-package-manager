@@ -35,6 +35,7 @@ extension Model {
         let readmeURL: Foundation.URL?
         let license: PackageCollectionsModel.License?
         let authors: [PackageCollectionsModel.Package.Author]?
+        let languages: Set<String>?
         let processedAt: Date
     }
 

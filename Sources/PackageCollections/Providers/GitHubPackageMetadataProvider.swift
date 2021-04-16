@@ -57,6 +57,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         let contributorsURL = baseURL.appendingPathComponent("contributors")
         let readmeURL = baseURL.appendingPathComponent("readme")
         let licenseURL = baseURL.appendingPathComponent("license")
+        let languagesURL = baseURL.appendingPathComponent("languages")
 
         let sync = DispatchGroup()
         let results = ThreadSafeKeyValueStore<URL, Result<HTTPClientResponse, Error>>()
@@ -90,7 +91,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
-                    [releasesURL, contributorsURL, readmeURL, licenseURL].forEach { url in
+                    [releasesURL, contributorsURL, readmeURL, licenseURL, languagesURL].forEach { url in
                         sync.enter()
                         var headers = HTTPClientHeaders()
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
@@ -123,6 +124,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
                     let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
                     let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
+                    let languages = try results[languagesURL]?.success?.decodeBody([String: Int].self, using: self.decoder)?.keys
 
                     let model = Model.PackageBasicMetadata(
                         summary: metadata.description,
@@ -138,6 +140,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         readmeURL: readme?.downloadURL,
                         license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
                         authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
+                        languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] },
                         processedAt: Date()
                     )
 

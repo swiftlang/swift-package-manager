@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -80,7 +80,10 @@ extension PackageCollectionsModel {
         /// Package authors
         public let authors: [Author]?
 
-        /// Initializes a `PackageMetadata`
+        /// The package's programming languages
+        public let languages: Set<String>?
+
+        /// Initializes a `Package`
         init(
             repository: RepositorySpecifier,
             summary: String?,
@@ -89,7 +92,8 @@ extension PackageCollectionsModel {
             watchersCount: Int?,
             readmeURL: URL?,
             license: License?,
-            authors: [Author]?
+            authors: [Author]?,
+            languages: Set<String>?
         ) {
             self.reference = .init(repository: repository)
             self.repository = repository
@@ -100,6 +104,7 @@ extension PackageCollectionsModel {
             self.readmeURL = readmeURL
             self.license = license
             self.authors = authors
+            self.languages = languages
         }
     }
 }
