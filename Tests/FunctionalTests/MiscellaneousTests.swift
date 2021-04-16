@@ -645,7 +645,7 @@ class MiscellaneousTestCase: XCTestCase {
                 // make sure it builds
                 let output = try executeSwiftBuild(appPath)
                 XCTAssertTrue(output.stdout.contains("Fetching \(prefix)/Foo"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Moving \(prefix)/Foo to working directory"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
                 XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
 
@@ -663,7 +663,7 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 // take foo out of edit mode
                 let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
-                XCTAssertTrue(output.stdout.contains("Moving \(prefix)/Foo to working directory"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
                 XCTAssertFalse(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
             }
 

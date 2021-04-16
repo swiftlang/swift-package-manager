@@ -108,12 +108,12 @@ public struct GitRepositoryProvider: RepositoryProvider {
         return GitRepository(path: path, isWorkingRepo: false)
     }
 
-    public func cloneCheckout(
+    public func createWorkingCopy(
         repository: RepositorySpecifier,
-        at sourcePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
+        sourcePath: AbsolutePath,
+        at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws {
+    ) throws -> WorkingCheckout {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
@@ -142,16 +142,17 @@ public struct GitRepositoryProvider: RepositoryProvider {
                              repository: repository,
                              failureMessage: "Failed to clone repository \(repository.url)")
         }
+        return try self.openWorkingCopy(at: destinationPath)
     }
 
-    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+    public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         precondition(localFileSystem.exists(path))
 
         let repo = GitRepository(path: path)
         return try repo.checkoutExists()
     }
 
-    public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
     }
 }

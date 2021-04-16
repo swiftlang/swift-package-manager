@@ -95,9 +95,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func willMoveToWorkingDirectory(repository: String, to path: AbsolutePath) {
+    func willCreateWorkingCopy(repository: String, at path: AbsolutePath) {
         queue.async {
-            self.stdoutStream <<< "Moving \(repository) to working directory"
+            self.stdoutStream <<< "Creating working copy for \(repository)"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
         }

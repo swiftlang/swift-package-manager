@@ -604,8 +604,8 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("finished fetching repo: \(repository)")
     }
 
-    public func willMoveToWorkingDirectory(repository url: String, to path: AbsolutePath) {
-        self.append("moving repo: \(url) to working directory")
+    public func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {
+        self.append("creating working copy for: \(url)")
     }
 
     public func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {

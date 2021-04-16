@@ -38,7 +38,7 @@ class GitRepositoryTests: XCTestCase {
             // Test the provider.
             let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
-            XCTAssertTrue(try provider.checkoutExists(at: testRepoPath))
+            XCTAssertTrue(try provider.workingCopyExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
@@ -277,18 +277,18 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
+            _ = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
             // The remote of this checkout should point to the clone.
             XCTAssertEqual(try GitRepository(path: checkoutPath).remotes()[0].url, testClonePath.pathString)
 
             let editsPath = path.appending(component: "edit")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: editsPath, editable: true)
+            _ = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: editsPath, editable: true)
             // The remote of this checkout should point to the original repo.
             XCTAssertEqual(try GitRepository(path: editsPath).remotes()[0].url, testRepoPath.pathString)
 
             // Check the working copies.
             for path in [checkoutPath, editsPath] {
-                let workingCopy = try provider.openCheckout(at: path)
+                let workingCopy = try provider.openWorkingCopy(at: path)
                 try workingCopy.checkout(tag: "test-tag")
                 XCTAssertEqual(try workingCopy.getCurrentRevision(), currentRevision)
                 XCTAssert(localFileSystem.exists(path.appending(component: "test.txt")))
@@ -318,8 +318,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
-            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
+            let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
             XCTAssertEqual(try checkoutRepo.getTags(), ["1.2.3"])
 
             // Add a new file to original repo.
@@ -358,8 +357,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: true)
-            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
+            let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: true)
 
             XCTAssertFalse(try checkoutRepo.hasUnpushedCommits())
             // Add a new file to checkout.
@@ -534,7 +532,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Fetch and clone repo foo.
             try provider.fetch(repository: fooSpecifier, to: fooRepoPath)
-            try provider.cloneCheckout(repository: fooSpecifier, at: fooRepoPath, to: fooWorkingPath, editable: false)
+            _ = try provider.createWorkingCopy(repository: fooSpecifier, sourcePath: fooRepoPath, at: fooWorkingPath, editable: false)
 
             let fooRepo = GitRepository(path: fooRepoPath, isWorkingRepo: false)
             let fooWorkingRepo = GitRepository(path: fooWorkingPath)
@@ -606,8 +604,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
-            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
+            let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
 
             // The object store should be valid.
             XCTAssertTrue(checkoutRepo.isAlternateObjectStoreValid())
@@ -680,9 +677,8 @@ class GitRepositoryTests: XCTestCase {
 
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
-            try provider.cloneCheckout(repository: repoSpec, at: testClonePath, to: checkoutPath, editable: false)
+            let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
             XCTAssertFalse(localFileSystem.exists(checkoutPath.appending(component: "file.swift")))
-            let checkoutRepo = try provider.openCheckout(at: checkoutPath)
 
             // Try to check out the `main` branch.
             try checkoutRepo.checkout(revision: Revision(identifier: "newMain"))

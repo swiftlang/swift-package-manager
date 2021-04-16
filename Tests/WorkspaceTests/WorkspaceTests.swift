@@ -2251,7 +2251,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "bar", at: .edited(barPath))
         }
-        let barRepo = try workspace.repoProvider.openCheckout(at: barPath) as! InMemoryGitRepository
+        let barRepo = try workspace.repoProvider.openWorkingCopy(at: barPath) as! InMemoryGitRepository
         XCTAssert(barRepo.revisions.contains("dev"))
 
         // Test unediting.
