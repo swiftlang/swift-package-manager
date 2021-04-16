@@ -83,7 +83,8 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                    watchersCount: Int.random(in: 1 ... 1000),
                                                    readmeURL: URL(string: "https://package-\(packageIndex)-readme")!,
                                                    license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "https://\(packageIndex).license")!),
-                                                   authors: nil)
+                                                   authors: nil,
+                                                   languages: nil)
         }
 
         var signature: PackageCollectionsModel.SignatureData?
@@ -116,6 +117,7 @@ func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetad
                  readmeURL: URL(string: "https://package-readme")!,
                  license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "https://package-license")!),
                  authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
+                 languages: ["Swift"],
                  processedAt: Date())
 }
 

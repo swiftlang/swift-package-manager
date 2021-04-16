@@ -550,7 +550,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
             watchersCount: basicMetadata?.watchersCount,
             readmeURL: basicMetadata?.readmeURL ?? package.readmeURL,
             license: basicMetadata?.license ?? package.license,
-            authors: basicMetadata?.authors
+            authors: basicMetadata?.authors ?? package.authors,
+            languages: basicMetadata?.languages ?? package.languages
         )
     }
 }

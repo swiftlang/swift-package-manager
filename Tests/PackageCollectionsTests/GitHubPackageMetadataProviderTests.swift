@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -80,6 +80,12 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     completion(.success(.init(statusCode: 200,
                                               headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                               body: data)))
+                case (.get, apiURL.appendingPathComponent("languages")):
+                    let path = directoryPath.appending(components: "GitHub", "languages.json")
+                    let data = Data(try! localFileSystem.readFileContents(path).contents)
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
                 default:
                     XCTFail("method and url should match")
                 }
@@ -104,6 +110,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             XCTAssertEqual(metadata.license?.type, PackageCollectionsModel.LicenseType.MIT)
             XCTAssertEqual(metadata.license?.url, URL(string: "https://raw.githubusercontent.com/benbalter/gman/master/LICENSE?lab=true"))
             XCTAssertEqual(metadata.watchersCount, 80)
+            XCTAssertEqual(metadata.languages, ["Swift", "Shell", "C"])
         }
     }
 
