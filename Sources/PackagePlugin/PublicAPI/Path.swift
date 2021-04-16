@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
-
 /// A simple representation of a path in the file system.
 public struct Path {
     private let _string: String
