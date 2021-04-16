@@ -233,10 +233,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         })
     }
 
-    func testUnsuccessfulHead() throws {
+    func testUnsuccessfulHead_unavailable() throws {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let statusCode = Int.random(in: 201 ... 550)
+        let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
         let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -253,10 +253,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         })
     }
 
-    func testUnsuccessfulGet() throws {
+    func testUnsuccessfulGet_unavailable() throws {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let statusCode = Int.random(in: 201 ... 550)
+        let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
         let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -276,6 +276,50 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionUnavailable(url, statusCode))
+        })
+    }
+
+    func testUnsuccessfulHead_notFound() throws {
+        let url = URL(string: "https://www.test.com/collection.json")!
+        let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            XCTAssertEqual(request.url, url, "url should match")
+            XCTAssertEqual(request.method, .head, "method should match")
+            completion(.success(.init(statusCode: 404)))
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionNotFound(url))
+        })
+    }
+
+    func testUnsuccessfulGet_notFound() throws {
+        let url = URL(string: "https://www.test.com/collection.json")!
+        let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            XCTAssertEqual(request.url, url, "url should match")
+            switch request.method {
+            case .head:
+                completion(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "1")]))))
+            case .get:
+                completion(.success(.init(statusCode: 404)))
+            default:
+                XCTFail("method should match")
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionNotFound(url))
         })
     }
 
