@@ -64,7 +64,7 @@ extension SwiftVersion {
     /// The current version of the package manager.
     public static let currentVersion = SwiftVersion(
         version: (5, 5, 0),
-        isDevelopment: true,
+        isDevelopment: false,
         buildIdentifier: getBuildIdentifier()
     )
 }
