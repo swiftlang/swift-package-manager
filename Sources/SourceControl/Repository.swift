@@ -87,7 +87,7 @@ public protocol RepositoryProvider {
 
     /// Create a working copy from a managed repository.
     ///
-    /// Once complete, the repository can be opened using `openCheckout`. Note
+    /// Once complete, the repository can be opened using `openWorkingCopy`. Note
     /// that there is no requirement that the files have been materialized into
     /// the file system at the completion of this call, since it will always be
     /// followed by checking out the cloned working copy at a particular ref.
