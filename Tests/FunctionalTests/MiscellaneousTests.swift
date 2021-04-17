@@ -306,10 +306,11 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testOverridingSwiftcArguments() throws {
+    func testOverridingDeploymentTargetUsingSwiftCompilerArgument() throws {
       #if os(macOS)
-        fixture(name: "Miscellaneous/OverrideSwiftcArgs") { prefix in
-            try executeSwiftBuild(prefix, Xswiftc: ["-target", "x86_64-apple-macosx10.20"])
+        fixture(name: "Miscellaneous/DistantFutureDeploymentTarget") { prefix in
+            let hostTriple = Resources.default.toolchain.triple
+            try executeSwiftBuild(prefix, Xswiftc: ["-target", "\(hostTriple.arch)-apple-macosx41.0"])
         }
       #endif
     }
