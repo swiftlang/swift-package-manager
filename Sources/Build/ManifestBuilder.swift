@@ -208,7 +208,7 @@ extension LLBuildManifestBuilder {
         } else if buildParameters.emitSwiftModuleSeparately {
             try self.addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else {
-            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
+            self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
         }
 
         self.addTargetCmd(target, cmdOutputs: cmdOutputs)
