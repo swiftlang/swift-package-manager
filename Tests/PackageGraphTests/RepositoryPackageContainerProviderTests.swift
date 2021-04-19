@@ -111,7 +111,7 @@ private class MockRepositories: RepositoryProvider {
         // No-op.
     }
 
-    func checkoutExists(at path: AbsolutePath) throws -> Bool {
+    func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         return false
     }
 
@@ -119,11 +119,11 @@ private class MockRepositories: RepositoryProvider {
         return self.repositories[repository.url]!
     }
 
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws {
+    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
         fatalError("unexpected API call")
     }
 
-    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         fatalError("unexpected API call")
     }
 }

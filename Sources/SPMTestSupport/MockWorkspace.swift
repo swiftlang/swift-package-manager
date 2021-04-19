@@ -604,12 +604,12 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("finished fetching repo: \(repository)")
     }
 
-    public func cloning(repository: String) {
-        self.append("cloning repo: \(repository)")
+    public func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {
+        self.append("creating working copy for: \(url)")
     }
 
-    public func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
-        self.append("checking out repo: \(repository)")
+    public func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
+        self.append("checking out repo: \(url)")
     }
 
     public func removing(repository: String) {
