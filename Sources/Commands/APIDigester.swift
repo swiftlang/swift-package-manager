@@ -78,15 +78,14 @@ struct APIDigesterBaselineDumper {
 
         // Clone the current package in a sandbox and checkout the baseline revision.
         let specifier = RepositorySpecifier(url: baselinePackageRoot.pathString)
-        try repositoryManager.provider.cloneCheckout(
+        let workingCopy = try repositoryManager.provider.createWorkingCopy(
             repository: specifier,
-            at: packageRoot,
-            to: baselinePackageRoot,
+            sourcePath: packageRoot,
+            at: baselinePackageRoot,
             editable: false
         )
 
-        let workingCheckout = try repositoryManager.provider.openCheckout(at: baselinePackageRoot)
-        try workingCheckout.checkout(revision: Revision(identifier: baselineTreeish))
+        try workingCopy.checkout(revision: Revision(identifier: baselineTreeish))
 
         // Create the workspace for this package.
         let workspace = Workspace.create(

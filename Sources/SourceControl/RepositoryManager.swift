@@ -102,16 +102,16 @@ public class RepositoryManager {
             return try self.manager.open(self)
         }
 
-        /// Clone into a working copy at on the local file system.
+        /// Create a working copy at on the local file system.
         ///
         /// - Parameters:
         ///   - path: The path at which to create the working copy; it is
         ///           expected to be non-existent when called.
         ///
         ///   - editable: The clone is expected to be edited by user.
-        public func cloneCheckout(to path: AbsolutePath, editable: Bool) throws {
-            precondition(status == .available, "cloneCheckout() called in invalid state")
-            try self.manager.cloneCheckout(self, to: path, editable: editable)
+        public func createWorkingCopy(at path: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
+            precondition(status == .available, "createWorkingCopy() called in invalid state")
+            return try self.manager.createWorkingCopy(self, at: path, editable: editable)
         }
 
         fileprivate func toJSON() -> JSON {
@@ -412,16 +412,16 @@ public class RepositoryManager {
             repository: handle.repository, at: self.path.appending(handle.subpath))
     }
 
-    /// Clone a repository from a handle.
-    private func cloneCheckout(
+    /// Create a working copy of the repository from a handle.
+    private func createWorkingCopy(
         _ handle: RepositoryHandle,
-        to destinationPath: AbsolutePath,
+        at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws {
-        try self.provider.cloneCheckout(
+    ) throws -> WorkingCheckout {
+        try self.provider.createWorkingCopy(
             repository: handle.repository,
-            at: self.path.appending(handle.subpath),
-            to: destinationPath,
+            sourcePath: self.path.appending(handle.subpath),
+            at: destinationPath,
             editable: editable)
     }
 
