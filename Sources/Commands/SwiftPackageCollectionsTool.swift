@@ -108,7 +108,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Add a new collection")
 
         @Argument(help: "URL of the collection to add")
-        var collectionUrl: String
+        var collectionURL: String
 
         @Option(name: .long, help: "Sort order for the added collection")
         var order: Int?
@@ -120,11 +120,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var skipSignatureCheck: Bool = false
 
         mutating func run() throws {
-            guard let collectionUrl = URL(string: collectionUrl) else {
-                throw CollectionsError.invalidArgument("collectionUrl")
-            }
+            let collectionURL = try url(self.collectionURL)
 
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl, skipSignatureCheck: self.skipSignatureCheck)
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
             let collection: PackageCollectionsModel.Collection = try with { collections in
                 do {
                     let userTrusted = self.trustUnsigned
@@ -155,14 +153,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Remove a configured collection")
 
         @Argument(help: "URL of the collection to remove")
-        var collectionUrl: String
+        var collectionURL: String
 
         mutating func run() throws {
-            guard let collectionUrl = URL(string: collectionUrl) else {
-                throw CollectionsError.invalidArgument("collectionUrl")
-            }
+            let collectionURL = try url(self.collectionURL)
 
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
             try with { collections in
                 let collection = try tsc_await { collections.getCollection(source, callback: $0) }
                 _ = try tsc_await { collections.removeCollection(source, callback: $0) }
@@ -229,7 +225,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var jsonOptions: JSONOptions
 
         @Argument(help: "URL of the package or collection to get information for")
-        var packageUrl: String
+        var packageURL: String
 
         @Option(name: .long, help: "Version of the package to get information for")
         var version: String?
@@ -268,8 +264,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         mutating func run() throws {
             try with { collections in
-                let identity = PackageIdentity(url: packageUrl)
-                let reference = PackageReference.remote(identity: identity, location: packageUrl)
+                let identity = PackageIdentity(url: packageURL)
+                let reference = PackageReference.remote(identity: identity, location: packageURL)
 
                 do { // assume URL is for a package in an imported collection
                     let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }
@@ -307,12 +303,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         throw error
                     }
 
-                    guard let collectionUrl = URL(string: packageUrl) else {
-                        throw CollectionsError.invalidArgument("collectionUrl")
-                    }
+                    let collectionURL = try url(self.packageURL)
 
                     do {
-                        let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
+                        let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
                         let collection = try tsc_await { collections.getCollection(source, callback: $0) }
 
                         let description = optionalRow("Description", collection.overview)
@@ -373,5 +367,17 @@ private extension ParsableCommand {
         }
 
         return try handler(collections)
+    }
+
+    func url(_ urlString: String) throws -> Foundation.URL {
+        guard let url = URL(string: urlString) else {
+            let filePrefix = "file://"
+            guard urlString.hasPrefix(filePrefix) else {
+                throw CollectionsError.invalidArgument("collectionURL")
+            }
+            // URL(fileURLWithPath:) can handle whitespaces in path
+            return URL(fileURLWithPath: String(urlString.dropFirst(filePrefix.count)))
+        }
+        return url
     }
 }
