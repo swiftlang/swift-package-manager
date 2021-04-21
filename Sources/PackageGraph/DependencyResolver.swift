@@ -12,7 +12,7 @@ import TSCBasic
 import PackageModel
 
 public protocol DependencyResolver {
-    typealias Binding = (container: PackageReference, binding: BoundVersion, products: ProductFilter)
+    typealias Binding = (package: PackageReference, binding: BoundVersion, products: ProductFilter)
     typealias Delegate = DependencyResolverDelegate
 }
 

@@ -227,7 +227,7 @@ public struct PubgrubDependencyResolver {
         var finalAssignments: [DependencyResolver.Binding]
             = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
                 let details = flattenedAssignments[package]!
-                return (container: package, binding: details.binding, products: details.products)
+                return (package: package, binding: details.binding, products: details.products)
             }
 
         // Add overriden packages to the result.
@@ -499,7 +499,6 @@ public struct PubgrubDependencyResolver {
             return .conflict
         }
 
-        //log("derived: \(unsatisfiedTerm.inverse)")
         self.delegate?.derived(term: unsatisfiedTerm.inverse)
         state.derive(unsatisfiedTerm.inverse, cause: incompatibility)
 
@@ -586,7 +585,6 @@ public struct PubgrubDependencyResolver {
             }
         }
 
-        //log("failed: \(incompatibility)")
         self.delegate?.failedToResolve(incompatibility: incompatibility)
         throw PubgrubError._unresolvable(incompatibility, state.incompatibilities)
     }
@@ -672,7 +670,6 @@ public struct PubgrubDependencyResolver {
 
                 // Decide this version if there was no conflict with its dependencies.
                 if !haveConflict {
-                    //self.log("decision: \(pkgTerm.node.package)@\(version)")
                     self.delegate?.didResolve(term: pkgTerm, version: version)
                     state.decide(pkgTerm.node, at: version)
                 }

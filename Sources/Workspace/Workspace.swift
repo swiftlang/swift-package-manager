@@ -2325,7 +2325,7 @@ extension Workspace {
         resolver: PubgrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         diagnostics: DiagnosticsEngine
-    ) -> [(container: PackageReference, binding: BoundVersion, products: ProductFilter)] {
+    ) -> [(package: PackageReference, binding: BoundVersion, products: ProductFilter)] {
 
         os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
         let result = resolver.solve(constraints: constraints)
