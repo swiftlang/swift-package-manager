@@ -111,40 +111,22 @@ public struct PubgrubDependencyResolver {
     /// Should resolver prefetch the containers.
     private let isPrefetchingEnabled: Bool
 
-    // Log stream
-    private let traceStream: OutputByteStream?
+    /// Resolver delegate
+    private let delegate: DependencyResolverDelegate?
 
     public init(
         provider: PackageContainerProvider,
         pinsMap: PinsStore.PinsMap = [:],
         isPrefetchingEnabled: Bool = false,
         skipUpdate: Bool = false,
-        traceFile: AbsolutePath? = nil,
-        traceStream: OutputByteStream? = nil
+        delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
         self.pinsMap = pinsMap
         self.isPrefetchingEnabled = isPrefetchingEnabled
         self.skipUpdate = skipUpdate
-        if let stream = traceStream {
-            self.traceStream = stream
-        } else {
-            self.traceStream = traceFile.flatMap { file in
-                // FIXME: Emit a warning if this fails.
-                try? LocalFileOutputByteStream(file, closeOnDeinit: true, buffered: false)
-            }
-        }
         self.provider = ContainerProvider(provider: self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
-    }
-
-    public init(
-        provider: PackageContainerProvider,
-        pinsMap: PinsStore.PinsMap = [:],
-        isPrefetchingEnabled: Bool = false,
-        skipUpdate: Bool = false,
-        traceFile: AbsolutePath? = nil
-    ) {
-        self.init(provider: provider, pinsMap: pinsMap, isPrefetchingEnabled: isPrefetchingEnabled, skipUpdate: skipUpdate, traceFile: traceFile, traceStream: nil)
+        self.delegate = delegate
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -256,7 +238,7 @@ public struct PubgrubDependencyResolver {
             finalAssignments.append((identifier, override.version, override.products))
         }
 
-        self.log(finalAssignments)
+        self.delegate?.computed(bindings: finalAssignments)
 
         return (finalAssignments, state)
     }
@@ -517,7 +499,8 @@ public struct PubgrubDependencyResolver {
             return .conflict
         }
 
-        log("derived: \(unsatisfiedTerm.inverse)")
+        //log("derived: \(unsatisfiedTerm.inverse)")
+        self.delegate?.derived(term: unsatisfiedTerm.inverse)
         state.derive(unsatisfiedTerm.inverse, cause: incompatibility)
 
         return .almostSatisfied(node: unsatisfiedTerm.node)
@@ -527,7 +510,7 @@ public struct PubgrubDependencyResolver {
     // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
     // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
     internal func resolve(state: State, conflict: Incompatibility) throws -> Incompatibility {
-        log("conflict: \(conflict)")
+        self.delegate?.conflict(conflict: conflict)
 
         var incompatibility = conflict
         var createdIncompatibility = false
@@ -594,12 +577,17 @@ public struct PubgrubDependencyResolver {
             )
             createdIncompatibility = true
 
-            log("CR: \(mostRecentTerm?.description ?? "") is\(difference != nil ? " partially" : "") satisfied by \(_mostRecentSatisfier)")
-            log("CR: which is caused by \(_mostRecentSatisfier.cause?.description ?? "")")
-            log("CR: new incompatibility \(incompatibility)")
+            if let term = mostRecentTerm {
+                if let diff = difference {
+                    self.delegate?.partiallySatisfied(term: term, by: _mostRecentSatisfier, incompatibility: incompatibility, difference: diff)
+                } else {
+                    self.delegate?.satisfied(term: term, by: _mostRecentSatisfier, incompatibility: incompatibility)
+                }
+            }
         }
 
-        log("failed: \(incompatibility)")
+        //log("failed: \(incompatibility)")
+        self.delegate?.failedToResolve(incompatibility: incompatibility)
         throw PubgrubError._unresolvable(incompatibility, state.incompatibilities)
     }
 
@@ -649,8 +637,10 @@ public struct PubgrubDependencyResolver {
                 let counts = try result.get()
                 // forced unwraps safe since we are testing for count and errors above
                 let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
+                self.delegate?.willResolve(term: pkgTerm)
                 // at this point the container is cached 
                 let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
+
                 // Get the best available version for this package.
                 guard let version = try container.getBestAvailableVersion(for: pkgTerm) else {
                     state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
@@ -670,7 +660,7 @@ public struct PubgrubDependencyResolver {
                     // Add the incompatibility to our partial solution.
                     state.addIncompatibility(incompatibility, at: .decisionMaking)
 
-                    // Check if this incompatibility will statisfy the solution.
+                    // Check if this incompatibility will satisfy the solution.
                     haveConflict = haveConflict || incompatibility.terms.allSatisfy {
                         // We only need to check if the terms other than this package
                         // are satisfied because we _know_ that the terms matching
@@ -682,7 +672,8 @@ public struct PubgrubDependencyResolver {
 
                 // Decide this version if there was no conflict with its dependencies.
                 if !haveConflict {
-                    self.log("decision: \(pkgTerm.node.package)@\(version)")
+                    //self.log("decision: \(pkgTerm.node.package)@\(version)")
+                    self.delegate?.didResolve(term: pkgTerm, version: version)
                     state.decide(pkgTerm.node, at: version)
                 }
 
@@ -690,20 +681,6 @@ public struct PubgrubDependencyResolver {
             } catch {
                 completion(.failure(error))
             }
-        }
-    }
-
-    private func log(_ assignments: [(container: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
-        log("solved:")
-        for (container, binding, _) in assignments {
-            log("\(container) \(binding)")
-        }
-    }
-
-    private func log(_ message: String) {
-        if let traceStream = traceStream {
-            traceStream <<< message <<< "\n"
-            traceStream.flush()
         }
     }
 }

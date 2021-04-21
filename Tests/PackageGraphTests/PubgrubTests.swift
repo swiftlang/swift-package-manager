@@ -2152,7 +2152,8 @@ class DependencyGraphBuilder {
             self.references = [:]
         }
         let provider = MockProvider(containers: self.containers.values.map { $0 })
-        return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, traceStream: log ? stdoutStream : nil)
+        let delegate =  log ? TracingDependencyResolverDelegate(stream: stdoutStream) : nil
+        return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, delegate: delegate)
     }
 }
 

@@ -29,7 +29,7 @@ public struct PartialSolution {
 
     /// Union of all negative assignments for a package.
     ///
-    /// Only present if a package has no postive assignment.
+    /// Only present if a package has no positive assignment.
     public private(set) var _negative: [DependencyResolutionNode: Term] = [:]
 
     /// The current decision level.

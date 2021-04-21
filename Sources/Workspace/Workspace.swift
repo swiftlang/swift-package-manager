@@ -604,7 +604,7 @@ extension Workspace {
         }
         
         // Resolve the dependencies.
-        let resolver = self.createResolver(pinsMap: pinsMap)
+        let resolver = try self.createResolver(pinsMap: pinsMap)
         self.activeResolver = resolver
 
         let updateResults = resolveDependencies(
@@ -1947,7 +1947,7 @@ extension Workspace {
         constraints += try graphRoot.constraints() + extraConstraints
 
         // Perform dependency resolution.
-        let resolver = createResolver(pinsMap: pinsStore.pinsMap)
+        let resolver = try createResolver(pinsMap: pinsStore.pinsMap)
         self.activeResolver = resolver
 
         let result = resolveDependencies(
@@ -2308,14 +2308,15 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver(pinsMap: PinsStore.PinsMap) -> PubgrubDependencyResolver {
-        let traceFile = enableResolverTrace ? self.dataPath.appending(components: "resolver.trace") : nil
+    fileprivate func createResolver(pinsMap: PinsStore.PinsMap) throws -> PubgrubDependencyResolver {
+        let delegate = self.enableResolverTrace ? try TracingDependencyResolverDelegate(path: self.dataPath.appending(components: "resolver.trace")) : nil
 
         return PubgrubDependencyResolver(
             provider: containerProvider,
             pinsMap: pinsMap,
             isPrefetchingEnabled: isResolverPrefetchingEnabled,
-            skipUpdate: skipUpdate, traceFile: traceFile
+            skipUpdate: skipUpdate,
+            delegate: delegate
         )
     }
 
