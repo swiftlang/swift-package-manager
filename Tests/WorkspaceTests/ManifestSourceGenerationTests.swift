@@ -37,8 +37,14 @@ class ManifestSourceGenerationTests: XCTestCase {
                                     completion: $0)
             }
 
-            // Generate source code for the loaded manifest, write it out to replace the manifest file contents, and load it again.
+            // Generate source code for the loaded manifest,
             let newContents = manifest.generatedManifestFileContents
+            
+            // Check that the tools version was serialized properly.
+            let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
+            XCTAssertTrue(newContents.hasPrefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"), newContents)
+            
+            // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
             let newManifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
@@ -154,6 +160,34 @@ class ManifestSourceGenerationTests: XCTestCase {
                 swiftLanguageVersions: [.v5],
                 cLanguageStandard: .c11,
                 cxxLanguageStandard: .cxx11
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+    }
+
+    func testPackageDependencyVariations() throws {
+        let manifestContents = """
+            // swift-tools-version:5.4
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                dependencies: [
+                   .package(url: "/foo1", from: "1.0.0"),
+                   .package(url: "/foo2", .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")),
+                   .package(path: "../foo3"),
+                   .package(path: "/path/to/foo4"),
+                   .package(url: "/foo5", .exact("1.2.3")),
+                   .package(url: "/foo6", "1.2.3"..<"2.0.0"),
+                   .package(url: "/foo7", .branch("master")),
+                   .package(url: "/foo8", .upToNextMinor(from: "1.3.4")),
+                   .package(url: "/foo9", .upToNextMajor(from: "1.3.4")),
+                   .package(path: "~/path/to/foo10"),
+                   .package(path: "~foo11"),
+                   .package(path: "~/path/to/~/foo12"),
+                   .package(path: "~"),
+                   .package(path: "file:///path/to/foo13"),
+                ]
             )
             """
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)

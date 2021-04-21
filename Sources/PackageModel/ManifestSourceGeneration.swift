@@ -25,8 +25,9 @@ extension Manifest {
     public var generatedManifestFileContents: String {
         /// Only write out the major and minor (not patch) versions of the
         /// tools version, since the patch version doesn't change semantics.
+        /// We leave out the spacer if the tools version doesn't support it.
         return """
-            // swift-tools-version: \(toolsVersion.major).\(toolsVersion.minor)
+            // swift-tools-version:\(toolsVersion < .v5_4 ? "" : " ")\(toolsVersion.major).\(toolsVersion.minor)
             import PackageDescription
 
             let package = \(SourceCodeFragment(from: self).generateSourceCode())
@@ -129,9 +130,9 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "url", string: data.location))
             switch data.requirement {
             case .exact(let version):
-                params.append(SourceCodeFragment(enum: "exact", string: version.description))
+                params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
             case .range(let range):
-                params.append(SourceCodeFragment(enum: "range", string: range.description))
+                params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             case .revision(let revision):
                 params.append(SourceCodeFragment(enum: "revision", string: revision))
             case .branch(let branch):
