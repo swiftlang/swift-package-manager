@@ -950,6 +950,58 @@ final class BuildPlanTests: XCTestCase {
       #endif
     }
 
+    func testParseAsLibraryFlagForExe() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            // First executable has a single source file not named `main.swift`.
+            "/Pkg/Sources/exe1/foo.swift",
+            // Second executable has a single source file named `main.swift`.
+            "/Pkg/Sources/exe2/main.swift",
+            // Third executable has multiple source files.
+            "/Pkg/Sources/exe3/bar.swift",
+            "/Pkg/Sources/exe3/main.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    packageKind: .root,
+                    packageLocation: "/Pkg",
+                    toolsVersion: .v5_5,
+                    targets: [
+                        TargetDescription(name: "exe1", type: .executable),
+                        TargetDescription(name: "exe2", type: .executable),
+                        TargetDescription(name: "exe3", type: .executable),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        )
+
+        result.checkProductsCount(3)
+        result.checkTargetsCount(3)
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        // Check that the first target (single source file not named main) has -parse-as-library.
+        let exe1 = try result.target(for: "exe1").swiftTarget().emitCommandLine()
+        XCTAssertMatch(exe1, ["-parse-as-library", .anySequence])
+
+        // Check that the second target (single source file named main) does not have -parse-as-library.
+        let exe2 = try result.target(for: "exe2").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe2, ["-parse-as-library", .anySequence])
+
+        // Check that the third target (multiple source files) does not have -parse-as-library.
+        let exe3 = try result.target(for: "exe3").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe3, ["-parse-as-library", .anySequence])
+    }
+
     func testCModule() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
