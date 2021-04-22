@@ -190,7 +190,7 @@ extension SwiftPackageTool {
         }
     }
 
-    public struct Init: SwiftCommand {
+    struct Init: SwiftCommand {
         public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
 
@@ -203,11 +203,9 @@ extension SwiftPackageTool {
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
         
-        public init() {}
-        
         func run(_ swiftTool: SwiftTool) throws {
             guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw StringError("Could not find the current working directory")
+                throw InternalError("Could not find the current working directory")
             }
 
             let packageName = self.packageName ?? cwd.basename
