@@ -169,6 +169,11 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExplicitSwiftPackageBuild() throws {
+        #if os(macOS) && arch(arm64)
+            // Disabled on Apple Silicon on the 5.4 branch
+            // because relies on fixes from later compiler versions.
+            throw XCTSkip()
+        #endif
         try withTemporaryDirectory { path in
             // Create a test package with three targets:
             // A -> B -> C
