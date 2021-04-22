@@ -17,6 +17,7 @@ import Xcodeproj
 import PackageModel
 import SourceControl
 import SPMTestSupport
+import ArgumentParserTestHelpers
 import TSCUtility
 import Workspace
 
@@ -46,6 +47,22 @@ final class PackageToolTests: XCTestCase {
     func testVersion() throws {
         let stdout = try execute(["--version"]).stdout
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
+    }
+    
+    func testInitHelp() throws {
+        AssertHelp(for: Commands.SwiftPackageTool.Init.self, equals: """
+            OVERVIEW: Initialize a new package
+
+            USAGE: init [<options>] --enable-index-store
+
+            OPTIONS:
+              --type <type>           Package type: empty | library | executable |
+                                      system-module | manifest (default: library)
+              --name <name>           Provide custom package name
+              -h, --help              Show help information.
+            
+            """
+        )
     }
     
     func testNetrcSupportedOS() throws {

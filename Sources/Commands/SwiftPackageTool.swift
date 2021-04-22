@@ -163,7 +163,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
                 
-        @Option()
+        @Option(help: "json | text")
         var type: DescribeMode = .text
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -190,17 +190,11 @@ extension SwiftPackageTool {
         }
     }
 
-    struct Init: SwiftCommand, CustomReflectable {
-        var customMirror: Mirror {
-            return Mirror(self, children: ["initMode": self._initMode, "packageName": self._packageName as Any])
-        }
-        
-        static let configuration = CommandConfiguration(
+    public struct Init: SwiftCommand {
+        public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
-        
-        static let includeSuperCommandInHelp = false
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(name: .customLong("type"), help: "Package type: empty | library | executable | system-module | manifest")
@@ -208,10 +202,13 @@ extension SwiftPackageTool {
         
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
-
+        
+        public init() {}
+        
         func run(_ swiftTool: SwiftTool) throws {
-            // FIXME: Error handling.
-            let cwd = localFileSystem.currentWorkingDirectory!
+            guard let cwd = localFileSystem.currentWorkingDirectory else {
+                throw StringError("Could not find the current working directory")
+            }
 
             let packageName = self.packageName ?? cwd.basename
             let initPackage = try InitPackage(
@@ -349,6 +346,9 @@ extension SwiftPackageTool {
     }
     
     struct DumpSymbolGraph: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Dump Symbol Graph")
+
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
@@ -478,7 +478,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Option()
+        @Option(help: "text | dot | json | flatlist")
         var format: ShowDependenciesMode = .text
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -495,7 +495,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
         
-        @Option()
+        @Option(help: "text | dot | json | flatlist")
         var format: ShowDependenciesMode = .text
 
         @Flag(help: "Set tools version of package to the current tools version in use")
@@ -914,7 +914,7 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
 
-        @Argument()
+        @Argument(help: "generate-bash-script | generate-zsh-script |\ngenerate-fish-script | list-dependencies | list-executables")
         var mode: Mode
 
         func run(_ swiftTool: SwiftTool) throws {
