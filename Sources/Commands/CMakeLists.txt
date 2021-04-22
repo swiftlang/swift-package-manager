@@ -15,6 +15,7 @@ add_library(Commands
   Options.swift
   show-dependencies.swift
   SwiftBuildTool.swift
+  SwiftPackageCollectionsTool.swift
   SwiftPackageTool.swift
   SwiftRunTool.swift
   SwiftTestTool.swift
@@ -25,6 +26,7 @@ target_link_libraries(Commands PUBLIC
   ArgumentParser
   Basics
   Build
+  PackageCollections
   PackageGraph
   SourceControl
   TSCBasic
