@@ -16,6 +16,7 @@ import PackageGraph
 import PackageLoading
 import Foundation
 import SPMBuildCore
+@_implementationOnly import SwiftDriver
 
 extension String {
     fileprivate var asSwiftStringLiteralConstant: String {
@@ -690,7 +691,17 @@ public final class SwiftTargetBuildDescription {
         let path = derivedSources.root.appending(subpath)
         try fs.writeIfChanged(path: path, bytes: stream.bytes)
     }
-
+    
+    public static func checkSupportedFrontendFlags(flags: Set<String>, fs: FileSystem) -> Bool {
+        do {
+            let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fs), fileSystem: fs, env: [:])
+            let driver = try Driver(args: ["swiftc"], executor: executor)
+            return driver.supportedFrontendFlags.intersection(flags) == flags
+        } catch {
+            return false
+        }
+    }
+    
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
@@ -733,8 +744,12 @@ public final class SwiftTargetBuildDescription {
             // can construct the linker flags. In the future we will use a generated
             // code stub for the cases in which the linker doesn't support it, so that
             // we can rename the symbol unconditionally.
-            if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
-                args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
+            // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
+            // not have a leading `-`
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fs: self.fs) {
+                if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
+                    args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
+                }
             }
         }
 
@@ -2080,7 +2095,7 @@ private func generateResourceInfoPlist(
     return true
 }
 
-fileprivate extension Triple {
+fileprivate extension TSCUtility.Triple {
     var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
     }

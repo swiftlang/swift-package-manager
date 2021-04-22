@@ -13,6 +13,7 @@ import SPMBuildCore
 import Foundation
 import PackageLoading
 import Workspace
+import Build
 
 #if os(macOS)
 private func bundleRoot() -> AbsolutePath {
@@ -66,11 +67,5 @@ public class Resources: ManifestResourceProvider {
         return Resources.default.binDir == nil
     }
     
-    public var swiftCompilerSupportsRenamingMainSymbol: Bool {
-        return (try? withTemporaryDirectory { tmpDir in
-            FileManager.default.createFile(atPath: "\(tmpDir)/foo.swift", contents: Data())
-            let result = try Process.popen(args: self.swiftCompiler.pathString, "-c", "-Xfrontend", "-entry-point-function-name", "-Xfrontend", "foo", "\(tmpDir)/foo.swift", "-o", "\(tmpDir)/foo.o")
-            return try !result.utf8stderrOutput().contains("unknown argument: '-entry-point-function-name'")
-        }) ?? false
-    }
+    public let swiftCompilerSupportsRenamingMainSymbol = SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fs: localFileSystem)
 }
