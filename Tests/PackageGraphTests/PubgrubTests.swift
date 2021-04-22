@@ -318,8 +318,8 @@ final class PubgrubTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
-            let foo = bindings.first { $0.container.identity == PackageIdentity("foo") }
-            XCTAssertEqual(foo?.container.name, "bar")
+            let foo = bindings.first { $0.package.identity == PackageIdentity("foo") }
+            XCTAssertEqual(foo?.package.name, "bar")
         }
     }
 
@@ -1096,6 +1096,72 @@ final class PubgrubTests: XCTestCase {
             ("transitive", .version(v1))
         ])
     }
+
+    func testDelegate() {
+        class TestDelegate: DependencyResolverDelegate {
+            var events = [String]()
+            let lock = Lock()
+
+
+            func willResolve(term: Term) {
+                self.lock.withLock {
+                    self.events.append("willResolve '\(term.node.package.identity)'")
+                }
+            }
+
+            func didResolve(term: Term, version: Version) {
+                self.lock.withLock {
+                    self.events.append("didResolve '\(term.node.package.identity)' at '\(version)'")
+                }
+            }
+
+            func derived(term: Term) {}
+
+            func conflict(conflict: Incompatibility) {}
+
+            func satisfied(term: Term, by: Assignment, incompatibility: Incompatibility) {}
+
+            func partiallySatisfied(term: Term, by: Assignment, incompatibility: Incompatibility, difference: Term) {}
+
+            func failedToResolve(incompatibility: Incompatibility) {}
+
+            func computed(bindings: [DependencyResolver.Binding]) {
+                let decision = bindings.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity)' at '\($0.binding)'" }
+                self.lock.withLock {
+                    self.events.append("computed: \(decision.joined(separator: ", "))")
+                }
+            }
+        }
+
+        builder.serve("foo", at: "1.0.0")
+        builder.serve("foo", at: "1.1.0")
+        builder.serve("foo", at: "2.0.0")
+        builder.serve("foo", at: "2.0.1")
+
+        builder.serve("bar", at: "1.0.0")
+        builder.serve("bar", at: "1.1.0")
+        builder.serve("bar", at: "2.0.0")
+        builder.serve("bar", at: "2.0.1")
+
+        let delegate = TestDelegate()
+        let resolver = builder.create(delegate: delegate)
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.versionSet(v2Range), .specific(["bar"])),
+        ])
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version("1.1.0")),
+            ("bar", .version("2.0.1")),
+        ])
+
+        XCTAssertTrue(delegate.events.contains("willResolve 'foo'"), "\(delegate.events)")
+        XCTAssertTrue(delegate.events.contains("didResolve 'foo' at '1.1.0'"), "\(delegate.events)")
+        XCTAssertTrue(delegate.events.contains("willResolve 'bar'"), "\(delegate.events)")
+        XCTAssertTrue(delegate.events.contains("didResolve 'bar' at '2.0.1'"), "\(delegate.events)")
+        XCTAssertTrue(delegate.events.contains("computed: 'bar' at '2.0.1', 'foo' at '1.1.0'"), "\(delegate.events)")
+    }
 }
 
 final class PubGrubTestsBasicGraphs: XCTestCase {
@@ -1857,15 +1923,15 @@ private func AssertBindings(
         let unexpectedBindings = bindings
             .filter { binding in
                 packages.contains(where: { pkg in
-                    pkg.identity != binding.container.identity
+                    pkg.identity != binding.package.identity
                 })
             }
-            .map { $0.container.identity }
+            .map { $0.package.identity }
 
         XCTFail("Unexpected binding(s) found for \(unexpectedBindings.map { $0.description }.joined(separator: ", ")).", file: file, line: line)
     }
     for package in packages {
-        guard let binding = bindings.first(where: { $0.container.identity == package.identity }) else {
+        guard let binding = bindings.first(where: { $0.package.identity == package.identity }) else {
             XCTFail("No binding found for \(package.identity).", file: file, line: line)
             continue
         }
@@ -1900,7 +1966,7 @@ private func AssertError(
 ) {
     switch result {
     case .success(let bindings):
-        let bindingsDesc = bindings.map { "\($0.container)@\($0.binding)" }.joined(separator: ", ")
+        let bindingsDesc = bindings.map { "\($0.package)@\($0.binding)" }.joined(separator: ", ")
         XCTFail("Expected unresolvable graph, found bindings instead: \(bindingsDesc)", file: file, line: line)
     case .failure(let foundError):
         XCTAssertEqual(String(describing: foundError), String(describing: expectedError), file: file, line: line)
@@ -2147,12 +2213,17 @@ class DependencyGraphBuilder {
     }
 
     func create(pinsMap: PinsStore.PinsMap = [:], log: Bool = false) -> PubgrubDependencyResolver {
+        let delegate = log ? TracingDependencyResolverDelegate(stream: stdoutStream) : nil
+        return self.create(pinsMap: pinsMap, delegate: delegate)
+    }
+
+    func create(pinsMap: PinsStore.PinsMap = [:], delegate: DependencyResolverDelegate?) -> PubgrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]
         }
         let provider = MockProvider(containers: self.containers.values.map { $0 })
-        return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, traceStream: log ? stdoutStream : nil)
+        return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, delegate: delegate)
     }
 }
 
