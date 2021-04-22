@@ -10,11 +10,7 @@
 
 import Basics
 import Dispatch
-import struct Foundation.Data
-import struct Foundation.Date
-import class Foundation.JSONDecoder
-import class Foundation.ProcessInfo
-import struct Foundation.URL
+import Foundation
 
 import PackageCollectionsModel
 import PackageCollectionsSigning
@@ -87,46 +83,34 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         let headers = self.makeRequestHeaders()
         self.httpClient.head(source.url, headers: headers, options: headOptions) { result in
             switch result {
-            case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
-                if statusCode == 404 {
-                    return callback(.failure(Errors.collectionNotFound(source.url)))
-                } else {
-                    return callback(.failure(Errors.collectionUnavailable(source.url, statusCode)))
-                }
             case .failure(let error):
-                return callback(.failure(error))
+                return callback(.failure(self.parseRequestError(error, source: source)))
             case .success(let response):
                 guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                    return callback(.failure(Errors.invalidResponse(source.url, "Missing Content-Length header")))
+                    return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Missing Content-Length header")))
                 }
                 guard contentLength <= self.configuration.maximumSizeInBytes else {
-                    return callback(.failure(Errors.responseTooLarge(source.url, contentLength)))
+                    return callback(.failure(JSONPackageCollectionProviderError.responseTooLarge(source.url, contentLength)))
                 }
                 // next do a get request to get the actual content
                 var getOptions = self.makeRequestOptions(validResponseCodes: [200])
                 getOptions.maximumResponseSizeInBytes = self.configuration.maximumSizeInBytes
                 self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
                     switch result {
-                    case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
-                        if statusCode == 404 {
-                            return callback(.failure(Errors.collectionNotFound(source.url)))
-                        } else {
-                            return callback(.failure(Errors.collectionUnavailable(source.url, statusCode)))
-                        }
                     case .failure(let error):
-                        return callback(.failure(error))
+                        return callback(.failure(self.parseRequestError(error, source: source)))
                     case .success(let response):
                         // check content length again so we can record this as a bad actor
                         // if not returning head and exceeding size
                         // TODO: store bad actors to prevent server DoS
                         guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                            return callback(.failure(Errors.invalidResponse(source.url, "Missing Content-Length header")))
+                            return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Missing Content-Length header")))
                         }
                         guard contentLength < self.configuration.maximumSizeInBytes else {
-                            return callback(.failure(Errors.responseTooLarge(source.url, contentLength)))
+                            return callback(.failure(JSONPackageCollectionProviderError.responseTooLarge(source.url, contentLength)))
                         }
                         guard let body = response.body else {
-                            return callback(.failure(Errors.invalidResponse(source.url, "Body is empty")))
+                            return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Body is empty")))
                         }
 
                         let certPolicyKey = self.sourceCertPolicy.certificatePolicyKey(for: source) ?? .default
@@ -175,7 +159,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
             // Collection is unsigned
             guard let collection = try? self.decoder.decode(JSONModel.Collection.self, from: data) else {
-                return callback(.failure(Errors.invalidJSON(source.url)))
+                return callback(.failure(JSONPackageCollectionProviderError.invalidJSON(source.url)))
             }
             callback(self.makeCollection(from: collection, source: source, signature: nil))
         }
@@ -288,6 +272,21 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         return headers
     }
 
+    private func parseRequestError(_ error: Error, source: Model.CollectionSource) -> Error {
+        switch error {
+        case HTTPClientError.badResponseStatusCode(let statusCode):
+            if statusCode == 404 {
+                return JSONPackageCollectionProviderError.collectionNotFound(source.url)
+            } else {
+                return JSONPackageCollectionProviderError.collectionUnavailable(source.url, statusCode)
+            }
+        case let error as NSError where error.code == NSURLErrorTimedOut:
+            return JSONPackageCollectionProviderError.requestTimedOut(source.url)
+        default:
+            return error
+        }
+    }
+
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
         var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
@@ -345,27 +344,30 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             )
         }
     }
+}
 
-    public enum Errors: Error, Equatable, CustomStringConvertible {
-        case invalidJSON(URL)
-        case invalidResponse(URL, String)
-        case responseTooLarge(URL, Int64)
-        case collectionNotFound(URL)
-        case collectionUnavailable(URL, Int)
+public enum JSONPackageCollectionProviderError: Error, Equatable, CustomStringConvertible {
+    case invalidJSON(URL)
+    case invalidResponse(URL, String)
+    case responseTooLarge(URL, Int64)
+    case collectionNotFound(URL)
+    case collectionUnavailable(URL, Int)
+    case requestTimedOut(URL)
 
-        public var description: String {
-            switch self {
-            case .invalidJSON(let url):
-                return "The package collection at \(url.absoluteString) contains invalid JSON."
-            case .invalidResponse(let url, let message):
-                return "Received invalid response for package collection at \(url.absoluteString): \(message)"
-            case .responseTooLarge(let url, _):
-                return "The package collection at \(url.absoluteString) is too large."
-            case .collectionNotFound(let url):
-                return "No package collection found at \(url.absoluteString). Please make sure the URL is correct."
-            case .collectionUnavailable(let url, _):
-                return "The package collection at \(url.absoluteString) is unavailable. Please make sure the URL is correct or try again later."
-            }
+    public var description: String {
+        switch self {
+        case .invalidJSON(let url):
+            return "The package collection at \(url.absoluteString) contains invalid JSON."
+        case .invalidResponse(let url, let message):
+            return "Received invalid response for package collection at \(url.absoluteString): \(message)"
+        case .responseTooLarge(let url, _):
+            return "The package collection at \(url.absoluteString) is too large."
+        case .collectionNotFound(let url):
+            return "No package collection found at \(url.absoluteString). Please make sure the URL is correct."
+        case .collectionUnavailable(let url, _):
+            return "The package collection at \(url.absoluteString) is unavailable. Please make sure the URL is correct or try again later."
+        case .requestTimedOut(let url):
+            return "The package collection at \(url.absoluteString) took too long to download. Please make sure the URL is correct or try again later."
         }
     }
 }
