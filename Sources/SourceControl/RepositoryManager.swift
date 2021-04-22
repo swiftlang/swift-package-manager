@@ -21,20 +21,13 @@ public protocol RepositoryManagerDelegate: AnyObject {
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?)
 
     /// Called when a repository has finished fetching.
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval)
 
     /// Called when a repository has started updating from its remote.
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
 
     /// Called when a repository has finished updating from its remote.
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle)
-}
-
-public extension RepositoryManagerDelegate {
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle) {}
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, error: Swift.Error?) {}
-    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval)
 }
 
 /// Manages a collection of bare repositories.
@@ -169,7 +162,7 @@ public class RepositoryManager {
     ///
     /// We use operation queue (and not dispatch queue) to limit the amount of
     /// concurrent operations.
-    private let operationQueue: OperationQueue
+    private let lookupQueue: OperationQueue
 
     /// The filesystem to operate on.
     public let fileSystem: FileSystem
@@ -199,9 +192,9 @@ public class RepositoryManager {
         self.fileSystem = fileSystem
         self.cachePath = cachePath
 
-        self.operationQueue = OperationQueue()
-        self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
-        self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
+        self.lookupQueue = OperationQueue()
+        self.lookupQueue.name = "org.swift.swiftpm.repository-manager-lookup"
+        self.lookupQueue.maxConcurrentOperationCount = Swift.min(3, Concurrency.maxOperations)
 
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
@@ -231,7 +224,7 @@ public class RepositoryManager {
     ///
     /// - Parameters:
     ///   - repository: The repository to look up.
-    ///   - skipUpdate: If a repository is availble, skip updating it.
+    ///   - skipUpdate: If a repository is available, skip updating it.
     ///   - completion: The completion block that should be called after lookup finishes.
     public func lookup(
         repository: RepositorySpecifier,
@@ -239,7 +232,7 @@ public class RepositoryManager {
         on queue: DispatchQueue,
         completion: @escaping LookupCompletion
     ) {
-        operationQueue.addOperation {
+        self.lookupQueue.addOperation {
             // First look for the handle.
             let handle = self.getHandle(repository: repository)
             // Dispatch the action we want to take on the serial queue of the handle.
@@ -249,6 +242,7 @@ public class RepositoryManager {
                 switch handle.status {
                 case .available:
                     result = LookupResult(catching: {
+                        let start = DispatchTime.now()
                         // Update the repository when it is being looked up.
                         let repo = try handle.open()
 
@@ -263,13 +257,15 @@ public class RepositoryManager {
 
                         try repo.fetch()
 
+                        let duration = start.distance(to: .now())
                         queue.async {
-                            self.delegate?.handleDidUpdate(handle: handle)
+                            self.delegate?.handleDidUpdate(handle: handle, duration: duration)
                         }
 
                         return handle
                     })
                 case .pending, .uninitialized, .cached, .error:
+                    let start = DispatchTime.now()
                     let isCached = handle.status == .cached
                     let repositoryPath = self.path.appending(handle.subpath)
                     // Change the state to pending.
@@ -300,8 +296,9 @@ public class RepositoryManager {
                     }
 
                     // Inform delegate.
+                    let duration = start.distance(to: .now())
                     queue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: fetchDetails, error: fetchError)
+                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: fetchDetails, error: fetchError, duration: duration)
                     }
 
                     // Save the manager state.

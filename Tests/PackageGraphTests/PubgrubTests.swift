@@ -1102,14 +1102,13 @@ final class PubgrubTests: XCTestCase {
             var events = [String]()
             let lock = Lock()
 
-
             func willResolve(term: Term) {
                 self.lock.withLock {
                     self.events.append("willResolve '\(term.node.package.identity)'")
                 }
             }
 
-            func didResolve(term: Term, version: Version) {
+            func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
                 self.lock.withLock {
                     self.events.append("didResolve '\(term.node.package.identity)' at '\(version)'")
                 }
@@ -1119,16 +1118,16 @@ final class PubgrubTests: XCTestCase {
 
             func conflict(conflict: Incompatibility) {}
 
-            func satisfied(term: Term, by: Assignment, incompatibility: Incompatibility) {}
+            func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {}
 
-            func partiallySatisfied(term: Term, by: Assignment, incompatibility: Incompatibility, difference: Term) {}
+            func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {}
 
             func failedToResolve(incompatibility: Incompatibility) {}
 
-            func computed(bindings: [DependencyResolver.Binding]) {
-                let decision = bindings.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity)' at '\($0.binding)'" }
+            func solved(result: [DependencyResolver.Binding]) {
+                let decisions = result.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity)' at '\($0.binding)'" }
                 self.lock.withLock {
-                    self.events.append("computed: \(decision.joined(separator: ", "))")
+                    self.events.append("solved: \(decisions.joined(separator: ", "))")
                 }
             }
         }
@@ -1160,7 +1159,7 @@ final class PubgrubTests: XCTestCase {
         XCTAssertTrue(delegate.events.contains("didResolve 'foo' at '1.1.0'"), "\(delegate.events)")
         XCTAssertTrue(delegate.events.contains("willResolve 'bar'"), "\(delegate.events)")
         XCTAssertTrue(delegate.events.contains("didResolve 'bar' at '2.0.1'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("computed: 'bar' at '2.0.1', 'foo' at '1.1.0'"), "\(delegate.events)")
+        XCTAssertTrue(delegate.events.contains("solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"), "\(delegate.events)")
     }
 }
 

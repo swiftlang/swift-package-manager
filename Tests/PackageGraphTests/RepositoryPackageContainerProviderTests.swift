@@ -135,8 +135,12 @@ private class MockResolverDelegate: RepositoryManagerDelegate {
         self.fetched += [handle.repository]
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
     }
+
+    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
+
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {}
 }
 
 // Some handy versions & ranges.
