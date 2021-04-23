@@ -877,38 +877,6 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     return AbsolutePath(env, relativeTo: workingDir)
 }
 
-/// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
-    let stream = BufferedOutputByteStream()
-    stream <<< "(version 1)" <<< "\n"
-    // Deny everything by default.
-    stream <<< "(deny default)" <<< "\n"
-    // Import the system sandbox profile.
-    stream <<< "(import \"system.sb\")" <<< "\n"
-    // Allow reading all files.
-    stream <<< "(allow file-read*)" <<< "\n"
-    // These are required by the Swift compiler.
-    stream <<< "(allow process*)" <<< "\n"
-    stream <<< "(allow sysctl*)" <<< "\n"
-    // Allow writing in temporary locations.
-    stream <<< "(allow file-write*" <<< "\n"
-    for directory in Platform.darwinCacheDirectories() {
-        // For compiler module cache.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
-        // For archive tool.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/ar.*")"## <<< "\n"
-        // For xcrun cache.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/xcrun.*")"## <<< "\n"
-        // For autolink files.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/.*\.(swift|c)-[0-9a-f]+\.autolink")"## <<< "\n"
-    }
-    for directory in allowedDirectories {
-        stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
-    }
-    stream <<< ")" <<< "\n"
-    return stream.bytes.description
-}
-
 /// A wrapper to hold the build system so we can use it inside
 /// the int. handler without requiring to initialize it.
 final class BuildSystemRef {
