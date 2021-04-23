@@ -113,12 +113,18 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
-        // 👀 this is a quick operation and does not provide a whole lot of value to report
-        /*queue.async {
-            self.stdoutStream <<< "Checking out \(repository) at \(revision)"
+        // noop
+    }
+
+    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
+        guard case .none = error else {
+            return // error will be printed before hand
+        }
+        queue.async {
+            self.stdoutStream <<< "Working copy of \(repository) resolved at \(revision)"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
-        }*/
+        }
     }
 
     func removing(repository: String) {
@@ -241,7 +247,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
     func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {}
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
     func resolvedFileChanged() {}
 }
 
