@@ -27,10 +27,11 @@ from helpers import note, error, symlink_force, mkdir_p, call, call_output
 
 g_macos_deployment_target = '10.15'
 
+g_shared_lib_prefix = "lib"
 if platform.system() == 'Darwin':
-    g_shared_lib_ext = ".dylib"
+    g_shared_lib_suffix = ".dylib"
 else:
-    g_shared_lib_ext = ".so"
+    g_shared_lib_suffix = ".so"
 
 def main():
     parser = argparse.ArgumentParser(description="""
@@ -366,7 +367,7 @@ def install(args):
             "PackageGraph", "SPMBuildCore", "Build",
             "Xcodeproj", "Workspace"
         ]
-        install_libswiftpm_dylib(args, "SwiftPM", args.libswiftpm_install_dir, libswiftpm_modules)
+        install_dylib(args, "SwiftPM", args.libswiftpm_install_dir, libswiftpm_modules)
 
     # Install libSwiftPMDataModel if an install directory was provided.
     if args.libswiftpmdatamodel_install_dir:
@@ -377,82 +378,59 @@ def install(args):
             "PackageGraph", "SPMBuildCore",
             "Xcodeproj", "Workspace"
         ]
-        install_libswiftpm_dylib(args, "SwiftPMDataModel", args.libswiftpmdatamodel_install_dir, libswiftpmdatamodel_modules)
+        install_dylib(args, "SwiftPMDataModel", args.libswiftpmdatamodel_install_dir, libswiftpmdatamodel_modules)
 
+# Installs the SwiftPM tools and runtime support libraries.
 def install_swiftpm(prefix, args):
     # Install swiftpm binaries.
     for binary in ["swift-build", "swift-test", "swift-run", "swift-package", "swift-package-collection"]:
         dest = os.path.join(prefix, "bin")
         install_binary(args, binary, dest)
 
+    # On Darwin, also install the swiftpm-xctest-helper tool.
     if platform.system() == 'Darwin':
         dest = os.path.join(prefix, "libexec", "swift", "pm")
         install_binary(args, "swiftpm-xctest-helper", dest)
 
-    # Install PackageDescription runtime libraries.
-    runtime_lib_dest = os.path.join(prefix, "lib", "swift", "pm")
-    runtime_lib_src = os.path.join(args.bootstrap_dir, "pm")
+    # Install the PackageDescription library and associated modules.
+    dest = os.path.join(prefix, "lib", "swift", "pm", "ManifestAPI")
+    install_dylib(args, "PackageDescription", dest, ["PackageDescription"])
 
-    files_to_install = ["libPackageDescription" + g_shared_lib_ext]
-    if platform.system() == 'Darwin':
-        files_to_install.append("PackageDescription.swiftinterface")
-    else:
-        files_to_install.append("PackageDescription.swiftmodule")
-    files_to_install.append("PackageDescription.swiftdoc")
-
-    for file in files_to_install:
-        src = os.path.join(runtime_lib_src, "ManifestAPI", file)
-        dest = os.path.join(runtime_lib_dest, "ManifestAPI", file)
-        mkdir_p(os.path.dirname(dest))
-
-        note("Installing %s to %s" % (src, dest))
-
-        file_util.copy_file(src, dest, update=1)
-
-    files_to_install = ["libPackagePlugin" + g_shared_lib_ext]
-    if platform.system() == 'Darwin':
-        files_to_install.append("PackagePlugin.swiftinterface")
-    else:
-        files_to_install.append("PackagePlugin.swiftmodule")
-    files_to_install.append("PackagePlugin.swiftdoc")
-
-    for file in files_to_install:
-        src = os.path.join(runtime_lib_src, "PluginAPI", file)
-        dest = os.path.join(runtime_lib_dest, "PluginAPI", file)
-        mkdir_p(os.path.dirname(dest))
-
-        note("Installing %s to %s" % (src, dest))
-
-        file_util.copy_file(src, dest, update=1)
+    # Install the PackagePlugin library and associated modules.
+    dest = os.path.join(prefix, "lib", "swift", "pm", "PluginAPI")
+    install_dylib(args, "PackagePlugin", dest, ["PackagePlugin"])
 
 
-def install_libswiftpm_dylib(args, library_name, install_dir, module_names):
-    # FIXME: Don't hardcode the prefix and suffix.
-    install_binary(args, "lib" + library_name + ".dylib", install_dir)
+# Helper function that installs a dynamic library and a set of modules to a particular directory.
+def install_dylib(args, library_name, install_dir, module_names):
+    # Install the dynamic library itself.
+    install_binary(args, g_shared_lib_prefix + library_name + g_shared_lib_suffix, install_dir)
 
-    # Install the swiftmodule and swiftdoc files.
+    # Install the swiftmodule/swiftinterface and swiftdoc files for all the modules.
     for module in module_names:
-        install_binary(args, module + ".swiftmodule", install_dir)
-        if not args.cross_compile_hosts: # When compiling for multiple arches, swiftdoc is part of the swiftmodule directory
+        # If we're cross-compiling, we expect the .swiftmodule to be a directory that contains everything.
+        if args.cross_compile_hosts:
+            install_binary(args, module + ".swiftmodule", install_dir)
+        else:
+            # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
+            if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
+                install_binary(args, module + ".swiftinterface", install_dir)
+            else:
+                install_binary(args, module + ".swiftmodule", install_dir)
             install_binary(args, module + ".swiftdoc", install_dir)
 
-    # Install the C headers.
-    tscclibc_include_dir = os.path.join(args.tsc_source_dir, "Sources/TSCclibc/include")
-    tscclibc_include_dir_dest = os.path.join(install_dir, "TSCclibc")
-    dir_util.copy_tree(tscclibc_include_dir, tscclibc_include_dir_dest)
 
-
+# Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
 def install_binary(args, binary, dest_dir):
     src = os.path.join(args.bin_dir, binary)
     dest = os.path.join(dest_dir, binary)
 
     note("Installing %s to %s" % (src, dest))
-
     mkdir_p(os.path.dirname(dest))
-    if os.path.isdir(src) and args.cross_compile_hosts: # Handle swiftmodule directories if compiling for multiple arches.
-        dir_util.copy_tree(src, dest)
+    if os.path.isdir(src):
+        dir_util.copy_tree(src, dest, update=1, verbose=1)
     else:
-        file_util.copy_file(src, dest, update=1)
+        file_util.copy_file(src, dest, update=1, verbose=1)
 
 # -----------------------------------------------------------
 # Build functions
@@ -647,6 +625,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
 
+    # Build SwiftPM, including libSwiftPM, all the command line tools, and the current variant of PackageDescription.
     call_swiftpm(args, swiftpm_args)
 
     # Setup symlinks that'll allow using swiftpm from the build directory.
@@ -772,7 +751,7 @@ def get_swiftpm_flags(args):
         swift_library_rpath_prefix = "$ORIGIN/../"
     platform_path = None
     for path in args.target_info["paths"]["runtimeLibraryPaths"]:
-        platform_path = re.search(r"(lib/swift/[^/]+)$", path)
+        platform_path = re.search(r"(lib/swift/([^/]+))$", path)
         if platform_path:
             build_flags.extend(
                 [
@@ -782,6 +761,15 @@ def get_swiftpm_flags(args):
                     swift_library_rpath_prefix + platform_path.group(1),
                 ]
             )
+            if platform.system() == 'Linux':
+                build_flags.extend(
+                    [
+                        "-Xlinker",
+                        "-rpath",
+                        "-Xlinker",
+                        swift_library_rpath_prefix + '../' + platform_path.group(2),
+                    ]
+                )
             break
 
     if not platform_path:
