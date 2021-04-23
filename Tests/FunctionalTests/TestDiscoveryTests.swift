@@ -83,4 +83,23 @@ class TestDiscoveryTests: XCTestCase {
         }
         #endif
     }
+
+    func testTestExtensions() throws {
+        #if os(macOS)
+        try XCTSkipIf(true)
+        #else
+        fixture(name: "Miscellaneous/TestDiscovery/Extensions") { path in
+            let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
+            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests1.testExample1"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests1.testExample1_a"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests2.testExample2"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests2.testExample2_a"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests4.testExample"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests4.testExample1"), stdout)
+            XCTAssertTrue(stdout.contains("SimpleTests4.testExample2"), stdout)
+            XCTAssertTrue(stdout.contains("Executed 7 tests"), stdout)
+        }
+        #endif
+    }
 }
