@@ -916,7 +916,6 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     return AbsolutePath(env, relativeTo: workingDir)
 }
 
-
 /// A wrapper to hold the build system so we can use it inside
 /// the int. handler without requiring to initialize it.
 final class BuildSystemRef {
