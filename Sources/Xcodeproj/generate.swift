@@ -97,8 +97,8 @@ public func generate(
         // references in the project.
         extraDirs = try findDirectoryReferences(path: srcroot)
 
-        if try repositoryProvider.checkoutExists(at: srcroot) {
-            let workingCheckout = try repositoryProvider.openCheckout(at: srcroot)
+        if try repositoryProvider.workingCopyExists(at: srcroot) {
+            let workingCheckout = try repositoryProvider.openWorkingCopy(at: srcroot)
             extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
         }
     } else {

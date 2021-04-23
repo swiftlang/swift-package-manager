@@ -61,13 +61,21 @@ public protocol WorkspaceDelegate: AnyObject {
     func dependenciesUpToDate()
 
     /// The workspace is about to clone a repository from the local cache to a working directory.
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated, message: "use willCreateWorkingCopy")
     func willClone(repository url: String, to path: AbsolutePath)
+    func willCreateWorkingCopy(repository url: String, at path: AbsolutePath)
 
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated, message: "use didCreateWorkingCopy")
     func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?)
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?)
 
-    /// The workspace has started cloning this repository. This callback is marginally deprecated in favor of the willClone/didClone pair.
-    func cloning(repository: String)
+    /// The workspace has started cloning this repository  from the local cache to a working directory. This callback is marginally deprecated in favor of the willClone/didClone pair.
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated, message: "use didCreateWorkingCopy")
+    func cloning(repository url: String)
 
     /// The workspace is about to check out a particular revision of a working directory.
     func willCheckOut(repository url: String, revision: String, at path: AbsolutePath)
@@ -75,7 +83,9 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
     func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?)
 
+    // deprecated 04/2021, remove once clients moved over
     /// The workspace is checking out a repository. This callback is marginally deprecated in favor of the willCheckOut/didCheckOut pair.
+    @available(*, deprecated, message: "use didCheckOut")
     func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath)
 
     /// The workspace is removing this repository because it is no longer needed.
@@ -99,16 +109,30 @@ public protocol WorkspaceDelegate: AnyObject {
 public extension WorkspaceDelegate {
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
     func willClone(repository url: String, to path: AbsolutePath) {
         cloning(repository: url)
     }
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
+    func cloning(repository url: String) {}
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
     func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?) {}
-    func cloning(repository: String) {}
+    func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {
+        willClone(repository: url, to: path)
+    }
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {
+        didClone(repository: url, to: path, error: error)
+    }
     func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
         checkingOut(repository: url, atReference: revision, to: path)
     }
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
+    // deprecated 04/2021, remove once clients moved over
+    @available(*, deprecated)
     func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
+    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
     func repositoryWillUpdate(_ repository: String) {}
     func repositoryDidUpdate(_ repository: String) {}
     func willResolveDependencies(reason: WorkspaceResolveReason) {}
@@ -880,13 +904,12 @@ extension Workspace {
                 throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
-            try handle.cloneCheckout(to: destination, editable: true)
-            let workingRepo = try repositoryManager.provider.openCheckout(at: destination)
-            try workingRepo.checkout(revision: revision ?? checkoutState.revision)
+            let workingCopy = try handle.createWorkingCopy(at: destination, editable: true)
+            try workingCopy.checkout(revision: revision ?? checkoutState.revision)
 
             // Checkout to the new branch if provided.
             if let branch = checkoutBranch {
-                try workingRepo.checkout(newBranch: branch)
+                try workingCopy.checkout(newBranch: branch)
             }
         }
 
@@ -950,11 +973,11 @@ extension Workspace {
         let path = editablesPath.appending(dependency.subpath)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingRepo = try repositoryManager.provider.openCheckout(at: path)
-            guard !workingRepo.hasUncommittedChanges() else {
+            let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+            guard !workingCopy.hasUncommittedChanges() else {
                 throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
             }
-            guard try !workingRepo.hasUnpushedCommits() else {
+            guard try !workingCopy.hasUnpushedCommits() else {
                 throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
             }
         }
@@ -2437,19 +2460,19 @@ extension Workspace {
             // if not).
             fetch: if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
-                let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+                let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
 
                 // Ensure that the alternative object store is still valid.
                 //
                 // This can become invalid if the build directory is moved.
-                guard workingRepo.isAlternateObjectStoreValid() else {
+                guard workingCopy.isAlternateObjectStoreValid() else {
                     break fetch
                 }
 
                 // The fetch operation may update contents of the checkout, so
                 // we need do mutable-immutable dance.
                 try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-                try workingRepo.fetch()
+                try workingCopy.fetch()
                 try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
                 return path
@@ -2469,9 +2492,9 @@ extension Workspace {
         try fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        delegate?.willClone(repository: handle.repository.url, to: path)
-        try handle.cloneCheckout(to: path, editable: false)
-        delegate?.didClone(repository: handle.repository.url, to: path, error: nil)
+        delegate?.willCreateWorkingCopy(repository: handle.repository.url, at: path)
+        _ = try handle.createWorkingCopy(at: path, editable: false)
+        delegate?.didCreateWorkingCopy(repository: handle.repository.url, at: path, error: nil)
 
         return path
     }
@@ -2494,14 +2517,14 @@ extension Workspace {
         let path = try fetch(package: package)
 
         // Check out the given revision.
-        let workingRepo = try repositoryManager.provider.openCheckout(at: path)
+        let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
 
         // Inform the delegate.
         delegate?.willCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
-        try workingRepo.checkout(revision: checkoutState.revision)
+        try workingCopy.checkout(revision: checkoutState.revision)
         try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
 
         // Write the state record.
@@ -2591,8 +2614,8 @@ extension Workspace {
 
         // Remove the checkout.
         let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
-        let checkedOutRepo = try repositoryManager.provider.openCheckout(at: dependencyPath)
-        guard !checkedOutRepo.hasUncommittedChanges() else {
+        let workingCopy = try repositoryManager.provider.openWorkingCopy(at: dependencyPath)
+        guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }
 

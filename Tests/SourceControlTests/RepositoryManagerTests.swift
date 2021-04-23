@@ -94,17 +94,18 @@ private class DummyRepositoryProvider: RepositoryProvider {
         return DummyRepository(provider: self)
     }
 
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws {
+    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout  {
         try localFileSystem.createDirectory(destinationPath)
         try localFileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
+        return try self.openWorkingCopy(at: destinationPath)
     }
 
-    func checkoutExists(at path: AbsolutePath) throws -> Bool {
+    func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         return false
     }
 
-    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
-        fatalError("unsupported")
+    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+        return DummyWorkingCheckout(at: path)
     }
 
     func increaseFetchCount() {
@@ -122,6 +123,58 @@ private class DummyRepositoryProvider: RepositoryProvider {
     var numFetches: Int {
         self.lock.withLock {
             self._numFetches
+        }
+    }
+
+    struct DummyWorkingCheckout: WorkingCheckout {
+        let path : AbsolutePath
+
+        init(at path: AbsolutePath) {
+            self.path = path
+        }
+
+        func getTags() throws -> [String] {
+            fatalError("not implemented")
+        }
+
+        func getCurrentRevision() throws -> Revision {
+            fatalError("not implemented")
+        }
+
+        func fetch() throws {
+            fatalError("not implemented")
+        }
+
+        func hasUnpushedCommits() throws -> Bool {
+            fatalError("not implemented")
+        }
+
+        func hasUncommittedChanges() -> Bool {
+            fatalError("not implemented")
+        }
+
+        func checkout(tag: String) throws {
+            fatalError("not implemented")
+        }
+
+        func checkout(revision: Revision) throws {
+            fatalError("not implemented")
+        }
+
+        func exists(revision: Revision) -> Bool {
+            fatalError("not implemented")
+        }
+
+        func checkout(newBranch: String) throws {
+            fatalError("not implemented")
+        }
+
+        func isAlternateObjectStoreValid() -> Bool {
+            fatalError("not implemented")
+        }
+
+        func areIgnored(_ paths: [AbsolutePath]) throws -> [Bool] {
+            fatalError("not implemented")
         }
     }
 }
@@ -223,7 +276,7 @@ class RepositoryManagerTests: XCTestCase {
 
                 // Create a checkout of the repository.
                 let checkoutPath = path.appending(component: "checkout")
-                try! handle.cloneCheckout(to: checkoutPath, editable: false)
+                _ = try! handle.createWorkingCopy(at: checkoutPath, editable: false)
 
                 XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
                 XCTAssert(localFileSystem.exists(checkoutPath))
