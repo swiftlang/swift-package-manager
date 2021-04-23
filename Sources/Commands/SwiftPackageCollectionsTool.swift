@@ -327,7 +327,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             """)
                         }
                     } catch {
-                        print("Failed to get metadata. The given URL neither belongs to a valid collection nor a package in an imported collection.")
+                        print("Failed to get metadata. The given URL either belongs to a collection that is invalid or unavailable, or a package that is not found in any of the imported collections.")
                     }
                 }
             }
