@@ -54,14 +54,18 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
     ) throws {
         let stream = try LocalFileOutputByteStream(path)
 
+        let testsByClass = Dictionary(grouping: tests, by: { $0.name })
+
         stream <<< "import XCTest" <<< "\n"
         stream <<< "@testable import " <<< module <<< "\n"
 
-        for klass in tests {
+        for classTests in testsByClass {
+            let className = classTests.key
+            let testMethods = classTests.value.flatMap{ $0.methods }
             stream <<< "\n"
-            stream <<< "fileprivate extension " <<< klass.name <<< " {" <<< "\n"
-            stream <<< indent(4) <<< "static let __allTests__\(klass.name) = [" <<< "\n"
-            for method in klass.methods {
+            stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
+            stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
+            for method in testMethods {
                 let method = method.hasSuffix("()") ? String(method.dropLast(2)) : method
                 stream <<< indent(8) <<< "(\"\(method)\", \(method))," <<< "\n"
             }
@@ -74,8 +78,8 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             return [\n
         """
 
-        for klass in tests {
-            stream <<< indent(8) <<< "testCase(\(klass.name).__allTests__\(klass.name)),\n"
+        for className in testsByClass.keys {
+            stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
         }
 
         stream <<< """
