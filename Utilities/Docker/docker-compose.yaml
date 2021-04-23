@@ -26,7 +26,8 @@ services:
       # ssh, caches
       - ~/.ssh:/root/.ssh
       - ~/.cache:/root/.cache
-      - ~/.swiftpm:/root/.swiftpm
+      - ~/.swiftpm/cache:/root/.swiftpm/cache
+      - ~/.swiftpm/config:/root/.swiftpm/config
       # swift-package-manager code
       - ../..:/code/swift-package-manager:z
       # bootstrap script requires dependencies to be pre-fetched and in a specific place
