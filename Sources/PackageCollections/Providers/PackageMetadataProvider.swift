@@ -10,11 +10,13 @@
 
 import struct Foundation.Date
 import struct Foundation.URL
+
 import PackageModel
+import TSCBasic
 import TSCUtility
 
 /// `PackageBasicMetadata` provider
-protocol PackageMetadataProvider {
+protocol PackageMetadataProvider: Closable {
     /// The name of the provider
     var name: String { get }
 
@@ -27,7 +29,7 @@ protocol PackageMetadataProvider {
 }
 
 extension Model {
-    struct PackageBasicMetadata: Equatable {
+    struct PackageBasicMetadata: Equatable, Codable {
         let summary: String?
         let keywords: [String]?
         let versions: [PackageBasicVersionMetadata]
@@ -39,7 +41,7 @@ extension Model {
         let processedAt: Date
     }
 
-    struct PackageBasicVersionMetadata: Equatable {
+    struct PackageBasicVersionMetadata: Equatable, Codable {
         let version: TSCUtility.Version
         let title: String?
         let summary: String?

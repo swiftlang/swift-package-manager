@@ -1318,6 +1318,8 @@ final class PackageCollectionsTests: XCTestCase {
                 callback(.failure(TerribleThing()))
             }
 
+            func close() throws {}
+
             struct TerribleThing: Error {}
         }
 
