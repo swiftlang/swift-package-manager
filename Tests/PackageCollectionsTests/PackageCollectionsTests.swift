@@ -18,6 +18,35 @@ import TSCBasic
 import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
+    func testUpdateAuthTokens() throws {
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(cacheTTLInSeconds: -1)
+        let metadataProvider = GitHubPackageMetadataProvider(configuration: metadataProviderConfig)
+        var packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: [:], metadataProvider: metadataProvider)
+
+        XCTAssertNil(packageCollections.configuration.authTokens)
+        do {
+            guard let githubMetadataProvider = packageCollections.metadataProvider as? GitHubPackageMetadataProvider else {
+                return XCTFail("Expected GitHubPackageMetadataProvider")
+            }
+            XCTAssertNil(githubMetadataProvider.configuration.authTokens)
+        }
+
+        let authTokens: [AuthTokenType: String] = [.github("github.test"): "topsekret"]
+        packageCollections.updateAuthTokens(authTokens)
+
+        XCTAssertEqual(authTokens, packageCollections.configuration.authTokens)
+        do {
+            guard let githubMetadataProvider = packageCollections.metadataProvider as? GitHubPackageMetadataProvider else {
+                return XCTFail("Expected GitHubPackageMetadataProvider")
+            }
+            XCTAssertEqual(authTokens, githubMetadataProvider.configuration.authTokens)
+        }
+    }
+
     func testBasicRegistration() throws {
         try skipIfUnsupportedPlatform()
 

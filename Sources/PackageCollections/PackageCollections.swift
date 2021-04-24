@@ -21,11 +21,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
     static let isSupportedPlatform = false
     #endif
 
-    private let configuration: Configuration
+    var configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine?
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
-    private let metadataProvider: PackageMetadataProvider
+    var metadataProvider: PackageMetadataProvider
 
     private var storage: Storage {
         self.storageContainer.storage
@@ -66,6 +66,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
             try self.storageContainer.storage.close()
         }
         try self.metadataProvider.close()
+    }
+
+    public mutating func updateAuthTokens(_ authTokens: [AuthTokenType: String]?) {
+        self.configuration.authTokens = authTokens
+        if var metadataProvider = self.metadataProvider as? GitHubPackageMetadataProvider {
+            metadataProvider.configuration.authTokens = authTokens
+            self.metadataProvider = metadataProvider
+        }
     }
 
     // MARK: - Collections
