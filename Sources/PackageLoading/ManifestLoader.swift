@@ -772,7 +772,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-                (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
+                (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath, platform: .macOS))?.versionString ?? "10.15"
             }
             cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
