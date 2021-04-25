@@ -426,6 +426,8 @@ extension PackageModel.Platform {
         switch name.lowercased() {
         case let name where name.contains("macos"):
             self = PackageModel.Platform.macOS
+        case let name where name.contains("maccatalyst"):
+            self = PackageModel.Platform.macCatalyst
         case let name where name.contains("ios"):
             self = PackageModel.Platform.iOS
         case let name where name.contains("tvos"):
