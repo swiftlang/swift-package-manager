@@ -1680,6 +1680,7 @@ class PackageBuilderTests: XCTestCase {
         var expectedPlatforms = [
             "linux": "0.0",
             "macos": "10.12",
+            "maccatalyst": "13.0",
             "ios": "9.0",
             "tvos": "9.0",
             "driverkit": "19.0",
@@ -1736,6 +1737,7 @@ class PackageBuilderTests: XCTestCase {
 
         expectedPlatforms = [
             "macos": "10.12",
+            "maccatalyst": "13.0",
             "tvos": "10.0",
             "linux": "0.0",
             "ios": "9.0",

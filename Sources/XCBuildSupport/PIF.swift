@@ -11,6 +11,7 @@
 import Basics
 import Foundation
 import TSCBasic
+import PackageModel
 
 /// The Project Interchange Format (PIF) is a structured representation of the
 /// project model created by clients (Xcode/SwiftPM) to send to XCBuild.
@@ -957,31 +958,50 @@ public enum PIF {
 
         public enum Platform: String, CaseIterable, Codable {
             case macOS = "macos"
+            case macCatalyst = "maccatalyst"
             case iOS = "ios"
             case tvOS = "tvos"
             case watchOS = "watchos"
             case driverKit = "driverkit"
             case linux
 
-            public var conditions: [String] {
+            public var packageModelPlatform: PackageModel.Platform {
                 switch self {
-                case .macOS: return ["sdk=macosx*"]
-                case .iOS: return ["sdk=iphonesimulator*", "sdk=iphoneos*"]
-                case .tvOS: return ["sdk=appletvsimulator*", "sdk=appletvos*"]
-                case .watchOS: return ["sdk=watchsimulator*", "sdk=watchos*"]
-                case .driverKit: return ["sdk=driverkit*"]
-                case .linux: return ["sdk=linux*"]
+                case .macOS: return .macOS
+                case .macCatalyst: return .macCatalyst
+                case .iOS: return .iOS
+                case .tvOS: return .tvOS
+                case .watchOS: return .watchOS
+                case .driverKit: return .driverKit
+                case .linux: return .linux
                 }
+            }
+
+            public var conditions: [String] {
+                let filters = [PlatformsCondition(platforms: [packageModelPlatform])].toPlatformFilters().map { (filter: PIF.PlatformFilter) -> String in
+                    if filter.environment.isEmpty {
+                        return filter.platform
+                    } else {
+                        return "\(filter.platform)-\(filter.environment)"
+                    }
+                }.sorted()
+                return ["__platform_filter=\(filters.joined(separator: ";"))"]
             }
         }
 
-        public private(set) var platformSpecificSettings = [Platform: [MultipleValueSetting: [String]]]()
+        public private(set) var platformSpecificSingleValueSettings = [Platform: [SingleValueSetting: String]]()
+        public private(set) var platformSpecificMultipleValueSettings = [Platform: [MultipleValueSetting: [String]]]()
         public private(set) var singleValueSettings: [SingleValueSetting: String] = [:]
         public private(set) var multipleValueSettings: [MultipleValueSetting: [String]] = [:]
 
         public subscript(_ setting: SingleValueSetting) -> String? {
             get { singleValueSettings[setting] }
             set { singleValueSettings[setting] = newValue }
+        }
+
+        public subscript(_ setting: SingleValueSetting, for platform: Platform) -> String? {
+            get { platformSpecificSingleValueSettings[platform]?[setting] }
+            set { platformSpecificSingleValueSettings[platform, default: [:]][setting] = newValue }
         }
 
         public subscript(_ setting: SingleValueSetting, default defaultValue: @autoclosure () -> String) -> String {
@@ -995,8 +1015,8 @@ public enum PIF {
         }
 
         public subscript(_ setting: MultipleValueSetting, for platform: Platform) -> [String]? {
-            get { platformSpecificSettings[platform]?[setting] }
-            set { platformSpecificSettings[platform, default: [:]][setting] = newValue }
+            get { platformSpecificMultipleValueSettings[platform]?[setting] }
+            set { platformSpecificMultipleValueSettings[platform, default: [:]][setting] = newValue }
         }
 
         public subscript(
@@ -1012,15 +1032,15 @@ public enum PIF {
             for platform: Platform,
             default defaultValue: @autoclosure () -> [String]
         ) -> [String] {
-            get { platformSpecificSettings[platform, default: [:]][setting, default: defaultValue()] }
-            set { platformSpecificSettings[platform, default: [:]][setting] = newValue }
+            get { platformSpecificMultipleValueSettings[platform, default: [:]][setting, default: defaultValue()] }
+            set { platformSpecificMultipleValueSettings[platform, default: [:]][setting] = newValue }
         }
 
         public init() {
         }
 
         private enum CodingKeys: CodingKey {
-            case platformSpecificSettings, singleValueSettings, multipleValueSettings
+            case platformSpecificSingleValueSettings, platformSpecificMultipleValueSettings, singleValueSettings, multipleValueSettings
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -1029,7 +1049,8 @@ public enum PIF {
             }
 
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(platformSpecificSettings, forKey: .platformSpecificSettings)
+            try container.encode(platformSpecificSingleValueSettings, forKey: .platformSpecificSingleValueSettings)
+            try container.encode(platformSpecificMultipleValueSettings, forKey: .platformSpecificMultipleValueSettings)
             try container.encode(singleValueSettings, forKey: .singleValueSettings)
             try container.encode(multipleValueSettings, forKey: .multipleValueSettings)
         }
@@ -1045,7 +1066,15 @@ public enum PIF {
                 try container.encode(value, forKey: StringKey(key.rawValue))
             }
 
-            for (platform, values) in platformSpecificSettings {
+            for (platform, values) in platformSpecificSingleValueSettings {
+                for condition in platform.conditions {
+                    for (key, value) in values {
+                        try container.encode(value, forKey: "\(key.rawValue)[\(condition)]")
+                    }
+                }
+            }
+
+            for (platform, values) in platformSpecificMultipleValueSettings {
                 for condition in platform.conditions {
                     for (key, value) in values {
                         try container.encode(value, forKey: "\(key.rawValue)[\(condition)]")
@@ -1057,7 +1086,8 @@ public enum PIF {
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
 
-            platformSpecificSettings = try container.decodeIfPresent([Platform: [MultipleValueSetting: [String]]].self, forKey: .platformSpecificSettings) ?? .init()
+            platformSpecificSingleValueSettings = try container.decodeIfPresent([Platform: [SingleValueSetting: String]].self, forKey: .platformSpecificSingleValueSettings) ?? .init()
+            platformSpecificMultipleValueSettings = try container.decodeIfPresent([Platform: [MultipleValueSetting: [String]]].self, forKey: .platformSpecificMultipleValueSettings) ?? .init()
             singleValueSettings = try container.decodeIfPresent([SingleValueSetting: String].self, forKey: .singleValueSettings) ?? [:]
             multipleValueSettings = try container.decodeIfPresent([MultipleValueSetting: [String]] .self, forKey: .multipleValueSettings) ?? [:]
         }
