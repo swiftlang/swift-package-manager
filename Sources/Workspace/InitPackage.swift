@@ -467,6 +467,8 @@ extension PackageModel.Platform {
         switch self {
         case .macOS:
             return "macOS"
+        case .macCatalyst:
+            return "macCatalyst"
         case .iOS:
             return "iOS"
         case .tvOS:
@@ -487,7 +489,7 @@ extension SupportedPlatform {
             guard self.version.patch == 0 else {
                 return false
             }
-        } else if [Platform.macOS, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
+        } else if [Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
             guard self.version.minor == 0, self.version.patch == 0 else {
                 return false
             }
@@ -500,6 +502,8 @@ extension SupportedPlatform {
             return (10...15).contains(version.minor)
         case .macOS:
             return (11...11).contains(version.major)
+        case .macCatalyst:
+            return (13...14).contains(version.major)
         case .iOS:
             return (8...14).contains(version.major)
         case .tvOS:

@@ -22,6 +22,9 @@ public struct Platform: Encodable, Equatable {
     /// The macOS platform.
     public static let macOS: Platform = Platform(name: "macos")
 
+    /// The Mac Catalyst platform.
+    public static let macCatalyst: Platform = Platform(name: "maccatalyst")
+
     /// The iOS platform.
     public static let iOS: Platform = Platform(name: "ios")
 
@@ -100,6 +103,29 @@ public struct SupportedPlatform: Encodable, Equatable {
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `10.10.1`.
     public static func macOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: SupportedPlatform.MacOSVersion(string: versionString).version)
+    }
+
+    /// Configures the minimum deployment target version for the Mac Catalyst platform.
+    ///
+    /// - Since: First available in PackageDescription 5.5
+    ///
+    /// - Parameter version: The minimum deployment target that the package supports.
+    @available(_PackageDescription, introduced: 5.5)
+    public static func macCatalyst(_ version: SupportedPlatform.MacCatalystVersion) -> SupportedPlatform {
+        return SupportedPlatform(platform: .macCatalyst, version: version.version)
+    }
+
+    /// Configures the minimum deployment target version for the Mac Catalyst platform
+    /// using a version string.
+    ///
+    /// The version string must be a series of two or three dot-separated integers, such as `13.0` or `13.0.1`.
+    ///
+    /// - Since: First available in PackageDescription 5.5
+    ///
+    /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `13.0.1`.
+    @available(_PackageDescription, introduced: 5.5)
+    public static func macCatalyst(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .macCatalyst, version: SupportedPlatform.MacCatalystVersion(string: versionString).version)
     }
 
     /// Configures the minimum deployment target version for the iOS platform.
@@ -288,6 +314,31 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 5.3
         @available(_PackageDescription, introduced: 5.3)
         public static let v14: TVOSVersion = .init(string: "14.0")
+    }
+
+    /// The supported Mac Catalyst version.
+    public struct MacCatalystVersion: Encodable, AppleOSVersion {
+        fileprivate static let name = "macCatalyst"
+        fileprivate static let minimumMajorVersion = 13
+
+        /// The underlying version representation.
+        let version: String
+
+        fileprivate init(uncheckedVersion version: String) {
+            self.version = version
+        }
+
+        /// The value that represents Mac Catalyst 13.0.
+        ///
+        /// - Since: First available in PackageDescription 5.5
+        @available(_PackageDescription, introduced: 5.5)
+        public static let v13: MacCatalystVersion = .init(string: "13.0")
+
+        /// The value that represents Mac Catalyst 14.0.
+        ///
+        /// - Since: First available in PackageDescription 5.5
+        @available(_PackageDescription, introduced: 5.5)
+        public static let v14: MacCatalystVersion = .init(string: "14.0")
     }
 
     /// The supported iOS version.

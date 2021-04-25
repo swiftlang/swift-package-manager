@@ -265,7 +265,12 @@ public final class PIFBuildSettingsTester {
             Array(buildSettings.multipleValueSettings.keys.map { $0.rawValue })
         XCTAssert(uncheckedKeys.isEmpty, "settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
 
-        for (platform, settings) in buildSettings.platformSpecificSettings {
+        for (platform, settings) in buildSettings.platformSpecificSingleValueSettings {
+            let uncheckedKeys = Array(settings.keys.map { $0.rawValue })
+            XCTAssert(uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+        }
+
+        for (platform, settings) in buildSettings.platformSpecificMultipleValueSettings {
             let uncheckedKeys = Array(settings.keys.map { $0.rawValue })
             XCTAssert(uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
         }

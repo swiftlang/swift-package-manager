@@ -104,6 +104,8 @@ fileprivate extension SourceCodeFragment {
         switch platform.platformName {
         case "macos":
             self.init(enum: "macOS", string: platform.version)
+        case "maccatalyst":
+            self.init(enum: "macCatalyst", string: platform.version)
         case "ios":
             self.init(enum: "iOS", string: platform.version)
         case "tvos":
@@ -298,6 +300,7 @@ fileprivate extension SourceCodeFragment {
         let platformNodes: [SourceCodeFragment] = condition.platformNames.map { platformName in
             switch platformName {
             case "macos": return SourceCodeFragment(enum: "macOS")
+            case "maccatalyst": return SourceCodeFragment(enum: "macCatalyst")
             case "ios": return SourceCodeFragment(enum: "iOS")
             case "tvos": return SourceCodeFragment(enum: "tvOS")
             case "watchos": return SourceCodeFragment(enum: "watchOS")
