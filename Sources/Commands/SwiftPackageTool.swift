@@ -78,7 +78,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Delete build artifacts")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -90,7 +90,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Purge the global repository cache.")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -102,7 +102,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Reset the complete cache/build directory")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -114,7 +114,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Update package dependencies")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Flag(name: [.long, .customShort("n")],
@@ -160,7 +160,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Describe the current package")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
                 
         @Option(help: "json | text")
@@ -222,7 +222,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             commandName: "_format")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Argument(parsing: .unconditionalRemaining,
@@ -292,7 +292,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             commandName: "experimental-api-diff")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @Argument(help: "The baseline treeish")
@@ -347,7 +347,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Dump Symbol Graph")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -370,7 +370,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Print parsed Package.swift as JSON")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -394,7 +394,7 @@ extension SwiftPackageTool {
     }
     
     struct DumpPIF: SwiftCommand {
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Flag(help: "Preserve the internal structure of PIF")
@@ -413,7 +413,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Put a package in editable mode")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @Option(help: "The revision to edit", transform: { Revision(identifier: $0) })
@@ -446,7 +446,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Remove a package from editable mode")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Flag(name: .customLong("force"),
@@ -473,7 +473,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Print the resolved dependency graph")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "text | dot | json | flatlist")
@@ -490,7 +490,7 @@ extension SwiftPackageTool {
             commandName: "tools-version",
             abstract: "Manipulate tools version of the current package")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "text | dot | json | flatlist")
@@ -549,7 +549,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Compute the checksum for a binary artifact.")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Argument(help: "The absolute or relative path to the binary artifact")
@@ -577,7 +577,7 @@ extension SwiftPackageTool {
             abstract: "Create a source archive for the package"
         )
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @Option(
@@ -639,7 +639,7 @@ extension SwiftPackageTool {
             var skipExtraFiles: Bool = false
         }
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @OptionGroup()
@@ -715,7 +715,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Set a mirror for a dependency")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "The package dependency url")
@@ -749,7 +749,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Remove an existing mirror")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "The package dependency url")
@@ -783,7 +783,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Print mirror configuration for the given package dependency")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "The package dependency url")
@@ -835,7 +835,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Resolve package dependencies")
         
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @OptionGroup()
@@ -865,7 +865,7 @@ extension SwiftPackageTool {
     struct Fetch: SwiftCommand {
         static let configuration = CommandConfiguration(shouldDisplay: false)
         
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @OptionGroup()
@@ -909,7 +909,7 @@ extension SwiftPackageTool {
             )
         }
       
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @Argument(help: "generate-bash-script | generate-zsh-script |\ngenerate-fish-script | list-dependencies | list-executables")

@@ -242,13 +242,28 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(name: [.long, .customLong("disable-automatic-resolution")], help: "Disable automatic resolution if Package.resolved file is out-of-date")
     var forceResolvedVersions: Bool = false
 
-    @Flag(name: .customLong("index-store"), inversion: .prefixedEnableDisable, help: "Enable or disable  indexing-while-building feature")
-    var indexStoreEnable: Bool?
+    // @Flag works best when there is a default value present
+    // if true, false aren't enough and a third state is needed
+    // nil should not be the goto. Instead create an enum
+    enum StoreMode: String, EnumerableFlag {
+        case autoIndexStore
+        case enableIndexStore
+        case disableIndexStore
+    }
+    
+    @Flag(help: "Enable or disable indexing-while-building feature")
+    var indexStoreMode: StoreMode = .autoIndexStore
     
     /// The mode to use for indexing-while-building feature.
     var indexStore: BuildParameters.IndexStoreMode {
-        guard let enable = indexStoreEnable else { return .auto }
-        return enable ? .on : .off
+        switch indexStoreMode {
+        case .autoIndexStore:
+            return .auto
+        case .enableIndexStore:
+            return .on
+        case .disableIndexStore:
+            return .off
+        }
     }
     
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
