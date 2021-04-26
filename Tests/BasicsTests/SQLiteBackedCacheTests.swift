@@ -18,7 +18,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let cache = SQLiteBackedCache<String>(name: "SQLiteBackedCacheTest", path: path)
+            let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
             defer { XCTAssertNoThrow(try cache.close()) }
 
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath)
@@ -53,7 +53,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
     func testFileDeleted() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let cache = SQLiteBackedCache<String>(name: "SQLiteBackedCacheTest", path: path)
+            let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
             defer { XCTAssertNoThrow(try cache.close()) }
 
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath)
@@ -93,7 +93,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
     func testFileCorrupt() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let cache = SQLiteBackedCache<String>(name: "SQLiteBackedCacheTest", path: path)
+            let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
             defer { XCTAssertNoThrow(try cache.close()) }
 
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath)
@@ -131,7 +131,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
             var configuration = SQLiteBackedCacheConfiguration()
             configuration.maxSizeInBytes = 1024 * 3
             configuration.truncateWhenFull = false
-            let cache = SQLiteBackedCache<String>(name: "SQLiteBackedCacheTest", path: path, configuration: configuration)
+            let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path, configuration: configuration)
             defer { XCTAssertNoThrow(try cache.close()) }
 
             func create() throws {
@@ -153,7 +153,7 @@ final class SQLiteBackedCacheTests: XCTestCase {
             var configuration = SQLiteBackedCacheConfiguration()
             configuration.maxSizeInBytes = 1024 * 3
             configuration.truncateWhenFull = true
-            let cache = SQLiteBackedCache<String>(name: "SQLiteBackedCacheTest", path: path, configuration: configuration)
+            let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path, configuration: configuration)
             defer { XCTAssertNoThrow(try cache.close()) }
 
             var keys = [String]()

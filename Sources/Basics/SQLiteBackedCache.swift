@@ -17,7 +17,7 @@ import TSCUtility
 public final class SQLiteBackedCache<Value: Codable>: Closable {
     public typealias Key = String
 
-    public let name: String
+    public let tableName: String
     public let fileSystem: TSCBasic.FileSystem
     public let location: SQLite.Location
     public let configuration: SQLiteBackedCacheConfiguration
@@ -29,8 +29,8 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
 
-    public init(name: String, location: SQLite.Location, configuration: SQLiteBackedCacheConfiguration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.name = name
+    public init(tableName: String, location: SQLite.Location, configuration: SQLiteBackedCacheConfiguration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.tableName = tableName
         self.location = location
         switch self.location {
         case .path, .temporary:
@@ -44,8 +44,8 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
-    public convenience init(name: String, path: AbsolutePath, configuration: SQLiteBackedCacheConfiguration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(name: name, location: .path(path), configuration: configuration, diagnosticsEngine: diagnosticsEngine)
+    public convenience init(tableName: String, path: AbsolutePath, configuration: SQLiteBackedCacheConfiguration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+        self.init(tableName: tableName, location: .path(path), configuration: configuration, diagnosticsEngine: diagnosticsEngine)
     }
 
     deinit {
@@ -69,7 +69,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
 
     public func put(key: Key, value: Value, replace: Bool = false) throws {
         do {
-            let query = "INSERT OR \(replace ? "REPLACE" : "IGNORE") INTO \(self.name) VALUES (?, ?);"
+            let query = "INSERT OR \(replace ? "REPLACE" : "IGNORE") INTO \(self.tableName) VALUES (?, ?);"
             try self.executeStatement(query) { statement -> Void in
                 let data = try self.jsonEncoder.encode(value)
                 let bindings: [SQLite.SQLiteValue] = [
@@ -83,8 +83,8 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
             if !self.configuration.truncateWhenFull {
                 throw error
             }
-            self.diagnosticsEngine?.emit(.warning("truncating \(self.name) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
-            try self.executeStatement("DELETE FROM \(self.name);") { statement -> Void in
+            self.diagnosticsEngine?.emit(.warning("truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
+            try self.executeStatement("DELETE FROM \(self.tableName);") { statement -> Void in
                 try statement.step()
             }
             try self.put(key: key, value: value, replace: replace)
@@ -94,7 +94,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     }
 
     public func get(key: Key) throws -> Value? {
-        let query = "SELECT value FROM \(self.name) WHERE key = ? LIMIT 1;"
+        let query = "SELECT value FROM \(self.tableName) WHERE key = ? LIMIT 1;"
         return try self.executeStatement(query) { statement -> Value? in
             try statement.bind([.string(key)])
             let data = try statement.step()?.blob(at: 0)
@@ -105,7 +105,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     }
 
     public func remove(key: Key) throws {
-        let query = "DELETE FROM \(self.name) WHERE key = ? LIMIT 1;"
+        let query = "DELETE FROM \(self.tableName) WHERE key = ? LIMIT 1;"
         try self.executeStatement(query) { statement in
             try statement.bind([.string(key)])
             try statement.step()
@@ -175,7 +175,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
 
     private func createSchemaIfNecessary(db: SQLite) throws {
         let table = """
-            CREATE TABLE IF NOT EXISTS \(self.name) (
+            CREATE TABLE IF NOT EXISTS \(self.tableName) (
                 key STRING PRIMARY KEY NOT NULL,
                 value BLOB NOT NULL
             );

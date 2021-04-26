@@ -37,7 +37,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         if configuration.cacheTTLInSeconds > 0 {
             var cacheConfig = SQLiteBackedCacheConfiguration()
             cacheConfig.maxSizeInMegabytes = configuration.cacheSizeInMegabytes
-            self.cache = SQLiteBackedCache<CacheValue>(name: "github_cache", path: configuration.cacheDir.appending(component: "package-metadata.db"), configuration: cacheConfig, diagnosticsEngine: diagnosticsEngine)
+            self.cache = SQLiteBackedCache<CacheValue>(tableName: "github_cache", path: configuration.cacheDir.appending(component: "package-metadata.db"), configuration: cacheConfig, diagnosticsEngine: diagnosticsEngine)
         } else {
             self.cache = nil
         }
