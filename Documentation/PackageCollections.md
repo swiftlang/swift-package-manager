@@ -156,7 +156,7 @@ Packages:
 $ swift package-collection describe [--json] https://github.com/jpsim/yams
 Description: A sweet and swifty YAML parser built on LibYAML.
 Available Versions: 4.0.0, 3.0.0, ...
-Watchers: 14
+Stars: 14
 Readme: https://github.com/jpsim/Yams/blob/master/README.md
 Authors: @norio-nomura, @jpsim
 --------------------------------------------------------------

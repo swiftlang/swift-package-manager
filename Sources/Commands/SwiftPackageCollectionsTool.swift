@@ -283,7 +283,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     } else {
                         let description = optionalRow("Description", result.package.summary)
                         let versions = result.package.versions.map { "\($0.version)" }.joined(separator: ", ")
-                        let watchers = optionalRow("Watchers", result.package.watchersCount?.description)
+                        let stars = optionalRow("Stars", result.package.watchersCount?.description)
                         let readme = optionalRow("Readme", result.package.readmeURL?.absoluteString)
                         let authors = optionalRow("Authors", result.package.authors?.map { $0.username }.joined(separator: ", "))
                         let latestVersion = optionalRow("\(String(repeating: "-", count: 60))\n\(indent())Latest Version", printVersion(result.package.latestVersion))
@@ -293,7 +293,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         } else {
                             print("""
                                 \(description)
-                                Available Versions: \(versions)\(watchers)\(readme)\(authors)\(latestVersion)
+                                Available Versions: \(versions)\(stars)\(readme)\(authors)\(latestVersion)
                             """)
                         }
                     }
