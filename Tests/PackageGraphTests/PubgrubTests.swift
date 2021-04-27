@@ -2201,7 +2201,7 @@ class DependencyGraphBuilder {
     /// Creates a pins store with the given pins.
     func create(pinsStore pins: [String: (CheckoutState, ProductFilter)]) -> PinsStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs)
+        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs, mirrors: .init())
 
         for (package, pin) in pins {
             store.pin(packageRef: reference(for: package), state: pin.0)

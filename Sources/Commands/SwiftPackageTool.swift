@@ -788,7 +788,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            if let mirror = config.mirrors.getMirror(forURL: originalURL) {
+            if let mirror = config.mirrors.mirrorURL(for: originalURL) {
                 print(mirror)
             } else {
                 stderrStream <<< "not found\n"

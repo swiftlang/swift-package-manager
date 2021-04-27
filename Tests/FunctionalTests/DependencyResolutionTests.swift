@@ -123,10 +123,11 @@ class DependencyResolutionTests: XCTestCase {
                 XCTAssertTrue(output.stdout.contains("barmirror<\(prefix.pathString)/BarMirror@unspecified"), output.stdout)
                 XCTAssertFalse(output.stdout.contains("bar<\(prefix.pathString)/Bar@unspecified"), output.stdout)
 
+                // rdar://52529014 mirrors should not be reflected in pins file
                 let pins = try String(bytes: localFileSystem.readFileContents(appPinsPath).contents, encoding: .utf8)!
                 XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Foo\""), pins)
-                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/BarMirror\""), pins)
-                XCTAssertFalse(pins.contains("\"\(prefix.pathString)/Bar\""), pins)
+                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Bar\""), pins)
+                XCTAssertFalse(pins.contains("\"\(prefix.pathString)/BarMirror\""), pins)
 
                 XCTAssertBuilds(appPath)
             }
