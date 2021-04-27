@@ -127,9 +127,19 @@ class InitTests: XCTestCase {
             XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
+
+            let tests = path.appending(component: "Tests")
             XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                try fs.getDirectoryContents(tests).sorted(),
                 ["FooTests"])
+
+            let testFile = tests.appending(component: "FooTests").appending(component: "FooTests.swift")
+            let testFileContents = try localFileSystem.readFileContents(testFile).description
+            XCTAssertTrue(testFileContents.hasPrefix("import XCTest"), """
+                          Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
+                          \(testFileContents)
+                          """)
+            XCTAssertTrue(testFileContents.contains("func testExample() throws"), "Contents:\n\(testFileContents)")
 
             // Try building it
             XCTAssertBuilds(path)
