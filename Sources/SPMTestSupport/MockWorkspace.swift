@@ -53,7 +53,7 @@ public final class MockWorkspace {
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
         self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.config.mirrors.effectiveURL(forURL:))
+        self.identityResolver = DefaultIdentityResolver(locationMapper: self.config.mirrors.effectiveURL(for:))
         self.roots = roots
         self.packages = packages
 

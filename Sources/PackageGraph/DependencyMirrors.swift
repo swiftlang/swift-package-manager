@@ -22,25 +22,30 @@ public final class DependencyMirrors {
         case mirrorNotFound
     }
 
-    private var storage: [String: String]
+    private var index: [String: String]
+    private var reverseIndex: [String: String]
 
     private init(_ mirrors: [Mirror]) {
-        self.storage = Dictionary(mirrors.map({ ($0.original, $0.mirror) }), uniquingKeysWith: { first, _ in first })
+        self.index = Dictionary(mirrors.map({ ($0.original, $0.mirror) }), uniquingKeysWith: { first, _ in first })
+        self.reverseIndex = Dictionary(mirrors.map({ ($0.mirror, $0.original) }), uniquingKeysWith: { first, _ in first })
     }
 
     /// Sets a mirror URL for the given URL.
     public func set(mirrorURL: String, forURL url: String) {
-        storage[url] = mirrorURL
+        self.index[url] = mirrorURL
+        self.reverseIndex[mirrorURL] = url
     }
 
     /// Unsets a mirror for the given URL.
     /// - Parameter originalOrMirrorURL: The original URL or the mirrored URL
     /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided URL.
     public func unset(originalOrMirrorURL: String) throws {
-        if storage.keys.contains(originalOrMirrorURL) {
-            storage[originalOrMirrorURL] = nil
-        } else if let mirror = storage.first(where: { $0.value == originalOrMirrorURL }) {
-            storage[mirror.key] = nil
+        if let value = self.index[originalOrMirrorURL] {
+            self.index[originalOrMirrorURL] = nil
+            self.reverseIndex[value] = nil
+        } else if let mirror = self.index.first(where: { $0.value == originalOrMirrorURL }) {
+            self.index[mirror.key] = nil
+            self.reverseIndex[originalOrMirrorURL] = nil
         } else {
             throw Error.mirrorNotFound
         }
@@ -49,16 +54,24 @@ public final class DependencyMirrors {
     /// Returns the mirrored URL for a package dependency URL.
     /// - Parameter url: The original URL
     /// - Returns: The mirrored URL, if one exists.
-    public func getMirror(forURL url: String) -> String? {
-        return storage[url]
+    public func mirrorURL(for url: String) -> String? {
+        return self.index[url]
     }
 
     /// Returns the effective URL for a package dependency URL.
     /// - Parameter url: The original URL
     /// - Returns: The mirrored URL if it exists, otherwise the original URL.
-    public func effectiveURL(forURL url: String) -> String {
-        return getMirror(forURL: url) ?? url
+    public func effectiveURL(for url: String) -> String {
+        return self.mirrorURL(for: url) ?? url
     }
+
+    /// Returns the original URL for a mirrored package dependency URL.
+    /// - Parameter url: The mirror URL
+    /// - Returns: The original URL, if one exists.
+    public func originalURL(for url: String) -> String? {
+        return self.reverseIndex[url]
+    }
+
 }
 
 extension DependencyMirrors: Collection {
@@ -66,19 +79,19 @@ extension DependencyMirrors: Collection {
     public typealias Element = String
 
     public var startIndex: Index {
-        storage.startIndex
+        self.index.startIndex
     }
 
     public var endIndex: Index {
-        storage.endIndex
+        self.index.endIndex
     }
 
     public subscript(index: Index) -> Element {
-        storage[index].value
+        self.index[index].value
     }
 
     public func index(after index: Index) -> Index {
-        storage.index(after: index)
+        self.index.index(after: index)
     }
 }
 
@@ -94,7 +107,7 @@ extension DependencyMirrors: JSONMappable, JSONSerializable {
     }
 
     public func toJSON() -> JSON {
-        let mirrors = storage.map { Mirror(original: $0.key, mirror: $0.value) }
+        let mirrors = self.index.map { Mirror(original: $0.key, mirror: $0.value) }
         return .array(mirrors.sorted(by: { $0.original < $1.mirror }).map { $0.toJSON() })
     }
 }
