@@ -31,7 +31,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let (output, _) = try executeSwiftBuild(prefix.appending(component: "Bar"))
-            XCTAssertMatch(output, .regex("Resolving .* at 1\\.2\\.3"))
+            XCTAssertMatch(output, .regex("Computed .* at 1\\.2\\.3"))
             XCTAssertMatch(output, .contains("Compiling Foo Foo.swift"))
             XCTAssertMatch(output, .contains("Merging module Foo"))
             XCTAssertMatch(output, .contains("Compiling Bar main.swift"))

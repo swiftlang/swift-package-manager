@@ -57,3 +57,13 @@ extension DispatchTimeInterval {
         }
     }
 }
+
+// remove when available to all platforms
+#if os(Linux) || os(Windows) || os(Android)
+extension DispatchTime {
+    public func distance(to: DispatchTime) -> DispatchTimeInterval {
+        let duration = to.uptimeNanoseconds - self.uptimeNanoseconds
+        return .nanoseconds(duration >= Int.max ? Int.max : Int(duration))
+    }
+}
+#endif

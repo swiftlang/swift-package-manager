@@ -238,7 +238,7 @@ public struct PubgrubDependencyResolver {
             finalAssignments.append((identifier, override.version, override.products))
         }
 
-        self.delegate?.computed(bindings: finalAssignments)
+        self.delegate?.solved(result: finalAssignments)
 
         return (finalAssignments, state)
     }
@@ -632,6 +632,7 @@ public struct PubgrubDependencyResolver {
         // get conflicts (if any) sooner.
         self.computeCounts(for: undecided) { result in
             do {
+                let start = DispatchTime.now()
                 let counts = try result.get()
                 // forced unwraps safe since we are testing for count and errors above
                 let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
@@ -670,7 +671,7 @@ public struct PubgrubDependencyResolver {
 
                 // Decide this version if there was no conflict with its dependencies.
                 if !haveConflict {
-                    self.delegate?.didResolve(term: pkgTerm, version: version)
+                    self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
                     state.decide(pkgTerm.node, at: version)
                 }
 
