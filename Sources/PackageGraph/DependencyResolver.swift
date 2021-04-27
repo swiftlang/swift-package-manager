@@ -8,8 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Dispatch
 import PackageModel
+import TSCBasic
 
 public protocol DependencyResolver {
     typealias Binding = (package: PackageReference, binding: BoundVersion, products: ProductFilter)
@@ -32,14 +33,14 @@ extension DependencyResolverError: CustomStringConvertible {
 
 public protocol DependencyResolverDelegate {
     func willResolve(term: Term)
-    func didResolve(term: Term, version: Version)
+    func didResolve(term: Term, version: Version, duration: DispatchTimeInterval)
 
     func derived(term: Term)
     func conflict(conflict: Incompatibility)
-    func satisfied(term: Term, by: Assignment, incompatibility: Incompatibility)
-    func partiallySatisfied(term: Term, by: Assignment, incompatibility: Incompatibility, difference: Term)
+    func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility)
+    func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term)
     func failedToResolve(incompatibility: Incompatibility)
-    func computed(bindings: [DependencyResolver.Binding])
+    func solved(result: [DependencyResolver.Binding])
 }
 
 public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
@@ -57,7 +58,7 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
         self.log("resolving: \(term.node.package.location)")
     }
 
-    public func didResolve(term: Term, version: Version) {
+    public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
         self.log("resolved: \(term.node.package.location) @ \(version)")
     }
 
@@ -85,10 +86,10 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
         log("CR: new incompatibility \(incompatibility)")
     }
 
-    public func computed(bindings: [DependencyResolver.Binding]) {
+    public func solved(result: [DependencyResolver.Binding]) {
         self.log("solved:")
-        for (container, binding, _) in bindings {
-            self.log("\(container) \(binding)")
+        for (package, binding, _) in result {
+            self.log("\(package) \(binding)")
         }
     }
 
@@ -96,4 +97,45 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
         self.stream <<< message <<< "\n"
         self.stream.flush()
     }
+}
+
+public struct MultiplexResolverDelegate: DependencyResolverDelegate {
+    private let underlying: [DependencyResolverDelegate]
+
+    public init (_ underlying: [DependencyResolverDelegate]) {
+        self.underlying = underlying
+    }
+
+    public func willResolve(term: Term) {
+        underlying.forEach { $0.willResolve(term: term)  }
+    }
+
+    public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+        underlying.forEach { $0.didResolve(term: term, version: version, duration: duration)  }
+    }
+
+    public func derived(term: Term) {
+        underlying.forEach { $0.derived(term: term)  }
+    }
+
+    public func conflict(conflict: Incompatibility) {
+        underlying.forEach { $0.conflict(conflict: conflict)  }
+    }
+
+    public func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {
+        underlying.forEach { $0.satisfied(term: term, by: assignment, incompatibility: incompatibility)  }
+    }
+
+    public func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {
+        underlying.forEach { $0.partiallySatisfied(term: term, by: assignment, incompatibility: incompatibility, difference: difference)  }
+    }
+
+    public func failedToResolve(incompatibility: Incompatibility) {
+        underlying.forEach { $0.failedToResolve(incompatibility: incompatibility)  }
+    }
+
+    public func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
+        underlying.forEach { $0.solved(result: result)  }
+    }
+
 }

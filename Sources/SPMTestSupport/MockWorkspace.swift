@@ -592,6 +592,10 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("updating repo: \(repository)")
     }
 
+    public func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
+        self.append("finished updating repo: \(repository)")
+    }
+
     public func dependenciesUpToDate() {
         self.append("Everything is already up-to-date")
     }
@@ -600,7 +604,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("fetching repo: \(repository)")
     }
 
-    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
+    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval) {
         self.append("finished fetching repo: \(repository)")
     }
 
@@ -608,8 +612,16 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("creating working copy for: \(url)")
     }
 
+    public func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {
+        self.append("finished creating working copy for: \(url)")
+    }
+
     public func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
         self.append("checking out repo: \(url)")
+    }
+
+    public func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
+        self.append("finsihed checking out repo: \(url)")
     }
 
     public func removing(repository: String) {
@@ -626,6 +638,26 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
 
     public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
         self.append("did load manifest for \(packageKind) package: \(url)")
+    }
+
+    public func willComputeVersion(package: PackageIdentity, location: String) {
+        // noop
+    }
+
+    public func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+        // noop
+    }
+
+    public func resolvedFileChanged() {
+        // noop
+    }
+
+    public func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        // noop
+    }
+
+    public func didDownloadBinaryArtifacts() {
+        // noop
     }
 
     private func append(_ event: String) {

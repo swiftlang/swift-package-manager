@@ -220,7 +220,7 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.willFetchGroup?.leave()
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
         self.fetchedLock.withLock {
             _didFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
         }
@@ -234,7 +234,7 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.willUpdateGroup?.leave()
     }
 
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
         self.fetchedLock.withLock {
             _didUpdate += [handle.repository]
         }
