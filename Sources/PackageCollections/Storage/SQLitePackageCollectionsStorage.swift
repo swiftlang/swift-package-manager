@@ -126,28 +126,38 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func put(collection: Model.Collection,
              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         DispatchQueue.sharedConcurrent.async {
-            do {
-                // write to db
-                let query = "INSERT OR REPLACE INTO \(Self.packageCollectionsTableName) VALUES (?, ?);"
-                try self.executeStatement(query) { statement -> Void in
-                    let data = try self.encoder.encode(collection)
+            self.get(identifier: collection.identifier) { getResult in
+                do {
+                    // write to db
+                    let query = "INSERT OR REPLACE INTO \(Self.packageCollectionsTableName) VALUES (?, ?);"
+                    try self.executeStatement(query) { statement -> Void in
+                        let data = try self.encoder.encode(collection)
 
-                    let bindings: [SQLite.SQLiteValue] = [
-                        .string(collection.identifier.databaseKey()),
-                        .blob(data),
-                    ]
-                    try statement.bind(bindings)
-                    try statement.step()
+                        let bindings: [SQLite.SQLiteValue] = [
+                            .string(collection.identifier.databaseKey()),
+                            .blob(data),
+                        ]
+                        try statement.bind(bindings)
+                        try statement.step()
+                    }
+
+                    // Add to search indices
+                    // Optimization: do this only if the collection has not been indexed before or its packages have changed
+                    switch getResult {
+                    case .failure: // e.g., not found
+                        try self.insertToSearchIndices(collection: collection)
+                    case .success(let dbCollection) where dbCollection.packages != collection.packages:
+                        try self.insertToSearchIndices(collection: collection)
+                    default: // dbCollection.packages == collection.packages
+                        break
+                    }
+
+                    // write to cache
+                    self.cache[collection.identifier] = collection
+                    callback(.success(collection))
+                } catch {
+                    callback(.failure(error))
                 }
-
-                // Add to search indices
-                try self.insertToSearchIndices(collection: collection)
-
-                // write to cache
-                self.cache[collection.identifier] = collection
-                callback(.success(collection))
-            } catch {
-                callback(.failure(error))
             }
         }
     }
@@ -678,6 +688,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             let bindings: [SQLite.SQLiteValue] = [.string(identifierBase64)]
             try statement.bind(bindings)
             try statement.step()
+        }
+
+        // Repack database file to reduce size (rdar://77077510)
+        try self.withDB { db in
+            do {
+                try db.exec(query: "VACUUM;")
+            } catch {
+                self.diagnosticsEngine?.emit(warning: "Failed to 'VACUUM' the database: \(error)")
+            }
         }
 
         self.targetTrie.remove { $0.collection == identifier }
