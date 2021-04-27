@@ -19,31 +19,35 @@ import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {
-        let configuration = PackageCollections.Configuration()
+        var authTokens: [AuthTokenType: String]? = [:]
+
+        let configuration = PackageCollections.Configuration(authTokens: { authTokens })
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(cacheTTLInSeconds: -1)
+        // disable cache for this test to avoid setup/cleanup
+        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(authTokens: configuration.authTokens, cacheTTLInSeconds: -1)
         let metadataProvider = GitHubPackageMetadataProvider(configuration: metadataProviderConfig)
-        var packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: [:], metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: [:], metadataProvider: metadataProvider)
 
-        XCTAssertNil(packageCollections.configuration.authTokens)
+        XCTAssertEqual(0, packageCollections.configuration.authTokens()?.count)
         do {
             guard let githubMetadataProvider = packageCollections.metadataProvider as? GitHubPackageMetadataProvider else {
                 return XCTFail("Expected GitHubPackageMetadataProvider")
             }
-            XCTAssertNil(githubMetadataProvider.configuration.authTokens)
+            XCTAssertEqual(0, githubMetadataProvider.configuration.authTokens()?.count)
         }
 
-        let authTokens: [AuthTokenType: String] = [.github("github.test"): "topsekret"]
-        packageCollections.updateAuthTokens(authTokens)
+        authTokens![.github("github.test")] = "topsekret"
 
-        XCTAssertEqual(authTokens, packageCollections.configuration.authTokens)
+        // Check that authTokens change is propagated to PackageMetadataProvider
+        XCTAssertEqual(1, packageCollections.configuration.authTokens()?.count)
         do {
             guard let githubMetadataProvider = packageCollections.metadataProvider as? GitHubPackageMetadataProvider else {
                 return XCTFail("Expected GitHubPackageMetadataProvider")
             }
-            XCTAssertEqual(authTokens, githubMetadataProvider.configuration.authTokens)
+            XCTAssertEqual(1, githubMetadataProvider.configuration.authTokens()?.count)
+            XCTAssertEqual(authTokens, githubMetadataProvider.configuration.authTokens())
         }
     }
 
