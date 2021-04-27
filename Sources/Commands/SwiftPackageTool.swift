@@ -294,11 +294,8 @@ extension SwiftPackageTool {
         @OptionGroup()
         var swiftOptions: SwiftToolOptions
 
-        @Argument(help: "The baseline treeish")
+        @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
-        
-        @Flag(help: "Invert the baseline which is helpful for determining API additions")
-        var invertBaseline: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
@@ -310,23 +307,12 @@ extension SwiftPackageTool {
             let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
-            // Dump JSON for the current package.
-            let buildParameters = buildOp.buildParameters
-            let currentSDKJSON = buildParameters.apiDiff.appending(component: "current.json")
-            let packageGraph = try buildOp.getPackageGraph()
-
-            try apiDigesterTool.dumpSDKJSON(
-                at: currentSDKJSON,
-                modules: packageGraph.apiDigesterModules,
-                additionalArgs: buildOp.buildPlan!.createAPIDigesterArgs()
-            )
-
             // Dump JSON for the baseline package.
             let workspace = try swiftTool.getActiveWorkspace()
             let baselineDumper = try APIDigesterBaselineDumper(
                 baselineTreeish: treeish,
                 packageRoot: swiftTool.getPackageRoot(),
-                buildParameters: buildParameters,
+                buildParameters: buildOp.buildParameters,
                 manifestLoader: workspace.manifestLoader,
                 repositoryManager: workspace.repositoryManager,
                 apiDigesterTool: apiDigesterTool,
@@ -336,8 +322,9 @@ extension SwiftPackageTool {
 
             // Run the diagnose tool which will print the diff.
             try apiDigesterTool.diagnoseSDK(
-                currentSDKJSON: invertBaseline ? baselineSDKJSON : currentSDKJSON,
-                baselineSDKJSON: invertBaseline ? currentSDKJSON : baselineSDKJSON
+                baselineSDKJSON: baselineSDKJSON,
+                apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false),
+                modules: try buildOp.getPackageGraph().apiDigesterModules
             )
         }
     }

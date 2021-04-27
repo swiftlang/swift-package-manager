@@ -982,6 +982,25 @@ final class PackageToolTests: XCTestCase {
       #endif
     }
 
+    func testAPIDiff() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Foo")
+            // Overwrite the existing decl.
+            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+                $0 <<< "public let foo = 42"
+            }
+            let (_, stderr) = try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)
+            XCTAssertTrue(stderr.contains("Func foo() has been removed"))
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
+
     func testArchiveSource() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
