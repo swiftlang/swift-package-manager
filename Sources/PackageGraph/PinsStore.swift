@@ -38,10 +38,12 @@ public final class PinsStore {
     static let schemaVersion: Int = 1
 
     /// The path to the pins file.
-    fileprivate let pinsFile: AbsolutePath
+    private let pinsFile: AbsolutePath
 
     /// The filesystem to manage the pin file on.
-    fileprivate var fileSystem: FileSystem
+    private var fileSystem: FileSystem
+
+    private let mirrors: DependencyMirrors
 
     /// The pins map.
     public fileprivate(set) var pinsMap: PinsMap
@@ -58,7 +60,7 @@ public final class PinsStore {
     /// - Parameters:
     ///   - pinsFile: Path to the pins file.
     ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(pinsFile: AbsolutePath, fileSystem: FileSystem) throws {
+    public init(pinsFile: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
         self.pinsFile = pinsFile
         self.fileSystem = fileSystem
         self.persistence = SimplePersistence(
@@ -66,7 +68,8 @@ public final class PinsStore {
             schemaVersion: PinsStore.schemaVersion,
             statePath: pinsFile,
             prettyPrint: true)
-        pinsMap = [:]
+        self.pinsMap = [:]
+        self.mirrors = mirrors
         do {
             _ = try self.persistence.restoreState(self)
         } catch SimplePersistence.Error.restoreFailure(_, let error) {
@@ -85,7 +88,7 @@ public final class PinsStore {
         packageRef: PackageReference,
         state: CheckoutState
     ) {
-        pinsMap[packageRef.identity] = Pin(
+        self.pinsMap[packageRef.identity] = Pin(
             packageRef: packageRef,
             state: state
         )
@@ -95,24 +98,24 @@ public final class PinsStore {
     ///
     /// This will replace any previous pin with same package name.
     public func add(_ pin: Pin) {
-        pinsMap[pin.packageRef.identity] = pin
+        self.pinsMap[pin.packageRef.identity] = pin
     }
 
-    /// Unpin all of the currently pinnned dependencies.
+    /// Unpin all of the currently pinned dependencies.
     ///
     /// This method does not automatically write to state file.
     public func unpinAll() {
         // Reset the pins map.
-        pinsMap = [:]
+        self.pinsMap = [:]
     }
 
     public func saveState() throws {
-        if pinsMap.isEmpty {
+        if self.pinsMap.isEmpty {
             // Remove the pins file if there are zero pins to save.
             //
             // This can happen if all dependencies are path-based or edited
             // dependencies.
-            return try fileSystem.removeFileTree(pinsFile)
+            return try self.fileSystem.removeFileTree(pinsFile)
         }
 
         try self.persistence.saveState(self)
@@ -124,8 +127,15 @@ public final class PinsStore {
 extension PinsStore: JSONSerializable {
     /// Saves the current state of pins.
     public func toJSON() -> JSON {
+        // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
+        let pinsWithOriginalLocations = self.pins.map { pin -> Pin in
+            let url = self.mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
+            let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
+            return Pin(packageRef: .remote(identity: identity, location: url), state: pin.state)
+        }
+
         return JSON([
-            "pins": pins.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
+            "pins": pinsWithOriginalLocations.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
         ])
     }
 }
@@ -144,9 +154,9 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
     /// Convert the pin to JSON.
     public func toJSON() -> JSON {
         return .init([
-            "package": packageRef.name.toJSON(),
-            "repositoryURL": packageRef.location,
-            "state": state
+            "package": self.packageRef.name.toJSON(),
+            "repositoryURL": self.packageRef.location,
+            "state": self.state
         ])
     }
 }
@@ -155,6 +165,13 @@ extension PinsStore.Pin: JSONMappable, JSONSerializable {
 
 extension PinsStore: SimplePersistanceProtocol {
     public func restore(from json: JSON) throws {
-        self.pinsMap = try Dictionary(json.get("pins").map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
+        let pins: [Pin] = try json.get("pins")
+        // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
+        let pinsWithMirroredLocations = pins.map { pin -> Pin in
+            let url = self.mirrors.effectiveURL(for: pin.packageRef.location)
+            let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
+            return Pin(packageRef: .remote(identity: identity, location: url), state: pin.state)
+        }
+        self.pinsMap = try Dictionary(pinsWithMirroredLocations.map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
     }
 }

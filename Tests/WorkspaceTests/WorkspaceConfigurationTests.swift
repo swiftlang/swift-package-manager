@@ -40,7 +40,8 @@ final class WorkspaceConfigurationTests: XCTestCase {
 
         let config = try Workspace.Configuration(path: configFile, fs: fs)
 
-        XCTAssertEqual(config.mirrors.getMirror(forURL: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
+        XCTAssertEqual(config.mirrors.mirrorURL(for: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
+        XCTAssertEqual(config.mirrors.originalURL(for: "https://github.com/mona/swift-argument-parser.git"), "https://github.com/apple/swift-argument-parser.git")
     }
 
     func testThrowsMirrorNotFound() throws {
