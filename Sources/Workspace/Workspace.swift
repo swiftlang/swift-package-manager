@@ -41,58 +41,43 @@ public protocol WorkspaceDelegate: AnyObject {
 
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
-
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic])
 
     /// The workspace has started fetching this repository.
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
-
     /// The workspace has finished fetching this repository.
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?)
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
-
     /// The workspace has finished updating this repository.
-    func repositoryDidUpdate(_ repository: String)
+    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval)
 
     /// The workspace has finished updating and all the dependencies are already up-to-date.
     func dependenciesUpToDate()
 
     /// The workspace is about to clone a repository from the local cache to a working directory.
-    // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated, message: "use willCreateWorkingCopy")
-    func willClone(repository url: String, to path: AbsolutePath)
     func willCreateWorkingCopy(repository url: String, at path: AbsolutePath)
-
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
     // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated, message: "use didCreateWorkingCopy")
-    func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?)
     func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?)
-
-    /// The workspace has started cloning this repository  from the local cache to a working directory. This callback is marginally deprecated in favor of the willClone/didClone pair.
-    // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated, message: "use didCreateWorkingCopy")
-    func cloning(repository url: String)
 
     /// The workspace is about to check out a particular revision of a working directory.
     func willCheckOut(repository url: String, revision: String, at path: AbsolutePath)
-
     /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
     func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?)
-
-    // deprecated 04/2021, remove once clients moved over
-    /// The workspace is checking out a repository. This callback is marginally deprecated in favor of the willCheckOut/didCheckOut pair.
-    @available(*, deprecated, message: "use didCheckOut")
-    func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath)
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
 
     /// Called when the resolver is about to be run.
     func willResolveDependencies(reason: WorkspaceResolveReason)
+
+    /// Called when the resolver begins to be compute the version for the repository.
+    func willComputeVersion(package: PackageIdentity, location: String)
+    /// Called when the resolver finished computing the version for the repository.
+    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval)
 
     /// Called when the Package.resolved file is changed *outside* of libSwiftPM operations.
     ///
@@ -106,45 +91,6 @@ public protocol WorkspaceDelegate: AnyObject {
     func didDownloadBinaryArtifacts()
 }
 
-public extension WorkspaceDelegate {
-    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
-    // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated)
-    func willClone(repository url: String, to path: AbsolutePath) {
-        cloning(repository: url)
-    }
-    // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated)
-    func cloning(repository url: String) {}
-    // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated)
-    func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?) {}
-    func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {
-        willClone(repository: url, to: path)
-    }
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {
-        didClone(repository: url, to: path, error: error)
-    }
-    func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
-        checkingOut(repository: url, atReference: revision, to: path)
-    }
-    // deprecated 04/2021, remove once clients moved over
-    @available(*, deprecated)
-    func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
-    func repositoryWillUpdate(_ repository: String) {}
-    func repositoryDidUpdate(_ repository: String) {}
-    func willResolveDependencies(reason: WorkspaceResolveReason) {}
-    func dependenciesUpToDate() {}
-    func resolvedFileChanged() {}
-    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {}
-    func didDownloadBinaryArtifacts() {}
-
-    func fetchingWillBegin(repository: String) {}
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {}
-}
-
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     unowned let workspaceDelegate: WorkspaceDelegate
 
@@ -156,22 +102,46 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         workspaceDelegate.fetchingWillBegin(repository: handle.repository.url, fetchDetails: details)
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
         let diagnostic: Diagnostic? = error.flatMap({
             let engine = DiagnosticsEngine()
             engine.emit($0)
             return engine.diagnostics.first
         })
-        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, fetchDetails: details, diagnostic: diagnostic)
+        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, fetchDetails: details, diagnostic: diagnostic, duration: duration)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
         workspaceDelegate.repositoryWillUpdate(handle.repository.url)
     }
 
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {
-        workspaceDelegate.repositoryDidUpdate(handle.repository.url)
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
+        workspaceDelegate.repositoryDidUpdate(handle.repository.url, duration: duration)
     }
+}
+
+private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
+    unowned let workspaceDelegate: WorkspaceDelegate
+
+    init(_ delegate: WorkspaceDelegate) {
+        self.workspaceDelegate = delegate
+    }
+
+    func willResolve(term: Term) {
+        self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.location)
+    }
+
+    func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+        self.workspaceDelegate.didComputeVersion(package: term.node.package.identity, location: term.node.package.location, version: version.description, duration: duration)
+    }
+
+    // noop
+    func derived(term: Term) {}
+    func conflict(conflict: Incompatibility) {}
+    func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {}
+    func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {}
+    func failedToResolve(incompatibility: Incompatibility) {}
+    func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {}
 }
 
 /// A workspace represents the state of a working project directory.
@@ -2309,7 +2279,14 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver(pinsMap: PinsStore.PinsMap) throws -> PubgrubDependencyResolver {
-        let delegate = self.enableResolverTrace ? try TracingDependencyResolverDelegate(path: self.dataPath.appending(components: "resolver.trace")) : nil
+        var delegates = [DependencyResolverDelegate]()
+        if let workspaceDelegate = self.delegate {
+            delegates.append(WorkspaceDependencyResolverDelegate(workspaceDelegate))
+        }
+        if self.enableResolverTrace {
+            delegates.append(try TracingDependencyResolverDelegate(path: self.dataPath.appending(components: "resolver.trace")))
+        }
+        let delegate = !delegates.isEmpty ? MultiplexResolverDelegate(delegates) : nil
 
         return PubgrubDependencyResolver(
             provider: containerProvider,

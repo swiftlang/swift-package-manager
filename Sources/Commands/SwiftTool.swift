@@ -30,7 +30,6 @@ import Basics
 typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
-
     /// The stream to use for reporting progress.
     private let stdoutStream: ThreadSafeOutputByteStream
 
@@ -73,7 +72,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval) {
+        queue.async {
+            self.stdoutStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func repositoryWillUpdate(_ repository: String) {
@@ -84,7 +88,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func repositoryDidUpdate(_ repository: String) {
+    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
+        queue.async {
+            self.stdoutStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func dependenciesUpToDate() {
@@ -104,8 +113,15 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
+        // noop
+    }
+
+    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
+        guard case .none = error else {
+            return // error will be printed before hand
+        }
         queue.async {
-            self.stdoutStream <<< "Resolving \(repository) at \(revision)"
+            self.stdoutStream <<< "Working copy of \(repository) resolved at \(revision)"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
         }
@@ -185,6 +201,22 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
+    func willComputeVersion(package: PackageIdentity, location: String) {
+        queue.async {
+            self.stdoutStream <<< "Computing version for \(location)"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
+    }
+
+    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+        queue.async {
+            self.stdoutStream <<< "Computed \(location) at \(version) (\(duration.descriptionInSeconds))"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
+    }
+
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         queue.async {
             if let totalBytesToDownload = totalBytesToDownload {
@@ -209,6 +241,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             self.downloadProgress.removeAll()
         }
     }
+
+    // noop
+    
+    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
+    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {}
+    func resolvedFileChanged() {}
 }
 
 /// Handler for the main DiagnosticsEngine used by the SwiftTool class.
@@ -918,5 +957,26 @@ final class BuildSystemRef {
 extension Diagnostic.Message {
     static func unsupportedFlag(_ flag: String) -> Diagnostic.Message {
         .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
+    }
+}
+
+extension DispatchTimeInterval {
+    var descriptionInSeconds: String {
+        switch self {
+        case .seconds(let value):
+            return "\(value)s"
+        case .milliseconds(let value):
+            return String(format: "%.2f", Double(value)/Double(1000)) + "s"
+        case .microseconds(let value):
+            return String(format: "%.2f", Double(value)/Double(1_000_000)) + "s"
+        case .nanoseconds(let value):
+            return String(format: "%.2f", Double(value)/Double(1_000_000_000)) + "s"
+        case .never:
+            return "n/a"
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        @unknown default:
+            return "n/a"
+        #endif
+        }
     }
 }
