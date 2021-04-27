@@ -356,19 +356,15 @@ public final class InitPackage {
                 @testable import \(moduleName)
 
                 final class \(moduleName)Tests: XCTestCase {
-                    func testExample() {
+                    func testExample() throws {
                         // This is an example of a functional test case.
                         // Use XCTAssert and related functions to verify your tests produce the correct
                         // results.
                         XCTAssertEqual(\(typeName)().text, "Hello, World!")
                     }
-
-            """
-
-            stream <<< """
                 }
 
-            """
+                """
         }
     }
 
@@ -421,10 +417,6 @@ public final class InitPackage {
                         return Bundle.main.bundleURL
                       #endif
                     }
-
-                """
-
-            stream <<< """
                 }
 
                 """
