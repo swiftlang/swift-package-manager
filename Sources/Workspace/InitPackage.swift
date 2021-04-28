@@ -291,8 +291,11 @@ public final class InitPackage {
         switch packageType {
         case .library:
             content = """
-                struct \(typeName) {
-                    var text = "Hello, World!"
+                public struct \(typeName) {
+                    public private(set) var text = "Hello, World!"
+
+                    public init() {
+                    }
                 }
 
                 """
