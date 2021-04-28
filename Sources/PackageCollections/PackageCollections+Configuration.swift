@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -16,9 +16,9 @@ extension PackageCollections {
         // JSONPackageCollectionValidator: maximumPackageCount, maximumMajorVersionCount, maximumMinorVersionCount
 
         /// Auth tokens for the collections or metadata provider
-        public var authTokens: [AuthTokenType: String]?
+        public var authTokens: () -> [AuthTokenType: String]?
 
-        public init(authTokens: [AuthTokenType: String]? = nil) {
+        public init(authTokens: @escaping () -> [AuthTokenType: String]? = { nil }) {
             self.authTokens = authTokens
         }
     }
