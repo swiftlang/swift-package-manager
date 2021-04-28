@@ -65,6 +65,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         if self.storageContainer.owned {
             try self.storageContainer.storage.close()
         }
+        try self.metadataProvider.close()
     }
 
     // MARK: - Collections

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -585,23 +585,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     fileprivate func parseAndCacheManifest(key: ManifestCacheKey, diagnostics: DiagnosticsEngine?) -> ManifestParseResult {
-        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteManifestCache in
+        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<ManifestParseResult> in
             let path = Self.manifestCacheDBPath(cacheDir)
-            var configuration = SQLiteManifestCache.Configuration()
+            var configuration = SQLiteBackedCacheConfiguration()
             // FIXME: expose as user-facing configuration
             configuration.maxSizeInMegabytes = 100
             configuration.truncateWhenFull = true
-            return SQLiteManifestCache(location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
+            return SQLiteBackedCache<ManifestParseResult>(tableName: "MANIFEST_CACHE", location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         defer { try? cache?.close() }
 
         do {
-            if let result = try cache?.get(key: key) {
+            if let result = try cache?.get(key: key.sha256Checksum) {
                 return result
             }
-        } catch  {
+        } catch {
             diagnostics?.emit(.warning("failed loading manifest for '\(key.packageIdentity)' from cache: \(error)"))
         }
 
@@ -614,7 +614,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // this is important for swift-pm development
         if !result.hasErrors {
             do {
-                try cache?.put(key: key, manifest: result)
+                try cache?.put(key: key.sha256Checksum, value: result)
             } catch {
                 diagnostics?.emit(.warning("failed storing manifest for '\(key.packageIdentity)' in cache: \(error)"))
             }
@@ -1010,225 +1010,5 @@ extension TSCBasic.Diagnostic.Message {
             invalid language tag '\(languageTag)'; the pattern for language tags is groups of latin characters and \
             digits separated by hyphens
             """)
-    }
-}
-
-/// SQLite backed persistent cache.
-internal final class SQLiteManifestCache: Closable {
-    let fileSystem: FileSystem
-    let location: SQLite.Location
-    let configuration: Configuration
-
-    private var state = State.idle
-    private let stateLock = Lock()
-
-    private let diagnosticsEngine: DiagnosticsEngine?
-    private let jsonEncoder: JSONEncoder
-    private let jsonDecoder: JSONDecoder
-
-    init(location: SQLite.Location, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.location = location
-        switch self.location {
-        case .path, .temporary:
-            self.fileSystem = localFileSystem
-        case .memory:
-            self.fileSystem = InMemoryFileSystem()
-        }
-        self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
-        self.jsonEncoder = JSONEncoder.makeWithDefaults()
-        self.jsonDecoder = JSONDecoder.makeWithDefaults()
-    }
-
-    convenience init(path: AbsolutePath, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(location: .path(path), configuration: configuration, diagnosticsEngine: diagnosticsEngine)
-    }
-
-    deinit {
-        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-        try? self.withStateLock {
-            if case .connected(let db) = self.state {
-                assertionFailure("db should be closed")
-                try db.close()
-            }
-        }
-    }
-
-    func close() throws {
-        try self.withStateLock {
-            if case .connected(let db) = self.state {
-                try db.close()
-            }
-            self.state = .disconnected
-        }
-    }
-
-    func put(key: ManifestLoader.ManifestCacheKey, manifest: ManifestLoader.ManifestParseResult) throws {
-        do {
-            let query = "INSERT OR IGNORE INTO MANIFEST_CACHE VALUES (?, ?);"
-            try self.executeStatement(query) { statement -> Void in
-                let data = try self.jsonEncoder.encode(manifest)
-                let bindings: [SQLite.SQLiteValue] = [
-                    .string(key.sha256Checksum),
-                    .blob(data),
-                ]
-                try statement.bind(bindings)
-                try statement.step()
-            }
-        } catch (let error as SQLite.Errors) where error == .databaseFull {
-            if !self.configuration.truncateWhenFull {
-                throw error
-            }
-            self.diagnosticsEngine?.emit(.warning("truncating manifest cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
-            try self.executeStatement("DELETE FROM MANIFEST_CACHE;") { statement -> Void in
-                try statement.step()
-            }
-            try self.put(key: key, manifest: manifest)
-        } catch {
-            throw error
-        }
-    }
-
-    func get(key: ManifestLoader.ManifestCacheKey) throws -> ManifestLoader.ManifestParseResult? {
-        let query = "SELECT value FROM MANIFEST_CACHE WHERE key == ? LIMIT 1;"
-        return try self.executeStatement(query) { statement ->  ManifestLoader.ManifestParseResult? in
-            try statement.bind([.string(key.sha256Checksum)])
-            let data = try statement.step()?.blob(at: 0)
-            return try data.flatMap {
-                try self.jsonDecoder.decode(ManifestLoader.ManifestParseResult.self, from: $0)
-            }
-        }
-    }
-
-    private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
-        try self.withDB { db in
-            let result: Result<T, Error>
-            let statement = try db.prepare(query: query)
-            do {
-                result = .success(try body(statement))
-            } catch {
-                result = .failure(error)
-            }
-            try statement.finalize()
-            switch result {
-            case .failure(let error):
-                throw error
-            case .success(let value):
-                return value
-            }
-        }
-    }
-
-    private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
-        let createDB = { () throws -> SQLite in
-            let db = try SQLite(location: self.location, configuration: self.configuration.underlying)
-            try self.createSchemaIfNecessary(db: db)
-            return db
-        }
-
-        let db = try self.withStateLock { () -> SQLite in
-            let db: SQLite
-            switch (self.location, self.state) {
-            case (.path(let path), .connected(let database)):
-                if self.fileSystem.exists(path) {
-                    db = database
-                } else {
-                    try database.close()
-                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-                    db = try createDB()
-                }
-            case (.path(let path), _):
-                if !self.fileSystem.exists(path) {
-                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-                }
-                db = try createDB()
-            case (_, .connected(let database)):
-                db = database
-            case (_, _):
-                db = try createDB()
-            }
-            self.state = .connected(db)
-            return db
-        }
-
-        // FIXME: workaround linux sqlite concurrency issues causing CI failures
-        #if os(Linux)
-        return try self.withStateLock {
-            return try body(db)
-        }
-        #else
-        return try body(db)
-        #endif
-    }
-
-    private func createSchemaIfNecessary(db: SQLite) throws {
-        let table = """
-            CREATE TABLE IF NOT EXISTS MANIFEST_CACHE (
-                key STRING PRIMARY KEY NOT NULL,
-                value BLOB NOT NULL
-            );
-        """
-
-        try db.exec(query: table)
-        try db.exec(query: "PRAGMA journal_mode=WAL;")
-    }
-
-    private func withStateLock<T>(_ body: () throws -> T) throws -> T {
-        switch self.location {
-        case .path(let path):
-            if !self.fileSystem.exists(path.parentDirectory) {
-                try self.fileSystem.createDirectory(path.parentDirectory)
-            }
-            return try self.fileSystem.withLock(on: path, type: .exclusive, body)
-        case .memory, .temporary:
-            return try self.stateLock.withLock(body)
-        }
-    }
-
-    private enum State {
-        case idle
-        case connected(SQLite)
-        case disconnected
-    }
-
-    struct Configuration {
-        var truncateWhenFull: Bool
-
-        fileprivate var underlying: SQLite.Configuration
-
-        init() {
-            self.underlying = .init()
-            self.truncateWhenFull = true
-            self.maxSizeInMegabytes = 100
-            // see https://www.sqlite.org/c3ref/busy_timeout.html
-            self.busyTimeoutMilliseconds = 1_000
-        }
-
-        var maxSizeInMegabytes: Int? {
-            get {
-                self.underlying.maxSizeInMegabytes
-            }
-            set {
-                self.underlying.maxSizeInMegabytes = newValue
-            }
-        }
-
-        var maxSizeInBytes: Int? {
-            get {
-                self.underlying.maxSizeInBytes
-            }
-            set {
-                self.underlying.maxSizeInBytes = newValue
-            }
-        }
-
-        var busyTimeoutMilliseconds: Int32 {
-            get {
-                self.underlying.busyTimeoutMilliseconds
-            }
-            set {
-                self.underlying.busyTimeoutMilliseconds = newValue
-            }
-        }
     }
 }

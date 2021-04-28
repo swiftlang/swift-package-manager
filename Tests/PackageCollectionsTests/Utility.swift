@@ -164,6 +164,8 @@ struct MockMetadataProvider: PackageMetadataProvider {
             callback(.failure(NotFoundError("\(reference)")))
         }
     }
+
+    func close() throws {}
 }
 
 struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {
