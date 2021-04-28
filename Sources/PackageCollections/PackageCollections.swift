@@ -21,11 +21,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
     static let isSupportedPlatform = false
     #endif
 
-    private let configuration: Configuration
+    let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine?
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
-    private let metadataProvider: PackageMetadataProvider
+    let metadataProvider: PackageMetadataProvider
 
     private var storage: Storage {
         self.storageContainer.storage

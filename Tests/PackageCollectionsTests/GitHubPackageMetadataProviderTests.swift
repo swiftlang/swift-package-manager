@@ -226,7 +226,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             var configuration = GitHubPackageMetadataProvider.Configuration()
             configuration.cacheDir = tmpPath
             var provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
-            provider.configuration.authTokens = authTokens
+            provider.configuration.authTokens = { authTokens }
             defer { XCTAssertNoThrow(try provider.close()) }
 
             let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
@@ -335,7 +335,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
         var configuration = GitHubPackageMetadataProvider.Configuration()
         if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
-            configuration.authTokens = [.github("api.github.com"): token]
+            configuration.authTokens = { [.github("api.github.com"): token] }
         }
         configuration.apiLimitWarningThreshold = 50
         configuration.cacheTTLInSeconds = -1 // Disable cache so we hit the API
