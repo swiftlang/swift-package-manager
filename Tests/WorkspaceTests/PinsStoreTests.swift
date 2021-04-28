@@ -40,7 +40,7 @@ final class PinsStoreTests: XCTestCase {
 
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
-        var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        var store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
         // Pins file should not be created right now.
         XCTAssert(!fs.exists(pinsFile))
         XCTAssert(store.pins.map{$0}.isEmpty)
@@ -51,7 +51,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(fs.exists(pinsFile))
 
         // Load the store again from disk.
-        let store2 = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        let store2 = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
         // Test basics on the store.
         for s in [store, store2] {
             XCTAssert(s.pins.map{$0}.count == 1)
@@ -72,7 +72,7 @@ final class PinsStoreTests: XCTestCase {
         store.pin(packageRef: barRef, state: state)
         try store.saveState()
 
-        store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
         XCTAssert(store.pins.map{$0}.count == 2)
 
         // Test branch pin.
@@ -82,7 +82,7 @@ final class PinsStoreTests: XCTestCase {
                 state: CheckoutState(revision: revision, branch: "develop")
             )
             try store.saveState()
-            store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
 
             let barPin = store.pinsMap[bar]!
             XCTAssertEqual(barPin.state.branch, "develop")
@@ -95,7 +95,7 @@ final class PinsStoreTests: XCTestCase {
         do {
             store.pin(packageRef: barRef, state: CheckoutState(revision: revision))
             try store.saveState()
-            store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+            store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
 
             let barPin = store.pinsMap[bar]!
             XCTAssertEqual(barPin.state.branch, nil)
@@ -139,14 +139,14 @@ final class PinsStoreTests: XCTestCase {
                 """
         }
 
-        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
         XCTAssertEqual(store.pinsMap.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
     }
 
     func testEmptyPins() throws {
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
-        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs)
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
 
         try store.saveState()
         XCTAssertFalse(fs.exists(pinsFile))
@@ -165,5 +165,53 @@ final class PinsStoreTests: XCTestCase {
         store.unpinAll()
         try store.saveState()
         XCTAssertFalse(fs.exists(pinsFile))
+    }
+
+    func testPinsWithMirrors() throws {
+        let fooURL = "https://github.com/corporate/foo.git"
+        let fooIdentity = PackageIdentity(url: fooURL)
+        let fooMirroredURL = "https://github.corporate.com/team/foo.git"
+
+        let barURL = "https://github.com/corporate/baraka.git"
+        let barIdentity = PackageIdentity(url: barURL)
+        let barMirroredURL = "https://github.corporate.com/team/bar.git"
+        let barMirroredIdentity = PackageIdentity(url: barMirroredURL)
+
+        let bazURL = "https://github.com/cool/baz.git"
+        let bazIdentity = PackageIdentity(url: bazURL)
+
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: fooMirroredURL, forURL: fooURL)
+        mirrors.set(mirrorURL: barMirroredURL, forURL: barURL)
+
+        let fileSystem = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pins.txt")
+
+        let store = try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: mirrors)
+
+        store.pin(packageRef: .remote(identity: fooIdentity, location: fooMirroredURL),
+                  state: CheckoutState(revision: .init(identifier: "foo-revision"), version: v1))
+        store.pin(packageRef: .remote(identity: barMirroredIdentity, location: barMirroredURL),
+                  state: CheckoutState(revision: .init(identifier: "bar-revision"), version: v1))
+        store.pin(packageRef: .remote(identity: bazIdentity, location: bazURL),
+                  state: CheckoutState(revision: .init(identifier: "baz-revision"), version: v1))
+
+
+        try store.saveState()
+        XCTAssert(fileSystem.exists(pinsFile))
+
+        // Load the store again from disk, with no mirrors
+        let store2 = try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: .init())
+        XCTAssert(store2.pinsMap.count == 3)
+        XCTAssertEqual(store2.pinsMap[fooIdentity]!.packageRef.location, fooURL)
+        XCTAssertEqual(store2.pinsMap[barIdentity]!.packageRef.location, barURL)
+        XCTAssertEqual(store2.pinsMap[bazIdentity]!.packageRef.location, bazURL)
+
+        // Load the store again from disk, with mirrors
+        let store3 = try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: mirrors)
+        XCTAssert(store3.pinsMap.count == 3)
+        XCTAssertEqual(store3.pinsMap[fooIdentity]!.packageRef.location, fooMirroredURL)
+        XCTAssertEqual(store3.pinsMap[barMirroredIdentity]!.packageRef.location, barMirroredURL)
+        XCTAssertEqual(store3.pinsMap[bazIdentity]!.packageRef.location, bazURL)
     }
 }

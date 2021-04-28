@@ -307,7 +307,7 @@ public class Workspace {
         self.checkoutsPath = self.dataPath.appending(component: "checkouts")
         self.artifactsPath = self.dataPath.appending(component: "artifacts")
 
-        self.identityResolver = identityResolver ?? DefaultIdentityResolver(locationMapper: config.mirrors.effectiveURL(forURL:))
+        self.identityResolver = identityResolver ?? DefaultIdentityResolver(locationMapper: config.mirrors.effectiveURL(for:))
 
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
@@ -319,7 +319,7 @@ public class Workspace {
         self.fileSystem = fileSystem
 
         self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem)
+            try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: config.mirrors)
         }
         self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
     }
@@ -1120,7 +1120,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map {
-                let url = workspace.config.mirrors.effectiveURL(forURL: $0.1.packageLocation)
+                let url = workspace.config.mirrors.effectiveURL(for: $0.1.packageLocation)
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind, location: url)
             })
             // We should never have loaded a manifest we don't need.
