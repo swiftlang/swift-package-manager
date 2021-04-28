@@ -119,7 +119,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     }
 
     public func remove(key: Key) throws {
-        let query = "DELETE FROM \(self.tableName) WHERE key = ? LIMIT 1;"
+        let query = "DELETE FROM \(self.tableName) WHERE key = ?;"
         try self.executeStatement(query) { statement in
             try statement.bind([.string(key)])
             try statement.step()
