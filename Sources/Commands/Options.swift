@@ -139,6 +139,10 @@ public struct SwiftToolOptions: ParsableArguments {
     @Option(help: "Specify the shared cache directory")
     var cachePath: AbsolutePath?
 
+    // TODO: add actual help when ready to be used
+    @Option(help: .hidden)
+    var configPath: AbsolutePath?
+
     /// Disables repository caching.
     @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching repositories")
     var useRepositoriesCache: Bool = true

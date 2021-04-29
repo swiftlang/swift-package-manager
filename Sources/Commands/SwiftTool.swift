@@ -528,23 +528,26 @@ public class SwiftTool {
         }
 
         do {
-            // Create the default cache directory.
-            let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
-            if !fileSystem.exists(idiomaticCachePath) {
-                try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
-            }
-            // Create ~/.swiftpm if necessary
-            if !fileSystem.exists(fileSystem.dotSwiftPM) {
-                try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
-            }
-            // Create ~/.swiftpm/cache symlink if necessary
-            let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
-            if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
-                try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
-            }
-            return idiomaticCachePath
+            return try fileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
             self.diagnostics.emit(warning: "Failed creating default cache locations, \(error)")
+            return nil
+        }
+    }
+
+    private func getConfigPath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+        if let explicitConfigPath = options.configPath {
+            // Create the explicit config path if necessary
+            if !fileSystem.exists(explicitConfigPath) {
+                try fileSystem.createDirectory(explicitConfigPath, recursive: true)
+            }
+            return explicitConfigPath
+        }
+
+        do {
+            return try fileSystem.getOrCreateSwiftPMConfigDirectory()
+        } catch {
+            self.diagnostics.emit(warning: "Failed creating default config locations, \(error)")
             return nil
         }
     }
@@ -559,6 +562,7 @@ public class SwiftTool {
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
         let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
+        _  = try self.getConfigPath() // TODO: actually use this in the workspace 
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = Workspace(
             dataPath: buildPath,

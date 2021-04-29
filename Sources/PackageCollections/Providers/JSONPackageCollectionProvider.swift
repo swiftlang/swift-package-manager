@@ -53,7 +53,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
-            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.dotSwiftPM.appending(components: "config", "trust-root-certs").asURL,
+            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigDirectory.appending(component: "trust-root-certs").asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts,
             callbackQueue: .sharedConcurrent,
             diagnosticsEngine: diagnosticsEngine
