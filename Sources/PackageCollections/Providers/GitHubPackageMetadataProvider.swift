@@ -19,6 +19,8 @@ import PackageModel
 import TSCBasic
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider {
+    private static let apiHostPrefix = "api."
+
     public var name: String = "GitHub"
 
     var configuration: Configuration
@@ -179,7 +181,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let owner = String(url[ownerRange])
                     let repo = String(url[repoRange])
 
-                    return URL(string: "https://api.\(host)/repos/\(owner)/\(repo)")
+                    return URL(string: "https://\(Self.apiHostPrefix)\(host)/repos/\(owner)/\(repo)")
                 }
             }
             return nil
@@ -194,7 +196,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
             url.host.flatMap { host in
-                self.configuration.authTokens()?[.github(host)].flatMap { token in
+                let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
+                return self.configuration.authTokens()?[.github(host)].flatMap { token in
                     "token \(token)"
                 }
             }
