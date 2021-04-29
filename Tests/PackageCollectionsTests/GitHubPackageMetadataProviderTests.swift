@@ -209,7 +209,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         try testWithTemporaryDirectory { tmpPath in
             let repoURL = "https://github.com/octocat/Hello-World.git"
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
-            let authTokens = [AuthTokenType.github("api.github.com"): "foo"]
+            let authTokens = [AuthTokenType.github("github.com"): "foo"]
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 if request.headers.get("Authorization").first == "token \(authTokens.first!.value)" {
@@ -335,7 +335,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
         var configuration = GitHubPackageMetadataProvider.Configuration()
         if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
-            configuration.authTokens = { [.github("api.github.com"): token] }
+            configuration.authTokens = { [.github("github.com"): token] }
         }
         configuration.apiLimitWarningThreshold = 50
         configuration.cacheTTLInSeconds = -1 // Disable cache so we hit the API
