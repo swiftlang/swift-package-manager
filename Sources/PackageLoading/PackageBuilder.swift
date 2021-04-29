@@ -1056,6 +1056,9 @@ public final class PackageBuilder {
             let oldestSupportedVersion: PlatformVersion
             if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
                 oldestSupportedVersion = xcTestMinimumDeploymentTarget
+            } else if platform == .macCatalyst, let iOS = supportedPlatforms.first(where: { $0.platform == .iOS }) {
+                // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
+                oldestSupportedVersion = max(platform.oldestSupportedVersion, iOS.version)
             } else {
                 oldestSupportedVersion = platform.oldestSupportedVersion
             }
