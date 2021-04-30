@@ -397,22 +397,21 @@ def install_swiftpm(prefix, args):
     runtime_lib_dest = os.path.join(prefix, "lib", "swift", "pm")
     runtime_lib_src = os.path.join(args.bootstrap_dir, "pm")
 
-    for runtime in ["4", "4_2"]:
-        files_to_install = ["libPackageDescription" + g_shared_lib_ext]
-        if platform.system() == 'Darwin':
-            files_to_install.append("PackageDescription.swiftinterface")
-        else:
-            files_to_install.append("PackageDescription.swiftmodule")
-        files_to_install.append("PackageDescription.swiftdoc")
+    files_to_install = ["libPackageDescription" + g_shared_lib_ext]
+    if platform.system() == 'Darwin':
+        files_to_install.append("PackageDescription.swiftinterface")
+    else:
+        files_to_install.append("PackageDescription.swiftmodule")
+    files_to_install.append("PackageDescription.swiftdoc")
 
-        for file in files_to_install:
-            src = os.path.join(runtime_lib_src, runtime, file)
-            dest = os.path.join(runtime_lib_dest, runtime, file)
-            mkdir_p(os.path.dirname(dest))
+    for file in files_to_install:
+        src = os.path.join(runtime_lib_src, "ManifestAPI", file)
+        dest = os.path.join(runtime_lib_dest, "ManifestAPI", file)
+        mkdir_p(os.path.dirname(dest))
 
-            note("Installing %s to %s" % (src, dest))
+        note("Installing %s to %s" % (src, dest))
 
-            file_util.copy_file(src, dest, update=1)
+        file_util.copy_file(src, dest, update=1)
 
     files_to_install = ["libPackagePlugin" + g_shared_lib_ext]
     if platform.system() == 'Darwin':
@@ -422,8 +421,8 @@ def install_swiftpm(prefix, args):
     files_to_install.append("PackagePlugin.swiftdoc")
 
     for file in files_to_install:
-        src = os.path.join(runtime_lib_src, file)
-        dest = os.path.join(runtime_lib_dest, file)
+        src = os.path.join(runtime_lib_src, "PluginAPI", file)
+        dest = os.path.join(runtime_lib_dest, "PluginAPI", file)
         mkdir_p(os.path.dirname(dest))
 
         note("Installing %s to %s" % (src, dest))

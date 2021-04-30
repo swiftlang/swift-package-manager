@@ -98,7 +98,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             guard case let ManifestParseError.invalidManifestFormat(output, _) = error else {
                 return XCTFail()
             }
-            XCTAssertMatch(output, .and(.or(.contains("expected argument type"), .contains("expected element type")), .contains("SwiftVersion")))
+            XCTAssertMatch(output, .and(.contains("'init(name:pkgConfig:providers:products:dependencies:targets:swiftLanguageVersions:cLanguageStandard:cxxLanguageStandard:)' is unavailable"), .contains("was obsoleted in PackageDescription 4.2")))
         }
 
         // Check when Swift language versions is empty.
