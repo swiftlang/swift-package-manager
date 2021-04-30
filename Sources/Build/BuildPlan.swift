@@ -667,7 +667,7 @@ public final class SwiftTargetBuildDescription {
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let mainPath = Bundle.main.bundlePath + "\(bundlePath.basename.asSwiftStringLiteralConstant)"
+                let mainPath = Bundle.main.bundlePath + "/" + "\(bundlePath.basename.asSwiftStringLiteralConstant)"
                 let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
                 let preferredBundle = Bundle(path: mainPath)
