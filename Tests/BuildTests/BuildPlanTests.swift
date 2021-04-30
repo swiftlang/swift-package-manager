@@ -2466,7 +2466,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
-        XCTAssertTrue(contents.contains("let mainPath = Bundle.main.bundlePath +"), contents)
+        XCTAssertTrue(contents.contains("let mainPath = Bundle.main."), contents)
 
         let barTarget = try result.target(for: "Bar").swiftTarget()
         XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
