@@ -24,11 +24,7 @@ extension Package.Dependency.Requirement: Encodable {
     /// - Parameters:
     ///      - version: The exact version of the dependency for this requirement.
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
-      #if PACKAGE_DESCRIPTION_4
         return .exactItem(version)
-      #else
-        return ._exactItem(version)
-      #endif
     }
 
     /// Returns a requirement for a source control revision such as the hash of a commit.
@@ -45,11 +41,7 @@ extension Package.Dependency.Requirement: Encodable {
     /// - Parameters:
     ///     - ref: The Git revision, usually a commit hash.
     public static func revision(_ ref: String) -> Package.Dependency.Requirement {
-      #if PACKAGE_DESCRIPTION_4
         return .revisionItem(ref)
-      #else
-        return ._revisionItem(ref)
-      #endif
     }
 
     /// Returns a requirement for a source control branch.
@@ -67,11 +59,7 @@ extension Package.Dependency.Requirement: Encodable {
     /// - Parameters:
     ///     - name: The name of the branch.
     public static func branch(_ name: String) -> Package.Dependency.Requirement {
-      #if PACKAGE_DESCRIPTION_4
         return .branchItem(name)
-      #else
-        return ._branchItem(name)
-      #endif
     }
 
     /// Returns a requirement for a version range, starting at the given minimum
@@ -80,11 +68,7 @@ extension Package.Dependency.Requirement: Encodable {
     /// - Parameters:
     ///     - version: The minimum version for the version range.
     public static func upToNextMajor(from version: Version) -> Package.Dependency.Requirement {
-      #if PACKAGE_DESCRIPTION_4
         return .rangeItem(version..<Version(version.major + 1, 0, 0))
-      #else
-        return ._rangeItem(version..<Version(version.major + 1, 0, 0))
-      #endif
     }
 
     /// Returns a requirement for a version range, starting at the given minimum
@@ -93,11 +77,7 @@ extension Package.Dependency.Requirement: Encodable {
     /// - Parameters:
     ///     - version: The minimum version for the version range.
     public static func upToNextMinor(from version: Version) -> Package.Dependency.Requirement {
-      #if PACKAGE_DESCRIPTION_4
         return .rangeItem(version..<Version(version.major, version.minor + 1, 0))
-      #else
-        return ._rangeItem(version..<Version(version.major, version.minor + 1, 0))
-      #endif
     }
 
     private enum CodingKeys: CodingKey {
@@ -117,7 +97,6 @@ extension Package.Dependency.Requirement: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-      #if PACKAGE_DESCRIPTION_4
         switch self {
         case .rangeItem(let range):
             try container.encode(Kind.range, forKey: .type)
@@ -135,24 +114,5 @@ extension Package.Dependency.Requirement: Encodable {
         case .localPackageItem:
             try container.encode(Kind.localPackage, forKey: .type)
         }
-      #else
-        switch self {
-        case ._rangeItem(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case ._exactItem(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        case ._branchItem(let identifier):
-            try container.encode(Kind.branch, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case ._revisionItem(let identifier):
-            try container.encode(Kind.revision, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case ._localPackageItem:
-            try container.encode(Kind.localPackage, forKey: .type)
-        }
-      #endif
     }
 }

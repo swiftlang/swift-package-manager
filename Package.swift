@@ -113,19 +113,25 @@ let package = Package(
         ),
     ],
     targets: [
-        // The `PackageDescription` targets define the API which is available to
-        // the `Package.swift` manifest files. We build the latest API version
-        // here which is used when building and running swiftpm without the
-        // bootstrap script.
+        // The `PackageDescription` target provides the API that is available
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
         .target(
-            /** Package Definition API */
             name: "PackageDescription",
             swiftSettings: [
-                .define("PACKAGE_DESCRIPTION_4_2"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"])
             ]),
-        
+
+        // The `PackagePlugin` target provides the API that is available to
+        // plugin scripts. Here we build a debug version of the library; the
+        // bootstrap scripts build the deployable version.
         .target(
-            name: "PackagePlugin"),
+            name: "PackagePlugin",
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"])
+            ]),
 
         // MARK: SwiftPM specific support libraries
 
