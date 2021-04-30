@@ -81,7 +81,7 @@ public func xcodeProject(
         var interpreterFlags = manifestLoader.interpreterFlags(for: package.manifest.toolsVersion)
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
-            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/\(package.manifest.toolsVersion.runtimeSubpath.pathString)"
+            interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/ManifestAPI"
         }
         pdTarget.buildSettings.common.OTHER_SWIFT_FLAGS += interpreterFlags
         pdTarget.buildSettings.common.SWIFT_VERSION = package.manifest.toolsVersion.swiftLanguageVersion.xcodeBuildSettingValue
