@@ -12,7 +12,7 @@ import XCTest
 import Foundation
 
 import TSCBasic
-@testable import Commands
+import Commands
 import Xcodeproj
 import PackageModel
 import SourceControl
