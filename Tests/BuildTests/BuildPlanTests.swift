@@ -2464,6 +2464,9 @@ final class BuildPlanTests: XCTestCase {
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
         let contents = try fs.readFileContents(resourceAccessor).cString
         XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+        // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
+        // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
+        XCTAssertTrue(contents.contains("let mainPath = Bundle.main."), contents)
 
         let barTarget = try result.target(for: "Bar").swiftTarget()
         XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [

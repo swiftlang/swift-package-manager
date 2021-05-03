@@ -18,11 +18,10 @@ import Foundation
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
 
-extension AbsolutePath {
-  fileprivate var asSwiftStringLiteralConstant: String {
-    return self.pathString.unicodeScalars
-              .reduce("", { $0 + $1.escaped(asASCII: false) })
-  }
+extension String {
+    fileprivate var asSwiftStringLiteralConstant: String {
+        return unicodeScalars.reduce("", { $0 + $1.escaped(asASCII: false) })
+    }
 }
 
 extension BuildParameters {
@@ -663,17 +662,13 @@ public final class SwiftTargetBuildDescription {
         guard let bundlePath = self.bundlePath else { return }
 
         let stream = BufferedOutputByteStream()
-
-        let mainPath: AbsolutePath =
-            AbsolutePath(Bundle.main.bundlePath).appending(component: bundlePath.basename)
-
         stream <<< """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let mainPath = "\(mainPath.asSwiftStringLiteralConstant)"
-                let buildPath = "\(bundlePath.asSwiftStringLiteralConstant)"
+                let mainPath = Bundle.main.bundleURL.appendingPathComponent("\(bundlePath.basename.asSwiftStringLiteralConstant)").path
+                let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
                 let preferredBundle = Bundle(path: mainPath)
 
