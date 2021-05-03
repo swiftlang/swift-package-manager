@@ -248,13 +248,13 @@ public struct SwiftToolOptions: ParsableArguments {
 
     @Flag(name: .customLong("index-store"), inversion: .prefixedEnableDisable, help: "Enable or disable  indexing-while-building feature")
     var indexStoreEnable: Bool?
-    
+        
     /// The mode to use for indexing-while-building feature.
     var indexStore: BuildParameters.IndexStoreMode {
         guard let enable = indexStoreEnable else { return .auto }
         return enable ? .on : .off
     }
-    
+
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     var shouldEnableParseableModuleInterfaces: Bool = false
