@@ -17,10 +17,7 @@ import FoundationNetworking
 #endif
 import TSCBasic
 import TSCTestSupport
-// // Netrc only available on macOS for now
-#if os(macOS)
 import struct TSCUtility.Netrc
-#endif
 import XCTest
 
 final class URLSessionHTTPClientTest: XCTestCase {

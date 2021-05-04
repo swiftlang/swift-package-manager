@@ -439,19 +439,6 @@ public class SwiftTool {
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
-        
-        if options.netrcFilePath != nil {
-            // --netrc-file option only supported on macOS >=10.13
-            #if os(macOS)
-            if #available(macOS 10.13, *) {
-                // ok, check succeeds
-            } else {
-                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
-            }
-            #else
-            diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
-            #endif
-        }
 
         // --enable-test-discovery should never be called on darwin based platforms
         #if canImport(Darwin)
