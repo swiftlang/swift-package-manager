@@ -1,4 +1,4 @@
-# Swift Package Registry Service Specification
+# [DRAFT] Swift Package Registry Service Specification
 
 > **Important**
 > This is a draft pending the acceptance of [SE-0292](https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md).
