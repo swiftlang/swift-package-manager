@@ -1589,10 +1589,8 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
-        var authProvider: AuthorizationProviding? = nil
-        #if os(macOS) // Netrc feature currently only supported on macOS
-        authProvider = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
-        #endif
+        // FIXME: should this handle the error more gracefully?
+        let authProvider: AuthorizationProviding? = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
 
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "ari" files
