@@ -22,7 +22,7 @@ let package = Package(
         // The vended executable that generates source files.
         .binaryTarget(
             name: "MyVendedSourceGenBuildTool",
-            path: "Binaries/MyVendedSourceGenBuildTool.arar"
+            path: "Binaries/MyVendedSourceGenBuildTool.artifactbundle"
         ),
     ]
 )

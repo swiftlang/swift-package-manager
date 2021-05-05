@@ -1593,11 +1593,11 @@ extension Workspace {
         let authProvider: AuthorizationProviding? = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
 
         // zip files to download
-        // stored in a thread-safe way as we may fetch more from "ari" files
+        // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
         let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter { $0.url.pathExtension.lowercased() == "zip" })
 
-        // fetch and parse "ari" files, if any
-        let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "ari" }
+        // fetch and parse "artifactbundleindex" files, if any
+        let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "artifactbundleindex" }
         if !indexFiles.isEmpty {
             let hostToolchain = try UserToolchain(destination: .hostDestination())
             let jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -1642,7 +1642,7 @@ extension Workspace {
                 }
             }
 
-            // wait for all "ari" files to be processed
+            // wait for all "artifactbundleindex" files to be processed
             group.wait()
 
             // no reason to continue if we already ran into issues

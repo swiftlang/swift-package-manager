@@ -2672,7 +2672,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
         let artifactName = "my-tool"
-        let toolPath = AbsolutePath("/Pkg/MyTool.arar")
+        let toolPath = AbsolutePath("/Pkg/MyTool.artifactbundle")
         try fs.createDirectory(toolPath, recursive: true)
 
         try fs.writeFileContents(
@@ -2710,7 +2710,7 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["MyTool"]),
-                        TargetDescription(name: "MyTool", path: "MyTool.arar", type: .binary),
+                        TargetDescription(name: "MyTool", path: "MyTool.artifactbundle", type: .binary),
                     ]
                 ),
             ],

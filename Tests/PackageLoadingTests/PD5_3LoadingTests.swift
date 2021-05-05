@@ -250,7 +250,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'arar'", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'artifactbundle'", behavior: .error)
             }
         }
 
@@ -293,7 +293,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'arar'", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'artifactbundle'", behavior: .error)
             }
         }
 
