@@ -274,8 +274,6 @@ public final class Target {
         case .plugin:
             precondition(
                 url == nil &&
-                exclude.isEmpty &&
-                sources == nil &&
                 resources == nil &&
                 publicHeadersPath == nil &&
                 pkgConfig == nil &&
@@ -908,14 +906,17 @@ public final class Target {
     public static func plugin(
         name: String,
         capability: PluginCapability,
-        dependencies: [Dependency] = []
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil
     ) -> Target {
       return Target(
           name: name,
           dependencies: dependencies,
-          path: nil,
-          exclude: [],
-          sources: nil,
+          path: path,
+          exclude: exclude,
+          sources: sources,
           publicHeadersPath: nil,
           type: .plugin,
           pluginCapability: capability)

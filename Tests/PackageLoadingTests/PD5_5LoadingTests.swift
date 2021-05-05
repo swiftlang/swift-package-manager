@@ -60,4 +60,31 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
         }
     }
+
+    func testPluginPluginTargetCustomization() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .plugin(
+                       name: "Foo",
+                       capability: .buildTool(),
+                       path: "Sources/Foo",
+                       exclude: ["IAmOut.swift"],
+                       sources: ["CountMeIn.swift"]
+                    )
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.targets[0].type, .plugin)
+            XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
+            XCTAssertEqual(manifest.targets[0].path, "Sources/Foo")
+            XCTAssertEqual(manifest.targets[0].exclude, ["IAmOut.swift"])
+            XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
+        }
+    }
 }
