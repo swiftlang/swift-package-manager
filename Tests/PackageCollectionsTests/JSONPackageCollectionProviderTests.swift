@@ -124,13 +124,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            guard let internalError = (error as? MultipleErrors)?.errors.first else {
+            guard case .invalidSource(let errorMessage) = error as? JSONPackageCollectionProviderError else {
                 return XCTFail("invalid error \(error)")
             }
-            guard let validationError = internalError as? ValidationError, case .other(let message) = validationError else {
-                return XCTFail("invalid error \(error)")
-            }
-            XCTAssertTrue(message.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
+            XCTAssertTrue(errorMessage.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
         })
     }
 
@@ -152,7 +149,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .responseTooLarge(url, maxSize * 2))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
     }
 
@@ -181,7 +178,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .responseTooLarge(url, maxSize * 2))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
     }
 
@@ -201,7 +198,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .invalidResponse(url, "Missing Content-Length header"))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidResponse(url, "Missing Content-Length header"))
         })
     }
 
@@ -249,7 +246,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionUnavailable(url, statusCode))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
     }
 
@@ -275,7 +272,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionUnavailable(url, statusCode))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
     }
 
@@ -294,7 +291,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionNotFound(url))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
     }
 
@@ -319,7 +316,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .collectionNotFound(url))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
     }
 
@@ -347,7 +344,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? JSONPackageCollectionProvider.Errors, .invalidJSON(url))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidJSON(url))
         })
     }
 
