@@ -1084,7 +1084,7 @@ extension Target.Dependency {
 
 extension Target.PluginCapability {
 
-    /// Specifies that the plugin provides a prebuild capability.  The plugin
+    /// Specifies that the plugin provides a build tool capability. The plugin
     /// will be applied to each target that uses it and should create commands
     /// that will run before or during the build of the target.
     @available(_PackageDescription, introduced: 5.5)
