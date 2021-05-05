@@ -114,7 +114,8 @@ extension PackageGraph {
                     dependencies: dependencyTargets.map {
                         .init(targetName: $0.name, moduleName: $0.c99name, targetDirectory: $0.sources.root.pathString)
                     },
-                    outputDirectory: pluginOutputDir.pathString,
+                    pluginWorkDirectory: pluginOutputDir.pathString,
+                    builtProductsDirectory: builtToolsDir.pathString,
                     tools: tools
                 )
                 
@@ -163,7 +164,7 @@ extension PackageGraph {
                             displayName: cmd.displayName,
                             executable: cmd.executable,
                             arguments: cmd.arguments,
-                            environment: cmd.environment ?? [:],
+                            environment: cmd.environment,
                             workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
                         inputFiles: cmd.inputFiles.map{ AbsolutePath($0) },
                         outputFiles: cmd.outputFiles.map{ AbsolutePath($0) })
@@ -174,7 +175,7 @@ extension PackageGraph {
                             displayName: cmd.displayName,
                             executable: cmd.executable,
                             arguments: cmd.arguments,
-                            environment: cmd.environment ?? [:],
+                            environment: cmd.environment,
                             workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
                         outputFilesDirectory: AbsolutePath(cmd.outputFilesDirectory))
                 }
@@ -387,8 +388,10 @@ struct PluginScriptRunnerInput: Codable {
         var targetName: String
         var moduleName: String
         var targetDirectory: String
+        var publicHeadersDirectory: String?
     }
-    var outputDirectory: String
+    var pluginWorkDirectory: String
+    var builtProductsDirectory: String
     var tools: [String: Tool]
     struct Tool: Codable {
         var name: String
@@ -416,7 +419,7 @@ struct PluginScriptRunnerOutput: Codable {
         let displayName: String
         let executable: String
         let arguments: [String]
-        let environment: [String: String]?
+        let environment: [String: String]
         let workingDirectory: String?
         let inputFiles: [String]
         let outputFiles: [String]
@@ -426,7 +429,7 @@ struct PluginScriptRunnerOutput: Codable {
         let displayName: String
         let executable: String
         let arguments: [String]
-        let environment: [String: String]?
+        let environment: [String: String]
         let workingDirectory: String?
         let outputFilesDirectory: String
     }

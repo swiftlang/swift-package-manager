@@ -13,7 +13,8 @@
 /// be configured to write their outputs. This information should be used as
 /// part of generating the commands to be run during the build.
 public final class TargetBuildContext: Decodable {
-    /// The name of the target being built, as aspecified in the manifest.
+    
+    /// The name of the target being built, as specified in the manifest.
     public let targetName: String
 
     /// The module name of the target. This is currently derived from the name,
@@ -21,7 +22,7 @@ public final class TargetBuildContext: Decodable {
     /// version.
     public let moduleName: String
 
-    /// The path of the target directory.
+    /// The path of the target source directory.
     public let targetDirectory: Path
 
     /// That path of the package that contains the target.
@@ -41,9 +42,10 @@ public final class TargetBuildContext: Decodable {
     /// generating lists of search path arguments, etc.
     public let dependencies: [DependencyTargetInfo]
 
-    /// Provides information about a target in the dependency closure of the
-    /// target to which the plugin is being applied.
+    /// Provides information about a target that appears in the dependency
+    /// closure of the target to which the plugin is being applied.
     public struct DependencyTargetInfo: Decodable {
+
         /// The name of the target.
         public let targetName: String
 
@@ -52,30 +54,35 @@ public final class TargetBuildContext: Decodable {
         /// SwiftPM version.
         public let moduleName: String
 
-        /// The path of the target source directory.
+        /// Path of the target source directory.
         public let targetDirectory: Path
+
+        /// Path of the public headers directory, if any (Clang targets only).
+        public let publicHeadersDirectory: Path?
     }
 
-    /// The path of an output directory where the plugin or the build commands
-    /// it constructs can write anything it wants to. This includes generated
-    /// source files that should be further processed, and it could include
-    /// any caches used by the build tool or by the plugin itself. The plugin
-    /// is in complete control of what is written under this directory, and
-    /// the contents are preserved between builds.
+    /// The path of a writable directory into which the plugin or the build
+    /// commands it constructs can write anything it wants. This could include
+    /// any generated source files that should be processed further, and it
+    /// could include any caches used by the build tool or the plugin itself.
+    /// The plugin is in complete control of what is written under this di-
+    /// rectory, and the contents are preserved between builds.
     ///
     /// A plugin would usually create a separate subdirectory of this directory
     /// for each command it creates, and the command would be configured to
     /// write its outputs to that directory. The plugin may also create other
     /// directories for cache files and other file system content that either
     /// it or the command will need.
-    public let outputDirectory: Path
+    public let pluginWorkDirectory: Path
+
+    /// The path of the directory into which built products associated with
+    /// the target are written.
+    public let builtProductsDirectory: Path
 
     /// Looks up and returns the path of a named command line executable tool.
-    /// The executable must be either in the toolchain or in the system search
-    /// path for executables, or be provided by an executable target or binary
-    /// target on which the package plugin target depends. Returns nil, but
-    /// does not throw an error, if the tool isn't found. Plugins that re-
-    /// quire the tool should emit an error diagnostic if it cannot be found.
+    /// The executable must be provided by an executable target or a binary
+    /// target on which the package plugin target depends. This function throws
+    /// an error if the tool cannot be found. The lookup is case sensitive.
     public func tool(named name: String, line: UInt = #line) throws -> Tool {
         if let tool = self.tools[name] { return tool }
         throw TargetBuildContextError.toolNotFound(name: name, line: line)
@@ -87,6 +94,7 @@ public final class TargetBuildContext: Decodable {
     
     /// Information about a particular tool that is available to a plugin.
     public struct Tool: Codable {
+        
         /// Name of the tool, suitable for display purposes.
         public let name: String
 
@@ -96,12 +104,14 @@ public final class TargetBuildContext: Decodable {
 }
 
 public enum TargetBuildContextError: Error {
+    
     /// Could not find a tool with the given name. This could be either because
     /// it doesn't exist, or because the plugin doesn't have a dependency on it.
     case toolNotFound(name: String, line: UInt)
 }
 
 extension TargetBuildContextError: CustomStringConvertible {
+    
     public var description: String {
         switch self {
         case .toolNotFound(let name, let line):
