@@ -249,26 +249,26 @@ public struct SwiftToolOptions: ParsableArguments {
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
-    enum StoreMode: String, EnumerableFlag {
+    enum StoreMode: EnumerableFlag {
         case autoIndexStore
         case enableIndexStore
         case disableIndexStore
+        
+        /// The mode to use for indexing-while-building feature.
+        var indexStore: BuildParameters.IndexStoreMode {
+            switch self {
+            case .autoIndexStore:
+                return .auto
+            case .enableIndexStore:
+                return .on
+            case .disableIndexStore:
+                return .off
+            }
+        }
     }
     
     @Flag(help: "Enable or disable indexing-while-building feature")
     var indexStoreMode: StoreMode = .autoIndexStore
-    
-    /// The mode to use for indexing-while-building feature.
-    var indexStore: BuildParameters.IndexStoreMode {
-        switch indexStoreMode {
-        case .autoIndexStore:
-            return .auto
-        case .enableIndexStore:
-            return .on
-        case .disableIndexStore:
-            return .off
-        }
-    }
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
