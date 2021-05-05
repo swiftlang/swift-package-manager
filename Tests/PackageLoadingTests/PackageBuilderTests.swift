@@ -2164,7 +2164,7 @@ class PackageBuilderTests: XCTestCase {
 
     func testExtensionTargetsAreGuardededByFeatureFlag() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/MyPlugin/plugin.swift",
+            "/Foo/Plugins/MyPlugin/plugin.swift",
             "/Foo/Sources/MyLibrary/library.swift"
         )
 

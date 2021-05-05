@@ -23,10 +23,10 @@ class PluginInvocationTests: XCTestCase {
     func testBasics() throws {
         // Construct a canned file system and package graph with a single package and a library that uses a plugin that uses a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Foo/Plugins/FooPlugin/source.swift",
+            "/Foo/Sources/FooTool/source.swift",
             "/Foo/Sources/Foo/source.swift",
-            "/Foo/Sources/Foo/SomeFile.abc",
-            "/Foo/Sources/FooExt/source.swift",
-            "/Foo/Sources/FooTool/source.swift"
+            "/Foo/Sources/Foo/SomeFile.abc"
         )
         let diagnostics = DiagnosticsEngine()
         let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
@@ -46,11 +46,11 @@ class PluginInvocationTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "Foo",
-                            dependencies: ["FooExt"],
-                            type: .regular
+                            type: .regular,
+                            pluginUsages: [.plugin(name: "FooPlugin", package: nil)]
                         ),
                         TargetDescription(
-                            name: "FooExt",
+                            name: "FooPlugin",
                             dependencies: ["FooTool"],
                             type: .plugin,
                             pluginCapability: .buildTool
@@ -70,11 +70,11 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertNoDiagnostics(diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
-            graph.check(targets: "Foo", "FooExt", "FooTool")
+            graph.check(targets: "Foo", "FooPlugin", "FooTool")
             graph.checkTarget("Foo") { target in
-                target.check(dependencies: "FooExt")
+                target.check(dependencies: "FooPlugin")
             }
-            graph.checkTarget("FooExt") { target in
+            graph.checkTarget("FooPlugin") { target in
                 target.check(type: .plugin)
                 target.check(dependencies: "FooTool")
             }
@@ -97,7 +97,7 @@ class PluginInvocationTests: XCTestCase {
                 fileSystem: FileSystem
             ) throws -> (outputJSON: Data, stdoutText: Data) {
                 // Check that we were given the right sources.
-                XCTAssertEqual(sources.root, AbsolutePath("/Foo/Sources/FooExt"))
+                XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
                 XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
                 
                 // Deserialize and check the input.

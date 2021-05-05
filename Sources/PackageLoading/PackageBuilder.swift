@@ -83,7 +83,7 @@ extension ModuleError: CustomStringConvertible {
             let packages = packages.joined(separator: "', '")
             return "multiple targets named '\(name)' in: '\(packages)'"
         case .moduleNotFound(let target, let type):
-            let folderName = type == .test ? "Tests" : "Sources"
+            let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .artifactNotFound(let target):
             return "artifact not found for target '\(target)'"
@@ -535,9 +535,12 @@ public final class PackageBuilder {
 
     /// Predefined test directories, in order of preference.
     public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+    
+    /// Predefined plugin directories, in order of preference.
+    public static let predefinedPluginDirectories = ["Plugins"]
 
-    /// Finds the predefined directories for regular and test targets.
-    private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String) {
+    /// Finds the predefined directories for regular targets, test targets, and plugin targets.
+    private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String, pluginTargetDir: String) {
         let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
             fileSystem.isDirectory(packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedSourceDirectories[0]
@@ -546,7 +549,11 @@ public final class PackageBuilder {
             fileSystem.isDirectory(packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedTestDirectories[0]
 
-        return (targetDir, testTargetDir)
+        let pluginTargetDir = PackageBuilder.predefinedPluginDirectories.first(where: {
+            fileSystem.isDirectory(packagePath.appending(component: $0))
+        }) ?? PackageBuilder.predefinedPluginDirectories[0]
+
+        return (targetDir, testTargetDir, pluginTargetDir)
     }
 
     struct PredefinedTargetDirectory {
@@ -566,6 +573,7 @@ public final class PackageBuilder {
 
         let predefinedTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.targetDir))
         let predefinedTestTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.testTargetDir))
+        let predefinedPluginTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.pluginTargetDir))
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
@@ -598,7 +606,15 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir = target.isTest ? predefinedTestTargetDirectory : predefinedTargetDirectory
+            let predefinedDir: PredefinedTargetDirectory
+            switch target.type {
+            case .test:
+                predefinedDir = predefinedTestTargetDirectory
+            case .plugin:
+                predefinedDir = predefinedPluginTargetDirectory
+            default:
+                predefinedDir = predefinedTargetDirectory
+            }
             let path = predefinedDir.path.appending(component: target.name)
 
             // Return the path if the predefined directory contains it.
