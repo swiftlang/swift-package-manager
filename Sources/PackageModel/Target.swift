@@ -547,7 +547,7 @@ public final class BinaryTarget: Target {
             case .xcframework:
                 return "xcframework"
             case .artifactsArchive:
-                return "arar"
+                return "artifactbundle"
             }
         }
 
