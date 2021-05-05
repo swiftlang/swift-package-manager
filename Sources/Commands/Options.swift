@@ -255,7 +255,7 @@ public struct SwiftToolOptions: ParsableArguments {
         case disableIndexStore
         
         /// The mode to use for indexing-while-building feature.
-        var indexStore: BuildParameters.IndexStoreMode {
+        var indexStoreMode: BuildParameters.IndexStoreMode {
             switch self {
             case .autoIndexStore:
                 return .auto
