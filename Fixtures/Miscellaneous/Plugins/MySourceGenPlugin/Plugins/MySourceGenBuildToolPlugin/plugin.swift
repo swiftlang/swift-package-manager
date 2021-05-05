@@ -5,8 +5,8 @@ print("Hello from the Build Tool Plugin!")
 for inputPath in targetBuildContext.inputFiles.map{ $0.path } {
     guard inputPath.extension == "dat" else { continue }
     let outputName = inputPath.stem + ".swift"
-    let outputPath = targetBuildContext.outputDirectory.appending(outputName)
-    commandConstructor.createBuildCommand(
+    let outputPath = targetBuildContext.pluginWorkDirectory.appending(outputName)
+    commandConstructor.addBuildCommand(
         displayName:
             "Generating \(outputName) from \(inputPath.lastComponent)",
         executable:

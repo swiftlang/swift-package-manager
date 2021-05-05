@@ -61,7 +61,7 @@ struct BuildCommand: Encodable {
     let displayName: String?
     let executable: Path
     let arguments: [String]
-    let environment: [String: String]?
+    let environment: [String: String]
     let workingDirectory: Path?
     let inputFiles: [Path]
     let outputFiles: [Path]
@@ -71,7 +71,7 @@ struct PrebuildCommand: Encodable {
     let displayName: String?
     let executable: Path
     let arguments: [String]
-    let environment: [String: String]?
+    let environment: [String: String]
     let workingDirectory: Path?
     let outputFilesDirectory: Path
 }
