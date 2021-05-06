@@ -59,20 +59,14 @@ public final class InitPackage {
         let sourcesDirectory: RelativePath
         let testsDirectory: RelativePath?
         let createSubDirectoryForModule: Bool
-        let dependencies: [String]
         let packageType: PackageType
-        let readMe: String?
+//        let dependencies: [PackageDependency]
         
-        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?,
-                    createSubDirectoryForModule: Bool, dependencies: [String],
-                    packageType: InitPackage.PackageType, readMe: String?) {
-            
+        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?, createSubDirectoryForModule: Bool, packageType: InitPackage.PackageType) {
             self.sourcesDirectory = sourcesDirectory
             self.testsDirectory = testsDirectory
             self.createSubDirectoryForModule = createSubDirectoryForModule
-            self.dependencies = dependencies
             self.packageType = packageType
-            self.readMe = readMe
         }
     }
 
@@ -140,8 +134,6 @@ public final class InitPackage {
             return
         }
 
-        try writeREADMEFile()
-        try writeGitIgnore()
         try writeSources()
         try writeModuleMap()
         try writeTests()
@@ -280,44 +272,6 @@ public final class InitPackage {
         // Write the current tools version.
         try writeToolsVersion(
             at: manifest.parentDirectory, version: version, fs: localFileSystem)
-    }
-    
-    private func writeREADMEFile() throws {
-        let readme = destinationPath.appending(component: "README.md")
-        guard localFileSystem.exists(readme) == false else {
-            return
-        }
-
-        try writePackageFile(readme) { stream in
-            let description = packageTemplate.readMe ?? ""
-            stream <<< """
-                # \(pkgname)
-
-                A description of this package.
-                
-                \(description)
-                """
-        }
-    }
-
-    private func writeGitIgnore() throws {
-        let gitignore = destinationPath.appending(component: ".gitignore")
-        guard localFileSystem.exists(gitignore) == false else {
-            return
-        }
-
-        try writePackageFile(gitignore) { stream in
-            stream <<< """
-                .DS_Store
-                /.build
-                /Packages
-                /*.xcodeproj
-                xcuserdata/
-                DerivedData/
-                .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
-
-                """
-        }
     }
     
     private func writeSources() throws {

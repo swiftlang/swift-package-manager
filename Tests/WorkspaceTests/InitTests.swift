@@ -76,11 +76,6 @@ class InitTests: XCTestCase {
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
-            
-            let readme = path.appending(component: "README.md")
-            XCTAssertTrue(fs.exists(readme))
-            let readmeContents = try localFileSystem.readFileContents(readme).description
-            XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
             XCTAssertEqual(
@@ -123,11 +118,6 @@ class InitTests: XCTestCase {
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
-            
-            let readme = path.appending(component: "README.md")
-            XCTAssertTrue(fs.exists(readme))
-            let readmeContents = try localFileSystem.readFileContents(readme).description
-            XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
 
@@ -177,7 +167,6 @@ class InitTests: XCTestCase {
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
-            XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
     }

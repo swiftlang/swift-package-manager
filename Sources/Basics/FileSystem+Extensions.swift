@@ -110,25 +110,3 @@ extension FileSystem {
         return idiomaticConfigDirectory
     }
 }
-
-extension FileSystem {
-    public func makeTemplate(path: AbsolutePath, type: String, sources: String = "./Sources", tests: String = "./Tests") throws {
-        let templatePath = path.appending(components: "templates", "new-package")
-        try self.createDirectory(templatePath, recursive: true)
-        
-        try self.writeFileContents(templatePath.appending(component: "oldTests.json")) { stream in
-            stream <<< """
-            {
-                "directories": {
-                    "sources": "\(sources)",
-                    "tests": "\(tests)",
-                    "createSubDirectoryForModule": true
-                },
-                "type": "\(type)",
-                "dependencies": [],
-                "readMe": null
-            }
-            """
-        }
-    }
-}
