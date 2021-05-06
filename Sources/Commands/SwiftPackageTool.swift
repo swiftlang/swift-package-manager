@@ -38,6 +38,7 @@ public struct SwiftPackageTool: ParsableCommand {
             Update.self,
             Describe.self,
             Init.self,
+            Create.self,
             Format.self,
             
             APIDiff.self,
@@ -189,7 +190,7 @@ extension SwiftPackageTool {
             describe(package, in: type, on: stdoutStream)
         }
     }
-
+    
     struct Init: SwiftCommand {
         public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
@@ -200,21 +201,35 @@ extension SwiftPackageTool {
         @Option(name: .customLong("type"), help: "Package type: empty | library | executable | system-module | manifest")
         var initMode: InitPackage.PackageType = .library
         
+        @Option(help: "Create Package from template")
+        var template: String?
+        
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
         
         func run(_ swiftTool: SwiftTool) throws {
-            guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directory")
-            }
+            try makePackage(packageName: packageName, source: .Init, type: initMode, packageTemplate: template)
+        }
+    }
 
-            let packageName = self.packageName ?? cwd.basename
-            let initPackage = try InitPackage(
-                name: packageName, destinationPath: cwd, packageType: initMode)
-            initPackage.progressReporter = { message in
-                print(message)
-            }
-            try initPackage.writePackageStructure()
+    struct Create: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Create a new package")
+
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+        
+        @Option(name: .customLong("type"))
+        var initMode: InitPackage.PackageType = .executable
+        
+        @Option(help: "Create Package from template")
+        var template: String?
+        
+        @Argument(help: "Package name")
+        var packageName: String
+
+        func run(_ swiftTool: SwiftTool) throws {
+            try makePackage(packageName: packageName, source: .Create, type: initMode, packageTemplate: template)
         }
     }
     
@@ -1100,4 +1115,154 @@ fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.Packag
         stream <<< "\n"
     }
     stream.flush()
+}
+
+struct PackageTemplate: Codable {
+    struct Directories: Codable {
+        let sources: RelativePath
+        let tests: RelativePath?
+        let createSubDirectoryForModule: Bool
+    }
+    
+    enum DependencyType: String, Codable {
+        case from
+        case range
+        case exact
+        case branch
+        case revision
+        case path
+    }
+    
+    struct PackageDependency: Codable {
+        let url: String
+        let version: String
+    }
+    
+    enum PackageType: String, Codable {
+        case executable
+        case library
+        case systemModule = "system-module"
+        case empty
+        case manifest
+    }
+    
+    let directories: Directories
+    let type: PackageType
+    let dependencies: [PackageDependency]
+}
+
+extension InitPackage.PackageTemplate {
+    init(template: PackageTemplate) {
+        
+        let packageType: InitPackage.PackageType
+        switch template.type {
+        case .executable:
+            packageType = .executable
+        case .library:
+            packageType = .library
+        case .systemModule:
+            packageType = .systemModule
+        case .empty:
+            packageType = .empty
+        case .manifest:
+            packageType = .manifest
+        }
+        
+        self.init(sourcesDirectory: template.directories.sources, testsDirectory: template.directories.tests,
+                  createSubDirectoryForModule: template.directories.createSubDirectoryForModule, packageType: packageType)
+    }
+}
+
+func getSwiftPMDefaultTemplate(type: InitPackage.PackageType, sources: RelativePath = .init("./Sources"),
+                               tests: RelativePath? = nil, createSubDirectoryForModule: Bool = false) -> PackageTemplate {
+    // Even if we are making a "classic" package that doesn't use a template we should till use templates
+    // for consistency within the codebase
+    let defaultDir = PackageTemplate.Directories(sources: sources, tests: tests, createSubDirectoryForModule: createSubDirectoryForModule)
+    let defaultDependencies = [PackageTemplate.PackageDependency]()
+    let packageType: PackageTemplate.PackageType
+    
+    switch type {
+    case .executable:
+        packageType = .executable
+    case .library:
+        packageType = .library
+    case .systemModule:
+        packageType = .systemModule
+    case .empty:
+        packageType = .empty
+    case .manifest:
+        packageType = .manifest
+    default:
+        packageType = .library
+    }
+    
+    return PackageTemplate(directories: defaultDir, type: packageType, dependencies: defaultDependencies)
+}
+
+fileprivate enum Origin {
+    case Init
+    case Create
+}
+
+fileprivate func makePackage(packageName: String?, source: Origin, type: InitPackage.PackageType, packageTemplate: String?) throws {
+    guard let cwd = localFileSystem.currentWorkingDirectory else {
+        throw InternalError("Could not find the current working directroy.")
+    }
+    
+//        guard !(type != nil && packageTemplate != nil) else {
+//            throw InternalError("Can't use --type in conjunction with --template.")
+//        }
+    
+    let name: String
+    let destinationPath: AbsolutePath
+    let templateHomeDirectroy = localFileSystem.swiftPMConfigDirectory.appending(components: "templates", "new-package")
+    
+    var foundTemplate = false
+    var templateToUse = ""
+    
+    if let templateName = packageTemplate {
+        // All templates need to be stored in:
+        // ~/.swiftpm/configuration/templates/new-package/
+        guard localFileSystem.exists(templateHomeDirectroy.appending(component: templateName + ".json")) else {
+            throw InternalError("Could not find template \(templateName).json in: \(templateHomeDirectroy.pathString)/templates/new-package/")
+        }
+        
+        templateToUse = templateName
+        foundTemplate = true
+    } else {
+        // Checking if a default template is present
+        if localFileSystem.exists(templateHomeDirectroy.appending(component: "default.json")) {
+            templateToUse = "default.json"
+            foundTemplate = true
+        }
+    }
+    
+    let packageTemplate: InitPackage.PackageTemplate
+    if foundTemplate {
+        let url = URL(fileURLWithPath: templateHomeDirectroy.appending(component: templateToUse + ".json").pathString)
+        let data = try Data(contentsOf: url)
+
+        let decoder = JSONDecoder.makeWithDefaults()
+        let templateFromJSON = try decoder.decode(PackageTemplate.self, from: data)
+        packageTemplate = InitPackage.PackageTemplate(template: templateFromJSON)
+    } else {
+        packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: type))
+    }
+    
+    if source == .Init {
+        name = packageName ?? cwd.basename
+        destinationPath = cwd
+    } else {
+        // It's okay to force unwrap here because create has an @Argument for a name
+        // ensuring that it will always have a non-nil value
+        name = packageName!
+        try localFileSystem.createDirectory(cwd.appending(component: name))
+        destinationPath = cwd.appending(component: name)
+    }
+
+    let initPackage = try InitPackage(name: name, destinationPath: destinationPath, packageTemplate: packageTemplate)
+    initPackage.progressReporter = { message in
+        print(message)
+    }
+    try initPackage.writePackageStructure()
 }

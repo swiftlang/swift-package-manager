@@ -110,3 +110,21 @@ extension FileSystem {
         return idiomaticConfigDirectory
     }
 }
+
+extension FileSystem {
+    public func makeTemplate(path: AbsolutePath, type: String) throws {
+        try self.writeFileContents(path) { stream in
+            stream <<< """
+            {
+                "directories": {
+                    "sources": "./Sources",
+                    "tests": "./Tests",
+                    "createSubDirectoryForModule": true
+                },
+                "type": "\(type)",
+                "dependencies": []
+            }
+            """
+        }
+    }
+}
