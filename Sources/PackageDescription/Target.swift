@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-@_implementationOnly import Foundation
+import Foundation
 
 /// A target, the basic building block of a Swift package.
 ///
