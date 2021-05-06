@@ -113,7 +113,10 @@ extension FileSystem {
 
 extension FileSystem {
     public func makeTemplate(path: AbsolutePath, type: String) throws {
-        try self.writeFileContents(path) { stream in
+        let templatePath = path.appending(components: "templates", "new-package")
+        try self.createDirectory(templatePath, recursive: true)
+        
+        try self.writeFileContents(templatePath.appending(component: "oldTests.json")) { stream in
             stream <<< """
             {
                 "directories": {
