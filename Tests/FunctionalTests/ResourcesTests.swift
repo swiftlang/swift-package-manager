@@ -55,8 +55,7 @@ class ResourcesTests: XCTestCase {
             executables.append("SeaResource")
             #endif
 
-            // Both executables are built in one go since
-            // adding "--target execName" will not produce a binary
+            // Both executables are built in one go
             _ = try executeSwiftBuild(prefix, configuration: .Release)
 
             let binPath = try AbsolutePath(
@@ -73,15 +72,13 @@ class ResourcesTests: XCTestCase {
                     }
 
                     let destBinPath = tmpDirPath.appending(component: execName)
-                    // Copy the binary
-                    try systemQuietly("cp", "-R", "-H",
-                                      binPath.appending(component: execName).pathString,
-                                      destBinPath.pathString)
-                    // Copy the resources
-                    try Process.checkNonZeroExit(args: "find", binPath.pathString, "(", "-name", "*.bundle", "-or", "-name", "*.resources", ")")
-                        .split(whereSeparator: { $0.isNewline })
-                        .filter { !$0.isEmpty }
-                        .forEach { try systemQuietly("cp", "-R", "-H", String($0), tmpDirPath.pathString) }
+                    // Move the binary
+                    try localFileSystem.move(from: binPath.appending(component: execName), to: destBinPath)
+                    // Move the resources
+                    try localFileSystem
+                        .getDirectoryContents(binPath)
+                        .filter { $0.contains(execName) && $0.hasSuffix(".bundle") || $0.hasSuffix(".resources") }
+                        .forEach { try localFileSystem.move(from: binPath.appending(component: $0), to: tmpDirPath.appending(component: $0)) }
                     // Run the binary
                     let output = try Process.checkNonZeroExit(args: destBinPath.pathString)
                     XCTAssertTrue(output.contains("foo"))
