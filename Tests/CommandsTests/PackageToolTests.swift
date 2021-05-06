@@ -511,22 +511,9 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            try fs.makeTemplate(path: tmpPath.appending(component: "old.json"), type: "empty")
+            try fs.makeTemplate(path: tmpPath, type: "empty")
             
-            _ = try execute(["init", "--template", "old", "--config-path", tmpPath.pathString], packagePath: path)
-
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
-        }
-    }
-    
-    func testInitTemplate() throws {
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
-            try fs.createDirectory(path)
-            _ = try execute(["init", "--template", "MYTEMPLATE", "--config-path", ], packagePath: path)
+            _ = try execute(["init", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
 
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
