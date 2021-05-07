@@ -55,15 +55,14 @@ class ResourcesTests: XCTestCase {
             executables.append("SeaResource")
             #endif
 
-            // Both executables are built in one go
-            _ = try executeSwiftBuild(prefix, configuration: .Release)
-
             let binPath = try AbsolutePath(
                 executeSwiftBuild(prefix, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             for execName in executables {
+                _ = try executeSwiftBuild(prefix, configuration: .Release, extraArgs: ["--product", execName])
+
                 try withTemporaryDirectory(prefix: execName) { tmpDirPath in
                     defer {
                         // Unblock and remove the tmp dir on deinit.
