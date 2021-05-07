@@ -199,7 +199,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         @Option(name: .customLong("type"), help: "Package type: empty | library | executable | system-module | manifest")
-        var packageType: InitPackage.PackageType = .library
+        var packageType: InitPackage.PackageType?
         
         @Option(help: "Create Package from template")
         var template: String?
@@ -230,7 +230,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         @Option(name: .customLong("type"))
-        var packageType: InitPackage.PackageType = .executable
+        var packageType: InitPackage.PackageType?
         
         @Option(help: "Create Package from template")
         var template: String?
@@ -1227,16 +1227,16 @@ fileprivate func makePackage(filesystem: FileSystem,
                              configPath: AbsolutePath,
                              packageName: String?,
                              mode: MakePackageMode,
-                             packageType: InitPackage.PackageType,
+                             packageType: InitPackage.PackageType?,
                              packageTemplate: String?) throws {
     
     guard let cwd = filesystem.currentWorkingDirectory else {
         throw InternalError("Could not find the current working directroy.")
     }
     
-//        guard !(type != nil && packageTemplate != nil) else {
-//            throw InternalError("Can't use --type in conjunction with --template.")
-//        }
+    guard !(packageType != nil && packageTemplate != nil) else {
+        throw InternalError("Can't use --type in conjunction with --template")
+    }
     
     let name: String
     let destinationPath: AbsolutePath
@@ -1271,7 +1271,10 @@ fileprivate func makePackage(filesystem: FileSystem,
         let templateFromJSON = try decoder.decode(PackageTemplate.self, from: data)
         packageTemplate = InitPackage.PackageTemplate(template: templateFromJSON)
     } else {
-        packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: packageType))
+        // These are only needed in the event that --type was not used when creating a package
+        // otherwise if --type is used packageType will not be nill
+        let defualtType = mode == .initialize ? InitPackage.PackageType.library : InitPackage.PackageType.executable
+        packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: packageType ?? defualtType))
     }
     
     switch mode {
