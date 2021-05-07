@@ -170,6 +170,16 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
     }
 
+    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
+        guard reference.kind == .remote, let baseURL = Self.apiURL(reference.location) else {
+            return nil
+        }
+
+        return baseURL.host.flatMap { host in
+            self.getAuthTokenType(for: host)
+        }
+    }
+
     internal static func apiURL(_ url: String) -> Foundation.URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)
@@ -196,13 +206,18 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
             url.host.flatMap { host in
-                let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
-                return self.configuration.authTokens()?[.github(host)].flatMap { token in
+                let tokenType = self.getAuthTokenType(for: host)
+                return self.configuration.authTokens()?[tokenType].flatMap { token in
                     "token \(token)"
                 }
             }
         }
         return options
+    }
+
+    private func getAuthTokenType(for host: String) -> AuthTokenType {
+        let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
+        return .github(host)
     }
 
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
@@ -254,6 +269,24 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         init(package: Model.PackageBasicMetadata, timestamp: DispatchTime) {
             self.package = package
             self.timestamp = timestamp.uptimeNanoseconds
+        }
+    }
+}
+
+extension PackageMetadataProviderError {
+    static func from(_ error: GitHubPackageMetadataProvider.Errors) -> PackageMetadataProviderError? {
+        switch error {
+        case .invalidResponse(_, let errorMessage):
+            return .invalidResponse(errorMessage: errorMessage)
+        case .permissionDenied:
+            return .permissionDenied
+        case .invalidAuthToken:
+            return .invalidAuthToken
+        case .apiLimitsExceeded:
+            return .apiLimitsExceeded
+        default:
+            // This metadata provider is not intended for the given package reference
+            return nil
         }
     }
 }

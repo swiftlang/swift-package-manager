@@ -41,6 +41,43 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         XCTAssertNil(GitHubPackageMetadataProvider.apiURL("bad/Hello-World.git"))
     }
 
+    func testAuthTokenType() throws {
+        let metadataProvider = GitHubPackageMetadataProvider()
+        let expectedAuthTokenType = AuthTokenType.github("github.com")
+
+        // Not remote
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "file:///local/Hello-World.git"), kind: .local)
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertNil(authTokenType)
+        }
+
+        // Invalid URL
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "bad/Hello-World.git"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertNil(authTokenType)
+        }
+
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "git@github.com:octocat/Hello-World.git"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertEqual(expectedAuthTokenType, authTokenType)
+        }
+
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "https://github.com/octocat/Hello-World.git"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertEqual(expectedAuthTokenType, authTokenType)
+        }
+
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "https://github.com/octocat/Hello-World"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertEqual(expectedAuthTokenType, authTokenType)
+        }
+    }
+
     func testGood() throws {
         try testWithTemporaryDirectory { tmpPath in
             let repoURL = "https://github.com/octocat/Hello-World.git"
