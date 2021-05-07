@@ -238,7 +238,7 @@ extension PackageCollectionsModel.Package {
 }
 
 extension PackageCollectionsModel {
-    public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.CollectionIdentifier])
+    public typealias PackageMetadata = (package: PackageCollectionsModel.Package, collections: [PackageCollectionsModel.CollectionIdentifier], provider: PackageMetadataProviderContext?)
 }
 
 // MARK: - Utilities

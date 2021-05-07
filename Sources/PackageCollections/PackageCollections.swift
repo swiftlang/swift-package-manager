@@ -324,20 +324,40 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 callback(.failure(error))
             case .success(let packageSearchResult):
                 // then try to get more metadata from provider (optional)
+                let authTokenType = self.metadataProvider.getAuthTokenType(for: reference)
+                let isAuthTokenConfigured = authTokenType.flatMap { self.configuration.authTokens()?[$0] } != nil
+
                 self.metadataProvider.get(reference) { result in
                     switch result {
-                    case .failure:
-                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
+                    case .failure(let error):
+                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name): \(error)")
+
+                        let provider: PackageMetadataProviderContext?
+                        switch error {
+                        case let error as GitHubPackageMetadataProvider.Errors:
+                            let providerError = PackageMetadataProviderError.from(error)
+                            if providerError == nil {
+                                // The metadata provider cannot be used for the package
+                                provider = nil
+                            } else {
+                                provider = PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured, error: providerError)
+                            }
+                        default:
+                            // For all other errors, including NotFoundError, assume the provider is not intended for the package.
+                            provider = nil
+                        }
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
-                            collections: packageSearchResult.collections
+                            collections: packageSearchResult.collections,
+                            provider: provider
                         )
                         callback(.success(metadata))
                     case .success(let basicMetadata):
                         // finally merge the results
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
-                            collections: packageSearchResult.collections
+                            collections: packageSearchResult.collections,
+                            provider: PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured)
                         )
                         callback(.success(metadata))
                     }
