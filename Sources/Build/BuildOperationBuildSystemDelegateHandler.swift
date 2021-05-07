@@ -586,18 +586,22 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             }
 
             if let output = message.standardOutput {
-                // Scoop out any errors from the output, so they can later be passed to the advice provider in case of failure.
-                let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
-                for match in regex.matchGroups(in: output) {
-                    self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
-                }
-                
+                // first we want to print the output so users have it handy
                 if !self.isVerbose {
                     self.progressAnimation.clear()
                 }
 
                 self.outputStream <<< output
                 self.outputStream.flush()
+
+                // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this will be very slow),
+                // so they can later be passed to the advice provider in case of failure.
+                if output.utf8.count < 1024 * 10 {
+                    let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
+                    for match in regex.matchGroups(in: output) {
+                        self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
+                    }
+                }
             }
         }
     }
