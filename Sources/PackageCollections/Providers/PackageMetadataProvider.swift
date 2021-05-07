@@ -26,6 +26,12 @@ protocol PackageMetadataProvider: Closable {
     ///   - reference: The package's reference
     ///   - callback: The closure to invoke when result becomes available
     func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void)
+
+    /// Returns `AuthTokenType` for a package.
+    ///
+    /// - Parameters:
+    ///   - reference: The package's reference
+    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType?
 }
 
 extension Model {
@@ -48,4 +54,23 @@ extension Model {
         let createdAt: Date
         let publishedAt: Date?
     }
+}
+
+public struct PackageMetadataProviderContext: Equatable {
+    public let authTokenType: AuthTokenType?
+    public let isAuthTokenConfigured: Bool
+    public internal(set) var error: PackageMetadataProviderError?
+
+    init(authTokenType: AuthTokenType?, isAuthTokenConfigured: Bool, error: PackageMetadataProviderError? = nil) {
+        self.authTokenType = authTokenType
+        self.isAuthTokenConfigured = isAuthTokenConfigured
+        self.error = error
+    }
+}
+
+public enum PackageMetadataProviderError: Error, Equatable {
+    case invalidResponse(errorMessage: String)
+    case permissionDenied
+    case invalidAuthToken
+    case apiLimitsExceeded
 }
