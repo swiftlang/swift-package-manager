@@ -165,6 +165,10 @@ struct MockMetadataProvider: PackageMetadataProvider {
         }
     }
 
+    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
+        nil
+    }
+
     func close() throws {}
 }
 
