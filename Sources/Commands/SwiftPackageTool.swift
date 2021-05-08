@@ -319,12 +319,12 @@ extension SwiftPackageTool {
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineSDKJSON = try baselineDumper.emitAPIBaseline()
+            let baselineDir = try baselineDumper.emitAPIBaseline()
 
             var succeeded = true
             for module in try buildOp.getPackageGraph().apiDigesterModules {
                 let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
-                    at: baselineSDKJSON,
+                    at: baselineDir.appending(component: "\(module).json"),
                     for: module,
                     apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
                 )

@@ -60,18 +60,18 @@ struct APIDigesterBaselineDumper {
         self.diags = diags
     }
 
-    /// Emit the API baseline file and return its path.
+    /// Emit the API baseline files and return the path to their directory.
     func emitAPIBaseline() throws -> AbsolutePath {
         let apiDiffDir = inputBuildParameters.apiDiff
-        let sdkJSON = apiDiffDir.appending(component: baselineTreeish + ".json")
+        let baselineDir = apiDiffDir.appending(component: baselineTreeish)
 
         // We're done if the baseline already exists on disk.
-        if localFileSystem.exists(sdkJSON) {
-            return sdkJSON
+        if localFileSystem.exists(baselineDir) {
+            return baselineDir
         }
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
-        let baselinePackageRoot = apiDiffDir.appending(component: baselineTreeish)
+        let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineTreeish)-checkout")
         if localFileSystem.exists(baselinePackageRoot) {
             try localFileSystem.removeFileTree(baselinePackageRoot)
         }
@@ -119,13 +119,15 @@ struct APIDigesterBaselineDumper {
         try buildOp.build()
 
         // Dump the SDK JSON.
-        try apiDigesterTool.emitAPIBaseline(
-            to: sdkJSON,
-            for: graph.apiDigesterModules,
-            additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
-        )
+        for module in graph.apiDigesterModules {
+            try apiDigesterTool.emitAPIBaseline(
+                to: baselineDir.appending(component: module + ".json"),
+                for: module,
+                additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+            )
+        }
 
-        return sdkJSON
+        return baselineDir
     }
 }
 
@@ -142,12 +144,12 @@ public struct SwiftAPIDigester {
     /// Emit an API baseline file for the specified module at the specified location.
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
-        for modules: [String],
+        for module: String,
         additionalArgs: [String]
     ) throws {
         var args = ["-dump-sdk"]
         args += additionalArgs
-        args += modules.flatMap { ["-module", $0] }
+        args += ["-module", module]
         args += ["-o", outputPath.pathString]
         try localFileSystem.createDirectory(outputPath.parentDirectory, recursive: true)
 
