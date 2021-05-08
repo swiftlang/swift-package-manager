@@ -75,7 +75,6 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(output.contains("💔 API breakage: var Qux.x has been removed"))
                 XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
                 XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
-                print(output)
             }
         }
         #else
@@ -118,8 +117,6 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
                 XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
                 XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
-
-                print(output)
             }
         }
         #else
@@ -152,8 +149,27 @@ final class APIDiffTests: XCTestCase {
                 }
                 XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
                 XCTAssertTrue(output.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
-                print(output)
             }
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
+
+    func testNoBreakingChanges() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            // Introduce an API-compatible change
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
+                $0 <<< "public func bar() -> Int { 100 }"
+            }
+            let (output, _) = try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)
+            XCTAssertTrue(output.contains("No breaking changes detected in Baz"))
+            XCTAssertTrue(output.contains("No breaking changes detected in Qux"))
         }
         #else
         throw XCTSkip("Test unsupported on current platform")

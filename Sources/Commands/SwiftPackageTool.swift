@@ -353,7 +353,9 @@ extension SwiftPackageTool {
                 }
             }
 
-            if !comparisonResult.apiBreakingChanges.isEmpty {
+            if comparisonResult.apiBreakingChanges.isEmpty {
+                print("\nNo breaking changes detected in \(moduleName)")
+            } else {
                 let count = comparisonResult.apiBreakingChanges.count
                 print("\n\(count) breaking \(count > 1 ? "changes" : "change") detected in \(moduleName):")
                 for change in comparisonResult.apiBreakingChanges {
