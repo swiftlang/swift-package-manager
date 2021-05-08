@@ -82,4 +82,48 @@ final class APIDiffTests: XCTestCase {
         throw XCTSkip("Test unsupported on current platform")
         #endif
     }
+
+    func testCheckVendedModulesOnly() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
+                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
+                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
+                $0 <<< "public enum Baz {case a, b, c }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
+                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+            }
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
+                XCTAssertTrue(output.contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
+                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
+                XCTAssertTrue(output.contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+
+                // Qux is not part of a library product, so any API changes should be ignored
+                XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
+                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
+
+                print(output)
+            }
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
 }

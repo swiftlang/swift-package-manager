@@ -75,6 +75,11 @@ public enum ProductType: Equatable {
 
     /// A test product.
     case test
+
+    public var isLibrary: Bool {
+        guard case .library = self else { return false }
+        return true
+    }
 }
 
 /// The products requested of a package.

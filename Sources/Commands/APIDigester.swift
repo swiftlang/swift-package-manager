@@ -225,8 +225,9 @@ extension PackageGraph {
     /// The list of modules that should be used as an input to the API digester.
     var apiDigesterModules: [String] {
         self.rootPackages
-            .flatMap { $0.targets }
-            .filter { $0.type == .library }
+            .flatMap(\.products)
+            .filter { $0.type.isLibrary }
+            .flatMap(\.targets)
             .filter { $0.underlyingTarget is SwiftTarget }
             .map { $0.c99name }
     }
