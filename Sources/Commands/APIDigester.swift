@@ -124,7 +124,8 @@ struct APIDigesterBaselineDumper {
             try apiDigesterTool.emitAPIBaseline(
                 to: moduleBaselinePath,
                 for: module,
-                buildPlan: buildOp.buildPlan!
+                buildPlan: buildOp.buildPlan!,
+                diagnosticsEngine: diags
             )
         }
 
@@ -146,7 +147,8 @@ public struct SwiftAPIDigester {
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan
+        buildPlan: BuildPlan,
+        diagnosticsEngine: DiagnosticsEngine
     ) throws {
         var args = ["-dump-sdk"]
         args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
@@ -155,8 +157,8 @@ public struct SwiftAPIDigester {
 
         try runTool(args)
 
-        // FIXME: Emit an appropriate diagnostic.
         if !localFileSystem.exists(outputPath) {
+            diagnosticsEngine.emit(error: "failed to generate baseline for \(module)")
             throw Diagnostics.fatalError
         }
     }
@@ -165,7 +167,8 @@ public struct SwiftAPIDigester {
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan
+        buildPlan: BuildPlan,
+        diagnosticsEngine: DiagnosticsEngine
     ) throws -> ComparisonResult {
         var args = [
             "-diagnose-sdk",
@@ -179,7 +182,7 @@ public struct SwiftAPIDigester {
             try runTool(args)
             let contents = try localFileSystem.readFileContents(file.path)
             guard contents.count > 0 else {
-                // TODO: diagnostic
+                diagnosticsEngine.emit(error: "failed to read API digester output for \(module)")
                 throw Diagnostics.fatalError
             }
             let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)

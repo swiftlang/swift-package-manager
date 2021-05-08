@@ -215,4 +215,24 @@ final class APIDiffTests: XCTestCase {
         throw XCTSkip("Test unsupported on current platform")
         #endif
     }
+
+    func testBadTreeish() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "Foo")
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "7.8.9"], packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertTrue(stderr.contains("error: Couldn’t check out revision ‘7.8.9’"))
+            }
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
 }
