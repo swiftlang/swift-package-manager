@@ -175,4 +175,44 @@ final class APIDiffTests: XCTestCase {
         throw XCTSkip("Test unsupported on current platform")
         #endif
     }
+
+    func testAPIDiffAfterAddingNewTarget() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
+                $0 <<< "public let foo = \"All new module!\""
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.2
+                import PackageDescription
+
+                let package = Package(
+                    name: "Bar",
+                    products: [
+                        .library(name: "Baz", targets: ["Baz"]),
+                        .library(name: "Qux", targets: ["Qux", "Foo"]),
+                    ],
+                    targets: [
+                        .target(name: "Baz"),
+                        .target(name: "Qux"),
+                        .target(name: "Foo")
+                    ]
+                )
+                """
+            }
+            let (output, _) = try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)
+            XCTAssertTrue(output.contains("No breaking changes detected in Baz"))
+            XCTAssertTrue(output.contains("No breaking changes detected in Qux"))
+            XCTAssertTrue(output.contains("Skipping Foo because it does not exist in the baseline"))
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
 }

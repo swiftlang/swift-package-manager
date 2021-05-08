@@ -323,8 +323,13 @@ extension SwiftPackageTool {
 
             var succeeded = true
             for module in try buildOp.getPackageGraph().apiDigesterModules {
+                let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
+                guard localFileSystem.exists(moduleBaselinePath) else {
+                    print("\nSkipping \(module) because it does not exist in the baseline")
+                    continue
+                }
                 let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
-                    at: baselineDir.appending(component: "\(module).json"),
+                    at: moduleBaselinePath,
                     for: module,
                     apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
                 )

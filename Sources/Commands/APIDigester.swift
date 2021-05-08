@@ -120,8 +120,9 @@ struct APIDigesterBaselineDumper {
 
         // Dump the SDK JSON.
         for module in graph.apiDigesterModules {
+            let moduleBaselinePath = baselineDir.appending(component: module + ".json")
             try apiDigesterTool.emitAPIBaseline(
-                to: baselineDir.appending(component: module + ".json"),
+                to: moduleBaselinePath,
                 for: module,
                 additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
             )
@@ -155,7 +156,7 @@ public struct SwiftAPIDigester {
 
         try runTool(args)
 
-        // FIXME: The tool doesn't exit with 1 if it fails.
+        // FIXME: Emit an appropriate diagnostic.
         if !localFileSystem.exists(outputPath) {
             throw Diagnostics.fatalError
         }
@@ -178,6 +179,10 @@ public struct SwiftAPIDigester {
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
             try runTool(args)
             let contents = try localFileSystem.readFileContents(file.path)
+            guard contents.count > 0 else {
+                // TODO: diagnostic
+                throw Diagnostics.fatalError
+            }
             let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)
             let apiDigesterCategory = "api-digester-breaking-change"
             let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
