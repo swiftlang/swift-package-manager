@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -46,36 +46,48 @@ extension Version: ExpressibleByStringLiteral {
 
 extension Version {
     /// Initializes a version struct with the provided version string.
-    ///
-    /// - Parameters:
-    ///     - version: A version string to use for creating a new version struct.
+    /// - Parameter version: A version string to use for creating a new version struct.
     public init?(_ versionString: String) {
-        let prereleaseStartIndex = versionString.firstIndex(of: "-")
-        let metadataStartIndex = versionString.firstIndex(of: "+")
-
-        let requiredEndIndex = prereleaseStartIndex ?? metadataStartIndex ?? versionString.endIndex
-        let requiredCharacters = versionString.prefix(upTo: requiredEndIndex)
-        let requiredComponents = requiredCharacters
-            .split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-            .map(String.init)
-            .compactMap({ Int($0) })
-            .filter({ $0 >= 0 })
-
-        guard requiredComponents.count == 3 else { return nil }
-
-        self.major = requiredComponents[0]
-        self.minor = requiredComponents[1]
-        self.patch = requiredComponents[2]
-
-        func identifiers(start: String.Index?, end: String.Index) -> [String] {
-            guard let start = start else { return [] }
-            let identifiers = versionString[versionString.index(after: start)..<end]
-            return identifiers.split(separator: ".").map(String.init)
+        // SemVer 2.0.0 allows only ASCII alphanumerical characters and "-" in the version string, except for "." and "+" as delimiters. ("-" is used as a delimiter between the version core and pre-release identifiers, but it's allowed within pre-release and metadata identifiers as well.)
+        // Alphanumerics check will come later, after each identifier is split out (i.e. after the delimiters are removed).
+        guard versionString.allSatisfy(\.isASCII) else { return nil }
+        
+        let metadataDelimiterIndex = versionString.firstIndex(of: "+")
+        // SemVer 2.0.0 requires that pre-release identifiers come before build metadata identifiers
+        let prereleaseDelimiterIndex = versionString[..<(metadataDelimiterIndex ?? versionString.endIndex)].firstIndex(of: "-")
+        
+        let versionCore = versionString[..<(prereleaseDelimiterIndex ?? metadataDelimiterIndex ?? versionString.endIndex)]
+        let versionCoreIdentifiers = versionCore.split(separator: ".", omittingEmptySubsequences: false)
+        
+        guard
+            versionCoreIdentifiers.count == 3,
+            // Major, minor, and patch versions must be ASCII numbers, according to the semantic versioning standard.
+            // Converting each identifier from a substring to an integer doubles as checking if the identifiers have non-numeric characters.
+            let major = Int(versionCoreIdentifiers[0]),
+            let minor = Int(versionCoreIdentifiers[1]),
+            let patch = Int(versionCoreIdentifiers[2])
+        else { return nil }
+        
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+        
+        if let prereleaseDelimiterIndex = prereleaseDelimiterIndex {
+            let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
+            let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
+            guard prereleaseIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else { return nil }
+            self.prereleaseIdentifiers = prereleaseIdentifiers.map { String($0) }
+        } else {
+            self.prereleaseIdentifiers = []
         }
-
-        self.prereleaseIdentifiers = identifiers(
-            start: prereleaseStartIndex,
-            end: metadataStartIndex ?? versionString.endIndex)
-        self.buildMetadataIdentifiers = identifiers(start: metadataStartIndex, end: versionString.endIndex)
+        
+        if let metadataDelimiterIndex = metadataDelimiterIndex {
+            let metadataStartIndex = versionString.index(after: metadataDelimiterIndex)
+            let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)
+            guard buildMetadataIdentifiers.allSatisfy( { $0.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" } } ) else { return nil }
+            self.buildMetadataIdentifiers = buildMetadataIdentifiers.map { String($0) }
+        } else {
+            self.buildMetadataIdentifiers = []
+        }
     }
 }
