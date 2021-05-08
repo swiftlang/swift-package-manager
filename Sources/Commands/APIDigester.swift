@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -18,11 +18,10 @@ import PackageModel
 import SourceControl
 import Workspace
 
-/// Helper for dumping the SDK JSON file for the baseline.
+/// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {
-    /// The baseline we're diffing against.
-    ///
-    /// This is the git treeish.
+
+    /// The git treeish to emit a baseline for.
     let baselineTreeish: String
 
     /// The root package path.
@@ -61,16 +60,17 @@ struct APIDigesterBaselineDumper {
         self.diags = diags
     }
 
-    /// Dump the baseline SDK JSON and return its path.
-    func dumpBaselineSDKJSON() throws -> AbsolutePath {
+    /// Emit the API baseline file and return its path.
+    func emitAPIBaseline() throws -> AbsolutePath {
         let apiDiffDir = inputBuildParameters.apiDiff
         let sdkJSON = apiDiffDir.appending(component: baselineTreeish + ".json")
 
-        // We're done if the JSON already exists on disk.
+        // We're done if the baseline already exists on disk.
         if localFileSystem.exists(sdkJSON) {
             return sdkJSON
         }
 
+        // Setup a temporary directory where we can checkout and build the baseline treeish.
         let baselinePackageRoot = apiDiffDir.appending(component: baselineTreeish)
         if localFileSystem.exists(baselinePackageRoot) {
             try localFileSystem.removeFileTree(baselinePackageRoot)
@@ -116,13 +116,11 @@ struct APIDigesterBaselineDumper {
             stdoutStream: stdoutStream
         )
 
-        // FIXME: Need a way to register this build operation with the interrupt handler.
-
         try buildOp.build()
 
         // Dump the SDK JSON.
-        try apiDigesterTool.dumpSDKJSON(
-            at: sdkJSON,
+        try apiDigesterTool.emitAPIBaseline(
+            to: sdkJSON,
             modules: graph.apiDigesterModules,
             additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
         )
@@ -131,41 +129,45 @@ struct APIDigesterBaselineDumper {
     }
 }
 
-/// A wrapper for swift-api-digester tool.
+/// A wrapper for the swift-api-digester tool.
 public struct SwiftAPIDigester {
+
+    /// The absolute path to `swift-api-digester` in the toolchain.
     let tool: AbsolutePath
 
     init(tool: AbsolutePath) {
         self.tool = tool
     }
 
-    public func dumpSDKJSON(
-        at json: AbsolutePath,
+    /// Emit an API baseline file for the specified module at the specified location.
+    public func emitAPIBaseline(
+        to outputPath: AbsolutePath,
         modules: [String],
         additionalArgs: [String]
     ) throws {
         var args = ["-dump-sdk"]
         args += additionalArgs
         args += modules.flatMap { ["-module", $0] }
-        args += ["-o", json.pathString]
-        try localFileSystem.createDirectory(json.parentDirectory, recursive: true)
+        args += ["-o", outputPath.pathString]
+        try localFileSystem.createDirectory(outputPath.parentDirectory, recursive: true)
 
         try runTool(args)
 
         // FIXME: The tool doesn't exit with 1 if it fails.
-        if !localFileSystem.exists(json) {
+        if !localFileSystem.exists(outputPath) {
             throw Diagnostics.fatalError
         }
     }
 
-    public func diagnoseSDK(
-        baselineSDKJSON: AbsolutePath,
+    /// Compare the current package API to a provided baseline file.
+    public func compareAPIToBaseline(
+        at baselinePath: AbsolutePath,
         apiToolArgs: [String],
         modules: [String]
     ) throws -> ComparisonResult {
         var args = [
             "-diagnose-sdk",
-            "-baseline-path", baselineSDKJSON.pathString,
+            "-baseline-path", baselinePath.pathString,
         ]
         args.append(contentsOf: apiToolArgs)
         for module in modules {
@@ -184,7 +186,7 @@ public struct SwiftAPIDigester {
         }
     }
 
-    func runTool(_ args: [String]) throws {
+    private func runTool(_ args: [String]) throws {
         let arguments = [tool.pathString] + args
         let process = Process(
             arguments: arguments,
@@ -197,10 +199,14 @@ public struct SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
+    /// The result of comparing a module's API to a provided baseline.
     public struct ComparisonResult {
+        /// Breaking changes made to the API since the baseline was generated.
         var apiBreakingChanges: [SerializedDiagnostics.Diagnostic]
+        /// Other diagnostics emitted while comparing the current API to the baseline.
         var otherDiagnostics: [SerializedDiagnostics.Diagnostic]
 
+        /// `true` if the comparison succeeded and no breaking changes were found, otherwise `false`.
         var isSuccessful: Bool {
             apiBreakingChanges.isEmpty && otherDiagnostics.filter { [.fatal, .error].contains($0.level) }.isEmpty
         }

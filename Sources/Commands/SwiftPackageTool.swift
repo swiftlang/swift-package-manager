@@ -319,11 +319,11 @@ extension SwiftPackageTool {
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
+            let baselineSDKJSON = try baselineDumper.emitAPIBaseline()
 
             // Run the diagnose tool which will print the diff.
-            let comparisonResult = try apiDigesterTool.diagnoseSDK(
-                baselineSDKJSON: baselineSDKJSON,
+            let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
+                at: baselineSDKJSON,
                 apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false),
                 modules: try buildOp.getPackageGraph().apiDigesterModules
             )
