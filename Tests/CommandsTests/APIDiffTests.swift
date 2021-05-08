@@ -126,4 +126,37 @@ final class APIDiffTests: XCTestCase {
         throw XCTSkip("Test unsupported on current platform")
         #endif
     }
+
+    func testAPIDiffOfModuleWithCDependency() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "CTargetDep")
+            // Overwrite the existing decl.
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
+                $0 <<< """
+                import Foo
+
+                public func bar() -> String {
+                    foo()
+                    return "hello, world!"
+                }
+                """
+            }
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
+                XCTAssertTrue(output.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
+                print(output)
+            }
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
 }
