@@ -124,7 +124,7 @@ struct APIDigesterBaselineDumper {
             try apiDigesterTool.emitAPIBaseline(
                 to: moduleBaselinePath,
                 for: module,
-                additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+                buildPlan: buildOp.buildPlan!
             )
         }
 
@@ -146,12 +146,11 @@ public struct SwiftAPIDigester {
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
-        additionalArgs: [String]
+        buildPlan: BuildPlan
     ) throws {
         var args = ["-dump-sdk"]
-        args += additionalArgs
-        args += ["-module", module]
-        args += ["-o", outputPath.pathString]
+        args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+        args += ["-module", module, "-o", outputPath.pathString]
         try localFileSystem.createDirectory(outputPath.parentDirectory, recursive: true)
 
         try runTool(args)
@@ -166,14 +165,14 @@ public struct SwiftAPIDigester {
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
-        apiToolArgs: [String]
+        buildPlan: BuildPlan
     ) throws -> ComparisonResult {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
             "-module", module
         ]
-        args.append(contentsOf: apiToolArgs)
+        args.append(contentsOf: buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
 
         return try withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])

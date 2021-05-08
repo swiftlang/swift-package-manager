@@ -331,7 +331,7 @@ extension SwiftPackageTool {
                 let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
                     at: moduleBaselinePath,
                     for: module,
-                    apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+                    buildPlan: buildOp.buildPlan!
                 )
                 printComparisonResult(comparisonResult, moduleName: module, diagnosticsEngine: swiftTool.diagnostics)
                 succeeded = succeeded && comparisonResult.isSuccessful
