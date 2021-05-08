@@ -959,6 +959,7 @@ final class PackageToolTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
+                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
                 XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
             }
         }

@@ -121,7 +121,7 @@ struct APIDigesterBaselineDumper {
         // Dump the SDK JSON.
         try apiDigesterTool.emitAPIBaseline(
             to: sdkJSON,
-            modules: graph.apiDigesterModules,
+            for: graph.apiDigesterModules,
             additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
         )
 
@@ -142,7 +142,7 @@ public struct SwiftAPIDigester {
     /// Emit an API baseline file for the specified module at the specified location.
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
-        modules: [String],
+        for modules: [String],
         additionalArgs: [String]
     ) throws {
         var args = ["-dump-sdk"]
@@ -162,17 +162,16 @@ public struct SwiftAPIDigester {
     /// Compare the current package API to a provided baseline file.
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
-        apiToolArgs: [String],
-        modules: [String]
+        for module: String,
+        apiToolArgs: [String]
     ) throws -> ComparisonResult {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
+            "-module", module
         ]
         args.append(contentsOf: apiToolArgs)
-        for module in modules {
-            args.append(contentsOf: ["-module", module])
-        }
+
         return try withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
             try runTool(args)

@@ -321,19 +321,23 @@ extension SwiftPackageTool {
             )
             let baselineSDKJSON = try baselineDumper.emitAPIBaseline()
 
-            // Run the diagnose tool which will print the diff.
-            let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
-                at: baselineSDKJSON,
-                apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false),
-                modules: try buildOp.getPackageGraph().apiDigesterModules
-            )
+            var succeeded = true
+            for module in try buildOp.getPackageGraph().apiDigesterModules {
+                let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
+                    at: baselineSDKJSON,
+                    for: module,
+                    apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+                )
+                printComparisonResult(comparisonResult, moduleName: module, diagnosticsEngine: swiftTool.diagnostics)
+                succeeded = succeeded && comparisonResult.isSuccessful
+            }
 
-            printComparisonResult(comparisonResult, diagnosticsEngine: swiftTool.diagnostics)
-            guard comparisonResult.isSuccessful else { throw ExitCode.failure }
+            guard succeeded else { throw ExitCode.failure }
         }
 
         private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,
-                           diagnosticsEngine: DiagnosticsEngine) {
+                                           moduleName: String,
+                                           diagnosticsEngine: DiagnosticsEngine) {
             for diagnostic in comparisonResult.otherDiagnostics {
                 switch diagnostic.level {
                 case .error, .fatal:
@@ -350,7 +354,8 @@ extension SwiftPackageTool {
             }
 
             if !comparisonResult.apiBreakingChanges.isEmpty {
-                print("The following API-breaking changes were found:")
+                let count = comparisonResult.apiBreakingChanges.count
+                print("\n\(count) breaking \(count > 1 ? "changes" : "change") detected in \(moduleName):")
                 for change in comparisonResult.apiBreakingChanges {
                     print("  💔 \(change.text)")
                 }
