@@ -954,8 +954,13 @@ final class PackageToolTests: XCTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
-            let (_, stderr) = try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)
-            XCTAssertTrue(stderr.contains("Func foo() has been removed"))
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
+            }
         }
         #else
         throw XCTSkip("Test unsupported on current platform")

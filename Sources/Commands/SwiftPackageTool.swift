@@ -322,11 +322,39 @@ extension SwiftPackageTool {
             let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
 
             // Run the diagnose tool which will print the diff.
-            try apiDigesterTool.diagnoseSDK(
+            let comparisonResult = try apiDigesterTool.diagnoseSDK(
                 baselineSDKJSON: baselineSDKJSON,
                 apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false),
                 modules: try buildOp.getPackageGraph().apiDigesterModules
             )
+
+            printComparisonResult(comparisonResult, diagnosticsEngine: swiftTool.diagnostics)
+            guard comparisonResult.isSuccessful else { throw ExitCode.failure }
+        }
+
+        private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,
+                           diagnosticsEngine: DiagnosticsEngine) {
+            for diagnostic in comparisonResult.otherDiagnostics {
+                switch diagnostic.level {
+                case .error, .fatal:
+                    diagnosticsEngine.emit(error: diagnostic.text, location: diagnostic.location)
+                case .warning:
+                    diagnosticsEngine.emit(warning: diagnostic.text, location: diagnostic.location)
+                case .note:
+                    diagnosticsEngine.emit(note: diagnostic.text, location: diagnostic.location)
+                case .remark:
+                    diagnosticsEngine.emit(remark: diagnostic.text, location: diagnostic.location)
+                case .ignored:
+                    break
+                }
+            }
+
+            if !comparisonResult.apiBreakingChanges.isEmpty {
+                print("The following API-breaking changes were found:")
+                for change in comparisonResult.apiBreakingChanges {
+                    print("  💔 \(change.text)")
+                }
+            }
         }
     }
     

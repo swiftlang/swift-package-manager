@@ -162,7 +162,7 @@ public struct SwiftAPIDigester {
         baselineSDKJSON: AbsolutePath,
         apiToolArgs: [String],
         modules: [String]
-    ) throws {
+    ) throws -> ComparisonResult {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselineSDKJSON.pathString,
@@ -171,8 +171,17 @@ public struct SwiftAPIDigester {
         for module in modules {
             args.append(contentsOf: ["-module", module])
         }
-
-        try runTool(args)
+        return try withTemporaryFile(deleteOnClose: false) { file in
+            args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
+            try runTool(args)
+            let contents = try localFileSystem.readFileContents(file.path)
+            let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)
+            let apiDigesterCategory = "api-digester-breaking-change"
+            let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
+            let otherDiagnostics = serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory }
+            return ComparisonResult(apiBreakingChanges: apiBreakingChanges,
+                                    otherDiagnostics: otherDiagnostics)
+        }
     }
 
     func runTool(_ args: [String]) throws {
@@ -184,6 +193,17 @@ public struct SwiftAPIDigester {
         )
         try process.launch()
         try process.waitUntilExit()
+    }
+}
+
+extension SwiftAPIDigester {
+    public struct ComparisonResult {
+        var apiBreakingChanges: [SerializedDiagnostics.Diagnostic]
+        var otherDiagnostics: [SerializedDiagnostics.Diagnostic]
+
+        var isSuccessful: Bool {
+            apiBreakingChanges.isEmpty && otherDiagnostics.filter { [.fatal, .error].contains($0.level) }.isEmpty
+        }
     }
 }
 
@@ -202,5 +222,12 @@ extension PackageGraph {
             .filter { $0.type == .library }
             .filter { $0.underlyingTarget is SwiftTarget }
             .map { $0.c99name }
+    }
+}
+
+extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
+    public var description: String {
+        guard let file = filename else { return "<unknown>" }
+        return "\(file):\(line):\(column)"
     }
 }
