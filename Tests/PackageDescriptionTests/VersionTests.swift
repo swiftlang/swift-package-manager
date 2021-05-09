@@ -55,7 +55,208 @@ class VersionTests: XCTestCase {
         )
     }
     
+    func testVersionComparison() {
         
+        // MARK: version core vs. version core
+        
+        XCTAssertGreaterThan(Version(2, 1, 1), Version(1, 2, 3))
+        XCTAssertGreaterThan(Version(1, 3, 1), Version(1, 2, 3))
+        XCTAssertGreaterThan(Version(1, 2, 4), Version(1, 2, 3))
+        
+        // MARK: version core vs. version core + pre-release
+        
+        XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: [""]))
+        XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
+        XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
+        
+        // MARK: version core + pre-release vs. version core + pre-release
+        
+        XCTAssertEqual(Version(1, 2, 3, prereleaseIdentifiers: [""]), Version(1, 2, 3, prereleaseIdentifiers: [""]))
+        
+        XCTAssertEqual(Version(1, 2, 3, prereleaseIdentifiers: ["beta"]), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha1"]), Version(1, 2, 3, prereleaseIdentifiers: ["alpha2"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, prereleaseIdentifiers: ["alpha-"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["beta", "alpha"]), Version(1, 2, 3, prereleaseIdentifiers: ["beta", "beta"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha", "beta"]), Version(1, 2, 3, prereleaseIdentifiers: ["beta", "alpha"]))
+        
+        XCTAssertEqual(Version(1, 2, 3, prereleaseIdentifiers: ["1"]), Version(1, 2, 3, prereleaseIdentifiers: ["1"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["1"]), Version(1, 2, 3, prereleaseIdentifiers: ["2"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["1", "1"]), Version(1, 2, 3, prereleaseIdentifiers: ["1", "2"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["1", "2"]), Version(1, 2, 3, prereleaseIdentifiers: ["2", "1"]))
+        
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["123"]), Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["223"]), Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"]))
+        
+        // MARK: version core vs. version core + build metadata
+        
+        XCTAssertEqual(Version(1, 2, 3), Version(1, 2, 3, buildMetadataIdentifiers: [""]))
+        XCTAssertEqual(Version(1, 2, 3), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        
+        // MARK: version core + pre-release vs. version core + build metadata
+        
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: [""]), Version(1, 2, 3, buildMetadataIdentifiers: [""]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["beta"]), Version(1, 2, 3, buildMetadataIdentifiers: ["alpha"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["beta"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["alpha-"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["123"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["223"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["223"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["223"]))
+        XCTAssertLessThan(Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertGreaterThan(Version(2, 2, 3, prereleaseIdentifiers: [""]), Version(1, 2, 3, buildMetadataIdentifiers: [""]))
+        XCTAssertGreaterThan(Version(1, 3, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertGreaterThan(Version(1, 2, 4, prereleaseIdentifiers: ["223"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        
+        // MARK: version core + build metadata vs. version core + build metadata
+        
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: [""]), Version(1, 2, 3, buildMetadataIdentifiers: [""]))
+        
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["alpha1"]), Version(1, 2, 3, buildMetadataIdentifiers: ["alpha2"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["alpha-"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["beta", "alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta", "beta"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["alpha", "beta"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta", "alpha"]))
+        
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["1"]), Version(1, 2, 3, buildMetadataIdentifiers: ["1"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["1"]), Version(1, 2, 3, buildMetadataIdentifiers: ["2"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["1", "1"]), Version(1, 2, 3, buildMetadataIdentifiers: ["1", "2"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["1", "2"]), Version(1, 2, 3, buildMetadataIdentifiers: ["2", "1"]))
+        
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["123"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: ["223"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        
+        // MARK: version core vs. version core + pre-release + build metadata
+        
+        XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: [""]))
+        XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: ["123alpha"]))
+        XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["alpha"], buildMetadataIdentifiers: ["alpha"]))
+        XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123"]))
+        XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["alpha", "beta"]))
+        XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["alpha-"]))
+        
+        // MARK: version core + pre-release vs. version core + pre-release + build metadata
+        
+        XCTAssertEqual(
+            Version(1, 2, 3, prereleaseIdentifiers: [""]),
+            Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: [""])
+        )
+        
+        XCTAssertEqual(
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: [""])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha1"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha2"], buildMetadataIdentifiers: ["alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha-"], buildMetadataIdentifiers: ["alpha", "beta"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta", "alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta", "beta"], buildMetadataIdentifiers: ["123"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha", "beta"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta", "alpha"], buildMetadataIdentifiers: ["alpha-"])
+        )
+        
+        XCTAssertEqual(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["1"], buildMetadataIdentifiers: [""])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["2"], buildMetadataIdentifiers: ["123alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1", "1"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["1", "2"], buildMetadataIdentifiers: ["123"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1", "2"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["2", "1"], buildMetadataIdentifiers: ["alpha", "beta"])
+        )
+        
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["123"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"], buildMetadataIdentifiers: ["-alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["223"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"], buildMetadataIdentifiers: ["123"])
+        )
+        
+        // MARK: version core + pre-release + build metadata vs. version core + pre-release + build metadata
+        
+        XCTAssertEqual(
+            Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: [""]),
+            Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: [""])
+        )
+        
+        XCTAssertEqual(
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: [""])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha"], buildMetadataIdentifiers: ["-alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha1"], buildMetadataIdentifiers: ["alpha", "beta"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha2"], buildMetadataIdentifiers: ["alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha"], buildMetadataIdentifiers: ["123"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha-"], buildMetadataIdentifiers: ["alpha", "beta"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta", "alpha"], buildMetadataIdentifiers: ["123alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta", "beta"], buildMetadataIdentifiers: ["123"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifiers: [""]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["beta", "alpha"], buildMetadataIdentifiers: ["alpha-"])
+        )
+        
+        XCTAssertEqual(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1"], buildMetadataIdentifiers: ["alpha-"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["1"], buildMetadataIdentifiers: [""])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1"], buildMetadataIdentifiers: ["123"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["2"], buildMetadataIdentifiers: ["123alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1", "1"], buildMetadataIdentifiers: ["alpha", "beta"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["1", "2"], buildMetadataIdentifiers: ["123"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["1", "2"], buildMetadataIdentifiers: ["alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["2", "1"], buildMetadataIdentifiers: ["alpha", "beta"])
+        )
+        
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["123"], buildMetadataIdentifiers: ["123alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"], buildMetadataIdentifiers: ["-alpha"])
+        )
+        XCTAssertLessThan(
+            Version(1, 2, 3, prereleaseIdentifiers: ["223"], buildMetadataIdentifiers: ["123alpha"]),
+            Version(1, 2, 3, prereleaseIdentifiers: ["123alpha"], buildMetadataIdentifiers: ["123"])
+        )
+        
+    }
+    
     func testCustomConversionFromVersionToString() {
         
         // MARK: Version.description
