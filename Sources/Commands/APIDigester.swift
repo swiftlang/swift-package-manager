@@ -242,7 +242,6 @@ extension PackageGraph {
 
 extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
     public var description: String {
-        guard let file = filename else { return "<unknown>" }
-        return "\(file):\(line):\(column)"
+        return "\(filename):\(line):\(column)"
     }
 }
