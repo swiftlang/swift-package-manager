@@ -11,6 +11,7 @@
 import Foundation
 import XCTest
 
+import Basics
 @testable import PackageCollections
 import PackageModel
 import SourceControl
@@ -19,9 +20,8 @@ import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {
-        var authTokens: [AuthTokenType: String]? = [:]
-
-        let configuration = PackageCollections.Configuration(authTokens: { authTokens })
+        let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()
+        let configuration = PackageCollections.Configuration(authTokens: { authTokens.get() })
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -38,7 +38,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(0, githubMetadataProvider.configuration.authTokens()?.count)
         }
 
-        authTokens![.github("github.test")] = "topsekret"
+        authTokens[.github("github.test")] = "topsekret"
 
         // Check that authTokens change is propagated to PackageMetadataProvider
         XCTAssertEqual(1, packageCollections.configuration.authTokens()?.count)
@@ -47,7 +47,7 @@ final class PackageCollectionsTests: XCTestCase {
                 return XCTFail("Expected GitHubPackageMetadataProvider")
             }
             XCTAssertEqual(1, githubMetadataProvider.configuration.authTokens()?.count)
-            XCTAssertEqual(authTokens, githubMetadataProvider.configuration.authTokens())
+            XCTAssertEqual(authTokens.get(), githubMetadataProvider.configuration.authTokens())
         }
     }
 
