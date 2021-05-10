@@ -613,6 +613,21 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(stderrOutput.contains("error: Missing expected argument '<package-name>'"), #"actual: "\#(stderrOutput)""#)
         }
     }
+    
+    func testInitWithTemplate() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "Foo")
+            try fs.createDirectory(path)
+            try fs.makeTemplate(path: tmpPath, type: "executable", sources: "./src", tests: "./tst")
+            
+            _ = try execute(["init", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
+
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "src")), ["Foo"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "tst")), ["FooTests"])
+        }
+    }
 
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in

@@ -112,7 +112,7 @@ extension FileSystem {
 }
 
 extension FileSystem {
-    public func makeTemplate(path: AbsolutePath, type: String) throws {
+    public func makeTemplate(path: AbsolutePath, type: String, sources: String = "./Sources", tests: String = "./Tests") throws {
         let templatePath = path.appending(components: "templates", "new-package")
         try self.createDirectory(templatePath, recursive: true)
         
@@ -120,8 +120,8 @@ extension FileSystem {
             stream <<< """
             {
                 "directories": {
-                    "sources": "./Sources",
-                    "tests": "./Tests",
+                    "sources": "\(sources)",
+                    "tests": "\(tests)",
                     "createSubDirectoryForModule": true
                 },
                 "type": "\(type)",
