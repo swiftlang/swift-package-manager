@@ -782,7 +782,7 @@ public class SwiftTool {
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.enabledSanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStore,
+                indexStoreMode: options.indexStoreMode.indexStoreMode,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
