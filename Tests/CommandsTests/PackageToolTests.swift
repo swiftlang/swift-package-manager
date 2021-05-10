@@ -581,6 +581,38 @@ final class PackageToolTests: XCTestCase {
                 ["CustomNameTests"])
         }
     }
+    
+    func testCreate() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "MyExe")
+            
+            _ = try execute(["create", "MyExe"], packagePath: tmpPath)
+            
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
+        }
+    }
+    
+    func testCreateLibrary() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending(component: "MyLib")
+            
+            _ = try execute(["create", "MyLib", "--type", "library"], packagePath: tmpPath)
+            
+            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["MyLib.swift"])
+        }
+    }
+    
+    func testCreateNoNameArgument() throws {
+        fixture(name: "Miscellaneous") { prefix in
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["create"])
+            let stderrOutput = try result.utf8stderrOutput()
+            XCTAssert(stderrOutput.contains("error: Missing expected argument '<package-name>'"), #"actual: "\#(stderrOutput)""#)
+        }
+    }
 
     func testPackageEditAndUnedit() {
         fixture(name: "Miscellaneous/PackageEdit") { prefix in
