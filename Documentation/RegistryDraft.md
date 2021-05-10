@@ -348,8 +348,13 @@ whose values are objects containing the following fields:
 
 | Key       | Type   | Description                           | Requirement Level |
 | --------- | ------ | ------------------------------------- | ----------------- |
-| `url`     | String | The location of the release resource. | REQUIRED          |
+| `url`     | String | The location of the release resource. | OPTIONAL          |
 | `problem` | Object | A [problem details][RFC 7807] object. | OPTIONAL          |
+
+A server MAY specify a URL for a release using the `url` key.
+A client SHOULD locate a release using the value of the `url` key, if one is provided.
+Otherwise, the client SHOULD locate a release 
+by expanding the URI Template `/{scope}/{name}/{version}` on the originating host.
 
 A server SHOULD communicate the unavailability of a package release
 using a ["problem details"][RFC 7807] object.
