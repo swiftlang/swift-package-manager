@@ -755,7 +755,7 @@ def get_swiftpm_flags(args):
         swift_library_rpath_prefix = "$ORIGIN/../"
     platform_path = None
     for path in args.target_info["paths"]["runtimeLibraryPaths"]:
-        platform_path = re.search(r"(lib/swift/[^/]+)$", path)
+        platform_path = re.search(r"(lib/swift/([^/]+))$", path)
         if platform_path:
             build_flags.extend(
                 [
@@ -765,6 +765,15 @@ def get_swiftpm_flags(args):
                     swift_library_rpath_prefix + platform_path.group(1),
                 ]
             )
+            if platform.system() == 'Linux':
+                build_flags.extend(
+                    [
+                        "-Xlinker",
+                        "-rpath",
+                        "-Xlinker",
+                        swift_library_rpath_prefix + '../' + platform_path.group(2),
+                    ]
+                )
             break
 
     if not platform_path:
