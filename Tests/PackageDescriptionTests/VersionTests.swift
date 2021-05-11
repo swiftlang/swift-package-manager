@@ -12,17 +12,6 @@ import PackageDescription
 import XCTest
 
 class VersionTests: XCTestCase {
-
-    func testBasics() {
-        let v1: Version = "1.0.0"
-        let v2 = Version(2, 3, 4, prereleaseIdentifiers: ["alpha", "beta"], buildMetadataIdentifiers: ["232"])
-        XCTAssert(v2 > v1)
-        XCTAssertFalse(v2 == v1)
-        XCTAssert("1.0.0" == v1)
-        XCTAssertLessThan(Version("1.2.3-alpha.beta.2"), Version("1.2.3-alpha.beta.3"))
-
-        XCTAssertEqual(Version("1.2.3-alpha.beta.2").description, "1.2.3-alpha.beta.2")
-    }
     
     func testVersionInitialization() {
         let v0 = Version(0, 0, 0, prereleaseIdentifiers: [], buildMetadataIdentifiers: [])
