@@ -136,10 +136,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
             component: buildParameters.configuration.dirname
         )
-        if localFileSystem.exists(oldBuildPath) {
-            try localFileSystem.removeFileTree(oldBuildPath)
+        do {
+            if localFileSystem.exists(oldBuildPath) {
+                try? localFileSystem.removeFileTree(oldBuildPath)
+            }
+            try localFileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
+        } catch {
+            diagnostics.emit(warning: "unable to link \(oldBuildPath): \(error)")
         }
-        try localFileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
     }
 
     /// Compute the llbuild target name using the given subset.
