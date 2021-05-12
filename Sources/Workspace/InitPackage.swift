@@ -134,6 +134,8 @@ public final class InitPackage {
             return
         }
 
+        try writeREADMEFile()
+        try writeGitIgnore()
         try writeSources()
         try writeModuleMap()
         try writeTests()
@@ -268,7 +270,43 @@ public final class InitPackage {
         try writeToolsVersion(
             at: manifest.parentDirectory, version: version, fs: localFileSystem)
     }
+    
+    private func writeREADMEFile() throws {
+        let readme = destinationPath.appending(component: "README.md")
+        guard localFileSystem.exists(readme) == false else {
+            return
+        }
 
+        try writePackageFile(readme) { stream in
+            stream <<< """
+                # \(pkgname)
+
+                A description of this package.
+
+                """
+        }
+    }
+
+    private func writeGitIgnore() throws {
+        let gitignore = destinationPath.appending(component: ".gitignore")
+        guard localFileSystem.exists(gitignore) == false else {
+            return
+        }
+
+        try writePackageFile(gitignore) { stream in
+            stream <<< """
+                .DS_Store
+                /.build
+                /Packages
+                /*.xcodeproj
+                xcuserdata/
+                DerivedData/
+                .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+                """
+        }
+    }
+    
     private func writeSources() throws {
         if packageTemplate.packageType == .systemModule || packageTemplate.packageType == .manifest {
             return
