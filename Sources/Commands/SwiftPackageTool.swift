@@ -1169,6 +1169,7 @@ internal struct PackageTemplate: Codable {
     let directories: Directories
     let type: PackageType
     let dependencies: [PackageDependency]
+    let readMe: String?
 }
 
 extension InitPackage.PackageTemplate {
@@ -1191,7 +1192,8 @@ extension InitPackage.PackageTemplate {
         self.init(sourcesDirectory: template.directories.sources,
                   testsDirectory: template.directories.tests,
                   createSubDirectoryForModule: template.directories.createSubDirectoryForModule,
-                  packageType: packageType)
+                  packageType: packageType,
+                  readMe: template.readMe)
     }
 }
 
@@ -1204,6 +1206,7 @@ internal func getSwiftPMDefaultTemplate(type: InitPackage.PackageType,
     let defaultDir = PackageTemplate.Directories(sources: sources, tests: tests, createSubDirectoryForModule: createSubDirectoryForModule)
     let defaultDependencies = [PackageTemplate.PackageDependency]()
     let packageType: PackageTemplate.PackageType
+    let readMe = ""
     
     switch type {
     case .executable:
@@ -1220,7 +1223,7 @@ internal func getSwiftPMDefaultTemplate(type: InitPackage.PackageType,
         packageType = .library
     }
     
-    return PackageTemplate(directories: defaultDir, type: packageType, dependencies: defaultDependencies)
+    return PackageTemplate(directories: defaultDir, type: packageType, dependencies: defaultDependencies, readMe: readMe)
 }
 
 fileprivate func makePackage(filesystem: FileSystem,

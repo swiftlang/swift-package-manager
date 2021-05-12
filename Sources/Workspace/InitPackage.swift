@@ -61,12 +61,14 @@ public final class InitPackage {
         let createSubDirectoryForModule: Bool
         let packageType: PackageType
 //        let dependencies: [PackageDependency]
+        let readMe: String?
         
-        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?, createSubDirectoryForModule: Bool, packageType: InitPackage.PackageType) {
+        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?, createSubDirectoryForModule: Bool, packageType: InitPackage.PackageType, readMe: String?) {
             self.sourcesDirectory = sourcesDirectory
             self.testsDirectory = testsDirectory
             self.createSubDirectoryForModule = createSubDirectoryForModule
             self.packageType = packageType
+            self.readMe = readMe
         }
     }
 
@@ -278,11 +280,13 @@ public final class InitPackage {
         }
 
         try writePackageFile(readme) { stream in
+            let description = packageTemplate.readMe ?? ""
             stream <<< """
                 # \(pkgname)
 
                 A description of this package.
-
+                
+                \(description)
                 """
         }
     }

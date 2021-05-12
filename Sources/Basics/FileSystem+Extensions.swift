@@ -125,7 +125,8 @@ extension FileSystem {
                     "createSubDirectoryForModule": true
                 },
                 "type": "\(type)",
-                "dependencies": []
+                "dependencies": [],
+                "readMe": null
             }
             """
         }
