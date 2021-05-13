@@ -250,12 +250,8 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { path in
             do {
                 let result = try execute([], packagePath: path)
-                #if os(macOS)
-                XCTAssertTrue(result.stdout.contains("[6/6] Build complete!"), result.stdout)
-                #else
                 // Number must be greater than 0
                 XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Build complete!"))
-                #endif
             }
 
             do {
