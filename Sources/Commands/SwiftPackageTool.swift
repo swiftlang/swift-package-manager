@@ -472,13 +472,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            let stream : OutputByteStream
-            if outputPath != nil {
-                stream = try LocalFileOutputByteStream(outputPath!)
-            } else {
-                stream = TSCBasic.stdoutStream.stream
-            }
-            
+            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream.stream
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
     }
