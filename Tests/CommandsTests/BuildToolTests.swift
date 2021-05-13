@@ -252,8 +252,8 @@ final class BuildToolTests: XCTestCase {
                 let result = try execute([], packagePath: path)
                 #if os(macOS)
                 XCTAssertTrue(result.stdout.contains("[6/6] Build complete!"), result.stdout)
-                #elseif compiler(>=5.5)
-                XCTAssertTrue(result.stdout.contains("[12/12] Build complete!"), result.stdout)
+//                #elseif compiler(>=5.5)
+//                XCTAssertTrue(result.stdout.contains("[12/12] Build complete!"), result.stdout)
                 #else
                 XCTAssertTrue(result.stdout.contains("[8/8] Build complete!"), result.stdout)
                 #endif
