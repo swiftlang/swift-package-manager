@@ -250,15 +250,13 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { path in
             do {
                 let result = try execute([], packagePath: path)
-                #if os(macOS)
-                XCTAssertTrue(result.stdout.contains("[6/6] Build complete!"), result.stdout)
-                #else
-                XCTAssertTrue(result.stdout.contains("[8/8] Build complete!"), result.stdout)
-                #endif
+                // Number of steps must be greater than 0. e.g., [8/8] Build complete!
+                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Build complete!"))
             }
 
             do {
                 let result = try execute([], packagePath: path)
+                // test second time, to make sure message is presented even when nothing to build (cached)
                 XCTAssertTrue(result.stdout.contains("[0/0] Build complete!"), result.stdout)
             }
         }
