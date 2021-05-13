@@ -59,14 +59,18 @@ public final class InitPackage {
         let sourcesDirectory: RelativePath
         let testsDirectory: RelativePath?
         let createSubDirectoryForModule: Bool
+        let dependencies: [String]
         let packageType: PackageType
-//        let dependencies: [PackageDependency]
         let readMe: String?
         
-        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?, createSubDirectoryForModule: Bool, packageType: InitPackage.PackageType, readMe: String?) {
+        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?,
+                    createSubDirectoryForModule: Bool, dependencies: [String],
+                    packageType: InitPackage.PackageType, readMe: String?) {
+            
             self.sourcesDirectory = sourcesDirectory
             self.testsDirectory = testsDirectory
             self.createSubDirectoryForModule = createSubDirectoryForModule
+            self.dependencies = dependencies
             self.packageType = packageType
             self.readMe = readMe
         }
@@ -212,7 +216,12 @@ public final class InitPackage {
             pkgParams.append("""
                     dependencies: [
                         // Dependencies declare other packages that this package depends on.
-                        // .package(url: /* package url */, from: "1.0.0"),
+                        // .package(url: /* package url */, from: "1.0.0")
+                """)
+            
+            packageTemplate.dependencies.forEach { pkgParams.append("\t" + $0) }
+            
+            pkgParams.append("""
                     ]
                 """)
 

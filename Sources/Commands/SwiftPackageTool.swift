@@ -1144,20 +1144,6 @@ internal struct PackageTemplate: Codable {
         let createSubDirectoryForModule: Bool
     }
     
-    enum DependencyType: String, Codable {
-        case from
-        case range
-        case exact
-        case branch
-        case revision
-        case path
-    }
-    
-    struct PackageDependency: Codable {
-        let url: String
-        let version: String
-    }
-    
     enum PackageType: String, Codable {
         case executable
         case library
@@ -1168,7 +1154,7 @@ internal struct PackageTemplate: Codable {
     
     let directories: Directories
     let type: PackageType
-    let dependencies: [PackageDependency]
+    let dependencies: [String]
     let readMe: String?
 }
 
@@ -1192,6 +1178,7 @@ extension InitPackage.PackageTemplate {
         self.init(sourcesDirectory: template.directories.sources,
                   testsDirectory: template.directories.tests,
                   createSubDirectoryForModule: template.directories.createSubDirectoryForModule,
+                  dependencies: template.dependencies,
                   packageType: packageType,
                   readMe: template.readMe)
     }
@@ -1204,7 +1191,7 @@ internal func getSwiftPMDefaultTemplate(type: InitPackage.PackageType,
     // Even if we are making a "classic" package that doesn't use a template we should till use templates
     // for consistency within the codebase
     let defaultDir = PackageTemplate.Directories(sources: sources, tests: tests, createSubDirectoryForModule: createSubDirectoryForModule)
-    let defaultDependencies = [PackageTemplate.PackageDependency]()
+    let defaultDependencies = [String]()
     let packageType: PackageTemplate.PackageType
     let readMe = ""
     
