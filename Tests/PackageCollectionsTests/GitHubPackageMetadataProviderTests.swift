@@ -41,6 +41,43 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         XCTAssertNil(GitHubPackageMetadataProvider.apiURL("bad/Hello-World.git"))
     }
 
+    func testAuthTokenType() throws {
+        let metadataProvider = GitHubPackageMetadataProvider()
+        let expectedAuthTokenType = AuthTokenType.github("github.com")
+
+        // Not remote
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "file:///local/Hello-World.git"), kind: .local)
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertNil(authTokenType)
+        }
+
+        // Invalid URL
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "bad/Hello-World.git"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertNil(authTokenType)
+        }
+
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "git@github.com:octocat/Hello-World.git"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertEqual(expectedAuthTokenType, authTokenType)
+        }
+
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "https://github.com/octocat/Hello-World.git"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertEqual(expectedAuthTokenType, authTokenType)
+        }
+
+        do {
+            let reference = PackageReference(repository: RepositorySpecifier(url: "https://github.com/octocat/Hello-World"))
+            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            XCTAssertEqual(expectedAuthTokenType, authTokenType)
+        }
+    }
+
     func testGood() throws {
         try testWithTemporaryDirectory { tmpPath in
             let repoURL = "https://github.com/octocat/Hello-World.git"
@@ -103,10 +140,13 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
-                XCTAssertEqual(metadata.versions.count, 1)
-                XCTAssertEqual(metadata.versions[0].version, TSCUtility.Version("1.0.0"))
-                XCTAssertEqual(metadata.versions[0].title, "1.0.0")
+                XCTAssertEqual(metadata.versions.count, 2)
+                XCTAssertEqual(metadata.versions[0].version, TSCUtility.Version(tag: "v2.0.0"))
+                XCTAssertEqual(metadata.versions[0].title, "2.0.0")
                 XCTAssertEqual(metadata.versions[0].summary, "Description of the release")
+                XCTAssertEqual(metadata.versions[1].version, TSCUtility.Version("1.0.0"))
+                XCTAssertEqual(metadata.versions[1].title, "1.0.0")
+                XCTAssertEqual(metadata.versions[1].summary, "Description of the release")
                 XCTAssertEqual(metadata.authors, [PackageCollectionsModel.Package.Author(username: "octocat",
                                                                                          url: URL(string: "https://api.github.com/users/octocat")!,
                                                                                          service: .init(name: "GitHub"))])

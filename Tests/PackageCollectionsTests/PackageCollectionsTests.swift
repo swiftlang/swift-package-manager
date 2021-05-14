@@ -11,6 +11,7 @@
 import Foundation
 import XCTest
 
+import Basics
 @testable import PackageCollections
 import PackageModel
 import SourceControl
@@ -19,9 +20,8 @@ import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {
-        var authTokens: [AuthTokenType: String]? = [:]
-
-        let configuration = PackageCollections.Configuration(authTokens: { authTokens })
+        let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()
+        let configuration = PackageCollections.Configuration(authTokens: { authTokens.get() })
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -38,7 +38,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(0, githubMetadataProvider.configuration.authTokens()?.count)
         }
 
-        authTokens![.github("github.test")] = "topsekret"
+        authTokens[.github("github.test")] = "topsekret"
 
         // Check that authTokens change is propagated to PackageMetadataProvider
         XCTAssertEqual(1, packageCollections.configuration.authTokens()?.count)
@@ -47,7 +47,7 @@ final class PackageCollectionsTests: XCTestCase {
                 return XCTFail("Expected GitHubPackageMetadataProvider")
             }
             XCTAssertEqual(1, githubMetadataProvider.configuration.authTokens()?.count)
-            XCTAssertEqual(authTokens, githubMetadataProvider.configuration.authTokens())
+            XCTAssertEqual(authTokens.get(), githubMetadataProvider.configuration.authTokens())
         }
     }
 
@@ -1124,6 +1124,9 @@ final class PackageCollectionsTests: XCTestCase {
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+
+        let expectedProvider = PackageMetadataProviderContext(authTokenType: nil, isAuthTokenConfigured: false, error: nil)
+        XCTAssertEqual(metadata.provider, expectedProvider, "provider should match")
     }
 
     func testFetchMetadataInOrder() throws {
@@ -1159,6 +1162,9 @@ final class PackageCollectionsTests: XCTestCase {
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+
+        // MockMetadataProvider throws NotFoundError which would cause metadata.provider to be set to nil
+        XCTAssertNil(metadata.provider, "provider should be nil")
     }
 
     func testFetchMetadataInCollections() throws {
@@ -1193,6 +1199,9 @@ final class PackageCollectionsTests: XCTestCase {
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+
+        // MockMetadataProvider throws NotFoundError which would cause metadata.provider to be set to nil
+        XCTAssertNil(metadata.provider, "provider should be nil")
     }
 
     func testMergedPackageMetadata() throws {
@@ -1339,6 +1348,9 @@ final class PackageCollectionsTests: XCTestCase {
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+
+        // MockMetadataProvider throws NotFoundError which would cause metadata.provider to be set to nil
+        XCTAssertNil(metadata.provider, "provider should be nil")
     }
 
     func testFetchMetadataProviderError() throws {
@@ -1349,6 +1361,10 @@ final class PackageCollectionsTests: XCTestCase {
 
             func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
                 callback(.failure(TerribleThing()))
+            }
+
+            func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
+                nil
             }
 
             func close() throws {}
@@ -1383,6 +1399,9 @@ final class PackageCollectionsTests: XCTestCase {
         let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
+
+        // MockMetadataProvider throws unhandled error which would cause metadata.provider to be set to nil
+        XCTAssertNil(metadata.provider, "provider should be nil")
     }
 
     func testFetchMetadataPerformance() throws {
