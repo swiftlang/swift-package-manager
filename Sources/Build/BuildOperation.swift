@@ -116,10 +116,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)
 
-        buildDelegate?.progressAnimation.complete(success: success)
+        buildDelegate?.buildComplete(success: success)
+
         guard success else { throw Diagnostics.fatalError }
 
-        // Create backwards-compatibilty symlink to old build path.
+        // Create backwards-compatibility symlink to old build path.
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
             component: buildParameters.configuration.dirname
         )
