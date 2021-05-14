@@ -100,7 +100,7 @@
           "defaultToolsVersion": "5.2"
         },
         {
-          "version": "1.8.3",
+          "version": "v1.8.3",
           "manifests": {
             "5.0": {
               "toolsVersion": "5.0",
