@@ -18,7 +18,8 @@ add_library(Basics
   JSON+Extensions.swift
   Sandbox.swift
   SwiftVersion.swift
-  SQLiteBackedCache.swift)
+  SQLiteBackedCache.swift
+  Version+Extensions.swift)
 target_link_libraries(Basics PUBLIC
   TSCBasic
   TSCUtility)

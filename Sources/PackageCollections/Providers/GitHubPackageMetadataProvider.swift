@@ -143,7 +143,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
                         versions: releases.compactMap {
-                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(string:)) else {
+                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
                                 return nil
                             }
                             return Model.PackageBasicVersionMetadata(version: version, title: $0.name, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -27,6 +27,23 @@ class PackageCollectionValidationTests: XCTestCase {
                 versions: [
                     Model.Collection.Package.Version(
                         version: "1.3.2",
+                        summary: nil,
+                        manifests: [
+                            "5.2": Model.Collection.Package.Version.Manifest(
+                                toolsVersion: "5.2",
+                                packageName: "Foobar",
+                                targets: [.init(name: "Foo", moduleName: "Foo")],
+                                products: [.init(name: "Bar", type: .library(.automatic), targets: ["Foo"])],
+                                minimumPlatformVersions: nil
+                            ),
+                        ],
+                        defaultToolsVersion: "5.2",
+                        verifiedCompatibility: nil,
+                        license: nil,
+                        createdAt: nil
+                    ),
+                    Model.Collection.Package.Version(
+                        version: "v1.3.0",
                         summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
@@ -245,7 +262,7 @@ class PackageCollectionValidationTests: XCTestCase {
                 keywords: ["test package"],
                 versions: [
                     Model.Collection.Package.Version(
-                        version: "v1.3.2",
+                        version: "x1.3.2",
                         summary: nil,
                         manifests: [
                             "5.2": Model.Collection.Package.Version.Manifest(
