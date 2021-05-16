@@ -215,7 +215,7 @@ extension SwiftAPIDigester {
         var otherDiagnostics: [SerializedDiagnostics.Diagnostic]
 
         /// `true` if the comparison succeeded and no breaking changes were found, otherwise `false`.
-        var isSuccessful: Bool {
+        var hasNoAPIBreakingChanges: Bool {
             apiBreakingChanges.isEmpty && otherDiagnostics.filter { [.fatal, .error].contains($0.level) }.isEmpty
         }
     }

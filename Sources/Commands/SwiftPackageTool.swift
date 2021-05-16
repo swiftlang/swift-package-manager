@@ -335,7 +335,7 @@ extension SwiftPackageTool {
                     diagnosticsEngine: swiftTool.diagnostics
                 )
                 printComparisonResult(comparisonResult, moduleName: module, diagnosticsEngine: swiftTool.diagnostics)
-                succeeded = succeeded && comparisonResult.isSuccessful
+                succeeded = succeeded && comparisonResult.hasNoAPIBreakingChanges
             }
 
             guard succeeded else { throw ExitCode.failure }
