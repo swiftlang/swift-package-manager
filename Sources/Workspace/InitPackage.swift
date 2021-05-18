@@ -59,10 +59,14 @@ public final class InitPackage {
         let sourcesDirectory: RelativePath
         let testsDirectory: RelativePath?
         let createSubDirectoryForModule: Bool
+        let dependencies: [(url: String, requirement: PackageDependencyDescription.Requirement)]
         let packageType: PackageType
-//        let dependencies: [PackageDependency]
         
-        public init(sourcesDirectory: RelativePath, testsDirectory: RelativePath?, createSubDirectoryForModule: Bool, packageType: InitPackage.PackageType) {
+        public init(sourcesDirectory: RelativePath,
+                    testsDirectory: RelativePath?,
+                    createSubDirectoryForModule: Bool,
+                    dependencies: [(url: String, requirement: PackageDependencyDescription.Requirement)],
+                    packageType: InitPackage.PackageType) {
             self.sourcesDirectory = sourcesDirectory
             self.testsDirectory = testsDirectory
             self.createSubDirectoryForModule = createSubDirectoryForModule
@@ -134,6 +138,8 @@ public final class InitPackage {
             return
         }
 
+        try writeGitIgnore()
+        try writeREADMEFile()
         try writeSources()
         try writeModuleMap()
         try writeTests()
@@ -144,7 +150,29 @@ public final class InitPackage {
         try localFileSystem.writeFileContents(path, body: body)
     }
     
-    private func addDependencies() -> String {
+    private func addDependencies(dependency: (url: String, requirement: PackageDependencyDescription.Requirement)) -> String {
+        
+        let url = dependency.url
+        let requirement = dependency.requirement
+        
+        let constraint: String
+        
+        switch requirement.self {
+        case .range(let version):
+            constraint = "from: \"\(version.lowerBound)\""
+        case .exact:
+            constraint = ".exact(\"\(requirement)\")"
+        case .revision(let revision):
+            constraint = "revision: \"\(revision)\""
+        case .branch(let branch):
+            constraint = "branch: \"\(branch)\""
+        }
+
+        return "\t.package(url: \"\(url)\", \(constraint))"
+    }
+    
+    private func getDependecyNameForTarget() -> String {
+        
         return " "
     }
 
@@ -211,7 +239,7 @@ public final class InitPackage {
                         // .package(url: /* package url */, from: "1.0.0")
                 """)
             
-            packageTemplate.dependencies.forEach { pkgParams.append("\t" + $0) }
+            packageTemplate.dependencies.forEach { pkgParams.append(addDependencies(dependency: $0)) }
             
             pkgParams.append("""
                     ]
@@ -274,6 +302,42 @@ public final class InitPackage {
             at: manifest.parentDirectory, version: version, fs: localFileSystem)
     }
     
+    private func writeREADMEFile() throws {
+        let readme = destinationPath.appending(component: "README.md")
+        guard localFileSystem.exists(readme) == false else {
+            return
+        }
+
+        try writePackageFile(readme) { stream in
+            stream <<< """
+                # \(pkgname)
+
+                A description of this package.
+                
+                """
+        }
+    }
+
+    private func writeGitIgnore() throws {
+        let gitignore = destinationPath.appending(component: ".gitignore")
+        guard localFileSystem.exists(gitignore) == false else {
+            return
+        }
+
+        try writePackageFile(gitignore) { stream in
+            stream <<< """
+                .DS_Store
+                /.build
+                /Packages
+                /*.xcodeproj
+                xcuserdata/
+                DerivedData/
+                .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+
+                """
+        }
+    }
+
     private func writeSources() throws {
         if packageTemplate.packageType == .systemModule || packageTemplate.packageType == .manifest {
             return

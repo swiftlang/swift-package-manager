@@ -1144,20 +1144,66 @@ internal struct PackageTemplate: Codable {
         let createSubDirectoryForModule: Bool
     }
     
-    enum DependencyType: String, Codable {
-        case from
-        case range
-        case exact
-        case branch
-        case revision
-        case path
+    enum Constraint: Codable {
+        case from(String)
+        case branch(String)
+        case exact(String)
+        case revision(String)
+        
+        public enum DiscriminatorKeys: String, Codable {
+            case from
+            case branch
+            case exact
+            case revision
+        }
+
+        public enum CodingKeys: CodingKey {
+            case type
+            case value
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let value = try container.decode(String.self, forKey: .value)
+            
+            switch try container.decode(DiscriminatorKeys.self, forKey: .type) {
+            case .from:
+                self = .from(value)
+            case .branch:
+                self = .branch(value)
+            case .exact:
+                self = .exact(value)
+            case .revision:
+                self = .revision(value)
+            }
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            
+            switch self {
+            case .from(let value):
+                try container.encode(DiscriminatorKeys.from, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .branch(let value):
+                try container.encode(DiscriminatorKeys.branch, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .exact(let value):
+                try container.encode(DiscriminatorKeys.exact, forKey: .type)
+                try container.encode(value, forKey: .value)
+            case .revision(let value):
+                try container.encode(DiscriminatorKeys.revision, forKey: .type)
+                try container.encode(value, forKey: .value)
+            }
+        }
     }
     
-    struct PackageDependency: Codable {
+    struct Dependency: Codable {
         let url: String
-        let version: String
-    }
+        let constraint: Constraint
         
+    }
+    
     enum PackageType: String, Codable {
         case executable
         case library
@@ -1168,11 +1214,11 @@ internal struct PackageTemplate: Codable {
     
     let directories: Directories
     let type: PackageType
-    let dependencies: [PackageDependency]
+    let dependencies: [Dependency]
 }
 
 extension InitPackage.PackageTemplate {
-    internal init(template: PackageTemplate) {
+    internal init(template: PackageTemplate) throws {
         
         let packageType: InitPackage.PackageType
         switch template.type {
@@ -1191,6 +1237,31 @@ extension InitPackage.PackageTemplate {
         self.init(sourcesDirectory: template.directories.sources,
                   testsDirectory: template.directories.tests,
                   createSubDirectoryForModule: template.directories.createSubDirectoryForModule,
+                  dependencies: try template.dependencies.map {
+                    
+                    let url = $0.url
+                    let requirement: PackageDependencyDescription.Requirement
+                    
+                    switch $0.constraint {
+                    
+                    case .from(let value):
+                        guard let version = Version(string: value) else {
+                            throw InternalError("Cannot generate version from \(value)")
+                        }
+                        requirement = .upToNextMajor(from: version)
+                    case .branch(let value):
+                        requirement = .branch(value)
+                    case .exact(let value):
+                        guard let version = Version(string: value) else {
+                            throw InternalError("Cannot generate version from \(value)")
+                        }
+                        requirement = .exact(version)
+                    case .revision(let value):
+                        requirement = .revision(value)
+                    }
+                    
+                    return (url: url, requirement: requirement)
+                  },
                   packageType: packageType)
     }
 }
@@ -1202,7 +1273,7 @@ internal func getSwiftPMDefaultTemplate(type: InitPackage.PackageType,
     // Even if we are making a "classic" package that doesn't use a template we should till use templates
     // for consistency within the codebase
     let defaultDir = PackageTemplate.Directories(sources: sources, tests: tests, createSubDirectoryForModule: createSubDirectoryForModule)
-    let defaultDependencies = [PackageTemplate.PackageDependency]()
+    let defaultDependencies = [PackageTemplate.Dependency]()
     let packageType: PackageTemplate.PackageType
     
     switch type {
@@ -1220,7 +1291,6 @@ internal func getSwiftPMDefaultTemplate(type: InitPackage.PackageType,
         packageType = .library
     }
     
-
     return PackageTemplate(directories: defaultDir, type: packageType, dependencies: defaultDependencies)
 }
 
@@ -1270,12 +1340,12 @@ fileprivate func makePackage(filesystem: FileSystem,
 
         let decoder = JSONDecoder.makeWithDefaults()
         let templateFromJSON = try decoder.decode(PackageTemplate.self, from: data)
-        packageTemplate = InitPackage.PackageTemplate(template: templateFromJSON)
+        packageTemplate = try InitPackage.PackageTemplate(template: templateFromJSON)
     } else {
         // These are only needed in the event that --type was not used when creating a package
         // otherwise if --type is used packageType will not be nill
         let defualtType = mode == .initialize ? InitPackage.PackageType.library : InitPackage.PackageType.executable
-        packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: packageType ?? defualtType))
+        packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: packageType ?? defualtType))
     }
     
     switch mode {

@@ -27,7 +27,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
             
             // Create the package
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .empty, tests: RelativePath("./Tests")))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .empty, tests: RelativePath("./Tests")))
             let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
@@ -58,7 +58,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .executable, tests: RelativePath("./Tests"), createSubDirectoryForModule: true))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .executable, tests: RelativePath("./Tests"), createSubDirectoryForModule: true))
             let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
@@ -101,7 +101,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library, tests: RelativePath("./Tests"), createSubDirectoryForModule: true))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library, tests: RelativePath("./Tests"), createSubDirectoryForModule: true))
             let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
@@ -149,7 +149,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
             
             // Create the package
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .systemModule))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .systemModule))
             let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
@@ -179,7 +179,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .manifest))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .manifest))
             let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
@@ -212,7 +212,7 @@ class InitTests: XCTestCase {
             XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
             
             // Create the package
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library))
             let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageTemplate: packageTemplate)
             initPackage.progressReporter = { message in }
             try initPackage.writePackageStructure()
@@ -236,7 +236,7 @@ class InitTests: XCTestCase {
             XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
             
             // Create package with non c99name.
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .executable))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .executable))
             let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageTemplate: packageTemplate)
             try initPackage.writePackageStructure()
             
@@ -262,7 +262,7 @@ class InitTests: XCTestCase {
             try localFileSystem.removeFileTree(packageRoot)
             try localFileSystem.createDirectory(packageRoot)
 
-            let packageTemplate = InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library))
+            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library))
             let initPackage = try InitPackage(
                 name: "Foo",
                 destinationPath: packageRoot,
