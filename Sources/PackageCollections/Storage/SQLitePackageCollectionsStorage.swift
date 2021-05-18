@@ -760,7 +760,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
-        DispatchQueue.sharedConcurrent.async {
+        DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext, execute: {
             self.targetTrieReady.memoize {
                 do {
                     // Use FTS to build the trie
@@ -794,7 +794,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     return false
                 }
             }
-        }
+        })
     }
 
     // for testing
