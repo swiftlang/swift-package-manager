@@ -4403,9 +4403,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/B")
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B")
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -4660,9 +4660,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A3"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -4810,7 +4810,7 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map { $0.destinationPath }.sorted(), [
-            AbsolutePath("/tmp/ws/.build/artifacts/A"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
         ])
         XCTAssertEqual(
             downloads.map { $0.1 }.sorted(),
@@ -4836,7 +4836,7 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip", "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map { $0.destinationPath }.sorted(), [
-            AbsolutePath("/tmp/ws/.build/artifacts/A"), AbsolutePath("/tmp/ws/.build/artifacts/A"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"), AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
         ])
         XCTAssertEqual(
             downloads.map { $0.1 }.sorted(),
@@ -4874,7 +4874,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
-            XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
+            XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"))
             completion(.failure(DummyError()))
         })
 
@@ -5199,9 +5199,9 @@ final class WorkspaceTests: XCTestCase {
                 ).map{ $0.hexadecimalRepresentation }.sorted()
             )
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
