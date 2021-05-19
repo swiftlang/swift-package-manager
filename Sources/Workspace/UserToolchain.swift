@@ -186,6 +186,16 @@ public final class UserToolchain: Toolchain {
       #endif
     }
 
+    /// Returns the path to lldb.
+    public func getLLDB() throws -> AbsolutePath {
+        // Look for LLDB next to the compiler first.
+        if let lldbPath = try? UserToolchain.getTool("lldb", binDir: swiftCompiler.parentDirectory) {
+            return lldbPath
+        }
+        // If that fails, fall back to xcrun, PATH, etc.
+        return try UserToolchain.findTool("lldb", envSearchPaths: envSearchPaths)
+    }
+
     /// Returns the path to llvm-cov tool.
     public func getLLVMCov() throws -> AbsolutePath {
         return try UserToolchain.getTool("llvm-cov", binDir: destination.binDir)
