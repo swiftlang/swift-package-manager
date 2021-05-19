@@ -549,7 +549,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     internal static func mergedPackageMetadata(package: Model.Package,
                                                basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
         // This dictionary contains recent releases and might not contain everything that's in package.versions.
-        let basicVersionMetadata = basicMetadata.map { Dictionary(uniqueKeysWithValues: $0.versions.map { ($0.version, $0) }) } ?? [:]
+        let basicVersionMetadata = basicMetadata.map { Dictionary($0.versions.map { ($0.version, $0) }, uniquingKeysWith: { first, _ in first }) } ?? [:]
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             let versionMetadata = basicVersionMetadata[packageVersion.version]
             return .init(version: packageVersion.version,

@@ -10,6 +10,7 @@
 
 import TSCBasic
 
+import Basics
 import PackageCollectionsModel
 import PackageModel
 
@@ -89,7 +90,7 @@ extension PackageCollectionModel.V1 {
 
             var nonSemanticVersions = [String]()
             let semanticVersions: [TSCUtility.Version] = package.versions.compactMap {
-                let semver = TSCUtility.Version(string: $0.version)
+                let semver = TSCUtility.Version(tag: $0.version)
                 if semver == nil {
                     nonSemanticVersions.append($0.version)
                 }
