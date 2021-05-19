@@ -107,7 +107,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
 
-        let stateFile = workspace.createWorkspace().state.path
+        let stateFile = workspace.getOrCreateWorkspace().state.path
 
         // Remove state file and check we can get the state back automatically.
         try fs.removeFileTree(stateFile)
@@ -116,7 +116,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(stateFile))
 
         // Remove state file and check we get back to a clean state.
-        try fs.removeFileTree(workspace.createWorkspace().state.path)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().state.path)
         workspace.closeWorkspace()
         workspace.checkManagedDependencies { result in
             result.checkEmpty()
@@ -1697,7 +1697,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Drop a build artifact in data directory.
-        let ws = workspace.createWorkspace()
+        let ws = workspace.getOrCreateWorkspace()
         let buildArtifact = ws.dataPath.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
@@ -2041,7 +2041,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try fs.removeFileTree(workspace.createWorkspace().checkoutsPath)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().checkoutsPath)
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2211,7 +2211,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2302,7 +2302,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
-        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2348,7 +2348,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [MockDependency] = [
             .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
-        let ws = workspace.createWorkspace()
+        let ws = workspace.getOrCreateWorkspace()
 
         // Load the graph and edit foo.
         workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
@@ -3314,7 +3314,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .local)
         }
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
         }
 
@@ -3328,7 +3328,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .local)
         }
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
         }
     }
@@ -3584,7 +3584,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
         }
 
@@ -3608,7 +3608,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
         }
     }
@@ -3675,7 +3675,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Change pin of foo to something else.
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             let pinsStore = try ws.pinsStore.load()
             let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity.description == "foo" })!
 
@@ -4059,7 +4059,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -4213,7 +4213,7 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        let ws = workspace.createWorkspace()
+        let ws = workspace.getOrCreateWorkspace()
 
         // Checks the valid case.
         do {
@@ -4703,6 +4703,145 @@ final class WorkspaceTests: XCTestCase {
                          path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
             )
         }
+    }
+
+    func testArtifactDownloadTwice() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeArrayStore<(Foundation.URL, AbsolutePath)>()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "a1.zip":
+                    contents = [0xA1]
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                downloads.append((request.url, destination))
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a1.zip":
+                    name = "A1.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                let path = destinationPath.appending(component: name)
+                if fs.exists(path) {
+                    throw StringError("\(path) already exists")
+                }
+                try fs.createDirectory(path, recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .git(name: "A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0xA1]).hexadecimalRepresentation,
+            ])
+        }
+
+        XCTAssertEqual(downloads.map { $0.0.absoluteString }.sorted(), [
+            "https://a.com/a1.zip",
+        ])
+        XCTAssertEqual(archiver.extractions.map { $0.destinationPath }.sorted(), [
+            AbsolutePath("/tmp/ws/.build/artifacts/A"),
+        ])
+        XCTAssertEqual(
+            downloads.map { $0.1 }.sorted(),
+            archiver.extractions.map { $0.archivePath }.sorted()
+        )
+
+        // reset
+
+        try workspace.resetState()
+
+        // do it again
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
+            ])
+        }
+
+        XCTAssertEqual(downloads.map { $0.0.absoluteString }.sorted(), [
+            "https://a.com/a1.zip", "https://a.com/a1.zip",
+        ])
+        XCTAssertEqual(archiver.extractions.map { $0.destinationPath }.sorted(), [
+            AbsolutePath("/tmp/ws/.build/artifacts/A"), AbsolutePath("/tmp/ws/.build/artifacts/A"),
+        ])
+        XCTAssertEqual(
+            downloads.map { $0.1 }.sorted(),
+            archiver.extractions.map { $0.archivePath }.sorted()
+        )        
     }
 
     func testArtifactDownloaderOrArchiverError() throws {

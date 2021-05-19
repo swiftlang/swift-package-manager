@@ -514,13 +514,18 @@ extension Workspace {
         let removed = diagnostics.wrap {
             try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
             // Reset state.
-            try state.reset()
+            try self.resetState()
         }
 
         guard removed else { return }
         repositoryManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(dataPath)
+    }
+
+    // FIXME: @testable internal
+    public func resetState() throws {
+        try self.state.reset()
     }
 
     /// Cancel the active dependency resolution operation.
@@ -1661,6 +1666,10 @@ extension Workspace {
             let parentDirectory =  self.artifactsPath.appending(component: artifact.packageRef.name)
 
             do {
+                // remove if already exists, otherwise extraction may fail
+                if fileSystem.exists(parentDirectory) {
+                    try fileSystem.removeFileTree(parentDirectory)
+                }
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
             } catch {
                 tempDiagnostics.emit(error)
@@ -2324,7 +2333,7 @@ extension Workspace {
 
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !state.dependencies.isEmpty && !state.stateFileExists() {
-            try? state.reset()
+            try? self.state.reset()
         }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
