@@ -514,13 +514,18 @@ extension Workspace {
         let removed = diagnostics.wrap {
             try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
             // Reset state.
-            try state.reset()
+            try self.resetState()
         }
 
         guard removed else { return }
         repositoryManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(dataPath)
+    }
+
+    // FIXME: @testable internal
+    public func resetState() throws {
+        try self.state.reset()
     }
 
     /// Cancel the active dependency resolution operation.
@@ -1661,9 +1666,14 @@ extension Workspace {
             defer { group.leave() }
 
             let parentDirectory =  self.artifactsPath.appending(component: artifact.packageRef.name)
+            let tempExtractionDirectory = self.artifactsPath.appending(components: "extract", artifact.targetName)
 
             do {
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
+                if fileSystem.exists(tempExtractionDirectory) {
+                    try fileSystem.removeFileTree(tempExtractionDirectory)
+                }
+                try fileSystem.createDirectory(tempExtractionDirectory, recursive: true)
             } catch {
                 tempDiagnostics.emit(error)
                 continue
@@ -1697,17 +1707,31 @@ extension Workspace {
                         }
 
                         group.enter()
-                        self.archiver.extract(from: archivePath, to: parentDirectory, completion: { extractResult in
+                        self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
                             defer { group.leave() }
 
                             switch extractResult {
                             case .success:
-                                let extractedFiles = tempDiagnostics.wrap { try self.fileSystem.getDirectoryContents(parentDirectory)
-                                    .map{ parentDirectory.appending(component: $0) }
-                                    .filter{ $0 != archivePath }
+                                var artifactPath: AbsolutePath? = nil
+                                tempDiagnostics.wrap {
+                                    // copy from temp location to actual location
+                                    let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                    for file in content {
+                                        let source = tempExtractionDirectory.appending(component: file)
+                                        let destination = parentDirectory.appending(component: file)
+                                        if self.fileSystem.exists(destination) {
+                                            try self.fileSystem.removeFileTree(destination)
+                                        }
+                                        try self.fileSystem.copy(from: source, to: destination)
+                                        if destination.basenameWithoutExt == artifact.targetName {
+                                            artifactPath = destination
+                                        }
+                                    }
+                                    // remove temp location
+                                    try self.fileSystem.removeFileTree(tempExtractionDirectory)
                                 }
 
-                                guard let artifactPath = extractedFiles?.first(where: { $0.basenameWithoutExt == artifact.targetName }) else {
+                                guard let mainArtifactPath = artifactPath else {
                                     return tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
                                 }
 
@@ -1717,7 +1741,7 @@ extension Workspace {
                                         targetName: artifact.targetName,
                                         url: artifact.url.absoluteString,
                                         checksum: artifact.checksum,
-                                        path: artifactPath
+                                        path: mainArtifactPath
                                     )
                                 )
                             case .failure(let error):
@@ -2326,7 +2350,7 @@ extension Workspace {
 
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !state.dependencies.isEmpty && !state.stateFileExists() {
-            try? state.reset()
+            try? self.state.reset()
         }
 
         // Make a copy of dependencies as we might mutate them in the for loop.
