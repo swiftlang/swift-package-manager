@@ -466,9 +466,14 @@ extension SwiftPackageTool {
         @Option(help: "text | dot | json | flatlist")
         var format: ShowDependenciesMode = .text
 
+        @Option(name: [.long, .customShort("o") ], 
+                help: "The absolute or relative path to output the resolved dependency graph.")
+        var outputPath: AbsolutePath?
+
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format)
+            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream.stream
+            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
     }
     

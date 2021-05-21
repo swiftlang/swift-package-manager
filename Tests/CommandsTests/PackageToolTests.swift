@@ -438,6 +438,59 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testShowDependencies_redirectJsonOutput() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending(components: "root")
+            let dep = tmpPath.appending(components: "dep")
+
+            // Create root package.
+            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
+            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.2
+                import PackageDescription
+                let package = Package(
+                name: "root",
+                dependencies: [.package(url: "../dep", from: "1.0.0")],
+                targets: [.target(name: "root", dependencies: ["dep"])]
+                )
+                """
+            }
+
+            // Create dependency.
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
+            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.2
+                import PackageDescription
+                let package = Package(
+                name: "dep",
+                products: [.library(name: "dep", targets: ["dep"])],
+                targets: [.target(name: "dep")]
+                )
+                """
+            }
+            do {
+                let depGit = GitRepository(path: dep)
+                try depGit.create()
+                try depGit.stageEverything()
+                try depGit.commit()
+                try depGit.tag(name: "1.0.0")
+            }
+
+            let resultPath = root.appending(component: "result.json")
+            _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
+            
+            XCTAssert(fs.exists(resultPath))
+            let jsonOutput = try fs.readFileContents(resultPath)
+            let json = try JSON(bytes: jsonOutput)
+
+            XCTAssertEqual(json["name"]?.string, "root")
+            XCTAssertEqual(json["dependencies"]?[0]?["name"]?.string, "dep")
+        }
+    }
+
     func testInitEmpty() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
