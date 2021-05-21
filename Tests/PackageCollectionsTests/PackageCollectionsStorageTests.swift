@@ -124,16 +124,17 @@ class PackageCollectionsStorageTests: XCTestCase {
             }
 
             try storage.close()
-            storage.resetCache()
 
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(path)")
             try storage.fileSystem.writeFileContents(storagePath, bytes: ByteString("blah".utf8))
 
-            XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
+            let storage2 = SQLitePackageCollectionsStorage(path: path)
+            defer { XCTAssertNoThrow(try storage2.close()) }
+            XCTAssertThrowsError(try tsc_await { callback in storage2.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
 
-            XCTAssertThrowsError(try tsc_await { callback in storage.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
+            XCTAssertThrowsError(try tsc_await { callback in storage2.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
         }

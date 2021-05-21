@@ -760,9 +760,17 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
-        DispatchQueue.sharedConcurrent.async {
+        DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext, execute: {
             self.targetTrieReady.memoize {
                 do {
+                    // since running on low priority thread make sure the database has not already gone away
+                    switch (try self.withStateLock { self.state }) {
+                    case .disconnected, .disconnecting:
+                        callback(.success(()))
+                        return false
+                    default:
+                        break
+                    }
                     // Use FTS to build the trie
                     let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
                     try self.executeStatement(query) { statement in
@@ -794,7 +802,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     return false
                 }
             }
-        }
+        })
     }
 
     // for testing
@@ -833,6 +841,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         let db = try self.withStateLock { () -> SQLite in
             let db: SQLite
             switch (self.location, self.state) {
+            case (_, .disconnecting), (_, .disconnected):
+                preconditionFailure("DB id disconnecting or disconnected")
             case (.path(let path), .connected(let database)):
                 if self.fileSystem.exists(path) {
                     db = database
