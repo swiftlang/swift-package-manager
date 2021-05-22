@@ -290,7 +290,16 @@ extension SwiftPackageTool {
     
     struct APIDiff: SwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "experimental-api-diff")
+            commandName: "experimental-api-diff",
+            abstract: "Diagnose API-breaking changes to Swift modules in a package",
+            discussion: """
+            The experimental-api-diff command can be used to compare the Swift API of \
+            a package to a baseline revision, diagnosing any breaking changes which have \
+            been introduced. By default, it compares every Swift module from the baseline \
+            revision which is part of a library product. If this behavior is undesirable, \
+            the `--product` and `--target` options can be used to restrict the scope of \
+            the comparison.
+            """)
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
@@ -298,10 +307,10 @@ extension SwiftPackageTool {
         @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
 
-        @Option(name: .customLong("product"), help: "A list of products to include in the diff")
+        @Option(name: .customLong("product"), help: "One or more products to include in the diff")
         var products: [String] = []
 
-        @Option(name: .customLong("target"), help: "A list of targets to include in the diff")
+        @Option(name: .customLong("target"), help: "One or more targets to include in the diff")
         var targets: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {
