@@ -61,12 +61,23 @@ struct APIDigesterBaselineDumper {
     }
 
     /// Emit the API baseline files and return the path to their directory.
-    func emitAPIBaseline() throws -> AbsolutePath {
+    func emitAPIBaseline(for modulesToDiff: Set<String>) throws -> AbsolutePath {
+        var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
         let baselineDir = apiDiffDir.appending(component: baselineTreeish)
+        let baselinePath: (String)->AbsolutePath = { module in
+            baselineDir.appending(component: module + ".json")
+        }
 
-        // We're done if the baseline already exists on disk.
-        if localFileSystem.exists(baselineDir) {
+        for module in modulesToDiff {
+            if localFileSystem.exists(baselinePath(module)) {
+                // If this baseline already exists, we don't need to regenerate it.
+                modulesToDiff.remove(module)
+            }
+        }
+
+        guard !modulesToDiff.isEmpty else {
+            // If none of the baselines need to be regenerated, return.
             return baselineDir
         }
 
@@ -97,6 +108,9 @@ struct APIDigesterBaselineDumper {
         let graph = try workspace.loadPackageGraph(
             rootPath: baselinePackageRoot, diagnostics: diags)
 
+        // Don't emit a baseline for a module that didn't exist yet in this revision.
+        modulesToDiff.formIntersection(graph.apiDigesterModules)
+
         // Abort if we weren't able to load the package graph.
         if diags.hasErrors {
             throw Diagnostics.fatalError
@@ -119,10 +133,9 @@ struct APIDigesterBaselineDumper {
         try buildOp.build()
 
         // Dump the SDK JSON.
-        for module in graph.apiDigesterModules {
-            let moduleBaselinePath = baselineDir.appending(component: module + ".json")
+        for module in modulesToDiff {
             try apiDigesterTool.emitAPIBaseline(
-                to: moduleBaselinePath,
+                to: baselinePath(module),
                 for: module,
                 buildPlan: buildOp.buildPlan!,
                 diagnosticsEngine: diags

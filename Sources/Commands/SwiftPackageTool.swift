@@ -298,14 +298,24 @@ extension SwiftPackageTool {
         @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
 
+        @Option(name: .customLong("product"), help: "A list of products to include in the diff")
+        var products: [String] = []
+
+        @Option(name: .customLong("target"), help: "A list of targets to include in the diff")
+        var targets: [String] = []
+
         func run(_ swiftTool: SwiftTool) throws {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
 
-            // Build the current package.
-            //
             // We turn build manifest caching off because we need the build plan.
             let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+
+            let packageGraph = try buildOp.getPackageGraph()
+            let modulesToDiff = try determineModulesToDiff(packageGraph: packageGraph,
+                                                           diagnostics: swiftTool.diagnostics)
+
+            // Build the current package.
             try buildOp.build()
 
             // Dump JSON for the baseline package.
@@ -319,10 +329,10 @@ extension SwiftPackageTool {
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineDir = try baselineDumper.emitAPIBaseline()
+            let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff)
 
             var succeeded = true
-            for module in try buildOp.getPackageGraph().apiDigesterModules {
+            for module in modulesToDiff {
                 let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
                 guard localFileSystem.exists(moduleBaselinePath) else {
                     print("\nSkipping \(module) because it does not exist in the baseline")
@@ -339,6 +349,50 @@ extension SwiftPackageTool {
             }
 
             guard succeeded else { throw ExitCode.failure }
+        }
+
+        private func determineModulesToDiff(packageGraph: PackageGraph, diagnostics: DiagnosticsEngine) throws -> Set<String> {
+            var modulesToDiff: Set<String> = []
+            if products.isEmpty && targets.isEmpty {
+                modulesToDiff.formUnion(packageGraph.apiDigesterModules)
+            } else {
+                for productName in products {
+                    guard let product = packageGraph
+                            .rootPackages
+                            .flatMap(\.products)
+                            .first(where: { $0.name == productName }) else {
+                        diagnostics.emit(.error("no such product '\(productName)'"))
+                        continue
+                    }
+                    guard product.type.isLibrary else {
+                        diagnostics.emit(.error("'\(productName)' is not a library product"))
+                        continue
+                    }
+                    modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
+                }
+                for targetName in targets {
+                    guard let target = packageGraph
+                            .rootPackages
+                            .flatMap(\.targets)
+                            .first(where: { $0.name == targetName }) else {
+                        diagnostics.emit(.error("no such target '\(targetName)'"))
+                        continue
+                    }
+                    guard target.type == .library else {
+                        diagnostics.emit(.error("'\(targetName)' is not a library target"))
+                        continue
+                    }
+                    guard target.underlyingTarget is SwiftTarget else {
+                        diagnostics.emit(.error("'\(targetName)' is not a Swift language target"))
+                        continue
+                    }
+                    modulesToDiff.insert(target.c99name)
+                }
+                guard !diagnostics.hasErrors else {
+                    throw ExitCode.failure
+                }
+            }
+            return modulesToDiff
         }
 
         private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,

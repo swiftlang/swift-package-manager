@@ -124,6 +124,84 @@ final class APIDiffTests: XCTestCase {
         #endif
     }
 
+    func testFilters() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
+                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift")) {
+                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
+                $0 <<< "public enum Baz {case a, b, c }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
+                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+            }
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--product", "One", "--target", "Bar"],
+                                             packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+
+                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
+                XCTAssertTrue(output.contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
+                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
+
+                XCTAssertFalse(output.contains("1 breaking change detected in Baz"))
+                XCTAssertFalse(output.contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
+                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
+            }
+
+            // Diff a target which didn't have a baseline generated as part of the first invocation
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--target", "Baz"],
+                                             packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+
+                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
+                XCTAssertTrue(output.contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+
+                XCTAssertFalse(output.contains("1 breaking change detected in Foo"))
+                XCTAssertFalse(output.contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertFalse(output.contains("1 breaking change detected in Bar"))
+                XCTAssertFalse(output.contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
+                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
+            }
+
+            // Test diagnostics
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--target", "NotATarget",
+                                              "--product", "NotAProduct", "--product", "Exec", "--target", "Exec"],
+                                             packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("error: no such product 'NotAProduct'"))
+                XCTAssertTrue(stderr.contains("error: no such target 'NotATarget'"))
+                XCTAssertTrue(stderr.contains("'Exec' is not a library product"))
+                XCTAssertTrue(stderr.contains("'Exec' is not a library target"))
+            }
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
+
     func testAPIDiffOfModuleWithCDependency() throws {
         #if os(macOS)
         guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
@@ -149,6 +227,16 @@ final class APIDiffTests: XCTestCase {
                 }
                 XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
                 XCTAssertTrue(output.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
+            }
+
+            // Report an error if we explicitly ask to diff a C-family target
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--target", "Foo"], packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+
+                XCTAssertTrue(stderr.contains("error: 'Foo' is not a Swift language target"))
             }
         }
         #else
