@@ -8,10 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Dispatch
+
 import TSCBasic
 import TSCUtility
 
 import SPMBuildCore
+import Basics
 import Build
 import PackageGraph
 import PackageModel
@@ -133,13 +136,29 @@ struct APIDigesterBaselineDumper {
         try buildOp.build()
 
         // Dump the SDK JSON.
+        try localFileSystem.createDirectory(baselineDir, recursive: true)
+        let group = DispatchGroup()
+        let errors = ThreadSafeArrayStore<Swift.Error>()
         for module in modulesToDiff {
-            try apiDigesterTool.emitAPIBaseline(
-                to: baselinePath(module),
-                for: module,
-                buildPlan: buildOp.buildPlan!,
-                diagnosticsEngine: diags
-            )
+            DispatchQueue.sharedConcurrent.async(group: group) {
+                do {
+                    try apiDigesterTool.emitAPIBaseline(
+                        to: baselinePath(module),
+                        for: module,
+                        buildPlan: buildOp.buildPlan!
+                    )
+                } catch {
+                    errors.append(error)
+                }
+            }
+        }
+        group.wait()
+
+        for error in errors.get() {
+            diags.emit(error)
+        }
+        if diags.hasErrors {
+            throw Diagnostics.fatalError
         }
 
         return baselineDir
@@ -160,19 +179,16 @@ public struct SwiftAPIDigester {
     public func emitAPIBaseline(
         to outputPath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan,
-        diagnosticsEngine: DiagnosticsEngine
+        buildPlan: BuildPlan
     ) throws {
         var args = ["-dump-sdk"]
         args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
         args += ["-module", module, "-o", outputPath.pathString]
-        try localFileSystem.createDirectory(outputPath.parentDirectory, recursive: true)
 
         try runTool(args)
 
         if !localFileSystem.exists(outputPath) {
-            diagnosticsEngine.emit(error: "failed to generate baseline for \(module)")
-            throw Diagnostics.fatalError
+            throw Error.failedToGenerateBaseline(module)
         }
     }
 
@@ -215,6 +231,19 @@ public struct SwiftAPIDigester {
         )
         try process.launch()
         try process.waitUntilExit()
+    }
+}
+
+extension SwiftAPIDigester {
+    public enum Error: Swift.Error, DiagnosticData {
+        case failedToGenerateBaseline(String)
+
+        public var description: String {
+            switch self {
+            case .failedToGenerateBaseline(let module):
+                return "failed to generate baseline for \(module)"
+            }
+        }
     }
 }
 
