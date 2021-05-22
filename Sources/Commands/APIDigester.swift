@@ -180,9 +180,8 @@ public struct SwiftAPIDigester {
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan,
-        diagnosticsEngine: DiagnosticsEngine
-    ) throws -> ComparisonResult {
+        buildPlan: BuildPlan
+    ) -> ComparisonResult? {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
@@ -190,19 +189,19 @@ public struct SwiftAPIDigester {
         ]
         args.append(contentsOf: buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
 
-        return try withTemporaryFile(deleteOnClose: false) { file in
+        return try? withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
             try runTool(args)
             let contents = try localFileSystem.readFileContents(file.path)
             guard contents.count > 0 else {
-                diagnosticsEngine.emit(error: "failed to read API digester output for \(module)")
-                throw Diagnostics.fatalError
+                return nil
             }
             let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)
             let apiDigesterCategory = "api-digester-breaking-change"
             let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
             let otherDiagnostics = serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory }
-            return ComparisonResult(apiBreakingChanges: apiBreakingChanges,
+            return ComparisonResult(moduleName: module,
+                                    apiBreakingChanges: apiBreakingChanges,
                                     otherDiagnostics: otherDiagnostics)
         }
     }
@@ -211,7 +210,7 @@ public struct SwiftAPIDigester {
         let arguments = [tool.pathString] + args
         let process = Process(
             arguments: arguments,
-            outputRedirection: .none,
+            outputRedirection: .collect,
             verbose: verbosity != .concise
         )
         try process.launch()
@@ -222,6 +221,8 @@ public struct SwiftAPIDigester {
 extension SwiftAPIDigester {
     /// The result of comparing a module's API to a provided baseline.
     public struct ComparisonResult {
+        /// The name of the module being diffed.
+        var moduleName: String
         /// Breaking changes made to the API since the baseline was generated.
         var apiBreakingChanges: [SerializedDiagnostics.Diagnostic]
         /// Other diagnostics emitted while comparing the current API to the baseline.

@@ -340,24 +340,44 @@ extension SwiftPackageTool {
             )
             let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff)
 
-            var succeeded = true
+            let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
+            let group = DispatchGroup()
+            var skippedModules: Set<String> = []
+
             for module in modulesToDiff {
                 let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
                 guard localFileSystem.exists(moduleBaselinePath) else {
                     print("\nSkipping \(module) because it does not exist in the baseline")
+                    skippedModules.insert(module)
                     continue
                 }
-                let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
-                    at: moduleBaselinePath,
-                    for: module,
-                    buildPlan: buildOp.buildPlan!,
-                    diagnosticsEngine: swiftTool.diagnostics
-                )
-                printComparisonResult(comparisonResult, moduleName: module, diagnosticsEngine: swiftTool.diagnostics)
-                succeeded = succeeded && comparisonResult.hasNoAPIBreakingChanges
+                DispatchQueue.sharedConcurrent.async(group: group) {
+                    if let comparisonResult = apiDigesterTool.compareAPIToBaseline(
+                        at: moduleBaselinePath,
+                        for: module,
+                        buildPlan: buildOp.buildPlan!
+                    ) {
+                        results.append(comparisonResult)
+                    }
+                }
             }
 
-            guard succeeded else { throw ExitCode.failure }
+            group.wait()
+
+            let failedModules = modulesToDiff
+                .subtracting(skippedModules)
+                .subtracting(results.map(\.moduleName))
+            for failedModule in failedModules {
+                swiftTool.diagnostics.emit(.error("failed to read API digester output for \(failedModule)"))
+            }
+
+            for result in results.get() {
+                printComparisonResult(result, diagnosticsEngine: swiftTool.diagnostics)
+            }
+
+            guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
+                throw ExitCode.failure
+            }
         }
 
         private func determineModulesToDiff(packageGraph: PackageGraph, diagnostics: DiagnosticsEngine) throws -> Set<String> {
@@ -405,7 +425,6 @@ extension SwiftPackageTool {
         }
 
         private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,
-                                           moduleName: String,
                                            diagnosticsEngine: DiagnosticsEngine) {
             for diagnostic in comparisonResult.otherDiagnostics {
                 switch diagnostic.level {
@@ -422,6 +441,7 @@ extension SwiftPackageTool {
                 }
             }
 
+            let moduleName = comparisonResult.moduleName
             if comparisonResult.apiBreakingChanges.isEmpty {
                 print("\nNo breaking changes detected in \(moduleName)")
             } else {
