@@ -805,7 +805,7 @@ def get_swiftpm_flags(args):
 
     build_target = get_build_target(args)
     cross_compile_hosts = args.cross_compile_hosts
-    if "macosx-arm64" in cross_compile_hosts:
+    if cross_compile_hosts is not None:
         build_flags += ["--arch", "x86_64", "--arch", "arm64"]
     elif cross_compile_hosts:
         error("cannot cross-compile for %s" % cross_compile_hosts)
