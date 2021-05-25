@@ -142,7 +142,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
             try localFileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
         } catch {
-            diagnostics.emit(warning: "unable to link \(oldBuildPath): \(error)")
+            diagnostics.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
         }
     }
 
