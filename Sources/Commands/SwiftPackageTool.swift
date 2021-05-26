@@ -307,10 +307,12 @@ extension SwiftPackageTool {
         @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
 
-        @Option(name: .customLong("product"), help: "One or more products to include in the diff")
+        @Option(parsing: .upToNextOption,
+                help: "One or more products to include in the API comparison. If present, only the specified products (and any targets specified using `--targets`) will be compared.")
         var products: [String] = []
 
-        @Option(name: .customLong("target"), help: "One or more targets to include in the diff")
+        @Option(parsing: .upToNextOption,
+                help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
         var targets: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {

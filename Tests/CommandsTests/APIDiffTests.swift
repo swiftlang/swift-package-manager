@@ -143,7 +143,7 @@ final class APIDiffTests: XCTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
                 $0 <<< "public class Qux<T, U> { private let x = 1 }"
             }
-            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--product", "One", "--target", "Bar"],
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--products", "One", "--targets", "Bar"],
                                              packagePath: packageRoot)) { error in
                 guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
                     XCTFail("Unexpected error")
@@ -163,7 +163,7 @@ final class APIDiffTests: XCTestCase {
             }
 
             // Diff a target which didn't have a baseline generated as part of the first invocation
-            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--target", "Baz"],
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--targets", "Baz"],
                                              packagePath: packageRoot)) { error in
                 guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
                     XCTFail("Unexpected error")
@@ -183,8 +183,8 @@ final class APIDiffTests: XCTestCase {
             }
 
             // Test diagnostics
-            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--target", "NotATarget",
-                                              "--product", "NotAProduct", "--product", "Exec", "--target", "Exec"],
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--targets", "NotATarget", "Exec",
+                                              "--products", "NotAProduct", "Exec"],
                                              packagePath: packageRoot)) { error in
                 guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
                     XCTFail("Unexpected error")
@@ -230,7 +230,7 @@ final class APIDiffTests: XCTestCase {
             }
 
             // Report an error if we explicitly ask to diff a C-family target
-            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--target", "Foo"], packagePath: packageRoot)) { error in
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--targets", "Foo"], packagePath: packageRoot)) { error in
                 guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
                     XCTFail("Unexpected error")
                     return
