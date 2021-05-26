@@ -45,27 +45,15 @@ public final class InitPackage {
         }
     }
     
-    /// Represent the structure of a package based on a template.json 
-    ///    {
-    ///      "directories": {
-    ///        "sources": "<path>" // location for sources
-    ///        "tests": "<path>" // location for tests, can be null for no tests
-    ///        "nestedModule": true/false // add a subdirectory for a module
-    ///      }
-    ///      "type": "executable" | "library | ..." // the default package type
-    ///      "dependencies": [...] // array of default depedencies to include in Package.swift
-    ///    }
     public struct PackageTemplate {
         let sourcesDirectory: RelativePath
         let testsDirectory: RelativePath?
         let createSubDirectoryForModule: Bool
-        let dependencies: [(url: String, requirement: PackageDependencyDescription.Requirement)]
         let packageType: PackageType
         
         public init(sourcesDirectory: RelativePath,
                     testsDirectory: RelativePath?,
                     createSubDirectoryForModule: Bool,
-                    dependencies: [(url: String, requirement: PackageDependencyDescription.Requirement)],
                     packageType: InitPackage.PackageType) {
             self.sourcesDirectory = sourcesDirectory
             self.testsDirectory = testsDirectory
@@ -149,32 +137,6 @@ public final class InitPackage {
         progressReporter?("Creating \(path.relative(to: destinationPath))")
         try localFileSystem.writeFileContents(path, body: body)
     }
-    
-    private func addDependencies(dependency: (url: String, requirement: PackageDependencyDescription.Requirement)) -> String {
-        
-        let url = dependency.url
-        let requirement = dependency.requirement
-        
-        let constraint: String
-        
-        switch requirement.self {
-        case .range(let version):
-            constraint = "from: \"\(version.lowerBound)\""
-        case .exact:
-            constraint = ".exact(\"\(requirement)\")"
-        case .revision(let revision):
-            constraint = "revision: \"\(revision)\""
-        case .branch(let branch):
-            constraint = "branch: \"\(branch)\""
-        }
-
-        return "\t.package(url: \"\(url)\", \(constraint))"
-    }
-    
-    private func getDependecyNameForTarget() -> String {
-        
-        return " "
-    }
 
     private func writeManifestFile() throws {
         let manifest = destinationPath.appending(component: Manifest.filename)
@@ -236,12 +198,7 @@ public final class InitPackage {
             pkgParams.append("""
                     dependencies: [
                         // Dependencies declare other packages that this package depends on.
-                        // .package(url: /* package url */, from: "1.0.0")
-                """)
-            
-            packageTemplate.dependencies.forEach { pkgParams.append(addDependencies(dependency: $0)) }
-            
-            pkgParams.append("""
+                        // .package(url: /* package url */, from: "1.0.0"),
                     ]
                 """)
 
@@ -263,20 +220,23 @@ public final class InitPackage {
                             .target(
                     """
                 }
+                
+                let targetPath = packageTemplate.createSubDirectoryForModule ? packageTemplate.sourcesDirectory.appending(component: pkgname) : packageTemplate.sourcesDirectory
                 param += """
 
                             name: "\(pkgname)",
                             dependencies: [],
-                            path: "\(packageTemplate.sourcesDirectory)"),
+                            path: "\(targetPath)"),
                 """
                 
                 if let testsDir = packageTemplate.testsDirectory {
+                    let testPath = packageTemplate.createSubDirectoryForModule ? testsDir.appending(component: "\(pkgname)Tests") : testsDir
                     param += """
                     
                             .testTarget(
                                 name: "\(pkgname)Tests",
                                 dependencies: ["\(pkgname)"],
-                                path: "\(testsDir)"),
+                                path: "\(testPath)"),
                         ]
                     """
                 } else {
@@ -304,7 +264,7 @@ public final class InitPackage {
     
     private func writeREADMEFile() throws {
         let readme = destinationPath.appending(component: "README.md")
-        guard localFileSystem.exists(readme) == false else {
+        guard !localFileSystem.exists(readme) else {
             return
         }
 

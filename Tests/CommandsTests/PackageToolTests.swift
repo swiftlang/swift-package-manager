@@ -12,7 +12,7 @@ import XCTest
 import Foundation
 
 import TSCBasic
-import Commands
+@testable import Commands
 import Xcodeproj
 import PackageModel
 import SourceControl
@@ -507,13 +507,12 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitEmpty() throws {
+        try XCTSkipIf(useNewBehaviour == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            try fs.makeTemplate(path: tmpPath, type: "empty")
-            
-            _ = try execute(["init", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
+            _ = try execute(["init", "--type", "empty"], packagePath: path)
 
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
@@ -522,13 +521,12 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitExecutable() throws {
+        try XCTSkipIf(useNewBehaviour == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            try fs.makeTemplate(path: tmpPath, type: "executable")
-            
-            _ = try execute(["init", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
+            _ = try execute(["init", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
@@ -544,13 +542,12 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitLibrary() throws {
+        try XCTSkipIf(useNewBehaviour == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            try fs.makeTemplate(path: tmpPath, type: "library")
-            
-            _ = try execute(["init", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
+            _ = try execute(["init"], packagePath: path)
 
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
@@ -561,13 +558,12 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testInitCustomNameExecutable() throws {
+        try XCTSkipIf(useNewBehaviour == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
             try fs.createDirectory(path)
-            try fs.makeTemplate(path: tmpPath, type: "executable")
-            
-            _ = try execute(["init", "--name", "CustomName", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
+            _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
@@ -583,6 +579,7 @@ final class PackageToolTests: XCTestCase {
     }
     
     func testCreate() throws {
+        try XCTSkipIf(useNewBehaviour == .legacy)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "MyExe")
@@ -595,6 +592,7 @@ final class PackageToolTests: XCTestCase {
     }
     
     func testCreateLibrary() throws {
+        try XCTSkipIf(useNewBehaviour == .legacy)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "MyLib")
@@ -607,25 +605,11 @@ final class PackageToolTests: XCTestCase {
     }
     
     func testCreateNoNameArgument() throws {
+        try XCTSkipIf(useNewBehaviour == .legacy)
         fixture(name: "Miscellaneous") { prefix in
             let result = try SwiftPMProduct.SwiftPackage.executeProcess(["create"])
             let stderrOutput = try result.utf8stderrOutput()
             XCTAssert(stderrOutput.contains("error: Missing expected argument '<package-name>'"), #"actual: "\#(stderrOutput)""#)
-        }
-    }
-    
-    func testInitWithTemplate() throws {
-        try testWithTemporaryDirectory { tmpPath in
-            let fs = localFileSystem
-            let path = tmpPath.appending(component: "Foo")
-            try fs.createDirectory(path)
-            try fs.makeTemplate(path: tmpPath, type: "executable", sources: "./src", tests: "./tst")
-            
-            _ = try execute(["init", "--template", "oldTests", "--config-path", "\(tmpPath)"], packagePath: path)
-
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "src")), ["Foo"])
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "tst")), ["FooTests"])
         }
     }
 
