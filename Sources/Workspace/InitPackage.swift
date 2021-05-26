@@ -261,6 +261,7 @@ public final class InitPackage {
                 xcuserdata/
                 DerivedData/
                 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+                .netrc
 
                 """
         }
