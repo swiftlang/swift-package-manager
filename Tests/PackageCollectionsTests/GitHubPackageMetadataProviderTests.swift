@@ -265,8 +265,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             httpClient.configuration.retryStrategy = .none
             var configuration = GitHubPackageMetadataProvider.Configuration()
             configuration.cacheDir = tmpPath
-            var provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
-            provider.configuration.authTokens = { authTokens }
+            configuration.authTokens = { authTokens }
+            let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
             let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
