@@ -344,6 +344,7 @@ extension SwiftPackageTool {
 
             let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
             let group = DispatchGroup()
+            let semaphore = DispatchSemaphore(value: Int(buildOp.buildParameters.jobs))
             var skippedModules: Set<String> = []
 
             for module in modulesToDiff {
@@ -353,6 +354,7 @@ extension SwiftPackageTool {
                     skippedModules.insert(module)
                     continue
                 }
+                semaphore.wait()
                 DispatchQueue.sharedConcurrent.async(group: group) {
                     if let comparisonResult = apiDigesterTool.compareAPIToBaseline(
                         at: moduleBaselinePath,
@@ -361,6 +363,7 @@ extension SwiftPackageTool {
                     ) {
                         results.append(comparisonResult)
                     }
+                    semaphore.signal()
                 }
             }
 

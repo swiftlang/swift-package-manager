@@ -65,7 +65,7 @@ final class APIDiffTests: XCTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
                 $0 <<< "public class Qux<T, U> { private let x = 1 }"
             }
-            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3"], packagePath: packageRoot)) { error in
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "-j", "2"], packagePath: packageRoot)) { error in
                 guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
                     XCTFail("Unexpected error")
                     return

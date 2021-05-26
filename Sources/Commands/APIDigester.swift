@@ -138,8 +138,10 @@ struct APIDigesterBaselineDumper {
         // Dump the SDK JSON.
         try localFileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
+        let semaphore = DispatchSemaphore(value: Int(buildParameters.jobs))
         let errors = ThreadSafeArrayStore<Swift.Error>()
         for module in modulesToDiff {
+            semaphore.wait()
             DispatchQueue.sharedConcurrent.async(group: group) {
                 do {
                     try apiDigesterTool.emitAPIBaseline(
@@ -150,6 +152,7 @@ struct APIDigesterBaselineDumper {
                 } catch {
                     errors.append(error)
                 }
+                semaphore.signal()
             }
         }
         group.wait()
