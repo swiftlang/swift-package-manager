@@ -296,8 +296,9 @@ extension SwiftPackageTool {
             The experimental-api-diff command can be used to compare the Swift API of \
             a package to a baseline revision, diagnosing any breaking changes which have \
             been introduced. By default, it compares every Swift module from the baseline \
-            revision which is part of a library product. If this behavior is undesirable, \
-            the `--product` and `--target` options can be used to restrict the scope of \
+            revision which is part of a library product. For packages with many targets, this \
+            behavior may be undesirable as the comparison can be slow. \
+            The `--products` and `--targets` options may be used to restrict the scope of \
             the comparison.
             """)
 
