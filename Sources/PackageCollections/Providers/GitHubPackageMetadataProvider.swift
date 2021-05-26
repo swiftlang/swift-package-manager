@@ -23,7 +23,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
 
     public var name: String = "GitHub"
 
-    var configuration: Configuration
+    let configuration: Configuration
 
     private let httpClient: HTTPClient
     private let diagnosticsEngine: DiagnosticsEngine?
