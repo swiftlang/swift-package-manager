@@ -75,7 +75,7 @@ extension SwiftPackageTool {
             CompletionTool.self,
         ]
         
-        if useNewBehaviour == .new {
+        if InitPackage.createPackageMode == .new {
             subCommands.insert(Create.self, at: 6)
             subCommands.insert(AddTemplate.self, at: 7)
         }
@@ -277,6 +277,9 @@ extension SwiftPackageTool {
         @Argument(help: "URL to template (path to template works too)")
         var url: String
         
+        @Option(help: "Custom template name")
+        var name: String?
+
         func run(_ swiftTool: SwiftTool) throws {
             guard let configPath = try swiftTool.getConfigPath() else {
                 throw InternalError("Could not find config path")
@@ -296,8 +299,17 @@ extension SwiftPackageTool {
                 
                 try localFileSystem.copy(from: currentTemplateLocation, to: templateDirectory)
             } else {
-                let templatePath = configPath.appending(components: "templates", "new-package", String(url.split(separator: "/").last!))
+                let templatePath: AbsolutePath
                 let provider = GitRepositoryProvider()
+                
+                if let templateName = name {
+                    templatePath = configPath.appending(components: "templates", "new-package", templateName)
+                } else if let templateName = url.split(separator: "/").last {
+                    templatePath = configPath.appending(components: "templates", "new-package", String(templateName.replacingOccurrences(of: ".git", with: "")))
+                } else {
+                    throw InternalError("Could not determine template name")
+                }
+                
                 try provider.fetch(repository: RepositorySpecifier(url: url), to: templatePath, mirror: false)
             }
         }
@@ -1187,95 +1199,41 @@ fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.Packag
     stream.flush()
 }
 
-internal struct PackageTemplate {
-    struct Directories {
-        let sources: RelativePath
-        let tests: RelativePath?
-        let createSubDirectoryForModule: Bool
-    }
-    
-    enum PackageType: String {
-        case executable
-        case library
-        case systemModule = "system-module"
-        case empty
-        case manifest
-    }
-    
-    let directories: Directories
-    let type: PackageType
-}
-
-extension InitPackage.PackageTemplate {
-    internal init(template: PackageTemplate) throws {
-        
-        let packageType: InitPackage.PackageType
-        switch template.type {
-        case .executable:
-            packageType = .executable
-        case .library:
-            packageType = .library
-        case .systemModule:
-            packageType = .systemModule
-        case .empty:
-            packageType = .empty
-        case .manifest:
-            packageType = .manifest
-        }
-        
-        self.init(sourcesDirectory: template.directories.sources,
-                  testsDirectory: template.directories.tests,
-                  createSubDirectoryForModule: template.directories.createSubDirectoryForModule,
-                  packageType: packageType)
-    }
-}
-
-internal var useNewBehaviour: Mode {
-    get {
-        switch (ProcessEnv.vars["SWIFTPM_ENABLE_PACKAGE_CREATE"].map { $0.lowercased() }) {
-        case "true":
-            return .new
-        default:
-            return .legacy
+extension InitPackage {
+    public static var createPackageMode: Mode {
+        get {
+            switch (ProcessEnv.vars["SWIFTPM_ENABLE_PACKAGE_CREATE"].map { $0.lowercased() }) {
+            case "true":
+                return .new
+            default:
+                return .legacy
+            }
         }
     }
-}
 
-internal enum Mode {
-    case new
-    case legacy
-}
-
-internal func getSwiftPMDefaultTemplate(type: InitPackage.PackageType,
-                                        sources: RelativePath = .init("./Sources"),
-                                        tests: RelativePath? = nil,
-                                        createSubDirectoryForModule: Bool = false) -> PackageTemplate {
-    // Even if we are making a "classic" package that doesn't use a template we should till use templates
-    // for consistency within the codebase
-    let defaultDir = PackageTemplate.Directories(sources: sources, tests: tests, createSubDirectoryForModule: createSubDirectoryForModule)
-    let packageType: PackageTemplate.PackageType
-    
-    switch type {
-    case .executable:
-        packageType = .executable
-    case .library:
-        packageType = .library
-    case .systemModule:
-        packageType = .systemModule
-    case .empty:
-        packageType = .empty
-    case .manifest:
-        packageType = .manifest
-    default:
-        packageType = .library
+    public enum Mode {
+        case new
+        case legacy
     }
     
-    switch useNewBehaviour {
-    case .new:
-        return PackageTemplate(directories: defaultDir, type: packageType)
-    case .legacy:
-        let legacyDir = PackageTemplate.Directories(sources: RelativePath("./Sources"), tests: RelativePath("./Tests"), createSubDirectoryForModule: true)
-        return PackageTemplate(directories: legacyDir, type: packageType)
+    public static func getSwiftPMDefaultTemplate(packageType: InitPackage.PackageType,
+                                            sources: RelativePath = .init("./Sources"),
+                                            tests: RelativePath? = nil,
+                                            createSubDirectoryForModule: Bool = false) -> InitPackage.PackageTemplate {
+        // Even if we are making a "classic" package that doesn't use a template we should till use templates
+        // for consistency within the codebase
+        switch InitPackage.createPackageMode {
+        case .new:
+            return InitPackage.PackageTemplate(sourcesDirectory: sources,
+                                               testsDirectory: tests,
+                                               createSubDirectoryForModule: createSubDirectoryForModule,
+                                               packageType: packageType)
+        case .legacy:
+            return InitPackage.PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
+                                               testsDirectory: RelativePath("./Tests"),
+                                               createSubDirectoryForModule: true,
+                                               packageType: packageType)
+        }
     }
 }
 
@@ -1327,7 +1285,7 @@ fileprivate func makePackage(fileSystem: FileSystem,
     }
     
     let packageTemplate: InitPackage.PackageTemplate
-    if foundTemplate && useNewBehaviour == .new {
+    if foundTemplate && InitPackage.createPackageMode == .new {
         try fileSystem.getDirectoryContents(templateHomeDirectory.appending(component: templateToUse)).forEach {
             print("Copying \($0)")
             try copyTemplate(fileSystem: fileSystem, sourcePath: templateHomeDirectory.appending(components: templateToUse, $0), destinationPath: destinationPath, name: name)
@@ -1337,7 +1295,7 @@ fileprivate func makePackage(fileSystem: FileSystem,
         // These are only needed in the event that --type was not used when creating a package
         // otherwise if --type is used packageType will not be nill
         let defualtType = mode == .initialize ? InitPackage.PackageType.library : InitPackage.PackageType.executable
-        packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: packageType ?? defualtType))
+        packageTemplate = InitPackage.getSwiftPMDefaultTemplate(packageType: packageType ?? defualtType)
     }
 
     let initPackage = try InitPackage(name: name, destinationPath: destinationPath, packageTemplate: packageTemplate)

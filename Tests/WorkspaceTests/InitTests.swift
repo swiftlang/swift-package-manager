@@ -13,7 +13,6 @@ import SPMTestSupport
 import TSCBasic
 import PackageModel
 import Workspace
-@testable import Commands
 
 class InitTests: XCTestCase {
 
@@ -27,8 +26,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
             
             // Create the package
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .empty, tests: RelativePath("./Tests")))
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.empty)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -45,6 +43,7 @@ class InitTests: XCTestCase {
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
+            XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
@@ -58,8 +57,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .executable, tests: RelativePath("./Tests"), createSubDirectoryForModule: true))
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.executable)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -76,6 +74,11 @@ class InitTests: XCTestCase {
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+            
+            let readme = path.appending(component: "README.md")
+            XCTAssertTrue(fs.exists(readme))
+            let readmeContents = try localFileSystem.readFileContents(readme).description
+            XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
             XCTAssertEqual(
@@ -101,8 +104,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library, tests: RelativePath("./Tests"), createSubDirectoryForModule: true))
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.library)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -118,6 +120,11 @@ class InitTests: XCTestCase {
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+
+            let readme = path.appending(component: "README.md")
+            XCTAssertTrue(fs.exists(readme))
+            let readmeContents = try localFileSystem.readFileContents(readme).description
+            XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
 
@@ -149,8 +156,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
             
             // Create the package
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .systemModule))
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.systemModule)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -167,6 +173,7 @@ class InitTests: XCTestCase {
             let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
             XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
+            XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
         }
     }
@@ -179,8 +186,7 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .manifest))
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.manifest)
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -212,8 +218,7 @@ class InitTests: XCTestCase {
             XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
             
             // Create the package
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library))
-            let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
             initPackage.progressReporter = { message in }
             try initPackage.writePackageStructure()
 
@@ -236,8 +241,7 @@ class InitTests: XCTestCase {
             XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
             
             // Create package with non c99name.
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .executable))
-            let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageTemplate: packageTemplate)
+            let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
             try initPackage.writePackageStructure()
             
             #if os(macOS)
@@ -262,7 +266,10 @@ class InitTests: XCTestCase {
             try localFileSystem.removeFileTree(packageRoot)
             try localFileSystem.createDirectory(packageRoot)
 
-            let packageTemplate = try InitPackage.PackageTemplate(template: getSwiftPMDefaultTemplate(type: .library))
+            let packageTemplate = InitPackage.PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
+                                                              testsDirectory: RelativePath("./Tests"),
+                                                              createSubDirectoryForModule: true,
+                                                              packageType: .library)
             let initPackage = try InitPackage(
                 name: "Foo",
                 destinationPath: packageRoot,

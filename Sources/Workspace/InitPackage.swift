@@ -98,6 +98,24 @@ public final class InitPackage {
             packageTemplate: packageTemplate
         )
     }
+    
+    public convenience init(
+        name: String,
+        destinationPath: AbsolutePath,
+        packageType: PackageType
+    ) throws {
+        let packageTemplate = PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
+                                              testsDirectory: RelativePath("./Tests"),
+                                              createSubDirectoryForModule: true,
+                                              packageType: packageType)
+        
+        try self.init(
+            name: name,
+            destinationPath: destinationPath,
+            options: InitPackageOptions(),
+            packageTemplate: packageTemplate
+        )
+    }
 
     /// Create an instance that can create a package with given arguments.
     public init(
@@ -273,7 +291,6 @@ public final class InitPackage {
                 # \(pkgname)
 
                 A description of this package.
-                
                 """
         }
     }
