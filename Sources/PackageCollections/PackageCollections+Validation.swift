@@ -82,6 +82,11 @@ extension PackageCollectionModel.V1 {
         private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
             let packageID = PackageIdentity(url: package.url.absoluteString).description
 
+            guard !package.versions.isEmpty else {
+                messages.append(.error("Package \(packageID) does not have any versions.", property: "package.versions"))
+                return
+            }
+
             // Check for duplicate versions
             let nonUniqueVersions = Dictionary(grouping: package.versions, by: { $0.version }).filter { $1.count > 1 }.keys
             if !nonUniqueVersions.isEmpty {
