@@ -1,28 +1,30 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Dispatch
+
 import TSCBasic
 import TSCUtility
 
 import SPMBuildCore
+import Basics
 import Build
 import PackageGraph
 import PackageModel
 import SourceControl
 import Workspace
 
-/// Helper for dumping the SDK JSON file for the baseline.
+/// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {
-    /// The baseline we're diffing against.
-    ///
-    /// This is the git treeish.
+
+    /// The git treeish to emit a baseline for.
     let baselineTreeish: String
 
     /// The root package path.
@@ -61,17 +63,29 @@ struct APIDigesterBaselineDumper {
         self.diags = diags
     }
 
-    /// Dump the baseline SDK JSON and return its path.
-    func dumpBaselineSDKJSON() throws -> AbsolutePath {
+    /// Emit the API baseline files and return the path to their directory.
+    func emitAPIBaseline(for modulesToDiff: Set<String>) throws -> AbsolutePath {
+        var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
-        let sdkJSON = apiDiffDir.appending(component: baselineTreeish + ".json")
-
-        // We're done if the JSON already exists on disk.
-        if localFileSystem.exists(sdkJSON) {
-            return sdkJSON
+        let baselineDir = apiDiffDir.appending(component: baselineTreeish)
+        let baselinePath: (String)->AbsolutePath = { module in
+            baselineDir.appending(component: module + ".json")
         }
 
-        let baselinePackageRoot = apiDiffDir.appending(component: baselineTreeish)
+        for module in modulesToDiff {
+            if localFileSystem.exists(baselinePath(module)) {
+                // If this baseline already exists, we don't need to regenerate it.
+                modulesToDiff.remove(module)
+            }
+        }
+
+        guard !modulesToDiff.isEmpty else {
+            // If none of the baselines need to be regenerated, return.
+            return baselineDir
+        }
+
+        // Setup a temporary directory where we can checkout and build the baseline treeish.
+        let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineTreeish)-checkout")
         if localFileSystem.exists(baselinePackageRoot) {
             try localFileSystem.removeFileTree(baselinePackageRoot)
         }
@@ -97,6 +111,9 @@ struct APIDigesterBaselineDumper {
         let graph = try workspace.loadPackageGraph(
             rootPath: baselinePackageRoot, diagnostics: diags)
 
+        // Don't emit a baseline for a module that didn't exist yet in this revision.
+        modulesToDiff.formIntersection(graph.apiDigesterModules)
+
         // Abort if we weren't able to load the package graph.
         if diags.hasErrors {
             throw Diagnostics.fatalError
@@ -116,74 +133,137 @@ struct APIDigesterBaselineDumper {
             stdoutStream: stdoutStream
         )
 
-        // FIXME: Need a way to register this build operation with the interrupt handler.
-
         try buildOp.build()
 
         // Dump the SDK JSON.
-        try apiDigesterTool.dumpSDKJSON(
-            at: sdkJSON,
-            modules: graph.apiDigesterModules,
-            additionalArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
-        )
+        try localFileSystem.createDirectory(baselineDir, recursive: true)
+        let group = DispatchGroup()
+        let semaphore = DispatchSemaphore(value: Int(buildParameters.jobs))
+        let errors = ThreadSafeArrayStore<Swift.Error>()
+        for module in modulesToDiff {
+            semaphore.wait()
+            DispatchQueue.sharedConcurrent.async(group: group) {
+                do {
+                    try apiDigesterTool.emitAPIBaseline(
+                        to: baselinePath(module),
+                        for: module,
+                        buildPlan: buildOp.buildPlan!
+                    )
+                } catch {
+                    errors.append(error)
+                }
+                semaphore.signal()
+            }
+        }
+        group.wait()
 
-        return sdkJSON
+        for error in errors.get() {
+            diags.emit(error)
+        }
+        if diags.hasErrors {
+            throw Diagnostics.fatalError
+        }
+
+        return baselineDir
     }
 }
 
-/// A wrapper for swift-api-digester tool.
+/// A wrapper for the swift-api-digester tool.
 public struct SwiftAPIDigester {
+
+    /// The absolute path to `swift-api-digester` in the toolchain.
     let tool: AbsolutePath
 
     init(tool: AbsolutePath) {
         self.tool = tool
     }
 
-    public func dumpSDKJSON(
-        at json: AbsolutePath,
-        modules: [String],
-        additionalArgs: [String]
+    /// Emit an API baseline file for the specified module at the specified location.
+    public func emitAPIBaseline(
+        to outputPath: AbsolutePath,
+        for module: String,
+        buildPlan: BuildPlan
     ) throws {
         var args = ["-dump-sdk"]
-        args += additionalArgs
-        args += modules.flatMap { ["-module", $0] }
-        args += ["-o", json.pathString]
-        try localFileSystem.createDirectory(json.parentDirectory, recursive: true)
+        args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+        args += ["-module", module, "-o", outputPath.pathString]
 
         try runTool(args)
 
-        // FIXME: The tool doesn't exit with 1 if it fails.
-        if !localFileSystem.exists(json) {
-            throw Diagnostics.fatalError
+        if !localFileSystem.exists(outputPath) {
+            throw Error.failedToGenerateBaseline(module)
         }
     }
 
-    public func diagnoseSDK(
-        baselineSDKJSON: AbsolutePath,
-        apiToolArgs: [String],
-        modules: [String]
-    ) throws {
+    /// Compare the current package API to a provided baseline file.
+    public func compareAPIToBaseline(
+        at baselinePath: AbsolutePath,
+        for module: String,
+        buildPlan: BuildPlan
+    ) -> ComparisonResult? {
         var args = [
             "-diagnose-sdk",
-            "-baseline-path", baselineSDKJSON.pathString,
+            "-baseline-path", baselinePath.pathString,
+            "-module", module
         ]
-        args.append(contentsOf: apiToolArgs)
-        for module in modules {
-            args.append(contentsOf: ["-module", module])
-        }
+        args.append(contentsOf: buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
 
-        try runTool(args)
+        return try? withTemporaryFile(deleteOnClose: false) { file in
+            args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
+            try runTool(args)
+            let contents = try localFileSystem.readFileContents(file.path)
+            guard contents.count > 0 else {
+                return nil
+            }
+            let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)
+            let apiDigesterCategory = "api-digester-breaking-change"
+            let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
+            let otherDiagnostics = serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory }
+            return ComparisonResult(moduleName: module,
+                                    apiBreakingChanges: apiBreakingChanges,
+                                    otherDiagnostics: otherDiagnostics)
+        }
     }
 
-    func runTool(_ args: [String]) throws {
+    private func runTool(_ args: [String]) throws {
         let arguments = [tool.pathString] + args
         let process = Process(
             arguments: arguments,
-            outputRedirection: .none,
+            outputRedirection: .collect,
             verbose: verbosity != .concise
         )
         try process.launch()
         try process.waitUntilExit()
+    }
+}
+
+extension SwiftAPIDigester {
+    public enum Error: Swift.Error, DiagnosticData {
+        case failedToGenerateBaseline(String)
+
+        public var description: String {
+            switch self {
+            case .failedToGenerateBaseline(let module):
+                return "failed to generate baseline for \(module)"
+            }
+        }
+    }
+}
+
+extension SwiftAPIDigester {
+    /// The result of comparing a module's API to a provided baseline.
+    public struct ComparisonResult {
+        /// The name of the module being diffed.
+        var moduleName: String
+        /// Breaking changes made to the API since the baseline was generated.
+        var apiBreakingChanges: [SerializedDiagnostics.Diagnostic]
+        /// Other diagnostics emitted while comparing the current API to the baseline.
+        var otherDiagnostics: [SerializedDiagnostics.Diagnostic]
+
+        /// `true` if the comparison succeeded and no breaking changes were found, otherwise `false`.
+        var hasNoAPIBreakingChanges: Bool {
+            apiBreakingChanges.isEmpty && otherDiagnostics.filter { [.fatal, .error].contains($0.level) }.isEmpty
+        }
     }
 }
 
@@ -198,9 +278,16 @@ extension PackageGraph {
     /// The list of modules that should be used as an input to the API digester.
     var apiDigesterModules: [String] {
         self.rootPackages
-            .flatMap { $0.targets }
-            .filter { $0.type == .library }
+            .flatMap(\.products)
+            .filter { $0.type.isLibrary }
+            .flatMap(\.targets)
             .filter { $0.underlyingTarget is SwiftTarget }
             .map { $0.c99name }
+    }
+}
+
+extension SerializedDiagnostics.SourceLocation: DiagnosticLocation {
+    public var description: String {
+        return "\(filename):\(line):\(column)"
     }
 }

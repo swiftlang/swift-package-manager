@@ -290,7 +290,17 @@ extension SwiftPackageTool {
     
     struct APIDiff: SwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "experimental-api-diff")
+            commandName: "experimental-api-diff",
+            abstract: "Diagnose API-breaking changes to Swift modules in a package",
+            discussion: """
+            The experimental-api-diff command can be used to compare the Swift API of \
+            a package to a baseline revision, diagnosing any breaking changes which have \
+            been introduced. By default, it compares every Swift module from the baseline \
+            revision which is part of a library product. For packages with many targets, this \
+            behavior may be undesirable as the comparison can be slow. \
+            The `--products` and `--targets` options may be used to restrict the scope of \
+            the comparison.
+            """)
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
@@ -298,14 +308,26 @@ extension SwiftPackageTool {
         @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
 
+        @Option(parsing: .upToNextOption,
+                help: "One or more products to include in the API comparison. If present, only the specified products (and any targets specified using `--targets`) will be compared.")
+        var products: [String] = []
+
+        @Option(parsing: .upToNextOption,
+                help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
+        var targets: [String] = []
+
         func run(_ swiftTool: SwiftTool) throws {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
 
-            // Build the current package.
-            //
             // We turn build manifest caching off because we need the build plan.
             let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+
+            let packageGraph = try buildOp.getPackageGraph()
+            let modulesToDiff = try determineModulesToDiff(packageGraph: packageGraph,
+                                                           diagnostics: swiftTool.diagnostics)
+
+            // Build the current package.
             try buildOp.build()
 
             // Dump JSON for the baseline package.
@@ -319,14 +341,122 @@ extension SwiftPackageTool {
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
+            let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff)
 
-            // Run the diagnose tool which will print the diff.
-            try apiDigesterTool.diagnoseSDK(
-                baselineSDKJSON: baselineSDKJSON,
-                apiToolArgs: buildOp.buildPlan!.createAPIToolCommonArgs(includeLibrarySearchPaths: false),
-                modules: try buildOp.getPackageGraph().apiDigesterModules
-            )
+            let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
+            let group = DispatchGroup()
+            let semaphore = DispatchSemaphore(value: Int(buildOp.buildParameters.jobs))
+            var skippedModules: Set<String> = []
+
+            for module in modulesToDiff {
+                let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
+                guard localFileSystem.exists(moduleBaselinePath) else {
+                    print("\nSkipping \(module) because it does not exist in the baseline")
+                    skippedModules.insert(module)
+                    continue
+                }
+                semaphore.wait()
+                DispatchQueue.sharedConcurrent.async(group: group) {
+                    if let comparisonResult = apiDigesterTool.compareAPIToBaseline(
+                        at: moduleBaselinePath,
+                        for: module,
+                        buildPlan: buildOp.buildPlan!
+                    ) {
+                        results.append(comparisonResult)
+                    }
+                    semaphore.signal()
+                }
+            }
+
+            group.wait()
+
+            let failedModules = modulesToDiff
+                .subtracting(skippedModules)
+                .subtracting(results.map(\.moduleName))
+            for failedModule in failedModules {
+                swiftTool.diagnostics.emit(.error("failed to read API digester output for \(failedModule)"))
+            }
+
+            for result in results.get() {
+                printComparisonResult(result, diagnosticsEngine: swiftTool.diagnostics)
+            }
+
+            guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
+                throw ExitCode.failure
+            }
+        }
+
+        private func determineModulesToDiff(packageGraph: PackageGraph, diagnostics: DiagnosticsEngine) throws -> Set<String> {
+            var modulesToDiff: Set<String> = []
+            if products.isEmpty && targets.isEmpty {
+                modulesToDiff.formUnion(packageGraph.apiDigesterModules)
+            } else {
+                for productName in products {
+                    guard let product = packageGraph
+                            .rootPackages
+                            .flatMap(\.products)
+                            .first(where: { $0.name == productName }) else {
+                        diagnostics.emit(.error("no such product '\(productName)'"))
+                        continue
+                    }
+                    guard product.type.isLibrary else {
+                        diagnostics.emit(.error("'\(productName)' is not a library product"))
+                        continue
+                    }
+                    modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
+                }
+                for targetName in targets {
+                    guard let target = packageGraph
+                            .rootPackages
+                            .flatMap(\.targets)
+                            .first(where: { $0.name == targetName }) else {
+                        diagnostics.emit(.error("no such target '\(targetName)'"))
+                        continue
+                    }
+                    guard target.type == .library else {
+                        diagnostics.emit(.error("'\(targetName)' is not a library target"))
+                        continue
+                    }
+                    guard target.underlyingTarget is SwiftTarget else {
+                        diagnostics.emit(.error("'\(targetName)' is not a Swift language target"))
+                        continue
+                    }
+                    modulesToDiff.insert(target.c99name)
+                }
+                guard !diagnostics.hasErrors else {
+                    throw ExitCode.failure
+                }
+            }
+            return modulesToDiff
+        }
+
+        private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,
+                                           diagnosticsEngine: DiagnosticsEngine) {
+            for diagnostic in comparisonResult.otherDiagnostics {
+                switch diagnostic.level {
+                case .error, .fatal:
+                    diagnosticsEngine.emit(error: diagnostic.text, location: diagnostic.location)
+                case .warning:
+                    diagnosticsEngine.emit(warning: diagnostic.text, location: diagnostic.location)
+                case .note:
+                    diagnosticsEngine.emit(note: diagnostic.text, location: diagnostic.location)
+                case .remark:
+                    diagnosticsEngine.emit(remark: diagnostic.text, location: diagnostic.location)
+                case .ignored:
+                    break
+                }
+            }
+
+            let moduleName = comparisonResult.moduleName
+            if comparisonResult.apiBreakingChanges.isEmpty {
+                print("\nNo breaking changes detected in \(moduleName)")
+            } else {
+                let count = comparisonResult.apiBreakingChanges.count
+                print("\n\(count) breaking \(count > 1 ? "changes" : "change") detected in \(moduleName):")
+                for change in comparisonResult.apiBreakingChanges {
+                    print("  💔 \(change.text)")
+                }
+            }
         }
     }
     

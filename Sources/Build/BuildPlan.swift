@@ -1919,14 +1919,7 @@ public class BuildPlan {
         // Add search paths from the system library targets.
         for target in graph.reachableTargets {
             if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
-                for flag in self.pkgConfig(for: systemLib).cFlags {
-                    // The api-digester tool doesn't like `-I<Foo>` style for some reason.
-                    if flag.hasPrefix("-I") && flag.count > 2 {
-                        arguments += ["-I", String(flag.dropFirst(2))]
-                    } else {
-                        arguments.append(flag)
-                    }
-                }
+                arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
             }
