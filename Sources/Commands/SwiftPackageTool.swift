@@ -38,8 +38,6 @@ public struct SwiftPackageTool: ParsableCommand {
     var swiftOptions: SwiftToolOptions
 
     public init() {}
-
-    public static var _errorLabel: String { "error" }
 }
 
 extension SwiftPackageTool {
@@ -76,8 +74,10 @@ extension SwiftPackageTool {
         ]
         
         if InitPackage.createPackageMode == .new {
-            subCommands.insert(Create.self, at: 6)
-            subCommands.insert(AddTemplate.self, at: 7)
+            if let index = subCommands.firstIndex(where: { $0 == Init.self }) {
+                subCommands.insert(Create.self, at: index + 1)
+                subCommands.insert(AddTemplate.self, at: index + 2)
+            }
         }
         
         return subCommands
@@ -300,7 +300,7 @@ extension SwiftPackageTool {
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
-        @Argument(help: "URL to template (path to template works too)")
+        @Argument(help: "URL to template (absolute path to template works too)")
         var url: String
         
         @Option(help: "Custom template name")

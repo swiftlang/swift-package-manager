@@ -1010,7 +1010,7 @@ final class PackageToolTests: XCTestCase {
                 try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             }
 
-            check(stderr: "error: mirror not found\n") {
+            check(stderr: "Error: mirror not found\n") {
                 try execute(["config", "unset-mirror", "--original-url", "foo"], packagePath: packageRoot)
             }
         }
@@ -1097,7 +1097,7 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()
-                XCTAssert(stderrOutput.contains("error: root manifest not found"), #"actual: "\#(stderrOutput)""#)
+                XCTAssert(stderrOutput.contains("Error: root manifest not found"), #"actual: "\#(stderrOutput)""#)
             }
 
             // Runnning with output as absolute path to existing directory
@@ -1108,7 +1108,7 @@ final class PackageToolTests: XCTestCase {
 
                 let stderrOutput = try result.utf8stderrOutput()
                 XCTAssert(
-                    stderrOutput.contains("error: Couldn’t create an archive:") &&
+                    stderrOutput.contains("Error: Couldn’t create an archive:") &&
                         stderrOutput.contains("fatal: could not create archive file '/': Is a directory"),
                     #"actual: "\#(stderrOutput)""#
                 )

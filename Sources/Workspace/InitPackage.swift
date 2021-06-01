@@ -83,21 +83,6 @@ public final class InitPackage {
             moduleName
         }
     }
-    
-    public convenience init(fileSystem: FileSystem,
-                            configPath: AbsolutePath,
-                            destinationPath: AbsolutePath,
-                            name: String,
-                            packageType: PackageType
-    ) throws {
-        try self.init(fileSystem: fileSystem,
-                      configPath: configPath,
-                      destinationPath: destinationPath,
-                      mode: .initialize,
-                      packageName: name,
-                      packageType: packageType,
-                      packageTemplateName: nil)
-    }
 
     /// Create an instance that can create a package with given arguments.
     public init(fileSystem: FileSystem,
@@ -139,22 +124,22 @@ public final class InitPackage {
     
     private func makePackageNew() throws {
         let templateHomeDirectory = configPath.appending(components: "templates", "new-package")
-        var templateToUse: String?
+        var template: String?
         
         if let templateName = packageTemplateName {
             guard fileSystem.exists(templateHomeDirectory.appending(component: templateName)) else {
                 throw InternalError("Could not find template folder: \(templateHomeDirectory.appending(component: templateName))")
             }
             
-            templateToUse = templateName
+            template = templateName
         } else {
             // Checking if a default template is present
             if fileSystem.exists(templateHomeDirectory.appending(components: "default")) {
-                templateToUse = "default"
+                template = "default"
             }
         }
         
-        if let templateName = templateToUse {
+        if let templateName = template {
             try fileSystem.getDirectoryContents(templateHomeDirectory.appending(component: templateName)).forEach {
                 progressReporter?("Copying \($0)")
                 try copyTemplate(fileSystem: fileSystem,
@@ -175,6 +160,65 @@ public final class InitPackage {
                                        packageType: packageType)
         
         try writePackageStructure(template: template)
+    }
+    
+    private func getSwiftPMDefaultTemplate(packageType: InitPackage.PackageType,
+                                           sources: RelativePath = .init("./Sources"),
+                                           tests: RelativePath? = nil,
+                                           createSubDirectoryForModule: Bool = false) -> InitPackage.PackageTemplate {
+        // Even if we are making a "classic" package that doesn't use a template we should till use templates
+        // for consistency within the codebase
+        switch InitPackage.createPackageMode {
+        case .new:
+            return InitPackage.PackageTemplate(sourcesDirectory: sources,
+                                               testsDirectory: tests,
+                                               createSubDirectoryForModule: createSubDirectoryForModule,
+                                               packageType: packageType)
+        case .legacy:
+            return InitPackage.PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
+                                               testsDirectory: RelativePath("./Tests"),
+                                               createSubDirectoryForModule: true,
+                                               packageType: packageType)
+        }
+    }
+
+    private func copyTemplate(fileSystem: FileSystem, sourcePath: AbsolutePath, destinationPath: AbsolutePath, name: String) throws {
+        // Recursively copy the template package
+        // Currently only replaces the string literal "$NAME"
+        if fileSystem.isDirectory(sourcePath) {
+            if let dirName = sourcePath.pathString.split(separator: "/").last {
+                if !fileSystem.exists(destinationPath.appending(component: String(dirName))) {
+                    try fileSystem.createDirectory(destinationPath.appending(component: String(dirName)))
+                }
+                
+                try fileSystem.getDirectoryContents(sourcePath).forEach {
+                    try copyTemplate(fileSystem: fileSystem,
+                                     sourcePath: sourcePath.appending(component: $0),
+                                     destinationPath: destinationPath.appending(components: String(dirName)),
+                                     name: name)
+                }
+            }
+        } else {
+            let fileContents = try fileSystem.readFileContents(sourcePath)
+            
+            if let validDescription = fileContents.validDescription {
+                if let fileName = sourcePath.pathString.split(separator: "/").last {
+                    if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
+                        var renamed = validDescription.replacingOccurrences(of: "___NAME___", with: name)
+                        renamed = renamed.replacingOccurrences(of: "___NAME_AS_C99___", with: name.spm_mangledToC99ExtendedIdentifier())
+                        
+                        try fileSystem.writeFileContents(destinationPath.appending(component: String(fileName))) { $0 <<< renamed }
+                    }
+                }
+            } else {
+                // This else takes care of things such as images
+                if let fileName = sourcePath.pathString.split(separator: "/").last {
+                    if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
+                        try fileSystem.copy(from: sourcePath, to: destinationPath.appending(component: String(fileName)))
+                    }
+                }
+            }
+        }
     }
     
     /// Actually creates the new package at the destinationPath
@@ -519,65 +563,6 @@ public final class InitPackage {
             try writeLibraryTestsFile(testClassFile)
         case .executable:
             try writeExecutableTestsFile(testClassFile)
-        }
-    }
-
-    private func getSwiftPMDefaultTemplate(packageType: InitPackage.PackageType,
-                                           sources: RelativePath = .init("./Sources"),
-                                           tests: RelativePath? = nil,
-                                           createSubDirectoryForModule: Bool = false) -> InitPackage.PackageTemplate {
-        // Even if we are making a "classic" package that doesn't use a template we should till use templates
-        // for consistency within the codebase
-        switch InitPackage.createPackageMode {
-        case .new:
-            return InitPackage.PackageTemplate(sourcesDirectory: sources,
-                                               testsDirectory: tests,
-                                               createSubDirectoryForModule: createSubDirectoryForModule,
-                                               packageType: packageType)
-        case .legacy:
-            return InitPackage.PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
-                                               testsDirectory: RelativePath("./Tests"),
-                                               createSubDirectoryForModule: true,
-                                               packageType: packageType)
-        }
-    }
-
-    private func copyTemplate(fileSystem: FileSystem, sourcePath: AbsolutePath, destinationPath: AbsolutePath, name: String) throws {
-        // Recursively copy the template package
-        // Currently only replaces the string literal "$NAME"
-        if fileSystem.isDirectory(sourcePath) {
-            if let fileName = sourcePath.pathString.split(separator: "/").last {
-                if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                    try fileSystem.createDirectory(destinationPath.appending(component: String(fileName)))
-                }
-                
-                try fileSystem.getDirectoryContents(sourcePath).forEach {
-                    try copyTemplate(fileSystem: fileSystem,
-                                     sourcePath: sourcePath.appending(component: $0),
-                                     destinationPath: destinationPath.appending(components: String(fileName)),
-                                     name: name)
-                }
-            }
-        } else {
-            let fileContents = try fileSystem.readFileContents(sourcePath)
-            
-            if let validDescription = fileContents.validDescription {
-                var renamed = validDescription.replacingOccurrences(of: "___NAME___", with: name)
-                renamed = renamed.replacingOccurrences(of: "___NAME_AS_C99___", with: name.spm_mangledToC99ExtendedIdentifier())
-                
-                if let fileName = sourcePath.pathString.split(separator: "/").last {
-                    if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                        try fileSystem.writeFileContents(destinationPath.appending(component: String(fileName))) { $0 <<< renamed }
-                    }
-                }
-            } else {
-                // This else takes care of things such as images
-                if let fileName = sourcePath.pathString.split(separator: "/").last {
-                    if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                        try fileSystem.copy(from: sourcePath, to: destinationPath.appending(component: String(fileName)))
-                    }
-                }
-            }
         }
     }
     
