@@ -222,17 +222,30 @@ extension SwiftPackageTool {
         var packageName: String?
         
         func run(_ swiftTool: SwiftTool) throws {
+            guard let cwd = localFileSystem.currentWorkingDirectory else {
+                throw InternalError("Could not find the current working directroy.")
+            }
+            
             guard let configPath = try swiftTool.getConfigPath() else {
                 throw InternalError("Could not find config path")
             }
-
-            try makePackage(
-                fileSystem: localFileSystem,
-                configPath: configPath,
-                packageName: packageName,
-                mode: .initialize,
-                packageType: packageType,
-                packageTemplate: template)
+            
+            guard !(packageType != nil && template != nil) else {
+                throw InternalError("Can't use --type in conjunction with --template")
+            }
+            
+            let initPackage = try InitPackage(fileSystem: localFileSystem,
+                                              configPath: configPath,
+                                              destinationPath: cwd,
+                                              mode: .initialize,
+                                              packageName: packageName ?? cwd.basename,
+                                              packageType: packageType,
+                                              packageTemplateName: template)
+            
+            initPackage.progressReporter = { message in
+                print(message)
+            }
+            try initPackage.makePackage()
         }
     }
 
@@ -253,17 +266,30 @@ extension SwiftPackageTool {
         var packageName: String
 
         func run(_ swiftTool: SwiftTool) throws {
+            guard let cwd = localFileSystem.currentWorkingDirectory else {
+                throw InternalError("Could not find the current working directroy.")
+            }
+            
             guard let configPath = try swiftTool.getConfigPath() else {
                 throw InternalError("Could not find config path")
             }
             
-            try makePackage(
-                fileSystem: localFileSystem,
-                configPath: configPath,
-                packageName: packageName,
-                mode: .create,
-                packageType: packageType,
-                packageTemplate: template)
+            guard !(packageType != nil && template != nil) else {
+                throw InternalError("Can't use --type in conjunction with --template")
+            }
+          
+            let initPackage = try InitPackage(fileSystem: localFileSystem,
+                                              configPath: configPath,
+                                              destinationPath: cwd.appending(component: packageName),
+                                              mode: .create,
+                                              packageName: packageName,
+                                              packageType: packageType,
+                                              packageTemplateName: template)
+            
+            initPackage.progressReporter = { message in
+                print(message)
+            }
+            try initPackage.makePackage()
         }
     }
     
@@ -289,8 +315,8 @@ extension SwiftPackageTool {
                 throw InternalError("Could not get the current working directory")
             }
             
-            if localFileSystem.exists(cwd.appending(RelativePath(url))) {
-                let currentTemplateLocation = cwd.appending(RelativePath(url))
+            if localFileSystem.exists(AbsolutePath(url)) {
+                let currentTemplateLocation = AbsolutePath(url)
                 let templateDirectory = configPath.appending(components: "templates", "new-package", url)
                 
                 guard localFileSystem.exists(currentTemplateLocation) && localFileSystem.isDirectory(currentTemplateLocation) else {
@@ -1198,153 +1224,3 @@ fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.Packag
     }
     stream.flush()
 }
-
-extension InitPackage {
-    public static var createPackageMode: Mode {
-        get {
-            switch (ProcessEnv.vars["SWIFTPM_ENABLE_PACKAGE_CREATE"].map { $0.lowercased() }) {
-            case "true":
-                return .new
-            default:
-                return .legacy
-            }
-        }
-    }
-
-    public enum Mode {
-        case new
-        case legacy
-    }
-    
-    public static func getSwiftPMDefaultTemplate(packageType: InitPackage.PackageType,
-                                            sources: RelativePath = .init("./Sources"),
-                                            tests: RelativePath? = nil,
-                                            createSubDirectoryForModule: Bool = false) -> InitPackage.PackageTemplate {
-        // Even if we are making a "classic" package that doesn't use a template we should till use templates
-        // for consistency within the codebase
-        switch InitPackage.createPackageMode {
-        case .new:
-            return InitPackage.PackageTemplate(sourcesDirectory: sources,
-                                               testsDirectory: tests,
-                                               createSubDirectoryForModule: createSubDirectoryForModule,
-                                               packageType: packageType)
-        case .legacy:
-            return InitPackage.PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
-                                               testsDirectory: RelativePath("./Tests"),
-                                               createSubDirectoryForModule: true,
-                                               packageType: packageType)
-        }
-    }
-}
-
-fileprivate func makePackage(fileSystem: FileSystem,
-                             configPath: AbsolutePath,
-                             packageName: String?,
-                             mode: MakePackageMode,
-                             packageType: InitPackage.PackageType?,
-                             packageTemplate: String?) throws {
-    
-    guard let cwd = fileSystem.currentWorkingDirectory else {
-        throw InternalError("Could not find the current working directroy.")
-    }
-    
-    guard !(packageType != nil && packageTemplate != nil) else {
-        throw InternalError("Can't use --type in conjunction with --template")
-    }
-    
-    let name: String
-    let destinationPath: AbsolutePath
-    let templateHomeDirectory = configPath.appending(components: "templates", "new-package")
-    
-    var foundTemplate = false
-    var templateToUse = ""
-    
-    if let templateName = packageTemplate {
-        guard fileSystem.exists(templateHomeDirectory.appending(component: templateName)) else {
-            throw InternalError("Could not find template folder: \(templateHomeDirectory.appending(component: templateName))")
-        }
-        
-        templateToUse = templateName
-        foundTemplate = true
-    } else {
-        // Checking if a default template is present
-        if fileSystem.exists(templateHomeDirectory.appending(components: "default")) {
-            templateToUse = "default"
-            foundTemplate = true
-        }
-    }
-    
-    switch mode {
-    case .initialize:
-        name = packageName ?? cwd.basename
-        destinationPath = cwd
-    case .create:
-        name = packageName!
-        try localFileSystem.createDirectory(cwd.appending(component: name))
-        destinationPath = cwd.appending(component: name)
-    }
-    
-    let packageTemplate: InitPackage.PackageTemplate
-    if foundTemplate && InitPackage.createPackageMode == .new {
-        try fileSystem.getDirectoryContents(templateHomeDirectory.appending(component: templateToUse)).forEach {
-            print("Copying \($0)")
-            try copyTemplate(fileSystem: fileSystem, sourcePath: templateHomeDirectory.appending(components: templateToUse, $0), destinationPath: destinationPath, name: name)
-        }
-        return
-    } else {
-        // These are only needed in the event that --type was not used when creating a package
-        // otherwise if --type is used packageType will not be nill
-        let defualtType = mode == .initialize ? InitPackage.PackageType.library : InitPackage.PackageType.executable
-        packageTemplate = InitPackage.getSwiftPMDefaultTemplate(packageType: packageType ?? defualtType)
-    }
-
-    let initPackage = try InitPackage(name: name, destinationPath: destinationPath, packageTemplate: packageTemplate)
-    initPackage.progressReporter = { message in
-        print(message)
-    }
-    try initPackage.writePackageStructure()
-}
-
-fileprivate func copyTemplate(fileSystem: FileSystem, sourcePath: AbsolutePath, destinationPath: AbsolutePath, name: String) throws {
-    // Recursively copy the template package
-    // Currently only replaces the string literal "$NAME"
-    if fileSystem.isDirectory(sourcePath) {
-        if let fileName = sourcePath.pathString.split(separator: "/").last {
-            if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                try fileSystem.createDirectory(destinationPath.appending(component: String(fileName)))
-            }
-            
-            try fileSystem.getDirectoryContents(sourcePath).forEach {
-                try copyTemplate(fileSystem: fileSystem,
-                                 sourcePath: sourcePath.appending(component: $0),
-                                 destinationPath: destinationPath.appending(components: String(fileName)),
-                                 name: name)
-            }
-        }
-    } else {
-        let fileContents = try fileSystem.readFileContents(sourcePath)
-        
-        if let validDescription = fileContents.validDescription {
-            var renamed = validDescription.replacingOccurrences(of: "___NAME___", with: name)
-            renamed = renamed.replacingOccurrences(of: "___NAME_AS_C99___", with: name.spm_mangledToC99ExtendedIdentifier())
-            
-            if let fileName = sourcePath.pathString.split(separator: "/").last {
-                if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                    try fileSystem.writeFileContents(destinationPath.appending(component: String(fileName))) { $0 <<< renamed }
-                }
-            }
-        } else {
-            // This else takes care of things such as images
-            if let fileName = sourcePath.pathString.split(separator: "/").last {
-                if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                    try fileSystem.copy(from: sourcePath, to: destinationPath.appending(component: String(fileName)))
-                }
-            }
-        }
-    }
-}
-
-fileprivate enum MakePackageMode {
-    case `initialize`
-    case create
- }
