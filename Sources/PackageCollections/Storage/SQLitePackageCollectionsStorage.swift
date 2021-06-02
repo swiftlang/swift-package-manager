@@ -45,7 +45,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
-    private var targetTrieReady = ThreadSafeBox<Bool>()
+    private var targetTrieReady = false
     private let populateTargetTrieLock = Lock()
 
     init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
@@ -504,7 +504,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             // Trie is more performant for target search; use it if available
-            if self.targetTrieReady.get() ?? false {
+            if self.targetTrieReady {
                 do {
                     switch type {
                     case .exactMatch:
@@ -763,42 +763,41 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
         DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext) {
             do {
-                try self.populateTargetTrieLock.withLock { // Prevents race to calling targetTrieReady.memoize
-                    _ = try self.targetTrieReady.memoize { // memoize body is only executed once
-                        // since running on low priority thread make sure the database has not already gone away
-                        switch (try self.withStateLock { self.state }) {
-                        case .disconnected, .disconnecting:
-                            return false
-                        default:
-                            break
-                        }
+                try self.populateTargetTrieLock.withLock { // Prevent race to populate targetTrie
+                    // since running on low priority thread make sure the database has not already gone away
+                    switch (try self.withStateLock { self.state }) {
+                    case .disconnected, .disconnecting:
+                        self.targetTrieReady = false
+                        return
+                    default:
+                        break
+                    }
 
-                        // Use FTS to build the trie
-                        let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
-                        try self.executeStatement(query) { statement in
-                            while let row = try statement.step() {
-                                #if os(Linux)
-                                // lock not required since executeStatement locks
-                                guard case .connected = self.state else {
-                                    return
-                                }
-                                #else
-                                guard case .connected = (try self.withStateLock { self.state }) else {
-                                    return
-                                }
-                                #endif
+                    // Use FTS to build the trie
+                    let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
+                    try self.executeStatement(query) { statement in
+                        while let row = try statement.step() {
+                            #if os(Linux)
+                            // lock not required since executeStatement locks
+                            guard case .connected = self.state else {
+                                return
+                            }
+                            #else
+                            guard case .connected = (try self.withStateLock { self.state }) else {
+                                return
+                            }
+                            #endif
 
-                                let targetName = row.string(at: 2)
+                            let targetName = row.string(at: 2)
 
-                                if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                    let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
-                                    self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
-                                }
+                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
+                                self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
                             }
                         }
-                        return true
                     }
+                    self.targetTrieReady = true
                 }
                 callback(.success(()))
             } catch {
