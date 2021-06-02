@@ -45,7 +45,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
-    private var targetTrieReady = false
+    private var targetTrieReady: Bool?
     private let populateTargetTrieLock = Lock()
 
     init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
@@ -504,7 +504,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             // Trie is more performant for target search; use it if available
-            if self.populateTargetTrieLock.withLock({ self.targetTrieReady }) {
+            if self.populateTargetTrieLock.withLock({ self.targetTrieReady }) ?? false {
                 do {
                     switch type {
                     case .exactMatch:
@@ -764,6 +764,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext) {
             do {
                 try self.populateTargetTrieLock.withLock { // Prevent race to populate targetTrie
+                    // Exit early if we've already done the computation before
+                    guard self.targetTrieReady == nil else {
+                        return
+                    }
+
                     // since running on low priority thread make sure the database has not already gone away
                     switch (try self.withStateLock { self.state }) {
                     case .disconnected, .disconnecting:
