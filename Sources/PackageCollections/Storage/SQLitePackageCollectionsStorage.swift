@@ -504,7 +504,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             // Trie is more performant for target search; use it if available
-            if self.targetTrieReady {
+            if self.populateTargetTrieLock.withLock({ self.targetTrieReady }) {
                 do {
                     switch type {
                     case .exactMatch:
