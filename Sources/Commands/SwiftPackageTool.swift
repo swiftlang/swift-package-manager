@@ -311,18 +311,14 @@ extension SwiftPackageTool {
             guard let configPath = try swiftTool.getConfigPath() else {
                 throw InternalError("Could not find config path")
             }
-            
-            guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not get the current working directory")
-            }
-            
+
             if let path = try? AbsolutePath(validating: url) {
                 if localFileSystem.exists(path) {
                     let currentTemplateLocation = path
                     let templateDirectory = configPath.appending(components: "templates", "new-package", url)
                     
                     guard localFileSystem.exists(currentTemplateLocation) && localFileSystem.isDirectory(currentTemplateLocation) else {
-                        throw InternalError("Template folder \(url) could not be found in: \(cwd)")
+                        throw StringError("Could not find template: \(url)")
                     }
                     
                     try localFileSystem.copy(from: currentTemplateLocation, to: templateDirectory)
@@ -360,13 +356,17 @@ extension SwiftPackageTool {
             }
             
             guard localFileSystem.exists(configPath.appending(components: "templates", "new-package", templateName)) else {
-                throw InternalError("Could not find \(templateName)")
+                throw StringError("Could not find template: \(templateName)")
             }
             
             let provider = GitRepositoryProvider()
             let templatePath = configPath.appending(components: "templates", "new-package", templateName)
             
-            try provider.pull(repository: RepositorySpecifier(url: templatePath.pathString), to: templatePath)
+            if provider.isValidDirectory(templatePath.pathString) {
+                try provider.pull(templatePath.pathString)
+            } else {
+                throw StringError("Template: \(templateName) is not a git repo, and therefore could not be updated")
+            }
         }
     }
     

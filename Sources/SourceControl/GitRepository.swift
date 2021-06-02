@@ -107,8 +107,8 @@ public struct GitRepositoryProvider: RepositoryProvider {
         try self.fetch(repository: repository, to: path, mirror: true)
     }
     
-    public func pull(repository: RepositorySpecifier, to path: AbsolutePath) throws {
-        try self.callGit("pull", "-C", path.pathString, repository: repository)
+    public func pull(_ directory: String) throws {
+        try self.callGit("pull", "-C", directory, repository: RepositorySpecifier(url: directory))
     }
     
     public func isValidDirectory(_ directory: String) -> Bool {
