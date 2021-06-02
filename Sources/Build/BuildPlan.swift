@@ -778,13 +778,13 @@ public final class SwiftTargetBuildDescription {
             args += ["-color-diagnostics"]
         }
 
-        // Add the output for the `.swiftinterface`, if requested.
-        if buildParameters.enableParseableModuleInterfaces {
-            args += ["-emit-parseable-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
-        }
-
         // Add agruments from declared build settings.
         args += self.buildSettingsFlags()
+
+        // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other way.
+        if buildParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
+            args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
+        }
 
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
