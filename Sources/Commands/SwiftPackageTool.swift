@@ -77,6 +77,7 @@ extension SwiftPackageTool {
             if let index = subCommands.firstIndex(where: { $0 == Init.self }) {
                 subCommands.insert(Create.self, at: index + 1)
                 subCommands.insert(AddTemplate.self, at: index + 2)
+                subCommands.insert(UpdateTemplate.self, at: index + 3)
             }
         }
         
@@ -223,7 +224,7 @@ extension SwiftPackageTool {
         
         func run(_ swiftTool: SwiftTool) throws {
             guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directroy.")
+                throw InternalError("Could not find the current working directory.")
             }
             
             guard let configPath = try swiftTool.getConfigPath() else {
@@ -267,7 +268,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directroy.")
+                throw InternalError("Could not find the current working directory.")
             }
             
             guard let configPath = try swiftTool.getConfigPath() else {
@@ -315,15 +316,17 @@ extension SwiftPackageTool {
                 throw InternalError("Could not get the current working directory")
             }
             
-            if localFileSystem.exists(AbsolutePath(url)) {
-                let currentTemplateLocation = AbsolutePath(url)
-                let templateDirectory = configPath.appending(components: "templates", "new-package", url)
-                
-                guard localFileSystem.exists(currentTemplateLocation) && localFileSystem.isDirectory(currentTemplateLocation) else {
-                    throw InternalError("Template folder \(url) could not be found in: \(cwd)")
+            if let path = try? AbsolutePath(validating: url) {
+                if localFileSystem.exists(path) {
+                    let currentTemplateLocation = path
+                    let templateDirectory = configPath.appending(components: "templates", "new-package", url)
+                    
+                    guard localFileSystem.exists(currentTemplateLocation) && localFileSystem.isDirectory(currentTemplateLocation) else {
+                        throw InternalError("Template folder \(url) could not be found in: \(cwd)")
+                    }
+                    
+                    try localFileSystem.copy(from: currentTemplateLocation, to: templateDirectory)
                 }
-                
-                try localFileSystem.copy(from: currentTemplateLocation, to: templateDirectory)
             } else {
                 let templatePath: AbsolutePath
                 let provider = GitRepositoryProvider()
@@ -338,6 +341,32 @@ extension SwiftPackageTool {
                 
                 try provider.fetch(repository: RepositorySpecifier(url: url), to: templatePath, mirror: false)
             }
+        }
+    }
+    
+    struct UpdateTemplate: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Update template from remote")
+        
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+        
+        @Argument(help: "Template to update")
+        var templateName: String
+        
+        func run(_ swiftTool: SwiftTool) throws {
+            guard let configPath = try swiftTool.getConfigPath() else {
+                throw InternalError("Could not find config path")
+            }
+            
+            guard localFileSystem.exists(configPath.appending(components: "templates", "new-package", templateName)) else {
+                throw InternalError("Could not find \(templateName)")
+            }
+            
+            let provider = GitRepositoryProvider()
+            let templatePath = configPath.appending(components: "templates", "new-package", templateName)
+            
+            try provider.pull(repository: RepositorySpecifier(url: templatePath.pathString), to: templatePath)
         }
     }
     

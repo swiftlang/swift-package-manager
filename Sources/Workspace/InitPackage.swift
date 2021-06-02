@@ -148,7 +148,11 @@ public final class InitPackage {
                                  name: packageName)
             }
         } else {
-            let packageTemplate = getSwiftPMDefaultTemplate(packageType: packageType)
+            let packageTemplate = PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
+                                                  testsDirectory: nil,
+                                                  createSubDirectoryForModule: false,
+                                                  packageType: packageType)
+           
             try writePackageStructure(template: packageTemplate)
         }
     }
@@ -160,26 +164,6 @@ public final class InitPackage {
                                        packageType: packageType)
         
         try writePackageStructure(template: template)
-    }
-    
-    private func getSwiftPMDefaultTemplate(packageType: InitPackage.PackageType,
-                                           sources: RelativePath = .init("./Sources"),
-                                           tests: RelativePath? = nil,
-                                           createSubDirectoryForModule: Bool = false) -> InitPackage.PackageTemplate {
-        // Even if we are making a "classic" package that doesn't use a template we should till use templates
-        // for consistency within the codebase
-        switch InitPackage.createPackageMode {
-        case .new:
-            return InitPackage.PackageTemplate(sourcesDirectory: sources,
-                                               testsDirectory: tests,
-                                               createSubDirectoryForModule: createSubDirectoryForModule,
-                                               packageType: packageType)
-        case .legacy:
-            return InitPackage.PackageTemplate(sourcesDirectory: RelativePath("./Sources"),
-                                               testsDirectory: RelativePath("./Tests"),
-                                               createSubDirectoryForModule: true,
-                                               packageType: packageType)
-        }
     }
 
     private func copyTemplate(fileSystem: FileSystem, sourcePath: AbsolutePath, destinationPath: AbsolutePath, name: String) throws {
