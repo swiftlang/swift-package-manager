@@ -2224,6 +2224,68 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
+    
+    /// Tests that the inference of XCBuild build settings based on the package manifest's declared unsafe settings
+    /// works as expected.
+    func testUnsafeFlagsBuildSettingInference() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/MyLib/Sources/MyLib/Foo.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            diagnostics: diagnostics,
+            manifests: [
+                Manifest.createManifest(
+                    name: "MyLib",
+                    path: "/MyLib",
+                    packageKind: .root,
+                    packageLocation: "/MyLib",
+                    v: .v5,
+                    products: [
+                        .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(name: "MyLib", settings: [
+                            .init(
+                                tool: .swift,
+                                name: .unsafeFlags,
+                                value: ["-enable-library-evolution"],
+                                condition: .init(config: "release")),
+                        ]),
+                    ]),
+            ],
+            shouldCreateMultipleTestProducts: true
+        )
+
+        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: diagnostics)
+        let pif = try builder.construct()
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        PIFTester(pif) { workspace in
+            workspace.checkProject("PACKAGE:/MyLib") { project in
+                project.checkTarget("PACKAGE-TARGET:MyLib") { target in
+                    target.checkBuildConfiguration("Debug") { configuration in
+                        configuration.checkBuildSettings { settings in
+                            // Check that the `-enable-library-evolution` setting for Release didn't affect Debug.
+                            XCTAssertEqual(settings[.SWIFT_EMIT_MODULE_INTERFACE], nil)
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], nil)
+                        }
+                    }
+                    target.checkBuildConfiguration("Release") { configuration in
+                        configuration.checkBuildSettings { settings in
+                            // Check that the `-enable-library-evolution` setting for Release also set SWIFT_EMIT_MODULE_INTERFACE.
+                            XCTAssertEqual(settings[.SWIFT_EMIT_MODULE_INTERFACE], "YES")
+                            XCTAssertEqual(settings[.OTHER_SWIFT_FLAGS], ["$(inherited)", "-enable-library-evolution"])
+                        }
+                    }
+                }
+            }
+        }
+    }
+
   #endif
 }
 

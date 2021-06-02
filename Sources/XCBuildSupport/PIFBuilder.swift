@@ -812,6 +812,21 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         return bundleName
     }
+    
+    // Add inferred build settings for a particular value for a manifest setting and value.
+    private func addInferredBuildSettings(
+        for setting: PIF.BuildSettings.MultipleValueSetting,
+        value: [String],
+        platform: PIF.BuildSettings.Platform? = nil,
+        configuration: BuildConfiguration,
+        settings: inout PIF.BuildSettings
+    ) {
+        // Automatically set SWIFT_EMIT_MODULE_INTERFACE if the package author uses unsafe flags to enable
+        // library evolution (this is needed until there is a way to specify this in the package manifest).
+        if setting == .OTHER_SWIFT_FLAGS && value.contains("-enable-library-evolution") {
+            settings[.SWIFT_EMIT_MODULE_INTERFACE] = "YES"
+        }
+    }
 
     // Apply target-specific build settings defined in the manifest.
     private func addManifestBuildSettings(
@@ -833,8 +848,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                             switch configuration {
                             case .debug:
                                 debugSettings[setting, for: platform, default: ["$(inherited)"]] += value
+                                addInferredBuildSettings(for: setting, value: value, platform: platform, configuration: .debug, settings: &debugSettings)
                             case .release:
                                 releaseSettings[setting, for: platform, default: ["$(inherited)"]] += value
+                                addInferredBuildSettings(for: setting, value: value, platform: platform, configuration: .release, settings: &releaseSettings)
                             }
                         }
 
@@ -847,8 +864,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                         switch configuration {
                         case .debug:
                             debugSettings[setting, default: ["$(inherited)"]] += value
+                            addInferredBuildSettings(for: setting, value: value, configuration: .debug, settings: &debugSettings)
                         case .release:
                             releaseSettings[setting, default: ["$(inherited)"]] += value
+                            addInferredBuildSettings(for: setting, value: value, configuration: .release, settings: &releaseSettings)
                         }
                     }
 
