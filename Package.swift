@@ -23,85 +23,80 @@ if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEP
     macOSPlatform = .macOS(.v10_15)
 }
 
+/** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
+This allowis some clients (such as IDEs) that use SwiftPM's data model but not its build system
+to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
+though that could break some clients.
+*/
+let swiftPMDataModelProduct = (
+    name: "SwiftPMDataModel",
+    targets: [
+        "SourceControl",
+        "PackageCollections",
+        "PackageCollectionsModel",
+        "PackageModel",
+        "PackageLoading",
+        "PackageGraph",
+        "Xcodeproj",
+        "Workspace",
+    ]
+)
+
+/** The `libSwiftPM` set of interfaces to programatically work with Swift
+ packages.  `libSwiftPM` includes all of the SwiftPM code except the
+ command line tools, while `libSwiftPMDataModel` includes only the data model.
+
+ NOTE: This API is *unstable* and may change at any time.
+*/
+let swiftPMProduct = (
+    name: "SwiftPM",
+    targets: swiftPMDataModelProduct.targets + [
+        "SPMLLBuild",
+        "LLBuildManifest",
+        "Build",
+    ]
+)
+
+/** An array of products which have two versions listed: one dynamically linked, the other with the
+automatic linking type with `-auto` suffix appended to product's name.
+*/
+let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
+
 let package = Package(
     name: "SwiftPM",
     platforms: [macOSPlatform],
-    products: [
-        // The `libSwiftPM` set of interfaces to programatically work with Swift
-        // packages.  `libSwiftPM` includes all of the SwiftPM code except the
-        // command line tools, while `libSwiftPMDataModel` includes only the data model.
-        //
-        // NOTE: This API is *unstable* and may change at any time.
-        .library(
-            name: "SwiftPM",
-            type: .dynamic,
-            targets: [
-                "SourceControl",
-                "SPMLLBuild",
-                "PackageCollections",
-                "PackageCollectionsModel",
-                "LLBuildManifest",
-                "PackageModel",
-                "PackageLoading",
-                "PackageGraph",
-                "Build",
-                "Xcodeproj",
-                "Workspace"
-            ]
-        ),
-        .library(
-            name: "SwiftPM-auto",
-            targets: [
-                "SourceControl",
-                "SPMLLBuild",
-                "LLBuildManifest",
-                "PackageCollections",
-                "PackageCollectionsModel",
-                "PackageModel",
-                "PackageLoading",
-                "PackageGraph",
-                "Build",
-                "Xcodeproj",
-                "Workspace"
-            ]
-        ),
-        .library(
-            name: "SwiftPMDataModel",
-            type: .dynamic,
-            targets: [
-                "SourceControl",
-                "PackageCollections",
-                "PackageCollectionsModel",
-                "PackageModel",
-                "PackageLoading",
-                "PackageGraph",
-                "Xcodeproj",
-                "Workspace"
-            ]
-        ),
-
+    products:
+        autoProducts.flatMap {
+          [
+            .library(
+                name: $0.name,
+                type: .dynamic,
+                targets: $0.targets
+            ),
+            .library(
+                name: "\($0.name)-auto",
+                targets: $0.targets
+            )
+          ]
+        } + [
         .library(
             name: "XCBuildSupport",
             targets: ["XCBuildSupport"]
         ),
-
         .library(
             name: "PackageDescription",
             type: .dynamic,
             targets: ["PackageDescription"]
         ),
-        
         .library(
             name: "PackagePlugin",
             type: .dynamic,
             targets: ["PackagePlugin"]
         ),
-        
         .library(
             name: "PackageCollectionsModel",
             targets: ["PackageCollectionsModel"]
         ),
-
         .library(
             name: "SwiftPMPackageCollections",
             targets: [
@@ -172,7 +167,7 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
 
         // MARK: Package Collections
-        
+
         .target(
             /** Package collections models */
             name: "PackageCollectionsModel",
