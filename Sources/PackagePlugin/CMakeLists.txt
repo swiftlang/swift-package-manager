@@ -17,10 +17,10 @@ add_library(PackagePlugin
 
 target_compile_options(PackagePlugin PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)
-target_compile_options(PackagePlugin PUBLIC
-  $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
   
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin)
+  target_compile_options(PackagePlugin PUBLIC
+    $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
   set(SWIFT_INTERFACE_PATH ${CMAKE_BINARY_DIR}/pm/PluginAPI/PackagePlugin.swiftinterface)
   target_compile_options(PackagePlugin PUBLIC
     $<$<COMPILE_LANGUAGE:Swift>:-emit-module-interface-path$<SEMICOLON>${SWIFT_INTERFACE_PATH}>)
