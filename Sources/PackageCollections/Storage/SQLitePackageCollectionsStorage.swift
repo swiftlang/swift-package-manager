@@ -45,7 +45,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
-    private var targetTrieReady = ThreadSafeBox<Bool>()
+    private var targetTrieReady: Bool?
+    private let populateTargetTrieLock = Lock()
 
     init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
@@ -503,7 +504,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             // Trie is more performant for target search; use it if available
-            if self.targetTrieReady.get() ?? false {
+            if self.populateTargetTrieLock.withLock({ self.targetTrieReady }) ?? false {
                 do {
                     switch type {
                     case .exactMatch:
@@ -761,13 +762,18 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
         DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext) {
-            self.targetTrieReady.memoize {
-                do {
+            do {
+                try self.populateTargetTrieLock.withLock { // Prevent race to populate targetTrie
+                    // Exit early if we've already done the computation before
+                    guard self.targetTrieReady == nil else {
+                        return
+                    }
+
                     // since running on low priority thread make sure the database has not already gone away
                     switch (try self.withStateLock { self.state }) {
                     case .disconnected, .disconnecting:
-                        callback(.success(()))
-                        return false
+                        self.targetTrieReady = false
+                        return
                     default:
                         break
                     }
@@ -796,12 +802,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
                     }
-                    callback(.success(()))
-                    return true
-                } catch {
-                    callback(.failure(error))
-                    return false
+                    self.targetTrieReady = true
                 }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
             }
         }
     }
