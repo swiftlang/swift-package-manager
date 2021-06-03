@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -231,10 +231,8 @@ class PackageCollectionsStorageTests: XCTestCase {
             do {
                 try tsc_await { callback in storage2.populateTargetTrie(callback: callback) }
 
-                do {
-                    let searchResult = try tsc_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
-                    XCTAssert(searchResult.items.count > 0, "should get results")
-                }
+                let searchResult = try tsc_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
+                XCTAssert(searchResult.items.count > 0, "should get results")
             } catch {
                 // It's possible that some platforms don't have support FTS
                 XCTAssertEqual(false, storage2.useSearchIndices.get(), "populateTargetTrie should fail only if FTS is not available")
