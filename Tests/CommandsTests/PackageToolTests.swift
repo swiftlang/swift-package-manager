@@ -608,7 +608,7 @@ final class PackageToolTests: XCTestCase {
         try XCTSkipIf(InitPackage.createPackageMode == .legacy)
         let result = try SwiftPMProduct.SwiftPackage.executeProcess(["create"])
         let stderrOutput = try result.utf8stderrOutput()
-        XCTAssert(stderrOutput.contains("error: Missing expected argument '<package-name>'"), #"actual: "\#(stderrOutput)""#)
+        XCTAssert(stderrOutput.contains("Error: Missing expected argument '<package-name>'"), #"actual: "\#(stderrOutput)""#)
     }
 
     func testPackageEditAndUnedit() {

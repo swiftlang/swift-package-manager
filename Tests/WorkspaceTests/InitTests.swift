@@ -19,6 +19,7 @@ class InitTests: XCTestCase {
     // MARK: TSCBasic package creation for each package type.
     
     func testInitPackageEmpty() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
@@ -58,6 +59,7 @@ class InitTests: XCTestCase {
     }
     
     func testInitPackageExecutable() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
@@ -113,6 +115,7 @@ class InitTests: XCTestCase {
     }
 
     func testInitPackageLibrary() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .new)
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(component: "Foo")
