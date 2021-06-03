@@ -309,8 +309,6 @@ Certificates used for signing package collections must meet the following requir
 - The certificate must not be revoked. The certificate authority must support OCSP, which means the certificate must have the "Certificate Authority Information Access" extension that includes OCSP as a method, specifying the responder's URL.
 - The certificate chain is valid and root certificate must be trusted.
 
-Non-expired, non-revoked Apple Distribution certificates from [developer.apple.com](https://developer.apple.com) satisfy all of the criteria above.
-
 ##### Trusted root certificates
 
 With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. When SwiftPM user tries to add the collection, however,
