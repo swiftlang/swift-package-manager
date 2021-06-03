@@ -312,30 +312,35 @@ extension SwiftPackageTool {
                 throw InternalError("Could not find config path")
             }
 
+            let templatePath: AbsolutePath
             if let path = try? AbsolutePath(validating: url) {
-                if localFileSystem.exists(path) {
-                    let currentTemplateLocation = path
-                    let templateDirectory = configPath.appending(components: "templates", "new-package", url)
-                    
-                    guard localFileSystem.exists(currentTemplateLocation) && localFileSystem.isDirectory(currentTemplateLocation) else {
-                        throw StringError("Could not find template: \(url)")
-                    }
-                    
-                    try localFileSystem.copy(from: currentTemplateLocation, to: templateDirectory)
+                guard localFileSystem.exists(path) else {
+                    throw StringError("Could not find template: \(path)")
                 }
+                
+                guard localFileSystem.isDirectory(path) else {
+                    throw StringError("\(path) is not a valid directory")
+                }
+                
+                templatePath = configPath.appending(components: "templates", "new-package", path.basename)
+                try localFileSystem.copy(from: path, to: templatePath)
             } else {
-                let templatePath: AbsolutePath
                 let provider = GitRepositoryProvider()
                 
                 if let templateName = name {
                     templatePath = configPath.appending(components: "templates", "new-package", templateName)
-                } else if let templateName = url.split(separator: "/").last {
-                    templatePath = configPath.appending(components: "templates", "new-package", String(templateName.replacingOccurrences(of: ".git", with: "")))
+                } else if let templateName = url.split(separator: "/").last?.replacingOccurrences(of: ".git", with: "").flatMap({ String($0) }) {
+                    templatePath = configPath.appending(components: "templates", "new-package", String(templateName))
                 } else {
                     throw InternalError("Could not determine template name")
                 }
                 
                 try provider.fetch(repository: RepositorySpecifier(url: url), to: templatePath, mirror: false)
+            }
+            
+            guard localFileSystem.exists(templatePath.appending(component: "Package.swift")) else {
+                try localFileSystem.removeFileTree(templatePath)
+                throw StringError("\(templatePath) is not a valid template directory, missing 'Package.swift'")
             }
         }
     }
@@ -362,11 +367,12 @@ extension SwiftPackageTool {
             let provider = GitRepositoryProvider()
             let templatePath = configPath.appending(components: "templates", "new-package", templateName)
             
-            if provider.isValidDirectory(templatePath.pathString) {
-                try provider.pull(templatePath.pathString)
-            } else {
+            guard provider.isValidDirectory(templatePath.pathString) else {
                 throw StringError("Template: \(templateName) is not a git repo, and therefore could not be updated")
             }
+            
+            try provider.pull(templatePath.pathString)
+            
         }
     }
     

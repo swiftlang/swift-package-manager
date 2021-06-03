@@ -108,7 +108,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
     }
     
     public func pull(_ directory: String) throws {
-        try self.callGit("pull", "-C", directory, repository: RepositorySpecifier(url: directory))
+        try self.callGit("-C", directory, "pull", "--ff-only", repository: RepositorySpecifier(url: directory))
     }
     
     public func isValidDirectory(_ directory: String) -> Bool {
