@@ -115,7 +115,7 @@ let package = Package(
             name: "PackageDescription",
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"])
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
             ]),
 
         // The `PackagePlugin` target provides the API that is available to
@@ -125,7 +125,7 @@ let package = Package(
             name: "PackagePlugin",
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"])
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
             ]),
 
         // MARK: SwiftPM specific support libraries
