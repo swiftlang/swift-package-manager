@@ -136,10 +136,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
             component: buildParameters.configuration.dirname
         )
-        do {
-            if localFileSystem.exists(oldBuildPath) {
-                try? localFileSystem.removeFileTree(oldBuildPath)
+        if localFileSystem.exists(oldBuildPath) {
+            do { try localFileSystem.removeFileTree(oldBuildPath) }
+            catch {
+                diagnostics.emit(warning: "unable to delete \(oldBuildPath), skip creating symbolic link: \(error)")
+                return
             }
+        }
+
+        do {
             try localFileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
         } catch {
             diagnostics.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
