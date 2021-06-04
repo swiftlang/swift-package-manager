@@ -287,7 +287,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func searchPackages(identifiers: [Model.CollectionIdentifier]? = nil,
                         query: String,
                         callback: @escaping (Result<Model.PackageSearchResult, Error>) -> Void) {
-        if self.useSearchIndices.get() ?? false {
+        let useSearchIndices: Bool
+        do {
+            useSearchIndices = try self.shouldUseSearchIndices()
+        } catch {
+            return callback(.failure(error))
+        }
+
+        if useSearchIndices {
             var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
@@ -397,7 +404,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func findPackage(identifier: PackageIdentity,
                      collectionIdentifiers: [Model.CollectionIdentifier]?,
                      callback: @escaping (Result<Model.PackageSearchResult.Item, Error>) -> Void) {
-        if self.useSearchIndices.get() ?? false {
+        let useSearchIndices: Bool
+        do {
+            useSearchIndices = try self.shouldUseSearchIndices()
+        } catch {
+            return callback(.failure(error))
+        }
+
+        if useSearchIndices {
             var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
@@ -499,7 +513,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             callback(.success(result))
         }
 
-        if self.useSearchIndices.get() ?? false {
+        let useSearchIndices: Bool
+        do {
+            useSearchIndices = try self.shouldUseSearchIndices()
+        } catch {
+            return callback(.failure(error))
+        }
+
+        if useSearchIndices {
             var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, targetName: String)]()
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
@@ -662,7 +683,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     private func insertToSearchIndices(collection: Model.Collection) throws {
-        guard self.useSearchIndices.get() ?? false else { return }
+        guard try self.shouldUseSearchIndices() else { return }
 
         try self.ftsLock.withLock {
             // First delete existing data
@@ -730,7 +751,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     private func removeFromSearchIndices(identifier: Model.CollectionIdentifier) throws {
-        guard self.useSearchIndices.get() ?? false else { return }
+        guard try self.shouldUseSearchIndices() else { return }
 
         let identifierBase64 = try self.encoder.encode(identifier.databaseKey()).base64EncodedString()
 
@@ -758,6 +779,13 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
 
         self.targetTrie.remove { $0.collection == identifier }
+    }
+
+    private func shouldUseSearchIndices() throws -> Bool {
+        // Make sure createSchemaIfNecessary is called and useSearchIndices is set before reading it
+        try self.withDB { _ in
+            self.useSearchIndices.get() ?? false
+        }
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
@@ -893,7 +921,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         #if os(Android)
         // FTS queries for strings containing hyphens isn't working in SQLite on
         // Android, so disable for now.
-        useSearchIndices.put(false)
+        self.useSearchIndices.put(false)
         #else
         do {
             let ftsPackages = """
@@ -914,12 +942,12 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             """
             try db.exec(query: ftsTargets)
 
-            useSearchIndices.put(true)
+            self.useSearchIndices.put(true)
         } catch {
             // We can use FTS3 tables but queries yield different results when run on different
             // platforms. This could be because of SQLite version perhaps? But since we can't get
             // consistent results we will not fallback to FTS3 and just give up if FTS4 is not available.
-            useSearchIndices.put(false)
+            self.useSearchIndices.put(false)
         }
         #endif
 
