@@ -174,10 +174,12 @@ struct MockMetadataProvider: PackageMetadataProvider {
 
 struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {
     let collections: Set<String>
+    let certPolicyKeys: Set<CertificatePolicyKey>
     let hasTrustedRootCerts: Bool
 
-    init(_ collections: Set<String> = [], hasTrustedRootCerts: Bool = true) {
+    init(_ collections: Set<String> = [], certPolicyKeys: Set<CertificatePolicyKey> = [], hasTrustedRootCerts: Bool = true) {
         self.collections = collections
+        self.certPolicyKeys = certPolicyKeys
         self.hasTrustedRootCerts = hasTrustedRootCerts
     }
 
@@ -188,7 +190,7 @@ struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {
             return callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
         }
 
-        if self.collections.contains(signedCollection.collection.name) {
+        if self.collections.contains(signedCollection.collection.name) || self.certPolicyKeys.contains(certPolicyKey) {
             callback(.success(()))
         } else {
             callback(.failure(PackageCollectionSigningError.invalidSignature))

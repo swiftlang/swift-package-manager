@@ -762,7 +762,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     }
 }
 
-public enum CertificatePolicyKey: Equatable, Hashable {
+public enum CertificatePolicyKey: Hashable {
     case `default`(subjectUserID: String?)
     case appleDistribution(subjectUserID: String?)
 
