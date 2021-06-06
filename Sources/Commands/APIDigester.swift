@@ -64,10 +64,10 @@ struct APIDigesterBaselineDumper {
     }
 
     /// Emit the API baseline files and return the path to their directory.
-    func emitAPIBaseline(for modulesToDiff: Set<String>) throws -> AbsolutePath {
+    func emitAPIBaseline(for modulesToDiff: Set<String>, baselineDir: AbsolutePath?) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
-        let baselineDir = apiDiffDir.appending(component: baselineTreeish)
+        let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineTreeish)
         let baselinePath: (String)->AbsolutePath = { module in
             baselineDir.appending(component: module + ".json")
         }
