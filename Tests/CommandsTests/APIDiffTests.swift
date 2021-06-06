@@ -354,4 +354,43 @@ final class APIDiffTests: XCTestCase {
         throw XCTSkip("Test unsupported on current platform")
         #endif
     }
+
+    func testRegenerateBaseline() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "Foo")
+            // Overwrite the existing decl.
+            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+                $0 <<< "public let foo = 42"
+            }
+
+            let baselineDir = prefix.appending(component: "Baselines")
+            let fooBaselinePath = baselineDir.appending(components: "1.2.3", "Foo.json")
+
+            try localFileSystem.createDirectory(fooBaselinePath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(fooBaselinePath) {
+                $0 <<< "Old Baseline"
+            }
+
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3",
+                                              "--baseline-dir", baselineDir.pathString,
+                                              "--regenerate-baseline"],
+                                             packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
+                XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
+                XCTAssertTrue(localFileSystem.exists(fooBaselinePath))
+                XCTAssertNotEqual((try! localFileSystem.readFileContents(fooBaselinePath)).description, "Old Baseline")
+            }
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
 }
