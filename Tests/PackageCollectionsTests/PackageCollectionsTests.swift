@@ -22,10 +22,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {
         let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()
         let configuration = PackageCollections.Configuration(authTokens: { authTokens.get() })
-        let storage = makeMockStorage()
+
+        // This test doesn't use storage at all and finishes quickly so disable target trie to prevent race
+        let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
+        let storage = makeMockStorage(storageConfig)
         defer { XCTAssertNoThrow(try storage.close()) }
 
-        // disable cache for this test to avoid setup/cleanup
+        // Disable cache for this test to avoid setup/cleanup
         let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(authTokens: configuration.authTokens, cacheTTLInSeconds: -1)
         let metadataProvider = GitHubPackageMetadataProvider(configuration: metadataProviderConfig)
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: [:], metadataProvider: metadataProvider)
