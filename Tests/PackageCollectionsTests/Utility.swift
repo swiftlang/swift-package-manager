@@ -121,10 +121,10 @@ func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetad
                  processedAt: Date())
 }
 
-func makeMockStorage() -> PackageCollections.Storage {
+func makeMockStorage(_ collectionsStorageConfig: SQLitePackageCollectionsStorage.Configuration = .init()) -> PackageCollections.Storage {
     let mockFileSystem = InMemoryFileSystem()
     return .init(sources: FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem),
-                 collections: SQLitePackageCollectionsStorage(location: .memory))
+                 collections: SQLitePackageCollectionsStorage(location: .memory, configuration: collectionsStorageConfig))
 }
 
 struct MockCollectionsProvider: PackageCollectionProvider {
