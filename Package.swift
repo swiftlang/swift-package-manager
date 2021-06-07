@@ -157,14 +157,29 @@ let package = Package(
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+            dependencies: [
+                "SwiftToolsSupport-auto",
+                "Basics",
+                "OrderedCollections",
+                "PackageModel",
+                "SourceControl",
+            ]
+        ),
 
         // MARK: Package Dependency Resolution
 
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
+            dependencies: [
+                "SwiftToolsSupport-auto",
+                "Basics",
+                "OrderedCollections",
+                "PackageLoading",
+                "PackageModel",
+                "SourceControl",
+            ]
+        ),
 
         // MARK: Package Collections
 
@@ -199,7 +214,17 @@ let package = Package(
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "SPMBuildCore", "PackageGraph", "LLBuildManifest", "SwiftDriver", "SPMLLBuild"]),
+            dependencies: [
+                "SwiftToolsSupport-auto",
+                "Basics",
+                "OrderedCollections",
+                "SPMBuildCore",
+                "PackageGraph",
+                "LLBuildManifest",
+                "SwiftDriver",
+                "SPMLLBuild",
+            ]
+        ),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
@@ -360,14 +385,16 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.4.3")),
-        .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
+        .package(url: "https://github.com/apple/swift-collections.git", .exact("0.0.3")),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "1.1.4")),
+        .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
     ]
 } else {
     package.dependencies += [
         .package(path: "../swift-tools-support-core"),
         .package(path: "../swift-argument-parser"),
-        .package(path: "../swift-driver"),
+        .package(path: "../swift-collections"),
         .package(path: "../swift-crypto"),
+        .package(path: "../swift-driver"),
     ]
 }

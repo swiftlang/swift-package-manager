@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2019 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,8 +9,9 @@
  */
 
 import Basics
-import TSCBasic
+import OrderedCollections
 import PackageModel
+import TSCBasic
 
 /// A set of terms that are incompatible with each other and can therefore not
 /// all be true at the same time. In dependency resolution, these are derived
@@ -43,7 +44,7 @@ public struct Incompatibility: Equatable, Hashable {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
         }
 
-        let normalizedTerms = try normalize(terms: terms.contents)
+        let normalizedTerms = try normalize(terms: terms.elements)
         assert(normalizedTerms.count > 0,
                "An incompatibility must contain at least one term after normalization.")
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)

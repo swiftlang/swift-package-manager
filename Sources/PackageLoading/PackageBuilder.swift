@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import OrderedCollections
 import PackageModel
 import TSCBasic
 import TSCUtility
@@ -1192,8 +1193,7 @@ public final class PackageBuilder {
 
         /// Helper method to append to products array.
         func append(_ product: Product) {
-            let inserted = products.append(KeyedPair(product, key: product.name))
-            if !inserted {
+            if !products.append(KeyedPair(product, key: product.name)).inserted {
                 diagnostics.emit(
                     .duplicateProduct(product: product),
                     location: self.diagnosticLocation

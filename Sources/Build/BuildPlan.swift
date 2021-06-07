@@ -9,14 +9,15 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
+import Foundation
+import OrderedCollections
 import PackageModel
 import PackageGraph
 import PackageLoading
-import Foundation
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
+import TSCBasic
+import TSCUtility
 
 extension String {
     fileprivate var asSwiftStringLiteralConstant: String {

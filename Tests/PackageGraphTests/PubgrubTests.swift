@@ -11,6 +11,7 @@
 import XCTest
 
 import TSCBasic
+import OrderedCollections
 import PackageLoading
 @testable import PackageModel
 @testable import PackageGraph
