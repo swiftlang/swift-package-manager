@@ -61,7 +61,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
 
-        self.populateTargetTrie()
+        if configuration.initializeTargetTrie {
+            self.populateTargetTrie()
+        }
     }
 
     convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
@@ -1018,12 +1020,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     struct Configuration {
         var batchSize: Int
+        var initializeTargetTrie: Bool
 
         fileprivate var underlying: SQLite.Configuration
 
-        init() {
-            self.underlying = .init()
+        init(initializeTargetTrie: Bool = true) {
             self.batchSize = 100
+            self.initializeTargetTrie = initializeTargetTrie
+
+            self.underlying = .init()
             self.maxSizeInMegabytes = 100
             // see https://www.sqlite.org/c3ref/busy_timeout.html
             self.busyTimeoutMilliseconds = 1000
