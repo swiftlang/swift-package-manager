@@ -662,16 +662,6 @@ as described by [RFC 6249].
 A client MAY use this information
 to determine its preferred strategy for downloading.
 
-A server that indexes but doesn't host packages
-SHOULD respond with a status code of `303` (See Other)
-and redirect to a hosted package archive if one is available.
-
-```http
-HTTP/1.1 303 See Other
-Content-Version: 1
-Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
-```
-
 <a name="endpoint-5"></a>
 
 ### 4.5 Lookup package identifiers registered for a URL
