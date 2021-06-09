@@ -176,7 +176,7 @@ Valid `Accept` header field values are described by the following rules:
     accept      = "application/vnd.swift.registry" [".v" version] ["+" mediatype]
 ```
 
-A server SHALL set the `Content-Type` and `Content-Version` header fields
+A server MUST set the `Content-Type` and `Content-Version` header fields
 with the corresponding content type and API version number of the response.
 
 ```http
@@ -341,7 +341,7 @@ Link: <https://github.com/mona/LinkedList>; rel="canonical",
 }
 ```
 
-The response body SHALL contain a JSON object
+The response body MUST contain a JSON object
 nested at a top-level `releases` key,
 whose keys are version numbers for releases and
 whose values are objects containing the following fields:
@@ -629,12 +629,12 @@ ETag: e61befdd5056d4b8bafa71c5bbb41d71
 Link: <https://mirror-japanwest.example.com/mona-LinkedList-1.1.1.zip>; rel=duplicate; geo=jp; pri=10; type="application/zip"
 ```
 
-A server SHALL respond with a `Content-Length` header
+A server MUST respond with a `Content-Length` header
 set to the size of the archive in bytes.
 A client SHOULD terminate any requests whose response exceeds
 the expected content length.
 
-A server SHALL respond with a `Digest` header
+A server MUST respond with a `Digest` header
 containing a SHA-256 checksum for the source archive.
 
 A server SHOULD respond with a `Content-Disposition` header
@@ -708,7 +708,7 @@ Content-Version: 1
 }
 ```
 
-The response body SHALL contain an array of package identifier strings
+The response body MUST contain an array of package identifier strings
 nested at a top-level `identifiers` key.
 
 It is RECOMMENDED for clients and servers to support
