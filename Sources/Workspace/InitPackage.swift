@@ -59,29 +59,32 @@ public final class InitPackage {
     /// Where to create the new package
     let destinationPath: AbsolutePath
     
+    /// Filesystem used for writing and or copying the package structure
     let fileSystem: FileSystem
     
     /// Configuration path for templates
     let configPath: AbsolutePath
     
+    /// Name for the package
     let packageName: String
     
+    /// If being called from `init` or `create`
     let mode: MakePackageMode
     
+    /// Type of package
     let packageType: InitPackage.PackageType
     
+    /// Name of the template to create the new package from
     let packageTemplateName: String?
     
+    let suppliedPackageType: Bool
+    
     private var moduleName: String {
-        get {
-            packageName.spm_mangledToC99ExtendedIdentifier()
-        }
+        get { packageName.spm_mangledToC99ExtendedIdentifier() }
     }
     
     private var typeName: String {
-        get {
-            moduleName
-        }
+        get { moduleName }
     }
 
     /// Create an instance that can create a package with given arguments.
@@ -104,10 +107,13 @@ public final class InitPackage {
         switch (packageType, mode){
         case (.some(let type), _):
             self.packageType = type
+            self.suppliedPackageType = true
         case (.none, .initialize):
             self.packageType = .library
+            self.suppliedPackageType = false
         case (.none, .create):
             self.packageType = .executable
+            self.suppliedPackageType = false
         }
     
         self.packageTemplateName = packageTemplateName
@@ -124,26 +130,32 @@ public final class InitPackage {
     
     private func makePackageNew() throws {
         let templateHomeDirectory = configPath.appending(components: "templates", "new-package")
-        var template: String?
+        var templateName: String?
         
-        if let templateName = packageTemplateName {
-            guard fileSystem.exists(templateHomeDirectory.appending(component: templateName)) else {
-                throw InternalError("Could not find template folder: \(templateHomeDirectory.appending(component: templateName))")
+        if let template = packageTemplateName {
+            guard fileSystem.exists(templateHomeDirectory.appending(component: template)) else {
+                throw InternalError("Could not find template folder: \(templateHomeDirectory.appending(component: template))")
             }
             
-            template = templateName
+            templateName = template
         } else {
             // Checking if a default template is present
-            if fileSystem.exists(templateHomeDirectory.appending(components: "default")) {
-                template = "default"
+            if fileSystem.exists(templateHomeDirectory.appending(component: "default")) {
+                templateName = "default"
+                // There is a guard preventing '--type' to be used in conjunction with '--template'
+                // In the event that the defualt template is present and '--type' was used we'll infrom
+                // the user that the package type is coming from the template and not their supplied type.
+                if suppliedPackageType {
+                    progressReporter?("Package type is defined by the template 'default'.")
+                }
             }
         }
         
-        if let templateName = template {
-            try fileSystem.getDirectoryContents(templateHomeDirectory.appending(component: templateName)).forEach {
+        if let template = templateName {
+            try fileSystem.getDirectoryContents(templateHomeDirectory.appending(component: template)).forEach {
                 progressReporter?("Copying \($0)")
                 try copyTemplate(fileSystem: fileSystem,
-                                 sourcePath: templateHomeDirectory.appending(components: templateName, $0),
+                                 sourcePath: templateHomeDirectory.appending(components: template, $0),
                                  destinationPath: destinationPath,
                                  name: packageName)
             }
@@ -168,17 +180,22 @@ public final class InitPackage {
 
     private func copyTemplate(fileSystem: FileSystem, sourcePath: AbsolutePath, destinationPath: AbsolutePath, name: String) throws {
         // Recursively copy the template package
-        // Currently only replaces the string literal "$NAME"
+        // Currently only replaces the string literal "___NAME___", and "___NAME_AS_C99___"
+        let replaceName = "___NAME___"
+        let replaceNameC99 = "___NAME_AS_C99___"
+        
         if fileSystem.isDirectory(sourcePath) {
             if let dirName = sourcePath.pathString.split(separator: "/").last {
-                if !fileSystem.exists(destinationPath.appending(component: String(dirName))) {
-                    try fileSystem.createDirectory(destinationPath.appending(component: String(dirName)))
+                
+                let newDirName = dirName.replacingOccurrences(of: replaceName, with: packageName)
+                if !fileSystem.exists(destinationPath.appending(component: newDirName)) {
+                    try fileSystem.createDirectory(destinationPath.appending(component: newDirName))
                 }
                 
                 try fileSystem.getDirectoryContents(sourcePath).forEach {
                     try copyTemplate(fileSystem: fileSystem,
                                      sourcePath: sourcePath.appending(component: $0),
-                                     destinationPath: destinationPath.appending(components: String(dirName)),
+                                     destinationPath: destinationPath.appending(components: newDirName),
                                      name: name)
                 }
             }
@@ -187,18 +204,21 @@ public final class InitPackage {
             
             if let validDescription = fileContents.validDescription {
                 if let fileName = sourcePath.pathString.split(separator: "/").last {
-                    if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                        var renamed = validDescription.replacingOccurrences(of: "___NAME___", with: name)
-                        renamed = renamed.replacingOccurrences(of: "___NAME_AS_C99___", with: name.spm_mangledToC99ExtendedIdentifier())
+                    
+                    let newFileName = fileName.replacingOccurrences(of: replaceName, with: packageName)
+                    if !fileSystem.exists(destinationPath.appending(component: newFileName)) {
+                        var renamed = validDescription.replacingOccurrences(of: replaceName, with: name)
+                        renamed = renamed.replacingOccurrences(of: replaceNameC99, with: name.spm_mangledToC99ExtendedIdentifier())
                         
-                        try fileSystem.writeFileContents(destinationPath.appending(component: String(fileName))) { $0 <<< renamed }
+                        try fileSystem.writeFileContents(destinationPath.appending(component: newFileName)) { $0 <<< renamed }
                     }
                 }
             } else {
                 // This else takes care of things such as images
                 if let fileName = sourcePath.pathString.split(separator: "/").last {
-                    if !fileSystem.exists(destinationPath.appending(component: String(fileName))) {
-                        try fileSystem.copy(from: sourcePath, to: destinationPath.appending(component: String(fileName)))
+                    let newFileName = fileName.replacingOccurrences(of: replaceName, with: packageName)
+                    if !fileSystem.exists(destinationPath.appending(component: newFileName)) {
+                        try fileSystem.copy(from: sourcePath, to: destinationPath.appending(component: newFileName))
                     }
                 }
             }

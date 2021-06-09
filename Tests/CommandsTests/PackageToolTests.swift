@@ -584,7 +584,9 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "MyExe")
             
-            _ = try execute(["create", "MyExe"], packagePath: tmpPath)
+            // Here --config-path is used to avoid a situation where the 'default' template
+            // is present
+            _ = try execute(["create", "MyExe", "--config-path", tmpPath.pathString], packagePath: tmpPath)
             
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["main.swift"])
@@ -597,7 +599,9 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let path = tmpPath.appending(component: "MyLib")
             
-            _ = try execute(["create", "MyLib", "--type", "library"], packagePath: tmpPath)
+            // Here --config-path is used to avoid a situation where the 'default' template
+            // is present
+            _ = try execute(["create", "MyLib", "--type", "library", "--config-path", tmpPath.pathString], packagePath: tmpPath)
             
             XCTAssert(fs.exists(path.appending(component: "Package.swift")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), ["MyLib.swift"])

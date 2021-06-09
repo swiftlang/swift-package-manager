@@ -322,7 +322,7 @@ extension SwiftPackageTool {
                     throw StringError("\(path) is not a valid directory")
                 }
                 
-                templatePath = configPath.appending(components: "templates", "new-package", path.basename)
+                templatePath = configPath.appending(components: "templates", "new-package", name ?? path.basename)
                 try localFileSystem.copy(from: path, to: templatePath)
             } else {
                 let provider = GitRepositoryProvider()
