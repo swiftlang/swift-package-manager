@@ -87,4 +87,30 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
         }
     }
+
+    func testPlatforms() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .macOS(.v12), .iOS(.v15),
+                   .tvOS(.v15), .watchOS(.v8),
+                   .macCatalyst(.v15), .driverKit(.v21),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "12.0"),
+                PlatformDescription(name: "ios", version: "15.0"),
+                PlatformDescription(name: "tvos", version: "15.0"),
+                PlatformDescription(name: "watchos", version: "8.0"),
+                PlatformDescription(name: "maccatalyst", version: "15.0"),
+                PlatformDescription(name: "driverkit", version: "21.0"),
+            ])
+        }
+    }
 }
