@@ -396,13 +396,42 @@ def install_swiftpm(prefix, args):
         dest = os.path.join(prefix, "libexec", "swift", "pm")
         install_binary(args, "swiftpm-xctest-helper", dest)
 
-    # Install the PackageDescription library and associated modules.
-    dest = os.path.join(prefix, "lib", "swift", "pm", "ManifestAPI")
-    install_dylib(args, "PackageDescription", dest, ["PackageDescription"])
+    # Install PackageDescription runtime libraries.
+    runtime_lib_dest = os.path.join(prefix, "lib", "swift", "pm")
+    runtime_lib_src = os.path.join(args.bootstrap_dir, "pm")
 
-    # Install the PackagePlugin library and associated modules.
-    dest = os.path.join(prefix, "lib", "swift", "pm", "PluginAPI")
-    install_dylib(args, "PackagePlugin", dest, ["PackagePlugin"])
+    files_to_install = ["libPackageDescription" + g_shared_lib_suffix]
+    if platform.system() == 'Darwin':
+        files_to_install.append("PackageDescription.swiftinterface")
+    else:
+        files_to_install.append("PackageDescription.swiftmodule")
+    files_to_install.append("PackageDescription.swiftdoc")
+
+    for file in files_to_install:
+        src = os.path.join(runtime_lib_src, "ManifestAPI", file)
+        dest = os.path.join(runtime_lib_dest, "ManifestAPI", file)
+        mkdir_p(os.path.dirname(dest))
+
+        note("Installing %s to %s" % (src, dest))
+
+        file_util.copy_file(src, dest, update=1)
+
+    # Install PackagePlugin runtime libraries.
+    files_to_install = ["libPackagePlugin" + g_shared_lib_suffix]
+    if platform.system() == 'Darwin':
+        files_to_install.append("PackagePlugin.swiftinterface")
+    else:
+        files_to_install.append("PackagePlugin.swiftmodule")
+    files_to_install.append("PackagePlugin.swiftdoc")
+
+    for file in files_to_install:
+        src = os.path.join(runtime_lib_src, "PluginAPI", file)
+        dest = os.path.join(runtime_lib_dest, "PluginAPI", file)
+        mkdir_p(os.path.dirname(dest))
+
+        note("Installing %s to %s" % (src, dest))
+
+        file_util.copy_file(src, dest, update=1)
 
 
 # Helper function that installs a dynamic library and a set of modules to a particular directory.
