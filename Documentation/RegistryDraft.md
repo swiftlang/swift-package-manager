@@ -648,7 +648,7 @@ and caching as described by [RFC 7234].
 
 #### 4.4.1. Integrity verification
 
-A client SHOULD verify the integrity of a downloaded source archive
+A client MUST verify the integrity of a downloaded source archive
 using the checksum provided in the `Digest` header of a response
 (for example, using the command
 `echo "$CHECKSUM LinkedList-1.1.1.zip" | shasum -a 256 -c`).
