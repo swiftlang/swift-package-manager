@@ -16,6 +16,7 @@ add_library(Build
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
+  OrderedCollections
   PackageGraph
   LLBuildManifest
   SPMBuildCore

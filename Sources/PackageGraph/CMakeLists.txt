@@ -36,6 +36,7 @@ add_library(PackageGraph
 target_link_libraries(PackageGraph PUBLIC
   TSCBasic
   Basics
+  OrderedCollections
   PackageLoading
   PackageModel
   SourceControl

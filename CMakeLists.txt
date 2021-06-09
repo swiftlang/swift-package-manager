@@ -51,6 +51,7 @@ if(FIND_PM_DEPS)
   endif()
 
   find_package(ArgumentParser CONFIG REQUIRED)
+  find_package(swift-collections CONFIG REQUIRED)
   find_package(SwiftCrypto CONFIG REQUIRED)
   find_package(SwiftDriver CONFIG REQUIRED)
 endif()
