@@ -125,8 +125,8 @@ $> swift test -c release --filter PerformanceTests
 The bootstrap script is designed for building SwiftPM on systems that do not have Xcode or a toolchain installed.
 It is used on bare systems to bootstrap the Swift toolchain (including SwiftPM), and as such not typically used outside the Swift team.
 
-the bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed.
-Please refer to the [Swift project repo](https://github.com/apple/swift/blob/master/README.md#macos) for installation instructions.
+The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed.
+Please refer to the [_Get Started_ guide](https://github.com/apple/swift/blob/main/docs/HowToGuides/GettingStarted.md#installing-dependencies) on the Swift project repository for installation instructions.
 
 1. Clone [llbuild](https://github.com/apple/swift-llbuild) beside the SwiftPM directory.
 
