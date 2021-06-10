@@ -100,7 +100,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             let collections = try with { collections in
                 try tsc_await { collections.refreshCollections(callback: $0) }
             }
-            print("Refreshed \(collections.count) configured package collections.")
+            print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
         }
     }
 
