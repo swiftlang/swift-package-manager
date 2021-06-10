@@ -405,7 +405,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func findPackage(identifier: PackageIdentity,
                      collectionIdentifiers: [Model.CollectionIdentifier]?,
-                     callback: @escaping (Result<Model.PackageSearchResult.Item, Error>) -> Void) {
+                     callback: @escaping (Result<(packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]), Error>) -> Void) {
         let useSearchIndices: Bool
         do {
             useSearchIndices = try self.shouldUseSearchIndices()
@@ -454,11 +454,17 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         // Sort collections by processing date so the latest metadata is first
                         .sorted(by: { lhs, rhs in lhs.lastProcessedAt > rhs.lastProcessedAt })
 
-                    guard let package = collections.compactMap({ $0.packages.first { $0.reference.identity == identifier } }).first else {
+                    // rdar://79069839 - Package identities are not unique to repository URLs so there can be more than one result.
+                    // It's up to the caller to filter out the best-matched package(s). Results are sorted with the latest ones first.
+                    let packages = collections.flatMap { collection in
+                        collection.packages.filter { $0.reference.identity == identifier }
+                    }
+
+                    guard !packages.isEmpty else {
                         return callback(.failure(NotFoundError("\(identifier)")))
                     }
 
-                    callback(.success(.init(package: package, collections: collections.map { $0.identifier })))
+                    callback(.success((packages: packages, collections: collections.map { $0.identifier })))
                 }
             }
         } else {
@@ -473,12 +479,16 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             .first(where: { $0.reference.identity == identifier })
                             .flatMap { (collection: collection.identifier, package: $0) }
                     }
-                    // first package should have latest processing date
-                    guard let package = collectionPackages.first?.package else {
+
+                    // rdar://79069839 - Package identities are not unique to repository URLs so there can be more than one result.
+                    // It's up to the caller to filter out the best-matched package(s). Results are sorted with the latest ones first.
+                    let packages = collectionPackages.map { $0.package }
+
+                    guard !packages.isEmpty else {
                         return callback(.failure(NotFoundError("\(identifier)")))
                     }
-                    let collections = collectionPackages.map { $0.collection }
-                    callback(.success(.init(package: package, collections: collections)))
+
+                    callback(.success((packages: packages, collections: collectionPackages.map { $0.collection })))
                 }
             }
         }

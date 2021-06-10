@@ -318,7 +318,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
 
         // first find in storage
-        self.findPackage(identifier: reference.identity, collections: collections) { result in
+        self.findPackage(reference: reference, collections: collections) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -479,7 +479,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    func findPackage(identifier: PackageIdentity,
+    func findPackage(reference: PackageReference,
                      collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
@@ -492,9 +492,21 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
                 if collectionIdentifiers.isEmpty {
-                    return callback(.failure(NotFoundError("\(identifier)")))
+                    return callback(.failure(NotFoundError("\(reference)")))
                 }
-                self.storage.collections.findPackage(identifier: identifier, collectionIdentifiers: collectionIdentifiers, callback: callback)
+                self.storage.collections.findPackage(identifier: reference.identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
+                    switch findPackageResult {
+                    case .failure(let error):
+                        callback(.failure(error))
+                    case .success(let packagesCollections):
+                        // A package identity can be associated with multiple repository URLs
+                        let matches = packagesCollections.packages.filter { $0.reference.canonicalLocation == reference.canonicalLocation }
+                        guard let package = matches.first else {
+                            return callback(.failure(NotFoundError("\(reference)")))
+                        }
+                        callback(.success(.init(package: package, collections: packagesCollections.collections)))
+                    }
+                }
             }
         }
     }
@@ -582,5 +594,11 @@ private struct UnknownProvider: Error {
 
     init(_ sourceType: Model.CollectionSourceType) {
         self.sourceType = sourceType
+    }
+}
+
+private extension PackageReference {
+    var canonicalLocation: String {
+        self.location.hasSuffix(".git") ? String(self.location.dropLast(4)) : self.location
     }
 }
