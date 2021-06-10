@@ -78,9 +78,16 @@ class TemplateTests: XCTestCase {
                 
                 XCTAssert(fs.exists(path.appending(component: "Package.swift")), stderr)
                 
-                
                 if let manifest = try fs.readFileContents(path.appending(component: "Package.swift")).validDescription {
-                    XCTAssert(manifest.contains("name: \"Bar\","))
+                    XCTAssert(manifest == transformedManifest(with: "Bar"))
+                }
+                
+                if let readMe = try fs.readFileContents(path.appending(component: "README.md")).validDescription {
+                    XCTAssert(readMe == transformedREADME(with: "Bar"))
+                }
+                
+                if let swiftFile = try fs.readFileContents(path.appending(components: "Sources", "Bar.swift")).validDescription {
+                    XCTAssert(swiftFile == transformedSwiftFile(with: "Bar"))
                 }
                 
                 XCTAssertBuilds(path)
@@ -95,13 +102,95 @@ class TemplateTests: XCTestCase {
                 let fs = localFileSystem
                 let path = tmpPath.appending(component: "Foo")
                 
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["create", "Foo", "--template", "TestTemplate", "--config-path", prefix.pathString], packagePath: tmpPath)
-                let stderr = try result.utf8stderrOutput()
+                let _ = try SwiftPMProduct.SwiftPackage.executeProcess(["create", "Foo", "--template", "ExeTemplate", "--config-path", prefix.pathString], packagePath: tmpPath)
                 
-                XCTAssert(fs.exists(path), stderr)
-                XCTAssert(fs.exists(path.appending(component: "Package.swift")), stderr)
                 XCTAssertBuilds(path)
+                
+                if let readMe = try fs.readFileContents(path.appending(component: "README.md")).validDescription {
+                    XCTAssert(readMe == transformedREADME(with: "Foo"))
+                }
             }
         }
+    }
+    
+    func testInitWithDefaultTemplate() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .legacy)
+        fixture(name: "Templates/MakePackageWithTemplate") { prefix in
+            try testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending(component: "Bar")
+                try fs.createDirectory(path)
+                
+                let _ = try SwiftPMProduct.SwiftPackage.executeProcess(["init", "--config-path", prefix.pathString], packagePath: path)
+                
+                XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+                XCTAssert(fs.exists(path.appending(components: "src", "main.swift")))
+            }
+        }
+    }
+    
+    func testCreateWithDefaultTemplate() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .legacy)
+        fixture(name: "Templates/MakePackageWithTemplate") { prefix in
+            try testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending(component: "Foo")
+                
+                let _ = try SwiftPMProduct.SwiftPackage.executeProcess(["create", "Foo", "--config-path", prefix.pathString], packagePath: tmpPath)
+                
+                XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+                XCTAssert(fs.exists(path.appending(components: "src", "main.swift")))
+            }
+        }
+    }
+    
+    private func transformedManifest(with name: String) -> String {
+        return """
+// swift-tools-version:5.5
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
+import PackageDescription
+
+let package = Package(
+    name: "\(name)",
+    products: [
+        // Products define the executables and libraries a package produces, and make them visible to other packages.
+        .library(
+            name: "\(name)",
+            targets: ["\(name)"]),
+    ],
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        // .package(url: /* package url */, from: "1.0.0"),
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        .target(
+            name: "\(name)",
+            dependencies: [],
+            path: "Sources"),
+    ]
+)
+"""
+    }
+    
+    private func transformedREADME(with name: String) -> String {
+        return """
+# \(name)
+
+A description of this package.
+"""
+    }
+    
+    private func transformedSwiftFile(with name: String) -> String {
+        return """
+public struct \(name) {
+    public private(set) var text = "Hello, World!"
+
+    public init() {
+    }
+}
+"""
     }
 }

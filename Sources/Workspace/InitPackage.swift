@@ -80,11 +80,15 @@ public final class InitPackage {
     let suppliedPackageType: Bool
     
     private var moduleName: String {
-        get { packageName.spm_mangledToC99ExtendedIdentifier() }
+        get {
+            packageName.spm_mangledToC99ExtendedIdentifier()
+        }
     }
     
     private var typeName: String {
-        get { moduleName }
+        get {
+            moduleName
+        }
     }
 
     /// Create an instance that can create a package with given arguments.
@@ -129,33 +133,32 @@ public final class InitPackage {
     }
     
     private func makePackageNew() throws {
-        let templateHomeDirectory = configPath.appending(components: "templates", "new-package")
         var templateName: String?
         
         if let template = packageTemplateName {
-            guard fileSystem.exists(templateHomeDirectory.appending(component: template)) else {
-                throw InternalError("Could not find template folder: \(templateHomeDirectory.appending(component: template))")
+            guard fileSystem.exists(configPath.withTemplate(template: [template])) else {
+                throw InternalError("Could not find template folder: \(configPath.withTemplate(template: [template]))")
             }
             
             templateName = template
         } else {
             // Checking if a default template is present
-            if fileSystem.exists(templateHomeDirectory.appending(component: "default")) {
+            if fileSystem.exists(configPath.withTemplate(template: ["default"])) {
                 templateName = "default"
                 // There is a guard preventing '--type' to be used in conjunction with '--template'
                 // In the event that the defualt template is present and '--type' was used we'll infrom
                 // the user that the package type is coming from the template and not their supplied type.
-                if suppliedPackageType {
-                    progressReporter?("Package type is defined by the template 'default'.")
+                guard !suppliedPackageType else {
+                    throw StringError("Can't use '--type' when the 'default' template is defined")
                 }
             }
         }
         
         if let template = templateName {
-            try fileSystem.getDirectoryContents(templateHomeDirectory.appending(component: template)).forEach {
+            try fileSystem.getDirectoryContents(configPath.withTemplate(template: [template])).forEach {
                 progressReporter?("Copying \($0)")
                 try copyTemplate(fileSystem: fileSystem,
-                                 sourcePath: templateHomeDirectory.appending(components: template, $0),
+                                 sourcePath: configPath.withTemplate(template: [template, $0]),
                                  destinationPath: destinationPath,
                                  name: packageName)
             }
@@ -585,6 +588,14 @@ public final class InitPackage {
                 return .legacy
             }
         }
+    }
+}
+
+extension AbsolutePath {
+    public func withTemplate(template: [String]) -> AbsolutePath {
+        var components = ["templates", "new-package"]
+        components += template
+        return appending(components: components)
     }
 }
 
