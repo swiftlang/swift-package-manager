@@ -599,6 +599,6 @@ private struct UnknownProvider: Error {
 
 private extension PackageReference {
     var canonicalLocation: String {
-        self.location.hasSuffix(".git") ? String(self.location.dropLast(4)) : self.location
+        (self.location.hasSuffix(".git") ? String(self.location.dropLast(4)) : self.location).lowercased()
     }
 }
