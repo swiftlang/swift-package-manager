@@ -662,6 +662,23 @@ as described by [RFC 6249].
 A client MAY use this information
 to determine its preferred strategy for downloading.
 
+A server that indexes but doesn't host packages
+MAY respond with a status code of `303` (See Other)
+and redirect to a hosted package archive if one is available.
+
+```http
+HTTP/1.1 303 See Other
+Content-Version: 1
+Content-Length: 2048
+Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
+Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
+```
+
+The client SHOULD consider the `Digest` and `Content-Length` headers
+sent in the response to be authoritative for the redirected resource.
+The client MUST NOT follow redirects that downgrade to an insecure connection.
+The client SHOULD limit the number of redirects to prevent a redirect loop.
+
 <a name="endpoint-5"></a>
 
 ### 4.5 Lookup package identifiers registered for a URL
