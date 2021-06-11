@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -53,7 +53,9 @@ public protocol PackageCollectionsStorage {
                         query: String,
                         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void)
 
-    /// Returns `PackageSearchResult.Item` for the given package identity.
+    /// Returns packages for the given package identity.
+    ///
+    /// Since a package identity can be associated with more than one repository URL, the result may contain multiple items.
     ///
     /// - Parameters:
     ///   - identifier: The package identifier
@@ -61,7 +63,7 @@ public protocol PackageCollectionsStorage {
     ///   - callback: The closure to invoke when result becomes available
     func findPackage(identifier: PackageIdentity,
                      collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]?,
-                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void)
+                     callback: @escaping (Result<(packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]), Error>) -> Void)
 
     /// Returns `TargetSearchResult` for the given search criteria.
     ///
