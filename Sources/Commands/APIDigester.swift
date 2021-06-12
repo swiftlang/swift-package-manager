@@ -199,7 +199,8 @@ public struct SwiftAPIDigester {
     public func compareAPIToBaseline(
         at baselinePath: AbsolutePath,
         for module: String,
-        buildPlan: BuildPlan
+        buildPlan: BuildPlan,
+        breakageAllowlistPath: AbsolutePath?
     ) -> ComparisonResult? {
         var args = [
             "-diagnose-sdk",
@@ -207,6 +208,9 @@ public struct SwiftAPIDigester {
             "-module", module
         ]
         args.append(contentsOf: buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false))
+        if let breakageAllowlistPath = breakageAllowlistPath {
+            args.append(contentsOf: ["-breakage-allowlist-path", breakageAllowlistPath.pathString])
+        }
 
         return try? withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])

@@ -305,6 +305,13 @@ extension SwiftPackageTool {
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
+        @Option(help: """
+        The path to a text file containing breaking changes which should be ignored by the API comparison. \
+        Each ignored breaking change in the file should appear on its own line and contain the exact message \
+        to be ignored (e.g. 'API breakage: func foo() has been removed').
+        """)
+        var breakageAllowlistPath: AbsolutePath?
+
         @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
 
@@ -360,7 +367,8 @@ extension SwiftPackageTool {
                     if let comparisonResult = apiDigesterTool.compareAPIToBaseline(
                         at: moduleBaselinePath,
                         for: module,
-                        buildPlan: buildOp.buildPlan!
+                        buildPlan: buildOp.buildPlan!,
+                        breakageAllowlistPath: breakageAllowlistPath
                     ) {
                         results.append(comparisonResult)
                     }

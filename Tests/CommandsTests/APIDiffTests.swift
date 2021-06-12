@@ -82,6 +82,43 @@ final class APIDiffTests: XCTestCase {
         #endif
     }
 
+    func testBreakageAllowlist() throws {
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
+                $0 <<< "public func baz() -> String { \"hello, world!\" }"
+            }
+            try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
+                $0 <<< "public class Qux<T, U> { private let x = 1 }"
+            }
+            let customAllowlistPath = packageRoot.appending(components: "foo", "allowlist.txt")
+            try localFileSystem.writeFileContents(customAllowlistPath) {
+                $0 <<< "API breakage: class Qux has generic signature change from <T> to <T, U>\n"
+            }
+            XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "-j", "2",
+                                              "--breakage-allowlist-path", customAllowlistPath.pathString],
+                                             packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertTrue(output.contains("1 breaking change detected in Qux"))
+                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertTrue(output.contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
+                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
+            }
+
+        }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
+    }
+
     func testCheckVendedModulesOnly() throws {
         #if os(macOS)
         guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
