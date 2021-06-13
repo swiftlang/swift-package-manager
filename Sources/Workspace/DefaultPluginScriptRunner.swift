@@ -50,7 +50,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
 
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        let runtimePath = self.resources.binDir ?? self.resources.libDir
+        let runtimePath = self.resources.binDir ?? self.resources.libDir.appending(component: "PluginAPI")
 
         // Compile the package plugin script.
         var command = [resources.swiftCompiler.pathString]

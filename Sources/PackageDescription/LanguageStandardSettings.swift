@@ -144,7 +144,6 @@ public enum CXXLanguageStandard: String, Encodable {
     case gnucxx20 = "gnu++20"
 }
 
-#if !PACKAGE_DESCRIPTION_4
 /// The version of the Swift language to use for compiling Swift sources in the package.
 public enum SwiftVersion {
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
@@ -187,4 +186,3 @@ extension SwiftVersion: Encodable {
         try container.encode(value)
     }
 }
-#endif

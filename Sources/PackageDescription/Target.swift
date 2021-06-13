@@ -36,15 +36,9 @@ public final class Target {
 
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        case targetItem(name: String)
-        case productItem(name: String, package: String?)
-        case byNameItem(name: String)
-      #else
-        case _targetItem(name: String, condition: TargetDependencyCondition?)
-        case _productItem(name: String, package: String?, condition: TargetDependencyCondition?)
-        case _byNameItem(name: String, condition: TargetDependencyCondition?)
-      #endif
+        case targetItem(name: String, condition: TargetDependencyCondition?)
+        case productItem(name: String, package: String?, condition: TargetDependencyCondition?)
+        case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
 
     /// The name of the target.
@@ -991,11 +985,7 @@ extension Target.Dependency {
     ///   - name: The name of the target.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func target(name: String) -> Target.Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        return .targetItem(name: name)
-      #else
-        return ._targetItem(name: name, condition: nil)
-      #endif
+        return .targetItem(name: name, condition: nil)
     }
 
     /// Creates a dependency on a product from a package dependency.
@@ -1005,11 +995,7 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        return .productItem(name: name, package: package)
-      #else
-        return ._productItem(name: name, package: package, condition: nil)
-      #endif
+        return .productItem(name: name, package: package, condition: nil)
     }
 
     /// Creates a dependency that resolves to either a target or a product with the specified name.
@@ -1020,14 +1006,9 @@ extension Target.Dependency {
     /// The Swift Package Manager creates the by-name dependency after it has loaded the package graph.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func byName(name: String) -> Target.Dependency {
-      #if PACKAGE_DESCRIPTION_4
-        return .byNameItem(name: name)
-      #else
-        return ._byNameItem(name: name, condition: nil)
-      #endif
+        return .byNameItem(name: name, condition: nil)
     }
 
-  #if !PACKAGE_DESCRIPTION_4
     /// Creates a dependency on a product from a package dependency.
     ///
     /// - parameters:
@@ -1038,7 +1019,7 @@ extension Target.Dependency {
         name: String,
         package: String
     ) -> Target.Dependency {
-        return ._productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, package: package, condition: nil)
     }
 
     /// Creates a dependency on a target in the same package.
@@ -1049,7 +1030,7 @@ extension Target.Dependency {
     ///       dependency for a specific platform.
     @available(_PackageDescription, introduced: 5.3)
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
-        return ._targetItem(name: name, condition: condition)
+        return .targetItem(name: name, condition: condition)
     }
 
     /// Creates a target dependency on a product from a package dependency.
@@ -1065,7 +1046,7 @@ extension Target.Dependency {
         package: String,
         condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
-        return ._productItem(name: name, package: package, condition: condition)
+        return .productItem(name: name, package: package, condition: condition)
     }
 
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
@@ -1077,9 +1058,8 @@ extension Target.Dependency {
     ///       dependency for a specific platform.
     @available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
-        return ._byNameItem(name: name, condition: condition)
+        return .byNameItem(name: name, condition: condition)
     }
-  #endif
 }
 
 extension Target.PluginCapability {
@@ -1124,11 +1104,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
     /// - parameters:
     ///   - value: A string literal.
     public init(stringLiteral value: String) {
-      #if PACKAGE_DESCRIPTION_4
-        self = .byNameItem(name: value)
-      #else
-        self = ._byNameItem(name: value, condition: nil)
-      #endif
+        self = .byNameItem(name: value, condition: nil)
     }
 }
 
