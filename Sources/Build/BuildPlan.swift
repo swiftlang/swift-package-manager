@@ -757,6 +757,11 @@ public final class SwiftTargetBuildDescription {
                 }
             }
         }
+        
+        // If the target needs to be parsed without any special semantics involving "main.swift", do so now.
+        if self.needsToBeParsedAsLibrary {
+            args += ["-parse-as-library"]
+        }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !libraryBinaryPaths.isEmpty {
@@ -809,10 +814,6 @@ public final class SwiftTargetBuildDescription {
         // FIXME: Eliminate side effect.
         result.append(try writeOutputFileMap().pathString)
 
-        if self.needsToBeParsedAsLibrary {
-            result.append("-parse-as-library")
-        }
-
         if buildParameters.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
             result.append("-num-threads")
@@ -848,10 +849,6 @@ public final class SwiftTargetBuildDescription {
         result.append("-Xfrontend")
         result.append("-experimental-skip-non-inlinable-function-bodies")
         result.append("-force-single-frontend-invocation")
-
-        if self.needsToBeParsedAsLibrary {
-            result.append("-parse-as-library")
-        }
 
         // FIXME: Handle WMO
 
@@ -896,9 +893,6 @@ public final class SwiftTargetBuildDescription {
         // FIXME: Eliminate side effect.
         result.append(try writeOutputFileMap().pathString)
 
-        if self.needsToBeParsedAsLibrary {
-            result.append("-parse-as-library")
-        }
         // FIXME: Handle WMO
 
         result.append("-c")
