@@ -144,9 +144,60 @@ class TemplateTests: XCTestCase {
         }
     }
     
+    func testCreateTemplateFunnyName() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .legacy)
+        fixture(name: "Templates/MakePackageWithTemplate") { prefix in
+            try testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending(component: "Foo Bar")
+                
+                let _ = try SwiftPMProduct.SwiftPackage.executeProcess(["create", "Foo Bar", "--template", "TestTemplate", "--config-path", prefix.pathString], packagePath: tmpPath)
+                
+                XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+                XCTAssert(fs.exists(path.appending(components: "Sources", "Foo Bar.swift")))
+                
+                XCTAssertBuilds(path)
+            }
+        }
+    }
+    
+    func testInitTemplateFunnyName() throws {
+        try XCTSkipIf(InitPackage.createPackageMode == .legacy)
+        fixture(name: "Templates/MakePackageWithTemplate") { prefix in
+            try testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending(component: "Foo Bar")
+                try fs.createDirectory(path)
+                
+                let _ = try SwiftPMProduct.SwiftPackage.executeProcess(["init", "--template", "LibTemplate","--config-path", prefix.pathString], packagePath: path)
+                
+                XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+                XCTAssert(fs.exists(path.appending(components: "Sources", "Foo Bar.swift")))
+            
+                if let manifest = try fs.readFileContents(path.appending(component: "Package.swift")).validDescription {
+                    XCTAssert(manifest == transformedManifest(with: "Foo Bar"))
+                }
+                
+                if let swiftFile = try fs.readFileContents(path.appending(components: "Sources", "Foo Bar.swift")).validDescription {
+                    XCTAssert(swiftFile == transformedSwiftFile(with: "Foo Bar"))
+                }
+                
+                XCTAssertBuilds(path)
+            }
+        }
+    }
+    
     private func transformedManifest(with name: String) -> String {
+        // Currently the manifest will drop the patch version if it's zero
+        // the description of Version always returns the patch version even if zero
+        // this is just to drop the patch version
+        var toolsVersion = "\(ToolsVersion.currentToolsVersion.major).\(ToolsVersion.currentToolsVersion.minor)"
+        if ToolsVersion.currentToolsVersion.patch != 0 {
+            toolsVersion += ".\(ToolsVersion.currentToolsVersion.patch)"
+        }
+        
         return """
-// swift-tools-version:5.5
+// swift-tools-version:\(toolsVersion)
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -185,7 +236,7 @@ A description of this package.
     
     private func transformedSwiftFile(with name: String) -> String {
         return """
-public struct \(name) {
+public struct \(name.spm_mangledToC99ExtendedIdentifier()) {
     public private(set) var text = "Hello, World!"
 
     public init() {

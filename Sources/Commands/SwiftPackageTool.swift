@@ -226,11 +226,11 @@ extension SwiftPackageTool {
         
         func run(_ swiftTool: SwiftTool) throws {
             guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw MakePackageErrors.currentWorkingDirectoryNotFound
+                throw InternalError("\(MakePackageErrors.currentWorkingDirectoryNotFound)")
             }
             
             guard let configPath = try swiftTool.getConfigPath() else {
-                throw MakePackageErrors.configPathNotFound
+                throw InternalError("\(MakePackageErrors.configPathNotFound)")
             }
             
             guard packageType == nil || template == nil else {
@@ -270,11 +270,11 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             guard let cwd = localFileSystem.currentWorkingDirectory else {
-                throw MakePackageErrors.currentWorkingDirectoryNotFound
+                throw InternalError("\(MakePackageErrors.currentWorkingDirectoryNotFound)")
             }
             
             guard let configPath = try swiftTool.getConfigPath() else {
-                throw MakePackageErrors.configPathNotFound
+                throw InternalError("\(MakePackageErrors.configPathNotFound)")
             }
             
             guard packageType == nil || template == nil else {
@@ -311,7 +311,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             guard let configPath = try swiftTool.getConfigPath() else {
-                throw InternalError("Could not find config path")
+                throw InternalError("\(MakePackageErrors.configPathNotFound)")
             }
 
             let templatePath: AbsolutePath
@@ -324,15 +324,15 @@ extension SwiftPackageTool {
                     throw StringError("\(path) is not a valid directory")
                 }
                 
-                templatePath = configPath.withTemplate(template: [name ?? path.basename])
+                templatePath = configPath.withTemplate(template: name ?? path.basename)
                 try localFileSystem.copy(from: path, to: templatePath)
             } else {
                 let provider = GitRepositoryProvider()
                 
                 if let templateName = name {
-                    templatePath = configPath.withTemplate(template: [templateName])
+                    templatePath = configPath.withTemplate(template: templateName)
                 } else if let templateName = url.split(separator: "/").last?.replacingOccurrences(of: ".git", with: "").flatMap({ String($0) }) {
-                    templatePath = configPath.withTemplate(template: [String(templateName)])
+                    templatePath = configPath.withTemplate(template: String(templateName))
                 } else {
                     throw InternalError("Could not determine template name")
                 }
@@ -359,15 +359,15 @@ extension SwiftPackageTool {
         
         func run(_ swiftTool: SwiftTool) throws {
             guard let configPath = try swiftTool.getConfigPath() else {
-                throw InternalError("Could not find config path")
+                throw InternalError("\(MakePackageErrors.configPathNotFound)")
             }
             
-            guard localFileSystem.exists(configPath.withTemplate(template: [templateName])) else {
-                throw StringError("Could not find template: \(templateName)")
+            guard localFileSystem.exists(configPath.withTemplate(template: templateName)) else {
+                throw MakePackageErrors.templateNotFound(configPath.withTemplate(template: templateName))
             }
             
             let provider = GitRepositoryProvider()
-            let templatePath = configPath.withTemplate(template: [templateName])
+            let templatePath = configPath.withTemplate(template: templateName)
             
             guard provider.isValidDirectory(templatePath.pathString) else {
                 throw StringError("Template: \(templateName) is not a git repo, and therefore could not be updated")

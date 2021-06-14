@@ -136,14 +136,14 @@ public final class InitPackage {
         var templateName: String?
         
         if let template = packageTemplateName {
-            guard fileSystem.exists(configPath.withTemplate(template: [template])) else {
-                throw InternalError("Could not find template folder: \(configPath.withTemplate(template: [template]))")
+            guard fileSystem.exists(configPath.withTemplate(template: template)) else {
+                throw InternalError("Could not find template folder: \(configPath.withTemplate(template: template))")
             }
             
             templateName = template
         } else {
             // Checking if a default template is present
-            if fileSystem.exists(configPath.withTemplate(template: ["default"])) {
+            if fileSystem.exists(configPath.withTemplate(template: "default")) {
                 templateName = "default"
                 // There is a guard preventing '--type' to be used in conjunction with '--template'
                 // In the event that the defualt template is present and '--type' was used we'll infrom
@@ -155,10 +155,10 @@ public final class InitPackage {
         }
         
         if let template = templateName {
-            try fileSystem.getDirectoryContents(configPath.withTemplate(template: [template])).forEach {
+            try fileSystem.getDirectoryContents(configPath.withTemplate(template: template)).forEach {
                 progressReporter?("Copying \($0)")
                 try copyTemplate(fileSystem: fileSystem,
-                                 sourcePath: configPath.withTemplate(template: [template, $0]),
+                                 sourcePath: configPath.withTemplate(template: template).appending(component: $0),
                                  destinationPath: destinationPath,
                                  name: packageName)
             }
@@ -592,10 +592,8 @@ public final class InitPackage {
 }
 
 extension AbsolutePath {
-    public func withTemplate(template: [String]) -> AbsolutePath {
-        var components = ["templates", "new-package"]
-        components += template
-        return appending(components: components)
+    public func withTemplate(template: String) -> AbsolutePath {
+        return appending(components: "templates", "new-package", template)
     }
 }
 
