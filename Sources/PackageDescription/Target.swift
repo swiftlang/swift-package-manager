@@ -62,11 +62,12 @@ public final class Target {
     ///
     /// The URL points to a ZIP file that contains an XCFramework at its root.
     /// Binary targets are only available on Apple Platforms.
+    @available(_PackageDescription, introduced: 5.3)
     public var url: String? {
         get { _url }
         set { _url = newValue }
     }
-    public var _url: String?
+    private var _url: String?
 
     /// The source files in this target.
     ///
@@ -170,7 +171,7 @@ public final class Target {
         get { _checksum }
         set { _checksum = newValue }
     }
-    public var _checksum: String?
+    private var _checksum: String?
 
     /// The usages of package plugins by the target.
     @available(_PackageDescription, introduced: 5.5)
