@@ -775,7 +775,6 @@ public final class Target {
         )
     }
 
-  #if !PACKAGE_DESCRIPTION_4
     /// Creates a system library target.
     ///
     /// Use system library targets to adapt a library installed on the system to work with Swift packages.
@@ -915,7 +914,6 @@ public final class Target {
           type: .plugin,
           pluginCapability: capability)
     }
-  #endif
 }
 
 extension Target: Encodable {
