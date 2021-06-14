@@ -86,13 +86,13 @@ class InitTests: XCTestCase {
                 ["FooTests"])
             
             // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).
-            if (Resources.default.swiftCompilerSupportsRenamingMainSymbol) {
-                XCTAssertBuilds(path)
-                let triple = Resources.default.toolchain.triple
-                let binPath = path.appending(components: ".build", triple.tripleString, "debug")
-                XCTAssertFileExists(binPath.appending(component: "Foo"))
-                XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
-            }
+            #if swift(>=5.5)
+            XCTAssertBuilds(path)
+            let triple = Resources.default.toolchain.triple
+            let binPath = path.appending(components: ".build", triple.tripleString, "debug")
+            XCTAssertFileExists(binPath.appending(component: "Foo"))
+            XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
+            #endif
         }
     }
 

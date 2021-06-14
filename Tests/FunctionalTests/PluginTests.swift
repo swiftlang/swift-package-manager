@@ -16,7 +16,9 @@ class PluginTests: XCTestCase {
     
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
         
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -35,7 +37,9 @@ class PluginTests: XCTestCase {
 
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
 
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -54,7 +58,9 @@ class PluginTests: XCTestCase {
 
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
 
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -73,7 +79,9 @@ class PluginTests: XCTestCase {
 
     func testContrivedTestCases() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
         
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -92,7 +100,10 @@ class PluginTests: XCTestCase {
 
     func testPluginScriptSandbox() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
+
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -110,7 +121,10 @@ class PluginTests: XCTestCase {
 
     func testUseOfVendedBinaryTool() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        try XCTSkipUnless(Resources.default.swiftCompilerSupportsRenamingMainSymbol, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
+
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
