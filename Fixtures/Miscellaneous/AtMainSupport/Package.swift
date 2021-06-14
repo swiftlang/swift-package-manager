@@ -1,14 +1,16 @@
-// swift-tools-version:5.4
+// swift-tools-version:5.5
 import PackageDescription
 
 let package = Package(
     name: "AtMainSupport",
     products: [
-        .executable(name: "ClangExec", targets: ["ClangExec"]),
-        .executable(name: "SwiftExec", targets: ["SwiftExec"]),
+        .executable(name: "ClangExecSingleFile", targets: ["ClangExecSingleFile"]),
+        .executable(name: "SwiftExecSingleFile", targets: ["SwiftExecSingleFile"]),
+        .executable(name: "SwiftExecMultiFile", targets: ["SwiftExecMultiFile"]),
     ],
     targets: [
-        .executableTarget(name: "ClangExec"),
-        .executableTarget(name: "SwiftExec"),
+        .executableTarget(name: "ClangExecSingleFile"),
+        .executableTarget(name: "SwiftExecSingleFile"),
+        .executableTarget(name: "SwiftExecMultiFile"),
     ]
 )

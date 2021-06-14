@@ -176,15 +176,22 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "Miscellaneous/AtMainSupport") { path in
             let fullPath = resolveSymlinks(path)
             do {
-                let result = try build(["--product", "ClangExec"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("ClangExec"))
+                let result = try build(["--product", "ClangExecSingleFile"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("ClangExecSingleFile"))
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
 
             do {
-                let result = try build(["--product", "SwiftExec"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("SwiftExec"))
+                let result = try build(["--product", "SwiftExecSingleFile"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("SwiftExecSingleFile"))
+            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
+                XCTFail(stdout + "\n" + stderr)
+            }
+
+            do {
+                let result = try build(["--product", "SwiftExecMultiFile"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("SwiftExecMultiFile"))
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
