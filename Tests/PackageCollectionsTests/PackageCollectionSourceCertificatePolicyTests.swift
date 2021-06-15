@@ -17,24 +17,30 @@ import PackageCollectionsSigning
 final class PackageCollectionSourceCertificatePolicyTests: XCTestCase {
     func testCustomData() {
         let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(sourceCertPolicies: [
-            "package-collection-1": PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
-                certPolicyKey: CertificatePolicyKey.default,
-                base64EncodedRootCerts: ["root-cert-1a", "root-cert-1b"]
-            ),
-            "package-collection-2": PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
+            "package-collection-1": [
+                PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
+                    certPolicyKey: CertificatePolicyKey.default,
+                    base64EncodedRootCerts: ["root-cert-1a", "root-cert-1b"]
+                ),
+                PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
+                    certPolicyKey: .default(subjectUserID: "test"),
+                    base64EncodedRootCerts: ["root-cert-1c"]
+                ),
+            ],
+            "package-collection-2": [PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
                 certPolicyKey: CertificatePolicyKey.default,
                 base64EncodedRootCerts: ["root-cert-2"]
-            ),
+            )],
         ])
         let source1 = Model.CollectionSource(type: .json, url: URL(string: "https://package-collection-1")!)
         let unsignedSource = Model.CollectionSource(type: .json, url: URL(string: "https://package-collection-unsigned")!)
 
-        XCTAssertEqual(["root-cert-1a", "root-cert-1b", "root-cert-2"], sourceCertPolicy.allRootCerts?.sorted())
+        XCTAssertEqual(["root-cert-1a", "root-cert-1b", "root-cert-1c", "root-cert-2"], sourceCertPolicy.allRootCerts?.sorted())
 
         XCTAssertTrue(sourceCertPolicy.mustBeSigned(source: source1))
         XCTAssertFalse(sourceCertPolicy.mustBeSigned(source: unsignedSource))
 
-        XCTAssertEqual(CertificatePolicyKey.default, sourceCertPolicy.certificatePolicyKey(for: source1))
-        XCTAssertNil(sourceCertPolicy.certificatePolicyKey(for: unsignedSource))
+        XCTAssertEqual([.default, .default(subjectUserID: "test")], sourceCertPolicy.certificatePolicyKeys(for: source1))
+        XCTAssertNil(sourceCertPolicy.certificatePolicyKeys(for: unsignedSource))
     }
 }

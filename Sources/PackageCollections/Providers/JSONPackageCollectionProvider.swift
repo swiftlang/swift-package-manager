@@ -33,6 +33,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     static let isSignatureCheckSupported = false
     #endif
 
+    static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
+
     private let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine
     private let httpClient: HTTPClient
@@ -54,7 +56,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigDirectory.appending(component: "trust-root-certs").asURL,
-            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts,
+            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             callbackQueue: .sharedConcurrent,
             diagnosticsEngine: diagnosticsEngine
         )
@@ -75,7 +77,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             do {
                 let fileContents = try localFileSystem.readFileContents(absolutePath)
                 return fileContents.withData { data in
-                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKey: .default, callback: callback)
+                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
                 }
             } catch {
                 return callback(.failure(error))
@@ -129,8 +131,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                             return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Body is empty")))
                         }
 
-                        let certPolicyKey = self.sourceCertPolicy.certificatePolicyKey(for: source) ?? .default
-                        self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKey: certPolicyKey, callback: callback)
+                        let certPolicyKeys = self.sourceCertPolicy.certificatePolicyKeys(for: source) ?? Self.defaultCertPolicyKeys
+                        self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKeys: certPolicyKeys, callback: callback)
                     }
                 }
             }
@@ -139,7 +141,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     private func decodeAndRunSignatureCheck(source: Model.CollectionSource,
                                             data: Data,
-                                            certPolicyKey: CertificatePolicyKey,
+                                            certPolicyKeys: [CertificatePolicyKey],
                                             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         do {
             // This fails if collection is not signed (i.e., no "signature")
@@ -154,17 +156,26 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 }
 
                 // Check the signature
-                self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
-                    switch result {
-                    case .failure(let error):
-                        self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
-                        if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
-                            callback(.failure(PackageCollectionError.cannotVerifySignature))
-                        } else {
-                            callback(.failure(PackageCollectionError.invalidSignature))
+                let signatureResults = ThreadSafeArrayStore<Result<Void, Error>>()
+                certPolicyKeys.forEach { certPolicyKey in
+                    self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
+                        let count = signatureResults.append(result)
+                        if count == certPolicyKeys.count {
+                            if signatureResults.compactMap({ $0.success }).first != nil {
+                                callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
+                            } else {
+                                guard let error = signatureResults.compactMap({ $0.failure }).first else {
+                                    fatalError("Expected at least one package collection signature validation failure but got none")
+                                }
+
+                                self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                                if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
+                                    callback(.failure(PackageCollectionError.cannotVerifySignature))
+                                } else {
+                                    callback(.failure(PackageCollectionError.invalidSignature))
+                                }
+                            }
                         }
-                    case .success:
-                        callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
                     }
                 }
             }
