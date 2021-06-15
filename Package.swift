@@ -17,7 +17,7 @@ import class Foundation.ProcessInfo
 // but allow overriding it when building for a toolchain.
 
 let macOSPlatform: SupportedPlatform
-if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
+if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFT_TOOLCHAIN_MACOS_DEPLOYMENT_TARGET"] ?? ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
     macOSPlatform = .macOS(deploymentTarget)
 } else {
     macOSPlatform = .macOS(.v10_15)
