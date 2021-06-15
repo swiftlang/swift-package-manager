@@ -147,7 +147,11 @@ extension Package.Dependency {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
+      #if PACKAGE_DESCRIPTION_4
         return .init(name: nil, url: url, requirement: .rangeItem(range))
+      #else
+        return .init(name: nil, url: url, requirement: ._rangeItem(range))
+      #endif
     }
 
     /// Adds a package dependency starting with a specific minimum version, up to
@@ -168,7 +172,11 @@ extension Package.Dependency {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
+      #if PACKAGE_DESCRIPTION_4
         return .init(name: name, url: url, requirement: .rangeItem(range))
+      #else
+        return .init(name: name, url: url, requirement: ._rangeItem(range))
+      #endif
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -194,7 +202,11 @@ extension Package.Dependency {
             upper.major, upper.minor, upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
             buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
+      #if PACKAGE_DESCRIPTION_4
         return .init(name: nil, url: url, requirement: .rangeItem(range.lowerBound..<upperBound))
+      #else
+        return .init(name: nil, url: url, requirement: ._rangeItem(range.lowerBound..<upperBound))
+      #endif
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -221,9 +233,14 @@ extension Package.Dependency {
             upper.major, upper.minor, upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
             buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
+      #if PACKAGE_DESCRIPTION_4
         return .init(name: name, url: url, requirement: .rangeItem(range.lowerBound..<upperBound))
+      #else
+        return .init(name: name, url: url, requirement: ._rangeItem(range.lowerBound..<upperBound))
+      #endif
     }
 
+  #if !PACKAGE_DESCRIPTION_4
     /// Adds a package dependency to a local package on the filesystem.
     ///
     /// The Swift Package Manager uses the package dependency as-is
@@ -236,7 +253,7 @@ extension Package.Dependency {
     public static func package(
         path: String
     ) -> Package.Dependency {
-        return .init(name: nil, url: path, requirement: .localPackageItem)
+        return .init(name: nil, url: path, requirement: ._localPackageItem)
     }
 
     /// Adds a package dependency to a local package on the filesystem.
@@ -254,8 +271,9 @@ extension Package.Dependency {
         name: String? = nil,
         path: String
     ) -> Package.Dependency {
-        return .init(name: name, url: path, requirement: .localPackageItem)
+        return .init(name: name, url: path, requirement: ._localPackageItem)
     }
+  #endif
 }
 
 // Mark common APIs used by mistake as unavailable to provide better error messages.

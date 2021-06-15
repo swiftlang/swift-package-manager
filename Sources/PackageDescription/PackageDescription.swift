@@ -122,14 +122,26 @@ public final class Package {
         /// dependency requirements; you should remove commit-based dependency
         /// requirements before publishing a version of your package.
         public enum Requirement {
+          #if PACKAGE_DESCRIPTION_4
             case exactItem(Version)
             case rangeItem(Range<Version>)
             case revisionItem(String)
             case branchItem(String)
             case localPackageItem
+          #else
+            case _exactItem(Version)
+            case _rangeItem(Range<Version>)
+            case _revisionItem(String)
+            case _branchItem(String)
+            case _localPackageItem
+          #endif
 
             var isLocalPackage: Bool {
+              #if PACKAGE_DESCRIPTION_4
                 if case .localPackageItem = self { return true }
+              #else
+                if case ._localPackageItem = self { return true }
+              #endif
                 return false
             }
         }
@@ -155,12 +167,14 @@ public final class Package {
     /// The name of the Swift package.
     public var name: String
 
+  #if !PACKAGE_DESCRIPTION_4
     /// The list of supported platforms with a custom deployment target.
     @available(_PackageDescription, introduced: 5)
     public var platforms: [SupportedPlatform]? {
         get { return _platforms }
         set { _platforms = newValue }
     }
+  #endif
     private var _platforms: [SupportedPlatform]?
 
     /// The default localization for resources.
@@ -189,8 +203,13 @@ public final class Package {
     /// The list of package dependencies.
     public var dependencies: [Dependency]
 
+  #if PACKAGE_DESCRIPTION_4
+    /// The list of Swift versions that this package is compatible with.
+    public var swiftLanguageVersions: [Int]?
+  #else
     /// The list of Swift versions that this package is compatible with.
     public var swiftLanguageVersions: [SwiftVersion]?
+  #endif
 
     /// The C language standard to use for all C targets in this package.
     public var cLanguageStandard: CLanguageStandard?
@@ -198,12 +217,13 @@ public final class Package {
     /// The C++ language standard to use for all C++ targets in this package.
     public var cxxLanguageStandard: CXXLanguageStandard?
 
+  #if PACKAGE_DESCRIPTION_4
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
     ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - providers: The package providers for a system package.
@@ -213,7 +233,6 @@ public final class Package {
     ///     - swiftLanguageVersions: The list of Swift versions that this package is compatible with.
     ///     - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///     - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, obsoleted: 4.2)
     public init(
         name: String,
         pkgConfig: String? = nil,
@@ -231,12 +250,12 @@ public final class Package {
         self.products = products
         self.dependencies = dependencies
         self.targets = targets
-        self.swiftLanguageVersions = swiftLanguageVersions.map{ $0.map{ .version("\($0)") } }
+        self.swiftLanguageVersions = swiftLanguageVersions
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
     }
-
+  #else
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
@@ -359,6 +378,7 @@ public final class Package {
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
     }
+  #endif
 
     private func registerExitHandler() {
         // Add a custom exit handler to cause the package's JSON representation
@@ -437,10 +457,14 @@ extension LanguageTag: CustomStringConvertible {
 /// The system package providers used in this Swift package.
 public enum SystemPackageProvider {
 
+  #if PACKAGE_DESCRIPTION_4
     case brewItem([String])
     case aptItem([String])
-    @available(_PackageDescription, introduced: 5.3)
-    case yumItem([String])
+  #else
+    case _brewItem([String])
+    case _aptItem([String])
+    case _yumItem([String])
+  #endif
 
     /// Creates a system package provider with a list of installable packages
     /// for users of the HomeBrew package manager on macOS.
@@ -448,7 +472,11 @@ public enum SystemPackageProvider {
     /// - Parameters:
     ///     - packages: The list of package names.
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
+      #if PACKAGE_DESCRIPTION_4
         return .brewItem(packages)
+      #else
+        return ._brewItem(packages)
+      #endif
     }
 
     /// Creates a system package provider with a list of installable packages
@@ -457,9 +485,16 @@ public enum SystemPackageProvider {
     /// - Parameters:
     ///     - packages: The list of package names.
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
+      #if PACKAGE_DESCRIPTION_4
         return .aptItem(packages)
+      #else
+        return ._aptItem(packages)
+      #endif
     }
 
+#if PACKAGE_DESCRIPTION_4
+// yum is not supported
+#else
     /// Creates a system package provider with a list of installable packages
     /// for users of the yum package manager on Red Hat Enterprise Linux or CentOS.
     ///
@@ -467,8 +502,9 @@ public enum SystemPackageProvider {
     ///     - packages: The list of package names.
     @available(_PackageDescription, introduced: 5.3)
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
-        return .yumItem(packages)
+        return ._yumItem(packages)
     }
+#endif
 }
 
 // MARK: Package JSON serialization
@@ -492,19 +528,26 @@ extension Package: Encodable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
 
+      #if !PACKAGE_DESCRIPTION_4
         if let defaultLocalization = _defaultLocalization {
             try container.encode(defaultLocalization.tag, forKey: .defaultLocalization)
         }
         if let platforms = self._platforms {
             try container.encode(platforms, forKey: .platforms)
         }
+      #endif
 
         try container.encode(pkgConfig, forKey: .pkgConfig)
         try container.encode(providers, forKey: .providers)
         try container.encode(products, forKey: .products)
         try container.encode(dependencies, forKey: .dependencies)
         try container.encode(targets, forKey: .targets)
+      #if PACKAGE_DESCRIPTION_4
+        let slv = swiftLanguageVersions?.map({ String($0) })
+        try container.encode(slv, forKey: .swiftLanguageVersions)
+      #else
         try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
+      #endif
         try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
         try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
     }
@@ -524,6 +567,7 @@ extension SystemPackageProvider: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+      #if PACKAGE_DESCRIPTION_4
         switch self {
         case .brewItem(let packages):
             try container.encode(Name.brew, forKey: .name)
@@ -531,10 +575,20 @@ extension SystemPackageProvider: Encodable {
         case .aptItem(let packages):
             try container.encode(Name.apt, forKey: .name)
             try container.encode(packages, forKey: .values)
-        case .yumItem(let packages):
+        }
+      #else
+        switch self {
+        case ._brewItem(let packages):
+            try container.encode(Name.brew, forKey: .name)
+            try container.encode(packages, forKey: .values)
+        case ._aptItem(let packages):
+            try container.encode(Name.apt, forKey: .name)
+            try container.encode(packages, forKey: .values)
+        case ._yumItem(let packages):
             try container.encode(Name.yum, forKey: .name)
             try container.encode(packages, forKey: .values)
         }
+      #endif
     }
 }
 
@@ -572,21 +626,36 @@ extension Target.Dependency: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+      #if PACKAGE_DESCRIPTION_4
         switch self {
-        case .targetItem(let name, let condition):
+        case .targetItem(let name):
+            try container.encode(Kind.target, forKey: .type)
+            try container.encode(name, forKey: .name)
+        case .productItem(let name, let package):
+            try container.encode(Kind.product, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(package, forKey: .package)
+        case .byNameItem(let name):
+            try container.encode(Kind.byName, forKey: .type)
+            try container.encode(name, forKey: .name)
+        }
+      #else
+        switch self {
+        case ._targetItem(let name, let condition):
             try container.encode(Kind.target, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(condition, forKey: .condition)
-        case .productItem(let name, let package, let condition):
+        case ._productItem(let name, let package, let condition):
             try container.encode(Kind.product, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(package, forKey: .package)
             try container.encode(condition, forKey: .condition)
-        case .byNameItem(let name, let condition):
+        case ._byNameItem(let name, let condition):
             try container.encode(Kind.byName, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(condition, forKey: .condition)
         }
+      #endif
     }
 }
 
