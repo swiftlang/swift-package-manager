@@ -254,6 +254,21 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(textChunk6.contains("Path: Sources/CExec"), textChunk6)
             XCTAssert(textChunk6.contains("Sources:\n        main.c"), textChunk6)
         }
+
+        fixture(name: "DependencyResolution/External/Simple/Bar") { prefix in
+            // Generate the JSON description.
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonOutput = try jsonResult.utf8Output()
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+
+            // Check that product dependencies and memberships are as expected.
+            XCTAssertEqual(json["name"]?.string, "Bar")
+            let jsonTarget = try XCTUnwrap(json["targets"]?.array?[0])
+            XCTAssertEqual(jsonTarget["product_memberships"]?.array?[0].stringValue, "Bar")
+            XCTAssertEqual(jsonTarget["product_dependencies"]?.array?[0].stringValue, "Foo")
+            XCTAssertNil(jsonTarget["target_dependencies"])
+        }
+
     }
     
     func testDescribePackageUsingPlugins() throws {
