@@ -938,7 +938,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Returns the runtime path given the manifest version and path to libDir.
     private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        return resources.binDir ?? resources.libDir.appending(component: "ManifestAPI")
+        if let binDir = resources.binDir {
+            return binDir
+        }
+        
+        // Otherwise we use the standard location of the manifest API in the toolchain, if it exists.
+        let manifestAPIDir = resources.libDir.appending(component: "ManifestAPI")
+        if localFileSystem.exists(manifestAPIDir) {
+            return manifestAPIDir
+        }
+        
+        // Otherwise, fall back on the old location (this would indicate that we're using an old toolchain).
+        return resources.libDir.appending(version.runtimeSubpath)
     }
 
     /// Returns path to the manifest database inside the given cache directory.
