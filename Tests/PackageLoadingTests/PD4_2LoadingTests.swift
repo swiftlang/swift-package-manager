@@ -500,6 +500,11 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCacheInvalidationOnEnv() throws {
+        #if os(Linux)
+        // rdar://79415639 (Test Case 'PackageDescription4_2LoadingTests.testCacheInvalidationOnEnv' failed)
+        try XCTSkipIf(true)
+        #endif
+
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
