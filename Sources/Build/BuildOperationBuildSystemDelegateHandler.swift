@@ -213,6 +213,7 @@ private final class InProcessTool: Tool {
 public struct BuildDescription: Codable {
     public typealias CommandName = String
     public typealias TargetName = String
+    public typealias CommandLineFlag = String
 
     /// The Swift compiler invocation targets.
     let swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool]
@@ -225,6 +226,12 @@ public struct BuildDescription: Codable {
 
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+
+    /// Every target's set of dependencies.
+    let targetDependencyMap: [TargetName: [TargetName]]
+
+    /// A full swift driver command-line invocation used to dependency-scan a given Swift target
+    let swiftTargetScanArgs: [TargetName: [CommandLineFlag]]
 
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
@@ -244,6 +251,20 @@ public struct BuildDescription: Codable {
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
+        self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
+            let deps = try $1.target.recursiveTargetDependencies().map { $0.c99name }
+            $0[$1.target.c99name] = deps
+        }
+        var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
+        for (target, description) in plan.targetMap {
+            guard case .swift(let desc) = description else {
+                continue
+            }
+            targetCommandLines[target.c99name] =
+                try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
+                                                                  plan.buildParameters.toolchain.swiftCompiler.pathString]
+        }
+        self.swiftTargetScanArgs = targetCommandLines
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             return BuiltTestProduct(
                 productName: desc.product.name,
