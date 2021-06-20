@@ -132,6 +132,16 @@ public protocol PackageCollectionsProtocol {
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     )
 
+    /// Lists packages from the specified collections.
+    ///
+    /// - Parameters:
+    ///   - collections: Identifiers of the collections
+    ///   - callback: The closure to invoke when result becomes available
+    func listPackages(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
+    )
+
     // MARK: - Target (Module) APIs
 
     /// List all known targets.

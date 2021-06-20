@@ -307,6 +307,40 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
+    public func listPackages(collections: Set<PackageCollectionsModel.CollectionIdentifier>,
+                             callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
+        self.listCollections(identifiers: collections) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let collections):
+                var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+                // Use package data from the most recently processed collection
+                collections.sorted(by: { $0.lastProcessedAt > $1.lastProcessedAt }).forEach { collection in
+                    collection.packages.forEach { package in
+                        var entry = packageCollections.removeValue(forKey: package.reference)
+                        if entry == nil {
+                            entry = (package, .init())
+                        }
+
+                        if var entry = entry {
+                            entry.collections.insert(collection.identifier)
+                            packageCollections[package.reference] = entry
+                        }
+                    }
+                }
+
+                let result = PackageCollectionsModel.PackageSearchResult(
+                    items: packageCollections.sorted { $0.key.identity < $1.key.identity }
+                        .map { entry in
+                            .init(package: entry.value.package, collections: Array(entry.value.collections))
+                        }
+                )
+                callback(.success(result))
+            }
+        }
+    }
+
     // MARK: - Package Metadata
 
     public func getPackageMetadata(_ reference: PackageReference,
