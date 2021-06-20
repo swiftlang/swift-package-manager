@@ -368,7 +368,7 @@ extension SwiftPackageTool {
                         at: moduleBaselinePath,
                         for: module,
                         buildPlan: buildOp.buildPlan!,
-                        breakageAllowlistPath: breakageAllowlistPath
+                        except: breakageAllowlistPath
                     ) {
                         results.append(comparisonResult)
                     }

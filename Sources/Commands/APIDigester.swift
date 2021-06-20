@@ -200,7 +200,7 @@ public struct SwiftAPIDigester {
         at baselinePath: AbsolutePath,
         for module: String,
         buildPlan: BuildPlan,
-        breakageAllowlistPath: AbsolutePath?
+        except breakageAllowlistPath: AbsolutePath?
     ) -> ComparisonResult? {
         var args = [
             "-diagnose-sdk",
