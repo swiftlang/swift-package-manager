@@ -155,6 +155,7 @@ fileprivate struct DescribedPackage: Encodable {
         let sources: [String]
         let resources: [PackageModel.Resource]?
         let targetDependencies: [String]?
+        let productDependencies: [String]?
         let productMemberships: [String]?
         
         init(from target: Target, in package: Package, productMemberships: [String]?) {
@@ -166,7 +167,10 @@ fileprivate struct DescribedPackage: Encodable {
             self.path = target.sources.root.relative(to: package.path).pathString
             self.sources = target.sources.relativePaths.map{ $0.pathString }
             self.resources = target.resources.isEmpty ? nil : target.resources
-            self.targetDependencies = target.dependencies.isEmpty ? nil : target.dependencies.compactMap{ $0.target?.name }
+            let targetDependencies = target.dependencies.compactMap{ $0.target }
+            self.targetDependencies = targetDependencies.isEmpty ? nil : targetDependencies.map{ $0.name }
+            let productDependencies = target.dependencies.compactMap{ $0.product }
+            self.productDependencies = productDependencies.isEmpty ? nil : productDependencies.map{ $0.name }
             self.productMemberships = productMemberships
         }
     }
