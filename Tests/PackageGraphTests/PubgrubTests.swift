@@ -2193,7 +2193,7 @@ class DependencyGraphBuilder {
             let packageDependencies: [MockContainer.Dependency] = filteredDependencies.map {
                 (container: reference(for: $0), requirement: $1.0, products: $1.1)
             }
-            container.dependencies[version.description, default: [:]][product] = packageDependencies
+            container.dependencies[version.description, default: [:]][product, default: []] += packageDependencies
         }
         self.containers[package] = container
     }
