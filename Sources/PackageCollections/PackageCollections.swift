@@ -81,34 +81,38 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
-                let identifiers = sources.map { .init(from: $0) }.filter { identifiers?.contains($0) ?? true }
-                if identifiers.isEmpty {
+                let identiferSource = sources.reduce(into: [PackageCollectionsModel.CollectionIdentifier: PackageCollectionsModel.CollectionSource]()) { result, source in
+                    result[.init(from: source)] = source
+                }
+                let identifiersToFetch = identiferSource.keys.filter { identifiers?.contains($0) ?? true }
+
+                if identifiersToFetch.isEmpty {
                     return callback(.success([]))
                 }
-                let collectionOrder = identifiers.enumerated().reduce([Model.CollectionIdentifier: Int]()) { partial, element in
-                    var dictionary = partial
-                    dictionary[element.element] = element.offset
-                    return dictionary
-                }
-                self.storage.collections.list(identifiers: identifiers) { result in
+
+                self.storage.collections.list(identifiers: identifiersToFetch) { result in
                     switch result {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(var collections):
-                        // re-order by profile order which reflects the user's election
-                        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
-                            collectionOrder[lhs.identifier] ?? 0 < collectionOrder[rhs.identifier] ?? 0
+                        let sourceOrder = sources.enumerated().reduce(into: [Model.CollectionIdentifier: Int]()) { result, item in
+                            result[.init(from: item.element)] = item.offset
                         }
 
-                        // We've fetched all the configured collections and we're done
-                        if collections.count == sources.count {
+                        // re-order by profile order which reflects the user's election
+                        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
+                            sourceOrder[lhs.identifier] ?? 0 < sourceOrder[rhs.identifier] ?? 0
+                        }
+
+                        // We've fetched all the wanted collections and we're done
+                        if collections.count == identifiersToFetch.count {
                             collections.sort(by: sort)
                             return callback(.success(collections))
                         }
 
                         // Some of the results are missing. This happens when deserialization of stored collections fail,
                         // so we will try refreshing the missing collections to update data in storage.
-                        let missingSources = Set(sources).subtracting(Set(collections.map { $0.source }))
+                        let missingSources = Set(identifiersToFetch.compactMap { identiferSource[$0] }).subtracting(Set(collections.map { $0.source }))
                         let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
                         missingSources.forEach { source in
                             self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
