@@ -374,7 +374,6 @@ extension SwiftPackageTool {
             }
             
             try provider.pull(templatePath.pathString)
-            
         }
     }
     
