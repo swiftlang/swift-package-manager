@@ -135,10 +135,10 @@ public protocol PackageCollectionsProtocol {
     /// Lists packages from the specified collections.
     ///
     /// - Parameters:
-    ///   - collections: Identifiers of the collections
+    ///   - collections: Optional. If specified, only packages in these collections are included.
     ///   - callback: The closure to invoke when result becomes available
     func listPackages(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     )
 

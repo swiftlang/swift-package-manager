@@ -307,7 +307,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    public func listPackages(collections: Set<PackageCollectionsModel.CollectionIdentifier>,
+    public func listPackages(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
                              callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
         self.listCollections(identifiers: collections) { result in
             switch result {

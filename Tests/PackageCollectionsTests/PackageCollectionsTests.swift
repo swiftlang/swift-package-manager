@@ -1559,14 +1559,28 @@ final class PackageCollectionsTests: XCTestCase {
             _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
 
-        let fetchCollections = Set([mockCollections[0].identifier, mockCollection.identifier, mockCollection2.identifier])
-        let expectedPackages = Set(mockCollections[0].packages.map { $0.reference } + [mockPackage.reference])
-        let expectedCollections = Set([mockCollection.identifier, mockCollection2.identifier])
+        do {
+            let fetchCollections = Set(mockCollections.map { $0.identifier } + [mockCollection.identifier, mockCollection2.identifier])
+            let expectedPackages = Set(mockCollections.flatMap { $0.packages.map { $0.reference } } + [mockPackage.reference])
+            let expectedCollections = Set([mockCollection.identifier, mockCollection2.identifier])
 
-        let searchResult = try tsc_await { callback in packageCollections.listPackages(collections: fetchCollections, callback: callback) }
-        XCTAssertEqual(searchResult.items.count, expectedPackages.count, "list count should match")
-        XCTAssertEqual(Set(searchResult.items.map { $0.package.reference }), expectedPackages, "items should match")
-        XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.reference == mockPackage.reference })?.collections ?? []), expectedCollections, "collections should match")
+            let searchResult = try tsc_await { callback in packageCollections.listPackages(collections: fetchCollections, callback: callback) }
+            XCTAssertEqual(searchResult.items.count, expectedPackages.count, "list count should match")
+            XCTAssertEqual(Set(searchResult.items.map { $0.package.reference }), expectedPackages, "items should match")
+            XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.reference == mockPackage.reference })?.collections ?? []), expectedCollections, "collections should match")
+        }
+
+        // Call API for specific collections
+        do {
+            let fetchCollections = Set([mockCollections[0].identifier, mockCollection.identifier, mockCollection2.identifier])
+            let expectedPackages = Set(mockCollections[0].packages.map { $0.reference } + [mockPackage.reference])
+            let expectedCollections = Set([mockCollection.identifier, mockCollection2.identifier])
+
+            let searchResult = try tsc_await { callback in packageCollections.listPackages(collections: fetchCollections, callback: callback) }
+            XCTAssertEqual(searchResult.items.count, expectedPackages.count, "list count should match")
+            XCTAssertEqual(Set(searchResult.items.map { $0.package.reference }), expectedPackages, "items should match")
+            XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.reference == mockPackage.reference })?.collections ?? []), expectedCollections, "collections should match")
+        }
     }
 }
 
