@@ -95,10 +95,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(var collections):
-                        let sourceOrder = sources.enumerated().reduce([Model.CollectionIdentifier: Int]()) { result, item in
-                            var dictionary = result
-                            dictionary[.init(from: item.element)] = item.offset
-                            return dictionary
+                        let sourceOrder = sources.enumerated().reduce(into: [Model.CollectionIdentifier: Int]()) { result, item in
+                            result[.init(from: item.element)] = item.offset
                         }
 
                         // re-order by profile order which reflects the user's election
