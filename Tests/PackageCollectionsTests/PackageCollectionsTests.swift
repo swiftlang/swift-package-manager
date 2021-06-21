@@ -567,6 +567,51 @@ final class PackageCollectionsTests: XCTestCase {
         }
     }
 
+    func testList() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 10)
+        let mockPackage = mockCollections.last!.packages.last!
+        let mockMetadata = makeMockPackageBasicMetadata()
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        try mockCollections.forEach { collection in
+            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
+        }
+
+        let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
+        XCTAssertEqual(list.count, mockCollections.count, "list count should match")
+    }
+
+    func testListSubset() throws {
+        try skipIfUnsupportedPlatform()
+
+        let configuration = PackageCollections.Configuration()
+        let storage = makeMockStorage()
+        defer { XCTAssertNoThrow(try storage.close()) }
+
+        let mockCollections = makeMockCollections(count: 10)
+        let mockPackage = mockCollections.last!.packages.last!
+        let mockMetadata = makeMockPackageBasicMetadata()
+        let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
+        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+
+        try mockCollections.forEach { collection in
+            _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
+        }
+
+        let expectedCollections = Set([mockCollections.first!.identifier, mockCollections.last!.identifier])
+        let list = try tsc_await { callback in packageCollections.listCollections(identifiers: expectedCollections, callback: callback) }
+        XCTAssertEqual(list.count, expectedCollections.count, "list count should match")
+    }
+
     func testListPerformance() throws {
         #if ENABLE_COLLECTION_PERF_TESTS
         #else
