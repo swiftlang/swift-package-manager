@@ -921,6 +921,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        3XX:
+          $ref: "#/components/responses/redirect"
         4XX:
           $ref: "#/components/responses/problemDetails"
   /identifiers:
@@ -1019,6 +1021,14 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/problem"
+    redirect:
+      description: A server redirect.
+      headers:
+        Content-Version:
+          $ref: "#/components/headers/contentVersion"
+        Location:
+          schema:
+            type: string
   parameters:
     scope:
       name: scope
