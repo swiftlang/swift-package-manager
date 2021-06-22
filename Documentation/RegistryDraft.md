@@ -504,7 +504,6 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package.swift"
 Content-Length: 361
 Content-Version: 1
-ETag: 87e749848e0fc4cfc509e4090ca37773
 Link: <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4>; rel="alternate",
       <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4.2>; rel="alternate"
 
@@ -566,7 +565,6 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package@swift-4.2.swift"
 Content-Length: 361
 Content-Version: 1
-ETag: 24f6cd72352c4201df22a5be356d4d22
 
 // swift-tools-version:4.2
 import PackageDescription
@@ -625,7 +623,6 @@ Content-Disposition: attachment; filename="LinkedList-1.1.1.zip"
 Content-Length: 2048
 Content-Version: 1
 Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
-ETag: e61befdd5056d4b8bafa71c5bbb41d71
 Link: <https://mirror-japanwest.example.com/mona-LinkedList-1.1.1.zip>; rel=duplicate; geo=jp; pri=10; type="application/zip"
 ```
 
@@ -862,9 +859,6 @@ paths:
                 type: integer
             Content-Version:
               $ref: "#/components/headers/contentVersion"
-            Etag:
-              schema:
-                type: string
             Link:
               schema:
                 type: string
@@ -913,9 +907,6 @@ paths:
               $ref: "#/components/headers/contentVersion"
             Digest:
               required: true
-              schema:
-                type: string
-            Etag:
               schema:
                 type: string
             Link:
