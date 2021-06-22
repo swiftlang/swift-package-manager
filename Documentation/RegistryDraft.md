@@ -316,6 +316,7 @@ containing the releases for the requested package.
 HTTP/1.1 200 OK
 Content-Type: application/json
 Content-Version: 1
+Content-Length: 508
 Link: <https://github.com/mona/LinkedList>; rel="canonical",
       <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
       <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
@@ -426,8 +427,9 @@ Otherwise, a server SHOULD respond with a status code of `404` (Not Found).
 
 ```http
 HTTP/1.1 200 OK
-Content-Type: application/json
 Content-Version: 1
+Content-Type: application/json
+Content-Length: 620
 Link: <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
       <https://packages.example.com/mona/LinkedList/1.0.0>; rel="predecessor-version"
 ```
@@ -788,6 +790,9 @@ paths:
           headers:
             Content-Version:
               $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -820,6 +825,9 @@ paths:
           headers:
             Content-Version:
               $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -1017,6 +1025,9 @@ components:
         Content-Language:
           schema:
             type: string
+        Content-Length:
+          schema:
+            type: integer
       content:
         application/problem+json:
           schema:
