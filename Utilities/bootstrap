@@ -327,9 +327,6 @@ def test(args):
     for arg in args.filter:
         cmd.extend(["--filter", arg])
 
-    # Test TSC.
-    call_swiftpm(args, cmd, args.tsc_source_dir)
-
     # Test SwiftPM.
     call_swiftpm(args, cmd)
 
