@@ -13,15 +13,6 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
-// We default to a 10.10 minimum deployment target for clients of libSwiftPM,
-// but allow overriding it when building for a toolchain.
-
-let macOSPlatform: SupportedPlatform
-if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
-    macOSPlatform = .macOS(deploymentTarget)
-} else {
-    macOSPlatform = .macOS(.v10_15)
-}
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
 This allowis some clients (such as IDEs) that use SwiftPM's data model but not its build system
@@ -64,7 +55,10 @@ let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let package = Package(
     name: "SwiftPM",
-    platforms: [macOSPlatform],
+    platforms: [
+        .macOS(.v10_15),
+        .iOS(.v13)
+    ],
     products:
         autoProducts.flatMap {
           [
