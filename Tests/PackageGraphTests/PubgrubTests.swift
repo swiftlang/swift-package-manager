@@ -2166,7 +2166,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: Version,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: OrderedDictionary<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
@@ -2175,7 +2175,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: BoundVersion,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: OrderedDictionary<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(package: packageReference)
@@ -2193,7 +2193,7 @@ class DependencyGraphBuilder {
             let packageDependencies: [MockContainer.Dependency] = filteredDependencies.map {
                 (container: reference(for: $0), requirement: $1.0, products: $1.1)
             }
-            container.dependencies[version.description, default: [:]][product] = packageDependencies
+            container.dependencies[version.description, default: [:]][product, default: []] += packageDependencies
         }
         self.containers[package] = container
     }
