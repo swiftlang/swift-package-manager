@@ -1040,6 +1040,12 @@ components:
         Location:
           schema:
             type: string
+        Digest:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
   parameters:
     scope:
       name: scope
