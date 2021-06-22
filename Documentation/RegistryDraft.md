@@ -774,6 +774,7 @@ paths:
       tags:
         - Package
       summary: List package releases
+      operationId: listPackageReleases
       parameters:
         - name: Content-Type
           in: header
@@ -805,6 +806,7 @@ paths:
       tags:
         - Release
       summary: Fetch release metadata
+      operationId: fetchReleaseMetadata
       parameters:
         - name: Content-Type
           in: header
@@ -836,6 +838,7 @@ paths:
       tags:
         - Release
       summary: Fetch manifest for a package release
+      operationId: fetchManifestForPackageRelease
       parameters:
         - name: Content-Type
           in: header
@@ -880,6 +883,7 @@ paths:
       tags:
         - Release
       summary: Download source archive
+      operationId: downloadSourceArchive
       parameters:
         - name: Content-Type
           in: header
@@ -926,6 +930,7 @@ paths:
       tags:
         - Package
       summary: Lookup package identifiers registered for a URL
+      operationId: lookupPackageIdentifiersByURL
       parameters:
         - name: Content-Type
           in: header
