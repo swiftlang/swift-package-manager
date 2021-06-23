@@ -865,12 +865,10 @@ public class SwiftTool {
                 cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
             }
 
-            let extraManifestFlags: [String]
+            var  extraManifestFlags = self.options.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fs: localFileSystem) {
-                extraManifestFlags = self.options.manifestFlags + ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
-            } else {
-                extraManifestFlags = self.options.manifestFlags
+                extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
 
             return try ManifestLoader(
