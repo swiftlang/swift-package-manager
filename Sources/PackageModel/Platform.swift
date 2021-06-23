@@ -35,6 +35,7 @@ public struct Platform: Equatable, Hashable, Codable {
     public static let android: Platform = Platform(name: "android", oldestSupportedVersion: .unknown)
     public static let windows: Platform = Platform(name: "windows", oldestSupportedVersion: .unknown)
     public static let wasi: Platform = Platform(name: "wasi", oldestSupportedVersion: .unknown)
+    public static let openbsd: Platform = Platform(name: "openbsd", oldestSupportedVersion: .unknown)
 
 }
 

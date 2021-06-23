@@ -59,7 +59,7 @@ extension DispatchTimeInterval {
 }
 
 // remove when available to all platforms
-#if os(Linux) || os(Windows) || os(Android)
+#if os(Linux) || os(Windows) || os(Android) || os(OpenBSD)
 extension DispatchTime {
     public func distance(to: DispatchTime) -> DispatchTimeInterval {
         let duration = to.uptimeNanoseconds - self.uptimeNanoseconds

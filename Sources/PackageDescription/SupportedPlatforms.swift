@@ -51,6 +51,10 @@ public struct Platform: Encodable, Equatable {
     /// The WebAssembly System Interface platform.
     @available(_PackageDescription, introduced: 5.3)
     public static let wasi: Platform = Platform(name: "wasi")
+
+    /// The OpenBSD platform.
+    @available(_PackageDescription, introduced: 999.0)
+    public static let openbsd: Platform = Platform(name: "openbsd")
 }
 
 /// A platform that the Swift package supports.
