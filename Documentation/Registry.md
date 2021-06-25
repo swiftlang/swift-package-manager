@@ -176,7 +176,7 @@ Valid `Accept` header field values are described by the following rules:
     accept      = "application/vnd.swift.registry" [".v" version] ["+" mediatype]
 ```
 
-A server SHALL set the `Content-Type` and `Content-Version` header fields
+A server MUST set the `Content-Type` and `Content-Version` header fields
 with the corresponding content type and API version number of the response.
 
 ```http
@@ -316,6 +316,7 @@ containing the releases for the requested package.
 HTTP/1.1 200 OK
 Content-Type: application/json
 Content-Version: 1
+Content-Length: 508
 Link: <https://github.com/mona/LinkedList>; rel="canonical",
       <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
       <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
@@ -341,7 +342,7 @@ Link: <https://github.com/mona/LinkedList>; rel="canonical",
 }
 ```
 
-The response body SHALL contain a JSON object
+The response body MUST contain a JSON object
 nested at a top-level `releases` key,
 whose keys are version numbers for releases and
 whose values are objects containing the following fields:
@@ -426,8 +427,9 @@ Otherwise, a server SHOULD respond with a status code of `404` (Not Found).
 
 ```http
 HTTP/1.1 200 OK
-Content-Type: application/json
 Content-Version: 1
+Content-Type: application/json
+Content-Length: 620
 Link: <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
       <https://packages.example.com/mona/LinkedList/1.0.0>; rel="predecessor-version"
 ```
@@ -504,7 +506,6 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package.swift"
 Content-Length: 361
 Content-Version: 1
-ETag: 87e749848e0fc4cfc509e4090ca37773
 Link: <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4>; rel="alternate",
       <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4.2>; rel="alternate"
 
@@ -566,7 +567,6 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package@swift-4.2.swift"
 Content-Length: 361
 Content-Version: 1
-ETag: 24f6cd72352c4201df22a5be356d4d22
 
 // swift-tools-version:4.2
 import PackageDescription
@@ -625,16 +625,15 @@ Content-Disposition: attachment; filename="LinkedList-1.1.1.zip"
 Content-Length: 2048
 Content-Version: 1
 Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
-ETag: e61befdd5056d4b8bafa71c5bbb41d71
 Link: <https://mirror-japanwest.example.com/mona-LinkedList-1.1.1.zip>; rel=duplicate; geo=jp; pri=10; type="application/zip"
 ```
 
-A server SHALL respond with a `Content-Length` header
+A server MUST respond with a `Content-Length` header
 set to the size of the archive in bytes.
 A client SHOULD terminate any requests whose response exceeds
 the expected content length.
 
-A server SHALL respond with a `Digest` header
+A server MUST respond with a `Digest` header
 containing a SHA-256 checksum for the source archive.
 
 A server SHOULD respond with a `Content-Disposition` header
@@ -648,7 +647,7 @@ and caching as described by [RFC 7234].
 
 #### 4.4.1. Integrity verification
 
-A client SHOULD verify the integrity of a downloaded source archive
+A client MUST verify the integrity of a downloaded source archive
 using the checksum provided in the `Digest` header of a response
 (for example, using the command
 `echo "$CHECKSUM LinkedList-1.1.1.zip" | shasum -a 256 -c`).
@@ -663,14 +662,21 @@ A client MAY use this information
 to determine its preferred strategy for downloading.
 
 A server that indexes but doesn't host packages
-SHOULD respond with a status code of `303` (See Other)
+MAY respond with a status code of `303` (See Other)
 and redirect to a hosted package archive if one is available.
 
 ```http
 HTTP/1.1 303 See Other
 Content-Version: 1
+Content-Length: 2048
+Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
 Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
 ```
+
+The client SHOULD consider the `Digest` and `Content-Length` headers
+sent in the response to be authoritative for the redirected resource.
+The client MUST NOT follow redirects that downgrade to an insecure connection.
+The client SHOULD limit the number of redirects to prevent a redirect loop.
 
 <a name="endpoint-5"></a>
 
@@ -708,7 +714,7 @@ Content-Version: 1
 }
 ```
 
-The response body SHALL contain an array of package identifier strings
+The response body MUST contain an array of package identifier strings
 nested at a top-level `identifiers` key.
 
 It is RECOMMENDED for clients and servers to support
@@ -770,6 +776,7 @@ paths:
       tags:
         - Package
       summary: List package releases
+      operationId: listPackageReleases
       parameters:
         - name: Content-Type
           in: header
@@ -783,6 +790,9 @@ paths:
           headers:
             Content-Version:
               $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -801,6 +811,7 @@ paths:
       tags:
         - Release
       summary: Fetch release metadata
+      operationId: fetchReleaseMetadata
       parameters:
         - name: Content-Type
           in: header
@@ -814,6 +825,9 @@ paths:
           headers:
             Content-Version:
               $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -832,6 +846,7 @@ paths:
       tags:
         - Release
       summary: Fetch manifest for a package release
+      operationId: fetchManifestForPackageRelease
       parameters:
         - name: Content-Type
           in: header
@@ -855,9 +870,6 @@ paths:
                 type: integer
             Content-Version:
               $ref: "#/components/headers/contentVersion"
-            Etag:
-              schema:
-                type: string
             Link:
               schema:
                 type: string
@@ -879,6 +891,7 @@ paths:
       tags:
         - Release
       summary: Download source archive
+      operationId: downloadSourceArchive
       parameters:
         - name: Content-Type
           in: header
@@ -908,9 +921,6 @@ paths:
               required: true
               schema:
                 type: string
-            Etag:
-              schema:
-                type: string
             Link:
               schema:
                 type: string
@@ -919,6 +929,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        3XX:
+          $ref: "#/components/responses/redirect"
         4XX:
           $ref: "#/components/responses/problemDetails"
   /identifiers:
@@ -928,6 +940,7 @@ paths:
       tags:
         - Package
       summary: Lookup package identifiers registered for a URL
+      operationId: lookupPackageIdentifiersByURL
       parameters:
         - name: Content-Type
           in: header
@@ -1012,10 +1025,27 @@ components:
         Content-Language:
           schema:
             type: string
+        Content-Length:
+          schema:
+            type: integer
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/problem"
+    redirect:
+      description: A server redirect.
+      headers:
+        Content-Version:
+          $ref: "#/components/headers/contentVersion"
+        Location:
+          schema:
+            type: string
+        Digest:
+          schema:
+            type: string
+        Content-Length:
+          schema:
+            type: integer
   parameters:
     scope:
       name: scope
