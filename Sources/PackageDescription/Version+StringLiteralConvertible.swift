@@ -44,7 +44,7 @@ extension Version: ExpressibleByStringLiteral {
     }
 }
 
-extension Version {
+extension Version: LosslessStringConvertible {
     /// Initializes a version struct with the provided version string.
     /// - Parameter version: A version string to use for creating a new version struct.
     public init?(_ versionString: String) {
