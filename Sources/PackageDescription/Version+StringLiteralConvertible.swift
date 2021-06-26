@@ -9,11 +9,8 @@
 */
 
 extension Version: ExpressibleByStringLiteral {
-
     /// Initializes a version struct with the provided string literal.
-    ///
-    /// - Parameters:
-    ///     - version: A string literal to use for creating a new version struct.
+    /// - Parameter version: A string literal to use for creating a new version struct.
     public init(stringLiteral value: String) {
         if let version = Version(value) {
             self = version
