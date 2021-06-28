@@ -28,7 +28,7 @@ func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectio
 }
 
 func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: Int = 50, signed: Bool = true) -> [PackageCollectionsModel.Collection] {
-    let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi]
+    let platforms: [PackageModel.Platform] = [.macOS, .iOS, .tvOS, .watchOS, .linux, .android, .windows, .wasi, .openbsd]
     let supportedPlatforms: [PackageModel.SupportedPlatform] = [
         .init(platform: .macOS, version: .init("10.15")),
         .init(platform: .iOS, version: .init("13")),

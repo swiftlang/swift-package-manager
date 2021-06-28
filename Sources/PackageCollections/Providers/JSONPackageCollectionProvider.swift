@@ -459,6 +459,8 @@ extension PackageModel.Platform {
             self = PackageModel.Platform.windows
         case let name where name.contains("wasi"):
             self = PackageModel.Platform.wasi
+        case let name where name.contains("openbsd"):
+            self = PackageModel.Platform.openbsd
         default:
             return nil
         }

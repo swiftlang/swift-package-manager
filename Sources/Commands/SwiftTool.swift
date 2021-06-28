@@ -380,7 +380,7 @@ public class SwiftTool {
               #if os(Windows)
                 // Exit as if by signal()
                 TerminateProcess(GetCurrentProcess(), 3)
-              #elseif os(macOS)
+              #elseif os(macOS) || os(OpenBSD)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL

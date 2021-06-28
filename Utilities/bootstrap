@@ -782,9 +782,12 @@ def get_swiftpm_flags(args):
     # TensorFlow).
     if platform.system() == "Darwin":
         swift_library_rpath_prefix = "@executable_path/../"
-    elif platform.system() == 'Linux':
+    elif platform.system() == 'Linux' or platform.system() == 'OpenBSD':
         # `$ORIGIN` is an ELF construct.
         swift_library_rpath_prefix = "$ORIGIN/../"
+    if platform.system() == 'OpenBSD':
+        build_flags.extend(["-Xlinker", "-z", "-Xlinker", "origin"])
+
     platform_path = None
     for path in args.target_info["paths"]["runtimeLibraryPaths"]:
         platform_path = re.search(r"(lib/swift/([^/]+))$", path)
@@ -818,6 +821,10 @@ def get_swiftpm_flags(args):
     if 'ANDROID_DATA' in os.environ or (args.cross_compile_hosts and re.match(
         'android-', args.cross_compile_hosts)):
         build_flags.extend(["-Xswiftc", "-Xcc", "-Xswiftc", "-U_GNU_SOURCE"])
+
+    if platform.system() == "OpenBSD":
+        build_flags.extend(["-Xcc", "-I/usr/local/include"])
+        build_flags.extend(["-Xlinker", "-L/usr/local/lib"])
 
     # On ELF platforms, remove the host toolchain's stdlib absolute rpath from
     # installed executables and shared libraries.

@@ -1688,6 +1688,7 @@ class PackageBuilderTests: XCTestCase {
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
+            "openbsd": "0.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1746,6 +1747,7 @@ class PackageBuilderTests: XCTestCase {
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
+	    "openbsd": "0.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
