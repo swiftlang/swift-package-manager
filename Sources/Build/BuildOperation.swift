@@ -161,6 +161,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     // Emit a warning if a target imports another target in this build
     // without specifying it as a dependency in the manifest
     private func verifyTargetImports(in description: BuildDescription) throws {
+        // Ensure the compiler supports the import-scan operation
+        guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fs: localFileSystem) else {
+            return
+        }
         for (target, commandLine) in description.swiftTargetScanArgs {
             do {
                 guard let dependencies = description.targetDependencyMap[target] else {

@@ -76,6 +76,9 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testImportOfMissedDepWarning() throws {
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-import-prescan'")
+        #endif
         fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
             let fullPath = resolveSymlinks(path)
             XCTAssertThrowsError(try build([], packagePath: fullPath)) { error in
