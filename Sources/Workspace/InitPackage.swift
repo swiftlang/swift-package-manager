@@ -260,7 +260,7 @@ public final class InitPackage {
                 /*.xcodeproj
                 xcuserdata/
                 DerivedData/
-                .swiftpm/config
+                .swiftpm/config/registries.json
                 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 
                 """
