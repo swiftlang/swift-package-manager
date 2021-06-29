@@ -335,7 +335,6 @@ def test(args):
     note("Testing")
     parse_test_args(args)
     cmd = [os.path.join(args.bin_dir, "swift-test")]
-    cmd.append("--enable-test-discovery")
     if args.parallel:
         cmd.append("--parallel")
     for arg in args.filter:
