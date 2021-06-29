@@ -15,10 +15,8 @@ The [SourceKit-LSP](https://github.com/apple/sourcekit-lsp) project leverages li
 * [Documentation](#documentation)
 * [System Requirements](#system-requirements)
 * [Installation](#installation)
-  * [Managing Swift Environments](#managing-swift-environments)
-  * [Choosing a Swift Version](#choosing-a-swift-version)
-* [Support](#support)
-* [Contributions](#contributions)
+* [Contributing](#contributing)
+* [Reporting issues](#reporting-issues)
 * [License](#license)
 
 ---
