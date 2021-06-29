@@ -107,10 +107,14 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
             // Create new instance each time since contents of trustedRootCertsDir might change
             return DefaultCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
                                             expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+        case .appleSwiftPackageCollection(let subjectUserID):
+            // Create new instance each time since contents of trustedRootCertsDir might change
+            return AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
+                                                                expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
         case .appleDistribution(let subjectUserID):
             // Create new instance each time since contents of trustedRootCertsDir might change
-            return AppleDeveloperCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
-                                                   expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+            return AppleDistributionCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
+                                                      expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
         case .custom:
             // Custom `CertificatePolicy` can be set using the internal initializer only
             guard let certPolicy = self.certPolicies[key] else {
