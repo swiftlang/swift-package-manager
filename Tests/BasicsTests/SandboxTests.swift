@@ -23,7 +23,7 @@ final class SandboxTest: XCTestCase {
 
     func testNetworkNotAllowed() throws {
         #if !os(macOS)
-        throw XCTSkip()
+        try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         let command = Sandbox.apply(command: ["ping", "-t", "1", "localhost"], writableDirectories: [], strictness: .default)
@@ -38,7 +38,7 @@ final class SandboxTest: XCTestCase {
 
     func testWritableAllowed() throws {
         #if !os(macOS)
-        throw XCTSkip()
+        try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try withTemporaryDirectory { path in
@@ -49,7 +49,7 @@ final class SandboxTest: XCTestCase {
 
     func testWritableNotAllowed() throws {
         #if !os(macOS)
-        throw XCTSkip()
+        try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try withTemporaryDirectory { path in
@@ -65,7 +65,7 @@ final class SandboxTest: XCTestCase {
 
     func testRemoveNotAllowed() throws {
         #if !os(macOS)
-        throw XCTSkip()
+        try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try withTemporaryDirectory { path in
@@ -85,7 +85,7 @@ final class SandboxTest: XCTestCase {
     // FIXME: rdar://75707545 this should not be allowed outside very specific read locations
     func testReadAllowed() throws {
         #if !os(macOS)
-        throw XCTSkip()
+        try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try withTemporaryDirectory { path in
@@ -100,7 +100,7 @@ final class SandboxTest: XCTestCase {
     // FIXME: rdar://75707545 this should not be allowed outside very specific programs
     func testExecuteAllowed() throws {
         #if !os(macOS)
-        throw XCTSkip()
+        try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
         try withTemporaryDirectory { path in
