@@ -48,7 +48,7 @@ services:
 
   test:
     <<: *common
-    command: /bin/bash -cl "swift test --enable-test-discovery --parallel"
+    command: /bin/bash -cl "swift test --parallel"
 
   bootstrap-clean:
     <<: *common
