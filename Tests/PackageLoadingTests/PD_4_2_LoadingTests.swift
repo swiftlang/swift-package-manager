@@ -23,7 +23,7 @@ import enum TSCBasic.PathValidationError
 
 import func TSCTestSupport.withCustomEnv
 
-class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
+class PackageDescription_4_2_LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4_2
     }

@@ -18,7 +18,7 @@ import XCTest
 
 import class TSCBasic.InMemoryFileSystem
 
-class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
+class PackageDescription_4_0_LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v4
     }

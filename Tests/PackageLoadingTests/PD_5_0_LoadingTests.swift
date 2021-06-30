@@ -18,7 +18,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 
-class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
+class PackageDescription_5_0_LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v5
     }

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 extension Package {
     /// A package dependency of a Swift package.
     ///

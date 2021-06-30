@@ -160,15 +160,16 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         case plugin(name: String, package: String?)
     }
 
+    // FIXME: create type based static initializers instead and make this private
     public init(
         name: String,
         dependencies: [Dependency] = [],
-        path: String? = nil,
-        url: String? = nil,
-        exclude: [String] = [],
-        sources: [String]? = nil,
-        resources: [Resource] = [],
-        publicHeadersPath: String? = nil,
+        path: String? = .none,
+        url: String? = .none,
+        exclude: [String]? = .none,
+        sources: [String]? = .none,
+        resources: [Resource]? = .none,
+        publicHeadersPath: String? = .none,
         type: TargetType = .regular,
         packageAccess: Bool = true,
         pkgConfig: String? = nil,
@@ -178,6 +179,10 @@ public struct TargetDescription: Equatable, Encodable, Sendable {
         checksum: String? = nil,
         pluginUsages: [PluginUsage]? = nil
     ) throws {
+        let exclude = exclude ?? []
+        let resources = resources ?? []
+        let settings = settings 
+
         switch type {
         case .regular, .executable, .test:
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }

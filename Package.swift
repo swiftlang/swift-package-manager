@@ -93,7 +93,7 @@ let package = Package(
         .library(
             name: "PackageDescription",
             type: .dynamic,
-            targets: ["PackageDescription", "CompilerPluginSupport"]
+            targets: ["PackageDescription", "CompilerPluginSupport", "PackageManifest"]
         ),
         .library(
             name: "PackagePlugin",
@@ -208,7 +208,8 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel"
+                "PackageModel",
+                "PackageManifestModel",
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -633,7 +634,28 @@ let package = Package(
             name: "package-info",
             dependencies: ["Workspace"],
             path: "Examples/package-info/Sources/package-info"
-        )
+        ),
+
+
+        //****************************
+
+        .target(
+            name: "PackageManifest",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: [
+                .define("SERIALIZATION"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
+            ]),
+
+        .target(name: "PackageManifestModel", exclude: ["CMakeLists.txt"]),
+
+        .testTarget(
+                name: "PackageManifestTests",
+                dependencies: ["PackageManifest", "Basics"]),
+
+        //****************************
+
     ],
     swiftLanguageVersions: [.v5]
 )

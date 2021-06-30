@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import Foundation
+import PackageManifestModel
 import PackageModel
 
 import struct Basics.AbsolutePath
@@ -25,17 +26,10 @@ import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 enum ManifestJSONParser {
-    private static let filePrefix = "file://"
-
-    struct Input: Codable {
-        let package: Serialization.Package
-        let errors: [String]
-    }
-
     struct VersionedInput: Codable {
         let version: Int
     }
-
+    
     struct Result {
         var name: String
         var defaultLocalization: String?
@@ -49,16 +43,16 @@ enum ManifestJSONParser {
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
     }
-
+    
     static func parse(
-        v4 jsonString: String,
+        _ jsonString: String,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem
     ) throws -> ManifestJSONParser.Result {
         let decoder = JSONDecoder.makeWithDefaults()
-
+        
         // Validate the version first to detect use of a mismatched PD library.
         let versionedInput: VersionedInput
         do {
@@ -67,11 +61,248 @@ enum ManifestJSONParser {
             // If we cannot even decode the version, assume that a pre-5.9 PD library is being used which emits an incompatible JSON format.
             throw ManifestParseError.unsupportedVersion(version: 1, underlyingError: "\(error.interpolationDescription)")
         }
-        guard versionedInput.version == 2 else {
+        
+        switch versionedInput.version {
+        case 2:
+            return try self.parse(v2: jsonString, toolsVersion: toolsVersion, packageKind: packageKind, identityResolver: identityResolver, fileSystem: fileSystem)
+        case 3:
+            return try self.parse(v3: jsonString, toolsVersion: toolsVersion, packageKind: packageKind, identityResolver: identityResolver, fileSystem: fileSystem)
+        default:
             throw ManifestParseError.unsupportedVersion(version: versionedInput.version)
         }
+    }
+}
 
-        let input = try decoder.decode(Input.self, from: jsonString)
+// MARK: - Manifest 2.0
+
+extension ManifestJSONParser {
+    struct V3Input: Codable {
+        let package: PackageManifestModel.Package
+    }
+
+    static func parse(
+        v3 jsonString: String,
+        toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem
+    ) throws -> ManifestJSONParser.Result {
+        let decoder = JSONDecoder.makeWithDefaults()
+        let input = try decoder.decode(V3Input.self, from: jsonString)
+
+        var products: [ProductDescription] = []
+        var targets: [TargetDescription] = []
+
+        try input.package.modules.forEach { module in
+            let type: TargetDescription.TargetType
+
+            var url: String? = .none
+            var sources: [String]? = .none
+            var resources: [String]? = .none
+            var exclude: [String]? = .none
+            var dependencies: [TargetDescription.Dependency] = []
+            var pluginCapability: TargetDescription.PluginCapability? = .none
+
+            switch module.kind {
+            case .binary(let settings):
+                type = .binary
+
+                switch settings.location {
+                case .fileSystem(let path): break
+                case .remote(let _url): url = _url
+                }
+
+                // TODO: Handle `checksum`
+            case .executable(let settings):
+                type = .executable
+
+                sources = settings.sources
+                resources = settings.resources
+                exclude = settings.exclude
+                dependencies = settings.dependencies.map { .init($0) }
+
+                /* TODO:
+                 public var languageSettings: LanguageSettings?
+                 public var linkerSettings: [String]?
+                 public var isPublic: Bool = false
+                 */
+            case .library(let settings):
+                type = .regular
+                /* TODO:
+                 public var sources: [String]?
+                 public var resources: [String]?
+                 public var exclude: [String]?
+                 public var languageSettings: LanguageSettings?
+                 public var linkerSettings: [String]?
+                 public var isPublic: Bool = false
+                 public var linkage: Linkage = .auto // TBD if needed, or we want to change the model
+                 public var dependencies: [ModuleDependency] = [] // non-optional to make programmatic API nicer
+                 */
+            case .plugin(let settings):
+                type = .plugin
+                pluginCapability = .buildTool
+
+                /* TODO:
+                 public var capability: Capability
+                 public var isPublic: Bool = false
+                 */
+            case .system(let settings):
+                type = .system
+                /* TODO:
+                 var providers: [Provider]
+                 */
+            case .test(let settings):
+                type = .test
+                /* TODO:
+                 public var sources: [String]?
+                 public var resources: [String]?
+                 public var exclude: [String]?
+                 public var languageSettings: LanguageSettings?
+                 public var linkerSettings: [String]?
+                 public var modules: [String] = []
+                 */
+            }
+
+            let target = try TargetDescription(
+                name: module.name,
+                dependencies: dependencies,
+                path: module.customPath,
+                url: url,
+                exclude: exclude,
+                sources: sources,
+                resources: .none, // FIXME
+                publicHeadersPath: .none, // FIXME
+                type: type,
+                pkgConfig: .none,
+                providers: .none,
+                pluginCapability: pluginCapability,
+                settings: [], // FIXME
+                checksum: .none,
+                pluginUsages: .none // FIXME
+            )
+            targets.append(target)
+        }
+
+        return Result(
+            name: "", // FIXME: name
+            defaultLocalization: nil,
+            platforms: try input.package.minimumDeploymentTargets.map { try .init($0) },
+            targets: targets,
+            pkgConfig: nil,
+            swiftLanguageVersions: nil,
+            dependencies: try input.package.dependencies.map { try .init($0, packageKind: packageKind, identityResolver: identityResolver, fileSystem: fileSystem) },
+            providers: nil,
+            products: products,
+            cxxLanguageStandard: nil,
+            cLanguageStandard: nil
+        )
+    }
+}
+
+extension Version {
+    init(_ version: PackageManifestModel.Dependency.Version) {
+        self.init(version.major, version.minor, version.patch)
+    }
+}
+
+extension PackageDependency.Registry.Requirement {
+    init(_ requirement: PackageManifestModel.Dependency.RegistrySettings.Requirement) {
+        switch requirement {
+        case .exact(let version): self = .exact(.init(version))
+        case .range(let range):
+            let upper = TSCUtility.Version(range.upperBound)
+            let lower = TSCUtility.Version(range.lowerBound)
+            self = .range(lower..<upper)
+        }
+    }
+}
+
+extension PackageDependency.SourceControl.Requirement {
+    init(_ requirement: PackageManifestModel.Dependency.SourceControlSettings.Requirement) {
+        switch requirement {
+        case .exact(let version): self = .exact(.init(version))
+        case .range(let range):
+            let upper = TSCUtility.Version(range.upperBound)
+            let lower = TSCUtility.Version(range.lowerBound)
+            self = .range(lower..<upper)
+        case .branch(let branch): self = .branch(branch)
+        case .revision(let revision): self = .revision(revision)
+        }
+    }
+}
+
+extension PackageDependency {
+    init(_ dependency: PackageManifestModel.Dependency, packageKind: PackageReference.Kind, identityResolver: IdentityResolver, fileSystem: Basics.FileSystem) throws {
+        switch dependency.kind {
+        case .fileSystem(let settings):
+            let path = try AbsolutePath(validating: settings.path)
+            self = .fileSystem(identity: .init(path: path), nameForTargetDependencyResolutionOnly: nil, path: path, productFilter: .everything)
+        case .registry(let settings):
+            self = .registry(identity: .plain(settings.identity), requirement: .init(settings.requirement), productFilter: .everything)
+        case .sourceControl(let settings):
+            self = try ManifestJSONParser.parseSourceControlDependency(packageKind: packageKind, at: settings.location, name: nil, requirement: .init(settings.requirement), identityResolver: identityResolver, fileSystem: fileSystem)
+        }
+    }
+}
+
+extension TargetDescription.Dependency {
+    init(_ dependency: PackageManifestModel.ModuleDependency) {
+        switch dependency.kind {
+        case .external(let settings): self = .product(name: settings.name, package: settings.packageIdentity)
+        case .internal(let settings): self = .target(name: settings.name)
+        }
+    }
+}
+
+extension PackageModel.Platform {
+    init(_ platform: PackageManifestModel.Platform) throws {
+        switch platform {
+        case .android: self = .android
+        case .driverKit: self = .driverKit
+        case .iOS: self = .iOS
+        case .linux: self = .linux
+        case .macCatalyst: self = .macCatalyst
+        case .macOS: self = .macOS
+        case .openbsd: self = .openbsd
+        case .tvOS: self = .tvOS
+        case .wasi: self = .wasi
+        case .watchOS: self = .watchOS
+        case .windows: self = .windows
+        default: throw InternalError("unhandled platform '\(platform.name)'")
+        }
+    }
+}
+
+extension PlatformDescription {
+    init(_ deploymentTarget: PackageManifestModel.DeploymentTarget) throws {
+        let platform = try PackageModel.Platform(deploymentTarget.platform)
+        self.init(
+            name: platform.name,
+            version: deploymentTarget.version ?? platform.oldestSupportedVersion.versionString,
+            options: []
+        )
+    }
+}
+
+// MARK: - Legacy manifest
+
+extension ManifestJSONParser {
+    private static let filePrefix = "file://"
+
+    struct V2Input: Codable {
+        let package: Serialization.Package
+        let errors: [String]
+    }
+
+    static func parse(
+        v2 jsonString: String,
+        toolsVersion: ToolsVersion,
+        packageKind: PackageReference.Kind,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem
+    ) throws -> ManifestJSONParser.Result {
+        let decoder = JSONDecoder.makeWithDefaults()
+        let input = try decoder.decode(V2Input.self, from: jsonString)
 
         guard input.errors.isEmpty else {
             throw ManifestParseError.runtimeManifestErrors(input.errors)
@@ -197,7 +428,7 @@ enum ManifestJSONParser {
                            productFilter: .everything)
     }
 
-    private static func parseSourceControlDependency(
+    static func parseSourceControlDependency(
         packageKind: PackageReference.Kind,
         at location: String,
         name: String?,

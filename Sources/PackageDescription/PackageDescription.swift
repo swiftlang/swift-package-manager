@@ -428,7 +428,7 @@ public enum SystemPackageProvider {
     }
 }
 
-// MARK: - Package Dumping
+// MARK: - Package JSON serialization
 
 private func manifestToJSON(_ package: Package) -> String {
     struct Output: Codable {

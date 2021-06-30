@@ -337,7 +337,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         return try ManifestJSONParser.parse(
-            v4: manifestJSON,
+            manifestJSON,
             toolsVersion: toolsVersion,
             packageKind: packageKind,
             identityResolver: identityResolver,

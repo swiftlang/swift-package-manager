@@ -25,6 +25,7 @@ add_library(PackageLoading
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
+  PackageManifestModel
   PackageModel
   TSCUtility)
 target_link_libraries(PackageLoading PUBLIC
