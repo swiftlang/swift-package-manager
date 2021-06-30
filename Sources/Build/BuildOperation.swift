@@ -165,22 +165,36 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fs: localFileSystem) else {
             return
         }
+
         for (target, commandLine) in description.swiftTargetScanArgs {
             do {
                 guard let dependencies = description.targetDependencyMap[target] else {
                     // Skip target if no dependency information is present
                     continue
                 }
+                let targetDependenciesSet = Set(dependencies)
+                guard !description.generatedSourceTargetSet.contains(target),
+                      targetDependenciesSet.intersection(description.generatedSourceTargetSet).isEmpty else {
+                    // Skip targets which contain, or depend-on-targets, with generated source-code.
+                    // Such as test discovery targets and targets with plugins.
+                    continue
+                }
                 let resolver = try ArgsResolver(fileSystem: localFileSystem)
                 let executor = SPMSwiftDriverExecutor(resolver: resolver,
                                                       fileSystem: localFileSystem,
                                                       env: ProcessEnv.vars)
+
+                let consumeDiagnostics: DiagnosticsEngine = DiagnosticsEngine(handlers: [])
                 var driver = try Driver(args: commandLine,
-                                        diagnosticsEngine: diagnostics,
+                                        diagnosticsEngine: consumeDiagnostics,
                                         fileSystem: localFileSystem,
                                         executor: executor)
+                guard !consumeDiagnostics.hasErrors else {
+                  // If we could not init the driver with this command, something went wrong,
+                  // proceed without checking this target.
+                  continue
+                }
                 let imports = try driver.performImportPrescan().imports
-                let targetDependenciesSet = Set(dependencies)
                 let nonDependencyTargetsSet =
                     Set(description.targetDependencyMap.keys.filter { !targetDependenciesSet.contains($0) })
                 let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)

@@ -98,7 +98,6 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             let className = iterator.key
             stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
         }
-
         stream <<< """
             ]
         }
@@ -233,6 +232,9 @@ public struct BuildDescription: Codable {
     /// A full swift driver command-line invocation used to dependency-scan a given Swift target
     let swiftTargetScanArgs: [TargetName: [CommandLineFlag]]
 
+    /// A set of all targets with generated source
+    let generatedSourceTargetSet: Set<TargetName>
+
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
 
@@ -256,6 +258,7 @@ public struct BuildDescription: Codable {
             $0[$1.target.c99name] = deps
         }
         var targetCommandLines: [TargetName: [CommandLineFlag]] = [:]
+        var generatedSourceTargets: [TargetName] = []
         for (target, description) in plan.targetMap {
             guard case .swift(let desc) = description else {
                 continue
@@ -263,8 +266,14 @@ public struct BuildDescription: Codable {
             targetCommandLines[target.c99name] =
                 try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
                                                                   plan.buildParameters.toolchain.swiftCompiler.pathString]
+            if desc.testDiscoveryTarget {
+                generatedSourceTargets.append(target.c99name)
+            }
         }
+        generatedSourceTargets.append(contentsOf: plan.graph.allTargets.filter {$0.type == .plugin}
+                                                                       .map { $0.c99name })
         self.swiftTargetScanArgs = targetCommandLines
+        self.generatedSourceTargetSet = Set(generatedSourceTargets)
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             return BuiltTestProduct(
                 productName: desc.product.name,
