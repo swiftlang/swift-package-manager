@@ -104,11 +104,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         arguments += buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
-        let redirection: Process.OutputRedirection = .stream(stdout: delegate.parse(bytes:), stderr: { bytes in
-            self.diagnostics.emit(StringError(String(bytes: bytes, encoding: .utf8)!))
-        })
-
-        let process = Process(arguments: arguments, outputRedirection: redirection)
+        
+        let process = Process(arguments: arguments, outputRedirection: .collect)
         try process.launch()
         let result = try process.waitUntilExit()
 
@@ -118,6 +115,14 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         guard result.exitStatus == .terminated(code: 0) else {
             throw Diagnostics.fatalError
+        }
+        
+        let stdout = try result.output.get()
+        if !stdout.isEmpty {
+            try delegate.parse(bytes: result.output.get())
+        } else {
+            let stderr = try result.utf8stderrOutput()
+            self.diagnostics.emit(StringError(stderr))
         }
     }
 
