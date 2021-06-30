@@ -15,8 +15,6 @@
 from __future__ import print_function
 
 import argparse
-from distutils import dir_util
-from distutils import file_util
 import json
 import os
 import platform
@@ -410,7 +408,7 @@ def install_dylib(args, library_name, install_dir, module_names):
     for module in module_names:
         # If we're cross-compiling, we expect the .swiftmodule to be a directory that contains everything.
         if args.cross_compile_hosts:
-            install_binary(args, module + ".swiftmodule", install_dir)
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
             if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
@@ -421,16 +419,16 @@ def install_dylib(args, library_name, install_dir, module_names):
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
-def install_binary(args, binary, dest_dir):
+def install_binary(args, binary, dest_dir, ignored_patterns=[]):
     src = os.path.join(args.bin_dir, binary)
     dest = os.path.join(dest_dir, binary)
 
     note("Installing %s to %s" % (src, dest))
     mkdir_p(os.path.dirname(dest))
     if os.path.isdir(src):
-        dir_util.copy_tree(src, dest, update=1, verbose=1)
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns))
     else:
-        file_util.copy_file(src, dest, update=1, verbose=1)
+        shutil.copy2(src, dest)
 
 # -----------------------------------------------------------
 # Build functions
