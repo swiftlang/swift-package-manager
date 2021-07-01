@@ -27,20 +27,11 @@ final class APIDiffTests: XCTestCase {
         return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
     }
 
-    func skipIfApiDigesterUnsupported() throws {
-      guard let tool = try? Resources.default.toolchain.getSwiftAPIDigester() else {
-        throw XCTSkip("swift-api-digester unavailable")
-      }
-      guard localFileSystem.isSymlink(tool) else {
-        // The version of Swift with a supported swift-api-digester doesn't have
-        // a version number yet, so use whether or not the tool is a symlink to
-        // determine if it's from a recent snapshot.
-        throw XCTSkip("swift-api-digester is too old")
-      }
-    }
-
     func testSimpleAPIDiff() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             // Overwrite the existing decl.
@@ -56,10 +47,16 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
             }
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testMultiTargetAPIDiff() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
@@ -80,6 +77,9 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
             }
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testBreakageAllowlist() throws {
@@ -120,7 +120,10 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testCheckVendedModulesOnly() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
@@ -153,10 +156,16 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
             }
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testFilters() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
@@ -225,10 +234,16 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(stderr.contains("'Exec' is not a library target"))
             }
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testAPIDiffOfModuleWithCDependency() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "CTargetDep")
             // Overwrite the existing decl.
@@ -261,10 +276,16 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(stderr.contains("error: 'Foo' is not a Swift language target"))
             }
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testNoBreakingChanges() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             // Introduce an API-compatible change
@@ -275,10 +296,16 @@ final class APIDiffTests: XCTestCase {
             XCTAssertTrue(output.contains("No breaking changes detected in Baz"))
             XCTAssertTrue(output.contains("No breaking changes detected in Qux"))
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testAPIDiffAfterAddingNewTarget() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
@@ -309,10 +336,16 @@ final class APIDiffTests: XCTestCase {
             XCTAssertTrue(output.contains("No breaking changes detected in Qux"))
             XCTAssertTrue(output.contains("Skipping Foo because it does not exist in the baseline"))
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testBadTreeish() throws {
-        try skipIfApiDigesterUnsupported()
+        #if os(macOS)
+        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+            throw XCTSkip("swift-api-digester not available")
+        }
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             XCTAssertThrowsError(try execute(["experimental-api-diff", "7.8.9"], packagePath: packageRoot)) { error in
@@ -323,6 +356,9 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(stderr.contains("error: Couldn’t check out revision ‘7.8.9’"))
             }
         }
+        #else
+        throw XCTSkip("Test unsupported on current platform")
+        #endif
     }
 
     func testBaselineDirOverride() throws {
