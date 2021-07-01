@@ -10,8 +10,6 @@
 
 import XCTest
 
-import TSCBasic
-
 @testable import PackageModel
 
 final class CanonicalPackageIdentityTests: XCTestCase {

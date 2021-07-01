@@ -15,7 +15,6 @@ import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import struct Foundation.URL
 import PackageModel
-import TSCBasic
 import TSCUtility
 
 final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {

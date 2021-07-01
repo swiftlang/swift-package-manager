@@ -10,7 +10,6 @@
 
 import Basics
 import PackageModel
-import TSCBasic
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol {

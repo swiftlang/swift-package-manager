@@ -9,11 +9,10 @@
 */
 
 import Basics
-import TSCBasic
-import PackageModel
-import TSCUtility
 import Foundation
+import PackageModel
 public typealias FileSystem = TSCBasic.FileSystem
+import TSCUtility
 
 public enum ManifestParseError: Swift.Error {
     /// The manifest contains invalid format.

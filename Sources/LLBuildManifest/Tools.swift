@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import class Foundation.ProcessInfo
-import TSCBasic
 
 public protocol ToolProtocol: Codable {
     /// The name of the tool.

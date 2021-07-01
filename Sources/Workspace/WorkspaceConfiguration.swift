@@ -9,11 +9,8 @@
  */
 
 import Foundation
-
-import TSCBasic
-import TSCUtility
-
 import PackageGraph
+import TSCUtility
 
 extension Workspace {
     /// Manages a package workspace's configuration.

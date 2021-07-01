@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 import PackageModel
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.

@@ -15,12 +15,10 @@ import struct Foundation.Date
 import class Foundation.JSONDecoder
 import class Foundation.ProcessInfo
 import struct Foundation.URL
-
 import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-import TSCBasic
 
 private typealias JSONModel = PackageCollectionModel.V1
 

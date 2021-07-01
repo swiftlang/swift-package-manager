@@ -9,7 +9,6 @@
 */
 
 import Basics
-import TSCBasic
 import PackageGraph
 import PackageModel
 import PackageLoading

@@ -9,7 +9,6 @@
  */
 
 import Foundation
-import TSCBasic
 
 public struct WindowsSDKSettings {
     public struct DefaultProperties {

@@ -8,12 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
 @testable import SourceControl
-import TSCBasic
-
 import SPMTestSupport
+import XCTest
 
 private enum DummyError: Swift.Error {
     case invalidRepository

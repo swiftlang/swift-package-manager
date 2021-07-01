@@ -9,11 +9,10 @@
  */
 
 import Dispatch
-import PackageModel
 import PackageGraph
-import TSCBasic
-import TSCUtility
+import PackageModel
 import SourceControl
+import TSCUtility
 
 /// Enumeration of the different errors that can arise from the `ResolverPrecomputationProvider` provider.
 enum ResolverPrecomputationError: Error {

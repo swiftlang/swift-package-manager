@@ -8,14 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import SPMTestSupport
-
-import TSCBasic
-import PackageModel
-import TSCUtility
-
 import PackageLoading
+import PackageModel
+import SPMTestSupport
+import XCTest
 
 /// Tests for the handling of source layout conventions.
 class PackageBuilderTests: XCTestCase {

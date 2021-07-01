@@ -8,12 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basics
 @testable import PackageLoading
 import PackageModel
-import TSCBasic
-import TSCTestSupport
-import TSCUtility
+import SPMTestSupport
 import XCTest
 
 class ManifestLoaderSQLiteCacheTests: XCTestCase {

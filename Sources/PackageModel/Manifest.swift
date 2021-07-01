@@ -9,9 +9,8 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
 import Foundation
+import TSCUtility
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.

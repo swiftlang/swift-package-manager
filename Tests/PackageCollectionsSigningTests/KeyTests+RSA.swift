@@ -8,12 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
-import XCTest
-
 @testable import PackageCollectionsSigning
 import SPMTestSupport
-import TSCBasic
+import XCTest
 
 class RSAKeyTests: XCTestCase {
     func testPublicKeyFromCertificate() throws {

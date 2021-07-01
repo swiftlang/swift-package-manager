@@ -7,11 +7,8 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
-
-import Dispatch
-
 import Basics
-import TSCBasic
+import Dispatch
 import PackageLoading
 import PackageModel
 import SourceControl

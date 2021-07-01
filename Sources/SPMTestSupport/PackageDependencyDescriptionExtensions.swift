@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import PackageModel
-import TSCBasic
 
 public extension PackageDependencyDescription {
     static func local(identity: PackageIdentity? = nil,

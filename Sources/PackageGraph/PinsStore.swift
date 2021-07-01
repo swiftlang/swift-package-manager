@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
-import SourceControl
+import Basics
 import PackageModel
+import SourceControl
+import TSCUtility
 
 public final class PinsStore {
     public typealias PinsMap = [PackageIdentity: PinsStore.Pin]

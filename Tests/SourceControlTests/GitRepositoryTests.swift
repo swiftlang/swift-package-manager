@@ -8,13 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 @testable import SourceControl
-import TSCUtility
-
 import SPMTestSupport
+import XCTest
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.

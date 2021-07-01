@@ -8,13 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import PackageModel
 import PackageLoading
-import TSCUtility
 import SPMTestSupport
+import XCTest
 
 extension SystemLibraryTarget {
     convenience init(pkgConfig: String, providers: [SystemPackageProviderDescription] = []) {

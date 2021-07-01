@@ -8,15 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
-import SPMTestSupport
 import Commands
 import PackageModel
 import SourceControl
+import SPMTestSupport
 import Workspace
+import XCTest
 
 class ToolsVersionTests: XCTestCase {
 

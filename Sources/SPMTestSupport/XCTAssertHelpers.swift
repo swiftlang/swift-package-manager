@@ -8,16 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
-
+import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
-
+import TSCUtility
 @_exported import TSCTestSupport
+import XCTest
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,

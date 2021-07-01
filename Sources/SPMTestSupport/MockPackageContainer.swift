@@ -7,15 +7,14 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
-import Dispatch
-import XCTest
 
+import Basics
+import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
-import TSCBasic
-
 import struct TSCUtility.Version
+import XCTest
 
 public class MockPackageContainer: PackageContainer {
     public typealias Constraint = PackageContainerConstraint

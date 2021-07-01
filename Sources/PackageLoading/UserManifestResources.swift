@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
+import Basics
 
 /// Concrete object for manifest resource provider.
 public struct UserManifestResources: ManifestResourceProvider {

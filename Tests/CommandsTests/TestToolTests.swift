@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import SPMTestSupport
 import Commands
+import SPMTestSupport
+import XCTest
 
 final class TestToolTests: XCTestCase {
     private func execute(_ args: [String]) throws -> (stdout: String, stderr: String) {

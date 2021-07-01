@@ -8,13 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
 import PackageModel
-import SPMTestSupport
 import PackageLoading
+import SPMTestSupport
+import XCTest
 
 class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {

@@ -12,7 +12,6 @@ import Basics
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
 import TSCUtility
 
 extension PackageGraph {
@@ -612,7 +611,7 @@ fileprivate func findCycle(
       _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
     ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
         // If this node is already in the current path then we have found a cycle.
-        if !path.append(node.manifest) {
+        if !path.append(node.manifest).inserted {
             let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }

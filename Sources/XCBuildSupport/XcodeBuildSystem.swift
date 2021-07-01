@@ -8,13 +8,12 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import class Foundation.JSONEncoder
-
-import TSCBasic
-import TSCUtility
-import PackageModel
 import PackageGraph
+import PackageModel
 import SPMBuildCore
+import TSCUtility
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters

@@ -8,13 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-
-import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
-import TSCBasic
-import TSCUtility
 import XCTest
 
 class ToolsVersionLoaderTests: XCTestCase {

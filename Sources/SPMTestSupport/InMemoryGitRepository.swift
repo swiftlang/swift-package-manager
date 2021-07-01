@@ -9,11 +9,10 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
-import SourceControl
 import Dispatch
 import class Foundation.NSUUID
+import SourceControl
+import TSCUtility
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {

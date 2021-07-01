@@ -8,13 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
 import SPMTestSupport
-
 import Workspace
+import XCTest
 
 final class WorkspaceConfigurationTests: XCTestCase {
     func testLoadingSchema1() throws {

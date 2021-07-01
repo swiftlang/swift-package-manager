@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 
 /// Represents a package dependency.
 public enum PackageDependencyDescription: Equatable {

@@ -9,11 +9,11 @@
 */
 
 import ArgumentParser
-import TSCBasic
-import TSCUtility
+import Basics
+import Build
 import PackageModel
 import SPMBuildCore
-import Build
+import TSCUtility
 
 struct BuildFlagsGroup: ParsableArguments {
     @Option(name: .customLong("Xcc", withSingleDash: true),

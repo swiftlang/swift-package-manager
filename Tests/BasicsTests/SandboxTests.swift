@@ -9,7 +9,6 @@
  */
 
 @testable import Basics
-import TSCBasic
 import TSCUtility
 import XCTest
 

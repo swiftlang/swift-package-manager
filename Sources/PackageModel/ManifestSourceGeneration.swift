@@ -8,9 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
 import Foundation
+import TSCUtility
 
 
 /// Extensions on Manifest for generating source code expressing its contents

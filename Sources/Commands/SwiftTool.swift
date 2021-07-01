@@ -8,24 +8,22 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+
+import ArgumentParser
+import Basics
+import Build
+import Dispatch
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
 import func Foundation.NSHomeDirectory
-import Dispatch
-
-import ArgumentParser
-import TSCLibc
-import TSCBasic
-import TSCUtility
-
-import PackageModel
 import PackageGraph
+import PackageModel
 import SourceControl
 import SPMBuildCore
-import Build
-import XCBuildSupport
+import TSCLibc
+import TSCUtility
 import Workspace
-import Basics
+import XCBuildSupport
 
 typealias Diagnostic = TSCBasic.Diagnostic
 

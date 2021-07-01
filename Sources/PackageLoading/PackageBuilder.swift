@@ -11,7 +11,6 @@
 import Basics
 import Dispatch
 import PackageModel
-import TSCBasic
 import TSCUtility
 
 /// An error in the structure or layout of a package.
@@ -1192,7 +1191,7 @@ public final class PackageBuilder {
 
         /// Helper method to append to products array.
         func append(_ product: Product) {
-            let inserted = products.append(KeyedPair(product, key: product.name))
+            let inserted = products.append(KeyedPair(product, key: product.name)).inserted
             if !inserted {
                 diagnostics.emit(
                     .duplicateProduct(product: product),

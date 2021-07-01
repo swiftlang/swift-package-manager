@@ -8,17 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
-import Basics
 @testable import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
-import TSCUtility
-
 import SPMTestSupport
+import XCTest
 
 private class MockRepository: Repository {
     /// The fake URL of the repository.

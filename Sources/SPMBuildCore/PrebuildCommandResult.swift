@@ -9,8 +9,6 @@
 */
 
 import Basics
-import TSCBasic
-
 
 /// Represents the result of running prebuild commands for a single plugin invocation for a target.
 public struct PrebuildCommandResult {

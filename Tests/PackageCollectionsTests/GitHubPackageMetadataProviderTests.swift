@@ -8,16 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
-import XCTest
-
-import Basics
 @testable import PackageCollections
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
 import TSCUtility
+import XCTest
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {

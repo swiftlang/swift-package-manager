@@ -8,13 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import SourceControl
-import TSCUtility
-
 import SPMTestSupport
+import XCTest
 
 class InMemoryGitRepositoryTests: XCTestCase {
     func testBasics() throws {

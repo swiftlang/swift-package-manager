@@ -6,15 +6,11 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
-import PackageModel
-import PackageLoading
-import SPMTestSupport
-import XCTest
-
-class PackageDescriptionNextVersionLoadingTests: PackageDescriptionLoadingTests {
-    override var toolsVersion: ToolsVersion {
-        .vNext
-    }
-}
+@_exported import OrderedCollections
+@_exported import TSCBasic
+// override TSC versions until deprecated
+// TODO: remove once TSC removes these
+public typealias OrderedSet = OrderedCollections.OrderedSet
+public typealias OrderedDictionary = OrderedCollections.OrderedDictionary

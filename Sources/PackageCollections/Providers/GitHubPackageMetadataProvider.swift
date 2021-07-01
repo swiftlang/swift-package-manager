@@ -16,7 +16,6 @@ import struct Foundation.NSRange
 import class Foundation.NSRegularExpression
 import struct Foundation.URL
 import PackageModel
-import TSCBasic
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     private static let apiHostPrefix = "api."

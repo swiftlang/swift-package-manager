@@ -14,8 +14,6 @@ import PackageModel
 import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
-import TSCBasic
-import TSCUtility
 import XCTest
 
 let hostTriple = Resources.default.toolchain.triple

@@ -15,7 +15,6 @@ import Foundation
 // need to decide how to best deal with that
 import FoundationNetworking
 #endif
-import TSCBasic
 import TSCTestSupport
 import struct TSCUtility.Netrc
 import XCTest

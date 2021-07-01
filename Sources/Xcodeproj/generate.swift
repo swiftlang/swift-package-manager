@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 import PackageGraph
-import PackageModel
 import PackageLoading
+import PackageModel
 import SourceControl
 import TSCUtility
 

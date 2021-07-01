@@ -10,12 +10,11 @@
 
 import Basics
 import Foundation
-import TSCBasic
-import TSCUtility
-import func POSIX.exit
-
-import SPMPackageEditor
 import class PackageModel.Manifest
+import func POSIX.exit
+import SPMPackageEditor
+import TSCUtility
+
 
 enum ToolError: Error {
     case error(String)

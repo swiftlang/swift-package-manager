@@ -11,7 +11,6 @@
 import Basics
 import PackageModel
 import SourceControl
-import TSCBasic
 import TSCUtility
 
 /// Represents the input to the package graph root.

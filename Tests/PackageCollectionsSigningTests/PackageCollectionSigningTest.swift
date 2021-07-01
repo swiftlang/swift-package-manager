@@ -9,13 +9,10 @@
  */
 
 import Dispatch
-import Foundation
-import XCTest
-
 import PackageCollectionsModel
 @testable import PackageCollectionsSigning
 import SPMTestSupport
-import TSCBasic
+import XCTest
 
 class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() throws {

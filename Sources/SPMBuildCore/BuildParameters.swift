@@ -8,12 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import class Foundation.ProcessInfo
-
-import TSCBasic
-import TSCUtility
 import PackageModel
 import PackageGraph
+import TSCUtility
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.

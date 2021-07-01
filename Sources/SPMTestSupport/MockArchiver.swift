@@ -9,7 +9,6 @@
 */
 
 import Basics
-import TSCBasic
 import TSCUtility
 
 public class MockArchiver: Archiver {

@@ -8,16 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
-
-import TSCBasic
-import TSCUtility
-
-import SPMBuildCore
+import Basics
 import Build
+import Foundation
 import PackageGraph
 import PackageModel
 import SourceControl
+import SPMBuildCore
+import TSCUtility
 import Workspace
 
 /// A wrapper for swift-symbolgraph-extract tool.

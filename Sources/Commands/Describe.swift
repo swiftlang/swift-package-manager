@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import PackageModel
+import Basics
 import Foundation
-
+import PackageModel
 
 enum DescribeMode: String {
     /// JSON format (guaranteed to be parsable and stable across time).

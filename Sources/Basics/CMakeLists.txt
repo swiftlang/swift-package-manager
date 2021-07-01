@@ -12,6 +12,7 @@ add_library(Basics
   Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
   Errors.swift
+  Exports.swift
   FileSystem+Extensions.swift
   HTPClient+URLSession.swift
   HTTPClient.swift

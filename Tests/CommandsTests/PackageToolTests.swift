@@ -8,17 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import Foundation
-
-import TSCBasic
 import Commands
-import Xcodeproj
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCUtility
 import Workspace
+import Xcodeproj
+import XCTest
 
 final class PackageToolTests: XCTestCase {
     @discardableResult

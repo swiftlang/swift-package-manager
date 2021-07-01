@@ -8,13 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import PackageGraph
 import SPMTestSupport
 import PackageModel
 import Xcodeproj
+import XCTest
 
 class PackageGraphTests: XCTestCase {
     func testBasics() throws {

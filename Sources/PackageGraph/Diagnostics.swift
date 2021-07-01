@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 
 extension Diagnostic.Message {
     static func unusedDependency(_ name: String) -> Diagnostic.Message {

@@ -8,12 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
 import SPMTestSupport
-import TSCBasic
-import TSCUtility
-
+import XCTest
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
 /// point, and because of the time they take, they need to be kept minimal.

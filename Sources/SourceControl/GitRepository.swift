@@ -10,7 +10,6 @@
 
 import Basics
 import Dispatch
-import TSCBasic
 import TSCUtility
 
 // MARK: - GitShellHelper

@@ -8,16 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import TSCBasic
-import TSCUtility
-import PackageModel
 import PackageGraph
-import SPMBuildCore
-import XCBuildSupport
-import SPMTestSupport
-
 @testable import PackageLoading
+import PackageModel
+import SPMBuildCore
+import SPMTestSupport
+import XCBuildSupport
+import XCTest
 
 class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")

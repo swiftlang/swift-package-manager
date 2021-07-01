@@ -8,14 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import Basics
-import TSCBasic
-import TSCUtility
 import PackageModel
 import SPMBuildCore
-import XCBuildSupport
 import SPMTestSupport
+import XCBuildSupport
+import XCTest
 
 class PIFTests: XCTestCase {
     let topLevelObject = PIF.TopLevelObject(workspace:

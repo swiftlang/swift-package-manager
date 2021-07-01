@@ -10,7 +10,6 @@
 
 import PackageModel
 import SPMTestSupport
-import TSCBasic
 import XCTest
 
 class TestDiscoveryTests: XCTestCase {

@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
+import Basics
 import SourceControl
+import TSCUtility
 
 /// Extensions useful for unit testing purposes.
 /// Note: These are not thread safe.

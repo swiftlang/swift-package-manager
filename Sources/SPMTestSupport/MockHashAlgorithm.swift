@@ -9,7 +9,6 @@
  */
 
 import Basics
-import TSCBasic
 
 public class MockHashAlgorithm: HashAlgorithm {
     public typealias Handler = (ByteString) -> ByteString

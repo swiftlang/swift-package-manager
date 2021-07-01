@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import LLBuildManifest
+import XCTest
 
 // FIXME: This should be in its own test target.
 final class LLBuildManifestTests: XCTestCase {

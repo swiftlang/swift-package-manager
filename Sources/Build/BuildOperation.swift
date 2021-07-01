@@ -14,7 +14,6 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import SPMLLBuild
-import TSCBasic
 import TSCUtility
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {

@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 
 public struct Node: Hashable, Codable {
     public enum Kind: String, Hashable, Codable {

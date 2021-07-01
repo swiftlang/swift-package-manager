@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 import TSCUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.

@@ -8,22 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import class Foundation.NSDate
-import class Foundation.Thread
-import func XCTest.XCTFail
-
+@_exported import Basics
+@_exported import Foundation
 import PackageGraph
 import PackageModel
 import SourceControl
-import TSCBasic
-import TSCUtility
-import Workspace
-
 @_exported import TSCTestSupport
-
-#if os(macOS)
-import class Foundation.Bundle
-#endif
+@_exported import TSCUtility
+import Workspace
+import func XCTest.XCTFail
 
 /// Test-helper function that runs a block of code on a copy of a test fixture
 /// package.  The copy is made into a temporary directory, and the block is

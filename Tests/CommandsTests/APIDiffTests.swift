@@ -8,11 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import Foundation
-import TSCBasic
 import Commands
 import SPMTestSupport
+import XCTest
 
 final class APIDiffTests: XCTestCase {
     @discardableResult

@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
+import Basics
 import PackageModel
+import TSCUtility
 
 extension Diagnostic.Message {
     static func targetHasNoSources(targetPath: String, target: String) -> Diagnostic.Message {

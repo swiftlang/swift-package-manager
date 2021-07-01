@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import struct Foundation.URL
-
 import PackageCollectionsSigning
-import TSCBasic
 
 /// Configuration in this file is intended for package collection sources to define certificate policies
 /// that are more restrictive. For example, a source may want to require that all their package

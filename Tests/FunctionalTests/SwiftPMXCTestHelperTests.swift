@@ -8,12 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import SPMTestSupport
-import XCTest
-import TSCUtility
 import Commands
+import SPMTestSupport
 import Workspace
+import XCTest
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() throws {

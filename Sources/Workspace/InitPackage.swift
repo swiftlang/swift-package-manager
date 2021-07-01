@@ -9,7 +9,6 @@
  */
 
 import Basics
-import TSCBasic
 import PackageModel
 
 /// Create an initial template package.

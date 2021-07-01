@@ -8,9 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Foundation
-
-import TSCBasic
 import TSCUtility
 
 /// When set to `false`,

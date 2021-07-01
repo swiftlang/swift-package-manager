@@ -13,7 +13,6 @@ import Basics
 import Build
 import PackageGraph
 import SPMBuildCore
-import TSCBasic
 import TSCUtility
 
 extension BuildSubset {

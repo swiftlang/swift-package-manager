@@ -8,11 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import TSCBasic
-import SPMTestSupport
-
 @testable import SPMPackageEditor
+import SPMTestSupport
+import XCTest
 
 final class PackageEditorTests: XCTestCase {
     func testAddTarget() throws {

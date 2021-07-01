@@ -8,11 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import SPMTestSupport
 import PackageLoading
+import SPMTestSupport
+import XCTest
 
 class ManifestLoadingPerfTests: XCTestCasePerf {
     let manifestLoader = ManifestLoader(manifestResources: Resources.default)

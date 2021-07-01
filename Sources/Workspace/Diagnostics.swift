@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import TSCUtility
-import PackageModel
-import PackageLoading
-import PackageGraph
+import Basics
 import Foundation
+import PackageGraph
+import PackageLoading
+import PackageModel
+import TSCUtility
 
 public struct ManifestParseDiagnostic: DiagnosticData {
     public let errors: [String]

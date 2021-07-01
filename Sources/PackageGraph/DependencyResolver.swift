@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Dispatch
 import PackageModel
-import TSCBasic
 
 public protocol DependencyResolver {
     typealias Binding = (package: PackageReference, binding: BoundVersion, products: ProductFilter)

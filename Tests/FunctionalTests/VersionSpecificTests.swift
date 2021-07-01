@@ -8,11 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basics
 import SourceControl
 import SPMTestSupport
-import TSCBasic
-import TSCUtility
 import XCTest
 
 class VersionSpecificTests: XCTestCase {

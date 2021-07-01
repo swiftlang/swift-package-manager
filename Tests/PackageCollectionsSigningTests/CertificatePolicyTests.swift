@@ -9,12 +9,9 @@
  */
 
 import Dispatch
-import Foundation
-import XCTest
-
 @testable import PackageCollectionsSigning
 import SPMTestSupport
-import TSCBasic
+import XCTest
 
 class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {

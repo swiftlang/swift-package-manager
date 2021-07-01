@@ -8,15 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
-
-import TSCBasic
-import TSCUtility
-
 import Basics
-import PackageModel
-import PackageLoading
+import Foundation
 import PackageGraph
+import PackageLoading
+import PackageModel
+import TSCUtility
 
 /// The parameters required by `PIFBuilder`.
 public struct PIFBuilderParameters {

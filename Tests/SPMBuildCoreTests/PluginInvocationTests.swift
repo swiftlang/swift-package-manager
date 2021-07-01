@@ -8,15 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import TSCBasic
-import TSCUtility
-
 import PackageGraph
 import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
-
+import XCTest
 
 class PluginInvocationTests: XCTestCase {
     

@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Commands
-import TSCBasic
 
 let firstArg = CommandLine.arguments[0]
 let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??

@@ -8,13 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import SPMTestSupport
-import TSCBasic
-import SPMBuildCore
 import Commands
+import SPMBuildCore
+import SPMTestSupport
 import Workspace
+import XCTest
 
 struct BuildResult {
     let binPath: AbsolutePath

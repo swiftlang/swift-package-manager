@@ -9,8 +9,6 @@
  */
 
 import Foundation
-
-import TSCBasic
 import TSCUtility
 
 /// SQLite backed persistent cache.

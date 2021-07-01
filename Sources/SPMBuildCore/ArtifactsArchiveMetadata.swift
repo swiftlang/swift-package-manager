@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Foundation
 import PackageModel
-import TSCBasic
 import TSCUtility
 
 public struct ArtifactsArchiveMetadata: Equatable {

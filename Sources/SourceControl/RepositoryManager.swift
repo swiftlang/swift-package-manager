@@ -8,12 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Dispatch
 import class Foundation.OperationQueue
-
-import TSCBasic
 import TSCUtility
-import Basics
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: AnyObject {

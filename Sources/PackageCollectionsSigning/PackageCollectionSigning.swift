@@ -8,12 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import Foundation
-
-import Basics
 import PackageCollectionsModel
-import TSCBasic
 
 public protocol PackageCollectionSigner {
     /// Signs package collection using the given certificate and key.

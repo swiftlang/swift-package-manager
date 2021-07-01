@@ -8,15 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageLoading
 @testable import PackageModel
 @testable import PackageGraph
 import SourceControl
-
-
+import XCTest
 
 // There's some useful helper utilities defined below for easier testing:
 //

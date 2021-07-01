@@ -11,7 +11,6 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import Basics
 import PackageGraph
 import PackageModel
-import TSCBasic
 
 /// A utility for generating test entries on linux.
 ///

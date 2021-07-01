@@ -8,13 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
 import Basics
+import Foundation
 import PackageModel
 import PackageGraph
-import TSCBasic
 import TSCUtility
-
 
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {

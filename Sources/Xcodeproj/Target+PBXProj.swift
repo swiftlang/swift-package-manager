@@ -23,9 +23,8 @@
  layer for these properties we satisfy the above constraints.
 */
 
+import Basics
 import Foundation
-
-import TSCBasic
 import PackageGraph
 import PackageLoading
 

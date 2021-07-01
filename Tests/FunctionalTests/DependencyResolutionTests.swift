@@ -8,13 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import Commands
 import SPMTestSupport
 import SourceControl
 import Workspace
+import XCTest
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {

@@ -8,11 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageModel
 import Workspace
+import XCTest
 
 class ToolsVersionWriterTests: XCTestCase {
 

@@ -9,11 +9,10 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
-import PackageModel
 import Foundation
+import PackageModel
 import SourceControl
+import TSCUtility
 
 enum ManifestJSONParser {
      struct Result {

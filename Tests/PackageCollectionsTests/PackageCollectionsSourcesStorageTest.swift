@@ -9,8 +9,7 @@
  */
 
 @testable import PackageCollections
-import TSCBasic
-import TSCTestSupport
+import SPMTestSupport
 import XCTest
 
 final class PackageCollectionsSourcesStorageTest: XCTestCase {

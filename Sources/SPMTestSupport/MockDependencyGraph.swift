@@ -7,12 +7,12 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
-import XCTest
 
+import Basics
 import PackageGraph
 import PackageModel
-import TSCBasic
 import struct TSCUtility.Version
+import XCTest
 
 public struct MockDependencyGraph {
     public let name: String

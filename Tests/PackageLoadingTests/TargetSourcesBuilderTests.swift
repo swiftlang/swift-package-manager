@@ -8,12 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import SPMTestSupport
-
-import TSCBasic
 import PackageModel
 import PackageLoading
+import SPMTestSupport
+import XCTest
 
 class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {

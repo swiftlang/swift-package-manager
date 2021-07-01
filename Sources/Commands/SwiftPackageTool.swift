@@ -10,18 +10,17 @@
 
 import ArgumentParser
 import Basics
-import TSCBasic
-import SPMBuildCore
 import Build
-import PackageModel
-import PackageLoading
+import Foundation
 import PackageGraph
+import PackageLoading
+import PackageModel
 import SourceControl
+import SPMBuildCore
 import TSCUtility
+import Workspace
 import Xcodeproj
 import XCBuildSupport
-import Workspace
-import Foundation
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {

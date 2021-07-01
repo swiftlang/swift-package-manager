@@ -8,10 +8,10 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Foundation
-import TSCBasic
-import TSCUtility
 import SPMBuildCore
+import TSCUtility
 
 public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem

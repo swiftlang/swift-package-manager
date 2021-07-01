@@ -8,17 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
-
-import struct TSCUtility.Version
-
 import SPMTestSupport
+import XCTest
 
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")

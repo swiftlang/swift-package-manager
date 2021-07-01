@@ -8,15 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
-import PackageModel
 import PackageGraph
+import PackageModel
 import SPMTestSupport
 import SourceControl
 import Workspace
+import XCTest
 
 final class PinsStoreTests: XCTestCase {
 

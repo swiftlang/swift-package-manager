@@ -8,19 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMBuildCore
-import TSCBasic
-import TSCUtility
-import Workspace
-import Basics
-
 import SPMTestSupport
+import Workspace
+import XCTest
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {

@@ -8,14 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
-import class PackageModel.Manifest
+import Basics
 import Foundation
-
 #if canImport(FoundationXML)
 import FoundationXML
 #endif
+import class PackageModel.Manifest
+import TSCUtility
 
 /// A bare minimum loader for Xcode workspaces.
 ///

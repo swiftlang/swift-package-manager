@@ -8,15 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
-import XCTest
-
 import Basics
+import Foundation
 @testable import PackageCollections
 import PackageModel
 import SourceControl
-import TSCBasic
 import TSCUtility
+import XCTest
 
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {

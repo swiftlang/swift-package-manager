@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import XCTest
-
+import Basics
 @testable import PackageLoading
+import XCTest
 
 class MinimumDeploymentTargetTests: XCTestCase {
 #if os(macOS) // these tests eventually call `xcrun`.

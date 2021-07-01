@@ -8,15 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func XCTest.XCTFail
-import Dispatch
-
 import Basics
-import TSCBasic
+import Dispatch
 import PackageModel
 import PackageLoading
 import PackageGraph
 import TSCUtility
+import func XCTest.XCTFail
 
 public enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)

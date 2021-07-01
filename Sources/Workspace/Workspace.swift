@@ -9,13 +9,12 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
 import Foundation
+import PackageGraph
 import PackageLoading
 import PackageModel
-import PackageGraph
 import SourceControl
+import TSCUtility
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {

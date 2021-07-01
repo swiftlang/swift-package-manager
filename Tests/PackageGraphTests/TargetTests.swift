@@ -8,11 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import TSCBasic
-
+import Basics
 import PackageGraph
 import PackageModel
+import XCTest
 
 private extension ResolvedTarget {
     convenience init(name: String, deps: ResolvedTarget...) {

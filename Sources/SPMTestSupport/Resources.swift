@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import SPMBuildCore
 import Foundation
 import PackageLoading
+import SPMBuildCore
 import Workspace
 
 #if os(macOS)

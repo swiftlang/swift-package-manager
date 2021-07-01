@@ -8,17 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import LLBuildManifest
-
 import Basics
-import TSCBasic
-import TSCUtility
-
+import LLBuildManifest
 import PackageModel
 import PackageGraph
 import SPMBuildCore
-
 @_implementationOnly import SwiftDriver
+import TSCUtility
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {

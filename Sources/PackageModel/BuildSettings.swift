@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-
 /// Namespace for build settings.
 public enum BuildSettings {
 

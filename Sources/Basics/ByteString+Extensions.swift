@@ -6,8 +6,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-
 extension ByteString {
     /// A lowercase, hexadecimal representation of the SHA256 hash
     /// generated for the byte string's contents.

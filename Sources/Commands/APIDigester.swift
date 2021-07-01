@@ -8,17 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Dispatch
-
-import TSCBasic
-import TSCUtility
-
-import SPMBuildCore
 import Basics
 import Build
+import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
+import SPMBuildCore
 import Workspace
 
 /// Helper for emitting a JSON API baseline for a module.

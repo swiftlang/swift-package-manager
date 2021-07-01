@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import XCTest
+import Basics
 import XCBuildSupport
+import XCTest
 
 public func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) -> Void) {
     body(PIFWorkspaceTester(workspace: pif.workspace))

@@ -9,7 +9,6 @@
  */
 
 import Foundation
-import TSCBasic
 import TSCUtility
 
 /// Protocol for the parser delegate to get notified of parsing events.

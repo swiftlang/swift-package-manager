@@ -8,16 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
-
 @testable import PackageCollections
 import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-import TSCBasic
 import TSCUtility
 
 func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {

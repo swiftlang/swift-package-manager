@@ -8,15 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
 import class Foundation.FileManager
 import struct Foundation.URL
-
-import Basics
-import TSCBasic
-
 #if os(macOS)
 import Security
 #elseif os(Linux) || os(Windows) || os(Android)

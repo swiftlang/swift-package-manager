@@ -8,11 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import struct Foundation.Date
 import struct Foundation.URL
-
 import PackageModel
-import TSCBasic
 import TSCUtility
 
 /// `PackageBasicMetadata` provider

@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 import TSCUtility
 
 /// A type of module map layout.  Contains all the information needed to generate or use a module map for a target that can have C-style headers.

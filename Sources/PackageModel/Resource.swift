@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 
 /// An individual resource file and its corresponding rule.
 public struct Resource: Hashable, Codable {

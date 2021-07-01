@@ -8,11 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
-import SPMTestSupport
 import Commands
-import TSCBasic
+import SPMTestSupport
+import XCTest
 
 final class RunToolTests: XCTestCase {
     private func execute(

@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-
 /// Serializes an LLBuildManifest graph to a .dot file
 public struct DOTManifestSerializer {
     var kindCounter = [String: Int]()

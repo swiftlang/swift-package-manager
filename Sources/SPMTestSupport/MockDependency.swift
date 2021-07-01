@@ -8,9 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import PackageLoading
 import PackageModel
-import TSCBasic
 
 public struct MockDependency {
     public typealias Requirement = PackageDependencyDescription.Requirement

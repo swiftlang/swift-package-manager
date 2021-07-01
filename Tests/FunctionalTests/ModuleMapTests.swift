@@ -8,12 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
 import Commands
 import SPMTestSupport
-import TSCBasic
-import TSCUtility
 import Workspace
+import XCTest
 
 class ModuleMapsTestCase: XCTestCase {
 

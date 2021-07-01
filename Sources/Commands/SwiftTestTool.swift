@@ -12,13 +12,11 @@ import class Foundation.ProcessInfo
 
 import ArgumentParser
 import Basics
-import TSCBasic
-import SPMBuildCore
 import Build
-import TSCUtility
 import PackageGraph
+import SPMBuildCore
+import TSCUtility
 import Workspace
-
 import func TSCLibc.exit
 
 private enum TestError: Swift.Error {

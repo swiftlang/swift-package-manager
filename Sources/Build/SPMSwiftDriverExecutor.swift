@@ -9,7 +9,6 @@
 */
 
 import Basics
-import TSCBasic
 import Foundation
 @_implementationOnly import SwiftDriver
 

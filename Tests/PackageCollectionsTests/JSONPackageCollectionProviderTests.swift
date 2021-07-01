@@ -8,17 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
-import XCTest
-
-import Basics
 @testable import PackageCollections
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCBasic
-import TSCUtility
+import XCTest
 
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {

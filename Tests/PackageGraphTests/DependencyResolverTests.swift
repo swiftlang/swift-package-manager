@@ -8,17 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import PackageGraph
-import SourceControl
-
-import struct TSCUtility.Version
-
-import SPMTestSupport
-
 import PackageModel
+import SourceControl
+import SPMTestSupport
+import XCTest
 
 private typealias MockPackageConstraint = PackageContainerConstraint
 

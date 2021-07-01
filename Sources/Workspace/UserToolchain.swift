@@ -9,11 +9,10 @@
  */
 
 import Basics
-import TSCBasic
-import TSCUtility
+import Foundation
 import PackageLoading
 import SPMBuildCore
-import Foundation
+import TSCUtility
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"

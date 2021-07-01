@@ -8,8 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-
+import Basics
 @_exported import TSCTestSupport
 
 public enum SwiftPMProduct: Product {

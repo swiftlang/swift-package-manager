@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
 import Basics
-import TSCBasic
 import PackageModel
+import XCTest
 
 class PackageModelTests: XCTestCase {
 

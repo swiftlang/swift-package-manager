@@ -9,7 +9,6 @@
  */
 
 import Basics
-import TSCBasic
 import PackageModel
 
 /// A set of terms that are incompatible with each other and can therefore not
@@ -43,7 +42,7 @@ public struct Incompatibility: Equatable, Hashable {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
         }
 
-        let normalizedTerms = try normalize(terms: terms.contents)
+        let normalizedTerms = try normalize(terms: terms.elements)
         assert(normalizedTerms.count > 0,
                "An incompatibility must contain at least one term after normalization.")
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)
