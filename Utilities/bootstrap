@@ -15,8 +15,6 @@
 from __future__ import print_function
 
 import argparse
-from distutils import dir_util
-from distutils import file_util
 import json
 import os
 import platform
@@ -406,42 +404,13 @@ def install_swiftpm(prefix, args):
         dest = os.path.join(prefix, "libexec", "swift", "pm")
         install_binary(args, "swiftpm-xctest-helper", dest)
 
-    # Install PackageDescription runtime libraries.
-    runtime_lib_dest = os.path.join(prefix, "lib", "swift", "pm")
-    runtime_lib_src = os.path.join(args.bootstrap_dir, "pm")
+    # Install the PackageDescription library and associated modules.
+    dest = os.path.join(prefix, "lib", "swift", "pm", "ManifestAPI")
+    install_dylib(args, "PackageDescription", dest, ["PackageDescription"])
 
-    files_to_install = ["libPackageDescription" + g_shared_lib_suffix]
-    if platform.system() == 'Darwin':
-        files_to_install.append("PackageDescription.swiftinterface")
-    else:
-        files_to_install.append("PackageDescription.swiftmodule")
-    files_to_install.append("PackageDescription.swiftdoc")
-
-    for file in files_to_install:
-        src = os.path.join(runtime_lib_src, "ManifestAPI", file)
-        dest = os.path.join(runtime_lib_dest, "ManifestAPI", file)
-        mkdir_p(os.path.dirname(dest))
-
-        note("Installing %s to %s" % (src, dest))
-
-        file_util.copy_file(src, dest, update=1)
-
-    # Install PackagePlugin runtime libraries.
-    files_to_install = ["libPackagePlugin" + g_shared_lib_suffix]
-    if platform.system() == 'Darwin':
-        files_to_install.append("PackagePlugin.swiftinterface")
-    else:
-        files_to_install.append("PackagePlugin.swiftmodule")
-    files_to_install.append("PackagePlugin.swiftdoc")
-
-    for file in files_to_install:
-        src = os.path.join(runtime_lib_src, "PluginAPI", file)
-        dest = os.path.join(runtime_lib_dest, "PluginAPI", file)
-        mkdir_p(os.path.dirname(dest))
-
-        note("Installing %s to %s" % (src, dest))
-
-        file_util.copy_file(src, dest, update=1)
+    # Install the PackagePlugin library and associated modules.
+    dest = os.path.join(prefix, "lib", "swift", "pm", "PluginAPI")
+    install_dylib(args, "PackagePlugin", dest, ["PackagePlugin"])
 
 
 # Helper function that installs a dynamic library and a set of modules to a particular directory.
@@ -453,7 +422,7 @@ def install_dylib(args, library_name, install_dir, module_names):
     for module in module_names:
         # If we're cross-compiling, we expect the .swiftmodule to be a directory that contains everything.
         if args.cross_compile_hosts:
-            install_binary(args, module + ".swiftmodule", install_dir)
+            install_binary(args, module + ".swiftmodule", install_dir, ['Project', '*.swiftmodule'])
         else:
             # Otherwise we have either a .swiftinterface or a .swiftmodule, plus a .swiftdoc.
             if os.path.exists(os.path.join(args.bin_dir, module + ".swiftinterface")):
@@ -464,16 +433,16 @@ def install_dylib(args, library_name, install_dir, module_names):
 
 
 # Helper function that installs a single built artifact to a particular directory. The source may be either a file or a directory.
-def install_binary(args, binary, dest_dir):
+def install_binary(args, binary, dest_dir, ignored_patterns=[]):
     src = os.path.join(args.bin_dir, binary)
     dest = os.path.join(dest_dir, binary)
 
     note("Installing %s to %s" % (src, dest))
     mkdir_p(os.path.dirname(dest))
     if os.path.isdir(src):
-        dir_util.copy_tree(src, dest, update=1, verbose=1)
+        shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignored_patterns))
     else:
-        file_util.copy_file(src, dest, update=1, verbose=1)
+        shutil.copy2(src, dest)
 
 # -----------------------------------------------------------
 # Build functions
