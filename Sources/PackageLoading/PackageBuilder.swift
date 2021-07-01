@@ -916,6 +916,10 @@ public final class PackageBuilder {
             // First determine the type of module map that will be appropriate for the target based on its header layout.
             // FIXME: We should really be checking the target type to see whether it is one that can vend headers, not just check for the existence of the public headers path.  But right now we have now way of distinguishing between, for example, a library and an executable.  The semantics here should be to only try to detect the header layout of targets that can vend public headers.
             let moduleMapType: ModuleMapType
+            
+            if targetType == .library, !fileSystem.exists(publicHeadersPath) {
+                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+            }
             if fileSystem.exists(publicHeadersPath) {
                 let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
                 moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
