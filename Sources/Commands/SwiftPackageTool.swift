@@ -323,13 +323,6 @@ extension SwiftPackageTool {
                 help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
         var targets: [String] = []
 
-        @Option(name: .customLong("baseline-dir"),
-                help: "The path to a directory used to store API baseline files. If unspecified, a temporary directory will be used.")
-        var overrideBaselineDir: AbsolutePath?
-
-        @Flag(help: "Regenerate the API baseline, even if an existing one is available.")
-        var regenerateBaseline: Bool = false
-
         func run(_ swiftTool: SwiftTool) throws {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
@@ -355,9 +348,7 @@ extension SwiftPackageTool {
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff,
-                                                                 at: overrideBaselineDir,
-                                                                 force: regenerateBaseline)
+            let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff)
 
             let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
             let group = DispatchGroup()

@@ -64,20 +64,18 @@ struct APIDigesterBaselineDumper {
     }
 
     /// Emit the API baseline files and return the path to their directory.
-    func emitAPIBaseline(for modulesToDiff: Set<String>,
-                         at baselineDir: AbsolutePath?,
-                         force: Bool) throws -> AbsolutePath {
+    func emitAPIBaseline(for modulesToDiff: Set<String>) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
-        let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineTreeish)
+        let baselineDir = apiDiffDir.appending(component: baselineTreeish)
         let baselinePath: (String)->AbsolutePath = { module in
             baselineDir.appending(component: module + ".json")
         }
 
-        if !force {
-            // Baselines which already exist don't need to be regenerated.
-            modulesToDiff = modulesToDiff.filter {
-                !localFileSystem.exists(baselinePath($0))
+        for module in modulesToDiff {
+            if localFileSystem.exists(baselinePath(module)) {
+                // If this baseline already exists, we don't need to regenerate it.
+                modulesToDiff.remove(module)
             }
         }
 
