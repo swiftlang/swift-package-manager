@@ -31,7 +31,7 @@ Please use [this guide](https://swift.org/getting-started/#using-the-package-man
 
 For Quick Help use the ```swift package --help ``` command.
 
-For documentation on using Swift Package Manager, creating packages, and more, see the [documentation direcotry](Documentation).
+For documentation on using Swift Package Manager, creating packages, and more, see the [documentation directory](Documentation).
 
 For documentation on developing the Swift Package Manager itself, see the [contribution guide](CONTRIBUTING.md).
 
