@@ -1974,6 +1974,82 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testEmptyUnsafeFlagsAreAllowed() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Sources/bar/bar.cpp",
+            "/Sources/bar/bar.c",
+            "/Sources/bar/include/bar.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    settings: [
+                        .init(tool: .c, name: .unsafeFlags, value: []),
+                        .init(tool: .cxx, name: .unsafeFlags, value: []),
+                        .init(tool: .cxx, name: .unsafeFlags, value: [], condition: .init(config: "release")),
+                        .init(tool: .linker, name: .unsafeFlags, value: []),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "bar",
+                    settings: [
+                        .init(tool: .swift, name: .unsafeFlags, value: [], condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .linker, name: .unsafeFlags, value: []),
+                        .init(tool: .linker, name: .unsafeFlags, value: [], condition: .init(platformNames: ["linux"])),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_CFLAGS), [])
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_LDFLAGS), [])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_CFLAGS), [])
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_LDFLAGS), [])
+            }
+
+            package.checkModule("bar") { package in
+                let linuxDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                XCTAssertEqual(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(linuxDebugScope.evaluate(.OTHER_LDFLAGS), [])
+
+                let linuxReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                )
+                XCTAssertEqual(linuxReleaseScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(linuxReleaseScope.evaluate(.OTHER_LDFLAGS), [])
+
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_LDFLAGS), [])
+            }
+        }
+    }
+
     func testInvalidHeaderSearchPath() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/Sources/exe/main.swift"

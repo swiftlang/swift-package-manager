@@ -61,7 +61,6 @@ public enum TargetBuildSettingDescription {
                 assert(value.count == 1, "\(tool) \(name) \(value)")
                 break
             case .unsafeFlags:
-                assert(value.count >= 1, "\(tool) \(name) \(value)")
                 break
             }
 
