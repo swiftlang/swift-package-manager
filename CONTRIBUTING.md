@@ -164,6 +164,13 @@ For example, if the latest tag is 1.1.3:
 $> git clone https://github.com/apple/swift-crypto --branch 1.1.3
 ```
 
+5. Clone [swift-collections](https://github.com/apple/swift-collections) beside the SwiftPM directory and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
+
+For example, if the latest tag is 0.0.3:
+```bash
+$> git clone https://github.com/apple/swift-collections --branch 0.0.3
+```
+
 #### Building
 
 ```bash
@@ -374,4 +381,3 @@ $> swift package update
 ```
 Alternatively, if you are using Xcode, you can update to the latest version of all packages:  
 **Xcode App** > *File* > *Swift Packages* > *Update to Latest Package Versions*
-

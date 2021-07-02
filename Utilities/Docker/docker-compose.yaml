@@ -36,6 +36,7 @@ services:
       - ../../../swift-argument-parser:/code/swift-argument-parser:z
       - ../../../swift-driver:/code/swift-driver:z
       - ../../../swift-crypto:/code/swift-crypto:z
+      - ../../../swift-collections:/code/swift-collections:z
       - ../../../swift-llbuild:/code/llbuild:z
     working_dir: /code/swift-package-manager
     cap_drop:
