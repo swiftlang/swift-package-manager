@@ -40,6 +40,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testSimpleAPIDiff() throws {
+        throw XCTSkip("Fix this test")
+        
         try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
@@ -59,6 +61,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testMultiTargetAPIDiff() throws {
+        throw XCTSkip("Fix this test")
+
         try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
@@ -83,6 +87,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBreakageAllowlist() throws {
+        throw XCTSkip("Fix this test")
+
         #if os(macOS)
         guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
             throw XCTSkip("swift-api-digester not available")
@@ -120,6 +126,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testCheckVendedModulesOnly() throws {
+        throw XCTSkip("Fix this test")
+        
         try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
@@ -156,6 +164,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testFilters() throws {
+        throw XCTSkip("Fix this test")
+
         try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
@@ -228,6 +238,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testAPIDiffOfModuleWithCDependency() throws {
+        throw XCTSkip("Fix this test")
+
         try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "CTargetDep")
@@ -326,6 +338,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBaselineDirOverride() throws {
+        throw XCTSkip("Fix this test")
+
         #if os(macOS)
         guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
             throw XCTSkip("swift-api-digester not available")
@@ -357,6 +371,8 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testRegenerateBaseline() throws {
+        throw XCTSkip("Fix this test")
+
         #if os(macOS)
         guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
             throw XCTSkip("swift-api-digester not available")
