@@ -11,6 +11,7 @@
 import XCTest
 import Foundation
 import TSCBasic
+import Build
 import Commands
 import SPMTestSupport
 
@@ -28,13 +29,15 @@ final class APIDiffTests: XCTestCase {
     }
 
     func skipIfApiDigesterUnsupported() throws {
-      guard let tool = try? Resources.default.toolchain.getSwiftAPIDigester() else {
+      // swift-api-digester is required to run tests.
+      guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
         throw XCTSkip("swift-api-digester unavailable")
       }
-      guard localFileSystem.isSymlink(tool) else {
-        // The version of Swift with a supported swift-api-digester doesn't have
-        // a version number yet, so use whether or not the tool is a symlink to
-        // determine if it's from a recent snapshot.
+      // SwiftPM's swift-api-digester integration relies on post-5.5 bugfixes and features,
+      // not all of which can be tested for easily. Fortunately, we can test for the
+      // `-disable-fail-on-error` option, and any version which supports this flag
+      // will meet the other requirements.
+      guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], fs: localFileSystem) else {
         throw XCTSkip("swift-api-digester is too old")
       }
     }
@@ -83,10 +86,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBreakageAllowlist() throws {
-        #if os(macOS)
-        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
-            throw XCTSkip("swift-api-digester not available")
-        }
+        try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
@@ -114,9 +114,6 @@ final class APIDiffTests: XCTestCase {
             }
 
         }
-        #else
-        throw XCTSkip("Test unsupported on current platform")
-        #endif
     }
 
     func testCheckVendedModulesOnly() throws {
@@ -326,10 +323,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBaselineDirOverride() throws {
-        #if os(macOS)
-        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
-            throw XCTSkip("swift-api-digester not available")
-        }
+        try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             // Overwrite the existing decl.
@@ -351,16 +345,10 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertTrue(localFileSystem.exists(baselineDir.appending(components: "1.2.3", "Foo.json")))
             }
         }
-        #else
-        throw XCTSkip("Test unsupported on current platform")
-        #endif
     }
 
     func testRegenerateBaseline() throws {
-        #if os(macOS)
-        guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
-            throw XCTSkip("swift-api-digester not available")
-        }
+       try skipIfApiDigesterUnsupported()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             // Overwrite the existing decl.
@@ -390,8 +378,5 @@ final class APIDiffTests: XCTestCase {
                 XCTAssertNotEqual((try! localFileSystem.readFileContents(fooBaselinePath)).description, "Old Baseline")
             }
         }
-        #else
-        throw XCTSkip("Test unsupported on current platform")
-        #endif
     }
 }
