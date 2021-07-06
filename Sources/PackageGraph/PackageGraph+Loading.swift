@@ -397,11 +397,19 @@ private func createResolvedPackages(
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
                     if !diagnostics.hasErrors {
+                        // Emit error if a product (not target) declared in the package is also a productRef (dependency)
+                        let declProductsAsDependency = package.products.filter { product in
+                            product.name == productRef.name
+                        }.map {$0.targets}.flatMap{$0}.filter { t in
+                            t.name != productRef.name
+                        }
+                        
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             targetName: targetBuilder.target.name,
                             dependencyProductName: productRef.name,
-                            dependencyPackageName: productRef.package
+                            dependencyPackageName: productRef.package,
+                            dependencyProductInDecl: !declProductsAsDependency.isEmpty
                         )
                         diagnostics.emit(error, location: package.diagnosticLocation)
                     }
