@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -55,11 +55,11 @@ public struct Version {
     /// Initializes a version struct with the provided components of a semantic version.
     ///
     /// - Parameters:
-    ///     - major: The major version number.
-    ///     - minor: The minor version number.
-    ///     - patch: The patch version number.
-    ///     - prereleaseIdentifiers: The pre-release identifier.
-    ///     - buildMetaDataIdentifiers: Build metadata that identifies a build.
+    ///   - major: The major version number.
+    ///   - minor: The minor version number.
+    ///   - patch: The patch version number.
+    ///   - prereleaseIdentifiers: The pre-release identifier.
+    ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
     public init(
         _ major: Int,
         _ minor: Int,
@@ -77,6 +77,12 @@ public struct Version {
 }
 
 extension Version: Comparable {
+    // Although `Comparable` inherits from `Equatable`, it does not provide a new default implementation of `==`, but instead uses `Equatable`'s default synthesised implementation. The compiler-synthesised `==`` is composed of [member-wise comparisons](https://github.com/apple/swift-evolution/blob/main/proposals/0185-synthesize-equatable-hashable.md#implementation-details), which leads to a false `false` when 2 semantic versions differ by only their build metadata identifiers, contradicting SemVer 2.0.0's [comparison rules](https://semver.org/#spec-item-10).
+	@inlinable
+	public static func == (lhs: Version, rhs: Version) -> Bool {
+		!(lhs < rhs) && !(lhs > rhs)
+	}
+	
     public static func < (lhs: Version, rhs: Version) -> Bool {
         let lhsComparators = [lhs.major, lhs.minor, lhs.patch]
         let rhsComparators = [rhs.major, rhs.minor, rhs.patch]

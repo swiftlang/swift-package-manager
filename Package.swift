@@ -270,7 +270,7 @@ let package = Package(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "SPMTestSupport"]),
         .testTarget(
-            name: "PackageDescription4Tests",
+            name: "PackageDescriptionTests",
             dependencies: ["PackageDescription"]),
         .testTarget(
             name: "SPMBuildCoreTests",
