@@ -40,8 +40,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
             XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
@@ -72,8 +73,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             
             let readme = path.appending(component: "README.md")
             XCTAssertTrue(fs.exists(readme))
@@ -118,8 +120,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             let readme = path.appending(component: "README.md")
             XCTAssertTrue(fs.exists(readme))
@@ -170,8 +173,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
             XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
@@ -200,8 +204,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
         }
     }
     

@@ -31,7 +31,8 @@ add_library(PackageModel
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   Target.swift
-  ToolsVersion.swift)
+  ToolsVersion.swift
+  ToolsVersionSpecificationGeneration.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic
   TSCUtility

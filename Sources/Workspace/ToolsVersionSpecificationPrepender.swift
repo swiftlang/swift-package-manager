@@ -67,13 +67,8 @@ public func prependToolsVersionSpecification(toManifestAt manifestFilePath: Abso
     let contents = try fileSystem.readFileContents(manifestFilePath)
     
     let stream = BufferedOutputByteStream()
-    // Write out the tools version.
-    stream <<< "// swift-tools-version:\(toolsVersion.major).\(toolsVersion.minor)"
-    // Write patch version only if it's not zero.
-    if toolsVersion.patch != 0 {
-        stream <<< ".\(toolsVersion.patch)"
-    }
-    stream <<< "\n"
+    // Write out the tools version specification, including the patch version if and only if it's not zero.
+    stream <<< toolsVersion.specification(resolution: .automatic) <<< "\n"
     
     // The following lines up to line 77 append the file contents except for the Swift tools version specification line.
     
