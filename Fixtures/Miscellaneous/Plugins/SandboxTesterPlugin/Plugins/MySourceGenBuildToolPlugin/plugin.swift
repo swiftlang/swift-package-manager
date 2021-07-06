@@ -2,7 +2,7 @@ import PackagePlugin
 import Foundation
  
 // Check that we can write to the output directory.
-let allowedOutputPath = targetBuildContext.outputDirectory.appending("Foo")
+let allowedOutputPath = targetBuildContext.pluginWorkDirectory.appending("Foo")
 if mkdir(allowedOutputPath.string, 0o777) != 0 {
      throw StringError("unexpectedly could not write to '\(allowedOutputPath)': \(String(utf8String: strerror(errno)))")
 }

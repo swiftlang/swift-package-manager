@@ -268,8 +268,6 @@ public final class Target {
         case .plugin:
             precondition(
                 url == nil &&
-                exclude.isEmpty &&
-                sources == nil &&
                 resources == nil &&
                 publicHeadersPath == nil &&
                 pkgConfig == nil &&
@@ -901,14 +899,17 @@ public final class Target {
     public static func plugin(
         name: String,
         capability: PluginCapability,
-        dependencies: [Dependency] = []
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil
     ) -> Target {
       return Target(
           name: name,
           dependencies: dependencies,
-          path: nil,
-          exclude: [],
-          sources: nil,
+          path: path,
+          exclude: exclude,
+          sources: sources,
           publicHeadersPath: nil,
           type: .plugin,
           pluginCapability: capability)
@@ -1062,7 +1063,7 @@ extension Target.Dependency {
 
 extension Target.PluginCapability {
 
-    /// Specifies that the plugin provides a prebuild capability.  The plugin
+    /// Specifies that the plugin provides a build tool capability. The plugin
     /// will be applied to each target that uses it and should create commands
     /// that will run before or during the build of the target.
     @available(_PackageDescription, introduced: 5.5)

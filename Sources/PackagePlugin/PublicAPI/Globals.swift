@@ -33,7 +33,7 @@ public let commandConstructor = CommandConstructor()
 
 /// The diagnostics emitter lets the plugin emit errors, warnings, and remarks
 /// for issues discovered by the plugin. Note that diagnostics from the plugin
-/// itself are relatively rare, and relate such things as missing tools or to
+/// itself are relatively rare, and relate to such things as missing tools or
 /// problems constructing the build command. Diagnostics from the build tools
 /// themselves are processed in the same way as any other output from a build
 /// tool.

@@ -3,11 +3,11 @@ import PackagePlugin
 print("Hello from the Prebuild Plugin!")
 
 let outputPaths: [Path] = targetBuildContext.inputFiles.filter{ $0.path.extension == "dat" }.map { file in
-    targetBuildContext.outputDirectory.appending(file.path.stem + ".swift")
+    targetBuildContext.pluginWorkDirectory.appending(file.path.stem + ".swift")
 }
 
 if !outputPaths.isEmpty {
-    commandConstructor.createPrebuildCommand(
+    commandConstructor.addPrebuildCommand(
         displayName:
             "Running prebuild command for target \(targetBuildContext.targetName)",
         executable:
@@ -15,6 +15,6 @@ if !outputPaths.isEmpty {
         arguments: 
             outputPaths.map{ $0.string },
         outputFilesDirectory:
-            targetBuildContext.outputDirectory
+            targetBuildContext.pluginWorkDirectory
     )
 }

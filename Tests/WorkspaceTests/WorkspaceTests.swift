@@ -5053,9 +5053,9 @@ final class WorkspaceTests: XCTestCase {
                 do {
                     let contents: String
                     switch request.url.lastPathComponent {
-                    case "a1.ari":
+                    case "a1.artifactbundleindex":
                         contents = ariFiles[0]
-                    case "a2.ari":
+                    case "a2.artifactbundleindex":
                         contents = ariFiles[1]
                     default:
                         throw StringError("unexpected url \(request.url)")
@@ -5098,11 +5098,11 @@ final class WorkspaceTests: XCTestCase {
                 let name: String
                 switch archivePath.basename {
                 case "a1.zip":
-                    name = "A1.arar"
+                    name = "A1.artifactbundle"
                 case "a2.zip":
-                    name = "A2.arar"
+                    name = "A2.artifactbundle"
                 case "b.zip":
-                    name = "B.arar"
+                    name = "B.artifactbundle"
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
@@ -5144,13 +5144,13 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "A1",
                             type: .binary,
-                            url: "https://a.com/a1.ari",
+                            url: "https://a.com/a1.artifactbundleindex",
                             checksum: ariFilesChecksums[0]
                         ),
                         MockTarget(
                             name: "A2",
                             type: .binary,
-                            url: "https://a.com/a2.ari",
+                            url: "https://a.com/a2.artifactbundleindex",
                             checksum: ariFilesChecksums[1]
                         )
                     ],
@@ -5216,7 +5216,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.arar")
+                         path: workspace.artifactsDir.appending(components: "A", "A1.artifactbundle")
             )
             result.check(packageName: "A",
                          targetName: "A2",
@@ -5224,7 +5224,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2/a2.zip",
                             checksum: "a2"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.arar")
+                         path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
             )
             result.check(packageName: "B",
                          targetName: "B",
@@ -5232,7 +5232,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://b.com/b.zip",
                             checksum: "b0"
                          ),
-                         path: workspace.artifactsDir.appending(components: "B", "B.arar")
+                         path: workspace.artifactsDir.appending(components: "B", "B.artifactbundle")
             )
         }
     }
@@ -5266,7 +5266,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "does-not-matter"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: "does-not-matter"),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5278,7 +5278,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': badResponseStatusCode(500)"), behavior: .error)
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': badResponseStatusCode(500)"), behavior: .error)
             }
         }
     }
@@ -5308,7 +5308,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let contents: String
                 switch request.url.lastPathComponent {
-                case "a.ari":
+                case "a.artifactbundleindex":
                     contents = ari
                 default:
                     throw StringError("unexpected url \(request.url)")
@@ -5339,7 +5339,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "incorrect"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: "incorrect"),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5351,7 +5351,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': checksum of downloaded artifact of binary target 'A' (\(ariChecksums)) does not match checksum specified by the manifest (incorrect)"), behavior: .error)
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': checksum of downloaded artifact of binary target 'A' (\(ariChecksums)) does not match checksum specified by the manifest (incorrect)"), behavior: .error)
             }
         }
     }
@@ -5379,7 +5379,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "a"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: "a"),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5405,7 +5405,7 @@ final class WorkspaceTests: XCTestCase {
                     packageRef: aRef,
                     targetName: "A",
                     source: .remote(
-                        url: "https://a.com/a.ari",
+                        url: "https://a.com/a.artifactbundleindex",
                         checksum: "old-checksum"
                     ),
                     path: workspace.packagesDir.appending(components: "A", "A.xcframework")
@@ -5447,7 +5447,7 @@ final class WorkspaceTests: XCTestCase {
                 do {
                     let contents: String
                     switch request.url.lastPathComponent {
-                    case "a.ari":
+                    case "a.artifactbundleindex":
                         contents = ari
                     default:
                         throw StringError("unexpected url \(request.url)")
@@ -5485,7 +5485,7 @@ final class WorkspaceTests: XCTestCase {
                 let name: String
                 switch archivePath.basename {
                 case "a.zip":
-                    name = "A.arar"
+                    name = "A.artifactbundle"
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
@@ -5519,7 +5519,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksums),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: ariChecksums),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5563,7 +5563,7 @@ final class WorkspaceTests: XCTestCase {
                 do {
                     let contents: String
                     switch request.url.lastPathComponent {
-                    case "a.ari":
+                    case "a.artifactbundleindex":
                         contents = ari
                     default:
                         throw StringError("unexpected url \(request.url)")
@@ -5597,7 +5597,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksums),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: ariChecksums),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5642,7 +5642,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let contents: String
                 switch request.url.lastPathComponent {
-                case "a.ari":
+                case "a.artifactbundleindex":
                     contents = ari
                 default:
                     throw StringError("unexpected url \(request.url)")
@@ -5673,7 +5673,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksum),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: ariChecksum),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5685,7 +5685,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': No supported archive was found for '\(hostToolchain.triple.tripleString)'"), behavior: .error)
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.triple.tripleString)'"), behavior: .error)
             }
         }
     }
