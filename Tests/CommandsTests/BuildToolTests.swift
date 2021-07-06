@@ -253,6 +253,18 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testAutomaticParseableInterfacesWithLibraryEvolution() {
+        fixture(name: "Miscellaneous/LibraryEvolution") { path in
+            do {
+                let result = try build([], packagePath: path)
+                XCTAssert(result.binContents.contains("A.swiftinterface"))
+                XCTAssert(result.binContents.contains("B.swiftinterface"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+    }
+
     func testBuildCompleteMessage() {
         fixture(name: "DependencyResolution/Internal/Simple") { path in
             do {

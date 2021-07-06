@@ -936,6 +936,7 @@ public enum PIF {
             case WATCHOS_DEPLOYMENT_TARGET
             case MARKETING_VERSION
             case CURRENT_PROJECT_VERSION
+            case SWIFT_EMIT_MODULE_INTERFACE
         }
 
         public enum MultipleValueSetting: String, Codable {
