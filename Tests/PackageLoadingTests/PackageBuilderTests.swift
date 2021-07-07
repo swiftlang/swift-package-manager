@@ -1104,7 +1104,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers directory path for 'Foo' is invalid or not contained in the target", behavior: .error)
+                diagnostics.check(diagnostic: "public headers or include directory path for 'Foo' is invalid or not contained in the target", behavior: .error)
             }
 
             manifest = Manifest.createV4Manifest(
@@ -1114,7 +1114,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers directory path for 'Bar' is invalid or not contained in the target", behavior: .error)
+                diagnostics.check(diagnostic: "public headers or include directory path for 'Bar' is invalid or not contained in the target", behavior: .error)
             }
         }
 
