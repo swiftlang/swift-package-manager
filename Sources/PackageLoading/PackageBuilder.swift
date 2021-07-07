@@ -96,7 +96,7 @@ extension ModuleError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
-            return "public headers directory path for '\(name)' is invalid or not contained in the target"
+            return "public headers or include directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
                 sources.map({ $0.description }).joined(separator: ", ")
@@ -914,17 +914,15 @@ public final class PackageBuilder {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
             
             // First determine the type of module map that will be appropriate for the target based on its header layout.
-            // FIXME: We should really be checking the target type to see whether it is one that can vend headers, not just check for the existence of the public headers path.  But right now we have now way of distinguishing between, for example, a library and an executable.  The semantics here should be to only try to detect the header layout of targets that can vend public headers.
             let moduleMapType: ModuleMapType
             
-            if targetType == .library, !fileSystem.exists(publicHeadersPath) {
-                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
-            }
             if fileSystem.exists(publicHeadersPath) {
                 let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
                 moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
-            }
-            else {
+            } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
+                // If this clang target is a library, it must contain "include" directory.
+                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+            } else {
                 moduleMapType = .none
             }
 
