@@ -645,14 +645,18 @@ public final class SwiftTargetBuildDescription {
             self.moduleMap = try self.generateModuleMap()
         }
 
-        // Do nothing if we're not generating a bundle.
         if bundlePath != nil {
+            // If we've generated a bundle then create a plist and generate a `Bundle.module` accessor
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending(component: "Info.plist")
             if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
+        } else {
+            // If we've not generated a bundle then create an unavailable `Bundle.module` accessor in order to
+            // support easier debugging.
+            try self.generateResourceUnavailableAccessor()
         }
     }
 
@@ -661,8 +665,10 @@ public final class SwiftTargetBuildDescription {
         // Do nothing if we're not generating a bundle.
         guard let bundlePath = self.bundlePath else { return }
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let mainPath: AbsolutePath =
+            AbsolutePath(Bundle.main.bundlePath).appending(component: bundlePath.basename)
+
+        let contents = """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
@@ -681,7 +687,36 @@ public final class SwiftTargetBuildDescription {
         }
         """
 
-        let subpath = RelativePath("resource_bundle_accessor.swift")
+        try addFile(withPath: RelativePath("resource_bundle_accessor.swift"), contents: contents)
+    }
+    
+    /// Generate an inaccessible resource bundle accessor, if appropriate.
+    ///
+    /// This addresses SR-13084 by creating an unavailable accessor which informs users of the underlying issue.
+    private func generateResourceUnavailableAccessor() throws {
+        // If a bundle has been generated then we shouldn't be here.
+        guard self.bundlePath == nil else { return }
+
+        let message = "target '\(target.name)' is either missing or is solely containing invalid resource references"
+        
+        let contents = """
+        import class Foundation.Bundle
+
+        extension Foundation.Bundle {
+            @available(*, unavailable, message: "\(message)")
+            static var module: Bundle = {
+                fatalError("no resource bundle exists for this module")
+            }()
+        }
+        """
+
+        try addFile(withPath: RelativePath("resource_bundle_accessor.swift"), contents: contents)
+    }
+
+    /// Creates a new file with the contents provided at the path given. The file will be added to the target's derived sources.
+    private func addFile(withPath subpath: RelativePath, contents: String) throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< contents
 
         // Add the file to the dervied sources.
         derivedSources.relativePaths.append(subpath)
