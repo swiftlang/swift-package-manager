@@ -16,7 +16,7 @@ add_library(Workspace
   ManagedDependency.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
-  ToolsVersionWriter.swift
+  ToolsVersionSpecificationRewriter.swift
   UserToolchain.swift
   Workspace.swift
   WorkspaceConfiguration.swift

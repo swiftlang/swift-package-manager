@@ -528,8 +528,9 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+            let versionSpecifier = "\(version.major).\(version.minor)"
+            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
@@ -563,8 +564,9 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
