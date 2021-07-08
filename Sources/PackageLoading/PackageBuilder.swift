@@ -96,7 +96,7 @@ extension ModuleError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
-            return "public headers or include directory path for '\(name)' is invalid or not contained in the target"
+            return "public headers (\"include\") directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
                 sources.map({ $0.description }).joined(separator: ", ")
